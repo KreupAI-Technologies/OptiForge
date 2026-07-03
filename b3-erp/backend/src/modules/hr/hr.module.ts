@@ -1,6 +1,35 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+// HR mock-page wiring (orphan-endpoint build) — direct imports
+import { HrTeam } from './entities/hr-team.entity';
+import { LeaveEncashment } from './entities/leave-encashment.entity';
+import { TrainingEnrollment } from './entities/training-enrollment.entity';
+import { ElearningCourse } from './entities/elearning-course.entity';
+import { SkillAssessment } from './entities/skill-assessment.entity';
+import { PerDiemRate } from './entities/per-diem-rate.entity';
+import { ExpenseBudget } from './entities/expense-budget.entity';
+import { PolicyAcknowledgment } from './entities/policy-acknowledgment.entity';
+import { Timesheet } from './entities/timesheet.entity';
+import { HrTeamController } from './controllers/hr-team.controller';
+import { LeaveEncashmentController } from './controllers/leave-encashment.controller';
+import { TrainingEnrollmentController } from './controllers/training-enrollment.controller';
+import { ElearningCourseController } from './controllers/elearning-course.controller';
+import { SkillAssessmentController } from './controllers/skill-assessment.controller';
+import { PerDiemRateController } from './controllers/per-diem-rate.controller';
+import { ExpenseBudgetController } from './controllers/expense-budget.controller';
+import { PolicyAcknowledgmentController } from './controllers/policy-acknowledgment.controller';
+import { TimesheetController } from './controllers/timesheet.controller';
+import { HrTeamService } from './services/hr-team.service';
+import { LeaveEncashmentService } from './services/leave-encashment.service';
+import { TrainingEnrollmentService } from './services/training-enrollment.service';
+import { ElearningCourseService } from './services/elearning-course.service';
+import { SkillAssessmentService } from './services/skill-assessment.service';
+import { PerDiemRateService } from './services/per-diem-rate.service';
+import { ExpenseBudgetService } from './services/expense-budget.service';
+import { PolicyAcknowledgmentService } from './services/policy-acknowledgment.service';
+import { TimesheetService } from './services/timesheet.service';
+
 // Shift management (orphan-endpoint build) — direct imports to avoid barrel churn
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { ShiftRosterEntry } from './entities/shift-roster-entry.entity';
@@ -274,21 +303,62 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [
     PrismaModule,
     TypeOrmModule.forFeature([
-      ShiftAssignment, ShiftRosterEntry, ShiftSwap, EmployeeMovement,
-      TravelRequest, TravelAdvance, CorporateCard, CardTransaction,
-      ExpenseClaim, Alumni, OvertimeRequest, SafetyIncident, TrainingProgram,
+      // HR mock-page wiring (orphan-endpoint build)
+      HrTeam,
+      LeaveEncashment,
+      TrainingEnrollment,
+      ElearningCourse,
+      SkillAssessment,
+      PerDiemRate,
+      ExpenseBudget,
+      PolicyAcknowledgment,
+      Timesheet,
+      ShiftAssignment,
+      ShiftRosterEntry,
+      ShiftSwap,
+      EmployeeMovement,
+      TravelRequest,
+      TravelAdvance,
+      CorporateCard,
+      CardTransaction,
+      ExpenseClaim,
+      Alumni,
+      OvertimeRequest,
+      SafetyIncident,
+      TrainingProgram,
       // HR Compliance & Documents (orphan-endpoint build)
-      ComplianceLicense, ComplianceReturn, DisciplinaryAction, PolicyViolation,
-      ComplianceRegister, ComplianceAudit, HrGrievance, HrDocument,
+      ComplianceLicense,
+      ComplianceReturn,
+      DisciplinaryAction,
+      PolicyViolation,
+      ComplianceRegister,
+      ComplianceAudit,
+      HrGrievance,
+      HrDocument,
       // HR Asset Management
-      AssetItem, AssetRequest, AssetTransfer, AssetReturn, AssetAllocation,
-      AssetInventory, AssetMaintenance, Vehicle, VehicleFuel,
-      IdCard, AccessCard, Stationery, AssetAudit, VehicleAssignment,
-      AmcContract, PreventiveMaintenance, CertificateRequest, DocumentAuditLog,
+      AssetItem,
+      AssetRequest,
+      AssetTransfer,
+      AssetReturn,
+      AssetAllocation,
+      AssetInventory,
+      AssetMaintenance,
+      Vehicle,
+      VehicleFuel,
+      IdCard,
+      AccessCard,
+      Stationery,
+      AssetAudit,
+      VehicleAssignment,
+      AmcContract,
+      PreventiveMaintenance,
+      CertificateRequest,
+      DocumentAuditLog,
       SuccessionPlan,
       ProbationReview,
       PerformanceGoal,
-      OnboardingTask, OffboardingTask,
+      OnboardingTask,
+      OffboardingTask,
       // Payroll orphan-endpoint build
       PayrollStatutoryFiling,
       PayrollTaxRecord,
@@ -331,26 +401,63 @@ import { PrismaModule } from '../prisma/prisma.module';
     ]),
   ],
   controllers: [
-    ShiftAssignmentController, ShiftRosterController, ShiftSwapController, EmployeeMovementController,
-    TravelRequestController, TravelAdvanceController, CorporateCardController,
-    CardTransactionController, ExpenseClaimController, AlumniController,
-    OvertimeRequestController, SafetyIncidentController, TrainingProgramController,
+    // HR mock-page wiring (orphan-endpoint build)
+    HrTeamController,
+    LeaveEncashmentController,
+    TrainingEnrollmentController,
+    ElearningCourseController,
+    SkillAssessmentController,
+    PerDiemRateController,
+    ExpenseBudgetController,
+    PolicyAcknowledgmentController,
+    TimesheetController,
+    ShiftAssignmentController,
+    ShiftRosterController,
+    ShiftSwapController,
+    EmployeeMovementController,
+    TravelRequestController,
+    TravelAdvanceController,
+    CorporateCardController,
+    CardTransactionController,
+    ExpenseClaimController,
+    AlumniController,
+    OvertimeRequestController,
+    SafetyIncidentController,
+    TrainingProgramController,
     // HR Compliance & Documents (orphan-endpoint build)
-    ComplianceLicenseController, ComplianceReturnController, DisciplinaryActionController,
-    PolicyViolationController, ComplianceRegisterController, ComplianceAuditController,
-    HrGrievanceController, HrDocumentController,
+    ComplianceLicenseController,
+    ComplianceReturnController,
+    DisciplinaryActionController,
+    PolicyViolationController,
+    ComplianceRegisterController,
+    ComplianceAuditController,
+    HrGrievanceController,
+    HrDocumentController,
     // HR Asset Management
-    AssetItemController, AssetRequestController, AssetTransferController,
-    AssetReturnController, AssetAllocationController, AssetInventoryController,
-    AssetMaintenanceController, VehicleController, VehicleFuelController,
-    IdCardController, AccessCardController, StationeryController,
-    AssetAuditController, VehicleAssignmentController, AmcContractController,
-    PreventiveMaintenanceController, CertificateRequestController,
-    DocumentAuditLogController, AssetReportController,
+    AssetItemController,
+    AssetRequestController,
+    AssetTransferController,
+    AssetReturnController,
+    AssetAllocationController,
+    AssetInventoryController,
+    AssetMaintenanceController,
+    VehicleController,
+    VehicleFuelController,
+    IdCardController,
+    AccessCardController,
+    StationeryController,
+    AssetAuditController,
+    VehicleAssignmentController,
+    AmcContractController,
+    PreventiveMaintenanceController,
+    CertificateRequestController,
+    DocumentAuditLogController,
+    AssetReportController,
     SuccessionPlanController,
     ProbationReviewController,
     PerformanceGoalController,
-    OnboardingTaskController, OffboardingTaskController,
+    OnboardingTaskController,
+    OffboardingTaskController,
     // Payroll orphan-endpoint build
     PayrollStatutoryFilingController,
     PayrollTaxRecordController,
@@ -383,26 +490,63 @@ import { PrismaModule } from '../prisma/prisma.module';
     AdvanceController,
   ],
   providers: [
-    ShiftAssignmentService, ShiftRosterService, ShiftSwapService, EmployeeMovementService,
-    TravelRequestService, TravelAdvanceService, CorporateCardService,
-    CardTransactionService, ExpenseClaimService, AlumniService,
-    OvertimeRequestService, SafetyIncidentService, TrainingProgramService,
+    // HR mock-page wiring (orphan-endpoint build)
+    HrTeamService,
+    LeaveEncashmentService,
+    TrainingEnrollmentService,
+    ElearningCourseService,
+    SkillAssessmentService,
+    PerDiemRateService,
+    ExpenseBudgetService,
+    PolicyAcknowledgmentService,
+    TimesheetService,
+    ShiftAssignmentService,
+    ShiftRosterService,
+    ShiftSwapService,
+    EmployeeMovementService,
+    TravelRequestService,
+    TravelAdvanceService,
+    CorporateCardService,
+    CardTransactionService,
+    ExpenseClaimService,
+    AlumniService,
+    OvertimeRequestService,
+    SafetyIncidentService,
+    TrainingProgramService,
     // HR Compliance & Documents (orphan-endpoint build)
-    ComplianceLicenseService, ComplianceReturnService, DisciplinaryActionService,
-    PolicyViolationService, ComplianceRegisterService, ComplianceAuditService,
-    HrGrievanceService, HrDocumentService,
+    ComplianceLicenseService,
+    ComplianceReturnService,
+    DisciplinaryActionService,
+    PolicyViolationService,
+    ComplianceRegisterService,
+    ComplianceAuditService,
+    HrGrievanceService,
+    HrDocumentService,
     // HR Asset Management
-    AssetItemService, AssetRequestService, AssetTransferService,
-    AssetReturnService, AssetAllocationService, AssetInventoryService,
-    AssetMaintenanceService, VehicleService, VehicleFuelService,
-    IdCardService, AccessCardService, StationeryService,
-    AssetAuditService, VehicleAssignmentService, AmcContractService,
-    PreventiveMaintenanceService, CertificateRequestService,
-    DocumentAuditLogService, AssetReportService,
+    AssetItemService,
+    AssetRequestService,
+    AssetTransferService,
+    AssetReturnService,
+    AssetAllocationService,
+    AssetInventoryService,
+    AssetMaintenanceService,
+    VehicleService,
+    VehicleFuelService,
+    IdCardService,
+    AccessCardService,
+    StationeryService,
+    AssetAuditService,
+    VehicleAssignmentService,
+    AmcContractService,
+    PreventiveMaintenanceService,
+    CertificateRequestService,
+    DocumentAuditLogService,
+    AssetReportService,
     SuccessionPlanService,
     ProbationReviewService,
     PerformanceGoalService,
-    OnboardingTaskService, OffboardingTaskService,
+    OnboardingTaskService,
+    OffboardingTaskService,
     // Payroll orphan-endpoint build
     PayrollStatutoryFilingService,
     PayrollTaxRecordService,

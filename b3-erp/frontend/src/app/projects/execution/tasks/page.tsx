@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ListTodo, Search, Filter, PlusCircle, Download, Users, Calendar, AlertCircle, CheckCircle2, Clock, Flag, TrendingUp } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface Task {
   id: string;
@@ -431,38 +432,106 @@ const mockTasksData: Task[] = [
   }
 ];
 
+const TASK_STATUSES: Task['status'][] = ['not-started', 'in-progress', 'on-hold', 'completed', 'cancelled', 'blocked'];
+const TASK_PRIORITIES: Task['priority'][] = ['critical', 'high', 'medium', 'low'];
+
 export default function TaskManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
 
+  const [rows, setRows] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listProjectTasks();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped: Task[] = list.map((r: any) => {
+          const rawStatus = String(r.status ?? '').replace(/_/g, '-');
+          const status: Task['status'] = TASK_STATUSES.includes(rawStatus as Task['status'])
+            ? (rawStatus as Task['status'])
+            : 'not-started';
+          const rawPriority = String(r.priority ?? '');
+          const priority: Task['priority'] = TASK_PRIORITIES.includes(rawPriority as Task['priority'])
+            ? (rawPriority as Task['priority'])
+            : 'medium';
+          const assigned = Array.isArray(r.assignedTo) ? r.assignedTo : [];
+          const deps = Array.isArray(r.dependencies) ? r.dependencies.map((d: any) => String(d)) : [];
+          const estimatedHours = Number(r.estimatedHours ?? 0);
+          const actualHours = Number(r.actualHours ?? 0);
+          return {
+            id: String(r.id ?? ''),
+            taskNumber: String(r.taskNumber ?? r.id ?? ''),
+            taskName: String(r.name ?? ''),
+            projectCode: String(r.projectCode ?? r.projectId ?? ''),
+            projectName: String(r.projectName ?? ''),
+            phase: String(r.phase ?? ''),
+            workPackage: String(r.workPackage ?? ''),
+            assignedTo: String(assigned[0] ?? r.assignedToName ?? ''),
+            assignedBy: String(r.assignedBy ?? ''),
+            department: String(r.department ?? ''),
+            priority,
+            status,
+            progressPercent: Number(r.progress ?? 0),
+            startDate: String(r.startDate ?? ''),
+            dueDate: String(r.endDate ?? r.targetCompletion ?? ''),
+            completedDate: r.completedDate ? String(r.completedDate) : undefined,
+            estimatedHours,
+            actualHours,
+            remainingHours: Number(r.remainingHours ?? Math.max(estimatedHours - actualHours, 0)),
+            dependencies: deps,
+            tags: Array.isArray(r.tags) ? r.tags.map((t: any) => String(t)) : [],
+            description: String(r.description ?? ''),
+            blockers: r.blockers ? String(r.blockers) : undefined,
+            createdBy: String(r.createdBy ?? ''),
+            createdDate: String(r.createdAt ?? ''),
+            lastUpdated: String(r.updatedAt ?? ''),
+          };
+        });
+        setRows(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load tasks');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Calculate statistics
   const stats = useMemo(() => {
-    const totalTasks = mockTasksData.length;
-    const notStartedTasks = mockTasksData.filter(t => t.status === 'not-started').length;
-    const inProgressTasks = mockTasksData.filter(t => t.status === 'in-progress').length;
-    const completedTasks = mockTasksData.filter(t => t.status === 'completed').length;
-    const onHoldTasks = mockTasksData.filter(t => t.status === 'on-hold').length;
-    const blockedTasks = mockTasksData.filter(t => t.status === 'blocked').length;
-    const cancelledTasks = mockTasksData.filter(t => t.status === 'cancelled').length;
+    const totalTasks = rows.length;
+    const notStartedTasks = rows.filter(t => t.status === 'not-started').length;
+    const inProgressTasks = rows.filter(t => t.status === 'in-progress').length;
+    const completedTasks = rows.filter(t => t.status === 'completed').length;
+    const onHoldTasks = rows.filter(t => t.status === 'on-hold').length;
+    const blockedTasks = rows.filter(t => t.status === 'blocked').length;
+    const cancelledTasks = rows.filter(t => t.status === 'cancelled').length;
 
-    const overdueTasks = mockTasksData.filter(t =>
+    const overdueTasks = rows.filter(t =>
       t.status !== 'completed' && new Date(t.dueDate) < new Date()
     ).length;
 
-    const dueSoonTasks = mockTasksData.filter(t => {
+    const dueSoonTasks = rows.filter(t => {
       const dueDate = new Date(t.dueDate);
       const today = new Date();
       const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return t.status !== 'completed' && diffDays >= 0 && diffDays <= 7;
     }).length;
 
-    const totalEstimatedHours = mockTasksData.reduce((sum, t) => sum + t.estimatedHours, 0);
-    const totalActualHours = mockTasksData.reduce((sum, t) => sum + t.actualHours, 0);
-    const totalRemainingHours = mockTasksData.reduce((sum, t) => sum + t.remainingHours, 0);
+    const totalEstimatedHours = rows.reduce((sum, t) => sum + t.estimatedHours, 0);
+    const totalActualHours = rows.reduce((sum, t) => sum + t.actualHours, 0);
+    const totalRemainingHours = rows.reduce((sum, t) => sum + t.remainingHours, 0);
 
-    const avgProgress = mockTasksData.reduce((sum, t) => sum + t.progressPercent, 0) / totalTasks;
+    const avgProgress = totalTasks > 0 ? rows.reduce((sum, t) => sum + t.progressPercent, 0) / totalTasks : 0;
 
     return {
       totalTasks,
@@ -479,17 +548,17 @@ export default function TaskManagementPage() {
       totalRemainingHours,
       avgProgress
     };
-  }, []);
+  }, [rows]);
 
   // Get unique projects
   const projects = useMemo(() => {
-    const projectSet = new Set(mockTasksData.map(t => t.projectName));
+    const projectSet = new Set(rows.map(t => t.projectName));
     return Array.from(projectSet).sort();
-  }, []);
+  }, [rows]);
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
-    return mockTasksData.filter(task => {
+    return rows.filter(task => {
       const matchesSearch =
         task.taskName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.taskNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -502,7 +571,7 @@ export default function TaskManagementPage() {
 
       return matchesSearch && matchesProject && matchesStatus && matchesPriority;
     });
-  }, [searchTerm, selectedProject, selectedStatus, selectedPriority]);
+  }, [rows, searchTerm, selectedProject, selectedStatus, selectedPriority]);
 
   const getStatusBadge = (status: string) => {
     const badges = {
@@ -563,6 +632,18 @@ export default function TaskManagementPage() {
         </h1>
         <p className="text-gray-600 mt-2">Create, assign, and track project tasks with priorities and deadlines • FY 2025-26</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading tasks…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards - 6 columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">

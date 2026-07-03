@@ -1310,3 +1310,130 @@ CREATE TABLE IF NOT EXISTS "hr_document_audit_logs" (
   CONSTRAINT "PK_hr_document_audit_logs" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_hr_document_audit_logs_companyId" ON "hr_document_audit_logs" ("companyId");
+
+-- ============================================================================
+-- HR mock-page wiring (orphan-endpoint build) — ADDITIVE ONLY
+-- ============================================================================
+
+-- Backs /hr/teams (employees/teams)
+CREATE TABLE IF NOT EXISTS "hr_teams" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "code" varchar, "name" varchar, "department" varchar, "teamLead" varchar,
+  "teamLeadId" varchar, "teamLeadEmail" varchar, "teamLeadPhone" varchar,
+  "memberCount" integer NOT NULL DEFAULT 0, "activeProjects" integer NOT NULL DEFAULT 0,
+  "completedProjects" integer NOT NULL DEFAULT 0, "avgPerformance" numeric(6,2),
+  "budgetUtilization" numeric(6,2), "establishedDate" varchar, "location" varchar,
+  "shift" varchar, "members" jsonb, "status" varchar NOT NULL DEFAULT 'active',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_teams" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_teams_companyId" ON "hr_teams" ("companyId");
+
+-- Backs /hr/leave-encashments (leave/encashment/history + approval)
+CREATE TABLE IF NOT EXISTS "hr_leave_encashments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeId" varchar, "employeeName" varchar, "financialYear" varchar, "requestDate" varchar,
+  "leaveType" varchar, "leaveTypeCode" varchar, "encashedDays" numeric(14,2),
+  "perDayRate" numeric(14,2), "grossAmount" numeric(14,2), "tdsDeducted" numeric(14,2),
+  "netAmount" numeric(14,2), "submittedOn" varchar, "approvedBy" varchar, "approvedOn" varchar,
+  "processedOn" varchar, "paymentMode" varchar, "paymentReference" varchar, "paymentMonth" varchar,
+  "remarks" text, "status" varchar NOT NULL DEFAULT 'pending',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_leave_encashments" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_leave_encashments_companyId" ON "hr_leave_encashments" ("companyId");
+
+-- Backs /hr/training-enrollments (training/enrollment/my)
+CREATE TABLE IF NOT EXISTS "hr_training_enrollments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeId" varchar, "employeeName" varchar, "programCode" varchar, "programTitle" varchar,
+  "category" varchar, "startDate" varchar, "endDate" varchar, "duration" numeric(8,2),
+  "progress" integer NOT NULL DEFAULT 0, "attendance" integer NOT NULL DEFAULT 0,
+  "instructor" varchar, "location" varchar, "mode" varchar,
+  "certification" boolean NOT NULL DEFAULT false, "status" varchar NOT NULL DEFAULT 'upcoming',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_training_enrollments" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_training_enrollments_companyId" ON "hr_training_enrollments" ("companyId");
+
+-- Backs /hr/elearning-courses (training/elearning/library)
+CREATE TABLE IF NOT EXISTS "hr_elearning_courses" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "code" varchar, "title" varchar, "description" text, "category" varchar, "level" varchar,
+  "duration" numeric(8,2), "modules" integer NOT NULL DEFAULT 0, "enrolled" integer NOT NULL DEFAULT 0,
+  "rating" numeric(3,2), "reviews" integer NOT NULL DEFAULT 0, "instructor" varchar,
+  "thumbnail" varchar, "certification" boolean NOT NULL DEFAULT false, "language" varchar,
+  "status" varchar NOT NULL DEFAULT 'active',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_elearning_courses" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_elearning_courses_companyId" ON "hr_elearning_courses" ("companyId");
+
+-- Backs /hr/skill-assessments (training/skills/assessment)
+CREATE TABLE IF NOT EXISTS "hr_skill_assessments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeId" varchar, "employeeName" varchar, "skillCode" varchar, "skillName" varchar,
+  "category" varchar, "assessmentDate" varchar, "assessor" varchar, "currentLevel" varchar,
+  "targetLevel" varchar, "score" integer NOT NULL DEFAULT 0, "feedback" text,
+  "status" varchar NOT NULL DEFAULT 'pending',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_skill_assessments" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_skill_assessments_companyId" ON "hr_skill_assessments" ("companyId");
+
+-- Backs /hr/per-diem-rates (expenses/settings/per-diem)
+CREATE TABLE IF NOT EXISTS "hr_per_diem_rates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "locationName" varchar, "locationType" varchar, "country" varchar, "state" varchar, "city" varchar,
+  "currency" varchar, "accommodationRate" numeric(14,2), "mealsRate" numeric(14,2),
+  "incidentalsRate" numeric(14,2), "transportRate" numeric(14,2), "totalDailyRate" numeric(14,2),
+  "effectiveFrom" varchar, "effectiveTo" varchar, "notes" text, "status" varchar NOT NULL DEFAULT 'active',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_per_diem_rates" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_per_diem_rates_companyId" ON "hr_per_diem_rates" ("companyId");
+
+-- Backs /hr/expense-budgets (expenses/reports/budget)
+CREATE TABLE IF NOT EXISTS "hr_expense_budgets" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "department" varchar, "period" varchar, "budgetAmount" numeric(14,2), "spentAmount" numeric(14,2),
+  "pendingAmount" numeric(14,2), "availableAmount" numeric(14,2), "utilizationPercent" numeric(6,2),
+  "categoryBreakdown" jsonb, "status" varchar NOT NULL DEFAULT 'active',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_expense_budgets" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_expense_budgets_companyId" ON "hr_expense_budgets" ("companyId");
+
+-- Backs /hr/policy-acknowledgments (compliance/policy/acknowledgment)
+CREATE TABLE IF NOT EXISTS "hr_policy_acknowledgments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeId" varchar, "employeeName" varchar, "department" varchar, "designation" varchar,
+  "policyName" varchar, "policyVersion" varchar, "policyCategory" varchar, "assignedDate" varchar,
+  "dueDate" varchar, "acknowledgmentDate" varchar, "acknowledgedVia" varchar,
+  "remindersSent" integer NOT NULL DEFAULT 0, "lastReminderDate" varchar, "remarks" text,
+  "status" varchar NOT NULL DEFAULT 'pending',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_policy_acknowledgments" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_policy_acknowledgments_companyId" ON "hr_policy_acknowledgments" ("companyId");
+
+-- Backs /hr/timesheets (timesheets/approval)
+CREATE TABLE IF NOT EXISTS "hr_timesheets" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeCode" varchar, "employeeId" varchar, "employeeName" varchar, "department" varchar,
+  "week" varchar, "weekPeriod" varchar, "totalHours" numeric(8,2), "regularHours" numeric(8,2),
+  "overtimeHours" numeric(8,2), "projectCount" integer NOT NULL DEFAULT 0, "submittedDate" varchar,
+  "entries" jsonb, "status" varchar NOT NULL DEFAULT 'pending',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_timesheets" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_timesheets_companyId" ON "hr_timesheets" ("companyId");

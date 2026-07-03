@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GitBranch, Search, Filter, PlusCircle, Download, AlertTriangle, CheckCircle, Clock, DollarSign, Calendar } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface ChangeRequest {
   id: string;
@@ -224,21 +225,88 @@ const mockChangeData: ChangeRequest[] = [
   }
 ];
 
+const CHANGE_CATEGORIES: ChangeRequest['category'][] = ['scope', 'schedule', 'cost', 'quality', 'resource', 'technical'];
+const CHANGE_PRIORITIES: ChangeRequest['priority'][] = ['critical', 'high', 'medium', 'low'];
+const CHANGE_STATUSES: ChangeRequest['status'][] = ['draft', 'submitted', 'under-review', 'approved', 'rejected', 'implemented', 'cancelled'];
+const CHANGE_SCOPES: ChangeRequest['impactScope'][] = ['major', 'moderate', 'minor'];
+
 export default function ChangeRequestsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
+  const [rows, setRows] = useState<ChangeRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listChangeOrders();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped: ChangeRequest[] = list.map((r: any) => {
+          const categoryRaw = String(r.category ?? r.changeType ?? '').toLowerCase();
+          const category = CHANGE_CATEGORIES.includes(categoryRaw as ChangeRequest['category'])
+            ? (categoryRaw as ChangeRequest['category'])
+            : 'scope';
+          const priorityRaw = String(r.priority ?? '').toLowerCase();
+          const priority = CHANGE_PRIORITIES.includes(priorityRaw as ChangeRequest['priority'])
+            ? (priorityRaw as ChangeRequest['priority'])
+            : 'medium';
+          const statusRaw = String(r.status ?? '').toLowerCase().replace(/_/g, '-');
+          const status = CHANGE_STATUSES.includes(statusRaw as ChangeRequest['status'])
+            ? (statusRaw as ChangeRequest['status'])
+            : 'draft';
+          const scopeRaw = String(r.impactScope ?? '').toLowerCase();
+          const impactScope = CHANGE_SCOPES.includes(scopeRaw as ChangeRequest['impactScope'])
+            ? (scopeRaw as ChangeRequest['impactScope'])
+            : 'minor';
+          return {
+            id: String(r.id ?? ''),
+            changeNumber: String(r.changeOrderNumber ?? r.id ?? ''),
+            title: String(r.title ?? ''),
+            description: String(r.description ?? ''),
+            projectCode: String(r.projectId ?? ''),
+            projectName: String(r.projectName ?? ''),
+            requestedBy: String(r.requestedBy ?? ''),
+            requestDate: String(r.requestDate ?? ''),
+            category,
+            priority,
+            status,
+            impactCost: Number(r.impactOnCost ?? 0),
+            impactSchedule: Number(r.impactOnSchedule ?? 0),
+            impactScope,
+            justification: String(r.reason ?? ''),
+            approvedBy: r.approvedBy ? String(r.approvedBy) : undefined,
+            approvalDate: r.approvalDate ? String(r.approvalDate) : undefined,
+            implementationDate: r.implementationDate ? String(r.implementationDate) : undefined,
+            reviewComments: r.remarks ? String(r.remarks) : undefined,
+          };
+        });
+        setRows(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load change requests');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Get unique projects
   const projects = useMemo(() =>
-    ['all', ...Array.from(new Set(mockChangeData.map(c => c.projectName)))],
-    []
+    ['all', ...Array.from(new Set(rows.map(c => c.projectName)))],
+    [rows]
   );
 
   // Filter change requests
   const filteredChanges = useMemo(() => {
-    return mockChangeData.filter(change => {
+    return rows.filter(change => {
       const matchesSearch = searchTerm === '' ||
         change.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         change.changeNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||

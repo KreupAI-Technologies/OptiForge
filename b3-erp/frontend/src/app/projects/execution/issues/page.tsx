@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AlertCircle, Search, Filter, PlusCircle, Download, Clock, User, AlertTriangle, CheckCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface Issue {
   id: string;
@@ -325,6 +326,11 @@ const mockIssuesData: Issue[] = [
   }
 ];
 
+const ISSUE_CATEGORIES: Issue['category'][] = ['technical', 'resource', 'scope', 'schedule', 'quality', 'stakeholder', 'risk', 'other'];
+const ISSUE_SEVERITIES: Issue['severity'][] = ['critical', 'high', 'medium', 'low'];
+const ISSUE_PRIORITIES: Issue['priority'][] = ['urgent', 'high', 'medium', 'low'];
+const ISSUE_STATUSES: Issue['status'][] = ['open', 'in-progress', 'on-hold', 'resolved', 'closed', 'escalated'];
+
 export default function IssueTrackingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
@@ -332,15 +338,76 @@ export default function IssueTrackingPage() {
   const [severityFilter, setSeverityFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
+  const [rows, setRows] = useState<Issue[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listProjectIssues();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped: Issue[] = list.map((r: any) => {
+          const category = ISSUE_CATEGORIES.includes(String(r.category) as Issue['category'])
+            ? (String(r.category) as Issue['category'])
+            : 'other';
+          const severityRaw = String(r.severity ?? r.impact ?? '').toLowerCase();
+          const severity = ISSUE_SEVERITIES.includes(severityRaw as Issue['severity'])
+            ? (severityRaw as Issue['severity'])
+            : 'medium';
+          const priorityRaw = String(r.priority ?? '').toLowerCase();
+          const priority = ISSUE_PRIORITIES.includes(priorityRaw as Issue['priority'])
+            ? (priorityRaw as Issue['priority'])
+            : 'medium';
+          const statusRaw = String(r.status ?? '').toLowerCase().replace(/_/g, '-');
+          const status = ISSUE_STATUSES.includes(statusRaw as Issue['status'])
+            ? (statusRaw as Issue['status'])
+            : 'open';
+          return {
+            id: String(r.id ?? ''),
+            issueNumber: String(r.number ?? r.id ?? ''),
+            title: String(r.title ?? ''),
+            description: String(r.description ?? ''),
+            projectCode: String(r.projectNumber ?? ''),
+            projectName: String(r.projectName ?? ''),
+            category,
+            severity,
+            priority,
+            status,
+            reportedBy: String(r.raisedBy ?? ''),
+            reportedDate: String(r.raisedDate ?? ''),
+            assignedTo: String(r.assignedTo ?? ''),
+            targetDate: String(r.targetDate ?? ''),
+            resolvedDate: r.resolvedDate ? String(r.resolvedDate) : undefined,
+            impact: String(r.impact ?? ''),
+            resolution: r.mitigationPlan ? String(r.mitigationPlan) : undefined,
+            daysOpen: Number(r.daysOpen ?? r.scheduleImpact ?? 0),
+            tags: Array.isArray(r.tags) ? r.tags.map((t: any) => String(t)) : [],
+          };
+        });
+        setRows(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load issues');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Get unique values for filters
   const projects = useMemo(() =>
-    ['all', ...Array.from(new Set(mockIssuesData.map(i => i.projectName)))],
-    []
+    ['all', ...Array.from(new Set(rows.map(i => i.projectName)))],
+    [rows]
   );
 
   // Filter issues
   const filteredIssues = useMemo(() => {
-    return mockIssuesData.filter(issue => {
+    return rows.filter(issue => {
       const matchesSearch = searchTerm === '' ||
         issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         issue.issueNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -354,20 +421,20 @@ export default function IssueTrackingPage() {
 
       return matchesSearch && matchesProject && matchesStatus && matchesSeverity && matchesCategory;
     });
-  }, [searchTerm, projectFilter, statusFilter, severityFilter, categoryFilter]);
+  }, [rows, searchTerm, projectFilter, statusFilter, severityFilter, categoryFilter]);
 
   // Calculate stats
   const stats = useMemo(() => {
-    const totalIssues = mockIssuesData.length;
-    const openIssues = mockIssuesData.filter(i => i.status === 'open').length;
-    const criticalIssues = mockIssuesData.filter(i => i.severity === 'critical').length;
-    const resolvedIssues = mockIssuesData.filter(i => i.status === 'resolved' || i.status === 'closed').length;
-    const escalatedIssues = mockIssuesData.filter(i => i.status === 'escalated').length;
+    const totalIssues = rows.length;
+    const openIssues = rows.filter(i => i.status === 'open').length;
+    const criticalIssues = rows.filter(i => i.severity === 'critical').length;
+    const resolvedIssues = rows.filter(i => i.status === 'resolved' || i.status === 'closed').length;
+    const escalatedIssues = rows.filter(i => i.status === 'escalated').length;
     const avgResolutionDays = Math.round(
-      mockIssuesData
+      rows
         .filter(i => i.resolvedDate)
         .reduce((sum, i) => sum + i.daysOpen, 0) /
-      mockIssuesData.filter(i => i.resolvedDate).length || 0
+      rows.filter(i => i.resolvedDate).length || 0
     );
 
     return {
@@ -378,7 +445,7 @@ export default function IssueTrackingPage() {
       escalatedIssues,
       avgResolutionDays
     };
-  }, []);
+  }, [rows]);
 
   const getStatusColor = (status: Issue['status']) => {
     switch (status) {
@@ -426,6 +493,18 @@ export default function IssueTrackingPage() {
         </h1>
         <p className="text-gray-600 mt-2">Track and resolve project issues with priority and impact assessment</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading issues…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -576,7 +655,7 @@ export default function IssueTrackingPage() {
           </select>
 
           <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredIssues.length} of {mockIssuesData.length} issues
+            Showing {filteredIssues.length} of {rows.length} issues
           </div>
         </div>
       </div>
