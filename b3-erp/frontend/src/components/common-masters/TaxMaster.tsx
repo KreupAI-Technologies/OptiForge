@@ -42,7 +42,7 @@ export default function TaxMaster() {
   const filteredTaxes = taxes.filter(tax => {
     const matchesSearch = tax.taxName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tax.taxCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tax.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (tax.description ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || tax.taxType === filterType;
     const matchesStatus = filterStatus === 'all' || tax.status === filterStatus;
 
@@ -224,7 +224,7 @@ export default function TaxMaster() {
                       <div className="text-sm font-medium text-gray-900">
                         {tax.rate}{tax.rateType === 'percentage' ? '%' : ' Fixed'}
                       </div>
-                      {tax.taxComponents.map((comp, idx) => (
+                      {tax.taxComponents.map((comp: any, idx: number) => (
                         <div key={idx} className="text-xs text-gray-500">
                           {comp.componentName}: {comp.rate}%
                         </div>
@@ -451,7 +451,7 @@ function TaxModal({ tax, onSave, onClose, activeTab, setActiveTab }: TaxModalPro
   const handleRemoveComponent = (index: number) => {
     setFormData({
       ...formData,
-      taxComponents: formData.taxComponents.filter((_, i) => i !== index)
+      taxComponents: formData.taxComponents.filter((_: any, i: number) => i !== index)
     });
   };
 
@@ -615,7 +615,7 @@ function TaxModal({ tax, onSave, onClose, activeTab, setActiveTab }: TaxModalPro
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Tax Components</h3>
                   <div className="space-y-2 mb-2">
-                    {formData.taxComponents.map((component, index) => (
+                    {formData.taxComponents.map((component: any, index: number) => (
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
                         <span className="flex-1">{component.componentName}</span>
                         <span>{component.rate}%</span>
@@ -694,7 +694,7 @@ function TaxModal({ tax, onSave, onClose, activeTab, setActiveTab }: TaxModalPro
                           onChange={(e) => {
                             const terr = e.target.checked
                               ? [...formData.applicability.territory, territory]
-                              : formData.applicability.territory.filter(t => t !== territory);
+                              : formData.applicability.territory.filter((t: string) => t !== territory);
                             setFormData({ ...formData, applicability: { ...formData.applicability, territory: terr } });
                           }}
                           className="mr-2"
@@ -716,7 +716,7 @@ function TaxModal({ tax, onSave, onClose, activeTab, setActiveTab }: TaxModalPro
                           onChange={(e) => {
                             const types = e.target.checked
                               ? [...formData.applicability.customerType, type]
-                              : formData.applicability.customerType.filter(t => t !== type);
+                              : formData.applicability.customerType.filter((t: string) => t !== type);
                             setFormData({ ...formData, applicability: { ...formData.applicability, customerType: types } });
                           }}
                           className="mr-2"

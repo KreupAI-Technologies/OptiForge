@@ -53,6 +53,7 @@ interface MenuItem {
   name: string;
   icon: LucideIcon;
   href?: string;
+  description?: string;
   color: string;
   bgColor: string; // Background color for active state
   hoverColor: string; // Hover background color

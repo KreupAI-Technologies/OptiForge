@@ -40,9 +40,9 @@ const CustomerMaster: React.FC = () => {
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+      (customer.email ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || customer.customerType === filterType;
-    const matchesCategory = filterCategory === 'all' || customer.category === filterCategory;
+    const matchesCategory = filterCategory === 'all' || customer.categoryId === filterCategory;
     const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
 
     return matchesSearch && matchesType && matchesCategory && matchesStatus;
@@ -214,7 +214,7 @@ const CustomerMaster: React.FC = () => {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{customer.customerName}</div>
                         <div className="text-sm text-gray-500">{customer.customerCode}</div>
-                        <div className="text-sm text-gray-500">{customer.category}</div>
+                        <div className="text-sm text-gray-500">{customer.category?.name}</div>
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
@@ -284,7 +284,7 @@ const CustomerMaster: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{customer.customerName}</h3>
                   <p className="text-sm text-gray-500">{customer.customerCode}</p>
-                  <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">{customer.category}</span>
+                  <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">{customer.category?.name}</span>
                 </div>
                 <div className="flex gap-1">
                   <button
@@ -360,7 +360,7 @@ function CustomerModal({ customer, onSave, onClose, activeTab, setActiveTab }: C
     customerCode: customer?.customerCode || '',
     customerName: customer?.customerName || '',
     customerType: customer?.customerType || 'business',
-    category: customer?.category || '',
+    category: customer?.category?.name || '',
     status: customer?.status || 'active',
     contactPerson: customer?.contactPerson || '',
     email: customer?.email || '',

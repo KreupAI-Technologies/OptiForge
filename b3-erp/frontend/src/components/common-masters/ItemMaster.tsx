@@ -8,7 +8,7 @@ import {
   FileText, CheckCircle, XCircle, AlertCircle, Save, X,
   Grid, List, Package2, Layers, Boxes, Calendar
 } from 'lucide-react';
-import { coreService } from '@/services/core.service';
+import { CoreService } from '@/services/core.service';
 
 
 interface Item {
@@ -244,7 +244,7 @@ const ItemMaster: React.FC = () => {
         categoryId: filterCategory !== 'all' ? filterCategory : undefined,
         status: filterStatus !== 'all' ? filterStatus : undefined
       };
-      const data = await coreService.getAllItems(filters);
+      const data = await CoreService.getAllItems(filters);
       // Map API data if needed
       const mappedData: any[] = data.map(i => ({
         ...i,
@@ -252,7 +252,7 @@ const ItemMaster: React.FC = () => {
         itemName: i.name,
         category: i.category?.name || 'Uncategorized',
         primaryUOM: i.uom?.code || 'PCS',
-        status: i.isActive ? 'active' : 'inactive',
+        status: i.status === 'ACTIVE' ? 'active' : 'inactive',
         type: i.itemType ? i.itemType.toLowerCase() : 'raw_material'
       }));
       setItems(mappedData);

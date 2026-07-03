@@ -21,7 +21,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (userData: User) => void;
+    login: (userData: User, accessToken?: string) => void;
     logout: () => void;
     refreshUser: () => Promise<void>;
     hasPermission: (permission: string) => boolean;
@@ -79,8 +79,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const login = (userData: User) => {
+    const login = (userData: User, accessToken?: string) => {
         localStorage.setItem('user', JSON.stringify(userData));
+        if (accessToken) {
+            localStorage.setItem('access_token', accessToken);
+        }
         setUser(userData);
         router.push('/dashboard');
     };

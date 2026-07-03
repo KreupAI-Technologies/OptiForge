@@ -15,7 +15,7 @@ interface Territory {
   parentTerritoryId?: string;
   parentTerritoryName?: string;
   level: number;
-  isActive: boolean;
+  isActive?: boolean;
 
   // Coverage
   coverage: {

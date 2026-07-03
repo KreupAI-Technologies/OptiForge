@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { capaService as CAPAService, CAPA } from '@/services/capa.service';
+import { capaService as CAPAService, CAPA, CAPAStatus } from '@/services/capa.service';
 import {
     Shield,
     CheckCircle2,
@@ -146,9 +146,9 @@ export default function CAPAPage() {
 
     const stats = {
         total: capas.length,
-        open: capas.filter((c) => c.status === 'open').length,
-        inProgress: capas.filter((c) => c.status === 'in-progress').length,
-        closed: capas.filter((c) => c.status === 'closed').length,
+        open: capas.filter((c) => c.status === CAPAStatus.INITIATED).length,
+        inProgress: capas.filter((c) => c.status === CAPAStatus.IN_PROGRESS).length,
+        closed: capas.filter((c) => c.status === CAPAStatus.CLOSED).length,
     };
 
     // Project selection view
@@ -339,30 +339,30 @@ export default function CAPAPage() {
                                                     <p className="text-xs text-gray-500">Initiated By</p>
                                                     <p className="font-medium flex items-center gap-1">
                                                         <User className="w-3 h-3" />
-                                                        {capa.initiatedBy}
+                                                        {capa.ownerName}
                                                     </p>
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Date</p>
                                                     <p className="font-medium flex items-center gap-1">
                                                         <Calendar className="w-3 h-3" />
-                                                        {new Date(capa.initiatedAt).toLocaleDateString()}
+                                                        {capa.initiatedDate ? new Date(capa.initiatedDate).toLocaleDateString() : 'N/A'}
                                                     </p>
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Assigned To</p>
-                                                    <p className="font-medium">{capa.assignedTo || <span className="text-gray-500">Unassigned</span>}</p>
+                                                    <p className="font-medium">{capa.ownerName || <span className="text-gray-500">Unassigned</span>}</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Target Date</p>
                                                     <p className="font-medium flex items-center gap-1">
                                                         <Target className="w-3 h-3" />
-                                                        {new Date(capa.targetDate).toLocaleDateString()}
+                                                        {new Date(capa.targetCompletionDate).toLocaleDateString()}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="bg-blue-50 border border-blue-200 rounded p-2 text-sm text-blue-800">
-                                                <strong>Root Cause:</strong> {capa.rootCause || 'Under investigation'}
+                                                <strong>Root Cause:</strong> {capa.rootCauseAnalysis?.rootCause || 'Under investigation'}
                                             </div>
                                         </div>
                                     </div>

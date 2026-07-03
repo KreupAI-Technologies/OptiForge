@@ -41,9 +41,9 @@ const VendorMaster: React.FC = () => {
   const filteredVendors = vendors.filter(vendor => {
       const matchesSearch = vendor.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vendor.vendorCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vendor.email.toLowerCase().includes(searchTerm.toLowerCase());
+        (vendor.email ?? '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = filterType === 'all' || vendor.vendorType === filterType;
-      const matchesCategory = filterCategory === 'all' || vendor.category === filterCategory;
+      const matchesCategory = filterCategory === 'all' || vendor.categoryId === filterCategory;
       const matchesStatus = filterStatus === 'all' || vendor.status === filterStatus;
 
       return matchesSearch && matchesType && matchesCategory && matchesStatus;
@@ -218,7 +218,7 @@ const VendorMaster: React.FC = () => {
                         <div>
                           <div className="text-sm font-medium text-gray-900">{vendor.vendorName}</div>
                           <div className="text-sm text-gray-500">{vendor.vendorCode}</div>
-                          <div className="text-sm text-gray-500">{vendor.category}</div>
+                          <div className="text-sm text-gray-500">{vendor.category?.name}</div>
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -288,7 +288,7 @@ const VendorMaster: React.FC = () => {
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{vendor.vendorName}</h3>
                     <p className="text-sm text-gray-500">{vendor.vendorCode}</p>
-                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">{vendor.category}</span>
+                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">{vendor.category?.name}</span>
                   </div>
                   <div className="flex gap-1">
                     <button
@@ -361,7 +361,7 @@ const VendorMaster: React.FC = () => {
       vendorCode: vendor?.vendorCode || '',
       vendorName: vendor?.vendorName || '',
       vendorType: vendor?.vendorType || 'supplier',
-      category: vendor?.category || '',
+      category: vendor?.category?.name || '',
       status: vendor?.status || 'active',
       contactPerson: vendor?.contactPerson || '',
       email: vendor?.email || '',

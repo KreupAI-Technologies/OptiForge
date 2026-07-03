@@ -317,6 +317,7 @@ export default function EmployeeMaster() {
             skills: [],
             experience: 0
           },
+          documents: {},
           permissions: {
             systemAccess: item.isActive,
             roles: [],

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Edit, Trash2, Eye, Clock, CreditCard, Calendar, CheckCircle, AlertCircle, TrendingUp, Download, Upload } from 'lucide-react';
+import { Plus, Search, Filter, Edit, Trash2, Eye, Clock, CreditCard, Calendar, CheckCircle, AlertCircle, AlertTriangle, TrendingUp, Download, Upload } from 'lucide-react';
 import { commonMastersService, PaymentTerm } from '@/services/common-masters.service';
 
 const PaymentTermsMaster: React.FC = () => {
@@ -145,7 +145,7 @@ const PaymentTermsMaster: React.FC = () => {
                     <span className="text-gray-700">View</span>
                   </button>
                   <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    <Edit3 className="w-4 h-4 text-gray-600" />
+                    <Edit className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
                   </button>
                 </div>
@@ -166,7 +166,7 @@ const PaymentTermsMaster: React.FC = () => {
                   <div className="border border-gray-200 rounded p-3">
                     <h4 className="text-xs font-semibold text-gray-700 mb-2">Installment Schedule</h4>
                     <div className="space-y-1">
-                      {term.installments.map((inst, index) => (
+                      {term.installments.map((inst: any, index: number) => (
                         <div key={index} className="flex justify-between text-xs">
                           <span className="text-gray-600">Installment {inst.installmentNumber}:</span>
                           <span className="font-medium">{inst.percentage}% after {inst.daysAfter} days</span>

@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
-import { ToastProvider } from '@/components/ui/toast';
+import { ToastProvider } from '@/components/ui/Toast';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { EnhancedToastProvider } from '@/components/ui/EnhancedToast';
 import { ProjectProvider } from '@/context/ProjectContext';

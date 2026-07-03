@@ -335,6 +335,10 @@ class ManufacturingMastersService {
         return response.data || [];
     }
 
+    async deleteSkill(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/skills/${id}`);
+    }
+
     async getAllBatches(companyId: string): Promise<Batch[]> {
         const response = await apiClient.get<Batch[]>(`/api/v1/common-masters/batches?companyId=${companyId}`);
         return response.data || [];

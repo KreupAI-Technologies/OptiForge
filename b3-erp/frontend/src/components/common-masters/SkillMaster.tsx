@@ -92,7 +92,7 @@ export default function SkillMaster() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this skill?')) {
       try {
-        await SkillService.deleteSkill(id);
+        await manufacturingMastersService.deleteSkill(id);
         setSkills(skills.filter(s => s.id !== id));
       } catch (err) {
         console.error('Error deleting skill:', err);

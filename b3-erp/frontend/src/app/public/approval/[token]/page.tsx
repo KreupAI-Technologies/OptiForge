@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { designVerificationService } from '@/services/DesignVerificationService';
 import { HandoverService } from '@/services/HandoverService';
 import { SignatureCanvas } from '@/components/ui/SignatureCanvas';

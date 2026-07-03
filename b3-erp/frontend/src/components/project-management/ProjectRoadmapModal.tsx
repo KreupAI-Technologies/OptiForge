@@ -331,7 +331,7 @@ function GanttView({ onStepClick, selectedStep, getStatusInfo, project }: any) {
                         {/* Steps Rows */}
                         {(MASTER_CHECKLIST_STEPS[phase.id] || []).map((step: any, sIdx: any) => {
                             const isSelected = selectedStep?.id === step.id;
-                            const status = 'required';
+                            const status: string = 'required';
                             const { icon: StatusIcon, color, bg } = getStatusInfo(status);
 
                             return (

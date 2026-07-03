@@ -66,14 +66,14 @@ export default function BatchLotMaster() {
       const data = await manufacturingMastersService.getAllBatches('1');
       const mapped: BatchLot[] = data.map((b: BackendBatch) => ({
         id: b.id,
-        batchNumber: b.number,
-        lotNumber: `LOT-${b.number.substring(b.number.length - 5)}`,
+        batchNumber: b.batchNumber,
+        lotNumber: `LOT-${b.batchNumber.substring(b.batchNumber.length - 5)}`,
         item: 'Various Items',
         itemCode: b.itemId || 'N/A',
         quantity: b.quantity || 0,
         uom: 'units',
-        manufacturingDate: b.mfgDate ? new Date(b.mfgDate) : new Date(),
-        expiryDate: b.expDate ? new Date(b.expDate) : undefined,
+        manufacturingDate: b.manufacturingDate ? new Date(b.manufacturingDate) : new Date(),
+        expiryDate: b.expiryDate ? new Date(b.expiryDate) : undefined,
         warehouse: 'Main Warehouse',
         location: 'Zone A',
         qualityStatus: 'Approved',

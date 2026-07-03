@@ -197,6 +197,7 @@ export interface Tax {
     compliance?: any;
     validity?: any;
     accounting?: any;
+    statistics?: any;
 }
 
 export interface PaymentTerm {

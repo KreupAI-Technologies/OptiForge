@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { inspectionService as InspectionService, Inspection } from '@/services/inspection.service';
+import { inspectionService as InspectionService, Inspection, InspectionStatus } from '@/services/inspection.service';
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -156,9 +156,9 @@ export default function InspectionsPage() {
 
   const stats = {
     total: inspections.length,
-    passed: inspections.filter((i) => i.status === 'passed').length,
-    failed: inspections.filter((i) => i.status === 'failed').length,
-    pending: inspections.filter((i) => i.status === 'pending').length,
+    passed: inspections.filter((i) => i.status === InspectionStatus.APPROVED).length,
+    failed: inspections.filter((i) => i.status === InspectionStatus.REJECTED).length,
+    pending: inspections.filter((i) => i.status === InspectionStatus.PENDING_REVIEW).length,
   };
 
   // Project selection view
@@ -330,13 +330,13 @@ export default function InspectionsPage() {
               {filteredInspections.map((inspection) => (
                 <div key={inspection.id} className="bg-white rounded-lg border p-3 hover:shadow-lg transition">
                   <div className="flex items-start gap-2">
-                    <div className={`w-16 h-16 rounded-lg ${inspection.status === 'passed' ? 'bg-green-500' : inspection.status === 'failed' ? 'bg-red-500' : 'bg-blue-500'} flex items-center justify-center`}>
+                    <div className={`w-16 h-16 rounded-lg ${inspection.status === InspectionStatus.APPROVED ? 'bg-green-500' : inspection.status === InspectionStatus.REJECTED ? 'bg-red-500' : 'bg-blue-500'} flex items-center justify-center`}>
                       <ClipboardCheck className="w-8 h-8 text-white" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <h3 className="text-xl font-bold">{inspection.title}</h3>
+                          <h3 className="text-xl font-bold">{inspection.productName}</h3>
                           <p className="text-sm text-gray-600">{inspection.inspectionNumber}</p>
                         </div>
                         <div className="flex gap-2">
@@ -353,7 +353,7 @@ export default function InspectionsPage() {
                           <p className="text-xs text-gray-500">Inspector</p>
                           <p className="font-medium flex items-center gap-1">
                             <User className="w-3 h-3" />
-                            {inspection.inspector}
+                            {inspection.inspectorName}
                           </p>
                         </div>
                         <div>
@@ -385,7 +385,7 @@ export default function InspectionsPage() {
                           <Eye className="w-4 h-4 mr-1" />
                           View Details
                         </Button>
-                        {inspection.status === 'failed' && (
+                        {inspection.status === InspectionStatus.REJECTED && (
                           <Button variant="outline" size="sm" className="text-red-600 border-red-300" onClick={() => router.push(`/quality/ncr/new?inspectionId=${inspection.id}&projectId=${selectedProject.id}`)}>
                             <AlertTriangle className="w-4 h-4 mr-1" />
                             Create NCR

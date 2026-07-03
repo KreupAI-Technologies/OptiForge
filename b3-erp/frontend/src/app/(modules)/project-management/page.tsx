@@ -63,7 +63,7 @@ interface Project {
     actualCost: number;
     phase: string;
     priority: 'P1' | 'P2' | 'P3';
-    awardDate: string;
+    awardDate?: string;
     clientContactPerson?: string;
     clientContactEmail?: string;
     handoverStatus?: 'pending' | 'approved' | 'rejected' | 'n/a';
@@ -305,7 +305,11 @@ export default function ProjectsListPage() {
             try {
                 const data = await projectManagementService.getProjects();
                 // Map service data to local Project interface
-                const mappedProjects: Project[] = data.map((p: ServiceProject) => ({
+                const mappedProjects: Project[] = data.map((p: ServiceProject & {
+                    awardDate?: string;
+                    clientContactPerson?: string;
+                    clientContactEmail?: string;
+                }) => ({
                     id: p.id,
                     projectNumber: p.projectCode || `PRJ-${p.id}`,
                     projectName: p.name,
@@ -678,7 +682,7 @@ export default function ProjectsListPage() {
                     <WorkflowQuickActions variant="compact" />
                 </div>
                 <div>
-                    <DocumentControlWidget />
+                    <DocumentControlWidget projectId={activeProject?.id || ''} />
                 </div>
             </div>
 

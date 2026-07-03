@@ -152,7 +152,7 @@ export default function PriceListMaster() {
                     <span className="text-gray-700">View</span>
                   </button>
                   <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                    <Edit3 className="w-4 h-4 text-gray-600" />
+                    <Edit className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Edit</span>
                   </button>
                 </div>
@@ -203,7 +203,7 @@ export default function PriceListMaster() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Items:</span>
-                      <span className="font-medium">{priceList.items.length}</span>
+                      <span className="font-medium">{priceList.items?.length ?? 0}</span>
                     </div>
                   </div>
                 </div>
@@ -231,9 +231,9 @@ export default function PriceListMaster() {
 
               {/* Item Prices */}
               <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Item Prices ({priceList.items.length})</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Item Prices ({priceList.items?.length ?? 0})</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {priceList.items.slice(0, 6).map((item, index) => (
+                  {(priceList.items ?? []).slice(0, 6).map((item, index) => (
                     <div key={index} className="flex justify-between items-center bg-gray-50 rounded p-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{item.itemName}</p>
@@ -248,9 +248,9 @@ export default function PriceListMaster() {
                     </div>
                   ))}
                 </div>
-                {priceList.items.length > 6 && (
+                {(priceList.items?.length ?? 0) > 6 && (
                   <button className="mt-3 text-sm text-purple-600 hover:text-purple-800">
-                    View all {priceList.items.length} items →
+                    View all {priceList.items?.length ?? 0} items →
                   </button>
                 )}
               </div>
@@ -260,6 +260,4 @@ export default function PriceListMaster() {
       </div>
     </div>
   );
-};
-
-export default PriceListMaster;
+}

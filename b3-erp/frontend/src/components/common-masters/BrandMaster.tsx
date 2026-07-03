@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Tag, Star, DollarSign, Package, Download, Upload, Grid, List, Building2 } from 'lucide-react';
-import { commonMastersService, Brand } from '@/services/common-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Brand {
   id: string;
@@ -177,7 +177,7 @@ export default function BrandMaster() {
     try {
       setLoading(true);
       const data = await commonMastersService.getAllBrands();
-      setBrands(data);
+      setBrands(data as unknown as Brand[]);
     } catch (error) {
       console.error('Failed to load brands:', error);
     } finally {

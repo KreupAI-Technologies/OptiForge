@@ -6,7 +6,7 @@ import {
   Download, Save, X, MoreVertical, CheckCircle, XCircle,
   AlertCircle, Grid, List, Tag, Package, TrendingUp, DollarSign
 } from 'lucide-react';
-import { commonMastersService, ItemGroup } from '@/services/common-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 
 interface ItemGroup {

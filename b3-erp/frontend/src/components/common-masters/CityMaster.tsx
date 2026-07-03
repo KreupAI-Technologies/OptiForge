@@ -16,7 +16,7 @@ interface City {
   stateName: string;
   countryId: string;
   countryName: string;
-  isActive: boolean;
+  isActive?: boolean;
 
   // Classification
   cityType: 'Metro' | 'Tier-1' | 'Tier-2' | 'Tier-3' | 'Rural';

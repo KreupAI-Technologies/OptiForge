@@ -47,7 +47,7 @@ export default function ChartOfAccountsMaster() {
   const filteredAccounts = accounts.filter(account => {
     const matchesSearch = account.accountName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       account.accountCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (account.description ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || account.accountType === filterType;
     const matchesStatus = filterStatus === 'all' || account.status === filterStatus;
     const matchesLevel = filterLevel === 'all' || account.level.toString() === filterLevel;

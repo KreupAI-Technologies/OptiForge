@@ -76,8 +76,8 @@ export default function InstallationTypeMaster() {
         materials: it.materials,
         suitableFor: it.suitableFor,
         estimatedCost: {
-          min: it.priceMin,
-          max: it.priceMax
+          min: it.costMin,
+          max: it.costMax
         },
         duration: {
           value: it.durationValue || 0,

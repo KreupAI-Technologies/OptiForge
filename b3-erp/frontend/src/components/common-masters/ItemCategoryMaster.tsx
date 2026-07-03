@@ -7,7 +7,7 @@ import {
   AlertCircle, Tag, Layers, Box, Grid, List, ChevronRight,
   ChevronDown, Move, Copy, Archive, RefreshCw, Settings
 } from 'lucide-react';
-import { commonMastersService, ItemCategory } from '@/services/common-masters.service';
+import { commonMastersService } from '@/services/common-masters.service';
 
 
 interface ItemCategory {

@@ -14,7 +14,7 @@ interface State {
   countryId: string;
   countryName: string;
   iso2Code?: string;
-  isActive: boolean;
+  isActive?: boolean;
 
   // Administrative
   capital?: string;

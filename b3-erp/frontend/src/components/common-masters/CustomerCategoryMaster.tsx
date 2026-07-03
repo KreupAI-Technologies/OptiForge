@@ -249,8 +249,8 @@ export default function CustomerCategoryMaster() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="space-y-1">
-                      {getClassificationBadge(category.classification)}
-                      {getLevelBadge(category.level)}
+                      {getClassificationBadge(category.classification ?? '')}
+                      {getLevelBadge(category.level ?? '')}
                     </div>
                   </td>
                   <td className="px-3 py-2">

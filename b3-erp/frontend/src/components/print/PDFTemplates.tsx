@@ -807,15 +807,3 @@ export function ReportTemplate({
     </PDFTemplate>
   );
 }
-
-
-export type {
-  CompanyInfo,
-  PDFTemplateProps,
-  QuoteLineItem,
-  QuoteTemplateProps,
-  InvoiceTemplateProps,
-  POTemplateProps,
-  ReportSection,
-  ReportTemplateProps,
-};
