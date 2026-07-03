@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, MessageSquare, Clock, User, AlertCircle, CheckCircle, XCircle, Filter, Download, ArrowUpDown, ChevronLeft, ChevronRight, Calendar, Tag, Mail, Phone, Ticket, RefreshCw } from 'lucide-react';
 import { FilterPanel, EmptyState, LoadingState, PageToolbar } from '@/components/ui';
 import { getTickets } from '@/services/support-management.service';
+import { exportToCsv } from '@/lib/export';
 
 const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
@@ -208,8 +209,7 @@ export default function TicketsPage() {
   };
 
   const handleExport = () => {
-    alert('Exporting ticket data to CSV...');
-    console.log('Exporting tickets:', filteredTickets);
+    exportToCsv('support-tickets', filteredTickets);
   };
 
   const handleSelectAll = (checked: boolean) => {

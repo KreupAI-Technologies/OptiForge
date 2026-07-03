@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { ClipboardCheck, CheckCircle, XCircle, AlertTriangle, Plus, Download, Eye, Camera, Edit, FileText, Upload, Users, TrendingUp, Calendar, Shield } from 'lucide-react';
 import {
  ScheduleInspectionModal,
@@ -496,7 +497,7 @@ export default function QualityInspectionPage() {
  const handleAssignInspector = (data: any) => { console.log('Assign:', data); setShowAssignModal(false); setSelectedInspection(null); };
  const handleAddItem = (data: any) => { console.log('Add Item:', data); setShowAddItemModal(false); setSelectedInspection(null); };
  const handleGenerateReport = (data: any) => { console.log('Report:', data); setShowReportModal(false); setSelectedInspection(null); };
- const handleExport = (data: any) => { console.log('Export:', data); setShowExportModal(false); };
+ const handleExport = (data: any) => { exportToCsv('quality-inspections', filteredInspections as unknown as Record<string, unknown>[]); setShowExportModal(false); };
  const handleScheduleReInspection = (data: any) => { console.log('Re-Inspection:', data); setShowReInspectionModal(false); setSelectedInspection(null); };
  const handleAddCorrective = (data: any) => { console.log('Corrective:', data); setShowCorrectiveModal(false); setSelectedInspection(null); };
  const handleScheduleNext = (data: any) => { console.log('Next:', data); setShowNextInspectionModal(false); setSelectedInspection(null); };

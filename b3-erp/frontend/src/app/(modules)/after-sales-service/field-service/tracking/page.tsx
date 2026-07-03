@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Navigation, Clock, Phone, User, CheckCircle, AlertTriangle, Battery, Wifi, RefreshCw, Search, Filter, Calendar, Truck, Wrench, Home, Building2, Zap, TrendingUp, X, Eye, BarChart3, Mail } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface TechnicianLocation {
   id: string;
@@ -1106,7 +1107,7 @@ export default function TechnicianTrackingPage() {
                   Close
                 </button>
                 <button
-                  onClick={() => setToast({ message: 'Export feature coming soon', type: 'info' })}
+                  onClick={() => exportToCsv('technician-tracking', filteredTechnicians)}
                   className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
                 >
                   <BarChart3 className="h-4 w-4" />

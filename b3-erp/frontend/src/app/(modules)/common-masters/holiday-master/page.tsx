@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockHolidays, Holiday, getHolidayStats } from '@/data/common-masters/holidays';
 
 import { hrMastersService } from '@/services/hr-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function HolidayMasterPage() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -71,6 +72,7 @@ export default function HolidayMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('holiday-master', filteredData);
     showToast('Exporting holiday data...', 'success');
   };
 

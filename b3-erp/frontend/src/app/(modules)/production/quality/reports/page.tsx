@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, BarChart3, TrendingUp, TrendingDown, Calendar, FileText, Award, AlertTriangle } from 'lucide-react';
 import { ExportQualityReportModal } from '@/components/quality/QualityExportModals';
+import { exportToCsv } from '@/lib/export';
 
 interface QualityMetric {
   period: string;
@@ -292,9 +293,8 @@ export default function QualityReportsPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = (data: any) => {
-    console.log('Export quality report data:', data);
-    // TODO: API call to export quality report
+  const handleExportSubmit = (_data: any) => {
+    exportToCsv('quality-report', filteredProducts as unknown as Record<string, unknown>[]);
   };
 
   return (

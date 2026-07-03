@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, Users, Shield, MapPin, Briefcase, Cl
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { systemMastersService, User } from '@/services/system-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function UserMasterPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -52,6 +53,7 @@ export default function UserMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('user-master', filteredData);
     showToast('Exporting user data...', 'success');
   };
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { exportToCsv } from '@/lib/export';
 import {
     Search,
     Plus,
@@ -359,7 +360,7 @@ export default function DeliverablesListPage() {
     };
 
     const handleExport = (format: string) => {
-        console.log('Exporting to:', format);
+        exportToCsv('deliverables', filteredDeliverables as unknown as Record<string, unknown>[]);
         setShowExport(false);
     };
 

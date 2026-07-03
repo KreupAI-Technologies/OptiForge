@@ -30,6 +30,7 @@ import {
   Timer,
   CalendarDays
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface CompletedInstallation {
   id: string;
@@ -496,7 +497,7 @@ const CompletedInstallationsPage = () => {
           >
             {viewMode === 'list' ? 'Grid View' : 'List View'}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          <button onClick={() => exportToCsv('completed-installations', filteredInstallations)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
             <Download className="h-4 w-4" />
             Export Report
           </button>

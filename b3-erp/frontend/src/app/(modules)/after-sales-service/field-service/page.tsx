@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, MapPin, Navigation, CheckCircle, Clock, XCircle, Wrench, User, Phone, TrendingUp, Download, Package, BarChart3, X, AlertTriangle, Calendar, CalendarDays, Filter, ChevronLeft, ChevronRight, Grid3x3, List, UserPlus, FileEdit, Trash2, Copy, Loader2, AlertCircle } from 'lucide-react';
 import { FieldServiceService, FieldServiceJob, FieldServicePriority } from '@/services/field-service.service';
+import { exportToCsv } from '@/lib/export';
 
 const fieldServiceJobsForFallback: FieldServiceJob[] = [
   {
@@ -406,6 +407,7 @@ export default function FieldServicePage() {
         setToast({ message: `Cancelling ${count} jobs...`, type: 'info' });
         break;
       case 'export':
+        exportToCsv('field-service-jobs', fieldServiceJobs.filter(job => selectedJobs.has(job.id)));
         setToast({ message: `Exporting ${count} jobs...`, type: 'success' });
         break;
     }
@@ -1795,7 +1797,7 @@ export default function FieldServicePage() {
                   Close
                 </button>
                 <button
-                  onClick={() => setToast({ message: 'Export feature coming soon', type: 'info' })}
+                  onClick={() => exportToCsv('field-service-jobs', filteredJobs)}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
                 >
                   <Download className="h-4 w-4" />

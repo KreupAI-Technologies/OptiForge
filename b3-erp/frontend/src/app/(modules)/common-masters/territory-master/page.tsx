@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, MapPin, TrendingUp, Users, Target, C
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockTerritories, Territory, getTerritoryStats, getChildTerritories } from '@/data/common-masters/territories';
+import { exportToCsv } from '@/lib/export';
 
 export default function TerritoryMasterPage() {
   const [territories, setTerritories] = useState<Territory[]>(mockTerritories);
@@ -29,7 +30,10 @@ export default function TerritoryMasterPage() {
   const handleAddTerritory = () => showToast('Add territory functionality will be implemented', 'info');
   const handleViewTerritory = (territory: Territory) => showToast(`Viewing territory: ${territory.territoryName}`, 'info');
   const handleEditTerritory = (territory: Territory) => showToast(`Editing territory: ${territory.territoryName}`, 'info');
-  const handleExport = () => showToast('Exporting territories data...', 'success');
+  const handleExport = () => {
+    exportToCsv('territory-master', filteredData);
+    showToast('Exporting territories data...', 'success');
+  };
 
   // Toggle territory expansion
   const toggleTerritory = (territoryId: string) => {

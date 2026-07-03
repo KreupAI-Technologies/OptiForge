@@ -35,6 +35,7 @@ import {
   TransferStatus,
   TransferPriority
 } from '@/services/stock-transfer.service'
+import { exportToCsv, printCurrentView } from '@/lib/export'
 
 interface StockTransfer {
   id: string
@@ -203,7 +204,7 @@ const InventoryTransfersPage = () => {
   const currentTransfers = filteredTransfers.slice(startIndex, endIndex)
 
   const handleExport = () => {
-    console.log('Exporting stock transfers report...')
+    exportToCsv('stock-transfers', filteredTransfers as unknown as Record<string, unknown>[])
   }
 
   const handleApprove = (transferId: string) => {
@@ -670,7 +671,7 @@ const InventoryTransfersPage = () => {
           onDispatch={handleDispatch}
           onReceive={handleReceive}
           onCancel={handleCancel}
-          onPrint={() => console.log('Print transfer')}
+          onPrint={() => printCurrentView()}
         />
 
         <ApproveTransferModal
@@ -708,7 +709,7 @@ const InventoryTransfersPage = () => {
           isOpen={isHistoryOpen}
           onClose={() => setIsHistoryOpen(false)}
           onViewDetails={handleHistoryViewDetails}
-          onExport={() => console.log('Export history')}
+          onExport={() => exportToCsv('stock-transfer-history', filteredTransfers as unknown as Record<string, unknown>[])}
         />
       </div>
     </div>

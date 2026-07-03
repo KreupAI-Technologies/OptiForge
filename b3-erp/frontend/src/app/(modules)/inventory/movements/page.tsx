@@ -29,6 +29,7 @@ import {
   ReturnStockData,
   Movement
 } from '@/components/inventory/InventoryMovementModals'
+import { exportToCsv } from '@/lib/export'
 
 interface InventoryMovement {
   id: string
@@ -246,7 +247,7 @@ const InventoryMovementsPage = () => {
   const currentMovements = filteredMovements.slice(startIndex, endIndex)
 
   const handleExport = () => {
-    console.log('Exporting inventory movements report...')
+    exportToCsv('inventory-movements', filteredMovements)
   }
 
   // Modal handlers

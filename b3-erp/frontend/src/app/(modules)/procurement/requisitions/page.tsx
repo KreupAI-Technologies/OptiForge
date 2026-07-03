@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { purchaseRequisitionService, PurchaseRequisition as PRServiceType, PRStatus, PRPriority } from '@/services/purchase-requisition.service'
+import { exportToCsv } from '@/lib/export'
 
 interface PurchaseRequisition {
   id: string
@@ -162,7 +163,7 @@ export default function ProcurementRequisitionsPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting procurement requisitions report...')
+    exportToCsv('procurement-requisitions', filteredRequisitions as unknown as Record<string, unknown>[])
   }
 
   const handleView = (id: string) => {

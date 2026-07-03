@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LogIn, LogOut, Shield, AlertTriangle, CheckCircle2, XCircle, Globe, MapPin, Monitor, Smartphone, Calendar, Filter, Download, Eye, Search, CheckCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface LoginAuditLog {
   id: string;
@@ -349,7 +350,7 @@ const LoginAuditLogsPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting login audit logs...', 'info');
+    exportToCsv('login-audit-logs', filteredLogs as unknown as Record<string, unknown>[]);
   };
 
   const handleCloseDetails = () => {

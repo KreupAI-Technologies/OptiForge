@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Search, MapPin, Briefcase, Calendar, Mail, Phone, Linkedin, Award, Building2, Users, TrendingUp, Download, Filter, X, Eye, MessageCircle, UserCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { exportToCsv } from '@/lib/export';
 
 interface AlumniMember {
   id: string;
@@ -188,6 +189,7 @@ export default function Page() {
   };
 
   const handleExport = () => {
+    exportToCsv('alumni-directory', filteredAlumni);
     toast({
       title: "Exporting Alumni Directory",
       description: `Exporting ${filteredAlumni.length} alumni records to Excel...`

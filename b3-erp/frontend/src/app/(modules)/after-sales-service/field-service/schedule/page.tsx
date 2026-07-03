@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { User, MapPin, Clock, Calendar, TrendingUp, X, Eye, BarChart3, CheckCircle, AlertCircle, Phone, Mail, Wrench, Navigation, Filter } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface EngineerSchedule {
   id: string;
@@ -880,7 +881,7 @@ export default function EngineerSchedulePage() {
             {/* Modal Footer */}
             <div className="px-3 py-2 bg-gray-50 border-t flex items-center justify-end gap-3">
               <button
-                onClick={() => showToast('Exporting analytics report...', 'success')}
+                onClick={() => { exportToCsv('engineer-schedule', filteredEngineers); showToast('Exporting analytics report...', 'success'); }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Export Report

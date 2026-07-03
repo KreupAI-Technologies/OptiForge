@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Hash, Search, Edit, CheckCircle, AlertTriangle, UserPlus, Download, X, Save, FileText, ExternalLink, Upload, Mail, User, CreditCard, Users } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface EmployeeUAN {
   id: string;
@@ -599,7 +600,7 @@ function ViewUANPortalModal({ employee, onClose }: { employee: EmployeeUAN; onCl
   );
 }
 
-function ExportReportModal({ onClose }: { onClose: () => void }) {
+function ExportReportModal({ onClose, employees }: { onClose: () => void; employees: EmployeeUAN[] }) {
   const [format, setFormat] = useState<'excel' | 'pdf' | 'csv'>('excel');
   const [includeKYC, setIncludeKYC] = useState(true);
 
@@ -687,7 +688,7 @@ function ExportReportModal({ onClose }: { onClose: () => void }) {
             </button>
             <button
               onClick={() => {
-                console.log(`Exporting as ${format}`);
+                exportToCsv('uan-report', employees);
                 onClose();
               }}
               className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
@@ -1154,7 +1155,7 @@ export default function UANManagementPage() {
       )}
 
       {showExportModal && (
-        <ExportReportModal onClose={() => setShowExportModal(false)} />
+        <ExportReportModal onClose={() => setShowExportModal(false)} employees={filteredEmployees} />
       )}
     </div>
   );

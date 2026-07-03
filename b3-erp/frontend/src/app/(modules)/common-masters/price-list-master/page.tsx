@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PriceList, getPriceListStats } from '@/data/common-masters/price-lists';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -99,6 +100,7 @@ export default function PriceListMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('price-list-master', filteredData);
     showToast('Exporting price lists data...', 'success');
   };
 

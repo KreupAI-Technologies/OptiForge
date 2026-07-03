@@ -8,6 +8,7 @@ import {
   DollarSign, ShoppingBag, ArrowUpCircle, ArrowDownCircle, FileText,
   Eye, XCircle, RefreshCw
 } from 'lucide-react';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 
 // TypeScript Interfaces
 interface TrialBalance {
@@ -159,12 +160,11 @@ export default function TrialBalancePage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    printCurrentView();
   };
 
-  const handleExport = (format: 'excel' | 'pdf') => {
-    console.log('Exporting trial balance as', format);
-    alert(`Exporting trial balance as ${format.toUpperCase()}...`);
+  const handleExport = (_format: 'excel' | 'pdf') => {
+    exportToCsv('trial-balance', trialBalance as unknown as Record<string, unknown>[]);
   };
 
   const renderAccount = (account: TrialBalance) => {

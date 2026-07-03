@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import {
   ArrowLeft,
   Download,
@@ -240,7 +241,7 @@ export default function QuotationComparisonPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting comparison report...')
+    exportToCsv('rfq-comparison', comparisonData.vendors as unknown as Record<string, unknown>[])
   }
 
   const handleAwardContract = (vendorId: string) => {

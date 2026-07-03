@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import {
   Users,
   TrendingUp,
@@ -39,7 +40,7 @@ export default function LaborRatesPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting labor rates')
+    exportToCsv('labor-rates', laborRates)
   }
 
   const handleViewHistory = (laborId: string) => {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Smartphone, Download, QrCode, CheckCircle, Clock, MapPin, Wrench, Camera, FileText, MessageSquare, Star, Battery, Wifi, RefreshCw, PlayCircle, Settings, Users, TrendingUp, Zap, Package, Shield, X, Eye, BarChart3, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface AppFeature {
   id: string;
@@ -1055,7 +1056,7 @@ export default function MobileAppPage() {
             {/* Modal Footer */}
             <div className="px-3 py-2 bg-gray-50 border-t flex items-center justify-end gap-3">
               <button
-                onClick={() => showToast('Exporting analytics data...', 'success')}
+                onClick={() => { exportToCsv('mobile-app-features', filteredFeatures); showToast('Exporting analytics data...', 'success'); }}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 Export Report

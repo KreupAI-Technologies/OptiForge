@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import {
  Package,
  Plus,
@@ -340,7 +341,7 @@ export default function MRPPage() {
  };
 
  const handleExport = (data: any) => {
-  console.log('Exporting MRP:', data);
+  exportToCsv('mrp', filteredMaterials as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

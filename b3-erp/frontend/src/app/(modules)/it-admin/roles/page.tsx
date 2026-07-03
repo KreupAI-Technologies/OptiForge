@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Download, Eye, Edit, Copy, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { RoleService, Role as ServiceRole } from '@/services/role.service';
 
 interface Role {
@@ -73,7 +74,7 @@ export default function RolesPage() {
   };
 
   const handleExport = () => {
-    showToast('Exporting roles report...', 'info');
+    exportToCsv('roles', currentRoles as unknown as Record<string, unknown>[]);
   };
 
   const handleView = (roleId: string) => {

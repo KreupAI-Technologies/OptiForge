@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Filter, Download, Eye, Edit2, Play, Calendar, Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import { exportToCsv } from '@/lib/export'
 
 interface ProductionSchedule {
   id: string
@@ -190,8 +191,7 @@ const ProductionSchedulingPage = () => {
   const delayed = mockSchedules.filter(s => s.status === 'delayed').length
 
   const handleExport = () => {
-    console.log('Exporting production schedule report...')
-    alert('Exporting Production Schedule Report...')
+    exportToCsv('production-schedule', filteredSchedules as unknown as Record<string, unknown>[])
   }
 
   const handleView = (id: string) => {

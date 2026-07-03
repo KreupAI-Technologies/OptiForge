@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Shield, Smartphone, Key, QrCode, CheckCircle2, XCircle, Clock, AlertTriangle, Mail, MessageSquare, Settings, Users, Download, X, BarChart3, Eye, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface TwoFactorSettings {
   enabled: boolean;
@@ -298,7 +299,7 @@ const TwoFactorAuthPage = () => {
   };
 
   const handleExportReport = () => {
-    setToast({ message: 'Exporting 2FA enrollment report...', type: 'info' });
+    exportToCsv('2fa-enrollment', userStatuses as unknown as Record<string, unknown>[]);
   };
 
   const handleStatsCardClick = (type: string) => {

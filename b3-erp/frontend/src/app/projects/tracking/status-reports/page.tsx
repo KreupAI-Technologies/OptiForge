@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { FileText, Search, Filter, PlusCircle, Download, Calendar, User, CheckCircle2, Clock, AlertTriangle, TrendingUp, Eye } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 type StatusReport = {
   id: string;
@@ -370,7 +371,7 @@ export default function StatusReportsPage() {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={() => exportToCsv('status-reports', filtered)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
               <Download className="h-4 w-4" />
               Export
             </button>

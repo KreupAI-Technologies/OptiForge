@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { Package, TrendingUp, AlertTriangle, CheckCircle, Plus, Filter, Download, Calendar, Edit, Eye, BarChart2, CheckSquare, XCircle, Upload, FileDown, RotateCcw, Sliders, MessageSquare, FileBarChart } from 'lucide-react';
 import {
  AddConsumptionModal,
@@ -364,7 +365,7 @@ export default function MaterialConsumptionPage() {
  };
 
  const handleExport = (data: any) => {
-  console.log('Exporting report:', data);
+  exportToCsv('material-consumption', filteredConsumptions as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
   // API call would go here
  };

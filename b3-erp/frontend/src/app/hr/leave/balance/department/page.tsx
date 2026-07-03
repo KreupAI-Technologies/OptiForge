@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Building, Search, TrendingUp, Users, Calendar, AlertCircle, Download, BarChart3 } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { mockDepartmentLeaveSummary, DepartmentLeaveSummary } from '@/data/hr/leave-balances';
+import { exportToCsv } from '@/lib/export';
 
 export default function DepartmentLeaveBalancePage() {
   const [departments] = useState<DepartmentLeaveSummary[]>(mockDepartmentLeaveSummary);
@@ -223,7 +224,7 @@ export default function DepartmentLeaveBalancePage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => console.log('Export')}
+            onClick={() => exportToCsv('department-leave-balance', filteredData)}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Download className="w-4 h-4" />

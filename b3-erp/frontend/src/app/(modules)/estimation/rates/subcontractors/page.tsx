@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import {
   Users,
   TrendingUp,
@@ -49,7 +50,7 @@ export default function SubcontractorsRatesPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting subcontractor rates')
+    exportToCsv('subcontractor-rates', subcontractorRates)
   }
 
   const handleViewHistory = (subcontractorId: string) => {

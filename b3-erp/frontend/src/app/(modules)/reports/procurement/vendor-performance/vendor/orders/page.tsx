@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,7 @@ function VendorOrdersDetailContent() {
                 { label: 'Orders' },
             ]}
             onBack={() => router.back()}
-            onExport={() => console.log('Export')}
+            onExport={() => exportToCsv('vendor-performance-orders', orders)}
         >
             <Card>
                 <CardHeader><CardTitle>Order History</CardTitle></CardHeader>

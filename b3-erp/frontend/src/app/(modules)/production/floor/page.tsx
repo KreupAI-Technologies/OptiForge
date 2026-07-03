@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Search, Filter, Download, Eye, Edit2, Pause, Users, Activity, Package, TrendingUp } from 'lucide-react'
+import { exportToCsv } from '@/lib/export'
 
 interface FloorActivity {
   id: string
@@ -191,7 +192,7 @@ const ProductionFloorPage = () => {
   const overallEfficiency = totalTarget > 0 ? ((currentOutput / totalTarget) * 100).toFixed(1) : '0.0'
 
   const handleExport = () => {
-    console.log('Exporting production floor report...')
+    exportToCsv('production-floor', filteredActivities as unknown as Record<string, unknown>[])
   }
 
   const handleView = (id: string) => {

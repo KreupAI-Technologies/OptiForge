@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Eye, Edit, Download, ChevronLeft, ChevronRight, Award, TrendingUp, Clock, CheckCircle, AlertCircle, Star } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface PerformanceReview {
   id: string;
@@ -280,7 +281,7 @@ export default function PerformancePage() {
   const departments = Array.from(new Set(reviews.map((r) => r.department)));
 
   const handleExport = () => {
-    alert('Exporting performance report...');
+    exportToCsv('performance', filteredReviews as unknown as Record<string, unknown>[]);
   };
 
   return (

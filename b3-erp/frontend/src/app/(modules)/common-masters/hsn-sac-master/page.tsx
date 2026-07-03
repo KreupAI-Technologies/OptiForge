@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { HSNSAC, getHSNSACStats } from '@/data/common-masters/hsn-sac';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -88,6 +89,7 @@ export default function HSNSACMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('hsn-sac-master', filteredData);
     showToast('Exporting HSN/SAC codes...', 'success');
   };
 

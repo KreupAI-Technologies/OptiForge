@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { PlayCircle, CheckCircle, Clock, AlertCircle, Calendar, FileText, Users, Eye, Plus, Edit, Settings, ClipboardList, MessageSquare, Upload, RefreshCw, Award, UserPlus, PlusCircle, Download, CalendarClock, Network } from 'lucide-react';
 import { ScheduleCommissioningModal, EditActivityModal, UpdateTestParametersModal, UpdateChecklistModal, AddObservationsModal, UploadDocumentsModal, UpdateStatusModal, IssueCertificateModal, AssignEngineerModal, AddTestParameterModal, GenerateReportModal, ExportDataModal, RescheduleModal, AddDependenciesModal, ViewFullDetailsModal } from '@/components/project-management/CommissioningModals';
 
@@ -444,7 +445,7 @@ export default function CommissioningPage() {
  const handleAssignEngineer = (data: any) => { console.log('Assign Engineer:', data); setShowAssignEngineerModal(false); setSelectedActivity(null); };
  const handleAddTestParameter = (data: any) => { console.log('Add Test Parameter:', data); setShowAddTestParameterModal(false); setSelectedActivity(null); };
  const handleGenerateReport = (data: any) => { console.log('Generate Report:', data); setShowGenerateReportModal(false); };
- const handleExportData = (data: any) => { console.log('Export Data:', data); setShowExportDataModal(false); };
+ const handleExportData = (data: any) => { exportToCsv('commissioning-activities', filteredActivities as unknown as Record<string, unknown>[]); setShowExportDataModal(false); };
  const handleReschedule = (data: any) => { console.log('Reschedule:', data); setShowRescheduleModal(false); setSelectedActivity(null); };
  const handleAddDependencies = (data: any) => { console.log('Add Dependencies:', data); setShowAddDependenciesModal(false); setSelectedActivity(null); };
  const openEditModal = (a: CommissioningActivity) => { setSelectedActivity(a); setShowEditModal(true); };

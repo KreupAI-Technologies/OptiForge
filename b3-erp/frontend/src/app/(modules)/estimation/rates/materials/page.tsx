@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import {
   Package,
   TrendingUp,
@@ -49,8 +50,7 @@ export default function MaterialsRatesPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting material rates')
-    // Would generate Excel/PDF export
+    exportToCsv('material-rates', materialRates)
   }
 
   const [materialRates] = useState<MaterialRate[]>([

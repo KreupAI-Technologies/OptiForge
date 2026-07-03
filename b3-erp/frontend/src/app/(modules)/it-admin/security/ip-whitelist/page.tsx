@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Shield, Plus, Trash2, CheckCircle2, XCircle, Globe, MapPin, Building, User, Clock, AlertTriangle, Download, Upload, Save } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface IPWhitelistEntry {
   id: string;
@@ -298,7 +299,7 @@ const IPWhitelistPage = () => {
   };
 
   const handleExport = () => {
-    alert('Exporting IP whitelist to CSV...');
+    exportToCsv('ip-whitelist', filteredEntries as unknown as Record<string, unknown>[]);
   };
 
   const handleSaveEntry = (e: React.FormEvent) => {

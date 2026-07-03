@@ -23,6 +23,7 @@ import {
   PieChart,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { exportToCsv } from '@/lib/export';
 
 interface Customer {
   id: string;
@@ -163,6 +164,7 @@ export default function SegmentDetailPage() {
   };
 
   const handleExportCustomers = () => {
+    exportToCsv('segment-customers', filteredCustomers as unknown as Record<string, unknown>[]);
     addToast({
       title: 'Export Started',
       message: `Exporting ${filteredCustomers.length} customers to CSV`,

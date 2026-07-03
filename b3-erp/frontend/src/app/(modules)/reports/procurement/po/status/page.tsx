@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +35,7 @@ function POStatusDetailContent() {
                 { label: status },
             ]}
             onBack={() => router.back()}
-            onExport={() => console.log('Export')}
+            onExport={() => exportToCsv('procurement-po-status', filteredOrders)}
         >
             <Card>
                 <CardHeader><CardTitle>Purchase Orders</CardTitle></CardHeader>

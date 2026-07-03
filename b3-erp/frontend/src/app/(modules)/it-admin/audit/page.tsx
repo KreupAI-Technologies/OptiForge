@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Download, Eye, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { AuditLogService, AuditLog as ServiceAuditLog } from '@/services/audit-log.service';
 
 interface AuditLog {
@@ -78,7 +79,7 @@ export default function AuditPage() {
   };
 
   const handleExport = () => {
-    showToast('Exporting audit logs report...', 'info');
+    exportToCsv('audit-logs', currentLogs as unknown as Record<string, unknown>[]);
   };
 
   const handleViewDetails = (logId: string) => {

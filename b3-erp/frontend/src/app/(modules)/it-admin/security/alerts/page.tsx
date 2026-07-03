@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Bell, AlertTriangle, Shield, Lock, Users, Activity, XCircle, CheckCircle2, Clock, Settings, Mail, Smartphone, Download, Eye, Trash2 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface SecurityAlert {
   id: string;
@@ -313,7 +314,7 @@ const SecurityAlertsPage = () => {
   };
 
   const handleExport = () => {
-    alert('Exporting security alerts report...');
+    exportToCsv('security-alerts', filteredAlerts as unknown as Record<string, unknown>[]);
   };
 
   const handleToggleRule = (ruleId: string) => {

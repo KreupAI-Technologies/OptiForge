@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, TrendingUp, Award, DollarSign, Users
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockGrades, Grade } from '@/data/common-masters/grades';
+import { exportToCsv } from '@/lib/export';
 
 export default function GradeMasterPage() {
   const [grades, setGrades] = useState<Grade[]>(mockGrades);
@@ -29,6 +30,7 @@ export default function GradeMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('grade-master', filteredData);
     showToast('Exporting grades...', 'success');
   };
 

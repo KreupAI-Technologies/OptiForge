@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { AlertCircle, Search, Filter, PlusCircle, Download, Clock, User, AlertTriangle, CheckCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface Issue {
   id: string;
@@ -440,7 +441,7 @@ export default function IssueTrackingPage() {
             />
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={() => exportToCsv('issue-tracking', filteredIssues as unknown as Record<string, unknown>[])} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
               <Download className="h-4 w-4" />
               Export
             </button>

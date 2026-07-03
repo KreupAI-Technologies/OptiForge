@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   TrendingUp,
   TrendingDown,
@@ -668,7 +669,7 @@ export default function ProfitabilityAnalysisPage() {
   };
 
   const handleExport = (format: string) => {
-    console.log('Exporting to:', format);
+    exportToCsv('profitability', filteredProjects as unknown as Record<string, unknown>[]);
     setShowExportModal(false);
   };
 

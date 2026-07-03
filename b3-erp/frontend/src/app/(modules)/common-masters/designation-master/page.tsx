@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Designation } from '@/data/common-masters/designations';
 import { hrMastersService } from '@/services/hr-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -79,7 +80,10 @@ export default function DesignationMasterPage() {
       showToast(`${designation.name} deleted successfully`, 'success');
     }
   };
-  const handleExport = () => showToast('Exporting designations data...', 'success');
+  const handleExport = () => {
+    exportToCsv('designation-master', filteredData);
+    showToast('Exporting designations data...', 'success');
+  };
 
   // Get unique filter options
   const departments = useMemo(() => {

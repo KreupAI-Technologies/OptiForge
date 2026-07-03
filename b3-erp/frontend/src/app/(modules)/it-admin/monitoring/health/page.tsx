@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Activity, Server, Database, Cpu, HardDrive, Globe, Zap, TrendingUp, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Filter, Download, Eye, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface SystemHealthMetric {
   id: string;
@@ -59,7 +60,7 @@ const SystemHealthPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting health report...', 'info');
+    exportToCsv('system-health', filteredServices as unknown as Record<string, unknown>[]);
   };
 
   const handleRefresh = () => {

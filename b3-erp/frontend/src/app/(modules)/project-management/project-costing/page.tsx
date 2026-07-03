@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, BarChart3, Eye, Download, Plus, Edit, Calculator, Target, Users, PieChart, FileText, History, Lock, Filter } from 'lucide-react';
 import {
  CostBreakdownModal,
@@ -386,7 +387,7 @@ export default function ProjectCostingPage() {
  };
 
  const handleExport = (format: string) => {
-  console.log('Exporting to:', format);
+  exportToCsv('project-costing', filteredProjects as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

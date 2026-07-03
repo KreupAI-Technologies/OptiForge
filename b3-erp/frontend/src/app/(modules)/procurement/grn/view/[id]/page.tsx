@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 import {
   Package,
   FileText,
@@ -711,11 +712,11 @@ const GRNViewPage = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    printCurrentView();
   };
 
   const handleExport = () => {
-    alert('Export functionality will be implemented');
+    exportToCsv('grn-line-items', (grnData?.line_items ?? []) as unknown as Record<string, unknown>[]);
   };
 
   if (loading) {

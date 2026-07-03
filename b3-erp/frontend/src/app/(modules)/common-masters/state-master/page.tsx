@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, CheckCircle, XCircle, AlertCircle } 
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockStates, State } from '@/data/common-masters/states';
+import { exportToCsv } from '@/lib/export';
 
 export default function StateMasterPage() {
   const [states, setStates] = useState<State[]>(mockStates);
@@ -47,8 +48,8 @@ export default function StateMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('state-master', filteredData);
     showToast('Exporting states data...', 'success');
-    // TODO: Implement export functionality
   };
 
   // Get unique countries and zones

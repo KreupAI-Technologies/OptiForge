@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Users, Save, Download, Upload, Search, Filter, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface EmployeePunch {
   id: string;
@@ -172,8 +173,7 @@ export default function BulkPunchPage() {
   };
 
   const handleExport = () => {
-    // TODO: Export to Excel/CSV
-    alert('Exporting punch data...');
+    exportToCsv('bulk-punch', filteredData);
   };
 
   const handleImport = () => {

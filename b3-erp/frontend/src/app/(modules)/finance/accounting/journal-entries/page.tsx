@@ -9,6 +9,7 @@ import {
   Activity, Archive, FileCheck, AlertCircle, BookOpen, Hash,
   User, XCircle, Check, Loader
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { JournalService } from '@/services/journal.service';
 
 // TypeScript Interfaces
@@ -190,8 +191,7 @@ export default function JournalEntriesPage() {
   };
 
   const handleExport = () => {
-    console.log('Exporting journal entries...');
-    alert('Export functionality will download Excel/PDF file');
+    exportToCsv('journal-entries', filteredEntries as unknown as Record<string, unknown>[]);
   };
 
   return (

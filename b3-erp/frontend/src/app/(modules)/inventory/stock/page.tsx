@@ -9,6 +9,7 @@ import {
 } from '@/components/inventory/InventoryStockModals';
 import { ExportStockDataModal, ExportStockDataConfig } from '@/components/inventory/InventoryExportModals';
 import { inventoryService, StockBalance } from '@/services/InventoryService';
+import { exportToCsv } from '@/lib/export';
 
 interface StockItem {
   id: string;
@@ -161,10 +162,8 @@ export default function StockPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = (config: ExportStockDataConfig) => {
-    console.log('Exporting stock data with config:', config);
-    // TODO: Implement actual export functionality
-    alert(`Export started: ${config.exportType} as ${config.format}`);
+  const handleExportSubmit = (_config: ExportStockDataConfig) => {
+    exportToCsv('stock', filteredItems as unknown as Record<string, unknown>[]);
   };
 
   // Convert page StockItem to modal StockItem format

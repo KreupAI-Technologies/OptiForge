@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { PieChart, Search, Filter, Download, TrendingUp, User, Briefcase, Clock, AlertTriangle, Users, DollarSign, Activity } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 type ResourceUtilization = {
   id: string;
@@ -407,7 +408,7 @@ export default function ResourceUtilizationPage() {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
+            <button onClick={() => exportToCsv('resource-utilization', filtered)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
               <Download className="h-4 w-4" />
               Export Report
             </button>

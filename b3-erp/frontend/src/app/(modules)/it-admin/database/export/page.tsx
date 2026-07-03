@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Database, CheckSquare, Square, Filter, Calendar, FileSpreadsheet, FileJson, FileCode } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ExportTemplate {
   id: string;
@@ -136,15 +137,7 @@ export default function DatabaseExportPage() {
   };
 
   const handleExport = () => {
-    const selectedTables = tables.filter(t => t.selected);
-    console.log('Exporting:', {
-      format: selectedFormat,
-      tables: selectedTables,
-      dateRange,
-      includeSchema,
-      includeData,
-      compression
-    });
+    exportToCsv('database-export', filteredTables as unknown as Record<string, unknown>[]);
   };
 
   const filteredTables = selectedCategory === 'All'

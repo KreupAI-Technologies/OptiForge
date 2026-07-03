@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Users, Monitor, Smartphone, Clock, MapPin, XCircle, Shield, AlertTriangle, RefreshCw, Settings, Download, Trash2, Eye } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ActiveSession {
   id: string;
@@ -282,7 +283,7 @@ const SessionManagementPage = () => {
   };
 
   const handleExport = () => {
-    alert('Exporting session data...');
+    exportToCsv('active-sessions', filteredSessions as unknown as Record<string, unknown>[]);
   };
 
   const handleSaveSettings = () => {

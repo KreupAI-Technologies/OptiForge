@@ -3,6 +3,7 @@
 import React from 'react';
 import { ArrowLeft, Edit, Copy, Download, Trash2, Calendar, User, Hash, TrendingUp } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 
 // Mock data - would come from API
 const templateData = {
@@ -145,8 +146,7 @@ export default function ViewBOQTemplate() {
   };
 
   const handleExport = () => {
-    console.log('Exporting template:', templateData.name);
-    // Would trigger Excel/PDF download
+    exportToCsv(`boq-template-${templateData.templateCode}`, templateData.items);
   };
 
   const handleDelete = () => {

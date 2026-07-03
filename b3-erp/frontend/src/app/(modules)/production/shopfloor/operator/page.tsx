@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, Users, Clock, Award, TrendingUp, AlertCircle, CheckCircle, Package } from 'lucide-react';
 import { OperatorDetailModal, OperatorDetail } from '@/components/shopfloor/ShopFloorDetailModals';
+import { exportToCsv } from '@/lib/export';
 import { OperatorExportModal, OperatorExportConfig } from '@/components/shopfloor/ShopFloorExportModals';
 
 interface Operator {
@@ -399,14 +400,7 @@ export default function ShopFloorOperatorPage() {
   };
 
   const handleExportSubmit = (config: OperatorExportConfig) => {
-    console.log('Exporting operator data:', config);
-    // TODO: Implement export API call
-    // Example API call:
-    // fetch('/api/shopfloor/operators/export', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(config),
-    // })
+    exportToCsv('operators', filteredOperators as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

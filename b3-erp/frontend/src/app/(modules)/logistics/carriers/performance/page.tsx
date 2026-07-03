@@ -19,6 +19,7 @@ import {
     Award,
     XCircle
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import {
     BarChart,
     Bar,
@@ -197,7 +198,7 @@ export default function CarrierPerformancePage() {
                         <option value="6months">Last 6 Months</option>
                         <option value="1year">Last Year</option>
                     </select>
-                    <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
+                    <button onClick={() => exportToCsv('carrier-performance', sortedCarriers)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
                         <Download className="w-4 h-4" /> Export Report
                     </button>
                 </div>

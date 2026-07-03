@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, FileText, Calendar, DollarSign, TrendingUp, Send, CheckCircle, Clock, Download, ChevronLeft, ChevronRight, User, Percent, Loader2, AlertCircle } from 'lucide-react';
 import { quotationService, Quotation as ServiceQuotation } from '@/services/quotation.service';
+import { exportToCsv } from '@/lib/export';
 
 interface Quotation {
   id: string;
@@ -132,7 +133,7 @@ export default function QuotationsPage() {
   };
 
   const handleExport = () => {
-    console.log('Exporting quotations data...');
+    exportToCsv('quotations', filteredQuotations as unknown as Record<string, unknown>[]);
   };
 
   const handleSendQuote = (id: string) => {

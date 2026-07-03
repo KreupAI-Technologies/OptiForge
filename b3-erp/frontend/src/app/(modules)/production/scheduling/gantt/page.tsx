@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -300,8 +301,7 @@ export default function GanttChartPage() {
   };
 
   const handleExport = () => {
-    console.log('Exporting Gantt Chart...');
-    alert('Exporting Gantt Chart as PDF...');
+    exportToCsv('gantt-schedule', filteredTasks as unknown as Record<string, unknown>[]);
   };
 
   // Summary stats

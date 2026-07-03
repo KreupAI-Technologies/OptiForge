@@ -15,6 +15,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { RFPService } from '@/services/rfp.service';
 import { RFP as ServiceRFP, RFPStatus } from '@/types/rfp';
 
@@ -163,7 +164,7 @@ export default function RFPPage() {
   };
 
   const handleExport = () => {
-    console.log('Exporting RFP report...');
+    exportToCsv('rfp', filteredRFPs as unknown as Record<string, unknown>[]);
   };
 
   const handleView = (id: string) => {

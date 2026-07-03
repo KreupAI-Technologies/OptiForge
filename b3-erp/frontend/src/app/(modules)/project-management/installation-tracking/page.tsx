@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { Wrench, CheckCircle, Clock, AlertTriangle, TrendingUp, Calendar, Users, Eye, Plus, Edit, Upload, Package, Link, FileText, Download } from 'lucide-react';
 import {
  AddInstallationActivityModal,
@@ -576,7 +577,7 @@ export default function InstallationTrackingPage() {
  };
 
  const handleExportData = (data: any) => {
-  console.log('Exporting data:', data);
+  exportToCsv('installation-tracking', filteredActivities as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

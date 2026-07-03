@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { CustomerCategory, getCustomerCategoryStats } from '@/data/common-masters/customer-categories';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -93,6 +94,7 @@ export default function CustomerCategoryMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('customer-category-master', filteredData);
     showToast('Exporting customer categories data...', 'success');
   };
 

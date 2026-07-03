@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Country } from '@/data/common-masters/countries';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function CountryMasterPage() {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -203,8 +204,8 @@ export default function CountryMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('country-master', filteredData);
     showToast('Exporting countries data...', 'success');
-    // TODO: Implement export functionality
   };
 
   const handleAddCountry = () => {

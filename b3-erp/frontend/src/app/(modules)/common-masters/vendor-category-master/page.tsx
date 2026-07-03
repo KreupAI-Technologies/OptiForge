@@ -8,6 +8,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { VendorCategory, getVendorCategoryStats } from '@/data/common-masters/vendor-categories';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -101,6 +102,7 @@ export default function VendorCategoryMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('vendor-category-master', filteredData);
     showToast('Exporting vendor categories data...', 'success');
   };
 

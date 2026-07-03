@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import {
  Flag,
  Plus,
@@ -136,7 +137,7 @@ export default function MilestoneTemplatesPage() {
  };
 
  const handleExportSave = (data: any) => {
-  console.log('Export template:', data);
+  exportToCsv('milestone-templates', filteredTemplates as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
   setSelectedTemplate(null);
  };

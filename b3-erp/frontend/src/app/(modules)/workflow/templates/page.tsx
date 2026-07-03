@@ -8,6 +8,7 @@ import {
   AlertCircle, ChevronLeft, ChevronRight, Settings, Download,
   Upload, Filter, Calendar, Tag, BarChart3, Activity
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { WorkflowService } from '@/services/workflow.service';
 
 interface WorkflowTemplate {
@@ -183,7 +184,10 @@ export default function WorkflowTemplatesPage() {
         setSelectedTemplates([]);
         break;
       case 'export':
-        alert('Exporting selected templates...');
+        exportToCsv(
+          'workflow-templates',
+          filteredTemplates.filter((t) => selectedTemplates.includes(t.id)) as unknown as Record<string, unknown>[],
+        );
         break;
     }
   };

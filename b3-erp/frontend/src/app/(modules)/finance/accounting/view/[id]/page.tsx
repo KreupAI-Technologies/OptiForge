@@ -8,6 +8,7 @@ import {
   TrendingUp, ArrowUpCircle, ArrowDownCircle, Activity, FileCheck,
   Shield, Eye, Printer, Mail, Share2, Archive, Info, ChevronRight
 } from 'lucide-react';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 
 // TypeScript Interfaces
 interface JournalLine {
@@ -204,13 +205,12 @@ export default function GLEntryViewPage() {
     setShowReverseModal(false);
   };
 
-  const handleExport = (format: 'pdf' | 'excel') => {
-    console.log('Exporting entry as', format);
-    alert(`Exporting entry as ${format.toUpperCase()}...`);
+  const handleExport = (_format: 'pdf' | 'excel') => {
+    exportToCsv(`journal-entry-${entryId}`, entry.journalLines as unknown as Record<string, unknown>[]);
   };
 
   const handlePrint = () => {
-    window.print();
+    printCurrentView();
   };
 
   const handleEmail = () => {

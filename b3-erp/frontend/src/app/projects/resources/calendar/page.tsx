@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Calendar, Search, Filter, Download, PlusCircle, Users, Clock, AlertTriangle, CheckCircle2, User, Briefcase } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 type ResourceEvent = {
   id: string;
@@ -458,7 +459,7 @@ export default function ResourceCalendarPage() {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={() => exportToCsv('resource-calendar', filtered)} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
               <Download className="h-4 w-4" />
               Export
             </button>

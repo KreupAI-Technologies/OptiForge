@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   ArrowLeft,
   Search,
@@ -318,9 +319,8 @@ export default function BOMCostingPage() {
     setIsRecalculateOpen(false);
   };
 
-  const handleExportSubmit = (config: any) => {
-    console.log('Export config:', config);
-    // TODO: Implement API call to export costing report
+  const handleExportSubmit = (_config: any) => {
+    exportToCsv('bom-costing', filteredComponents as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

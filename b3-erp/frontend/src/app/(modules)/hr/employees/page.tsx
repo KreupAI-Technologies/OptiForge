@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, User, Users, Briefcase, Calendar, Mail, Phone, MapPin, TrendingUp, Download, ChevronLeft, ChevronRight, Award, Clock, Loader2 } from 'lucide-react';
 import { ExportEmployeesModal } from '@/components/hr/EmployeeDirectoryModals';
+import { exportToCsv } from '@/lib/export';
 import {
   EmployeeService,
   Employee as EmployeeModel,
@@ -469,13 +470,9 @@ export default function EmployeesPage() {
       <ExportEmployeesModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onExport={(data: any) => {
-          console.log('Exporting employees with config:', data);
+        onExport={() => {
+          exportToCsv('employees', filteredEmployees as unknown as Record<string, unknown>[]);
           setIsExportModalOpen(false);
-
-          // Simulate export
-          const filename = `employees_export_${new Date().toISOString().split('T')[0]}.${data.format}`;
-          alert(`Employee data exported successfully!\n\nFile: ${filename}\nFormat: ${data.format.toUpperCase()}\nScope: ${data.scope}\nFields: ${Object.values(data.includeFields).filter(Boolean).length} of 6`);
         }}
       />
     </div>

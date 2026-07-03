@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, ShoppingCart, Package, Clock, CheckCircle, DollarSign, Calendar, TrendingUp, ChevronLeft, ChevronRight, Download, FileText, AlertCircle } from 'lucide-react';
 import { purchaseOrderService } from '@/services/purchase-order.service';
+import { exportToCsv } from '@/lib/export';
 
 interface PurchaseOrder {
   id: string;
@@ -297,7 +298,10 @@ export default function PurchaseOrdersPage() {
           <option value="high">High</option>
           <option value="urgent">Urgent</option>
         </select>
-        <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+        <button
+          onClick={() => exportToCsv('purchase-orders', filteredPOs as unknown as Record<string, unknown>[])}
+          className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
           <Download className="h-4 w-4" />
           <span>Export</span>
         </button>

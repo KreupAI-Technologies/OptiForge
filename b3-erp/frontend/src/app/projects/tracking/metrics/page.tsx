@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { BarChart3, Search, Filter, Download, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Target, Activity } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar, Legend, Area, AreaChart } from 'recharts';
+import { exportToCsv } from '@/lib/export';
 
 type ProjectMetric = {
   id: string;
@@ -191,7 +192,7 @@ export default function PerformanceMetricsPage() {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
+            <button onClick={() => exportToCsv('performance-metrics', filtered)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
               <Download className="h-4 w-4" />
               Export
             </button>

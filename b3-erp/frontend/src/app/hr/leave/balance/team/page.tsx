@@ -6,6 +6,7 @@ import { Users, Search, Filter, X, Download, Calendar, AlertCircle, TrendingUp, 
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockTeamLeaveSummary, TeamMemberLeaveSummary } from '@/data/hr/leave-balances';
+import { exportToCsv } from '@/lib/export';
 
 export default function TeamLeaveBalancePage() {
   const router = useRouter();
@@ -281,7 +282,7 @@ export default function TeamLeaveBalancePage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => console.log('Export')}
+            onClick={() => exportToCsv('team-leave-balance', filteredData)}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Download className="w-4 h-4" />

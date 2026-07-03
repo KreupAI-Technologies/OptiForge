@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   ArrowLeft,
   Search,
@@ -379,15 +380,7 @@ export default function CompletedWorkOrdersPage() {
   const underBudget = completedOrders.filter(o => o.costVariance <= 0).length;
 
   const handleExportReport = () => {
-    const report = {
-      totalOrders: totalCompleted,
-      avgSuccessRate: avgSuccessRate.toFixed(1),
-      onTimeDelivery,
-      underBudget,
-      orders: filteredOrders.length,
-    };
-    console.log('Exporting completed work orders report:', report);
-    alert(`Exporting Completed Work Orders Report!\n\nTotal Orders: ${totalCompleted}\nAvg Success Rate: ${avgSuccessRate.toFixed(1)}%\nOn-Time Delivery: ${onTimeDelivery} (${((onTimeDelivery / totalCompleted) * 100).toFixed(0)}%)\nUnder Budget: ${underBudget} (${((underBudget / totalCompleted) * 100).toFixed(0)}%)\n\nExport format: Excel with detailed analytics`);
+    exportToCsv('completed-work-orders', filteredOrders as unknown as Record<string, unknown>[]);
   };
 
   const handleViewDetails = (workOrderId: string) => {

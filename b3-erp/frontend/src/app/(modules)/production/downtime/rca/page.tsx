@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, AlertTriangle, CheckCircle, Clock, FileText, Users, Plus } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import {
   CreateRCAModal, ViewRCADetailsModal, AddRootCauseModal,
   AddCorrectiveActionModal, AddPreventiveActionModal,
@@ -549,9 +550,8 @@ export default function DowntimeRCAPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = async (config: ExportRCAConfig): Promise<void> => {
-    console.log('Exporting RCA:', config);
-    // TODO: Implement API call
+  const handleExportSubmit = async (_config: ExportRCAConfig): Promise<void> => {
+    exportToCsv('downtime-rca', filteredInvestigations as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

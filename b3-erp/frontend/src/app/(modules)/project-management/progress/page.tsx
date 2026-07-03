@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import {
  Calendar,
  Plus,
@@ -252,7 +253,7 @@ export default function DailyProgressPage() {
  };
 
  const handleExportProgress = (data: any) => {
-  console.log('Export progress:', data);
+  exportToCsv('progress-entries', entries as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

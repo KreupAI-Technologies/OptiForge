@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { RunMRPModal, ExportMPSModal, AdjustPlanModal } from '@/components/production/MPSModals';
+import { exportToCsv } from '@/lib/export';
 import {
   Calendar,
   TrendingUp,
@@ -534,13 +535,7 @@ const ProductionPlanningPage = () => {
   };
 
   const handleExport = (format: string, options: any) => {
-    console.log('Exporting MPS as:', format, 'with options:', options);
-    alert(`Exporting Master Production Schedule as ${format.toUpperCase()}!\n\nIncluded data:\n${
-      options.includeGrossReq ? '✓ Gross Requirements\n' : ''
-    }${options.includeNetReq ? '✓ Net Requirements\n' : ''
-    }${options.includeProjectedInv ? '✓ Projected Available\n' : ''
-    }${options.includePlannedOrders ? '✓ Planned Order Releases\n' : ''
-    }${options.includeATP ? '✓ Available-to-Promise\n' : ''}`);
+    exportToCsv('master-production-schedule', filteredProducts as unknown as Record<string, unknown>[]);
   };
 
   const handleAdjustPlan = (adjustments: any) => {

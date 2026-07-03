@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Operation, getOperationStats } from '@/data/common-masters/operations';
 import { manufacturingMastersService, Operation as BackendOperation } from '@/services/manufacturing-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function OperationMasterPage() {
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -80,6 +81,7 @@ export default function OperationMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('operation-master', filteredData);
     showToast('Exporting operations data...', 'success');
   };
 

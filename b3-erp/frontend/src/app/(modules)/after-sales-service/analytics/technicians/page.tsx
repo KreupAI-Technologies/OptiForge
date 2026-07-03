@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Search, Filter, Users, Star, TrendingUp, Calendar, MapPin, CheckCircle, Award, BarChart3, Download, X, Clock, Wrench, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportToCsv } from '@/lib/export';
 
 interface Technician {
   id: string;
@@ -252,6 +253,7 @@ export default function TechniciansAnalyticsPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('technician-analytics', filteredTechnicians);
     toast({
       title: "Report Exported",
       description: "Technician analytics report has been exported successfully.",

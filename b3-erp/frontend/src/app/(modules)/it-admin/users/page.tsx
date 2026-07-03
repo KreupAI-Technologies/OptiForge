@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Download, Eye, Edit, Key, RefreshCw } from 'lucide-react';
 import { UserManagementService, User as ServiceUser } from '@/services/user-management.service';
+import { exportToCsv } from '@/lib/export';
 
 interface User {
   id: string;
@@ -98,7 +99,7 @@ export default function UsersPage() {
   };
 
   const handleExport = () => {
-    console.log('Exporting users report...');
+    exportToCsv('users', currentUsers as unknown as Record<string, unknown>[]);
   };
 
   const handleView = (userId: string) => {

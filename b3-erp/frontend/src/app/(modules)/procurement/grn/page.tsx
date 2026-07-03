@@ -37,6 +37,7 @@ import {
   type GRNData
 } from '@/components/procurement/GRNModals'
 import { goodsReceiptService, GoodsReceipt as GRServiceType, GRStatus } from '@/services/goods-receipt.service'
+import { exportToCsv } from '@/lib/export'
 
 interface GRN {
   id: string
@@ -744,8 +745,8 @@ export default function ProcurementGRNPage() {
       <ExportGRNsModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onSubmit={(options: any) => {
-          console.log('Exporting GRNs with options:', options)
+        onSubmit={(_options: any) => {
+          exportToCsv('goods-receipt-notes', filteredGRNs as unknown as Record<string, unknown>[])
           setIsExportModalOpen(false)
         }}
       />

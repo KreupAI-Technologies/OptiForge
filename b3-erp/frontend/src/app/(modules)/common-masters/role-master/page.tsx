@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, Shield, Users, CheckCircle, XCircle,
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { systemMastersService, Role } from '@/services/system-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function RoleMasterPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -46,6 +47,7 @@ export default function RoleMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('role-master', filteredData);
     showToast('Exporting roles data...', 'success');
   };
 

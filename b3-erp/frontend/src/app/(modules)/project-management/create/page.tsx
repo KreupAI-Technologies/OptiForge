@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
     Save,
     X,
@@ -269,8 +270,7 @@ export default function CreateProjectPage() {
     };
 
     const handleExportTemplate = (data: any) => {
-        console.log('Exporting template:', data);
-        // API call would go here
+        exportToCsv('project-template', selectedTemplate ? [selectedTemplate] : []);
         setShowExportTemplateModal(false);
         setSelectedTemplate(null);
     };

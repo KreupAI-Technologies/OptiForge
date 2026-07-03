@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { commonMastersService } from '@/services/common-masters.service';
 import { ExchangeRate, getExchangeRateStats } from '@/data/common-masters/exchange-rates';
+import { exportToCsv } from '@/lib/export';
 
 export default function ExchangeRateMasterPage() {
   const [exchangeRates, setExchangeRates] = useState<any[]>([]);
@@ -60,6 +61,7 @@ export default function ExchangeRateMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('exchange-rate-master', filteredData);
     showToast('Exporting exchange rates...', 'success');
   };
 

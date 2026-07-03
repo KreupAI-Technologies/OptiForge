@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   Users,
   Plus,
@@ -212,7 +213,7 @@ export default function AllocationMatrixPage() {
   };
 
   const handleExport = (data: any) => {
-    console.log('Export:', data);
+    exportToCsv('resource-allocation', filteredResources as unknown as Record<string, unknown>[]);
     setShowExportModal(false);
   };
 

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Package, Truck, MapPin, Calendar, CheckCircle, Clock, AlertTriangle, Download, User, AlertCircle } from 'lucide-react';
 import { shipmentService } from '@/services/shipment.service';
+import { exportToCsv } from '@/lib/export';
 
 interface OutboundShipment {
   id: string;
@@ -146,7 +147,7 @@ export default function OutboundShippingPage() {
             <p className="text-sm text-gray-500 mt-1">Manage and track customer order shipments</p>
           </div>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button onClick={() => exportToCsv('outbound-shipments', filteredShipments)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
           <Download className="w-4 h-4" />
           <span>Export Report</span>
         </button>

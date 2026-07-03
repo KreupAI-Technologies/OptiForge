@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   Building2,
   TrendingUp,
@@ -602,7 +603,7 @@ const VendorManagementDashboard = () => {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => alert('Export report functionality')}
+                onClick={() => exportToCsv('vendor-management', filteredVendors as unknown as Record<string, unknown>[])}
                 className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Download className="w-4 h-4" />

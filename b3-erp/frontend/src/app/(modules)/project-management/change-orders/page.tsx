@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { FileEdit, Plus, CheckCircle, Clock, XCircle, AlertTriangle, DollarSign, Calendar, Eye, Download, Edit, History, Upload, TrendingUp, Settings, Users, BarChart3 } from 'lucide-react';
 import {
  CreateChangeOrderModal,
@@ -448,8 +449,7 @@ export default function ChangeOrdersPage() {
  };
 
  const handleExport = (format: string, options: any) => {
-  console.log('Exporting:', format, options);
-  // Implementation would go here
+  exportToCsv('change-orders', filteredOrders as unknown as Record<string, unknown>[]);
  };
 
  const handleSendNotification = (data: any) => {

@@ -19,6 +19,7 @@ import {
   SalarySlipStatus,
   PaymentMethod
 } from '@/services/payroll.service'
+import { exportToCsv } from '@/lib/export'
 
 interface PayrollRecord {
   id: string
@@ -161,7 +162,7 @@ export default function PayrollPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting payroll report...')
+    exportToCsv('payroll', filteredData as unknown as Record<string, unknown>[])
   }
 
   const handleView = (id: string) => {

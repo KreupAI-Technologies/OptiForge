@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { MapPin, Camera, Ruler, CheckCircle, AlertTriangle, Clock, Plus, Download, Eye, Edit, FileText, Upload, Image, FileCode, ClipboardList, MessageSquare, TrendingUp, FileSpreadsheet, Filter } from 'lucide-react';
 import {
  ScheduleSurveyModal,
@@ -506,7 +507,7 @@ export default function SiteSurveyPage() {
  };
 
  const handleExportData = (data: any) => {
-  console.log('Export Data:', data);
+  exportToCsv('site-survey', filteredSurveys as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

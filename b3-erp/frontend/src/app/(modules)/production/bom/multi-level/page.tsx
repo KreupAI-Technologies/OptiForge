@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 import {
   ArrowLeft,
   Search,
@@ -421,15 +422,13 @@ export default function MultiLevelBOMPage() {
     setIsPrintOpen(true);
   };
 
-  const handleExportSubmit = (config: any) => {
-    console.log('Export configuration:', config);
-    // TODO: Implement export API call
+  const handleExportSubmit = (_config: any) => {
+    exportToCsv('bom-multi-level', bomStructure as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 
-  const handlePrintSubmit = (config: any) => {
-    console.log('Print configuration:', config);
-    // TODO: Implement print API call
+  const handlePrintSubmit = (_config: any) => {
+    printCurrentView();
     setIsPrintOpen(false);
   };
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { exportToCsv } from '@/lib/export';
 import {
  Search,
  Plus,
@@ -568,7 +569,7 @@ export default function WBSPage() {
  };
 
  const handleExport = (options: any) => {
-  console.log('Exporting WBS:', options);
+  exportToCsv('wbs', mockWBS as unknown as Record<string, unknown>[]);
   setShowExport(false);
  };
 

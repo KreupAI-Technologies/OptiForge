@@ -21,6 +21,7 @@ import {
     Building2,
     AlertCircle
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 // Mock Contract Data
 const contractStats = {
@@ -180,7 +181,7 @@ export default function CarrierContractsPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="px-4 py-2 border border-gray-200 bg-white text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <button onClick={() => exportToCsv('carrier-contracts', filteredContracts)} className="px-4 py-2 border border-gray-200 bg-white text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-colors flex items-center gap-2">
                         <Download className="w-4 h-4" /> Export
                     </button>
                     <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">

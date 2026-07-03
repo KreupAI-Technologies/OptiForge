@@ -20,6 +20,7 @@ import {
   StockItem, LowStockItem as LowStockItemModal, QuickAdjustmentData
 } from '@/components/inventory/InventoryStockModals';
 import { ExportStockDataModal, ExportStockDataConfig } from '@/components/inventory/InventoryExportModals';
+import { exportToCsv } from '@/lib/export';
 
 interface LowStockItem {
   id: number;
@@ -316,10 +317,8 @@ export default function LowStockPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = (config: ExportStockDataConfig) => {
-    console.log('Exporting low stock data:', config);
-    // TODO: Implement API call with exportType: 'low-stock'
-    alert(`Export initiated: ${config.format.toUpperCase()} format`);
+  const handleExportSubmit = (_config: ExportStockDataConfig) => {
+    exportToCsv('low-stock', filteredItems as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

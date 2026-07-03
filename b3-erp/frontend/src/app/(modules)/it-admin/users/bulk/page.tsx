@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, Download, Trash2, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface BulkUserData {
   firstName: string;
@@ -101,8 +102,7 @@ export default function BulkUsersPage() {
   const handleExport = async () => {
     setIsProcessing(true);
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // Trigger download
-    console.log('Exporting users...');
+    exportToCsv('bulk-users', uploadData as unknown as Record<string, unknown>[]);
     setIsProcessing(false);
   };
 

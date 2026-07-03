@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, ShoppingCart, User, Calendar, DollarSign, TrendingUp, Package, Truck, CheckCircle, Clock, Download, ChevronLeft, ChevronRight, AlertCircle, Loader2 } from 'lucide-react';
 import { salesOrderService, SalesOrder as ServiceSalesOrder } from '@/services/sales-order.service';
+import { exportToCsv } from '@/lib/export';
 
 interface SalesOrder {
   id: string;
@@ -146,7 +147,7 @@ export default function SalesOrdersPage() {
   };
 
   const handleExport = () => {
-    console.log('Exporting sales orders data...');
+    exportToCsv('sales-orders', filteredOrders as unknown as Record<string, unknown>[]);
   };
 
   if (loading) {

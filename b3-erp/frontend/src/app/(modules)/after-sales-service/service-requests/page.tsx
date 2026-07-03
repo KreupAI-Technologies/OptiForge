@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, AlertTriangle, CheckCircle, Clock, XCircle, ArrowUpCircle, User, Calendar, Download, Filter, X, UserCheck, MessageSquare, Phone, Mail, MapPin, Package, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportToCsv } from '@/lib/export';
 import { ServiceRequestService, ServiceRequest, ServiceRequestStatus } from '@/services/service-request.service';
 
 const priorityColors = {
@@ -195,6 +196,7 @@ export default function ServiceRequestsPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('service-requests', filteredRequests);
     toast({
       title: "Export Started",
       description: "Service requests are being exported to CSV format."

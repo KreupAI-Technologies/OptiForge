@@ -30,6 +30,7 @@ import {
   Proposal,
   ProposalSection as ProposalSectionType
 } from '@/components/cpq/ProposalBuilderModals'
+import { exportToCsv } from '@/lib/export'
 
 interface ProposalSection {
   id: string
@@ -155,8 +156,7 @@ export default function CPQProposalsBuilderPage() {
   }
 
   const handleExportPDF = (settings: any) => {
-    console.log('Exporting PDF:', settings)
-    // Add export logic here
+    exportToCsv('proposal-builder', sections)
   }
 
   const handleSaveDraft = (data: any) => {

@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react'
 import { AddQuoteModal, ViewQuoteDetailsModal, ItemComparisonModal, ExportComparisonModal } from '@/components/cpq/QuoteComparisonModals'
+import { exportToCsv } from '@/lib/export'
 
 interface QuoteForComparison {
   id: string
@@ -132,7 +133,7 @@ export default function CPQQuotesComparisonPage() {
       a.click()
       window.URL.revokeObjectURL(url)
     } else {
-      alert(`Export to ${format.toUpperCase()} will be implemented with backend integration`)
+      exportToCsv(`quote-comparison-${format}`, selectedQuoteObjects)
     }
   }
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Search, Filter, Download, Eye, Edit2, CheckCircle as CheckIcon, ClipboardCheck, XCircle, AlertTriangle, TrendingUp } from 'lucide-react'
 import { ViewInspectionModal, EditInspectionModal, ApproveInspectionModal, type Inspection } from '@/components/quality/QualityModals'
 import { ExportInspectionReportModal } from '@/components/quality/QualityExportModals'
+import { exportToCsv } from '@/lib/export'
 
 interface QualityInspection {
   id: string
@@ -281,14 +282,8 @@ const ProductionQualityPage = () => {
     setSelectedInspection(null)
   }
 
-  const handleExportSubmit = (data: any) => {
-    // TODO: Replace with actual API call
-    // await fetch('/api/quality/inspections/export', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(data)
-    // });
-    console.log('Export inspection report:', data)
+  const handleExportSubmit = (_data: any) => {
+    exportToCsv('quality-inspections', filteredInspections as unknown as Record<string, unknown>[])
   }
 
   return (

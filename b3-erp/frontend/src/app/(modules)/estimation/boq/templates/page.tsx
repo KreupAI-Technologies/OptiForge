@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Plus, FileText, Copy, Edit, Trash2, Download, Eye, CheckCircle, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 
 interface BOQTemplate {
   id: string
@@ -51,8 +52,7 @@ export default function BOQTemplatesPage() {
   }
 
   const handleExportTemplate = (template: BOQTemplate) => {
-    console.log('Exporting template:', template.name)
-    // Would trigger download of Excel/PDF file
+    exportToCsv(`boq-template-${template.templateCode}`, template.items)
   }
 
   const [templates] = useState<BOQTemplate[]>([

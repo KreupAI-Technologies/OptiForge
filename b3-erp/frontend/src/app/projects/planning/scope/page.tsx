@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Target, Search, Filter, PlusCircle, CheckCircle, XCircle, AlertCircle, Download } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ScopeItem {
   id: string;
@@ -410,7 +411,7 @@ export default function ScopeManagementPage() {
             />
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={() => exportToCsv('scope-management', filteredItems as unknown as Record<string, unknown>[])} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
               <Download className="h-4 w-4" />
               Export
             </button>

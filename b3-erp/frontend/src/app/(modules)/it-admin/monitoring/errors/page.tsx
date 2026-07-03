@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AlertTriangle, XCircle, Bug, Code, Server, Database, Globe, Filter, Download, Eye, Search, Calendar, TrendingUp, CheckCircle2, CheckCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ErrorLog {
   id: string;
@@ -55,7 +56,7 @@ const ErrorMonitoringPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting error logs report...', 'info');
+    exportToCsv('error-logs', filteredErrors as unknown as Record<string, unknown>[]);
   };
 
   const handleViewDetails = (errorId: string) => {

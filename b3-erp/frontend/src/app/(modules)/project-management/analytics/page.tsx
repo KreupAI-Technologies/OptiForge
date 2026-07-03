@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Clock, CheckCircle, AlertTriangle, Users, Package, Target, Settings, Calendar, Download, Target as TargetIcon, GitCompare, Bell, Send, Share2, Bookmark } from 'lucide-react';
 import {
  CustomDashboardModal,
@@ -179,7 +180,7 @@ export default function ProjectAnalyticsPage() {
  };
 
  const handleExportAnalytics = (exportConfig: any) => {
-  console.log('Export Config:', exportConfig);
+  exportToCsv('project-analytics', projects as unknown as Record<string, unknown>[]);
   setIsExportAnalyticsModalOpen(false);
  };
 

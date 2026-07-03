@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockLeaveTypes, LeaveType } from '@/data/hr/leave-types';
 import { AddLeaveTypeModal } from '@/components/hr/AddLeaveTypeModal';
+import { exportToCsv } from '@/lib/export';
 
 export default function LeaveTypesPage() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(mockLeaveTypes);
@@ -232,7 +233,7 @@ export default function LeaveTypesPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => console.log('Export')}
+            onClick={() => exportToCsv('leave-types', filteredData)}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Download className="w-4 h-4" />

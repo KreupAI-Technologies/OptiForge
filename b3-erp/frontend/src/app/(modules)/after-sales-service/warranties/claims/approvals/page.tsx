@@ -29,6 +29,7 @@ import {
   ChevronRight,
   Edit
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ClaimApproval {
   id: string;
@@ -559,6 +560,7 @@ const ClaimsApprovalsPage = () => {
             All Claims
           </button>
           <button
+            onClick={() => exportToCsv('warranty-claim-approvals', filteredClaims)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Download className="h-4 w-4" />

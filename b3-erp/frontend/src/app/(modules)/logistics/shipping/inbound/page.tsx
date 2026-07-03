@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Package, Truck, MapPin, Calendar, CheckCircle, Clock, AlertTriangle, Download, Filter } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface InboundShipment {
   id: string;
@@ -195,7 +196,7 @@ export default function InboundShippingPage() {
             <p className="text-sm text-gray-500 mt-1">Track and manage incoming shipments from suppliers</p>
           </div>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+        <button onClick={() => exportToCsv('inbound-shipments', filteredShipments)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
           <Download className="w-4 h-4" />
           <span>Export Report</span>
         </button>

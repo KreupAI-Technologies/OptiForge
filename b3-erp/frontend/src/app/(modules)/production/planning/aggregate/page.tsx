@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, Calendar, Users, Package, TrendingUp, Factory, Clock, AlertTriangle, BarChart3 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { NewPlanModal, ExportPlanModal, ScenarioComparisonModal } from '@/components/production/AggregatePlanningModals';
 
 interface AggregatePlan {
@@ -241,8 +242,7 @@ export default function AggregatePlanningPage() {
   };
 
   const handleExport = (format: string, options: any) => {
-    console.log('Exporting aggregate plan as:', format, 'with options:', options);
-    alert(`Exporting aggregate plan as ${format.toUpperCase()}`);
+    exportToCsv('aggregate-plan', plans as unknown as Record<string, unknown>[]);
   };
 
   const currentPlan = plans.find(plan => plan.planNumber === selectedPlan) || plans[0];

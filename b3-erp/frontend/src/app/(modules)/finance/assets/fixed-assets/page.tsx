@@ -18,6 +18,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface FixedAsset {
   id: string;
@@ -100,19 +101,7 @@ export default function FixedAssetsPage() {
   };
 
   const handleExport = () => {
-    // In a real app, this would export data to Excel/CSV
-    showToast('Preparing asset data export...', 'info');
-    setTimeout(() => {
-      showToast('Asset data exported successfully!', 'success');
-      // Here you would typically:
-      // - Fetch all asset data from API
-      // - Format as Excel/CSV using a library like xlsx
-      // - Trigger download
-      // Example: const blob = new Blob([csvData], { type: 'text/csv' });
-      // const url = window.URL.createObjectURL(blob);
-      // const a = document.createElement('a');
-      // a.href = url; a.download = 'fixed-assets.csv'; a.click();
-    }, 1500);
+    exportToCsv('fixed-assets', filteredAssets as unknown as Record<string, unknown>[]);
   };
 
   // Sample fixed assets data

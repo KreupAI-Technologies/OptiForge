@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 
@@ -26,7 +27,7 @@ export default function MaterialConsumptionDetail() {
                 { label: 'Materials' },
             ]}
             onBack={() => router.back()}
-            onExport={() => console.log('Export')}
+            onExport={() => exportToCsv('material-consumption-material', materials)}
         >
             <Card>
                 <CardHeader><CardTitle>Material Usage</CardTitle></CardHeader>

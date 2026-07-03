@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Factory, Calendar, Package, TrendingUp, Activity, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { PlanModal, ViewPlanModal, ExportModal } from '@/components/production/PPGModals';
+import { exportToCsv } from '@/lib/export';
 import { productionPlanService } from '@/services/production-plan.service';
 
 interface ProductionPlan {
@@ -228,9 +229,7 @@ export default function PPGPage() {
   };
 
   const handleExport = (format: string, filters: any) => {
-    console.log('Exporting as:', format, 'with filters:', filters);
-    // Implement actual export logic here
-    alert(`Exporting production plans as ${format.toUpperCase()}`);
+    exportToCsv('production-plans', filteredPlans as unknown as Record<string, unknown>[]);
   };
 
   return (

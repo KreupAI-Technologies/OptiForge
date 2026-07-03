@@ -18,6 +18,7 @@ import {
   Download,
   Upload
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface DriverCompliance {
   id: number;
@@ -926,7 +927,7 @@ export default function DriverCompliancePage() {
           <p className="text-gray-600 mt-1">Monitor regulatory compliance and certification status</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+          <button onClick={() => exportToCsv('driver-compliance', filteredData)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
             <Download className="w-4 h-4" />
             <span>Export Report</span>
           </button>

@@ -28,6 +28,7 @@ import {
   BulkAdjustmentData,
   ReconciliationData
 } from '@/components/inventory/InventoryAdjustmentModals';
+import { exportToCsv } from '@/lib/export';
 
 interface Adjustment {
   id: number;
@@ -295,12 +296,8 @@ export default function AdjustmentsPage() {
     setIsReconciliationModalOpen(false);
   };
 
-  const handleExport = (format: string, filters: any) => {
-    // TODO: Integrate with API to export report
-    console.log('Exporting report:', format, filters);
-
-    // Mock: Show success message
-    alert(`Exporting adjustments as ${format.toUpperCase()}`);
+  const handleExport = (_format: string, _filters: any) => {
+    exportToCsv('inventory-adjustments', filteredAdjustments as unknown as Record<string, unknown>[]);
   };
 
   const handleViewAdjustment = (adjustment: Adjustment) => {

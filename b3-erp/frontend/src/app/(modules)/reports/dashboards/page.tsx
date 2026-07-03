@@ -65,6 +65,7 @@ import {
   PolarRadiusAxis,
   Radar,
 } from 'recharts';
+import { exportToCsv } from '@/lib/export';
 
 interface Dashboard {
   id: string;
@@ -285,7 +286,7 @@ export default function DashboardsPage() {
   };
 
   const handleExportDashboard = () => {
-    alert('Exporting dashboard...');
+    exportToCsv('dashboards', filteredDashboards);
   };
 
   const handleShareDashboard = () => {

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { GitBranch, Search, Filter, PlusCircle, Download, AlertTriangle, CheckCircle, Clock, DollarSign, Calendar } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ChangeRequest {
   id: string;
@@ -333,7 +334,7 @@ export default function ChangeRequestsPage() {
             />
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={() => exportToCsv('change-requests', filteredChanges as unknown as Record<string, unknown>[])} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
               <Download className="h-4 w-4" />
               Export
             </button>

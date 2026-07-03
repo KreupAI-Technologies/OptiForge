@@ -16,6 +16,7 @@ import {
   BulkImportAccountsModal
 } from '@/components/finance/accounting/ChartOfAccountsModals';
 import { FinanceService } from '@/services/finance.service';
+import { exportToCsv } from '@/lib/export';
 import {
   ExportChartModal,
   AccountHierarchyModal
@@ -528,8 +529,8 @@ export default function ChartOfAccountsPage() {
       <ExportChartModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onExport={(data: any) => {
-          console.log('Exporting accounts:', data);
+        onExport={() => {
+          exportToCsv('chart-of-accounts', filteredAccounts as unknown as Record<string, unknown>[]);
           setIsExportModalOpen(false);
         }}
       />

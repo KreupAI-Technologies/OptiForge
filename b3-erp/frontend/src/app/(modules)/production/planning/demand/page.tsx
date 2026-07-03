@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, TrendingUp, TrendingDown, Calendar, Package, Filter, BarChart3, Eye, Edit } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { NewForecastModal, ExportForecastModal, ForecastAnalyticsModal } from '@/components/production/DemandPlanningModals';
 
 interface DemandForecast {
@@ -295,8 +296,7 @@ export default function DemandPlanningPage() {
   };
 
   const handleExport = (format: string, filters: any) => {
-    console.log('Exporting demand forecasts as:', format, 'with filters:', filters);
-    alert(`Exporting demand forecasts as ${format.toUpperCase()}`);
+    exportToCsv('demand-forecasts', filteredForecasts as unknown as Record<string, unknown>[]);
   };
 
   const filteredForecasts = forecasts.filter(forecast => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Activity, Zap, Clock, Database, Cpu, HardDrive, Globe, Filter, Download, Calendar, BarChart3, X, CheckCircle, AlertTriangle, Eye, AlertCircle, XCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface PerformanceMetric {
   id: string;
@@ -55,7 +56,7 @@ const PerformanceMonitoringPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting performance report...', 'info');
+    exportToCsv('performance-metrics', filteredMetrics as unknown as Record<string, unknown>[]);
   };
 
   const handleViewDetails = (metricId: string) => {

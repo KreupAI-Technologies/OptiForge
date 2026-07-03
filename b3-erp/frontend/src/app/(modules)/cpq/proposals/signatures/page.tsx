@@ -26,6 +26,7 @@ import {
   ExportReportModal,
   SignatureRecord
 } from '@/components/cpq/ProposalSignatureModals'
+import { exportToCsv } from '@/lib/export'
 
 interface ProposalSignature {
   id: string
@@ -255,7 +256,7 @@ export default function CPQProposalsSignaturesPage() {
   }
 
   const handleExport = (settings: any) => {
-    console.log('Exporting report:', settings)
+    exportToCsv('proposal-signatures', signatures)
   }
 
   return (

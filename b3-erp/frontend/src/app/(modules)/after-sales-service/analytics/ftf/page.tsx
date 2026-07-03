@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Search, Filter, BarChart3, TrendingUp, CheckCircle, AlertCircle, Calendar, MapPin, Download, X, Eye, Clock, User, Wrench } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportToCsv } from '@/lib/export';
 
 interface FTFRecord {
   id: string;
@@ -236,6 +237,7 @@ export default function FTFAnalyticsPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('ftf-analytics', filteredRecords);
     toast({
       title: "Report Exported",
       description: "FTF Analytics report has been exported successfully.",

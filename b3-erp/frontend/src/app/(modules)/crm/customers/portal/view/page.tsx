@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 import { Package, FileText, DollarSign, MessageSquare, Download, Calendar, TrendingUp, Bell, User, Settings, LogOut, Search, Filter, Eye, ChevronRight, Clock, CheckCircle, AlertCircle, XCircle, Receipt, FileSpreadsheet, Printer } from 'lucide-react';
 
 interface Order {
@@ -458,12 +459,14 @@ export default function CustomerPortalViewPage() {
   };
 
   const handlePrint = (type: string) => {
+    printCurrentView();
     setToastMessage(`Printing ${type}...`);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
   const handleExport = () => {
+    exportToCsv('statement-of-accounts', mockStatementTransactions as unknown as Record<string, unknown>[]);
     setToastMessage('Statement exported successfully!');
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);

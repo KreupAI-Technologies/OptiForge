@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, Hash, AlertCircle, TrendingUp, Check
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { systemMastersService, NumberSeries } from '@/services/system-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function NumberSeriesMasterPage() {
   const [numberSeries, setNumberSeries] = useState<NumberSeries[]>([]);
@@ -49,6 +50,7 @@ export default function NumberSeriesMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('number-series-master', filteredData);
     showToast('Exporting number series data...', 'success');
   };
 

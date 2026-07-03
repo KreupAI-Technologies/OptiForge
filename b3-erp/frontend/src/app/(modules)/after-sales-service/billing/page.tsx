@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, FileText, Send, DollarSign, AlertCircle, CheckCircle, Clock, XCircle, Download, TrendingUp, CreditCard, X, User, Calendar, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportToCsv } from '@/lib/export';
 
 interface ServiceInvoice {
   id: string;
@@ -336,6 +337,7 @@ export default function ServiceBillingPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('service-billing-invoices', filteredInvoices);
     toast({
       title: "Report Exported",
       description: "Invoice report has been exported successfully.",

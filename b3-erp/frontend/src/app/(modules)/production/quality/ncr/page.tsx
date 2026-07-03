@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, Filter, AlertTriangle, CheckCircle, Clock, XCircle, FileText, User, Eye, Edit } from 'lucide-react';
 import { RaiseNCRModal, ViewNCRDetailsModal, EditNCRModal } from '@/components/quality/NCRModals';
 import { ExportNCRModal } from '@/components/quality/QualityExportModals';
+import { exportToCsv } from '@/lib/export';
 
 interface NCR {
   id: string;
@@ -385,9 +386,8 @@ export default function NCRPage() {
     setSelectedNCR(null);
   };
 
-  const handleExportSubmit = (data: any) => {
-    // TODO: Implement API call to export NCR data
-    console.log('Export NCR submitted:', data);
+  const handleExportSubmit = (_data: any) => {
+    exportToCsv('quality-ncrs', filteredNCRs as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

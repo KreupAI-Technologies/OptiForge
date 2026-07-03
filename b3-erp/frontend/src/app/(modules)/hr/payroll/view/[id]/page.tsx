@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { printCurrentView } from '@/lib/export';
 import {
   ArrowLeft,
   Edit,
@@ -165,7 +166,7 @@ export default function ViewPayrollPage({ params }: { params: { id: string } }) 
   };
 
   const handleDownloadPayslip = () => {
-    alert('Downloading payslip PDF...');
+    printCurrentView();
   };
 
   return (

@@ -39,6 +39,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { purchaseOrderService, PurchaseOrder as POServiceType, POStatus } from '@/services/purchase-order.service'
+import { exportToCsv, printCurrentView } from '@/lib/export'
 
 interface PurchaseOrder {
   id: string
@@ -298,7 +299,13 @@ export default function PurchaseOrdersPage() {
   }
 
   const handleBulkAction = (action: string) => {
-    console.log(`Performing ${action} on orders:`, selectedOrders)
+    if (action === 'export') {
+      const selected = filteredOrders.filter(o => selectedOrders.includes(o.id))
+      const rows = (selected.length ? selected : filteredOrders) as unknown as Record<string, unknown>[]
+      exportToCsv('purchase-orders', rows)
+    } else {
+      console.log(`Performing ${action} on orders:`, selectedOrders)
+    }
     setSelectedOrders([])
     setShowBulkActions(false)
   }
@@ -325,7 +332,10 @@ export default function PurchaseOrdersPage() {
             <Upload className="h-4 w-4" />
             Import
           </button>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button
+            onClick={() => exportToCsv('purchase-orders', filteredOrders as unknown as Record<string, unknown>[])}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export
           </button>
@@ -783,7 +793,7 @@ export default function PurchaseOrdersPage() {
                           <Edit className="h-4 w-4 text-gray-600" />
                           <span className="text-gray-700">Edit</span>
                         </button>
-                        <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                        <button onClick={() => printCurrentView()} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                           <Printer className="h-4 w-4 text-gray-600" />
                           <span className="text-gray-700">Print</span>
                         </button>
@@ -903,7 +913,7 @@ export default function PurchaseOrdersPage() {
                         <Edit className="h-4 w-4 text-gray-600" />
                         <span className="text-gray-700">Edit</span>
                       </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                      <button onClick={() => printCurrentView()} className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
                         <Printer className="h-4 w-4 text-gray-600" />
                         <span className="text-gray-700">Print</span>
                       </button>

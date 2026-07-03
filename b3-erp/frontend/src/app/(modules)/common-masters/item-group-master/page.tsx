@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, Package, ChevronRight, ChevronDown, 
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockItemGroups, ItemGroup, getItemGroupStats, getChildGroups } from '@/data/common-masters/item-groups';
+import { exportToCsv } from '@/lib/export';
 
 export default function ItemGroupMasterPage() {
   const [itemGroups, setItemGroups] = useState<ItemGroup[]>(mockItemGroups);
@@ -36,6 +37,7 @@ export default function ItemGroupMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('item-group-master', filteredData);
     showToast('Exporting item groups data...', 'success');
   };
 

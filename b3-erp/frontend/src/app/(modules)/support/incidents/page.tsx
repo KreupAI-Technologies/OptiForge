@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, AlertTriangle, Activity, Users, Clock, TrendingUp, Shield, Filter, Download, ArrowUpDown, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { ITILService } from '@/services/support.service';
+import { exportToCsv } from '@/lib/export';
 
 const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
@@ -176,8 +177,7 @@ export default function IncidentsPage() {
   };
 
   const handleExport = () => {
-    alert('Exporting incident data to CSV...');
-    console.log('Exporting incidents:', filteredIncidents);
+    exportToCsv('support-incidents', filteredIncidents);
   };
 
   return (

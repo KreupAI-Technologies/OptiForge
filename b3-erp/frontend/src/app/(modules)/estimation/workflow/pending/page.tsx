@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import {
   Clock,
   CheckCircle,
@@ -63,8 +64,7 @@ export default function EstimateWorkflowPendingPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting pending estimates report')
-    // Would generate Excel/PDF export
+    exportToCsv('pending-estimates', pendingEstimates)
   }
 
   const [pendingEstimates] = useState<PendingEstimate[]>([

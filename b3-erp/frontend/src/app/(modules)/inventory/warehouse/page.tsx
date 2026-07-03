@@ -28,6 +28,7 @@ import {
   WarehouseType,
   CapacityUtilization
 } from '@/services/warehouse.service'
+import { exportToCsv } from '@/lib/export'
 
 interface Warehouse {
   id: string
@@ -225,7 +226,7 @@ const InventoryWarehousePage = () => {
   const currentWarehouses = filteredWarehouses.slice(startIndex, endIndex)
 
   const handleExport = () => {
-    console.log('Exporting warehouse report...')
+    exportToCsv('warehouses', filteredWarehouses as unknown as Record<string, unknown>[])
   }
 
   // Convert Warehouse to WarehouseData

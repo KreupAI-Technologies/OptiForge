@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, Play, Pause, Calendar, AlertCircle, CheckCircle2, XCircle, RefreshCw, Plus, Edit, Trash2, Eye, Filter, Download, X, BarChart3, TrendingUp } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ScheduledJob {
   id: string;
@@ -302,7 +303,7 @@ const SchedulerJobsPage = () => {
   };
 
   const handleExport = () => {
-    setToast({ message: 'Exporting scheduled jobs...', type: 'info' });
+    exportToCsv('scheduled-jobs', filteredJobs as unknown as Record<string, unknown>[]);
   };
 
   const handleStatsCardClick = (type: string) => {

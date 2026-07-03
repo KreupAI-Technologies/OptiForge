@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   ArrowLeft,
   GitCompare,
@@ -309,9 +310,8 @@ export default function BOMComparisonPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = (exportConfig: any) => {
-    console.log('Export configuration:', exportConfig);
-    // TODO: Implement export API call
+  const handleExportSubmit = (_exportConfig: any) => {
+    exportToCsv('bom-comparison', filteredComparisons as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

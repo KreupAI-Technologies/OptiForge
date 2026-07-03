@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Activity, Search, Filter, Download, TrendingUp, Calendar, User, Layers } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 export default function ProgressTrackingPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -148,7 +149,7 @@ export default function ProgressTrackingPage() {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
+            <button onClick={() => exportToCsv('progress-tracking', filtered)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
               <Download className="h-4 w-4" />
               Export Report
             </button>
@@ -227,7 +228,7 @@ export default function ProgressTrackingPage() {
           </div>
           <div className="flex gap-2">
             <button className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50" onClick={() => {setStatusFilter('all'); setManagerFilter('all'); setSearchTerm(''); setPage(1);}}>Reset</button>
-            <button className="px-3 py-2 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2">
+            <button onClick={() => exportToCsv('progress-tracking', filtered)} className="px-3 py-2 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2">
               <Download className="h-4 w-4" /> Export
             </button>
           </div>

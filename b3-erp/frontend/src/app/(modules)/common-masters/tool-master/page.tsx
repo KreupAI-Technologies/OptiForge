@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Tool, getToolStats, getLowStockTools } from '@/data/common-masters/tools';
 import { manufacturingMastersService, Tool as BackendTool } from '@/services/manufacturing-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function ToolMasterPage() {
   const [tools, setTools] = useState<Tool[]>([]);
@@ -79,6 +80,7 @@ export default function ToolMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('tool-master', filteredData);
     showToast('Exporting tools...', 'success');
   };
 

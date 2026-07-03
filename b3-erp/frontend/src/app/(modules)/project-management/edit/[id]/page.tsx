@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
   Building2,
   User,
@@ -531,7 +532,7 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
   };
 
   const handleExportTemplate = (data: any) => {
-    console.log('Exporting template:', data);
+    exportToCsv('project-template', selectedTemplate ? [selectedTemplate] : []);
     setShowExportTemplateModal(false);
     setSelectedTemplate(null);
   };

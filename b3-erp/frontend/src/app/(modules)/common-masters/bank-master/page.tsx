@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Bank, getBankStats } from '@/data/common-masters/banks';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -110,7 +111,10 @@ export default function BankMasterPage() {
   const handleAddBank = () => showToast('Add bank functionality will be implemented', 'info');
   const handleViewBank = (bank: Bank) => showToast(`Viewing bank: ${bank.bankName}`, 'info');
   const handleEditBank = (bank: Bank) => showToast(`Editing bank: ${bank.bankName}`, 'info');
-  const handleExport = () => showToast('Exporting banks data...', 'success');
+  const handleExport = () => {
+    exportToCsv('bank-master', filteredData);
+    showToast('Exporting banks data...', 'success');
+  };
   const handleSync = () => showToast('Syncing bank data...', 'success');
 
   const filteredData = useMemo(() => {

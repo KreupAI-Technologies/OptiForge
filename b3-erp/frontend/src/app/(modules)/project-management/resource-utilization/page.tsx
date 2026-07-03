@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
  Users,
  TrendingUp,
@@ -607,7 +608,7 @@ export default function ResourceUtilizationPage() {
  };
 
  const handleExportReport = (options: any) => {
-  console.log('Exporting report:', options);
+  exportToCsv('resource-utilization', filteredResources as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

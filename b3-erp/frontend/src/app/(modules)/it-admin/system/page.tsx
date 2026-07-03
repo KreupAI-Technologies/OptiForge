@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Download, Eye, Edit, RotateCcw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import { SystemConfigService } from '@/services/system-config.service';
 
 interface SystemConfig {
@@ -96,7 +97,7 @@ export default function SystemPage() {
   };
 
   const handleExport = () => {
-    showToast('Exporting system configuration...', 'info');
+    exportToCsv('system-configuration', currentConfigs as unknown as Record<string, unknown>[]);
   };
 
   const handleView = (configId: string) => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Shield, FileCheck, AlertTriangle, CheckCircle2, XCircle, TrendingUp, BarChart3, Filter, Download, Eye, Search, Calendar, Award, Target, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ComplianceRequirement {
   id: string;
@@ -384,7 +385,7 @@ const ComplianceAuditPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting compliance audit report...', 'info');
+    exportToCsv('compliance-requirements', filteredRequirements as unknown as Record<string, unknown>[]);
   };
 
   const handleCloseDetails = () => {

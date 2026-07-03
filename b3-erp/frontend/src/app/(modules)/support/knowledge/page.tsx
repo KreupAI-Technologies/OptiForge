@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, BookOpen, FileText, Video, Download, ThumbsUp, MessageCircle, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Tag, User, Calendar, Star, AlertCircle } from 'lucide-react';
 import { KnowledgeBaseService } from '@/services/support.service';
+import { exportToCsv } from '@/lib/export';
 
 const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
@@ -187,8 +188,7 @@ export default function KnowledgePage() {
   };
 
   const handleExport = () => {
-    alert('Exporting knowledge base to PDF...');
-    console.log('Exporting articles:', filteredArticles);
+    exportToCsv('knowledge-articles', filteredArticles);
   };
 
   const getHelpfulPercentage = (helpful: number, notHelpful: number) => {

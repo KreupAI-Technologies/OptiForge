@@ -9,6 +9,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, Eye, TrendingUp, DollarSign,
   ChevronLeft, ChevronRight, RefreshCw, Info, Hash, BookOpen, CheckCircle
 } from 'lucide-react';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 
 // TypeScript Interfaces
 interface LedgerTransaction {
@@ -246,12 +247,11 @@ export default function LedgerReportPage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    printCurrentView();
   };
 
-  const handleExport = (format: 'excel' | 'pdf') => {
-    console.log('Exporting ledger report as', format);
-    alert(`Exporting ledger report as ${format.toUpperCase()}...`);
+  const handleExport = (_format: 'excel' | 'pdf') => {
+    exportToCsv('ledger-report', filteredTransactions as unknown as Record<string, unknown>[]);
   };
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { History, CheckCircle2, XCircle, AlertTriangle, Clock, Calendar, Filter, Download, Eye, Search, TrendingUp, BarChart3, X, PieChart } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface ExecutionHistory {
   id: string;
@@ -279,7 +280,7 @@ const SchedulerHistoryPage = () => {
   };
 
   const handleExport = () => {
-    setToast({ message: 'Exporting execution history...', type: 'info' });
+    exportToCsv('execution-history', filteredHistory as unknown as Record<string, unknown>[]);
   };
 
   const handleStatsCardClick = (type: string) => {
@@ -731,7 +732,7 @@ const SchedulerHistoryPage = () => {
               </button>
               <button
                 onClick={() => {
-                  setToast({ message: 'Exporting analytics report...', type: 'info' });
+                  exportToCsv('execution-history-analytics', history as unknown as Record<string, unknown>[]);
                   setShowAnalyticsModal(false);
                 }}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center gap-2"

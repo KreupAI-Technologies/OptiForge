@@ -28,6 +28,7 @@ import { ESignatureIntegration, SignatureDocument } from '@/components/cpq/ESign
 import { UploadDocumentModal, ViewDocumentDetailModal, ViewAuditTrailModal } from '@/components/cpq/ESignatureModals';
 import { MarginAnalysis, QuoteMarginAnalysis, MarginGuardrail } from '@/components/cpq/MarginAnalysis';
 import { GuardrailModal, ViewQuoteDetailModal, OptimizeMarginModal } from '@/components/cpq/MarginAnalysisModals';
+import { exportToCsv } from '@/lib/export';
 
 // Mock Data
 const mockRules: PricingRule[] = [
@@ -1115,20 +1116,7 @@ export default function CPQAdvancedFeaturesPage() {
   };
 
   const handleExportAnalysis = () => {
-    const data = {
-      quotes,
-      guardrails,
-      exportedAt: new Date().toISOString(),
-      stats: {
-        totalQuotes: quotes.length,
-        avgMargin: quotes.reduce((sum, q) => sum + q.marginPercent, 0) / quotes.length,
-        totalRevenue: quotes.reduce((sum, q) => sum + q.totalRevenue, 0),
-        totalMargin: quotes.reduce((sum, q) => sum + q.totalMargin, 0),
-      }
-    };
-
-    console.log('Exporting margin analysis:', data);
-    alert(`Exporting margin analysis for ${quotes.length} quotes...`);
+    exportToCsv('margin-analysis', quotes);
   };
 
   const features = [

@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Machine, getMachineStats } from '@/data/common-masters/machines';
 import { manufacturingMastersService } from '@/services/manufacturing-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -127,6 +128,7 @@ export default function MachineMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('machine-master', filteredData);
     showToast('Exporting machines data...', 'success');
   };
 

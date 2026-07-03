@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Currency } from '@/data/common-masters/currencies';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 export default function CurrencyMasterPage() {
   const [currencies, setCurrencies] = useState<Currency[]>([]);
@@ -92,8 +93,8 @@ export default function CurrencyMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('currency-master', filteredData);
     showToast('Exporting currencies data...', 'success');
-    // TODO: Implement export functionality
   };
 
   // Get unique decimal digits

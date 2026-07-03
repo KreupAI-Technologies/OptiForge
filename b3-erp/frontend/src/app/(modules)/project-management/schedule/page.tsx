@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { exportToCsv, printCurrentView } from '@/lib/export';
 import {
  ChevronLeft,
  ChevronRight,
@@ -175,7 +176,7 @@ export default function ScheduleGanttPage() {
  };
 
  const handleExport = (options: any) => {
-  console.log('Exporting:', options);
+  exportToCsv('schedule', filteredTasks as unknown as Record<string, unknown>[]);
   setShowExportGantt(false);
  };
 
@@ -195,7 +196,7 @@ export default function ScheduleGanttPage() {
  };
 
  const handlePrint = (options: any) => {
-  console.log('Printing:', options);
+  printCurrentView();
   setShowPrintSetup(false);
  };
 

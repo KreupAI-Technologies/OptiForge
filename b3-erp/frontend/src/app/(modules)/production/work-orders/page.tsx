@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, ClipboardCheck, Factory, AlertCircle, CheckCircle, Clock, TrendingUp, Calendar, ChevronLeft, ChevronRight, Download, Users, Loader2 } from 'lucide-react';
 import { ExportWorkOrdersModal } from '@/components/production/WorkOrderModals';
+import { exportToCsv } from '@/lib/export';
 import { workOrderService, WorkOrder as ServiceWorkOrder } from '@/services/work-order.service';
 
 interface WorkOrder {
@@ -173,8 +174,7 @@ export default function WorkOrdersPage() {
   };
 
   const handleExport = (format: string, options: any) => {
-    console.log('Exporting work orders as:', format, 'with options:', options);
-    alert(`Exporting Work Orders as ${format.toUpperCase()}!\n\nDate Range: ${options.dateRange}\nStatuses: ${Object.keys(options.statuses).filter(k => options.statuses[k]).join(', ')}\nSections: ${Object.keys(options.sections).filter(k => options.sections[k]).join(', ')}`);
+    exportToCsv('work-orders', filteredWOs as unknown as Record<string, unknown>[]);
   };
 
   // Show loading state

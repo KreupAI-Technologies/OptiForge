@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { printCurrentView } from '@/lib/export';
 import {
   ArrowLeft,
   Edit,
@@ -178,7 +179,7 @@ export default function ViewPerformancePage({ params }: { params: { id: string }
   };
 
   const handleDownloadReport = () => {
-    alert('Downloading performance review report...');
+    printCurrentView();
   };
 
   return (

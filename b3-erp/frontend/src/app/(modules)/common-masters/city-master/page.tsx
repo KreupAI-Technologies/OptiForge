@@ -5,6 +5,7 @@ import { Plus, Search, Download, Filter, X, MapPin, CheckCircle, XCircle, AlertC
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { mockCities, City } from '@/data/common-masters/cities';
+import { exportToCsv } from '@/lib/export';
 
 export default function CityMasterPage() {
   const [cities, setCities] = useState<City[]>(mockCities);
@@ -46,6 +47,7 @@ export default function CityMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('city-master', filteredData);
     showToast('Exporting cities data...', 'success');
   };
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
  FileText,
  Download,
@@ -498,7 +499,7 @@ export default function ProjectReportsPage() {
  };
 
  const handleExportMultiple = (data: any) => {
-  console.log('Export multiple reports:', data);
+  exportToCsv('reports', filteredReports as unknown as Record<string, unknown>[]);
   // API call would go here
  };
 

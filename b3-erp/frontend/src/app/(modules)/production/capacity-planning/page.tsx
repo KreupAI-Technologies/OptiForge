@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ExportReportModal, RequestResourcesModal, WorkCenterConfigModal } from '@/components/production/CapacityPlanningModals';
+import { exportToCsv } from '@/lib/export';
 import {
   Factory,
   Users,
@@ -660,14 +661,7 @@ const CapacityPlanningPage = () => {
 
   // Handler functions
   const handleExport = (format: string, options: any) => {
-    console.log('Exporting capacity planning report as:', format, 'with options:', options);
-    alert(`Exporting Capacity Planning Report as ${format.toUpperCase()}!\n\nIncluded sections:\n${
-      options.includeCapacityLoad ? '✓ Capacity vs Load\n' : ''
-    }${options.includeBottlenecks ? '✓ Bottleneck Analysis\n' : ''
-    }${options.includeResourceLeveling ? '✓ Resource Leveling\n' : ''
-    }${options.includeOvertimePlan ? '✓ Overtime Planning\n' : ''
-    }${options.includeScenarios ? '✓ Scenarios\n' : ''
-    }${options.includeMachineLabor ? '✓ Machine & Labor Split\n' : ''}`);
+    exportToCsv('capacity-planning', workCenters as unknown as Record<string, unknown>[]);
   };
 
   const handleResourceRequest = (request: any) => {

@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface DepreciationSchedule {
   id: string;
@@ -101,15 +102,7 @@ export default function DepreciationPage() {
   };
 
   const handleExport = () => {
-    showToast('Preparing depreciation data export...', 'info');
-    setTimeout(() => {
-      showToast('Depreciation data exported successfully!', 'success');
-      // In a real app, you would:
-      // - Fetch all depreciation schedules
-      // - Format as Excel/CSV with columns: Asset, Method, Current Value, etc.
-      // - Use a library like xlsx to generate the file
-      // - Trigger download
-    }, 1500);
+    exportToCsv('depreciation-schedules', filteredSchedules as unknown as Record<string, unknown>[]);
   };
 
   const handleViewSchedule = (assetName: string) => {

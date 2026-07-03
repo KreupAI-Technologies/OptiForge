@@ -41,6 +41,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { procurementRFQService, ProcurementRFQ as RFQServiceType, RFQStatus } from '@/services/procurement-rfq.service'
+import { exportToCsv } from '@/lib/export'
 
 interface RFQ {
   id: string
@@ -174,7 +175,7 @@ export default function ProcurementRFQPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting RFQ report...')
+    exportToCsv('procurement-rfqs', filteredRFQs as unknown as Record<string, unknown>[])
   }
 
   const handleView = (id: string) => {

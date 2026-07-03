@@ -22,6 +22,7 @@ import {
     FileText,
     RefreshCw
 } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 // Mock Audit Data
 const auditStats = {
@@ -174,7 +175,7 @@ export default function FreightAuditPage() {
                     <button className="px-4 py-2 border border-gray-200 bg-white text-gray-600 rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-colors flex items-center gap-2">
                         <RefreshCw className="w-4 h-4" /> Run Audit
                     </button>
-                    <button className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
+                    <button onClick={() => exportToCsv('freight-audit', filteredRecords)} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md font-black uppercase text-[10px] tracking-widest">
                         <Download className="w-4 h-4" /> Export Report
                     </button>
                 </div>

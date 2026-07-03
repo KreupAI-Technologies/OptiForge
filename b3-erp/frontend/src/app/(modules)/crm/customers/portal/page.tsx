@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { Globe, Users, Lock, Key, Settings, CheckCircle, XCircle, Clock, Activity, Download, Upload, Eye, Edit, Trash2, Plus, FileText, Package, DollarSign, BarChart3, AlertCircle, Shield, Monitor } from 'lucide-react';
 
 interface PortalUser {
@@ -283,6 +284,7 @@ export default function CustomerPortalPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('portal-users', filteredUsers as unknown as Record<string, unknown>[]);
     setToastMessage('Portal users exported successfully!');
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);

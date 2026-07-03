@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Clock, TrendingDown, Activity, Wrench, Zap } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import {
   LogDowntimeModal, ViewDowntimeDetailsModal, EditDowntimeEventModal,
   ResolveDowntimeModal, DeleteDowntimeModal,
@@ -335,9 +336,8 @@ export default function DowntimeDashboardPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = async (config: ExportDowntimeConfig) => {
-    console.log('Exporting data:', config);
-    // TODO: Implement API call
+  const handleExportSubmit = async (_config: ExportDowntimeConfig) => {
+    exportToCsv('downtime-events', filteredEvents as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, BarChart3, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 import {
   EquipmentAnalysisModal, CategoryTrendModal, PeriodComparisonModal,
   EquipmentAnalysisData, CategoryTrendData, PeriodComparisonData
@@ -315,9 +316,8 @@ export default function DowntimeAnalysisPage() {
     setIsExportOpen(true);
   };
 
-  const handleExportSubmit = async (config: ExportAnalysisConfig): Promise<void> => {
-    console.log('Exporting analysis:', config);
-    // TODO: Implement API call
+  const handleExportSubmit = async (_config: ExportAnalysisConfig): Promise<void> => {
+    exportToCsv('downtime-analysis', equipmentDowntime as unknown as Record<string, unknown>[]);
     setIsExportOpen(false);
   };
 

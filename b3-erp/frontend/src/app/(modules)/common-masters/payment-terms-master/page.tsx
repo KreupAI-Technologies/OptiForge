@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PaymentTerm, getPaymentTermStats } from '@/data/common-masters/payment-terms';
 import { commonMastersService } from '@/services/common-masters.service';
+import { exportToCsv } from '@/lib/export';
 
 const DEFAULT_COMPANY_ID = '1';
 
@@ -90,6 +91,7 @@ export default function PaymentTermsMasterPage() {
   };
 
   const handleExport = () => {
+    exportToCsv('payment-terms-master', filteredData);
     showToast('Exporting payment terms data...', 'success');
   };
 

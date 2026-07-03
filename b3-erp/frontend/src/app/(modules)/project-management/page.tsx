@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { exportToCsv } from '@/lib/export';
 import {
     Search,
     Filter,
@@ -470,7 +471,7 @@ export default function ProjectsListPage() {
     };
 
     const handleExport = (options: any) => {
-        console.log('Exporting projects:', options);
+        exportToCsv('projects', filteredProjects as unknown as Record<string, unknown>[]);
         setShowExport(false);
     };
 

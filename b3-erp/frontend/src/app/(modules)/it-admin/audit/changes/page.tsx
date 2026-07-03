@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { History, Database, User, Settings, FileText, Shield, Edit, Trash2, Filter, Download, Eye, Search, XCircle, CheckCircle2, AlertTriangle, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface SystemChangeLog {
   id: string;
@@ -398,7 +399,7 @@ const SystemChangesAuditPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting system changes audit logs...', 'info');
+    exportToCsv('system-changes', filteredChanges as unknown as Record<string, unknown>[]);
   };
 
   const handleCloseDetails = () => {

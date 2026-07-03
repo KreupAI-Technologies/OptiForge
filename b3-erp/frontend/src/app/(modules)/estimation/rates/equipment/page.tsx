@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { exportToCsv } from '@/lib/export'
 import {
   Wrench,
   TrendingUp,
@@ -42,7 +43,7 @@ export default function EquipmentRatesPage() {
   }
 
   const handleExport = () => {
-    console.log('Exporting equipment rates')
+    exportToCsv('equipment-rates', equipmentRates)
   }
 
   const handleViewHistory = (equipmentId: string) => {

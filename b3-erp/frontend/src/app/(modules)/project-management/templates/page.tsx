@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { exportToCsv } from '@/lib/export';
 import {
  Layers,
  Plus,
@@ -174,7 +175,7 @@ export default function ProjectTemplatesPage() {
  };
 
  const handleExportSave = (data: any) => {
-  console.log('Export template:', data);
+  exportToCsv('project-templates', filteredTemplates as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
   setSelectedTemplate(null);
  };

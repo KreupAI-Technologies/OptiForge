@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Zap, Play, Pause, Plus, Edit, Trash2, Eye, Filter, Download, XCircle, CheckCircle2, AlertTriangle, ArrowRight, AlertCircle } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 interface AutomationRule {
   id: string;
@@ -292,7 +293,7 @@ const SchedulerAutomationPage = () => {
   };
 
   const handleExport = () => {
-    showToast('Exporting automation rules...', 'info');
+    exportToCsv('automation-rules', filteredRules as unknown as Record<string, unknown>[]);
   };
 
   return (

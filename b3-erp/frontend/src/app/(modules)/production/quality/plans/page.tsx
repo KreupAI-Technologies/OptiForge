@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, Filter, CheckCircle, FileText, Calendar, TrendingUp, AlertCircle, Edit } from 'lucide-react';
 import { CreateQualityPlanModal, EditQualityPlanModal, ApproveQualityPlanModal } from '@/components/quality/QualityPlanModals';
 import { ExportQualityPlansModal } from '@/components/quality/QualityExportModals';
+import { exportToCsv } from '@/lib/export';
 
 interface QualityPlan {
   id: string;
@@ -522,12 +523,8 @@ export default function QualityPlansPage() {
     // Refresh data after successful approval/rejection
   };
 
-  const handleExportSubmit = (data: any) => {
-    // TODO: Implement API call to export quality plans
-    console.log('Exporting quality plans with filters:', data);
-    // API Call example:
-    // await exportQualityPlans(data);
-    // Download file after successful export
+  const handleExportSubmit = (_data: any) => {
+    exportToCsv('quality-plans', filteredPlans as unknown as Record<string, unknown>[]);
   };
 
   return (

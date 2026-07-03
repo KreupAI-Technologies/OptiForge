@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { BarChart3, Search, Filter, Download, ZoomIn, Calendar, AlertTriangle, Link2, Clock } from 'lucide-react';
+import { exportToCsv } from '@/lib/export';
 
 type GanttTask = {
   id: string;
@@ -379,7 +380,7 @@ export default function GanttChartPage() {
               <Filter className="h-4 w-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
+            <button onClick={() => exportToCsv('gantt-chart', filtered)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700">
               <Download className="h-4 w-4" />
               Export
             </button>

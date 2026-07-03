@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import {
  Users,
  Plus,
@@ -207,7 +208,7 @@ export default function ResourceAllocationPage() {
  };
 
  const handleExport = (data: any) => {
-  console.log('Export:', data);
+  exportToCsv('resource-allocation', filteredResources as unknown as Record<string, unknown>[]);
   setShowExportModal(false);
  };
 

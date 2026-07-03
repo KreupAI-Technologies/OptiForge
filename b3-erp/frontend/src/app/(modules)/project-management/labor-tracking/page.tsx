@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { exportToCsv } from '@/lib/export';
 import { Users, Clock, TrendingUp, AlertTriangle, DollarSign, Calendar, Plus, Download, Filter, Upload, FileText, CheckCircle, XCircle, Activity, Calculator, UserPlus, PieChart, FileBarChart, ClipboardCheck } from 'lucide-react';
 import {
   AddLaborEntryModal,
@@ -428,7 +429,7 @@ export default function LaborTrackingPage() {
   };
 
   const handleExportReport = (data: any) => {
-    console.log('Exporting report:', data);
+    exportToCsv('labor-tracking', filteredEntries as unknown as Record<string, unknown>[]);
     setShowExportModal(false);
   };
 
