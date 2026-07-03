@@ -237,3 +237,26 @@ Automated wiring pass (24 module agents). **66 pages wired** to the live NestJS 
 ### rfq (2)
 - src/app/(modules)/rfq/add/page.tsx (mockVendors vendor-directory + mockPRs purchase-requisition-directory: no matching service method; procurement-rfq.service only exposes RFQ CRUD, not a vendor/PR lookup)
 - src/app/(modules)/rfq/edit/[id]/page.tsx (mockVendors vendor-directory: no matching service method)
+
+---
+
+## Backend endpoint health (216 controllers probed live)
+
+- **153 healthy** (200/201), **53** need a path param / have no GET-root (normal), **3** auth-gated, **6** returned 500.
+
+### 500 endpoints — status
+| Endpoint | Cause | Status |
+|---|---|---|
+| `production/shortage-records` | service ordered by non-existent `detectedAt` column | ✅ fixed (order by `createdAt`) |
+| `cpq/settings` | GET auto-created a row with null `companyId` | ✅ fixed (400 when `x-company-id` missing) |
+| `hr/advances` | DB table `payroll_salary_advances` does not exist | ⏳ needs table creation (feature never migrated) |
+| `hr/loans` | DB table `payroll_employee_loans` does not exist | ⏳ needs table creation |
+| `inventory/warehouses` | Prisma model uses unmodeled native enums (`warehouseType`, `status`) + phantom fields | ⏳ needs enum modeling + assignment casts |
+| `finance/chart-of-accounts/seed` | seeder action (POST); 500 on GET is expected | N/A |
+
+## Remaining scope to reach the gaps-report definition of "done"
+1. **161 pages need net-new backend endpoints** (listed above) — build endpoints or trim nav.
+2. **4 backend endpoints** above need DB/schema work (2 tables, 1 enum model).
+3. **Stub actions** (Export/Print/Delete `console.log`) across modules — not yet destubbed.
+4. **Typecheck**: `next build` currently runs with `typescript.ignoreBuildErrors` — a backlog of ~250 TS errors remains to clear before removing that flag.
+5. **Auth** is already consolidated on local JWT (NestJS `/auth/login|logout|profile`, cookie-based); Keycloak deferred by decision.

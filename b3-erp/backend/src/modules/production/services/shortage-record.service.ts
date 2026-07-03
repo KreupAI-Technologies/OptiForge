@@ -42,7 +42,8 @@ export class ShortageRecordService {
       query.andWhere('record.itemId = :itemId', { itemId: filters.itemId });
     }
 
-    query.orderBy('record.detectedAt', 'DESC');
+    // Entity has no detectedAt column; order by creation time (most recent first).
+    query.orderBy('record.createdAt', 'DESC');
     return query.getMany();
   }
 

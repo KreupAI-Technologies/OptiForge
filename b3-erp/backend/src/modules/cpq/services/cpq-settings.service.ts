@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -29,6 +29,11 @@ export class CPQSettingsService {
 
   // General Settings
   async getSettings(companyId: string): Promise<CPQSettings> {
+    if (!companyId) {
+      // Auto-provisioning settings requires a tenant; reject cleanly (400) instead
+      // of hitting a NOT-NULL violation (500) on the companyId column.
+      throw new BadRequestException('x-company-id header is required');
+    }
     let settings = await this.settingsRepository.findOne({
       where: { companyId },
     });
