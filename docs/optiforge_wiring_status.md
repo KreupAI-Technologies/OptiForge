@@ -1,5 +1,22 @@
 # OptiForge — Page Wiring Status & Endpoints To Build
 
+## Cumulative status (branch `fix/foundation-build-and-api-wiring`, PR #129)
+
+| Area | Result |
+|---|---|
+| FE `next build` | ✅ green (all passes) |
+| NestJS build + boot | ✅ green, live, serving real data |
+| Backend endpoint health | ✅ **157/216 controllers healthy, 0 real 500s** (all 6 originally-broken fixed; last "500" is a POST seeder) |
+| Pages wired to live endpoints | ✅ **108** (66 pass-1 + 41 orphan-pass + template) |
+| Export/Print buttons destubbed | ✅ **185 pages** → real CSV / print |
+| Mock-data flags | ✅ all 41 services flipped off |
+| Auth | ✅ consolidated on local JWT (verified) |
+| Pages needing net-new endpoints | ⏳ **210** (itemized below) — net-new feature development |
+
+The detail sections below record each automated pass. The **210 truly-orphan pages** are the remaining work: their backend endpoints do not exist and must be built (mostly analytics, settings, workflow-approval, template, and integration sub-features) — this is net-new development, not wiring.
+
+---
+
 Automated wiring pass (24 module agents). **66 pages wired** to the live NestJS backend; **161 pages need net-new endpoints**.
 
 ## Per-module summary
