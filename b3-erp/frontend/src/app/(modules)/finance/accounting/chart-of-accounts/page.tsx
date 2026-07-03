@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Edit, Trash2, ChevronDown, ChevronRight, DollarSign,
@@ -15,6 +15,7 @@ import {
   ToggleAccountStatusModal,
   BulkImportAccountsModal
 } from '@/components/finance/accounting/ChartOfAccountsModals';
+import { FinanceService } from '@/services/finance.service';
 import {
   ExportChartModal,
   AccountHierarchyModal
@@ -36,91 +37,61 @@ interface Account {
   hasChildren: boolean;
 }
 
-// Mock Accounts Data - Indian Chart of Accounts Structure
-const mockAccounts: Account[] = [
-  // Assets (1000-1999)
-  { code: '1000', name: 'Current Assets', type: 'Assets', balance: 1500000, debitBalance: 1500000, creditBalance: 0, isActive: true, level: 0, hasChildren: true, description: 'Short-term assets' },
-  { code: '1010', name: 'Cash and Cash Equivalents', type: 'Assets', parentCode: '1000', balance: 500000, debitBalance: 500000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '1011', name: 'Cash in Hand', type: 'Assets', parentCode: '1010', balance: 50000, debitBalance: 50000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1012', name: 'Cash at Bank - HDFC Current Account', type: 'Assets', parentCode: '1010', balance: 350000, debitBalance: 350000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1013', name: 'Cash at Bank - ICICI Savings Account', type: 'Assets', parentCode: '1010', balance: 100000, debitBalance: 100000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1020', name: 'Accounts Receivable', type: 'Assets', parentCode: '1000', balance: 450000, debitBalance: 450000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '1021', name: 'Trade Receivables - Domestic', type: 'Assets', parentCode: '1020', balance: 350000, debitBalance: 350000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1022', name: 'Trade Receivables - Export', type: 'Assets', parentCode: '1020', balance: 100000, debitBalance: 100000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1030', name: 'Inventory', type: 'Assets', parentCode: '1000', balance: 550000, debitBalance: 550000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '1031', name: 'Raw Materials', type: 'Assets', parentCode: '1030', balance: 250000, debitBalance: 250000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1032', name: 'Work in Progress', type: 'Assets', parentCode: '1030', balance: 150000, debitBalance: 150000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1033', name: 'Finished Goods', type: 'Assets', parentCode: '1030', balance: 150000, debitBalance: 150000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-
-  { code: '1500', name: 'Fixed Assets', type: 'Assets', balance: 2750000, debitBalance: 3000000, creditBalance: 250000, isActive: true, level: 0, hasChildren: true, description: 'Long-term assets' },
-  { code: '1510', name: 'Property, Plant & Equipment', type: 'Assets', parentCode: '1500', balance: 2750000, debitBalance: 3000000, creditBalance: 250000, isActive: true, level: 1, hasChildren: true },
-  { code: '1511', name: 'Land and Building', type: 'Assets', parentCode: '1510', balance: 1500000, debitBalance: 1500000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '1512', name: 'Plant and Machinery', type: 'Assets', parentCode: '1510', balance: 800000, debitBalance: 1000000, creditBalance: 200000, isActive: true, level: 2, hasChildren: false },
-  { code: '1513', name: 'Furniture and Fixtures', type: 'Assets', parentCode: '1510', balance: 180000, debitBalance: 200000, creditBalance: 20000, isActive: true, level: 2, hasChildren: false },
-  { code: '1514', name: 'Vehicles', type: 'Assets', parentCode: '1510', balance: 270000, debitBalance: 300000, creditBalance: 30000, isActive: true, level: 2, hasChildren: false },
-
-  // Liabilities (2000-2999)
-  { code: '2000', name: 'Current Liabilities', type: 'Liabilities', balance: 825000, debitBalance: 0, creditBalance: 825000, isActive: true, level: 0, hasChildren: true, description: 'Short-term obligations' },
-  { code: '2010', name: 'Accounts Payable', type: 'Liabilities', parentCode: '2000', balance: 450000, debitBalance: 0, creditBalance: 450000, isActive: true, level: 1, hasChildren: true },
-  { code: '2011', name: 'Trade Payables - Domestic', type: 'Liabilities', parentCode: '2010', balance: 350000, debitBalance: 0, creditBalance: 350000, isActive: true, level: 2, hasChildren: false },
-  { code: '2012', name: 'Trade Payables - Import', type: 'Liabilities', parentCode: '2010', balance: 100000, debitBalance: 0, creditBalance: 100000, isActive: true, level: 2, hasChildren: false },
-  { code: '2020', name: 'Statutory Liabilities', type: 'Liabilities', parentCode: '2000', balance: 175000, debitBalance: 0, creditBalance: 175000, isActive: true, level: 1, hasChildren: true },
-  { code: '2021', name: 'GST Payable - CGST', type: 'Liabilities', parentCode: '2020', balance: 50000, debitBalance: 0, creditBalance: 50000, isActive: true, level: 2, hasChildren: false },
-  { code: '2022', name: 'GST Payable - SGST', type: 'Liabilities', parentCode: '2020', balance: 50000, debitBalance: 0, creditBalance: 50000, isActive: true, level: 2, hasChildren: false },
-  { code: '2023', name: 'GST Payable - IGST', type: 'Liabilities', parentCode: '2020', balance: 25000, debitBalance: 0, creditBalance: 25000, isActive: true, level: 2, hasChildren: false },
-  { code: '2024', name: 'TDS Payable', type: 'Liabilities', parentCode: '2020', balance: 35000, debitBalance: 0, creditBalance: 35000, isActive: true, level: 2, hasChildren: false },
-  { code: '2025', name: 'PF Payable', type: 'Liabilities', parentCode: '2020', balance: 15000, debitBalance: 0, creditBalance: 15000, isActive: true, level: 2, hasChildren: false },
-  { code: '2030', name: 'Accrued Expenses', type: 'Liabilities', parentCode: '2000', balance: 200000, debitBalance: 0, creditBalance: 200000, isActive: true, level: 1, hasChildren: true },
-  { code: '2031', name: 'Salary Payable', type: 'Liabilities', parentCode: '2030', balance: 150000, debitBalance: 0, creditBalance: 150000, isActive: true, level: 2, hasChildren: false },
-  { code: '2032', name: 'Interest Payable', type: 'Liabilities', parentCode: '2030', balance: 50000, debitBalance: 0, creditBalance: 50000, isActive: true, level: 2, hasChildren: false },
-
-  { code: '2500', name: 'Long-term Liabilities', type: 'Liabilities', balance: 1500000, debitBalance: 0, creditBalance: 1500000, isActive: true, level: 0, hasChildren: true, description: 'Long-term obligations' },
-  { code: '2510', name: 'Term Loans', type: 'Liabilities', parentCode: '2500', balance: 1200000, debitBalance: 0, creditBalance: 1200000, isActive: true, level: 1, hasChildren: false },
-  { code: '2520', name: 'Debentures', type: 'Liabilities', parentCode: '2500', balance: 300000, debitBalance: 0, creditBalance: 300000, isActive: true, level: 1, hasChildren: false },
-
-  // Equity (3000-3999)
-  { code: '3000', name: 'Owner\'s Equity', type: 'Equity', balance: 2000000, debitBalance: 0, creditBalance: 2000000, isActive: true, level: 0, hasChildren: true, description: 'Shareholder equity' },
-  { code: '3010', name: 'Share Capital', type: 'Equity', parentCode: '3000', balance: 1000000, debitBalance: 0, creditBalance: 1000000, isActive: true, level: 1, hasChildren: true },
-  { code: '3011', name: 'Equity Share Capital', type: 'Equity', parentCode: '3010', balance: 800000, debitBalance: 0, creditBalance: 800000, isActive: true, level: 2, hasChildren: false },
-  { code: '3012', name: 'Preference Share Capital', type: 'Equity', parentCode: '3010', balance: 200000, debitBalance: 0, creditBalance: 200000, isActive: true, level: 2, hasChildren: false },
-  { code: '3020', name: 'Reserves and Surplus', type: 'Equity', parentCode: '3000', balance: 1000000, debitBalance: 0, creditBalance: 1000000, isActive: true, level: 1, hasChildren: true },
-  { code: '3021', name: 'General Reserve', type: 'Equity', parentCode: '3020', balance: 500000, debitBalance: 0, creditBalance: 500000, isActive: true, level: 2, hasChildren: false },
-  { code: '3022', name: 'Retained Earnings', type: 'Equity', parentCode: '3020', balance: 500000, debitBalance: 0, creditBalance: 500000, isActive: true, level: 2, hasChildren: false },
-
-  // Income (4000-4999)
-  { code: '4000', name: 'Revenue', type: 'Income', balance: 3500000, debitBalance: 0, creditBalance: 3500000, isActive: true, level: 0, hasChildren: true, description: 'Operating income' },
-  { code: '4010', name: 'Sales Revenue', type: 'Income', parentCode: '4000', balance: 3200000, debitBalance: 0, creditBalance: 3200000, isActive: true, level: 1, hasChildren: true },
-  { code: '4011', name: 'Domestic Sales', type: 'Income', parentCode: '4010', balance: 2400000, debitBalance: 0, creditBalance: 2400000, isActive: true, level: 2, hasChildren: false },
-  { code: '4012', name: 'Export Sales', type: 'Income', parentCode: '4010', balance: 800000, debitBalance: 0, creditBalance: 800000, isActive: true, level: 2, hasChildren: false },
-  { code: '4020', name: 'Other Income', type: 'Income', parentCode: '4000', balance: 300000, debitBalance: 0, creditBalance: 300000, isActive: true, level: 1, hasChildren: true },
-  { code: '4021', name: 'Interest Income', type: 'Income', parentCode: '4020', balance: 150000, debitBalance: 0, creditBalance: 150000, isActive: true, level: 2, hasChildren: false },
-  { code: '4022', name: 'Dividend Income', type: 'Income', parentCode: '4020', balance: 100000, debitBalance: 0, creditBalance: 100000, isActive: true, level: 2, hasChildren: false },
-  { code: '4023', name: 'Miscellaneous Income', type: 'Income', parentCode: '4020', balance: 50000, debitBalance: 0, creditBalance: 50000, isActive: true, level: 2, hasChildren: false },
-
-  // Expenses (5000-5999)
-  { code: '5000', name: 'Operating Expenses', type: 'Expenses', balance: 2100000, debitBalance: 2100000, creditBalance: 0, isActive: true, level: 0, hasChildren: true, description: 'Cost of operations' },
-  { code: '5010', name: 'Cost of Goods Sold', type: 'Expenses', parentCode: '5000', balance: 1200000, debitBalance: 1200000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '5011', name: 'Raw Material Consumed', type: 'Expenses', parentCode: '5010', balance: 800000, debitBalance: 800000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5012', name: 'Direct Labor', type: 'Expenses', parentCode: '5010', balance: 300000, debitBalance: 300000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5013', name: 'Manufacturing Overhead', type: 'Expenses', parentCode: '5010', balance: 100000, debitBalance: 100000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5020', name: 'Administrative Expenses', type: 'Expenses', parentCode: '5000', balance: 400000, debitBalance: 400000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '5021', name: 'Salary - Administrative', type: 'Expenses', parentCode: '5020', balance: 250000, debitBalance: 250000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5022', name: 'Office Rent', type: 'Expenses', parentCode: '5020', balance: 80000, debitBalance: 80000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5023', name: 'Office Supplies', type: 'Expenses', parentCode: '5020', balance: 40000, debitBalance: 40000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5024', name: 'Utilities', type: 'Expenses', parentCode: '5020', balance: 30000, debitBalance: 30000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5030', name: 'Selling and Distribution Expenses', type: 'Expenses', parentCode: '5000', balance: 300000, debitBalance: 300000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '5031', name: 'Marketing Expenses', type: 'Expenses', parentCode: '5030', balance: 150000, debitBalance: 150000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5032', name: 'Sales Commission', type: 'Expenses', parentCode: '5030', balance: 100000, debitBalance: 100000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5033', name: 'Transportation', type: 'Expenses', parentCode: '5030', balance: 50000, debitBalance: 50000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5040', name: 'Financial Expenses', type: 'Expenses', parentCode: '5000', balance: 200000, debitBalance: 200000, creditBalance: 0, isActive: true, level: 1, hasChildren: true },
-  { code: '5041', name: 'Interest Expense', type: 'Expenses', parentCode: '5040', balance: 150000, debitBalance: 150000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5042', name: 'Bank Charges', type: 'Expenses', parentCode: '5040', balance: 30000, debitBalance: 30000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-  { code: '5043', name: 'Depreciation', type: 'Expenses', parentCode: '5040', balance: 20000, debitBalance: 20000, creditBalance: 0, isActive: true, level: 2, hasChildren: false },
-];
 
 export default function ChartOfAccountsPage() {
   const router = useRouter();
-  const [accounts] = useState<Account[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (accountCode/accountName/accountType/
+        // parentAccountId); map it to the page's Account model.
+        const raw = (await FinanceService.getChartOfAccounts()) as any[];
+        const idToCode = new Map(raw.map((a) => [a.id, a.accountCode]));
+        const typeMap: Record<string, Account['type']> = {
+          Asset: 'Assets', Assets: 'Assets',
+          Liability: 'Liabilities', Liabilities: 'Liabilities',
+          Equity: 'Equity',
+          Income: 'Income', Revenue: 'Income',
+          Expense: 'Expenses', Expenses: 'Expenses',
+        };
+        const parents = new Set(
+          raw.filter((a) => a.parentAccountId).map((a) => idToCode.get(a.parentAccountId)),
+        );
+        const mapped: Account[] = raw.map((a) => ({
+          code: a.accountCode,
+          name: a.accountName,
+          type: typeMap[a.accountType] ?? 'Assets',
+          parentCode: a.parentAccountId ? idToCode.get(a.parentAccountId) : undefined,
+          balance: Number(a.currentBalance ?? a.balance ?? 0),
+          debitBalance: Number(a.debitBalance ?? 0),
+          creditBalance: Number(a.creditBalance ?? 0),
+          isActive: a.isActive ?? true,
+          description: a.description ?? undefined,
+          level: a.level ?? 0,
+          hasChildren: parents.has(a.accountCode),
+        }));
+        if (!cancelled) setAccounts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load chart of accounts');
+          setAccounts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -322,6 +293,23 @@ export default function ChartOfAccountsPage() {
     <div className="h-screen flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full px-3 py-2">
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading chart of accounts…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
+          {!isLoading && !loadError && accounts.length === 0 && (
+            <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              No accounts found.
+            </div>
+          )}
           {/* Action Bar */}
           <div className="mb-3">
             <div className="flex items-center justify-end mb-2">
