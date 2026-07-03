@@ -318,19 +318,19 @@ export default function ChangeRequestsPage() {
 
       return matchesSearch && matchesProject && matchesStatus && matchesCategory;
     });
-  }, [searchTerm, projectFilter, statusFilter, categoryFilter]);
+  }, [rows, searchTerm, projectFilter, statusFilter, categoryFilter]);
 
   // Calculate stats
   const stats = useMemo(() => {
-    const totalRequests = mockChangeData.length;
-    const draftCount = mockChangeData.filter(c => c.status === 'draft').length;
-    const submittedCount = mockChangeData.filter(c => c.status === 'submitted').length;
-    const underReviewCount = mockChangeData.filter(c => c.status === 'under-review').length;
-    const approvedCount = mockChangeData.filter(c => c.status === 'approved').length;
-    const rejectedCount = mockChangeData.filter(c => c.status === 'rejected').length;
-    const implementedCount = mockChangeData.filter(c => c.status === 'implemented').length;
+    const totalRequests = rows.length;
+    const draftCount = rows.filter(c => c.status === 'draft').length;
+    const submittedCount = rows.filter(c => c.status === 'submitted').length;
+    const underReviewCount = rows.filter(c => c.status === 'under-review').length;
+    const approvedCount = rows.filter(c => c.status === 'approved').length;
+    const rejectedCount = rows.filter(c => c.status === 'rejected').length;
+    const implementedCount = rows.filter(c => c.status === 'implemented').length;
 
-    const totalCostImpact = mockChangeData
+    const totalCostImpact = rows
       .filter(c => c.status === 'approved' || c.status === 'implemented')
       .reduce((sum, c) => sum + c.impactCost, 0);
 
@@ -344,7 +344,7 @@ export default function ChangeRequestsPage() {
       implementedCount,
       totalCostImpact
     };
-  }, []);
+  }, [rows]);
 
   const getStatusColor = (status: ChangeRequest['status']) => {
     switch (status) {
@@ -387,6 +387,18 @@ export default function ChangeRequestsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Manage project scope and requirement changes with impact analysis</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading change requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -496,7 +508,7 @@ export default function ChangeRequestsPage() {
           </select>
 
           <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredChanges.length} of {mockChangeData.length} requests
+            Showing {filteredChanges.length} of {rows.length} requests
           </div>
         </div>
       </div>

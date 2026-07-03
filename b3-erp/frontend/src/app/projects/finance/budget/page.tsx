@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { DollarSign, Search, Filter, PlusCircle, Download, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Package, Users, Clock, Wrench } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface BudgetItem {
   id: string;
@@ -289,27 +290,88 @@ const mockBudgetData: BudgetItem[] = [
   }
 ];
 
+const BUDGET_CATEGORIES: BudgetItem['category'][] = ['labor', 'materials', 'equipment', 'subcontractor', 'overhead', 'contingency'];
+const BUDGET_STATUSES: BudgetItem['status'][] = ['on-budget', 'over-budget', 'under-budget', 'at-risk'];
+
 export default function ProjectBudgetPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
 
+  const [rows, setRows] = useState<BudgetItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listProjectBudgets();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped: BudgetItem[] = list.map((r: Record<string, unknown>) => {
+          const budgetAmount = Number(r.budgetAllocated ?? r.budgetAmount ?? 0);
+          const committedAmount = Number(r.committedAmount ?? 0);
+          const actualSpent = Number(r.actualSpent ?? r.budgetSpent ?? 0);
+          const forecastToComplete = Number(r.forecastToComplete ?? r.forecastCost ?? 0);
+          const variance = Number(r.variance ?? 0);
+          return {
+            id: String(r.id ?? ''),
+            projectCode: String(r.projectCode ?? r.projectId ?? ''),
+            projectName: String(r.projectName ?? ''),
+            category: BUDGET_CATEGORIES.includes(r.category as BudgetItem['category'])
+              ? (r.category as BudgetItem['category'])
+              : 'labor',
+            phase: String(r.phase ?? ''),
+            workPackage: String(r.workPackage ?? ''),
+            budgetAmount,
+            committedAmount,
+            actualSpent,
+            forecastToComplete,
+            variance,
+            variancePercent: Number(r.variancePercent ?? (budgetAmount > 0 ? (variance / budgetAmount) * 100 : 0)),
+            status: BUDGET_STATUSES.includes(r.status as BudgetItem['status'])
+              ? (r.status as BudgetItem['status'])
+              : 'on-budget',
+            startDate: String(r.startDate ?? ''),
+            endDate: String(r.endDate ?? ''),
+            approvedBy: String(r.approvedBy ?? ''),
+            approvedDate: String(r.approvedDate ?? ''),
+            lastUpdated: String(r.lastUpdated ?? r.updatedAt ?? ''),
+            notes: r.notes != null ? String(r.notes) : undefined,
+          };
+        });
+        setRows(mapped);
+        setLoadError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load budget data');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Calculate statistics
   const stats = useMemo(() => {
-    const totalBudget = mockBudgetData.reduce((sum, item) => sum + item.budgetAmount, 0);
-    const totalCommitted = mockBudgetData.reduce((sum, item) => sum + item.committedAmount, 0);
-    const totalSpent = mockBudgetData.reduce((sum, item) => sum + item.actualSpent, 0);
-    const totalForecast = mockBudgetData.reduce((sum, item) => sum + item.forecastToComplete, 0);
-    const totalVariance = mockBudgetData.reduce((sum, item) => sum + item.variance, 0);
+    const totalBudget = rows.reduce((sum, item) => sum + item.budgetAmount, 0);
+    const totalCommitted = rows.reduce((sum, item) => sum + item.committedAmount, 0);
+    const totalSpent = rows.reduce((sum, item) => sum + item.actualSpent, 0);
+    const totalForecast = rows.reduce((sum, item) => sum + item.forecastToComplete, 0);
+    const totalVariance = rows.reduce((sum, item) => sum + item.variance, 0);
     const available = totalBudget - totalCommitted;
-    const utilizationPercent = (totalCommitted / totalBudget) * 100;
+    const utilizationPercent = totalBudget > 0 ? (totalCommitted / totalBudget) * 100 : 0;
     const estimateAtCompletion = totalSpent + totalForecast;
-    const variancePercent = (totalVariance / totalBudget) * 100;
+    const variancePercent = totalBudget > 0 ? (totalVariance / totalBudget) * 100 : 0;
 
-    const onBudgetCount = mockBudgetData.filter(item => item.status === 'on-budget').length;
-    const overBudgetCount = mockBudgetData.filter(item => item.status === 'over-budget').length;
-    const atRiskCount = mockBudgetData.filter(item => item.status === 'at-risk').length;
+    const onBudgetCount = rows.filter(item => item.status === 'on-budget').length;
+    const overBudgetCount = rows.filter(item => item.status === 'over-budget').length;
+    const atRiskCount = rows.filter(item => item.status === 'at-risk').length;
 
     return {
       totalBudget,
@@ -325,17 +387,17 @@ export default function ProjectBudgetPage() {
       overBudgetCount,
       atRiskCount
     };
-  }, []);
+  }, [rows]);
 
   // Get unique projects
   const projects = useMemo(() => {
-    const projectSet = new Set(mockBudgetData.map(item => item.projectName));
+    const projectSet = new Set(rows.map(item => item.projectName));
     return Array.from(projectSet).sort();
-  }, []);
+  }, [rows]);
 
   // Filter budget items
   const filteredBudgetItems = useMemo(() => {
-    return mockBudgetData.filter(item => {
+    return rows.filter(item => {
       const matchesSearch =
         item.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.workPackage.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -348,7 +410,7 @@ export default function ProjectBudgetPage() {
 
       return matchesSearch && matchesCategory && matchesStatus && matchesProject;
     });
-  }, [searchTerm, selectedCategory, selectedStatus, selectedProject]);
+  }, [searchTerm, selectedCategory, selectedStatus, selectedProject, rows]);
 
   const getCategoryIcon = (category: string) => {
     const icons = {
@@ -401,6 +463,18 @@ export default function ProjectBudgetPage() {
         <p className="text-gray-600 mt-2">Budget planning, allocation, and variance tracking by project and work package • FY 2025-26</p>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          Loading budget data...
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {loadError}
+        </div>
+      )}
+
       {/* Summary Cards - 6 columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
@@ -409,7 +483,7 @@ export default function ProjectBudgetPage() {
             <DollarSign className="h-5 w-5 text-blue-600" />
           </div>
           <p className="text-2xl font-bold text-blue-900">₹{(stats.totalBudget / 10000000).toFixed(2)}Cr</p>
-          <p className="text-xs text-blue-600 mt-1">{mockBudgetData.length} items</p>
+          <p className="text-xs text-blue-600 mt-1">{rows.length} items</p>
         </div>
 
         <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-3 border border-teal-200">
@@ -427,7 +501,7 @@ export default function ProjectBudgetPage() {
             <TrendingDown className="h-5 w-5 text-purple-600" />
           </div>
           <p className="text-2xl font-bold text-purple-900">₹{(stats.totalSpent / 10000000).toFixed(2)}Cr</p>
-          <p className="text-xs text-purple-600 mt-1">{((stats.totalSpent / stats.totalBudget) * 100).toFixed(1)}% of budget</p>
+          <p className="text-xs text-purple-600 mt-1">{(stats.totalBudget > 0 ? (stats.totalSpent / stats.totalBudget) * 100 : 0).toFixed(1)}% of budget</p>
         </div>
 
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">
@@ -587,7 +661,7 @@ export default function ProjectBudgetPage() {
                   ₹{(item.committedAmount / 100000).toFixed(2)}L
                 </p>
                 <p className="text-xs text-teal-700 mt-1">
-                  {((item.committedAmount / item.budgetAmount) * 100).toFixed(0)}% committed
+                  {(item.budgetAmount > 0 ? (item.committedAmount / item.budgetAmount) * 100 : 0).toFixed(0)}% committed
                 </p>
               </div>
 
@@ -597,7 +671,7 @@ export default function ProjectBudgetPage() {
                   ₹{(item.actualSpent / 100000).toFixed(2)}L
                 </p>
                 <p className="text-xs text-purple-700 mt-1">
-                  {((item.actualSpent / item.budgetAmount) * 100).toFixed(0)}% spent
+                  {(item.budgetAmount > 0 ? (item.actualSpent / item.budgetAmount) * 100 : 0).toFixed(0)}% spent
                 </p>
               </div>
 

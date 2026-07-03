@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Search, Filter, Download, DollarSign, AlertTriangle, TrendingDown, Activity } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface EvmProject {
   id: string;
@@ -86,13 +87,56 @@ const mockEvmData: EvmProject[] = [
   }
 ];
 
+const EVM_STATUSES: EvmProject['status'][] = ['on-track', 'behind-schedule', 'over-budget', 'at-risk'];
+
 export default function EarnedValueManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const [rows, setRows] = useState<EvmProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listEarnedValue();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped: EvmProject[] = list.map((r: Record<string, unknown>) => ({
+          id: String(r.id ?? ''),
+          projectCode: String(r.projectCode ?? ''),
+          projectName: String(r.projectName ?? ''),
+          budgetAtCompletion: Number(r.budgetAtCompletion ?? 0),
+          plannedValue: Number(r.plannedValue ?? 0),
+          earnedValue: Number(r.earnedValue ?? 0),
+          actualCost: Number(r.actualCost ?? 0),
+          progressPercent: Number(r.progressPercent ?? 0),
+          startDate: String(r.startDate ?? ''),
+          endDate: String(r.endDate ?? ''),
+          status: EVM_STATUSES.includes(r.status as EvmProject['status'])
+            ? (r.status as EvmProject['status'])
+            : 'on-track',
+        }));
+        setRows(mapped);
+        setLoadError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load earned value data');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Filter projects
   const filteredProjects = useMemo(() => {
-    return mockEvmData.filter(project => {
+    return rows.filter(project => {
       const matchesSearch = searchTerm === '' ||
         project.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         project.projectCode.toLowerCase().includes(searchTerm.toLowerCase());
@@ -101,14 +145,14 @@ export default function EarnedValueManagementPage() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, rows]);
 
   // Calculate portfolio stats
   const portfolioStats = useMemo(() => {
-    const totalBAC = mockEvmData.reduce((sum, p) => sum + p.budgetAtCompletion, 0);
-    const totalPV = mockEvmData.reduce((sum, p) => sum + p.plannedValue, 0);
-    const totalEV = mockEvmData.reduce((sum, p) => sum + p.earnedValue, 0);
-    const totalAC = mockEvmData.reduce((sum, p) => sum + p.actualCost, 0);
+    const totalBAC = rows.reduce((sum, p) => sum + p.budgetAtCompletion, 0);
+    const totalPV = rows.reduce((sum, p) => sum + p.plannedValue, 0);
+    const totalEV = rows.reduce((sum, p) => sum + p.earnedValue, 0);
+    const totalAC = rows.reduce((sum, p) => sum + p.actualCost, 0);
 
     const portfolioSV = totalEV - totalPV;
     const portfolioCV = totalEV - totalAC;
@@ -129,7 +173,7 @@ export default function EarnedValueManagementPage() {
       portfolioEAC,
       portfolioVAC
     };
-  }, []);
+  }, [rows]);
 
   // Calculate EVM metrics for a project
   const calculateEvmMetrics = (project: EvmProject) => {
@@ -191,6 +235,18 @@ export default function EarnedValueManagementPage() {
         </h1>
         <p className="text-gray-600 mt-2">EVM analysis, forecasting, and performance measurement</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          Loading earned value data...
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -305,7 +361,7 @@ export default function EarnedValueManagementPage() {
           </select>
 
           <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredProjects.length} of {mockEvmData.length} projects
+            Showing {filteredProjects.length} of {rows.length} projects
           </div>
         </div>
       </div>

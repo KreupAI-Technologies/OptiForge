@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { LayoutDashboard, Search, Filter, FolderKanban, TrendingUp, AlertCircle, Clock, CheckCircle2, Users, DollarSign, Calendar, Target, Activity } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface Project {
   id: string;
@@ -346,31 +347,109 @@ const mockProjectsData: Project[] = [
   }
 ];
 
+const CATEGORIES: Project['category'][] = ['construction', 'it', 'manufacturing', 'infrastructure', 'r&d'];
+const STATUSES: Project['status'][] = ['planning', 'active', 'on-hold', 'completed', 'at-risk', 'delayed'];
+const PRIORITIES: Project['priority'][] = ['critical', 'high', 'medium', 'low'];
+const RISK_LEVELS: Project['riskLevel'][] = ['low', 'medium', 'high', 'critical'];
+
+// Backend project-plan status → dashboard Project status union.
+const PLAN_STATUS_MAP: Record<string, Project['status']> = {
+  planning: 'planning',
+  approved: 'planning',
+  in_execution: 'active',
+  on_hold: 'on-hold',
+  completed: 'completed',
+  cancelled: 'on-hold',
+};
+
 export default function ProjectsDashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
 
+  const [rows, setRows] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listProjectPlans();
+        if (cancelled) return;
+        const list: Record<string, unknown>[] = Array.isArray(data) ? (data as unknown as Record<string, unknown>[]) : [];
+        const mapped: Project[] = list.map((r: Record<string, unknown>) => {
+          const startDate = String(r.startDate ?? '');
+          const endDate = String(r.endDate ?? '');
+          return {
+            id: String(r.id ?? ''),
+            projectCode: String(r.projectCode ?? ''),
+            projectName: String(r.projectName ?? ''),
+            projectManager: String(r.projectManager ?? ''),
+            client: String(r.client ?? ''),
+            category: CATEGORIES.includes(r.projectType as Project['category'])
+              ? (r.projectType as Project['category'])
+              : 'construction',
+            status: PLAN_STATUS_MAP[String(r.status ?? '')]
+              ?? (STATUSES.includes(r.status as Project['status']) ? (r.status as Project['status']) : 'planning'),
+            priority: PRIORITIES.includes(r.priority as Project['priority'])
+              ? (r.priority as Project['priority'])
+              : 'medium',
+            startDate,
+            endDate,
+            plannedEndDate: endDate,
+            progressPercent: Number(r.progressPercentage ?? 0),
+            budget: Number(r.estimatedBudget ?? 0),
+            spent: Number(r.actualBudget ?? 0),
+            forecast: Number(r.actualBudget ?? 0),
+            teamSize: Number(r.teamSize ?? 0),
+            milestonesTotal: Number(r.milestones ?? 0),
+            milestonesCompleted: Number(r.completedMilestones ?? 0),
+            tasksTotal: 0,
+            tasksCompleted: 0,
+            issuesOpen: 0,
+            riskLevel: RISK_LEVELS.includes(r.riskLevel as Project['riskLevel'])
+              ? (r.riskLevel as Project['riskLevel'])
+              : 'low',
+            healthScore: 0,
+            lastUpdated: String(r.updatedAt ?? ''),
+          };
+        });
+        setRows(mapped);
+        setLoadError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load projects');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Calculate statistics
   const stats = useMemo(() => {
-    const totalProjects = mockProjectsData.length;
-    const activeProjects = mockProjectsData.filter(p => p.status === 'active').length;
-    const completedProjects = mockProjectsData.filter(p => p.status === 'completed').length;
-    const atRiskProjects = mockProjectsData.filter(p => ['at-risk', 'delayed'].includes(p.status)).length;
-    const planningProjects = mockProjectsData.filter(p => p.status === 'planning').length;
-    const onHoldProjects = mockProjectsData.filter(p => p.status === 'on-hold').length;
+    const totalProjects = rows.length;
+    const activeProjects = rows.filter(p => p.status === 'active').length;
+    const completedProjects = rows.filter(p => p.status === 'completed').length;
+    const atRiskProjects = rows.filter(p => ['at-risk', 'delayed'].includes(p.status)).length;
+    const planningProjects = rows.filter(p => p.status === 'planning').length;
+    const onHoldProjects = rows.filter(p => p.status === 'on-hold').length;
 
-    const totalBudget = mockProjectsData.reduce((sum, p) => sum + p.budget, 0);
-    const totalSpent = mockProjectsData.reduce((sum, p) => sum + p.spent, 0);
-    const totalForecast = mockProjectsData.reduce((sum, p) => sum + p.forecast, 0);
-    const totalTeamMembers = mockProjectsData.reduce((sum, p) => sum + p.teamSize, 0);
+    const totalBudget = rows.reduce((sum, p) => sum + p.budget, 0);
+    const totalSpent = rows.reduce((sum, p) => sum + p.spent, 0);
+    const totalForecast = rows.reduce((sum, p) => sum + p.forecast, 0);
+    const totalTeamMembers = rows.reduce((sum, p) => sum + p.teamSize, 0);
 
-    const avgProgress = mockProjectsData.reduce((sum, p) => sum + p.progressPercent, 0) / totalProjects;
-    const avgHealthScore = mockProjectsData.reduce((sum, p) => sum + p.healthScore, 0) / totalProjects;
+    const avgProgress = totalProjects > 0 ? rows.reduce((sum, p) => sum + p.progressPercent, 0) / totalProjects : 0;
+    const avgHealthScore = totalProjects > 0 ? rows.reduce((sum, p) => sum + p.healthScore, 0) / totalProjects : 0;
 
-    const criticalProjects = mockProjectsData.filter(p => p.priority === 'critical').length;
-    const highPriorityProjects = mockProjectsData.filter(p => p.priority === 'high').length;
+    const criticalProjects = rows.filter(p => p.priority === 'critical').length;
+    const highPriorityProjects = rows.filter(p => p.priority === 'high').length;
 
     return {
       totalProjects,
@@ -388,11 +467,11 @@ export default function ProjectsDashboardPage() {
       criticalProjects,
       highPriorityProjects
     };
-  }, []);
+  }, [rows]);
 
   // Filter projects
   const filteredProjects = useMemo(() => {
-    return mockProjectsData.filter(project => {
+    return rows.filter(project => {
       const matchesSearch =
         project.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         project.projectCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -405,7 +484,7 @@ export default function ProjectsDashboardPage() {
 
       return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
     });
-  }, [searchTerm, selectedCategory, selectedStatus, selectedPriority]);
+  }, [searchTerm, selectedCategory, selectedStatus, selectedPriority, rows]);
 
   const getCategoryBadge = (category: string) => {
     const badges = {
@@ -473,6 +552,18 @@ export default function ProjectsDashboardPage() {
         </h1>
         <p className="text-gray-600 mt-2">Portfolio overview with project status, progress, and key metrics • FY 2025-26</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+          Loading projects...
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards - 6 columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">
@@ -652,7 +743,7 @@ export default function ProjectsDashboardPage() {
                 <p className="text-xs text-blue-600 font-medium mb-1">Budget</p>
                 <p className="text-lg font-bold text-blue-900">₹{(project.budget / 10000000).toFixed(2)}Cr</p>
                 <p className="text-xs text-blue-700 mt-1">
-                  {((project.spent / project.budget) * 100).toFixed(0)}% spent
+                  {(project.budget > 0 ? (project.spent / project.budget) * 100 : 0).toFixed(0)}% spent
                 </p>
               </div>
 

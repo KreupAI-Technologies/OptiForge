@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Trello, Search, Filter, Settings, User, Calendar, Tag, AlertCircle, Clock } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface KanbanCard {
   id: string;
@@ -239,20 +240,70 @@ const columns = [
   { id: 'done', name: 'Done', color: 'green' }
 ] as const;
 
+const KANBAN_PRIORITIES: KanbanCard['priority'][] = ['critical', 'high', 'medium', 'low'];
+const KANBAN_COLUMNS: KanbanCard['column'][] = ['backlog', 'todo', 'in-progress', 'review', 'done'];
+
 export default function KanbanBoardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
 
+  const [rows, setRows] = useState<KanbanCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listKanban();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        const mapped: KanbanCard[] = list.map((r: any) => {
+          const priorityRaw = String(r.priority ?? '').toLowerCase();
+          const priority = KANBAN_PRIORITIES.includes(priorityRaw as KanbanCard['priority'])
+            ? (priorityRaw as KanbanCard['priority'])
+            : 'medium';
+          const columnRaw = String(r.column ?? '').toLowerCase().replace(/_/g, '-');
+          const column = KANBAN_COLUMNS.includes(columnRaw as KanbanCard['column'])
+            ? (columnRaw as KanbanCard['column'])
+            : 'backlog';
+          return {
+            id: String(r.id ?? ''),
+            taskNumber: String(r.taskNumber ?? r.id ?? ''),
+            title: String(r.title ?? ''),
+            description: String(r.description ?? ''),
+            projectCode: String(r.projectCode ?? ''),
+            projectName: String(r.projectName ?? ''),
+            assignee: String(r.assignee ?? ''),
+            priority,
+            dueDate: String(r.dueDate ?? ''),
+            estimatedHours: Number(r.estimatedHours ?? 0),
+            tags: Array.isArray(r.tags) ? r.tags.map((t: any) => String(t)) : [],
+            column,
+          };
+        });
+        setRows(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load kanban cards');
+        setRows([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Get unique projects
   const projects = useMemo(() =>
-    ['all', ...Array.from(new Set(mockKanbanData.map(c => c.projectName)))],
-    []
+    ['all', ...Array.from(new Set(rows.map(c => c.projectName)))],
+    [rows]
   );
 
   // Filter cards
   const filteredCards = useMemo(() => {
-    return mockKanbanData.filter(card => {
+    return rows.filter(card => {
       const matchesSearch = searchTerm === '' ||
         card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         card.taskNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -263,7 +314,7 @@ export default function KanbanBoardPage() {
 
       return matchesSearch && matchesProject && matchesPriority;
     });
-  }, [searchTerm, projectFilter, priorityFilter]);
+  }, [rows, searchTerm, projectFilter, priorityFilter]);
 
   // Group cards by column
   const cardsByColumn = useMemo(() => {
@@ -284,12 +335,12 @@ export default function KanbanBoardPage() {
 
   // Calculate stats
   const stats = useMemo(() => {
-    const totalCards = mockKanbanData.length;
-    const backlogCount = mockKanbanData.filter(c => c.column === 'backlog').length;
-    const todoCount = mockKanbanData.filter(c => c.column === 'todo').length;
-    const inProgressCount = mockKanbanData.filter(c => c.column === 'in-progress').length;
-    const reviewCount = mockKanbanData.filter(c => c.column === 'review').length;
-    const doneCount = mockKanbanData.filter(c => c.column === 'done').length;
+    const totalCards = rows.length;
+    const backlogCount = rows.filter(c => c.column === 'backlog').length;
+    const todoCount = rows.filter(c => c.column === 'todo').length;
+    const inProgressCount = rows.filter(c => c.column === 'in-progress').length;
+    const reviewCount = rows.filter(c => c.column === 'review').length;
+    const doneCount = rows.filter(c => c.column === 'done').length;
 
     return {
       totalCards,
@@ -299,7 +350,7 @@ export default function KanbanBoardPage() {
       reviewCount,
       doneCount
     };
-  }, []);
+  }, [rows]);
 
   const getPriorityColor = (priority: KanbanCard['priority']) => {
     switch (priority) {
@@ -335,6 +386,18 @@ export default function KanbanBoardPage() {
         </h1>
         <p className="text-gray-600 mt-2">Visual task management with drag-and-drop workflow</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading kanban cards…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -416,7 +479,7 @@ export default function KanbanBoardPage() {
           </select>
 
           <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredCards.length} of {mockKanbanData.length} tasks
+            Showing {filteredCards.length} of {rows.length} tasks
           </div>
         </div>
       </div>
