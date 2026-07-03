@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService, PmChangeOrder } from '@/services/ProjectManagementService';
 import { FileEdit, Plus, CheckCircle, Clock, XCircle, AlertTriangle, DollarSign, Calendar, Eye, Download, Edit, History, Upload, TrendingUp, Settings, Users, BarChart3 } from 'lucide-react';
 import {
  CreateChangeOrderModal,
@@ -342,17 +343,71 @@ export default function ChangeOrdersPage() {
   },
  ];
 
+ const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [error, setError] = useState<string | null>(null);
+
+ useEffect(() => {
+  let mounted = true;
+  (async () => {
+   try {
+    setLoading(true);
+    const rows = await projectManagementService.listChangeOrders();
+    if (!mounted) return;
+    const mapped: ChangeOrder[] = (Array.isArray(rows) ? rows : []).map((r: PmChangeOrder) => ({
+     id: r.id,
+     changeOrderNumber: r.changeOrderNumber ?? '',
+     projectId: r.projectId ?? '',
+     projectName: r.projectName ?? '',
+     requestDate: r.requestDate ?? '',
+     requestedBy: r.requestedBy ?? '',
+     requestedByRole: (r.requestedByRole as ChangeOrder['requestedByRole']) ?? 'Project Manager',
+     changeType: (r.changeType as ChangeOrder['changeType']) ?? 'Other',
+     priority: (r.priority as ChangeOrder['priority']) ?? 'Medium',
+     title: r.title ?? '',
+     description: r.description ?? '',
+     reason: r.reason ?? '',
+     impactOnCost: Number(r.impactOnCost ?? 0),
+     impactOnSchedule: Number(r.impactOnSchedule ?? 0),
+     originalBudget: Number(r.originalBudget ?? 0),
+     revisedBudget: Number(r.revisedBudget ?? 0),
+     originalEndDate: r.originalEndDate ?? '',
+     revisedEndDate: r.revisedEndDate ?? '',
+     status: (r.status as ChangeOrder['status']) ?? 'Pending',
+     approvedBy: r.approvedBy ?? '',
+     approvalDate: r.approvalDate ?? '',
+     implementationDate: r.implementationDate ?? '',
+     completionDate: r.completionDate ?? '',
+     attachments: Number(r.attachments ?? 0),
+     remarks: r.remarks ?? '',
+    }));
+    // Fall back to sample data when the backend has no rows yet.
+    setChangeOrders(mapped.length > 0 ? mapped : mockChangeOrders);
+   } catch (e) {
+    if (!mounted) return;
+    setError('Failed to load change orders');
+    setChangeOrders(mockChangeOrders);
+   } finally {
+    if (mounted) setLoading(false);
+   }
+  })();
+  return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, []);
+
  const stats = {
-  totalOrders: mockChangeOrders.length,
-  pending: mockChangeOrders.filter(o => o.status === 'Pending').length,
-  underReview: mockChangeOrders.filter(o => o.status === 'Under Review').length,
-  approved: mockChangeOrders.filter(o => o.status === 'Approved').length,
-  rejected: mockChangeOrders.filter(o => o.status === 'Rejected').length,
-  totalCostImpact: mockChangeOrders.reduce((sum, o) => sum + o.impactOnCost, 0),
-  avgScheduleImpact: (mockChangeOrders.reduce((sum, o) => sum + Math.abs(o.impactOnSchedule), 0) / mockChangeOrders.length).toFixed(1),
+  totalOrders: changeOrders.length,
+  pending: changeOrders.filter(o => o.status === 'Pending').length,
+  underReview: changeOrders.filter(o => o.status === 'Under Review').length,
+  approved: changeOrders.filter(o => o.status === 'Approved').length,
+  rejected: changeOrders.filter(o => o.status === 'Rejected').length,
+  totalCostImpact: changeOrders.reduce((sum, o) => sum + o.impactOnCost, 0),
+  avgScheduleImpact: (changeOrders.length > 0
+   ? changeOrders.reduce((sum, o) => sum + Math.abs(o.impactOnSchedule), 0) / changeOrders.length
+   : 0).toFixed(1),
  };
 
- const filteredOrders = mockChangeOrders.filter((order) => {
+ const filteredOrders = changeOrders.filter((order) => {
   const matchesSearch =
    order.changeOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
    order.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -496,6 +551,12 @@ export default function ChangeOrdersPage() {
  return (
   <div className="w-full h-screen overflow-y-auto overflow-x-hidden">
    <div className="px-3 py-2 space-y-3">
+    {loading && (
+     <div className="text-sm text-gray-500">Loading change orders…</div>
+    )}
+    {error && (
+     <div className="text-sm text-red-600">{error} — showing sample data.</div>
+    )}
     {/* Header Actions */}
     <div className="flex justify-between mb-2">
      <div className="flex gap-2">

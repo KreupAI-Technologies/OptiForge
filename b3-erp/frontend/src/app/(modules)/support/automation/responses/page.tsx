@@ -1,16 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Mail, TrendingUp, Target, BarChart, Clock, Copy, Edit2, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Mail, TrendingUp, Target, BarChart, Clock, Copy, Edit2, Trash2, AlertCircle } from 'lucide-react'
+import { ResponseTemplateService, SupportResponseTemplate } from '@/services/support.service'
 
 interface ResponseTemplate {
   id: string
   name: string
-  category: 'Acknowledgment' | 'Update' | 'Resolution' | 'Escalation' | 'Survey' | 'Follow-up'
+  category: string
   subject: string
   body: string
   trigger: {
-    type: 'On Creation' | 'Status Change' | 'Priority Change' | 'Time-based' | 'Manual'
+    type: string
     conditions: string[]
   }
   language: string
@@ -24,323 +25,48 @@ export default function AutoResponses() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<ResponseTemplate | null>(null)
+  const [templates, setTemplates] = useState<ResponseTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const templates: ResponseTemplate[] = [
-    {
-      id: '1',
-      name: 'Ticket Acknowledgment - Critical',
-      category: 'Acknowledgment',
-      subject: 'Your critical ticket has been received - {{ticket_id}}',
-      body: `Dear {{customer_name}},
-
-Thank you for contacting us. We have received your critical ticket ({{ticket_id}}) and understand the urgency.
-
-Our team is immediately reviewing your issue: {{issue_summary}}
-
-Expected Response Time: Within 30 minutes
-Priority Level: Critical (P0)
-
-You can track your ticket status at: {{tracking_link}}
-
-We will keep you updated on progress.
-
-Best regards,
-{{agent_name}}
-Support Team`,
-      trigger: {
-        type: 'On Creation',
-        conditions: ['Priority = P0', 'Auto-assign = true']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 234,
-      effectivenessRate: 96.5,
-      avgResponseTime: '< 1 min'
-    },
-    {
-      id: '2',
-      name: 'Ticket Acknowledgment - Standard',
-      category: 'Acknowledgment',
-      subject: 'Ticket Confirmation - {{ticket_id}}',
-      body: `Hello {{customer_name}},
-
-We have received your support request ({{ticket_id}}).
-
-Issue: {{issue_summary}}
-Priority: {{priority}}
-Expected Response: {{expected_response_time}}
-
-Our team will review and respond shortly.
-
-Track your ticket: {{tracking_link}}
-
-Thank you,
-{{agent_name}}`,
-      trigger: {
-        type: 'On Creation',
-        conditions: ['Priority IN (P1, P2, P3)']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 1245,
-      effectivenessRate: 94.2,
-      avgResponseTime: '< 1 min'
-    },
-    {
-      id: '3',
-      name: 'Status Update - In Progress',
-      category: 'Update',
-      subject: 'Update: Your ticket is being worked on - {{ticket_id}}',
-      body: `Hi {{customer_name}},
-
-Good news! We are now actively working on your ticket {{ticket_id}}.
-
-Current Status: In Progress
-Assigned To: {{agent_name}}
-Last Update: {{last_update_time}}
-
-Recent Activity:
-{{recent_activity}}
-
-Estimated Resolution: {{estimated_resolution}}
-
-We will continue to keep you updated.
-
-Best regards,
-Support Team`,
-      trigger: {
-        type: 'Status Change',
-        conditions: ['New Status = In Progress']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 892,
-      effectivenessRate: 91.8,
-      avgResponseTime: '2 min'
-    },
-    {
-      id: '4',
-      name: 'Resolution Confirmation',
-      category: 'Resolution',
-      subject: 'Resolved: {{ticket_id}} - {{issue_summary}}',
-      body: `Dear {{customer_name}},
-
-Great news! We have resolved your ticket {{ticket_id}}.
-
-Issue: {{issue_summary}}
-Resolution: {{resolution_summary}}
-Resolved By: {{agent_name}}
-Resolution Time: {{resolution_time}}
-
-Please verify the resolution and confirm it meets your needs. If you continue to experience issues, simply reply to this email.
-
-We value your feedback! Please take a moment to rate your support experience:
-{{survey_link}}
-
-Thank you for your patience.
-
-Best regards,
-{{agent_name}}
-Support Team`,
-      trigger: {
-        type: 'Status Change',
-        conditions: ['New Status = Resolved']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 756,
-      effectivenessRate: 88.4,
-      avgResponseTime: '1 min'
-    },
-    {
-      id: '5',
-      name: 'Escalation Notification',
-      category: 'Escalation',
-      subject: 'Your ticket has been escalated - {{ticket_id}}',
-      body: `Hello {{customer_name}},
-
-We want to keep you informed that your ticket {{ticket_id}} has been escalated to our senior support team for specialized attention.
-
-Escalation Reason: {{escalation_reason}}
-New Priority: {{new_priority}}
-Escalated To: {{escalated_to}}
-
-We are committed to resolving your issue as quickly as possible and will provide updates every {{update_frequency}}.
-
-You can reach out directly to: {{escalation_contact}}
-
-Thank you for your understanding.
-
-Best regards,
-Support Team`,
-      trigger: {
-        type: 'Manual',
-        conditions: ['Escalation Event']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 145,
-      effectivenessRate: 93.7,
-      avgResponseTime: '3 min'
-    },
-    {
-      id: '6',
-      name: 'CSAT Survey Request',
-      category: 'Survey',
-      subject: 'How did we do? Share your feedback - {{ticket_id}}',
-      body: `Hi {{customer_name}},
-
-Thank you for allowing us to assist you with ticket {{ticket_id}}.
-
-We would greatly appreciate your feedback on your support experience.
-
-Please take 1 minute to complete our survey:
-{{survey_link}}
-
-Your feedback helps us improve our service.
-
-Rate your experience:
-⭐⭐⭐⭐⭐ {{rating_link}}
-
-Thank you!
-Support Team`,
-      trigger: {
-        type: 'Time-based',
-        conditions: ['24 hours after resolution']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 623,
-      effectivenessRate: 67.3,
-      avgResponseTime: 'Scheduled'
-    },
-    {
-      id: '7',
-      name: 'Follow-up - No Response',
-      category: 'Follow-up',
-      subject: 'Following up on your ticket - {{ticket_id}}',
-      body: `Hello {{customer_name}},
-
-We noticed we haven't heard back from you regarding ticket {{ticket_id}}.
-
-We requested additional information:
-{{requested_info}}
-
-To help us resolve your issue quickly, please provide the requested details at your earliest convenience.
-
-If your issue has been resolved, please let us know so we can close the ticket.
-
-Reply to this email or visit: {{tracking_link}}
-
-Best regards,
-{{agent_name}}`,
-      trigger: {
-        type: 'Time-based',
-        conditions: ['48 hours since last response', 'Status = Waiting on Customer']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 445,
-      effectivenessRate: 72.8,
-      avgResponseTime: 'Scheduled'
-    },
-    {
-      id: '8',
-      name: 'Auto-Close Warning',
-      category: 'Follow-up',
-      subject: 'Action Required: Ticket {{ticket_id}} will be auto-closed',
-      body: `Dear {{customer_name}},
-
-This is a reminder that ticket {{ticket_id}} has been in "Resolved" status for {{days_resolved}} days.
-
-If no further action is needed, this ticket will be automatically closed in {{days_until_close}} days.
-
-If you still need assistance, please respond to keep the ticket active.
-
-Issue Summary: {{issue_summary}}
-Resolution Date: {{resolution_date}}
-
-Reply to reopen or visit: {{tracking_link}}
-
-Thank you,
-Support Team`,
-      trigger: {
-        type: 'Time-based',
-        conditions: ['Status = Resolved', '5 days since resolution']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 312,
-      effectivenessRate: 85.6,
-      avgResponseTime: 'Scheduled'
-    },
-    {
-      id: '9',
-      name: 'SLA Breach Notification',
-      category: 'Update',
-      subject: 'Important: SLA Breach Alert - {{ticket_id}}',
-      body: `Dear {{customer_name}},
-
-We want to inform you that ticket {{ticket_id}} has exceeded our service level agreement timeframe.
-
-Original SLA: {{original_sla}}
-Current Time: {{current_time}}
-Breach Duration: {{breach_duration}}
-
-We sincerely apologize for this delay. Your ticket has been escalated and is receiving priority attention from our senior team.
-
-Contact for immediate assistance: {{escalation_contact}}
-
-We are committed to resolving this as quickly as possible.
-
-Best regards,
-{{manager_name}}
-Support Manager`,
-      trigger: {
-        type: 'Manual',
-        conditions: ['SLA Breach Event']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 67,
-      effectivenessRate: 91.2,
-      avgResponseTime: '< 1 min'
-    },
-    {
-      id: '10',
-      name: 'VIP Customer Acknowledgment',
-      category: 'Acknowledgment',
-      subject: 'Priority Support: Your ticket has been received - {{ticket_id}}',
-      body: `Dear {{customer_name}},
-
-Thank you for contacting us. As a valued VIP customer, your ticket {{ticket_id}} has been assigned priority status.
-
-Issue: {{issue_summary}}
-Priority: VIP - Critical Attention
-Assigned To: Senior Support Specialist
-
-Direct Contact: {{agent_phone}}
-Email: {{agent_email}}
-
-Expected First Response: Within 15 minutes
-Dedicated Support: Yes
-
-We appreciate your business and are committed to providing exceptional service.
-
-Best regards,
-{{agent_name}}
-Senior Support Team`,
-      trigger: {
-        type: 'On Creation',
-        conditions: ['Customer Type = VIP']
-      },
-      language: 'English',
-      active: true,
-      usageCount: 189,
-      effectivenessRate: 98.3,
-      avgResponseTime: '< 1 min'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await ResponseTemplateService.getTemplates()) as SupportResponseTemplate[]
+        const mapped: ResponseTemplate[] = (Array.isArray(raw) ? raw : []).map((t) => ({
+          id: t.id,
+          name: t.name ?? '',
+          category: t.category ?? 'General',
+          subject: t.subject ?? '',
+          body: t.body ?? '',
+          trigger: {
+            type: t.trigger?.type ?? 'Manual',
+            conditions: Array.isArray(t.trigger?.conditions) ? t.trigger!.conditions : [],
+          },
+          language: t.language ?? 'English',
+          active: t.active ?? true,
+          usageCount: Number(t.usageCount ?? 0),
+          effectivenessRate: Number(t.effectivenessRate ?? 0),
+          avgResponseTime: t.avgResponseTime ?? '—',
+        }))
+        if (!cancelled) setTemplates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load templates')
+          setTemplates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ]
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const categories = ['All', 'Acknowledgment', 'Update', 'Resolution', 'Escalation', 'Survey', 'Follow-up']
 
@@ -368,7 +94,7 @@ Senior Support Team`,
     },
     {
       label: 'Avg Effectiveness',
-      value: `${(templates.reduce((sum, t) => sum + t.effectivenessRate, 0) / templates.length).toFixed(1)}%`,
+      value: `${(templates.length ? templates.reduce((sum, t) => sum + t.effectivenessRate, 0) / templates.length : 0).toFixed(1)}%`,
       change: 'All templates',
       icon: Target,
       color: 'purple'
@@ -432,6 +158,19 @@ Senior Support Team`,
           Create Template
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">

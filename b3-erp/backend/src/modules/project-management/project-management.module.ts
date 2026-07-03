@@ -18,6 +18,9 @@ import { ProjectTypeEntity } from './entities/project-type.entity';
 import { ProjectSettingsEntity } from './entities/project-settings.entity';
 import { ProjectTemplateEntity } from './entities/project-template.entity';
 import { MilestoneTemplateEntity } from './entities/milestone-template.entity';
+import { ChangeOrderEntity } from './entities/change-order.entity';
+import { DeliverableEntity } from './entities/deliverable.entity';
+import { ProjectIssueEntity } from './entities/project-issue.entity';
 import { ProjectAttachment } from '../project/entities/project-attachment.entity';
 import { BOQ } from '../project/entities/boq.entity';
 import { BOQItem } from '../project/entities/boq-item.entity';
@@ -69,6 +72,9 @@ import { ProjectSettingsService } from './services/project-settings.service';
 import { ProjectTemplatesService } from './services/project-templates.service';
 import { MilestoneTemplatesService } from './services/milestone-templates.service';
 import { PmAnalyticsService } from './services/pm-analytics.service';
+import { ChangeOrdersService } from './services/change-orders.service';
+import { DeliverablesService } from './services/deliverables.service';
+import { ProjectIssuesService } from './services/project-issues.service';
 
 import { ProjectStatusSeederService } from './services/project-status-seeder.service';
 import { ProjectTypeSeederService } from './services/project-type-seeder.service';
@@ -99,6 +105,9 @@ import { ProjectSettingsController } from './controllers/project-settings.contro
 import { ProjectTemplatesController } from './controllers/project-templates.controller';
 import { MilestoneTemplatesController } from './controllers/milestone-templates.controller';
 import { PmAnalyticsController } from './controllers/pm-analytics.controller';
+import { ChangeOrdersController } from './controllers/change-orders.controller';
+import { DeliverablesController } from './controllers/deliverables.controller';
+import { ProjectIssuesController } from './controllers/project-issues.controller';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
@@ -114,6 +123,9 @@ import { PmAnalyticsController } from './controllers/pm-analytics.controller';
         ProjectSettingsEntity,
         ProjectTemplateEntity,
         MilestoneTemplateEntity,
+        ChangeOrderEntity,
+        DeliverableEntity,
+        ProjectIssueEntity,
         ProjectAttachment,
         BOQ,
         BOQItem,
@@ -166,7 +178,10 @@ import { PmAnalyticsController } from './controllers/pm-analytics.controller';
         ProjectSettingsController,
         ProjectTemplatesController,
         MilestoneTemplatesController,
-        PmAnalyticsController
+        PmAnalyticsController,
+        ChangeOrdersController,
+        DeliverablesController,
+        ProjectIssuesController
     ],
     providers: [
         ProjectService,
@@ -198,7 +213,10 @@ import { PmAnalyticsController } from './controllers/pm-analytics.controller';
         ProjectSettingsService,
         ProjectTemplatesService,
         MilestoneTemplatesService,
-        PmAnalyticsService
+        PmAnalyticsService,
+        ChangeOrdersService,
+        DeliverablesService,
+        ProjectIssuesService
     ],
     exports: [
         ProjectService,

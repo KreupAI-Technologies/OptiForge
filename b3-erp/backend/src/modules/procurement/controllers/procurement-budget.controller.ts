@@ -29,6 +29,15 @@ export class ProcurementBudgetController {
     return this.service.findAll(companyId, budgetType, fiscalYear);
   }
 
+  @Get('summary')
+  @HttpCode(HttpStatus.OK)
+  async getSummary(
+    @Query('companyId') companyId = 'default',
+    @Query('fiscalYear') fiscalYear?: string,
+  ) {
+    return this.service.getSummary(companyId, fiscalYear);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: UpsertBudgetDto) {

@@ -32,6 +32,31 @@ export interface ProcurementBudget {
   updatedAt: string;
 }
 
+export interface BudgetSummary {
+  overview: {
+    totalBudget: number;
+    allocated: number;
+    spent: number;
+    committed: number;
+    available: number;
+    utilizationRate: number;
+    savingsAchieved: number;
+  };
+  departmentBudgets: {
+    name: string;
+    budget: number;
+    spent: number;
+    committed: number;
+    available: number;
+  }[];
+  categoryBudgets: {
+    category: string;
+    budget: number;
+    spent: number;
+    variance: number;
+  }[];
+}
+
 export interface VendorPerformanceMetric {
   vendorId: string;
   vendorName: string;
@@ -89,6 +114,40 @@ class ProcurementOperationsService {
       `${API_BASE_URL}/procurement/budgets?${params.toString()}`,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  async getBudgetSummary(
+    companyId = 'default',
+    fiscalYear?: string,
+  ): Promise<BudgetSummary> {
+    const params = new URLSearchParams({ companyId });
+    if (fiscalYear) params.append('fiscalYear', fiscalYear);
+    const data = await getJson<BudgetSummary>(
+      `${API_BASE_URL}/procurement/budgets/summary?${params.toString()}`,
+    );
+    const empty: BudgetSummary = {
+      overview: {
+        totalBudget: 0,
+        allocated: 0,
+        spent: 0,
+        committed: 0,
+        available: 0,
+        utilizationRate: 0,
+        savingsAchieved: 0,
+      },
+      departmentBudgets: [],
+      categoryBudgets: [],
+    };
+    if (!data || typeof data !== 'object') return empty;
+    return {
+      overview: { ...empty.overview, ...(data.overview || {}) },
+      departmentBudgets: Array.isArray(data.departmentBudgets)
+        ? data.departmentBudgets
+        : [],
+      categoryBudgets: Array.isArray(data.categoryBudgets)
+        ? data.categoryBudgets
+        : [],
+    };
   }
 
   async getVendorPerformanceMetrics(

@@ -20,6 +20,11 @@ import { CustomFieldDef } from './entities/custom-field.entity';
 import { DocumentTemplate } from './entities/document-template.entity';
 import { IntegrationConfig } from './entities/integration-config.entity';
 import { IpWhitelistEntry } from './entities/ip-whitelist-entry.entity';
+import { ScheduledJob } from './entities/scheduled-job.entity';
+import { AutomationRule } from './entities/automation-rule.entity';
+import { SecurityAlert } from './entities/security-alert.entity';
+import { PasswordPolicy } from './entities/password-policy.entity';
+import { NotificationSetting } from './entities/notification-setting.entity';
 
 // Services
 import { UserService } from './services/user.service';
@@ -39,6 +44,11 @@ import { CustomFieldService } from './services/custom-field.service';
 import { DocumentTemplateService } from './services/document-template.service';
 import { IntegrationConfigService } from './services/integration-config.service';
 import { IpWhitelistService } from './services/ip-whitelist.service';
+import { ScheduledJobService } from './services/scheduled-job.service';
+import { AutomationRuleService } from './services/automation-rule.service';
+import { SecurityAlertService } from './services/security-alert.service';
+import { PasswordPolicyService } from './services/password-policy.service';
+import { NotificationSettingService } from './services/notification-setting.service';
 
 // Seeders
 import { RoleSeederService } from './services/role-seeder.service';
@@ -64,6 +74,11 @@ import { CustomFieldController } from './controllers/custom-field.controller';
 import { DocumentTemplateController } from './controllers/document-template.controller';
 import { IntegrationConfigController } from './controllers/integration-config.controller';
 import { IpWhitelistController } from './controllers/ip-whitelist.controller';
+import { ScheduledJobController } from './controllers/scheduled-job.controller';
+import { AutomationRuleController } from './controllers/automation-rule.controller';
+import { SecurityAlertController } from './controllers/security-alert.controller';
+import { PasswordPolicyController } from './controllers/password-policy.controller';
+import { NotificationSettingController } from './controllers/notification-setting.controller';
 
 @Module({
   imports: [
@@ -86,6 +101,11 @@ import { IpWhitelistController } from './controllers/ip-whitelist.controller';
       DocumentTemplate,
       IntegrationConfig,
       IpWhitelistEntry,
+      ScheduledJob,
+      AutomationRule,
+      SecurityAlert,
+      PasswordPolicy,
+      NotificationSetting,
     ]),
   ],
   controllers: [
@@ -103,6 +123,11 @@ import { IpWhitelistController } from './controllers/ip-whitelist.controller';
     DocumentTemplateController,
     IntegrationConfigController,
     IpWhitelistController,
+    ScheduledJobController,
+    AutomationRuleController,
+    SecurityAlertController,
+    PasswordPolicyController,
+    NotificationSettingController,
   ],
   providers: [
     UserService,
@@ -123,6 +148,11 @@ import { IpWhitelistController } from './controllers/ip-whitelist.controller';
     DocumentTemplateService,
     IntegrationConfigService,
     IpWhitelistService,
+    ScheduledJobService,
+    AutomationRuleService,
+    SecurityAlertService,
+    PasswordPolicyService,
+    NotificationSettingService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,

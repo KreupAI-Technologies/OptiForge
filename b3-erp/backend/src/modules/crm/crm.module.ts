@@ -24,6 +24,21 @@ import { SalesTerritoryController } from './sales-territory.controller';
 import { LeadSourceSeederService } from './services/lead-source-seeder.service';
 import { LeadStatusSeederService } from './services/lead-status-seeder.service';
 import { SalesTerritoryService } from './services/sales-territory.service';
+import { QuoteTemplate } from './entities/quote-template.entity';
+import { ContractTemplate } from './entities/contract-template.entity';
+import { CampaignTemplate } from './entities/campaign-template.entity';
+import { SalesTeam } from './entities/sales-team.entity';
+import { AssignmentRule } from './entities/assignment-rule.entity';
+import { QuoteTemplateService } from './services/quote-template.service';
+import { ContractTemplateService } from './services/contract-template.service';
+import { CampaignTemplateService } from './services/campaign-template.service';
+import { SalesTeamService } from './services/sales-team.service';
+import { AssignmentRuleService } from './services/assignment-rule.service';
+import { QuoteTemplateController } from './quote-template.controller';
+import { ContractTemplateController } from './contract-template.controller';
+import { CampaignTemplateController } from './campaign-template.controller';
+import { SalesTeamController } from './sales-team.controller';
+import { AssignmentRuleController } from './assignment-rule.controller';
 
 @Module({
   imports: [
@@ -36,6 +51,11 @@ import { SalesTerritoryService } from './services/sales-territory.service';
       SalesTerritory,
       EmailTemplate,
       SocialIntegration,
+      QuoteTemplate,
+      ContractTemplate,
+      CampaignTemplate,
+      SalesTeam,
+      AssignmentRule,
     ]),
   ],
   controllers: [
@@ -46,6 +66,11 @@ import { SalesTerritoryService } from './services/sales-territory.service';
     EmailTemplateController,
     SalesAnalyticsController,
     SocialIntegrationController,
+    QuoteTemplateController,
+    ContractTemplateController,
+    CampaignTemplateController,
+    SalesTeamController,
+    AssignmentRuleController,
   ],
   providers: [
     InteractionsService,
@@ -57,6 +82,11 @@ import { SalesTerritoryService } from './services/sales-territory.service';
     EmailTemplateService,
     SalesAnalyticsService,
     SocialIntegrationService,
+    QuoteTemplateService,
+    ContractTemplateService,
+    CampaignTemplateService,
+    SalesTeamService,
+    AssignmentRuleService,
   ],
   exports: [
     InteractionsService,

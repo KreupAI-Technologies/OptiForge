@@ -101,7 +101,171 @@ export const salesConfigService = {
   // Analytics dashboard (aggregated)
   getAnalyticsDashboard: () =>
     request<SalesAnalyticsDashboardDto>('/sales/analytics/dashboard'),
+
+  // Analytics: products / customers / forecast (aggregated, no table)
+  getProductAnalytics: () =>
+    request<ProductAnalyticsDto[]>('/sales/analytics/products'),
+  getCustomerAnalytics: () =>
+    request<CustomerAnalyticsDto[]>('/sales/analytics/customers'),
+  getForecast: () => request<ForecastDto[]>('/sales/analytics/forecast'),
+
+  // Terms & conditions templates (settings/terms)
+  getTermsTemplates: (companyId?: string) =>
+    request<TermsTemplateDto[]>(
+      `/sales/settings/terms${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`,
+    ),
+  createTermsTemplate: (data: Partial<TermsTemplateDto>) =>
+    request<TermsTemplateDto>('/sales/settings/terms', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateTermsTemplate: (id: string, data: Partial<TermsTemplateDto>) =>
+    request<TermsTemplateDto>(`/sales/settings/terms/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteTermsTemplate: (id: string) =>
+    request<{ deleted: boolean }>(`/sales/settings/terms/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Promotions (pricing/promotions)
+  getPromotions: (companyId?: string) =>
+    request<PromotionDto[]>(
+      `/sales/pricing/promotions${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`,
+    ),
+  createPromotion: (data: Partial<PromotionDto>) =>
+    request<PromotionDto>('/sales/pricing/promotions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePromotion: (id: string, data: Partial<PromotionDto>) =>
+    request<PromotionDto>(`/sales/pricing/promotions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deletePromotion: (id: string) =>
+    request<{ deleted: boolean }>(`/sales/pricing/promotions/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Special / contract prices (pricing/special)
+  getSpecialPrices: (companyId?: string) =>
+    request<SpecialPriceDto[]>(
+      `/sales/pricing/special${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`,
+    ),
+  createSpecialPrice: (data: Partial<SpecialPriceDto>) =>
+    request<SpecialPriceDto>('/sales/pricing/special', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateSpecialPrice: (id: string, data: Partial<SpecialPriceDto>) =>
+    request<SpecialPriceDto>(`/sales/pricing/special/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteSpecialPrice: (id: string) =>
+    request<{ deleted: boolean }>(`/sales/pricing/special/${id}`, {
+      method: 'DELETE',
+    }),
 };
+
+export interface ProductAnalyticsDto {
+  code: string;
+  name: string;
+  category: string;
+  unitsSold: number;
+  revenue: number;
+  avgPrice: number;
+  stockLevel: number;
+  reorderPoint: number;
+  margin: number;
+  rating: number;
+  reviews: number;
+  returns: number;
+  returnRate: number;
+  trend: number;
+  topRegion: string;
+  topCustomerType: string;
+}
+
+export interface CustomerAnalyticsDto {
+  code: string;
+  name: string;
+  type: string;
+  region: string;
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  lastOrderDate: string;
+  status: string;
+  trend: number;
+}
+
+export interface ForecastDto {
+  period: string;
+  predicted: number;
+  actual: number;
+  orders: number;
+}
+
+export interface TermsTemplateDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  type: string;
+  category?: string;
+  content?: string;
+  status: string;
+  applicableTo: string[];
+  usageCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PromotionDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  code?: string;
+  type: string;
+  description?: string;
+  category?: string;
+  applicableProducts: string[];
+  discountType: string;
+  discountValue: number;
+  startDate?: string;
+  endDate?: string;
+  status: string;
+  targetAudience?: string;
+  minPurchase: number;
+  maxDiscount?: number;
+  claimedCount: number;
+  targetCount: number;
+  revenue: number;
+  bannerImage?: string;
+}
+
+export interface SpecialPriceDto {
+  id: string;
+  companyId?: string;
+  customerName: string;
+  customerType: string;
+  productCode?: string;
+  productName?: string;
+  category?: string;
+  standardPrice: number;
+  specialPrice: number;
+  discountPercent: number;
+  minOrderQty: number;
+  validFrom?: string;
+  validTo?: string;
+  status: string;
+  approvedBy?: string;
+  contractRef?: string;
+  orderCount: number;
+  totalRevenue: number;
+}
 
 export interface TaxRateDto {
   id: string;

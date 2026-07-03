@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Package, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Star, AlertCircle, BarChart3 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface ProductAnalytics {
   code: string
@@ -27,279 +28,46 @@ export default function ProductsAnalyticsPage() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [sortBy, setSortBy] = useState('revenue')
+  const [products, setProducts] = useState<ProductAnalytics[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [products] = useState<ProductAnalytics[]>([
-    {
-      code: 'KIT-CT-002',
-      name: 'Premium Quartz Countertop (per sq.ft)',
-      category: 'Countertops',
-      unitsSold: 2089,
-      revenue: 1243355,
-      avgPrice: 595,
-      stockLevel: 3456,
-      reorderPoint: 1000,
-      margin: 45,
-      rating: 4.7,
-      reviews: 234,
-      returns: 12,
-      returnRate: 0.57,
-      trend: 31.2,
-      topRegion: 'South India',
-      topCustomerType: 'Builders'
-    },
-    {
-      code: 'KIT-AP-001',
-      name: '750W Mixer Grinder with 3 Jars',
-      category: 'Kitchen Appliances',
-      unitsSold: 1567,
-      revenue: 998775,
-      avgPrice: 637,
-      stockLevel: 456,
-      reorderPoint: 200,
-      margin: 38,
-      rating: 4.5,
-      reviews: 456,
-      returns: 23,
-      returnRate: 1.47,
-      trend: 23.7,
-      topRegion: 'West India',
-      topCustomerType: 'Retail'
-    },
-    {
-      code: 'KIT-CB-001',
-      name: 'Modular Kitchen Base Cabinet (24")',
-      category: 'Kitchen Storage',
-      unitsSold: 567,
-      revenue: 992250,
-      avgPrice: 1750,
-      stockLevel: 234,
-      reorderPoint: 100,
-      margin: 42,
-      rating: 4.6,
-      reviews: 178,
-      returns: 8,
-      returnRate: 1.41,
-      trend: 15.8,
-      topRegion: 'North India',
-      topCustomerType: 'Contractors'
-    },
-    {
-      code: 'KIT-FC-002',
-      name: 'Brass Kitchen Faucet with Pull-Out Spray',
-      category: 'Kitchen Faucets',
-      unitsSold: 789,
-      revenue: 936210,
-      avgPrice: 1187,
-      stockLevel: 345,
-      reorderPoint: 150,
-      margin: 48,
-      rating: 4.8,
-      reviews: 312,
-      returns: 5,
-      returnRate: 0.63,
-      trend: 18.3,
-      topRegion: 'South India',
-      topCustomerType: 'VIP'
-    },
-    {
-      code: 'KIT-CH-001',
-      name: 'Chimney Hood 60cm with Auto-Clean',
-      category: 'Kitchen Ventilation',
-      unitsSold: 456,
-      revenue: 890400,
-      avgPrice: 1952,
-      stockLevel: 123,
-      reorderPoint: 80,
-      margin: 40,
-      rating: 4.4,
-      reviews: 189,
-      returns: 9,
-      returnRate: 1.97,
-      trend: 8.4,
-      topRegion: 'West India',
-      topCustomerType: 'Dealers'
-    },
-    {
-      code: 'KIT-SS-001',
-      name: 'Stainless Steel Kitchen Sink (Single Bowl)',
-      category: 'Kitchen Sinks',
-      unitsSold: 678,
-      revenue: 761250,
-      avgPrice: 1123,
-      stockLevel: 450,
-      reorderPoint: 200,
-      margin: 35,
-      rating: 4.3,
-      reviews: 267,
-      returns: 15,
-      returnRate: 2.21,
-      trend: 12.5,
-      topRegion: 'North India',
-      topCustomerType: 'Builders'
-    },
-    {
-      code: 'KIT-CW-001',
-      name: 'Granite Coated Non-Stick Cookware Set (7 Pcs)',
-      category: 'Cookware',
-      unitsSold: 1234,
-      revenue: 740400,
-      avgPrice: 600,
-      stockLevel: 567,
-      reorderPoint: 300,
-      margin: 32,
-      rating: 4.2,
-      reviews: 445,
-      returns: 34,
-      returnRate: 2.75,
-      trend: -5.2,
-      topRegion: 'East India',
-      topCustomerType: 'Retail'
-    },
-    {
-      code: 'KIT-CB-002',
-      name: 'Modular Kitchen Wall Cabinet (18")',
-      category: 'Kitchen Storage',
-      unitsSold: 489,
-      revenue: 684600,
-      avgPrice: 1400,
-      stockLevel: 198,
-      reorderPoint: 80,
-      margin: 44,
-      rating: 4.5,
-      reviews: 156,
-      returns: 6,
-      returnRate: 1.23,
-      trend: 15.8,
-      topRegion: 'South India',
-      topCustomerType: 'Contractors'
-    },
-    {
-      code: 'KIT-AP-002',
-      name: '2000W Induction Cooktop Digital',
-      category: 'Kitchen Appliances',
-      unitsSold: 892,
-      revenue: 463360,
-      avgPrice: 519,
-      stockLevel: 234,
-      reorderPoint: 150,
-      margin: 36,
-      rating: 4.6,
-      reviews: 378,
-      returns: 11,
-      returnRate: 1.23,
-      trend: 23.7,
-      topRegion: 'West India',
-      topCustomerType: 'Retail'
-    },
-    {
-      code: 'KIT-SS-002',
-      name: 'Stainless Steel Kitchen Sink (Double Bowl)',
-      category: 'Kitchen Sinks',
-      unitsSold: 345,
-      revenue: 446850,
-      avgPrice: 1295,
-      stockLevel: 178,
-      reorderPoint: 100,
-      margin: 37,
-      rating: 4.4,
-      reviews: 189,
-      returns: 7,
-      returnRate: 2.03,
-      trend: 12.5,
-      topRegion: 'South India',
-      topCustomerType: 'Builders'
-    },
-    {
-      code: 'KIT-AC-001',
-      name: 'Modular Kitchen Basket Organizer',
-      category: 'Kitchen Accessories',
-      unitsSold: 1567,
-      revenue: 391750,
-      avgPrice: 250,
-      stockLevel: 789,
-      reorderPoint: 400,
-      margin: 28,
-      rating: 4.1,
-      reviews: 567,
-      returns: 23,
-      returnRate: 1.47,
-      trend: 6.7,
-      topRegion: 'North India',
-      topCustomerType: 'Retail'
-    },
-    {
-      code: 'KIT-CW-002',
-      name: 'Stainless Steel Pressure Cooker 5L',
-      category: 'Cookware',
-      unitsSold: 1089,
-      revenue: 367965,
-      avgPrice: 338,
-      stockLevel: 445,
-      reorderPoint: 250,
-      margin: 30,
-      rating: 4.7,
-      reviews: 423,
-      returns: 8,
-      returnRate: 0.73,
-      trend: -5.2,
-      topRegion: 'East India',
-      topCustomerType: 'Institutional'
-    },
-    {
-      code: 'KIT-FC-001',
-      name: 'Chrome Kitchen Faucet Single Handle',
-      category: 'Kitchen Faucets',
-      unitsSold: 567,
-      revenue: 312090,
-      avgPrice: 550,
-      stockLevel: 289,
-      reorderPoint: 150,
-      margin: 46,
-      rating: 4.3,
-      reviews: 234,
-      returns: 9,
-      returnRate: 1.59,
-      trend: 18.3,
-      topRegion: 'North India',
-      topCustomerType: 'Dealers'
-    },
-    {
-      code: 'KIT-CT-001',
-      name: 'Granite Countertop (per sq.ft)',
-      category: 'Countertops',
-      unitsSold: 1234,
-      revenue: 296160,
-      avgPrice: 240,
-      stockLevel: 2345,
-      reorderPoint: 800,
-      margin: 43,
-      rating: 4.5,
-      reviews: 178,
-      returns: 5,
-      returnRate: 0.41,
-      trend: 31.2,
-      topRegion: 'South India',
-      topCustomerType: 'Builders'
-    },
-    {
-      code: 'KIT-AC-002',
-      name: 'Stainless Steel Dish Drainer Rack',
-      category: 'Kitchen Accessories',
-      unitsSold: 1678,
-      revenue: 234920,
-      avgPrice: 140,
-      stockLevel: 678,
-      reorderPoint: 350,
-      margin: 25,
-      rating: 4.0,
-      reviews: 489,
-      returns: 19,
-      returnRate: 1.13,
-      trend: 6.7,
-      topRegion: 'West India',
-      topCustomerType: 'Retail'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getProductAnalytics()
+        if (cancelled) return
+        const mapped: ProductAnalytics[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+          code: r.code ?? '',
+          name: r.name ?? '',
+          category: r.category ?? 'General',
+          unitsSold: Number(r.unitsSold) || 0,
+          revenue: Number(r.revenue) || 0,
+          avgPrice: Number(r.avgPrice) || 0,
+          stockLevel: Number(r.stockLevel) || 0,
+          reorderPoint: Number(r.reorderPoint) || 0,
+          margin: Number(r.margin) || 0,
+          rating: Number(r.rating) || 0,
+          reviews: Number(r.reviews) || 0,
+          returns: Number(r.returns) || 0,
+          returnRate: Number(r.returnRate) || 0,
+          trend: Number(r.trend) || 0,
+          topRegion: r.topRegion ?? '',
+          topCustomerType: r.topCustomerType ?? '',
+        }))
+        setProducts(mapped)
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load product analytics')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const categories = ['all', 'Kitchen Sinks', 'Kitchen Faucets', 'Cookware', 'Kitchen Appliances', 'Kitchen Storage', 'Kitchen Ventilation', 'Countertops', 'Kitchen Accessories']
 
@@ -333,9 +101,25 @@ export default function ProductsAnalyticsPage() {
   const stats = {
     totalProducts: filteredProducts.length,
     totalRevenue: filteredProducts.reduce((sum, p) => sum + p.revenue, 0),
-    avgMargin: filteredProducts.reduce((sum, p) => sum + p.margin, 0) / filteredProducts.length,
-    avgRating: filteredProducts.reduce((sum, p) => sum + p.rating, 0) / filteredProducts.length,
+    avgMargin: filteredProducts.length ? filteredProducts.reduce((sum, p) => sum + p.margin, 0) / filteredProducts.length : 0,
+    avgRating: filteredProducts.length ? filteredProducts.reduce((sum, p) => sum + p.rating, 0) / filteredProducts.length : 0,
     lowStockItems: filteredProducts.filter(p => p.stockLevel < p.reorderPoint).length
+  }
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full px-4 py-6 flex items-center justify-center text-gray-500">
+        Loading product analytics...
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full px-4 py-6 flex items-center justify-center text-red-600">
+        {loadError}
+      </div>
+    )
   }
 
   return (

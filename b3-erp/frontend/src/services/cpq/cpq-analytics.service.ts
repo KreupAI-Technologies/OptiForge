@@ -350,6 +350,129 @@ class CPQAnalyticsService {
       console.error('API Error recording win/loss:', error);
     }
   }
+
+  // ==================== Aggregated Dashboards ====================
+  // These aggregate the cpq_quotes / cpq_quote_items tables on the backend.
+
+  async getWinRateDashboard(): Promise<WinRateDashboard> {
+    const response = await apiClient.get<WinRateDashboard>(
+      `${this.baseUrl}/dashboards/win-rate`,
+    );
+    return response.data;
+  }
+
+  async getQuotesDashboard(): Promise<QuotesDashboard> {
+    const response = await apiClient.get<QuotesDashboard>(
+      `${this.baseUrl}/dashboards/quotes`,
+    );
+    return response.data;
+  }
+
+  async getDiscountsDashboard(): Promise<DiscountsDashboard> {
+    const response = await apiClient.get<DiscountsDashboard>(
+      `${this.baseUrl}/dashboards/discounts`,
+    );
+    return response.data;
+  }
+
+  async getSalesCycleDashboard(): Promise<SalesCycleDashboard> {
+    const response = await apiClient.get<SalesCycleDashboard>(
+      `${this.baseUrl}/dashboards/sales-cycle`,
+    );
+    return response.data;
+  }
+
+  async getPricingDashboard(): Promise<PricingDashboard> {
+    const response = await apiClient.get<PricingDashboard>(
+      `${this.baseUrl}/dashboards/pricing`,
+    );
+    return response.data;
+  }
+
+  async getProductsDashboard(): Promise<ProductsDashboard> {
+    const response = await apiClient.get<ProductsDashboard>(
+      `${this.baseUrl}/dashboards/products`,
+    );
+    return response.data;
+  }
+}
+
+// ==================== Dashboard Interfaces ====================
+
+export interface WinRateDashboard {
+  metrics: {
+    overallWinRate: number;
+    dealsWon: number;
+    dealsLost: number;
+    avgWonDealSize: number;
+    avgLostDealSize: number;
+  };
+  winLossTrend: { month: string; won: number; lost: number; winRate: number }[];
+  lossReasons: { reason: string; count: number; percentage: number }[];
+  dealSizeWinRate: { range: string; won: number; lost: number; winRate: number }[];
+  regionWinRate: { region: string; won: number; lost: number; winRate: number; deals: number }[];
+}
+
+export interface QuotesDashboard {
+  metrics: {
+    totalQuotes: number;
+    totalValue: number;
+    avgQuoteValue: number;
+    conversionRate: number;
+  };
+  volumeTrend: { month: string; count: number; value: number }[];
+  statusDistribution: { status: string; count: number }[];
+  avgQuoteValue: { month: string; value: number }[];
+}
+
+export interface DiscountsDashboard {
+  metrics: {
+    avgDiscountPercentage: number;
+    totalDiscountAmount: number;
+    quotesWithDiscount: number;
+  };
+  discountTrend: { month: string; avgDiscount: number }[];
+  discountDistribution: { range: string; count: number; percentage: number }[];
+  marginImpact: { month: string; avgMargin: number }[];
+}
+
+export interface SalesCycleDashboard {
+  metrics: {
+    avgCycleDays: number;
+    avgApprovalDays: number;
+    conversionRate: number;
+    totalDeals: number;
+  };
+  cycleTrend: { month: string; avgDays: number }[];
+  conversionFunnel: { stage: string; count: number }[];
+  cycleBySize: { range: string; avgDays: number }[];
+}
+
+export interface PricingDashboard {
+  metrics: {
+    avgDiscountPercentage: number;
+    avgMarginPercentage: number;
+    totalRevenue: number;
+    wonRevenue: number;
+  };
+  discountTrend: { month: string; avgDiscount: number }[];
+  marginTrend: { month: string; avgMargin: number }[];
+  discountVsDealSize: { range: string; avgDiscount: number; count: number }[];
+}
+
+export interface ProductsDashboard {
+  metrics: {
+    totalLineItems: number;
+    distinctProducts: number;
+    totalRevenue: number;
+  };
+  topProducts: {
+    productId: string;
+    name: string;
+    timesQuoted: number;
+    totalRevenue: number;
+    avgSellingPrice: number;
+  }[];
 }
 
 export const cpqAnalyticsService = new CPQAnalyticsService();

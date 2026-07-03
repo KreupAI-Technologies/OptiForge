@@ -1,22 +1,58 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchReportRows } from '@/services/reports-management.service';
+
+interface BillRow {
+    id: string;
+    vendor: string;
+    date: string;
+    dueDate: string;
+    amount: number;
+    status: string;
+}
 
 function AgingBucketContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const bucket = searchParams.get('bucket') || 'All';
 
-    const bills = [
-        { id: 'BILL-001', vendor: 'Steel Suppliers Ltd', date: '2024-12-15', dueDate: '2025-01-14', amount: 150000, status: 'Overdue' },
-        { id: 'BILL-002', vendor: 'Logistics Partners', date: '2024-12-20', dueDate: '2025-01-19', amount: 45000, status: 'Overdue' },
-        { id: 'BILL-003', vendor: 'Office Depot', date: '2025-01-05', dueDate: '2025-02-04', amount: 12000, status: 'Open' },
-        { id: 'BILL-004', vendor: 'Tech Solutions Inc', date: '2025-01-10', dueDate: '2025-02-09', amount: 85000, status: 'Open' },
-    ];
+    const [bills, setBills] = useState<BillRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const rows = await fetchReportRows<Partial<BillRow>>('finance.ap-aging.bucket');
+                const mapped: BillRow[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+                    id: String(r.id ?? ''),
+                    vendor: String(r.vendor ?? ''),
+                    date: String(r.date ?? ''),
+                    dueDate: String(r.dueDate ?? ''),
+                    amount: Number(r.amount ?? 0),
+                    status: String(r.status ?? ''),
+                }));
+                if (!cancelled) setBills(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load bills');
+                    setBills([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -46,7 +82,16 @@ function AgingBucketContent() {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {bills.map((bill) => (
+                            {isLoading && (
+                                <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-gray-500">Loading bills…</td></tr>
+                            )}
+                            {!isLoading && loadError && (
+                                <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-red-600">{loadError}</td></tr>
+                            )}
+                            {!isLoading && !loadError && bills.length === 0 && (
+                                <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-gray-500">No bills found.</td></tr>
+                            )}
+                            {!isLoading && !loadError && bills.map((bill) => (
                                 <ClickableTableRow
                                     key={bill.id}
                                     onClick={() => router.push(`/procurement/bills/${bill.id}`)}

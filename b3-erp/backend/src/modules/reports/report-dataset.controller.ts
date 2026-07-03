@@ -47,6 +47,19 @@ export class ReportDatasetController {
     return this.service.getByKey(companyId, reportKey);
   }
 
+  @Get(':reportKey/rows')
+  @ApiOperation({
+    summary: 'Get the tabular rows + summary for a report detail page',
+  })
+  @ApiParam({ name: 'reportKey', description: 'e.g. sales.orders.status' })
+  @ApiQuery({ name: 'companyId', required: true })
+  getRows(
+    @Param('reportKey') reportKey: string,
+    @Query('companyId') companyId: string,
+  ) {
+    return this.service.getRows(companyId, reportKey);
+  }
+
   @Put(':reportKey')
   @ApiOperation({ summary: 'Upsert a report dataset for a reportKey' })
   @ApiParam({ name: 'reportKey', description: 'e.g. finance.ar-aging' })

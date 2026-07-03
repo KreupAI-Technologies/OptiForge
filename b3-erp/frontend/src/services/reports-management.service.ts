@@ -1040,3 +1040,37 @@ export async function fetchReportDataset<T = Record<string, unknown>>(
   if (!body || !body.payload) return null;
   return body.payload;
 }
+
+export interface ReportRowsResponse<T = Record<string, unknown>> {
+  reportKey: string;
+  title: string | null;
+  rows: T[];
+  summary: Record<string, unknown>;
+}
+
+/**
+ * Fetch the tabular rows for a report detail page, keyed by reportKey
+ * (e.g. "sales.orders.status"). Always resolves to an array (empty when no
+ * dataset has been stored yet) so pages can render loading/empty states without
+ * special-casing. Throws only on network / non-OK responses.
+ */
+export async function fetchReportRows<T = Record<string, unknown>>(
+  reportKey: string,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<T[]> {
+  const url = `${API_BASE_URL}/reports/datasets/${encodeURIComponent(
+    reportKey,
+  )}/rows?companyId=${encodeURIComponent(companyId)}`;
+
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to load report rows "${reportKey}" (${res.status})`);
+  }
+
+  const body = (await res.json()) as ReportRowsResponse<T> | null;
+  if (!body || !Array.isArray(body.rows)) return [];
+  return body.rows;
+}

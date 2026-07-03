@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -14,8 +14,11 @@ import {
   Download,
   Filter,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react'
+import { cpqAnalyticsService, type QuotesDashboard } from '@/services/cpq/cpq-analytics.service'
 import {
   LineChart,
   Line,
@@ -34,39 +37,70 @@ import {
 import { useRouter } from 'next/navigation'
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow'
 
+const STATUS_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6b7280', '#3b82f6', '#8b5cf6', '#ec4899']
+
 export default function CPQAnalyticsQuotesPage() {
   const router = useRouter()
   const [timeRange, setTimeRange] = useState('last-30-days')
 
-  // Quote volume trend data
-  const volumeTrend = [
-    { month: 'Apr', quotes: 145, converted: 58, value: 4.2 },
-    { month: 'May', quotes: 168, converted: 72, value: 5.8 },
-    { month: 'Jun', quotes: 192, converted: 81, value: 6.5 },
-    { month: 'Jul', quotes: 178, converted: 76, value: 6.1 },
-    { month: 'Aug', quotes: 205, converted: 95, value: 8.2 },
-    { month: 'Sep', quotes: 234, converted: 112, value: 9.8 }
-  ]
+  const [data, setData] = useState<QuotesDashboard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Quote status distribution
-  const statusDistribution = [
-    { name: 'Converted', value: 42, count: 112, color: '#10b981' },
-    { name: 'Pending', value: 28, count: 75, color: '#f59e0b' },
-    { name: 'Rejected', value: 18, count: 48, color: '#ef4444' },
-    { name: 'Expired', value: 12, count: 32, color: '#6b7280' }
-  ]
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError(null)
+    cpqAnalyticsService
+      .getQuotesDashboard()
+      .then((res) => {
+        if (active) setData(res)
+      })
+      .catch((err) => {
+        if (active) setError(err?.message || 'Failed to load quote analytics')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [timeRange])
 
-  // Average quote value by month
-  const avgQuoteValue = [
-    { month: 'Apr', avgValue: 2.9, medianValue: 2.5 },
-    { month: 'May', avgValue: 3.5, medianValue: 3.1 },
-    { month: 'Jun', avgValue: 3.4, medianValue: 3.0 },
-    { month: 'Jul', avgValue: 3.4, medianValue: 3.2 },
-    { month: 'Aug', avgValue: 4.0, medianValue: 3.6 },
-    { month: 'Sep', avgValue: 4.2, medianValue: 3.8 }
-  ]
+  const metrics = data?.metrics ?? {
+    totalQuotes: 0,
+    totalValue: 0,
+    avgQuoteValue: 0,
+    conversionRate: 0,
+  }
+  // Map API shapes to the chart keys this page renders.
+  const volumeTrend = (Array.isArray(data?.volumeTrend) ? data!.volumeTrend : []).map((v) => ({
+    month: v.month,
+    quotes: v.count,
+    value: v.value,
+  }))
+  const statusTotal = (data?.statusDistribution ?? []).reduce((s, x) => s + (x.count || 0), 0)
+  const statusDistribution = (Array.isArray(data?.statusDistribution) ? data!.statusDistribution : []).map(
+    (s, idx) => ({
+      name: s.status,
+      count: s.count,
+      value: statusTotal ? Math.round((s.count / statusTotal) * 100) : 0,
+      color: STATUS_COLORS[idx % STATUS_COLORS.length],
+    })
+  )
+  const avgQuoteValue = (Array.isArray(data?.avgQuoteValue) ? data!.avgQuoteValue : []).map((v) => ({
+    month: v.month,
+    avgValue: v.value,
+  }))
 
-  // Top performing sales reps
+  const fmtMoney = (v: number) =>
+    new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(v || 0)
+
+  const hasData =
+    volumeTrend.length > 0 || statusDistribution.length > 0 || metrics.totalQuotes > 0
+
+  // NOTE: sales-rep leaderboard, turnaround-time and category-conversion below are
+  // illustrative — the cpq_quotes table does not carry rep/turnaround/category data.
   const topPerformers = [
     { name: 'Vikram Desai', quotes: 48, converted: 28, conversionRate: 58.3, value: 12.5 },
     { name: 'Priya Sharma', quotes: 52, converted: 26, conversionRate: 50.0, value: 11.8 },
@@ -90,6 +124,26 @@ export default function CPQAnalyticsQuotesPage() {
     { category: 'Living Room', quotes: 42, converted: 18, rate: 43 },
     { category: 'Office Furniture', quotes: 22, converted: 7, rate: 32 }
   ]
+
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-3 text-gray-600">Loading quote analytics…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="w-full h-full px-4 py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <XCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+          <p className="text-red-700 font-medium">{error}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full h-full px-4 py-2">

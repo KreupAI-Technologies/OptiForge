@@ -68,6 +68,79 @@ export interface PmMilestoneTemplate {
     isActive: boolean;
 }
 
+export interface PmChangeOrder {
+    id: string;
+    companyId?: string;
+    changeOrderNumber: string;
+    projectId: string;
+    projectName: string;
+    requestDate: string;
+    requestedBy: string;
+    requestedByRole: string;
+    changeType: string;
+    priority: string;
+    title: string;
+    description: string;
+    reason: string;
+    impactOnCost: number;
+    impactOnSchedule: number;
+    originalBudget: number;
+    revisedBudget: number;
+    originalEndDate: string;
+    revisedEndDate: string;
+    status: string;
+    approvedBy: string;
+    approvalDate: string;
+    implementationDate: string;
+    completionDate: string;
+    attachments: number;
+    remarks: string;
+}
+
+export interface PmDeliverable {
+    id: string;
+    companyId?: string;
+    deliverableNumber: string;
+    deliverableName: string;
+    projectNumber: string;
+    projectName: string;
+    type: string;
+    description: string;
+    assignedTo: string;
+    plannedDate: string;
+    actualDate?: string;
+    status: string;
+    progress: number;
+    dependencies: string[];
+    quantity: number;
+    unit: string;
+    notes: string;
+}
+
+export interface PmProjectIssue {
+    id: string;
+    companyId?: string;
+    number: string;
+    title: string;
+    type: string;
+    category: string;
+    projectNumber: string;
+    projectName: string;
+    description: string;
+    impact: string;
+    probability: string;
+    status: string;
+    priority: string;
+    raisedBy: string;
+    assignedTo: string;
+    raisedDate: string;
+    targetDate: string;
+    resolvedDate?: string;
+    mitigationPlan: string;
+    costImpact: number;
+    scheduleImpact: number;
+}
+
 export interface PmAnalyticsSummary {
     metrics: {
         totalProjects: number;
@@ -1635,6 +1708,114 @@ class ProjectManagementService {
             await fetch(`${API_BASE_URL}/project-management/milestone-templates/${id}`, { method: 'DELETE' });
         } catch (error) {
             console.error('Error deleting milestone template:', error);
+        }
+    }
+
+    // --- Change orders (NestJS CRUD) ---
+    async listChangeOrders(companyId = 'default'): Promise<PmChangeOrder[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/change-orders?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? (data as PmChangeOrder[]) : [];
+        } catch (error) {
+            console.error('Error fetching change orders:', error);
+            return [];
+        }
+    }
+
+    async createChangeOrder(data: Partial<PmChangeOrder>): Promise<PmChangeOrder | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/change-orders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`POST change-order failed: ${res.status}`);
+            return (await res.json()) as PmChangeOrder;
+        } catch (error) {
+            console.error('Error creating change order:', error);
+            return null;
+        }
+    }
+
+    async deleteChangeOrder(id: string): Promise<void> {
+        try {
+            await fetch(`${API_BASE_URL}/project-management/change-orders/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Error deleting change order:', error);
+        }
+    }
+
+    // --- Deliverables (NestJS CRUD) ---
+    async listDeliverables(companyId = 'default'): Promise<PmDeliverable[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/deliverables?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? (data as PmDeliverable[]) : [];
+        } catch (error) {
+            console.error('Error fetching deliverables:', error);
+            return [];
+        }
+    }
+
+    async createDeliverable(data: Partial<PmDeliverable>): Promise<PmDeliverable | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/deliverables`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`POST deliverable failed: ${res.status}`);
+            return (await res.json()) as PmDeliverable;
+        } catch (error) {
+            console.error('Error creating deliverable:', error);
+            return null;
+        }
+    }
+
+    async deleteDeliverable(id: string): Promise<void> {
+        try {
+            await fetch(`${API_BASE_URL}/project-management/deliverables/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Error deleting deliverable:', error);
+        }
+    }
+
+    // --- Issues & risks (NestJS CRUD) ---
+    async listProjectIssues(companyId = 'default'): Promise<PmProjectIssue[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/issues?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? (data as PmProjectIssue[]) : [];
+        } catch (error) {
+            console.error('Error fetching project issues:', error);
+            return [];
+        }
+    }
+
+    async createProjectIssue(data: Partial<PmProjectIssue>): Promise<PmProjectIssue | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/issues`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`POST issue failed: ${res.status}`);
+            return (await res.json()) as PmProjectIssue;
+        } catch (error) {
+            console.error('Error creating project issue:', error);
+            return null;
+        }
+    }
+
+    async deleteProjectIssue(id: string): Promise<void> {
+        try {
+            await fetch(`${API_BASE_URL}/project-management/issues/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Error deleting project issue:', error);
         }
     }
 

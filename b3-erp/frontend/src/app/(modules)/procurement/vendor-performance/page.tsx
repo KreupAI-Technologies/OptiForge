@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -60,6 +60,10 @@ import {
 } from 'recharts'
 import { VendorScorecard } from '@/components/procurement/VendorScorecard'
 import { ContractHealth } from '@/components/procurement/ContractHealth'
+import {
+  procurementOperationsService,
+  VendorPerformanceMetric,
+} from '@/services/procurement-operations.service'
 
 interface VendorMetrics {
   vendorId: string
@@ -93,129 +97,54 @@ export default function VendorPerformancePage() {
   const [compareMode, setCompareMode] = useState(false)
   const [selectedVendors, setSelectedVendors] = useState<string[]>([])
 
-  // Mock vendor performance data
-  const vendorMetrics: VendorMetrics[] = [
-    {
-      vendorId: '1',
-      vendorName: 'Tech Supplies Co.',
-      vendorCode: 'VEND-001',
-      category: 'IT Equipment',
-      overallScore: 92,
-      qualityScore: 95,
-      deliveryScore: 88,
-      priceScore: 90,
-      serviceScore: 94,
-      complianceScore: 96,
-      onTimeDeliveryRate: 88,
-      defectRate: 2.1,
-      responseTime: 2.5,
-      orderVolume: 156,
-      totalSpend: 2850000,
-      acceptanceRate: 97.9,
-      averageLeadTime: 5.2,
-      priceVariance: -2.3,
-      contractCompliance: 96,
-      certificationsValid: true,
-      riskLevel: 'low',
-      trend: 'improving'
-    },
-    {
-      vendorId: '2',
-      vendorName: 'Industrial Parts Inc',
-      vendorCode: 'VEND-003',
-      category: 'Manufacturing',
-      overallScore: 78,
-      qualityScore: 82,
-      deliveryScore: 72,
-      priceScore: 85,
-      serviceScore: 75,
-      complianceScore: 76,
-      onTimeDeliveryRate: 72,
-      defectRate: 4.8,
-      responseTime: 4.1,
-      orderVolume: 89,
-      totalSpend: 1560000,
-      acceptanceRate: 95.2,
-      averageLeadTime: 8.7,
-      priceVariance: 3.5,
-      contractCompliance: 76,
-      certificationsValid: true,
-      riskLevel: 'medium',
-      trend: 'stable'
-    },
-    {
-      vendorId: '3',
-      vendorName: 'Chemical Supplies Global',
-      vendorCode: 'VEND-005',
-      category: 'Chemicals',
-      overallScore: 85,
-      qualityScore: 88,
-      deliveryScore: 90,
-      priceScore: 78,
-      serviceScore: 82,
-      complianceScore: 87,
-      onTimeDeliveryRate: 90,
-      defectRate: 3.2,
-      responseTime: 3.0,
-      orderVolume: 67,
-      totalSpend: 980000,
-      acceptanceRate: 96.8,
-      averageLeadTime: 6.5,
-      priceVariance: 1.2,
-      contractCompliance: 87,
-      certificationsValid: true,
-      riskLevel: 'low',
-      trend: 'improving'
-    },
-    {
-      vendorId: '4',
-      vendorName: 'Safety Equipment Pro',
-      vendorCode: 'VEND-004',
-      category: 'Safety',
-      overallScore: 65,
-      qualityScore: 68,
-      deliveryScore: 60,
-      priceScore: 70,
-      serviceScore: 62,
-      complianceScore: 65,
-      onTimeDeliveryRate: 60,
-      defectRate: 8.5,
-      responseTime: 6.2,
-      orderVolume: 45,
-      totalSpend: 425000,
-      acceptanceRate: 91.5,
-      averageLeadTime: 12.3,
-      priceVariance: 5.8,
-      contractCompliance: 65,
-      certificationsValid: false,
-      riskLevel: 'high',
-      trend: 'declining'
-    },
-    {
-      vendorId: '5',
-      vendorName: 'Office Furniture Ltd',
-      vendorCode: 'VEND-002',
-      category: 'Furniture',
-      overallScore: 88,
-      qualityScore: 90,
-      deliveryScore: 85,
-      priceScore: 92,
-      serviceScore: 86,
-      complianceScore: 87,
-      onTimeDeliveryRate: 85,
-      defectRate: 2.8,
-      responseTime: 2.8,
-      orderVolume: 34,
-      totalSpend: 650000,
-      acceptanceRate: 97.2,
-      averageLeadTime: 7.0,
-      priceVariance: -1.5,
-      contractCompliance: 87,
-      certificationsValid: true,
-      riskLevel: 'low',
-      trend: 'stable'
+  const [vendorMetrics, setVendorMetrics] = useState<VendorMetrics[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const mapMetric = (m: VendorPerformanceMetric): VendorMetrics => ({
+    vendorId: m.vendorId,
+    vendorName: m.vendorName,
+    vendorCode: m.vendorCode,
+    category: m.category,
+    overallScore: Number(m.overallScore) || 0,
+    qualityScore: Number(m.qualityScore) || 0,
+    deliveryScore: Number(m.deliveryScore) || 0,
+    priceScore: Number(m.priceScore) || 0,
+    serviceScore: Number(m.serviceScore) || 0,
+    complianceScore: Number(m.complianceScore) || 0,
+    onTimeDeliveryRate: Number(m.onTimeDeliveryRate) || 0,
+    defectRate: Number(m.defectRate) || 0,
+    // Fields not surfaced by the metrics endpoint — derive safe defaults
+    responseTime: 0,
+    orderVolume: Number(m.orderVolume) || 0,
+    totalSpend: Number(m.totalSpend) || 0,
+    acceptanceRate: Math.max(0, 100 - (Number(m.defectRate) || 0)),
+    averageLeadTime: 0,
+    priceVariance: 0,
+    contractCompliance: Number(m.complianceScore) || 0,
+    certificationsValid: (Number(m.complianceScore) || 0) >= 60,
+    riskLevel: m.riskLevel || 'medium',
+    trend: m.trend || 'stable',
+  })
+
+  const loadMetrics = useCallback(async (category: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data =
+        await procurementOperationsService.getVendorPerformanceMetrics(category)
+      setVendorMetrics(Array.isArray(data) ? data.map(mapMetric) : [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load metrics')
+      setVendorMetrics([])
+    } finally {
+      setLoading(false)
     }
-  ]
+  }, [])
+
+  useEffect(() => {
+    loadMetrics(selectedCategory)
+  }, [loadMetrics, selectedCategory])
 
   // Performance trend data
   const performanceTrend = [
@@ -298,11 +227,12 @@ export default function VendorPerformancePage() {
   const topVendors = [...vendorMetrics].sort((a, b) => b.overallScore - a.overallScore).slice(0, 3)
   const bottomVendors = [...vendorMetrics].sort((a, b) => a.overallScore - b.overallScore).slice(0, 3)
 
-  // Calculate overall statistics
+  // Calculate overall statistics (guard against divide-by-zero)
+  const count = vendorMetrics.length || 1
   const stats = {
-    avgScore: Math.round(vendorMetrics.reduce((sum, v) => sum + v.overallScore, 0) / vendorMetrics.length),
-    avgDelivery: Math.round(vendorMetrics.reduce((sum, v) => sum + v.onTimeDeliveryRate, 0) / vendorMetrics.length),
-    avgQuality: Math.round(vendorMetrics.reduce((sum, v) => sum + v.acceptanceRate, 0) / vendorMetrics.length),
+    avgScore: Math.round(vendorMetrics.reduce((sum, v) => sum + v.overallScore, 0) / count),
+    avgDelivery: Math.round(vendorMetrics.reduce((sum, v) => sum + v.onTimeDeliveryRate, 0) / count),
+    avgQuality: Math.round(vendorMetrics.reduce((sum, v) => sum + v.acceptanceRate, 0) / count),
     totalSpend: vendorMetrics.reduce((sum, v) => sum + v.totalSpend, 0),
     highRiskVendors: vendorMetrics.filter(v => v.riskLevel === 'high').length,
     improvingVendors: vendorMetrics.filter(v => v.trend === 'improving').length
@@ -326,8 +256,12 @@ export default function VendorPerformancePage() {
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>
           </select>
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
+          <button
+            onClick={() => loadMetrics(selectedCategory)}
+            disabled={loading}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
@@ -336,6 +270,24 @@ export default function VendorPerformancePage() {
           </button>
         </div>
       </div>
+
+      {/* Status banners */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 text-sm">
+          Loading vendor performance metrics...
+        </div>
+      )}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => loadMetrics(selectedCategory)} className="underline">Retry</button>
+        </div>
+      )}
+      {!loading && !error && vendorMetrics.length === 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3 text-sm">
+          No vendor evaluations found. Complete vendor evaluations to populate this dashboard.
+        </div>
+      )}
 
       {/* Contract Health Alerts Section */}
       <ContractHealth />

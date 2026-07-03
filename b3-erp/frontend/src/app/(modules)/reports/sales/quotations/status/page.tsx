@@ -1,23 +1,56 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchReportRows } from '@/services/reports-management.service';
+
+interface QuotationRow {
+    id: string;
+    date: string;
+    customer: string;
+    value: number;
+    status: string;
+}
 
 function QuotationsStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const quotations = [
-        { id: 'QTN-2025-001', date: '2025-01-10', customer: 'TechCorp Industries', value: 150000, status: 'Accepted' },
-        { id: 'QTN-2025-002', date: '2025-01-12', customer: 'Alpha Corp', value: 250000, status: 'Sent' },
-        { id: 'QTN-2025-003', date: '2025-01-14', customer: 'Beta Industries', value: 180000, status: 'Expired' },
-        { id: 'QTN-2025-004', date: '2025-01-15', customer: 'Global Manufacturing', value: 360000, status: 'Accepted' },
-        { id: 'QTN-2025-005', date: '2025-01-18', customer: 'Gamma Solutions', value: 420000, status: 'Sent' },
-    ];
+    const [quotations, setQuotations] = useState<QuotationRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const rows = await fetchReportRows<Partial<QuotationRow>>('sales.quotations.status');
+                const mapped: QuotationRow[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+                    id: String(r.id ?? ''),
+                    date: String(r.date ?? ''),
+                    customer: String(r.customer ?? ''),
+                    value: Number(r.value ?? 0),
+                    status: String(r.status ?? ''),
+                }));
+                if (!cancelled) setQuotations(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load quotations');
+                    setQuotations([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredQuotations = status === 'All'
         ? quotations
@@ -50,7 +83,16 @@ function QuotationsStatusContent() {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredQuotations.map((quote) => (
+                            {isLoading && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-gray-500">Loading quotations…</td></tr>
+                            )}
+                            {!isLoading && loadError && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-red-600">{loadError}</td></tr>
+                            )}
+                            {!isLoading && !loadError && filteredQuotations.length === 0 && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-gray-500">No quotations found.</td></tr>
+                            )}
+                            {!isLoading && !loadError && filteredQuotations.map((quote) => (
                                 <ClickableTableRow
                                     key={quote.id}
                                     onClick={() => router.push(`/sales/quotations/${quote.id}`)}

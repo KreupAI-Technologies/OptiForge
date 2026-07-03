@@ -100,3 +100,115 @@ CREATE TABLE IF NOT EXISTS "it_access_policies" (
   CONSTRAINT "PK_it_access_policies" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_it_access_policies_companyId" ON "it_access_policies" ("companyId");
+
+-- Scheduled jobs (scheduler/jobs)
+CREATE TABLE IF NOT EXISTS "it_scheduled_jobs" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "description" text,
+  "type" varchar(100) NOT NULL DEFAULT 'Custom',
+  "schedule" varchar(200),
+  "cronExpression" varchar(100),
+  "status" varchar(50) NOT NULL DEFAULT 'Active',
+  "lastRun" varchar(50),
+  "lastRunStatus" varchar(50),
+  "nextRun" varchar(50),
+  "duration" varchar(50),
+  "successRate" numeric NOT NULL DEFAULT 0,
+  "totalRuns" integer NOT NULL DEFAULT 0,
+  "failedRuns" integer NOT NULL DEFAULT 0,
+  "enabled" boolean NOT NULL DEFAULT true,
+  "priority" varchar(50) NOT NULL DEFAULT 'Medium',
+  "createdBy" varchar(150),
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_scheduled_jobs" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_scheduled_jobs_companyId" ON "it_scheduled_jobs" ("companyId");
+
+-- Automation rules (scheduler/automation)
+CREATE TABLE IF NOT EXISTS "it_automation_rules" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "description" text,
+  "category" varchar(100) NOT NULL DEFAULT 'General',
+  "trigger" varchar(200),
+  "triggerType" varchar(100),
+  "conditions" text,
+  "actions" text,
+  "status" varchar(50) NOT NULL DEFAULT 'Active',
+  "enabled" boolean NOT NULL DEFAULT true,
+  "priority" varchar(50) NOT NULL DEFAULT 'Medium',
+  "lastTriggered" varchar(50),
+  "executionCount" integer NOT NULL DEFAULT 0,
+  "successCount" integer NOT NULL DEFAULT 0,
+  "failureCount" integer NOT NULL DEFAULT 0,
+  "successRate" numeric NOT NULL DEFAULT 0,
+  "createdBy" varchar(150),
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_automation_rules" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_automation_rules_companyId" ON "it_automation_rules" ("companyId");
+
+-- Security alerts (security/alerts)
+CREATE TABLE IF NOT EXISTS "it_security_alerts" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "type" varchar(100) NOT NULL DEFAULT 'suspicious_activity',
+  "severity" varchar(50) NOT NULL DEFAULT 'medium',
+  "title" varchar(200) NOT NULL,
+  "description" text,
+  "timestamp" varchar(50),
+  "source" varchar(150),
+  "ipAddress" varchar(100),
+  "userId" varchar(100),
+  "userName" varchar(150),
+  "status" varchar(50) NOT NULL DEFAULT 'new',
+  "actionTaken" text,
+  "assignedTo" varchar(150),
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_security_alerts" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_security_alerts_companyId" ON "it_security_alerts" ("companyId");
+
+-- Password policy (security/password) - one row per company
+CREATE TABLE IF NOT EXISTS "it_password_policies" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "minLength" integer NOT NULL DEFAULT 8,
+  "maxLength" integer NOT NULL DEFAULT 128,
+  "requireUppercase" boolean NOT NULL DEFAULT true,
+  "requireLowercase" boolean NOT NULL DEFAULT true,
+  "requireNumbers" boolean NOT NULL DEFAULT true,
+  "requireSpecialChars" boolean NOT NULL DEFAULT true,
+  "expiryDays" integer NOT NULL DEFAULT 90,
+  "historyCount" integer NOT NULL DEFAULT 5,
+  "lockoutThreshold" integer NOT NULL DEFAULT 5,
+  "lockoutDurationMinutes" integer NOT NULL DEFAULT 30,
+  "mfaRequired" boolean NOT NULL DEFAULT false,
+  "extra" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_password_policies" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_password_policies_companyId" ON "it_password_policies" ("companyId");
+
+-- Notification settings (system/notifications)
+CREATE TABLE IF NOT EXISTS "it_notification_settings" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "category" varchar(100) NOT NULL DEFAULT 'general',
+  "name" varchar(200) NOT NULL,
+  "description" text,
+  "channels" jsonb,
+  "priority" varchar(50) NOT NULL DEFAULT 'medium',
+  "roles" text,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_notification_settings" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_notification_settings_companyId" ON "it_notification_settings" ("companyId");

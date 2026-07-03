@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, Play, Pause, Calendar, AlertCircle, CheckCircle2, XCircle, RefreshCw, Plus, Edit, Trash2, Eye, Filter, Download, X, BarChart3, TrendingUp } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ScheduledJob {
   id: string;
@@ -49,7 +50,54 @@ const SchedulerJobsPage = () => {
     }
   }, [toast]);
 
-  const [jobs, setJobs] = useState<ScheduledJob[]>([
+  const [jobs, setJobs] = useState<ScheduledJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await ItAdminService.getScheduledJobs();
+        const mapped: ScheduledJob[] = (Array.isArray(raw) ? raw : []).map((j) => ({
+          id: String(j.id),
+          name: j.name ?? '',
+          description: j.description ?? '',
+          type: j.type ?? 'Custom',
+          schedule: j.schedule ?? '',
+          cronExpression: j.cronExpression ?? '',
+          status: j.status ?? 'Active',
+          lastRun: j.lastRun ?? undefined,
+          lastRunStatus: j.lastRunStatus ?? undefined,
+          nextRun: j.nextRun ?? '',
+          duration: j.duration ?? undefined,
+          successRate: Number(j.successRate ?? 0),
+          totalRuns: Number(j.totalRuns ?? 0),
+          failedRuns: Number(j.failedRuns ?? 0),
+          enabled: j.enabled ?? true,
+          priority: j.priority ?? 'Medium',
+          createdBy: j.createdBy ?? '',
+          createdAt: j.createdAt ?? '',
+        }));
+        if (!cancelled) setJobs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load scheduled jobs');
+          setJobs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const _mockJobsUnused: ScheduledJob[] = [
     {
       id: '1',
       name: 'Database Backup',
@@ -210,7 +258,8 @@ const SchedulerJobsPage = () => {
       createdBy: 'Vikram Singh',
       createdAt: '2024-04-15',
     },
-  ]);
+  ];
+  void _mockJobsUnused;
 
   const stats: JobStats = {
     totalJobs: jobs.length,
@@ -659,9 +708,20 @@ const SchedulerJobsPage = () => {
             </tbody>
           </table>
 
-        {filteredJobs.length === 0 && (
+        {isLoading && (
           <div className="text-center py-12">
-            <Clock className="w-12 h-12 text-gray-400 mb-3" />
+            <p className="text-gray-600">Loading scheduled jobs...</p>
+          </div>
+        )}
+        {!isLoading && loadError && (
+          <div className="text-center py-12">
+            <AlertCircle className="w-12 h-12 text-red-400 mb-3 mx-auto" />
+            <p className="text-red-600">{loadError}</p>
+          </div>
+        )}
+        {!isLoading && !loadError && filteredJobs.length === 0 && (
+          <div className="text-center py-12">
+            <Clock className="w-12 h-12 text-gray-400 mb-3 mx-auto" />
             <p className="text-gray-600">No scheduled jobs found</p>
           </div>
         )}

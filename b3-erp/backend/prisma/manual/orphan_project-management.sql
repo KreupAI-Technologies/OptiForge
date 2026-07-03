@@ -74,3 +74,85 @@ CREATE TABLE IF NOT EXISTS "pm_milestone_templates" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
+
+-- Project change orders (CRUD list)
+CREATE TABLE IF NOT EXISTS "pm_change_orders" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "change_order_number" varchar,
+  "project_id" varchar,
+  "project_name" varchar,
+  "request_date" varchar,
+  "requested_by" varchar,
+  "requested_by_role" varchar,
+  "change_type" varchar,
+  "priority" varchar NOT NULL DEFAULT 'Medium',
+  "title" varchar,
+  "description" text,
+  "reason" text,
+  "impact_on_cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "impact_on_schedule" integer NOT NULL DEFAULT 0,
+  "original_budget" numeric(15,2) NOT NULL DEFAULT 0,
+  "revised_budget" numeric(15,2) NOT NULL DEFAULT 0,
+  "original_end_date" varchar,
+  "revised_end_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'Pending',
+  "approved_by" varchar,
+  "approval_date" varchar,
+  "implementation_date" varchar,
+  "completion_date" varchar,
+  "attachments" integer NOT NULL DEFAULT 0,
+  "remarks" text,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Project deliverables (CRUD list)
+CREATE TABLE IF NOT EXISTS "pm_deliverables" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "deliverable_number" varchar,
+  "deliverable_name" varchar,
+  "project_number" varchar,
+  "project_name" varchar,
+  "type" varchar,
+  "description" text,
+  "assigned_to" varchar,
+  "planned_date" varchar,
+  "actual_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'Not Started',
+  "progress" integer NOT NULL DEFAULT 0,
+  "dependencies" jsonb,
+  "quantity" integer NOT NULL DEFAULT 0,
+  "unit" varchar,
+  "notes" text,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Project issues & risks register (CRUD list)
+CREATE TABLE IF NOT EXISTS "pm_project_issues" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "number" varchar,
+  "title" varchar,
+  "type" varchar NOT NULL DEFAULT 'Issue',
+  "category" varchar,
+  "project_number" varchar,
+  "project_name" varchar,
+  "description" text,
+  "impact" varchar NOT NULL DEFAULT 'Medium',
+  "probability" varchar NOT NULL DEFAULT 'Medium',
+  "status" varchar NOT NULL DEFAULT 'Open',
+  "priority" varchar NOT NULL DEFAULT 'P3',
+  "raised_by" varchar,
+  "assigned_to" varchar,
+  "raised_date" varchar,
+  "target_date" varchar,
+  "resolved_date" varchar,
+  "mitigation_plan" text,
+  "cost_impact" numeric(15,2) NOT NULL DEFAULT 0,
+  "schedule_impact" integer NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);

@@ -32,6 +32,45 @@ export class ReportDatasetService {
     });
   }
 
+  /**
+   * Return the tabular rows for a report page, keyed by (companyId, reportKey).
+   *
+   * Report detail pages (e.g. "sales.orders.status", "finance.ar-aging.bucket")
+   * render a list. This reads `payload.rows` from the stored dataset and returns
+   * a stable envelope. When no dataset row exists yet, it safely returns an empty
+   * list so the page shows an empty state rather than breaking.
+   */
+  async getRows(
+    companyId: string,
+    reportKey: string,
+  ): Promise<{
+    reportKey: string;
+    title: string | null;
+    rows: Record<string, unknown>[];
+    summary: Record<string, unknown>;
+  }> {
+    const ds = await this.repo.findOne({
+      where: { companyId, reportKey, isActive: true },
+    });
+
+    const payload = (ds?.payload ?? {}) as Record<string, unknown>;
+    const rawRows = payload.rows;
+    const rows = Array.isArray(rawRows)
+      ? (rawRows as Record<string, unknown>[])
+      : [];
+    const summary =
+      payload.summary && typeof payload.summary === 'object'
+        ? (payload.summary as Record<string, unknown>)
+        : {};
+
+    return {
+      reportKey,
+      title: ds?.title ?? null,
+      rows,
+      summary,
+    };
+  }
+
   /** Upsert a dataset for (companyId, reportKey). */
   async upsert(
     companyId: string,

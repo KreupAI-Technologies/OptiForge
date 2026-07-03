@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import { Plus, Search, Eye, Edit, Copy, Trash2, Star, FileText, DollarSign, Clock, TrendingUp } from 'lucide-react';
 
 interface QuoteTemplate {
@@ -21,167 +22,55 @@ interface QuoteTemplate {
   termsPreview: string;
 }
 
-const mockTemplates: QuoteTemplate[] = [
-  {
-    id: '1',
-    name: 'Enterprise Software Package',
-    description: 'Complete enterprise software solution with implementation and training',
-    category: 'standard',
-    items: 5,
-    estimatedValue: 45000,
-    validityDays: 30,
-    usageCount: 34,
-    lastUsed: '2024-10-18',
-    createdDate: '2024-01-10',
-    isFavorite: true,
-    tags: ['Software', 'Implementation', 'Training'],
-    discount: 10,
-    includesTax: true,
-    termsPreview: 'Payment: Net 30. Includes 90 days support. Annual maintenance: 20% of license.',
-  },
-  {
-    id: '2',
-    name: 'Professional Services - Monthly',
-    description: 'Recurring monthly professional services retainer package',
-    category: 'recurring',
-    items: 3,
-    estimatedValue: 12000,
-    validityDays: 60,
-    usageCount: 28,
-    lastUsed: '2024-10-15',
-    createdDate: '2024-02-05',
-    isFavorite: true,
-    tags: ['Consulting', 'Retainer', 'Monthly'],
-    discount: 5,
-    includesTax: false,
-    termsPreview: 'Monthly billing. 40 hours included. Additional hours at $150/hr. Auto-renews.',
-  },
-  {
-    id: '3',
-    name: 'Basic Website Development',
-    description: 'Standard 5-page business website with responsive design',
-    category: 'project',
-    items: 8,
-    estimatedValue: 8500,
-    validityDays: 45,
-    usageCount: 45,
-    lastUsed: '2024-10-12',
-    createdDate: '2023-11-20',
-    isFavorite: true,
-    tags: ['Web', 'Design', 'Development'],
-    discount: 0,
-    includesTax: true,
-    termsPreview: '50% upfront, 50% on completion. 2 revision rounds. 30-day support included.',
-  },
-  {
-    id: '4',
-    name: 'Custom Integration Project',
-    description: 'Tailored API integration with third-party systems',
-    category: 'custom',
-    items: 6,
-    estimatedValue: 22000,
-    validityDays: 30,
-    usageCount: 12,
-    lastUsed: '2024-10-10',
-    createdDate: '2024-03-15',
-    isFavorite: false,
-    tags: ['API', 'Integration', 'Custom'],
-    discount: 15,
-    includesTax: true,
-    termsPreview: 'Milestone-based payment. 30% upfront. Testing included. 60-day warranty.',
-  },
-  {
-    id: '5',
-    name: 'Cloud Migration Services',
-    description: 'Complete cloud infrastructure migration and setup',
-    category: 'service',
-    items: 10,
-    estimatedValue: 65000,
-    validityDays: 30,
-    usageCount: 8,
-    lastUsed: '2024-10-05',
-    createdDate: '2024-04-20',
-    isFavorite: false,
-    tags: ['Cloud', 'Migration', 'Infrastructure'],
-    discount: 12,
-    includesTax: true,
-    termsPreview: '40% upfront, 30% mid-project, 30% completion. Includes training and docs.',
-  },
-  {
-    id: '6',
-    name: 'Annual Support Package',
-    description: 'Comprehensive annual support and maintenance plan',
-    category: 'recurring',
-    items: 4,
-    estimatedValue: 18000,
-    validityDays: 90,
-    usageCount: 52,
-    lastUsed: '2024-10-19',
-    createdDate: '2023-09-10',
-    isFavorite: true,
-    tags: ['Support', 'Maintenance', 'Annual'],
-    discount: 8,
-    includesTax: false,
-    termsPreview: 'Annual prepayment or quarterly billing. 24/7 support. Unlimited tickets.',
-  },
-  {
-    id: '7',
-    name: 'Security Audit Package',
-    description: 'Comprehensive security assessment and penetration testing',
-    category: 'service',
-    items: 7,
-    estimatedValue: 15000,
-    validityDays: 30,
-    usageCount: 18,
-    lastUsed: '2024-10-08',
-    createdDate: '2024-05-12',
-    isFavorite: false,
-    tags: ['Security', 'Audit', 'Testing'],
-    discount: 0,
-    includesTax: true,
-    termsPreview: '50% upfront, 50% on report delivery. Includes remediation roadmap.',
-  },
-  {
-    id: '8',
-    name: 'Mobile App Development',
-    description: 'iOS and Android native mobile application development',
-    category: 'project',
-    items: 12,
-    estimatedValue: 85000,
-    validityDays: 45,
-    usageCount: 6,
-    lastUsed: '2024-09-28',
-    createdDate: '2024-06-01',
-    isFavorite: false,
-    tags: ['Mobile', 'iOS', 'Android', 'Development'],
-    discount: 10,
-    includesTax: true,
-    termsPreview: 'Milestone payments. 25% upfront. Includes testing and store submission.',
-  },
-  {
-    id: '9',
-    name: 'Data Analytics Dashboard',
-    description: 'Custom business intelligence dashboard with real-time analytics',
-    category: 'standard',
-    items: 6,
-    estimatedValue: 32000,
-    validityDays: 30,
-    usageCount: 22,
-    lastUsed: '2024-10-14',
-    createdDate: '2024-02-28',
-    isFavorite: true,
-    tags: ['Analytics', 'Dashboard', 'BI'],
-    discount: 5,
-    includesTax: true,
-    termsPreview: '40% upfront, 60% on completion. Includes user training and documentation.',
-  },
-];
 
 export default function QuoteTemplatesPage() {
-  const [templates] = useState<QuoteTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<QuoteTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'standard' | 'custom' | 'recurring' | 'project' | 'service'>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.quoteTemplates.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setTemplates(
+          rows.map((t: any): QuoteTemplate => ({
+            id: String(t.id),
+            name: t.name ?? '',
+            description: t.description ?? '',
+            category: t.category ?? 'standard',
+            items: Number(t.items ?? 0),
+            estimatedValue: Number(t.estimatedValue ?? 0),
+            validityDays: Number(t.validityDays ?? 0),
+            usageCount: Number(t.usageCount ?? 0),
+            lastUsed: t.lastUsed ?? undefined,
+            createdDate: t.createdAt ?? t.createdDate ?? '',
+            isFavorite: Boolean(t.isFavorite),
+            tags: Array.isArray(t.tags) ? t.tags : [],
+            discount: Number(t.discount ?? 0),
+            includesTax: Boolean(t.includesTax),
+            termsPreview: t.termsPreview ?? '',
+          })),
+        );
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load quote templates');
+        setTemplates([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -196,7 +85,9 @@ export default function QuoteTemplatesPage() {
     totalTemplates: templates.length,
     favorites: templates.filter(t => t.isFavorite).length,
     totalUsage: templates.reduce((sum, t) => sum + t.usageCount, 0),
-    avgValue: Math.round(templates.reduce((sum, t) => sum + t.estimatedValue, 0) / templates.length),
+    avgValue: templates.length
+      ? Math.round(templates.reduce((sum, t) => sum + t.estimatedValue, 0) / templates.length)
+      : 0,
   };
 
   const getCategoryColor = (category: string) => {
@@ -212,6 +103,11 @@ export default function QuoteTemplatesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">

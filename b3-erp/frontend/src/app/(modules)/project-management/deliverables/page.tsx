@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService, PmDeliverable } from '@/services/ProjectManagementService';
 import {
     Search,
     Plus,
@@ -237,7 +238,48 @@ const mockDeliverables: Deliverable[] = [
 ];
 
 export default function DeliverablesListPage() {
-    const [deliverables] = useState<Deliverable[]>(mockDeliverables);
+    const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listDeliverables();
+                if (!mounted) return;
+                const mapped: Deliverable[] = (Array.isArray(rows) ? rows : []).map((r: PmDeliverable) => ({
+                    id: r.id,
+                    deliverableNumber: r.deliverableNumber ?? '',
+                    deliverableName: r.deliverableName ?? '',
+                    projectNumber: r.projectNumber ?? '',
+                    projectName: r.projectName ?? '',
+                    type: (r.type as Deliverable['type']) ?? 'Documentation',
+                    description: r.description ?? '',
+                    assignedTo: r.assignedTo ?? '',
+                    plannedDate: r.plannedDate ?? '',
+                    actualDate: r.actualDate,
+                    status: (r.status as Deliverable['status']) ?? 'Not Started',
+                    progress: Number(r.progress ?? 0),
+                    dependencies: Array.isArray(r.dependencies) ? r.dependencies : [],
+                    quantity: Number(r.quantity ?? 0),
+                    unit: r.unit ?? '',
+                    notes: r.notes ?? '',
+                }));
+                // Fall back to sample data when the backend has no rows yet.
+                setDeliverables(mapped.length > 0 ? mapped : mockDeliverables);
+            } catch (e) {
+                if (!mounted) return;
+                setError('Failed to load deliverables');
+                setDeliverables(mockDeliverables);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        })();
+        return () => { mounted = false; };
+    }, []);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [typeFilter, setTypeFilter] = useState('All');
@@ -413,6 +455,12 @@ export default function DeliverablesListPage() {
     return (
         <div className="w-full h-screen overflow-y-auto overflow-x-hidden">
             <div className="px-3 py-2 space-y-3">
+                {loading && (
+                    <div className="text-sm text-gray-500">Loading deliverables…</div>
+                )}
+                {error && (
+                    <div className="text-sm text-red-600">{error} — showing sample data.</div>
+                )}
                 {/* Header Actions */}
                 <div className="flex justify-between mb-2">
                     <div className="flex gap-2">

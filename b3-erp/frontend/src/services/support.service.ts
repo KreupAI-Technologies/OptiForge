@@ -1659,6 +1659,149 @@ export const SupportSettingsService = {
 };
 
 // ============================================================================
+// Ticket Category Service (net-new: /support/tickets/categories)
+// ============================================================================
+
+export interface SupportTicketCategory {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  color?: string;
+  ticketCount: number;
+  avgResolutionTime?: string;
+  slaTarget?: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const TicketCategoryService = {
+  async getCategories(companyId = 'company-1'): Promise<SupportTicketCategory[]> {
+    return apiRequest<SupportTicketCategory[]>(
+      `/support/tickets/categories?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+
+  async createCategory(
+    data: Partial<SupportTicketCategory> & { companyId?: string }
+  ): Promise<SupportTicketCategory> {
+    return apiRequest<SupportTicketCategory>('/support/tickets/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateCategory(
+    id: string,
+    data: Partial<SupportTicketCategory>
+  ): Promise<SupportTicketCategory> {
+    return apiRequest<SupportTicketCategory>(`/support/tickets/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteCategory(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/tickets/categories/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Response Template Service (net-new: /support/automation/responses)
+// ============================================================================
+
+export interface SupportResponseTemplate {
+  id: string;
+  companyId: string;
+  name: string;
+  category?: string;
+  subject?: string;
+  body?: string;
+  trigger?: { type: string; conditions: string[] };
+  language: string;
+  active: boolean;
+  usageCount: number;
+  effectivenessRate: number;
+  avgResponseTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const ResponseTemplateService = {
+  async getTemplates(
+    companyId = 'company-1',
+    options?: { category?: string; active?: boolean }
+  ): Promise<SupportResponseTemplate[]> {
+    const params = new URLSearchParams({ companyId });
+    if (options?.category) params.append('category', options.category);
+    if (options?.active !== undefined) params.append('active', String(options.active));
+    return apiRequest<SupportResponseTemplate[]>(
+      `/support/automation/responses?${params.toString()}`
+    );
+  },
+
+  async createTemplate(
+    data: Partial<SupportResponseTemplate> & { companyId?: string }
+  ): Promise<SupportResponseTemplate> {
+    return apiRequest<SupportResponseTemplate>('/support/automation/responses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async updateTemplate(
+    id: string,
+    data: Partial<SupportResponseTemplate>
+  ): Promise<SupportResponseTemplate> {
+    return apiRequest<SupportResponseTemplate>(`/support/automation/responses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteTemplate(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/automation/responses/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// SLA Settings Service (net-new: /support/sla/settings)
+// ============================================================================
+
+export interface SupportSlaSettingRecord {
+  id?: string;
+  companyId: string;
+  slaConfigs: Array<Record<string, unknown>>;
+  businessHours: Array<Record<string, unknown>>;
+  escalationRules: Array<Record<string, unknown>>;
+  notifications: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SlaSettingsService = {
+  async getSlaSettings(companyId = 'company-1'): Promise<SupportSlaSettingRecord> {
+    return apiRequest<SupportSlaSettingRecord>(
+      `/support/sla/settings?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+
+  async saveSlaSettings(
+    data: Partial<SupportSlaSettingRecord> & { companyId?: string }
+  ): Promise<SupportSlaSettingRecord> {
+    return apiRequest<SupportSlaSettingRecord>('/support/sla/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+// ============================================================================
 // Unified Export
 // ============================================================================
 
@@ -1671,6 +1814,9 @@ export const SupportService = {
   backlog: BacklogService,
   itil: ITILService,
   settings: SupportSettingsService,
+  ticketCategories: TicketCategoryService,
+  responseTemplates: ResponseTemplateService,
+  slaSettings: SlaSettingsService,
 };
 
 export default SupportService;

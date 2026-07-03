@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Save, Plus, Trash2, Clock, AlertTriangle, Bell, Calendar, Users, Settings as SettingsIcon } from 'lucide-react'
+import { SlaSettingsService } from '@/services/support.service'
 
 interface SLAConfig {
   id: string
@@ -35,11 +36,7 @@ interface EscalationRule {
   active: boolean
 }
 
-export default function SLASettings() {
-  const [activeTab, setActiveTab] = useState<'sla-config' | 'business-hours' | 'escalation' | 'notifications'>('sla-config')
-  const [unsavedChanges, setUnsavedChanges] = useState(false)
-
-  const [slaConfigs, setSlaConfigs] = useState<SLAConfig[]>([
+const DEFAULT_SLA_CONFIGS: SLAConfig[] = [
     {
       id: '1',
       priority: 'P0',
@@ -96,51 +93,105 @@ export default function SLASettings() {
       autoAssign: false,
       notifyOnBreach: false
     }
-  ])
+  ]
 
-  const [businessHours, setBusinessHours] = useState<BusinessHours[]>([
-    { day: 'Monday', enabled: true, startTime: '09:00', endTime: '18:00' },
-    { day: 'Tuesday', enabled: true, startTime: '09:00', endTime: '18:00' },
-    { day: 'Wednesday', enabled: true, startTime: '09:00', endTime: '18:00' },
-    { day: 'Thursday', enabled: true, startTime: '09:00', endTime: '18:00' },
-    { day: 'Friday', enabled: true, startTime: '09:00', endTime: '18:00' },
-    { day: 'Saturday', enabled: false, startTime: '09:00', endTime: '13:00' },
-    { day: 'Sunday', enabled: false, startTime: '09:00', endTime: '13:00' }
-  ])
+const DEFAULT_BUSINESS_HOURS: BusinessHours[] = [
+  { day: 'Monday', enabled: true, startTime: '09:00', endTime: '18:00' },
+  { day: 'Tuesday', enabled: true, startTime: '09:00', endTime: '18:00' },
+  { day: 'Wednesday', enabled: true, startTime: '09:00', endTime: '18:00' },
+  { day: 'Thursday', enabled: true, startTime: '09:00', endTime: '18:00' },
+  { day: 'Friday', enabled: true, startTime: '09:00', endTime: '18:00' },
+  { day: 'Saturday', enabled: false, startTime: '09:00', endTime: '13:00' },
+  { day: 'Sunday', enabled: false, startTime: '09:00', endTime: '13:00' }
+]
 
-  const [escalationRules, setEscalationRules] = useState<EscalationRule[]>([
-    {
-      id: '1',
-      level: 1,
-      timeThreshold: 50,
-      unit: 'minutes',
-      escalateTo: 'Team Lead',
-      notifyChannels: ['Email', 'SMS'],
-      active: true
-    },
-    {
-      id: '2',
-      level: 2,
-      timeThreshold: 75,
-      unit: 'minutes',
-      escalateTo: 'Manager',
-      notifyChannels: ['Email', 'SMS', 'Phone'],
-      active: true
-    },
-    {
-      id: '3',
-      level: 3,
-      timeThreshold: 90,
-      unit: 'minutes',
-      escalateTo: 'Director',
-      notifyChannels: ['Email', 'SMS', 'Phone', 'Slack'],
-      active: true
+const DEFAULT_ESCALATION_RULES: EscalationRule[] = [
+  {
+    id: '1',
+    level: 1,
+    timeThreshold: 50,
+    unit: 'minutes',
+    escalateTo: 'Team Lead',
+    notifyChannels: ['Email', 'SMS'],
+    active: true
+  },
+  {
+    id: '2',
+    level: 2,
+    timeThreshold: 75,
+    unit: 'minutes',
+    escalateTo: 'Manager',
+    notifyChannels: ['Email', 'SMS', 'Phone'],
+    active: true
+  },
+  {
+    id: '3',
+    level: 3,
+    timeThreshold: 90,
+    unit: 'minutes',
+    escalateTo: 'Director',
+    notifyChannels: ['Email', 'SMS', 'Phone', 'Slack'],
+    active: true
+  }
+]
+
+export default function SLASettings() {
+  const [activeTab, setActiveTab] = useState<'sla-config' | 'business-hours' | 'escalation' | 'notifications'>('sla-config')
+  const [unsavedChanges, setUnsavedChanges] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const [slaConfigs, setSlaConfigs] = useState<SLAConfig[]>(DEFAULT_SLA_CONFIGS)
+  const [businessHours, setBusinessHours] = useState<BusinessHours[]>(DEFAULT_BUSINESS_HOURS)
+  const [escalationRules, setEscalationRules] = useState<EscalationRule[]>(DEFAULT_ESCALATION_RULES)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const data = await SlaSettingsService.getSlaSettings()
+        if (cancelled) return
+        if (Array.isArray(data?.slaConfigs) && data.slaConfigs.length) {
+          setSlaConfigs(data.slaConfigs as unknown as SLAConfig[])
+        }
+        if (Array.isArray(data?.businessHours) && data.businessHours.length) {
+          setBusinessHours(data.businessHours as unknown as BusinessHours[])
+        }
+        if (Array.isArray(data?.escalationRules) && data.escalationRules.length) {
+          setEscalationRules(data.escalationRules as unknown as EscalationRule[])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load SLA settings')
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  const handleSave = () => {
-    setUnsavedChanges(false)
-    alert('SLA settings saved successfully!')
+  const handleSave = async () => {
+    setIsSaving(true)
+    setLoadError(null)
+    try {
+      await SlaSettingsService.saveSlaSettings({
+        slaConfigs: slaConfigs as unknown as Array<Record<string, unknown>>,
+        businessHours: businessHours as unknown as Array<Record<string, unknown>>,
+        escalationRules: escalationRules as unknown as Array<Record<string, unknown>>,
+      })
+      setUnsavedChanges(false)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save SLA settings')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const getPriorityColor = (priority: string) => {
@@ -170,13 +221,27 @@ export default function SLASettings() {
           )}
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={isSaving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="h-4 w-4" />
-            Save All Changes
+            {isSaving ? 'Saving…' : 'Save All Changes'}
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading SLA settings…
+        </div>
+      )}
+      {loadError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-sm border">

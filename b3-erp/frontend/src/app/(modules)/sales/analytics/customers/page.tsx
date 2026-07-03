@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Users, DollarSign, ShoppingCart, TrendingUp, TrendingDown, Star, Calendar, Award, Package } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface CustomerAnalytics {
   id: string
@@ -32,260 +33,49 @@ export default function CustomersAnalyticsPage() {
   const [selectedRegion, setSelectedRegion] = useState('all')
   const [sortBy, setSortBy] = useState('revenue')
 
-  const [customers] = useState<CustomerAnalytics[]>([
-    {
-      id: 'CUST-001',
-      name: 'Luxury Homes & Villas',
-      type: 'vip',
-      location: 'Mumbai',
-      region: 'West India',
-      totalOrders: 45,
-      totalRevenue: 8925000,
-      avgOrderValue: 198333,
-      lifetimeValue: 12500000,
-      firstOrderDate: '2024-03-15',
-      lastOrderDate: '2025-10-18',
-      favoriteCategory: 'Countertops',
-      orderFrequency: 2.5,
-      paymentTerms: 'Net 30',
-      creditLimit: 5000000,
-      outstandingBalance: 1250000,
-      satisfaction: 4.8,
-      reorderRate: 92,
-      growthRate: 35.5
-    },
-    {
-      id: 'CUST-002',
-      name: 'Premium Builders Group',
-      type: 'builder',
-      location: 'Chennai',
-      region: 'South India',
-      totalOrders: 67,
-      totalRevenue: 7845000,
-      avgOrderValue: 117090,
-      lifetimeValue: 9800000,
-      firstOrderDate: '2023-11-20',
-      lastOrderDate: '2025-10-19',
-      favoriteCategory: 'Kitchen Storage',
-      orderFrequency: 3.2,
-      paymentTerms: 'Net 45',
-      creditLimit: 3000000,
-      outstandingBalance: 890000,
-      satisfaction: 4.5,
-      reorderRate: 85,
-      growthRate: 28.3
-    },
-    {
-      id: 'CUST-003',
-      name: 'Elite Contractors Pvt Ltd',
-      type: 'contractor',
-      location: 'Delhi',
-      region: 'North India',
-      totalOrders: 52,
-      totalRevenue: 6723000,
-      avgOrderValue: 129288,
-      lifetimeValue: 8200000,
-      firstOrderDate: '2024-01-10',
-      lastOrderDate: '2025-10-17',
-      favoriteCategory: 'Kitchen Sinks',
-      orderFrequency: 2.8,
-      paymentTerms: 'Net 30',
-      creditLimit: 2500000,
-      outstandingBalance: 675000,
-      satisfaction: 4.6,
-      reorderRate: 88,
-      growthRate: 22.7
-    },
-    {
-      id: 'CUST-004',
-      name: 'City Hospital Kitchen Department',
-      type: 'institutional',
-      location: 'Delhi',
-      region: 'North India',
-      totalOrders: 38,
-      totalRevenue: 5234000,
-      avgOrderValue: 137737,
-      lifetimeValue: 6500000,
-      firstOrderDate: '2024-02-05',
-      lastOrderDate: '2025-10-15',
-      favoriteCategory: 'Kitchen Appliances',
-      orderFrequency: 2.1,
-      paymentTerms: 'Net 60',
-      creditLimit: 4000000,
-      outstandingBalance: 1100000,
-      satisfaction: 4.7,
-      reorderRate: 95,
-      growthRate: 18.9
-    },
-    {
-      id: 'CUST-005',
-      name: 'Modern Kitchen Solutions',
-      type: 'dealer',
-      location: 'Bangalore',
-      region: 'South India',
-      totalOrders: 89,
-      totalRevenue: 4567000,
-      avgOrderValue: 51315,
-      lifetimeValue: 5800000,
-      firstOrderDate: '2023-08-15',
-      lastOrderDate: '2025-10-20',
-      favoriteCategory: 'Kitchen Faucets',
-      orderFrequency: 4.5,
-      paymentTerms: 'Net 30',
-      creditLimit: 1500000,
-      outstandingBalance: 345000,
-      satisfaction: 4.4,
-      reorderRate: 78,
-      growthRate: 31.2
-    },
-    {
-      id: 'CUST-006',
-      name: 'Builders Association India',
-      type: 'builder',
-      location: 'Kolkata',
-      region: 'East India',
-      totalOrders: 41,
-      totalRevenue: 3987000,
-      avgOrderValue: 97244,
-      lifetimeValue: 5200000,
-      firstOrderDate: '2024-04-20',
-      lastOrderDate: '2025-10-19',
-      favoriteCategory: 'Kitchen Appliances',
-      orderFrequency: 2.3,
-      paymentTerms: 'Net 45',
-      creditLimit: 2000000,
-      outstandingBalance: 560000,
-      satisfaction: 4.3,
-      reorderRate: 82,
-      growthRate: 25.6
-    },
-    {
-      id: 'CUST-007',
-      name: 'Home Decor Plus (Dealer)',
-      type: 'dealer',
-      location: 'Pune',
-      region: 'West India',
-      totalOrders: 76,
-      totalRevenue: 3456000,
-      avgOrderValue: 45474,
-      lifetimeValue: 4300000,
-      firstOrderDate: '2023-12-01',
-      lastOrderDate: '2025-10-18',
-      favoriteCategory: 'Kitchen Accessories',
-      orderFrequency: 3.8,
-      paymentTerms: 'Net 30',
-      creditLimit: 1200000,
-      outstandingBalance: 290000,
-      satisfaction: 4.5,
-      reorderRate: 81,
-      growthRate: 27.4
-    },
-    {
-      id: 'CUST-008',
-      name: 'Sharma Builders Pvt Ltd',
-      type: 'contractor',
-      location: 'Gurgaon',
-      region: 'North India',
-      totalOrders: 34,
-      totalRevenue: 2987000,
-      avgOrderValue: 87853,
-      lifetimeValue: 3800000,
-      firstOrderDate: '2024-05-10',
-      lastOrderDate: '2025-10-18',
-      favoriteCategory: 'Kitchen Ventilation',
-      orderFrequency: 2.0,
-      paymentTerms: 'Net 30',
-      creditLimit: 1800000,
-      outstandingBalance: 445000,
-      satisfaction: 4.2,
-      reorderRate: 76,
-      growthRate: 19.8
-    },
-    {
-      id: 'CUST-009',
-      name: 'Kitchen World (Dealer Network)',
-      type: 'dealer',
-      location: 'Hyderabad',
-      region: 'South India',
-      totalOrders: 98,
-      totalRevenue: 2756000,
-      avgOrderValue: 28122,
-      lifetimeValue: 3500000,
-      firstOrderDate: '2023-07-20',
-      lastOrderDate: '2025-10-20',
-      favoriteCategory: 'Cookware',
-      orderFrequency: 5.2,
-      paymentTerms: 'Net 15',
-      creditLimit: 1000000,
-      outstandingBalance: 178000,
-      satisfaction: 4.3,
-      reorderRate: 89,
-      growthRate: 33.1
-    },
-    {
-      id: 'CUST-010',
-      name: 'College Hostel Management',
-      type: 'institutional',
-      location: 'Bangalore',
-      region: 'South India',
-      totalOrders: 29,
-      totalRevenue: 2445000,
-      avgOrderValue: 84310,
-      lifetimeValue: 3200000,
-      firstOrderDate: '2024-06-15',
-      lastOrderDate: '2025-10-17',
-      favoriteCategory: 'Cookware',
-      orderFrequency: 1.8,
-      paymentTerms: 'Net 60',
-      creditLimit: 2500000,
-      outstandingBalance: 675000,
-      satisfaction: 4.6,
-      reorderRate: 87,
-      growthRate: 21.5
-    },
-    {
-      id: 'CUST-011',
-      name: 'Smart Contractors Ltd',
-      type: 'contractor',
-      location: 'Ahmedabad',
-      region: 'West India',
-      totalOrders: 43,
-      totalRevenue: 2134000,
-      avgOrderValue: 49628,
-      lifetimeValue: 2800000,
-      firstOrderDate: '2024-03-25',
-      lastOrderDate: '2025-10-16',
-      favoriteCategory: 'Kitchen Accessories',
-      orderFrequency: 2.4,
-      paymentTerms: 'Net 30',
-      creditLimit: 1500000,
-      outstandingBalance: 334000,
-      satisfaction: 4.4,
-      reorderRate: 79,
-      growthRate: 24.3
-    },
-    {
-      id: 'CUST-012',
-      name: 'VIP Homes & Interiors',
-      type: 'vip',
-      location: 'Mumbai',
-      region: 'West India',
-      totalOrders: 28,
-      totalRevenue: 1987000,
-      avgOrderValue: 70964,
-      lifetimeValue: 2600000,
-      firstOrderDate: '2024-07-10',
-      lastOrderDate: '2025-10-14',
-      favoriteCategory: 'Kitchen Faucets',
-      orderFrequency: 1.9,
-      paymentTerms: 'Net 30',
-      creditLimit: 2000000,
-      outstandingBalance: 445000,
-      satisfaction: 4.9,
-      reorderRate: 93,
-      growthRate: 29.7
+  const [customers, setCustomers] = useState<CustomerAnalytics[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getCustomerAnalytics()
+        if (cancelled) return
+        const mapped: CustomerAnalytics[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+          id: r.code ?? '',
+          name: r.name ?? '',
+          type: (r.type as CustomerAnalytics['type']) ?? 'retail',
+          location: '',
+          region: r.region ?? '',
+          totalOrders: Number(r.totalOrders) || 0,
+          totalRevenue: Number(r.totalRevenue) || 0,
+          avgOrderValue: Number(r.avgOrderValue) || 0,
+          lifetimeValue: Number(r.totalRevenue) || 0,
+          firstOrderDate: r.lastOrderDate ?? '',
+          lastOrderDate: r.lastOrderDate ?? '',
+          favoriteCategory: '',
+          orderFrequency: 0,
+          paymentTerms: '',
+          creditLimit: 0,
+          outstandingBalance: 0,
+          satisfaction: 0,
+          reorderRate: 0,
+          growthRate: Number(r.trend) || 0,
+        }))
+        setCustomers(mapped)
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load customer analytics')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const customerTypes = ['all', 'contractor', 'dealer', 'builder', 'vip', 'institutional', 'retail']
   const regions = ['all', 'North India', 'South India', 'East India', 'West India']
@@ -342,9 +132,25 @@ export default function CustomersAnalyticsPage() {
   const stats = {
     totalCustomers: filteredCustomers.length,
     totalRevenue: filteredCustomers.reduce((sum, c) => sum + c.totalRevenue, 0),
-    avgLifetimeValue: filteredCustomers.reduce((sum, c) => sum + c.lifetimeValue, 0) / filteredCustomers.length,
-    avgSatisfaction: filteredCustomers.reduce((sum, c) => sum + c.satisfaction, 0) / filteredCustomers.length,
-    avgReorderRate: filteredCustomers.reduce((sum, c) => sum + c.reorderRate, 0) / filteredCustomers.length
+    avgLifetimeValue: filteredCustomers.length ? filteredCustomers.reduce((sum, c) => sum + c.lifetimeValue, 0) / filteredCustomers.length : 0,
+    avgSatisfaction: filteredCustomers.length ? filteredCustomers.reduce((sum, c) => sum + c.satisfaction, 0) / filteredCustomers.length : 0,
+    avgReorderRate: filteredCustomers.length ? filteredCustomers.reduce((sum, c) => sum + c.reorderRate, 0) / filteredCustomers.length : 0
+  }
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full px-4 py-6 flex items-center justify-center text-gray-500">
+        Loading customer analytics...
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full px-4 py-6 flex items-center justify-center text-red-600">
+        {loadError}
+      </div>
+    )
   }
 
   return (

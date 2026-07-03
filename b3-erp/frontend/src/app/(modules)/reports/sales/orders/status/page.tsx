@@ -1,24 +1,56 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchReportRows } from '@/services/reports-management.service';
+
+interface OrderRow {
+    id: string;
+    date: string;
+    customer: string;
+    value: number;
+    status: string;
+}
 
 function OrdersStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const orders = [
-        { id: 'ORD-2025-001', date: '2025-01-15', customer: 'TechCorp Industries', value: 150000, status: 'Delivered' },
-        { id: 'ORD-2025-002', date: '2025-01-16', customer: 'Alpha Corp', value: 250000, status: 'Delivered' },
-        { id: 'ORD-2025-003', date: '2025-01-17', customer: 'Beta Industries', value: 180000, status: 'Shipped' },
-        { id: 'ORD-2025-004', date: '2025-01-18', customer: 'Global Manufacturing', value: 360000, status: 'Processing' },
-        { id: 'ORD-2025-005', date: '2025-01-19', customer: 'Gamma Solutions', value: 420000, status: 'Shipped' },
-        { id: 'ORD-2025-006', date: '2025-01-20', customer: 'Delta Group', value: 110000, status: 'Pending' },
-    ];
+    const [orders, setOrders] = useState<OrderRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const rows = await fetchReportRows<Partial<OrderRow>>('sales.orders.status');
+                const mapped: OrderRow[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+                    id: String(r.id ?? ''),
+                    date: String(r.date ?? ''),
+                    customer: String(r.customer ?? ''),
+                    value: Number(r.value ?? 0),
+                    status: String(r.status ?? ''),
+                }));
+                if (!cancelled) setOrders(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load orders');
+                    setOrders([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredOrders = status === 'All'
         ? orders
@@ -54,7 +86,16 @@ function OrdersStatusContent() {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredOrders.map((order) => (
+                            {isLoading && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-gray-500">Loading orders…</td></tr>
+                            )}
+                            {!isLoading && loadError && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-red-600">{loadError}</td></tr>
+                            )}
+                            {!isLoading && !loadError && filteredOrders.length === 0 && (
+                                <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-gray-500">No orders found.</td></tr>
+                            )}
+                            {!isLoading && !loadError && filteredOrders.map((order) => (
                                 <ClickableTableRow
                                     key={order.id}
                                     onClick={() => router.push(`/sales/orders/${order.id}`)}

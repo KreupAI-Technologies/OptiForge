@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area,
   ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell
@@ -11,6 +11,24 @@ import {
   ChevronDown, ChevronUp, ArrowUp, ArrowDown, Target, Zap,
   PieChart as PieChartIcon, BarChart3, Activity, Eye, Edit, XCircle
 } from 'lucide-react'
+import {
+  procurementOperationsService,
+  BudgetSummary,
+} from '@/services/procurement-operations.service'
+
+const EMPTY_SUMMARY: BudgetSummary = {
+  overview: {
+    totalBudget: 0,
+    allocated: 0,
+    spent: 0,
+    committed: 0,
+    available: 0,
+    utilizationRate: 0,
+    savingsAchieved: 0,
+  },
+  departmentBudgets: [],
+  categoryBudgets: [],
+}
 
 export default function BudgetTracking() {
   const [selectedPeriod, setSelectedPeriod] = useState('current')
@@ -18,35 +36,31 @@ export default function BudgetTracking() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showBudgetModal, setShowBudgetModal] = useState(false)
 
-  // Budget Overview Data
-  const budgetOverview = {
-    totalBudget: 5000000,
-    allocated: 4500000,
-    spent: 2850000,
-    committed: 650000,
-    available: 1000000,
-    utilizationRate: 74,
-    savingsAchieved: 185000,
-  }
+  const [summary, setSummary] = useState<BudgetSummary>(EMPTY_SUMMARY)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Department Budgets
-  const departmentBudgets = [
-    { name: 'Production', budget: 2000000, spent: 1450000, committed: 250000, available: 300000 },
-    { name: 'R&D', budget: 800000, spent: 520000, committed: 150000, available: 130000 },
-    { name: 'IT', budget: 600000, spent: 380000, committed: 100000, available: 120000 },
-    { name: 'Facilities', budget: 500000, spent: 320000, committed: 80000, available: 100000 },
-    { name: 'Marketing', budget: 400000, spent: 180000, committed: 70000, available: 150000 },
-    { name: 'HR', budget: 200000, spent: 0, committed: 0, available: 200000 },
-  ]
+  const loadSummary = React.useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await procurementOperationsService.getBudgetSummary()
+      setSummary(data ?? EMPTY_SUMMARY)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load budgets')
+      setSummary(EMPTY_SUMMARY)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  // Category Budgets
-  const categoryBudgets = [
-    { category: 'Raw Materials', budget: 1800000, spent: 1350000, variance: -50000 },
-    { category: 'Equipment', budget: 1200000, spent: 850000, variance: 350000 },
-    { category: 'Services', budget: 800000, spent: 450000, variance: 350000 },
-    { category: 'Software', budget: 400000, spent: 120000, variance: 280000 },
-    { category: 'Office Supplies', budget: 300000, spent: 80000, variance: 220000 },
-  ]
+  useEffect(() => {
+    loadSummary()
+  }, [loadSummary])
+
+  const budgetOverview = summary.overview
+  const departmentBudgets = summary.departmentBudgets
+  const categoryBudgets = summary.categoryBudgets
 
   // Monthly Spend Trend
   const monthlyTrend = [
@@ -104,8 +118,12 @@ export default function BudgetTracking() {
             <p className="text-gray-600 mt-1">Monitor budgets, track spending, and analyze variances</p>
           </div>
           <div className="flex gap-3">
-            <button className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg hover:bg-gray-50">
-              <RefreshCw className="h-5 w-5 text-gray-600" />
+            <button
+              onClick={loadSummary}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-5 w-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
               <span className="text-gray-700">Refresh</span>
             </button>
             <button className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg hover:bg-gray-50">
@@ -156,6 +174,24 @@ export default function BudgetTracking() {
           </select>
         </div>
       </div>
+
+      {/* Status banners */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 mb-3 text-sm">
+          Loading budget data...
+        </div>
+      )}
+      {error && !loading && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-3 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={loadSummary} className="underline">Retry</button>
+        </div>
+      )}
+      {!loading && !error && departmentBudgets.length === 0 && categoryBudgets.length === 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-3 mb-3 text-sm">
+          No budgets configured yet. Use &quot;Set Budget&quot; to create one.
+        </div>
+      )}
 
       {/* Budget Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">

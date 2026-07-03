@@ -16,6 +16,15 @@ import { PaymentTerms } from './entities/payment-terms.entity';
 import { Quotation, QuotationItem } from './entities/quotation.entity';
 import { ShippingMethod } from './entities/shipping-method.entity';
 import { TaxRate } from './entities/tax-rate.entity';
+import { TermsTemplate } from './entities/terms-template.entity';
+import { Promotion } from './entities/promotion.entity';
+import { SpecialPrice } from './entities/special-price.entity';
+import { TermsTemplateController } from './controllers/terms-template.controller';
+import { PromotionController } from './controllers/promotion.controller';
+import { SpecialPriceController } from './controllers/special-price.controller';
+import { TermsTemplateService } from './services/terms-template.service';
+import { PromotionService } from './services/promotion.service';
+import { SpecialPriceService } from './services/special-price.service';
 import { RFPController } from './rfp.controller';
 import { RFPService } from './rfp.service';
 import { ApprovalWorkflowService } from './services/approval-workflow.service';
@@ -44,6 +53,9 @@ import { SalesMastersService } from './services/sales-masters.service';
       Discount,
       ShippingMethod,
       TaxRate,
+      TermsTemplate,
+      Promotion,
+      SpecialPrice,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -56,6 +68,9 @@ import { SalesMastersService } from './services/sales-masters.service';
     SalesAnalyticsController,
     ShippingMethodController,
     TaxRateController,
+    TermsTemplateController,
+    PromotionController,
+    SpecialPriceController,
   ],
   providers: [
     RFPService,
@@ -72,6 +87,9 @@ import { SalesMastersService } from './services/sales-masters.service';
     SalesAnalyticsService,
     ShippingMethodService,
     TaxRateService,
+    TermsTemplateService,
+    PromotionService,
+    SpecialPriceService,
   ],
   exports: [
     RFPService,

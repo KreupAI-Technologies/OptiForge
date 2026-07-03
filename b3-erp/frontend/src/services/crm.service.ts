@@ -629,6 +629,121 @@ export const crmService = {
 
     delete: (id: string) => request<void>(`/crm/lead-sources/${id}`, { method: 'DELETE' }),
   },
+
+  // ===========================
+  // EMAIL TEMPLATES (marketing)
+  // ===========================
+  emailTemplates: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/email-templates${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/email-templates/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/email-templates', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/email-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/email-templates/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // SALES ANALYTICS (aggregated from leads)
+  // ===========================
+  salesAnalytics: {
+    getSummary: () => request<any>('/crm/analytics/sales/summary'),
+  },
+
+  // ===========================
+  // QUOTE TEMPLATES
+  // ===========================
+  quoteTemplates: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/quote-templates${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/quote-templates/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/quote-templates', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/quote-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/quote-templates/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CONTRACT TEMPLATES
+  // ===========================
+  contractTemplates: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/contract-templates${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/contract-templates/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/contract-templates', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/contract-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/contract-templates/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CAMPAIGN TEMPLATES (email design templates)
+  // ===========================
+  campaignTemplates: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/campaign-templates${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/campaign-templates/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/campaign-templates', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/campaign-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/campaign-templates/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // SALES TEAMS (settings)
+  // ===========================
+  salesTeams: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/sales-teams${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/sales-teams/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/sales-teams', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/sales-teams/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/sales-teams/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // ASSIGNMENT RULES (settings)
+  // ===========================
+  assignmentRules: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/assignment-rules${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/assignment-rules/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/assignment-rules', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/assignment-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/assignment-rules/${id}`, { method: 'DELETE' }),
+  },
 };
 
 export default crmService;

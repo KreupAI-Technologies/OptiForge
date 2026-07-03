@@ -1,64 +1,60 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReportDetailPage from '@/components/reports/ReportDetailPage';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { fetchReportRows } from '@/services/reports-management.service';
+
+interface InspectionRow {
+    id: string;
+    item: string;
+    type: string;
+    inspector: string;
+    date: string;
+    result: string;
+    defects: number;
+}
 
 function InspectionByTypeContent() {
     const searchParams = useSearchParams();
     const type = searchParams.get('type') || 'All Types';
 
-    // Mock data
-    const inspections = [
-        {
-            id: 'INS-2025-089',
-            item: 'Steel Frame A4',
-            type: 'Incoming',
-            inspector: 'John Smith',
-            date: '2025-10-26',
-            result: 'Pass',
-            defects: 0,
-        },
-        {
-            id: 'INS-2025-088',
-            item: 'Control Panel B2',
-            type: 'In-Process',
-            inspector: 'Sarah Jones',
-            date: '2025-10-26',
-            result: 'Pass',
-            defects: 0,
-        },
-        {
-            id: 'INS-2025-087',
-            item: 'Motor Assembly',
-            type: 'Final',
-            inspector: 'Mike Brown',
-            date: '2025-10-25',
-            result: 'Fail',
-            defects: 2,
-        },
-        {
-            id: 'INS-2025-086',
-            item: 'Wiring Harness',
-            type: 'Incoming',
-            inspector: 'John Smith',
-            date: '2025-10-25',
-            result: 'Pass',
-            defects: 0,
-        },
-        {
-            id: 'INS-2025-085',
-            item: 'Paint Finish',
-            type: 'Final',
-            inspector: 'Sarah Jones',
-            date: '2025-10-24',
-            result: 'Pass',
-            defects: 0,
-        },
-    ];
+    const [inspections, setInspections] = useState<InspectionRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const rows = await fetchReportRows<Partial<InspectionRow>>('quality.inspections.type');
+                const mapped: InspectionRow[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+                    id: String(r.id ?? ''),
+                    item: String(r.item ?? ''),
+                    type: String(r.type ?? ''),
+                    inspector: String(r.inspector ?? ''),
+                    date: String(r.date ?? ''),
+                    result: String(r.result ?? ''),
+                    defects: Number(r.defects ?? 0),
+                }));
+                if (!cancelled) setInspections(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load inspections');
+                    setInspections([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     // Filter data
     const filteredData = type === 'All Types'
@@ -91,7 +87,16 @@ function InspectionByTypeContent() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {filteredData.map((record) => (
+                            {isLoading && (
+                                <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">Loading inspections…</td></tr>
+                            )}
+                            {!isLoading && loadError && (
+                                <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-red-600">{loadError}</td></tr>
+                            )}
+                            {!isLoading && !loadError && filteredData.length === 0 && (
+                                <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">No inspections found.</td></tr>
+                            )}
+                            {!isLoading && !loadError && filteredData.map((record) => (
                                 <ClickableTableRow
                                     key={record.id}
                                     id={record.id}

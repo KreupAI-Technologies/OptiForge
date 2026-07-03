@@ -64,6 +64,7 @@ import {
   CPQSettingsService,
 } from './services';
 import { CPQApprovalItemService } from './services/cpq-approval-item.service';
+import { CPQAnalyticsDashboardsService } from './services/cpq-analytics-dashboards.service';
 
 // Controllers
 import {
@@ -76,6 +77,7 @@ import {
   CPQSettingsController,
 } from './controllers';
 import { CPQApprovalItemController } from './controllers/cpq-approval-item.controller';
+import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-dashboards.controller';
 
 @Module({
   imports: [
@@ -139,6 +141,7 @@ import { CPQApprovalItemController } from './controllers/cpq-approval-item.contr
     CPQAnalyticsController,
     CPQSettingsController,
     CPQApprovalItemController,
+    CPQAnalyticsDashboardsController,
   ],
   providers: [
     ProductConfigurationService,
@@ -149,6 +152,7 @@ import { CPQApprovalItemController } from './controllers/cpq-approval-item.contr
     CPQAnalyticsService,
     CPQSettingsService,
     CPQApprovalItemService,
+    CPQAnalyticsDashboardsService,
   ],
   exports: [
     ProductConfigurationService,

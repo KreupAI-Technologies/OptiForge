@@ -1,16 +1,55 @@
 'use client'
 
-import { useState } from 'react'
-import { Tag, BarChart, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Tag, Plus, AlertCircle } from 'lucide-react'
+import { TicketCategoryService, SupportTicketCategory } from '@/services/support.service'
+
+interface CategoryView {
+  id: string
+  name: string
+  description: string
+  color: string
+  ticketCount: number
+  avgResolutionTime: string
+  slaTarget: string
+}
 
 export default function TicketCategories() {
-  const [categories] = useState([
-    { id: '1', name: 'Bug', description: 'Software bugs and errors', color: 'red', ticketCount: 156, avgResolutionTime: '8h 30m', slaTarget: '24h' },
-    { id: '2', name: 'Feature Request', description: 'New feature suggestions', color: 'blue', ticketCount: 89, avgResolutionTime: '48h 15m', slaTarget: '72h' },
-    { id: '3', name: 'How-To', description: 'User questions and guidance', color: 'green', ticketCount: 203, avgResolutionTime: '2h 45m', slaTarget: '4h' },
-    { id: '4', name: 'Performance', description: 'System performance issues', color: 'orange', ticketCount: 67, avgResolutionTime: '12h 20m', slaTarget: '24h' },
-    { id: '5', name: 'Access Issue', description: 'Login and permission problems', color: 'purple', ticketCount: 124, avgResolutionTime: '3h 15m', slaTarget: '8h' }
-  ])
+  const [categories, setCategories] = useState<CategoryView[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await TicketCategoryService.getCategories()) as SupportTicketCategory[]
+        const mapped: CategoryView[] = (Array.isArray(raw) ? raw : []).map((c) => ({
+          id: c.id,
+          name: c.name ?? '',
+          description: c.description ?? '',
+          color: c.color ?? 'blue',
+          ticketCount: Number(c.ticketCount ?? 0),
+          avgResolutionTime: c.avgResolutionTime ?? '—',
+          slaTarget: c.slaTarget ?? '—',
+        }))
+        if (!cancelled) setCategories(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load categories')
+          setCategories([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="p-6 space-y-3">
@@ -24,6 +63,24 @@ export default function TicketCategories() {
           Add Category
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading categories…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && categories.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No categories found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {categories.map((category) => (

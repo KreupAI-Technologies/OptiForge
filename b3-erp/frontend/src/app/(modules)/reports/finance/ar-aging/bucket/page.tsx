@@ -1,25 +1,64 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchReportRows } from '@/services/reports-management.service';
 
 import { Suspense } from 'react';
+
+interface InvoiceRow {
+    id: string;
+    customer: string;
+    invoiceDate: string;
+    dueDate: string;
+    amount: number;
+    age: number;
+    status: string;
+}
 
 function ARAgingBucketDetailContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const bucket = searchParams.get('bucket') || '0-30';
 
-    const invoicesData = [
-        { id: 'INV-2025-045', customer: 'ABC Manufacturing Ltd', invoiceDate: '2025-01-15', dueDate: '2025-02-14', amount: 125000, age: 15, status: 'Current' },
-        { id: 'INV-2025-038', customer: 'XYZ Industries Inc', invoiceDate: '2025-01-10', dueDate: '2025-02-09', amount: 85000, age: 20, status: 'Current' },
-        { id: 'INV-2025-032', customer: 'Tech Solutions Pvt', invoiceDate: '2025-01-05', dueDate: '2025-02-04', amount: 65000, age: 25, status: 'Current' },
-    ];
+    const [invoicesData, setInvoicesData] = useState<InvoiceRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const rows = await fetchReportRows<Partial<InvoiceRow>>('finance.ar-aging.bucket');
+                const mapped: InvoiceRow[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+                    id: String(r.id ?? ''),
+                    customer: String(r.customer ?? ''),
+                    invoiceDate: String(r.invoiceDate ?? ''),
+                    dueDate: String(r.dueDate ?? ''),
+                    amount: Number(r.amount ?? 0),
+                    age: Number(r.age ?? 0),
+                    status: String(r.status ?? ''),
+                }));
+                if (!cancelled) setInvoicesData(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load invoices');
+                    setInvoicesData([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const handleInvoiceClick = (invoiceId: string) => {
         router.push(`/sales/invoices/${invoiceId}`);
@@ -36,32 +75,32 @@ function ARAgingBucketDetailContent() {
                 { label: `${bucket} Days` },
             ]}
             onBack={() => router.back()}
-            onExport={() => exportToCsv('ar-aging-bucket', invoicesData)}
+            onExport={() => exportToCsv('ar-aging-bucket', invoicesData as unknown as Record<string, unknown>[])}
         >
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Total Amount</p>
-                        <p className="text-2xl font-bold text-blue-600">₹2.75L</p>
+                        <p className="text-2xl font-bold text-blue-600">₹{(invoicesData.reduce((s, i) => s + i.amount, 0) / 100000).toFixed(2)}L</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Invoices</p>
-                        <p className="text-2xl font-bold">3</p>
+                        <p className="text-2xl font-bold">{invoicesData.length}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Avg Age</p>
-                        <p className="text-2xl font-bold text-orange-600">20 days</p>
+                        <p className="text-2xl font-bold text-orange-600">{invoicesData.length ? Math.round(invoicesData.reduce((s, i) => s + i.age, 0) / invoicesData.length) : 0} days</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Customers</p>
-                        <p className="text-2xl font-bold">3</p>
+                        <p className="text-2xl font-bold">{new Set(invoicesData.map((i) => i.customer)).size}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -84,7 +123,16 @@ function ARAgingBucketDetailContent() {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {invoicesData.map((item) => (
+                            {isLoading && (
+                                <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">Loading invoices…</td></tr>
+                            )}
+                            {!isLoading && loadError && (
+                                <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-red-600">{loadError}</td></tr>
+                            )}
+                            {!isLoading && !loadError && invoicesData.length === 0 && (
+                                <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">No invoices in this bucket.</td></tr>
+                            )}
+                            {!isLoading && !loadError && invoicesData.map((item) => (
                                 <ClickableTableRow
                                     key={item.id}
                                     onClick={() => handleInvoiceClick(item.id)}

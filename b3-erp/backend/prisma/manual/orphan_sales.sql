@@ -71,3 +71,71 @@ CREATE TABLE IF NOT EXISTS "sales_discounts" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
   CONSTRAINT "PK_sales_discounts" PRIMARY KEY ("id")
 );
+
+-- Sales terms & conditions templates (settings/terms)
+CREATE TABLE IF NOT EXISTS "sales_terms_templates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "type" varchar NOT NULL DEFAULT 'general',
+  "category" varchar,
+  "content" text,
+  "status" varchar NOT NULL DEFAULT 'active',
+  "applicableTo" jsonb NOT NULL DEFAULT '[]',
+  "usageCount" integer NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_terms_templates" PRIMARY KEY ("id")
+);
+
+-- Sales promotions (pricing/promotions)
+CREATE TABLE IF NOT EXISTS "sales_promotions" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "code" varchar,
+  "type" varchar NOT NULL DEFAULT 'seasonal',
+  "description" text,
+  "category" varchar,
+  "applicableProducts" jsonb NOT NULL DEFAULT '[]',
+  "discountType" varchar NOT NULL DEFAULT 'percentage',
+  "discountValue" numeric(15,2) NOT NULL DEFAULT 0,
+  "startDate" date,
+  "endDate" date,
+  "status" varchar NOT NULL DEFAULT 'scheduled',
+  "targetAudience" varchar,
+  "minPurchase" numeric(15,2) NOT NULL DEFAULT 0,
+  "maxDiscount" numeric(15,2),
+  "claimedCount" integer NOT NULL DEFAULT 0,
+  "targetCount" integer NOT NULL DEFAULT 0,
+  "revenue" numeric(15,2) NOT NULL DEFAULT 0,
+  "bannerImage" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_promotions" PRIMARY KEY ("id")
+);
+
+-- Sales special / contract prices (pricing/special)
+CREATE TABLE IF NOT EXISTS "sales_special_prices" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "customerName" varchar NOT NULL,
+  "customerType" varchar NOT NULL DEFAULT 'dealer',
+  "productCode" varchar,
+  "productName" varchar,
+  "category" varchar,
+  "standardPrice" numeric(15,2) NOT NULL DEFAULT 0,
+  "specialPrice" numeric(15,2) NOT NULL DEFAULT 0,
+  "discountPercent" numeric(6,2) NOT NULL DEFAULT 0,
+  "minOrderQty" integer NOT NULL DEFAULT 0,
+  "validFrom" date,
+  "validTo" date,
+  "status" varchar NOT NULL DEFAULT 'active',
+  "approvedBy" varchar,
+  "contractRef" varchar,
+  "orderCount" integer NOT NULL DEFAULT 0,
+  "totalRevenue" numeric(15,2) NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_special_prices" PRIMARY KEY ("id")
+);

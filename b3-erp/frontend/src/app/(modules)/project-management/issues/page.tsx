@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { projectManagementService, PmProjectIssue } from '@/services/ProjectManagementService';
 import {
  Search,
  Plus,
@@ -280,7 +281,51 @@ const mockIssuesRisks: IssueRisk[] = [
 ];
 
 export default function IssuesRisksPage() {
- const [items] = useState<IssueRisk[]>(mockIssuesRisks);
+ const [items, setItems] = useState<IssueRisk[]>([]);
+ const [loading, setLoading] = useState(true);
+ const [error, setError] = useState<string | null>(null);
+
+ useEffect(() => {
+  let mounted = true;
+  (async () => {
+   try {
+    setLoading(true);
+    const rows = await projectManagementService.listProjectIssues();
+    if (!mounted) return;
+    const mapped: IssueRisk[] = (Array.isArray(rows) ? rows : []).map((r: PmProjectIssue) => ({
+     id: r.id,
+     number: r.number ?? '',
+     title: r.title ?? '',
+     type: (r.type as IssueRisk['type']) ?? 'Issue',
+     category: (r.category as IssueRisk['category']) ?? 'Technical',
+     projectNumber: r.projectNumber ?? '',
+     projectName: r.projectName ?? '',
+     description: r.description ?? '',
+     impact: (r.impact as IssueRisk['impact']) ?? 'Medium',
+     probability: (r.probability as IssueRisk['probability']) ?? 'Medium',
+     status: (r.status as IssueRisk['status']) ?? 'Open',
+     priority: (r.priority as IssueRisk['priority']) ?? 'P3',
+     raisedBy: r.raisedBy ?? '',
+     assignedTo: r.assignedTo ?? '',
+     raisedDate: r.raisedDate ?? '',
+     targetDate: r.targetDate ?? '',
+     resolvedDate: r.resolvedDate,
+     mitigationPlan: r.mitigationPlan ?? '',
+     costImpact: Number(r.costImpact ?? 0),
+     scheduleImpact: Number(r.scheduleImpact ?? 0),
+    }));
+    // Fall back to sample data when the backend has no rows yet.
+    setItems(mapped.length > 0 ? mapped : mockIssuesRisks);
+   } catch (e) {
+    if (!mounted) return;
+    setError('Failed to load issues');
+    setItems(mockIssuesRisks);
+   } finally {
+    if (mounted) setLoading(false);
+   }
+  })();
+  return () => { mounted = false; };
+ }, []);
  const [searchTerm, setSearchTerm] = useState('');
  const [typeFilter, setTypeFilter] = useState('All');
  const [statusFilter, setStatusFilter] = useState('All');
@@ -412,6 +457,12 @@ export default function IssuesRisksPage() {
 
  return (
   <div className="p-6 space-y-3">
+   {loading && (
+    <div className="text-sm text-gray-500">Loading issues…</div>
+   )}
+   {error && (
+    <div className="text-sm text-red-600">{error} — showing sample data.</div>
+   )}
    {/* Header */}
    <div className="flex justify-between items-center">
     <div>
