@@ -640,7 +640,7 @@ export default function AccessoriesBOMEnhancedPage() {
                         </label>
                         <SearchableSelect
                           options={CATEGORIES.map(cat => ({ label: cat.name, value: cat.name }))}
-                          value={newItem.category}
+                          value={newItem.category ?? ''}
                           onChange={(val) => setNewItem({ ...newItem, category: val, subcategory: '' })}
                           placeholder="Select Category"
                         />
@@ -649,7 +649,7 @@ export default function AccessoriesBOMEnhancedPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
                         <SearchableSelect
                           options={(newItem.category && CATEGORIES.find(c => c.name === newItem.category)?.subcategories.map(sub => ({ label: sub, value: sub }))) || []}
-                          value={newItem.subcategory}
+                          value={newItem.subcategory ?? ''}
                           onChange={(val) => setNewItem({ ...newItem, subcategory: val })}
                           placeholder="Select Subcategory"
                           disabled={!newItem.category}
@@ -712,7 +712,7 @@ export default function AccessoriesBOMEnhancedPage() {
                         </label>
                         <SearchableSelect
                           options={BRANDS.map(brand => ({ label: brand, value: brand }))}
-                          value={newItem.brand}
+                          value={newItem.brand ?? ''}
                           onChange={(val) => setNewItem({ ...newItem, brand: val })}
                           placeholder="Select Brand"
                         />

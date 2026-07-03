@@ -79,7 +79,20 @@ const mockBOMSessions: BOMImportSession[] = [
 ];
 
 // Mock Data - Historical Benchmarking
-const mockHistoricalProjects = [
+interface HistoricalProject {
+  id: string;
+  name: string;
+  completedDate: string;
+  estimatedCost: number;
+  actualCost: number;
+  variance: number;
+  variancePercent: number;
+  duration: number;
+  category: string;
+  accuracy: 'excellent' | 'good' | 'fair' | 'poor';
+}
+
+const mockHistoricalProjects: HistoricalProject[] = [
   { id: '1', name: 'Assembly Line Modernization', completedDate: '2024-11-15', estimatedCost: 480000, actualCost: 495000, variance: 15000, variancePercent: 3.1, duration: 120, category: 'manufacturing', accuracy: 'excellent' as const },
   { id: '2', name: 'CNC Machine Installation', completedDate: '2024-09-20', estimatedCost: 420000, actualCost: 445000, variance: 25000, variancePercent: 5.9, duration: 90, category: 'manufacturing', accuracy: 'good' as const },
 ];
@@ -113,7 +126,7 @@ export default function EstimationAdvancedFeaturesPage() {
   const [selectedVersion2, setSelectedVersion2] = useState<string>('3');
 
   // Live analytics: pull historical benchmarks/projects, fall back to samples.
-  const [historicalProjects, setHistoricalProjects] = useState(mockHistoricalProjects);
+  const [historicalProjects, setHistoricalProjects] = useState<HistoricalProject[]>(mockHistoricalProjects);
   const [benchmarkMetrics, setBenchmarkMetrics] = useState(mockBenchmarkMetrics);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 

@@ -48,10 +48,10 @@ const IPWhitelistPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.fetchIpWhitelist();
+        const data = await AdminManagementService.getIPWhitelist();
         if (!mounted) return;
         setEntries(
-          (Array.isArray(data) ? data : []).map((e) => ({
+          (Array.isArray(data) ? data : []).map((e: any) => ({
             id: String(e.id),
             ipAddress: e.ipAddress ?? '',
             type: e.type ?? 'Single',

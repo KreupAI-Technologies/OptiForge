@@ -214,7 +214,7 @@ export default function ShareDocumentsPage() {
                         <Checkbox
                           id={doc.id}
                           checked={selectedDocs.includes(doc.id)}
-                          onCheckedChange={() => handleToggle(doc.id)}
+                          onChange={() => handleToggle(doc.id)}
                           className="h-5 w-5"
                         />
                         <div className={`p-2 rounded-lg ${doc.type === 'BOQ' ? 'bg-orange-100' : doc.type === 'Drawing' ? 'bg-blue-100' : 'bg-purple-100'}`}>

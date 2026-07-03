@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
-import { projectManagementService, Project, DrawingTimeline } from '@/services/ProjectManagementService';
+import { projectManagementService, Project, TechnicalDrawingTimeline } from '@/services/ProjectManagementService';
 
 export default function DrawingTimelinePage() {
   const router = useRouter();
@@ -123,7 +123,7 @@ export default function DrawingTimelinePage() {
 
   const handleConfirm = async () => {
     try {
-      const timelineData: DrawingTimeline = {
+      const timelineData: TechnicalDrawingTimeline = {
         projectId: projectId!,
         complexity,
         resources: parseInt(resources),

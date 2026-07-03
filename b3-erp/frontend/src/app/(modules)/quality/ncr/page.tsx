@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ncrService as NCRService, NCR } from '@/services/ncr.service';
+import { ncrService as NCRService, NCR, NCRStatus } from '@/services/ncr.service';
 import {
     AlertCircle,
     CheckCircle2,
@@ -149,7 +149,7 @@ export default function NCRPage() {
     const stats = {
         total: ncrs.length,
         open: ncrs.filter((n) => n.status === 'open').length,
-        inProgress: ncrs.filter((n) => n.status === 'in-progress').length,
+        inProgress: ncrs.filter((n) => n.status === NCRStatus.UNDER_REVIEW).length,
         closed: ncrs.filter((n) => n.status === 'closed').length,
     };
 
@@ -326,7 +326,7 @@ export default function NCRPage() {
                                             <div className="flex items-start justify-between mb-3">
                                                 <div>
                                                     <h3 className="text-xl font-bold">{ncr.title}</h3>
-                                                    <p className="text-sm text-gray-600">{ncr.ncrNumber} - {ncr.source}</p>
+                                                    <p className="text-sm text-gray-600">{ncr.ncrNumber} - {ncr.sourceType}</p>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <span className={`px-3 py-1 text-xs font-medium rounded-full border capitalize ${getSeverityColor(ncr.severity)}`}>
@@ -342,19 +342,19 @@ export default function NCRPage() {
                                                     <p className="text-xs text-gray-500">Reported By</p>
                                                     <p className="font-medium flex items-center gap-1">
                                                         <User className="w-3 h-3" />
-                                                        {ncr.reportedBy}
+                                                        {ncr.discoveredByName}
                                                     </p>
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Date</p>
                                                     <p className="font-medium flex items-center gap-1">
                                                         <Calendar className="w-3 h-3" />
-                                                        {new Date(ncr.reportedAt).toLocaleDateString()}
+                                                        {new Date(ncr.reportedDate).toLocaleDateString()}
                                                     </p>
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500">Assigned To</p>
-                                                    <p className="font-medium">{ncr.assignedTo || <span className="text-gray-500">Unassigned</span>}</p>
+                                                    <p className="font-medium">{ncr.discoveredByName || <span className="text-gray-500">Unassigned</span>}</p>
                                                 </div>
                                             </div>
                                             <div className="bg-blue-50 border border-blue-200 rounded p-2 text-sm text-blue-800">

@@ -177,8 +177,8 @@ export default function ProductionPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    <p>Client: {project.customerName}</p>
-                    <p>Phase: {project.currentPhase}</p>
+                    <p>Client: {project.clientName}</p>
+                    <p>Phase: {project.status}</p>
                   </div>
                 </CardContent>
               </Card>

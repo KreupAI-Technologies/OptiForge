@@ -36,10 +36,10 @@ export default function CustomFieldsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.fetchCustomFields();
+        const data = await AdminManagementService.getCustomFields();
         if (!mounted) return;
         setCustomFields(
-          (Array.isArray(data) ? data : []).map((f) => ({
+          (Array.isArray(data) ? data : []).map((f: any) => ({
             id: String(f.id),
             name: f.name ?? '',
             label: f.label ?? '',

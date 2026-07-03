@@ -36,10 +36,10 @@ export default function TemplatesPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.fetchDocumentTemplates();
+        const data = await AdminManagementService.getNotificationTemplates();
         if (!mounted) return;
         setTemplates(
-          (Array.isArray(data) ? data : []).map((t) => ({
+          (Array.isArray(data) ? data : []).map((t: any) => ({
             id: String(t.id),
             name: t.name ?? '',
             description: t.description ?? '',

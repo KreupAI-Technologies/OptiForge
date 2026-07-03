@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Save, CheckCircle, XCircle, Settings, Globe, Database, Cloud, Package, CreditCard, Truck, MessageSquare, RefreshCw, AlertTriangle, Link } from 'lucide-react';
+import { AdminManagementService } from '@/services/admin-management.service';
 
 interface Integration {
   id: string;
@@ -39,10 +40,10 @@ export default function IntegrationsPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await AdminManagementService.fetchIntegrations();
+        const data = await AdminManagementService.getIntegrations();
         if (!mounted) return;
         setIntegrations(
-          (Array.isArray(data) ? data : []).map((i) => ({
+          (Array.isArray(data) ? data : []).map((i: any) => ({
             id: String(i.id),
             name: i.name ?? '',
             category: (i.category as Integration['category']) ?? 'erp',

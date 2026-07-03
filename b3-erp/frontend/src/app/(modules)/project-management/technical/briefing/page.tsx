@@ -276,7 +276,7 @@ export default function LayoutBriefingPage() {
                         onChange={(e) => setNewAttendee(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleAddAttendee()}
                       />
-                      <Button onClick={handleAddAttendee} variant="secondary" size="icon">
+                      <Button onClick={handleAddAttendee} variant="outline" size="icon">
                         <Plus className="w-4 h-4" />
                       </Button>
                     </div>
