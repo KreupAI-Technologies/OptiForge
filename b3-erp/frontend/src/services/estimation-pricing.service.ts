@@ -397,7 +397,7 @@ class EstimationPricingService {
 
   async sendToCustomer(companyId: string, id: string): Promise<Pricing> {
     try {
-      const response = await apiClient.post<Pricing>(`${this.baseUrl}/${id}/send-to-customer`);
+      const response = await apiClient.post<Pricing>(`${this.baseUrl}/${id}/send-to-customer`, {});
       return response.data;
     } catch (error) {
       console.error('API Error sending pricing to customer:', error);

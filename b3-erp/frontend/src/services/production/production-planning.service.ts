@@ -449,7 +449,7 @@ class ProductionPlanningService {
 
   async freezeMasterSchedule(id: string): Promise<MasterSchedule> {
     try {
-      const response = await apiClient.post<MasterSchedule>(`${this.baseUrl}/master-schedules/${id}/freeze`);
+      const response = await apiClient.post<MasterSchedule>(`${this.baseUrl}/master-schedules/${id}/freeze`, {});
       return response.data;
     } catch (error) {
       console.error('API Error freezing master schedule, using mock data:', error);

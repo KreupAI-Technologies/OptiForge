@@ -430,7 +430,7 @@ class ProductionMRPService {
 
   async escalateShortage(id: string): Promise<ShortageRecord> {
     try {
-      const response = await apiClient.post<ShortageRecord>(`${this.baseUrl}/shortage-records/${id}/escalate`);
+      const response = await apiClient.post<ShortageRecord>(`${this.baseUrl}/shortage-records/${id}/escalate`, {});
       return response.data;
     } catch (error) {
       console.error('API Error escalating shortage, using mock data:', error);

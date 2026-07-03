@@ -1351,3 +1351,69 @@ return response.data;
 
 // Export as singleton
 export const CoreService = new CoreServiceClass();
+
+// ============================================================================
+// coreService — flexible request client used by feature services
+// (reports-management, support-management). Accepts a full options object with
+// method/url/params/data and returns the unwrapped response payload.
+// ============================================================================
+
+const CORE_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+
+export interface CoreRequestOptions {
+  method: string;
+  url: string;
+  params?: Record<string, unknown>;
+  data?: unknown;
+  headers?: Record<string, string>;
+}
+
+/** Build a query string from a params object, skipping null/undefined values. */
+function buildQueryString(params?: Record<string, unknown>): string {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue;
+    search.append(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export const coreService = {
+  async request<T>(options: CoreRequestOptions): Promise<T> {
+    const isAbsolute = /^https?:\/\//i.test(options.url);
+    const base = isAbsolute ? '' : CORE_API_BASE_URL;
+    const url = `${base}${options.url}${buildQueryString(options.params)}`;
+
+    const response = await fetch(url, {
+      method: options.method,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: options.data !== undefined ? JSON.stringify(options.data) : undefined,
+    });
+
+    if (!response.ok) {
+      let message = response.statusText || `HTTP ${response.status}`;
+      try {
+        const body = await response.json();
+        if (body?.message) {
+          message = Array.isArray(body.message) ? body.message.join('; ') : body.message;
+        }
+      } catch {
+        // keep statusText fallback
+      }
+      throw new Error(message);
+    }
+
+    const payload = await response.json();
+    // Unwrap the standard { success, data } envelope when present.
+    return (payload && typeof payload === 'object' && 'data' in payload
+      ? payload.data
+      : payload) as T;
+  },
+};

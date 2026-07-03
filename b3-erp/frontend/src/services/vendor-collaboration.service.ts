@@ -311,7 +311,7 @@ class VendorCollaborationService {
 
   async sendMessage(id: string): Promise<VendorMessage> {
     try {
-      const response = await apiClient.post<VendorMessage>(`${this.baseUrl}/messages/${id}/send`);
+      const response = await apiClient.post<VendorMessage>(`${this.baseUrl}/messages/${id}/send`, {});
       return response.data;
     } catch (error) {
       console.error('API Error sending message, using mock:', error);
@@ -330,7 +330,7 @@ class VendorCollaborationService {
 
   async markAsRead(id: string): Promise<VendorMessage> {
     try {
-      const response = await apiClient.post<VendorMessage>(`${this.baseUrl}/messages/${id}/read`);
+      const response = await apiClient.post<VendorMessage>(`${this.baseUrl}/messages/${id}/read`, {});
       return response.data;
     } catch (error) {
       console.error('API Error marking message as read, using mock:', error);
@@ -458,7 +458,8 @@ class VendorCollaborationService {
   async archiveMessage(id: string): Promise<VendorMessage> {
     try {
       const response = await apiClient.post<VendorMessage>(
-        `${this.baseUrl}/messages/${id}/archive`
+        `${this.baseUrl}/messages/${id}/archive`,
+        {}
       );
       return response.data;
     } catch (error) {

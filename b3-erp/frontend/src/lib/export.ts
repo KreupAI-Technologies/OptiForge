@@ -35,10 +35,10 @@ function csvCell(value: unknown): string {
  */
 export function exportToCsv(
   filename: string,
-  rows: Row[],
+  rows: readonly object[],
   columns?: { key: string; label?: string }[],
 ): void {
-  const data = Array.isArray(rows) ? rows : [];
+  const data: Row[] = Array.isArray(rows) ? (rows as Row[]) : [];
   const cols =
     columns && columns.length
       ? columns
@@ -47,7 +47,7 @@ export function exportToCsv(
             Object.keys(r || {}).forEach((k) => set.add(k));
             return set;
           }, new Set<string>()),
-        ).map((key) => ({ key }));
+        ).map((key): { key: string; label?: string } => ({ key }));
 
   const header = cols.map((c) => csvCell(c.label ?? c.key)).join(',');
   const body = data

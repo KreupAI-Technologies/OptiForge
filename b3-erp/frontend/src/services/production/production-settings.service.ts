@@ -537,7 +537,7 @@ class ProductionSettingsService {
 
   async clockIn(id: string): Promise<ShiftAssignment> {
     try {
-      const response = await apiClient.post<ShiftAssignment>(`${this.baseUrl}/shift-assignments/${id}/clock-in`);
+      const response = await apiClient.post<ShiftAssignment>(`${this.baseUrl}/shift-assignments/${id}/clock-in`, {});
       return response.data;
     } catch (error) {
       console.error('API Error clocking in, using mock data:', error);
@@ -555,7 +555,7 @@ class ProductionSettingsService {
 
   async clockOut(id: string): Promise<ShiftAssignment> {
     try {
-      const response = await apiClient.post<ShiftAssignment>(`${this.baseUrl}/shift-assignments/${id}/clock-out`);
+      const response = await apiClient.post<ShiftAssignment>(`${this.baseUrl}/shift-assignments/${id}/clock-out`, {});
       return response.data;
     } catch (error) {
       console.error('API Error clocking out, using mock data:', error);

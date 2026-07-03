@@ -567,7 +567,15 @@ class EstimationResourceRateService {
     totalCost: number;
   }> {
     try {
-      const response = await apiClient.get(
+      const response = await apiClient.get<{
+        baseCost: number;
+        fuelCost: number;
+        operatorCost: number;
+        maintenanceCost: number;
+        mobilization: number;
+        demobilization: number;
+        totalCost: number;
+      }>(
         `${this.baseUrl}/equipment/${equipmentRateId}/calculate-cost?days=${days}&includeOperator=${includeOperator}`
       );
       return response.data;

@@ -435,7 +435,8 @@ class SourcingIntegrationService {
   async deactivateRule(id: string): Promise<SourcingRule> {
     try {
       const response = await apiClient.post<SourcingRule>(
-        `${this.baseUrl}/rules/${id}/deactivate`
+        `${this.baseUrl}/rules/${id}/deactivate`,
+        {}
       );
       return response.data;
     } catch (error) {

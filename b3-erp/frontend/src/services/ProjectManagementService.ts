@@ -712,7 +712,7 @@ export interface TechnicalBriefing {
     isCompleted: boolean;
 }
 
-export interface DrawingTimeline {
+export interface TechnicalDrawingTimeline {
     projectId: string;
     complexity: 'Low' | 'Medium' | 'High' | 'Complex';
     resources: number;
@@ -1432,7 +1432,7 @@ class ProjectManagementService {
         },
     ];
 
-    private drawingTimelines: DrawingTimeline[] = [
+    private technicalDrawingTimelines: TechnicalDrawingTimeline[] = [
         {
             projectId: 'proj-001',
             complexity: 'Medium',
@@ -2152,16 +2152,16 @@ class ProjectManagementService {
     }
 
     // Technical Timeline (Drawings)
-    async getDrawingTimeline(projectId: string): Promise<DrawingTimeline | null> {
-        return this.drawingTimelines.find(t => t.projectId === projectId) || null;
+    async getDrawingTimeline(projectId: string): Promise<TechnicalDrawingTimeline | null> {
+        return this.technicalDrawingTimelines.find(t => t.projectId === projectId) || null;
     }
 
-    async updateDrawingTimeline(timeline: DrawingTimeline): Promise<void> {
-        const index = this.drawingTimelines.findIndex(t => t.projectId === timeline.projectId);
+    async updateDrawingTimeline(timeline: TechnicalDrawingTimeline): Promise<void> {
+        const index = this.technicalDrawingTimelines.findIndex(t => t.projectId === timeline.projectId);
         if (index >= 0) {
-            this.drawingTimelines[index] = timeline;
+            this.technicalDrawingTimelines[index] = timeline;
         } else {
-            this.drawingTimelines.push(timeline);
+            this.technicalDrawingTimelines.push(timeline);
         }
     }
 
@@ -2260,7 +2260,9 @@ class ProjectManagementService {
     }
 
     async getAttachments(projectId: string, category?: string): Promise<any[]> {
-        return apiClient.get(`/api/project-attachments/${projectId}`, { params: { category } });
+        const query = category ? `?category=${encodeURIComponent(category)}` : '';
+        const response = await apiClient.get<any[]>(`/api/project-attachments/${projectId}${query}`);
+        return response.data;
     }
 
     async uploadAttachment(projectId: string, data: any): Promise<any> {
@@ -2268,11 +2270,15 @@ class ProjectManagementService {
     }
 
     async deleteAttachment(id: string): Promise<void> {
-        return apiClient.delete(`/api/project-attachments/${id}`);
+        await apiClient.delete(`/api/project-attachments/${id}`);
     }
 
     async getUploadUrl(fileName: string, contentType: string): Promise<{ url: string; key: string }> {
-        return apiClient.post('/api/project-attachments/simulate-upload', { fileName, contentType });
+        const response = await apiClient.post<{ url: string; key: string }>(
+            '/api/project-attachments/simulate-upload',
+            { fileName, contentType },
+        );
+        return response.data;
     }
 
     // --- Project Management module settings (NestJS) ---

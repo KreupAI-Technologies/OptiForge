@@ -371,7 +371,7 @@ class ProductionIndustry40Service {
 
   async syncDigitalTwin(id: string): Promise<DigitalTwin> {
     try {
-      const response = await apiClient.post<DigitalTwin>(`${this.baseUrl}/digital-twins/${id}/sync`);
+      const response = await apiClient.post<DigitalTwin>(`${this.baseUrl}/digital-twins/${id}/sync`, {});
       return response.data;
     } catch (error) {
       console.error('API Error syncing digital twin, using mock data:', error);

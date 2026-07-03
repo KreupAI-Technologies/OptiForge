@@ -352,7 +352,7 @@ class ProductionSchedulingService {
 
   async publishSchedule(id: string): Promise<ProductionSchedule> {
     try {
-      const response = await apiClient.post<ProductionSchedule>(`${this.baseUrl}/production-schedules/${id}/publish`);
+      const response = await apiClient.post<ProductionSchedule>(`${this.baseUrl}/production-schedules/${id}/publish`, {});
       return response.data;
     } catch (error) {
       console.error('API Error publishing schedule, using mock data:', error);
@@ -371,7 +371,7 @@ class ProductionSchedulingService {
 
   async optimizeSchedule(id: string): Promise<ProductionSchedule> {
     try {
-      const response = await apiClient.post<ProductionSchedule>(`${this.baseUrl}/production-schedules/${id}/optimize`);
+      const response = await apiClient.post<ProductionSchedule>(`${this.baseUrl}/production-schedules/${id}/optimize`, {});
       return response.data;
     } catch (error) {
       console.error('API Error optimizing schedule, using mock data:', error);

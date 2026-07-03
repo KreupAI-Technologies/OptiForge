@@ -340,7 +340,7 @@ class EstimationBOQService {
 
   async submitForReview(id: string): Promise<BOQ> {
     try {
-      const response = await apiClient.post<BOQ>(`${this.baseUrl}/${id}/submit`);
+      const response = await apiClient.post<BOQ>(`${this.baseUrl}/${id}/submit`, {});
       return response.data;
     } catch (error) {
       console.error('API Error submitting BOQ for review:', error);
@@ -350,7 +350,7 @@ class EstimationBOQService {
 
   async approve(id: string): Promise<BOQ> {
     try {
-      const response = await apiClient.post<BOQ>(`${this.baseUrl}/${id}/approve`);
+      const response = await apiClient.post<BOQ>(`${this.baseUrl}/${id}/approve`, {});
       return response.data;
     } catch (error) {
       console.error('API Error approving BOQ:', error);
@@ -360,7 +360,7 @@ class EstimationBOQService {
 
   async reject(id: string): Promise<BOQ> {
     try {
-      const response = await apiClient.post<BOQ>(`${this.baseUrl}/${id}/reject`);
+      const response = await apiClient.post<BOQ>(`${this.baseUrl}/${id}/reject`, {});
       return response.data;
     } catch (error) {
       console.error('API Error rejecting BOQ:', error);

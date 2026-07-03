@@ -12,6 +12,10 @@ export * from './onboarding.service';
 export * from './offboarding.service';
 export * from './asset-management.service';
 export * from './document-management.service';
+// Both onboarding.service and document-management.service export a `DocumentStatus`
+// enum. Re-export the document-management variant explicitly to resolve the
+// star-export ambiguity (an explicit export overrides ambiguous star exports).
+export { DocumentStatus } from './document-management.service';
 
 // =============================================================================
 // Finance Services
