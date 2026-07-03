@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { estimationAnalyticsService } from '@/services/estimation-analytics.service';
 import {
   Sparkles,
   Calculator,
@@ -111,6 +112,66 @@ export default function EstimationAdvancedFeaturesPage() {
   const [selectedVersion1, setSelectedVersion1] = useState<string>('1');
   const [selectedVersion2, setSelectedVersion2] = useState<string>('3');
 
+  // Live analytics: pull historical benchmarks/projects, fall back to samples.
+  const [historicalProjects, setHistoricalProjects] = useState(mockHistoricalProjects);
+  const [benchmarkMetrics, setBenchmarkMetrics] = useState(mockBenchmarkMetrics);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const benchmarks = (await estimationAnalyticsService.findBenchmarks('default')) as any[];
+        if (!cancelled && Array.isArray(benchmarks) && benchmarks.length) {
+          const projects = benchmarks.map((b: any, idx: number) => {
+            const est = Number(b.estimatedCost ?? b.benchmarkCost ?? 0);
+            const act = Number(b.actualCost ?? est);
+            const variance = act - est;
+            const variancePercent = est ? (variance / est) * 100 : 0;
+            const absPct = Math.abs(variancePercent);
+            return {
+              id: b.id ?? String(idx),
+              name: b.projectName ?? b.name ?? b.subCategory ?? `Benchmark ${idx + 1}`,
+              completedDate: (b.completedDate ?? b.createdAt ?? '').toString().slice(0, 10),
+              estimatedCost: est,
+              actualCost: act,
+              variance,
+              variancePercent: Number(variancePercent.toFixed(1)),
+              duration: Number(b.duration ?? 0),
+              category: b.category ?? 'manufacturing',
+              accuracy: (absPct <= 5 ? 'excellent' : absPct <= 10 ? 'good' : 'fair') as
+                | 'excellent'
+                | 'good'
+                | 'fair'
+                | 'poor',
+            };
+          });
+          setHistoricalProjects(projects);
+          const variances = projects.map((p) => p.variancePercent);
+          const accuracies = projects.map((p) => 100 - Math.abs(p.variancePercent));
+          setBenchmarkMetrics({
+            averageAccuracy: Number((accuracies.reduce((a, b) => a + b, 0) / accuracies.length).toFixed(1)),
+            totalProjects: projects.length,
+            onBudgetProjects: projects.filter((p) => Math.abs(p.variancePercent) <= 2).length,
+            overBudgetProjects: projects.filter((p) => p.variancePercent > 2).length,
+            underBudgetProjects: projects.filter((p) => p.variancePercent < -2).length,
+            avgVariancePercent: Number(
+              (variances.reduce((a, b) => a + Math.abs(b), 0) / variances.length).toFixed(1),
+            ),
+            bestAccuracy: Number(Math.max(...accuracies).toFixed(1)),
+            worstAccuracy: Number(Math.min(...accuracies).toFixed(1)),
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setAnalyticsError(err instanceof Error ? err.message : 'Failed to load analytics');
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const features = [
     { id: 'cost-breakdown', name: 'Cost Breakdown', icon: Calculator, color: 'text-blue-600', bg: 'bg-blue-50', description: 'Detailed cost analysis by category' },
     { id: 'version-comparison', name: 'Version Control', icon: GitBranch, color: 'text-purple-600', bg: 'bg-purple-50', description: 'Compare estimate versions' },
@@ -125,6 +186,11 @@ export default function EstimationAdvancedFeaturesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {analyticsError && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          {analyticsError} — showing sample benchmarks.
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <div className="flex items-center space-x-3 mb-2">
@@ -221,8 +287,8 @@ export default function EstimationAdvancedFeaturesPage() {
         {activeTab === 'benchmarking' && (
           <HistoricalBenchmarking
             currentEstimate={{ id: mockCostData.estimateId, name: mockCostData.estimateName, estimatedCost: mockCostData.totalCost, category: 'manufacturing' }}
-            similarProjects={mockHistoricalProjects}
-            metrics={mockBenchmarkMetrics}
+            similarProjects={historicalProjects}
+            metrics={benchmarkMetrics}
           />
         )}
 

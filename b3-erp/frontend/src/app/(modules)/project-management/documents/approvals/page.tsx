@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   ArrowLeft,
   FileText,
@@ -122,10 +123,49 @@ const mockApprovals: ApprovalRequest[] = [
 ];
 
 export default function ClientApprovalsPage() {
-  const [approvals] = useState<ApprovalRequest[]>(mockApprovals);
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>(mockApprovals);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalRequest | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await projectManagementService.listDocumentApprovals();
+        if (!active) return;
+        if (rows && rows.length > 0) {
+          setApprovals(rows.map((r) => ({
+            id: r.id,
+            documentNumber: r.documentNumber || '',
+            documentName: r.documentName || '',
+            version: r.version || '',
+            documentType: r.documentType || '',
+            projectName: r.projectName || '',
+            sentToClient: r.sentToClient || '',
+            clientEmail: r.clientEmail || '',
+            sentDate: r.sentDate || '',
+            dueDate: r.dueDate || '',
+            status: (r.status as ApprovalRequest['status']) || 'Pending',
+            approvedBy: r.approvedBy,
+            approvalDate: r.approvalDate,
+            signatureUrl: r.signatureUrl,
+            comments: r.comments,
+            remindersSent: r.remindersSent ?? 0,
+          })));
+        }
+        setError(null);
+      } catch (e) {
+        if (active) setError('Failed to load approval requests');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const filteredApprovals = approvals.filter(
     (a) => statusFilter === 'All' || a.status === statusFilter
@@ -172,6 +212,12 @@ export default function ClientApprovalsPage() {
   return (
     <div className="w-full h-screen overflow-y-auto overflow-x-hidden bg-gray-50">
       <div className="px-3 py-2 space-y-3">
+        {error && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+        )}
+        {loading && (
+          <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading approvals…</div>
+        )}
         {/* Header */}
         <div className="bg-white rounded-lg border border-gray-200 p-3">
           <div className="flex items-center justify-between mb-2">

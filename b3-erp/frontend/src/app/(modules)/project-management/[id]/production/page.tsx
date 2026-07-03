@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Activity,
     Cpu,
@@ -31,8 +33,46 @@ const mockMachines: MachineStatus[] = [
 ];
 
 export default function FactoryDashboard() {
+    const params = useParams() as { id?: string };
+    const [machines, setMachines] = useState<MachineStatus[]>(mockMachines);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listMachineStatus();
+                if (!active) return;
+                if (rows && rows.length > 0) {
+                    setMachines(rows.map((r) => ({
+                        id: r.id,
+                        name: r.name || '',
+                        type: r.type || '',
+                        status: (r.status as MachineStatus['status']) || 'Idle',
+                        oee: r.oee ?? 0,
+                        currentJob: r.currentJob || '',
+                    })));
+                }
+                setError(null);
+            } catch (e) {
+                if (active) setError('Failed to load machines');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
+    }, [params?.id]);
+
     return (
         <div className="w-full space-y-4 px-3 py-2">
+            {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+            )}
+            {loading && (
+                <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading machines…</div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -58,7 +98,7 @@ export default function FactoryDashboard() {
 
             {/* Machine Status Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {mockMachines.map(machine => (
+                {machines.map(machine => (
                     <div key={machine.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-xl hover:shadow-slate-100 transition-all group">
                         <div className="p-6 space-y-4">
                             <div className="flex justify-between items-start">

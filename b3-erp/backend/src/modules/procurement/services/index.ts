@@ -18,3 +18,4 @@ export * from './bom-receipt.service';
 export * from './procurement-category.service';
 export * from './savings-initiative.service';
 export * from './vendor-scorecard.service';
+export * from './vendor.service';

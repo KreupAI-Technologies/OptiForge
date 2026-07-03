@@ -22,6 +22,7 @@ import {
   VendorEvaluationController,
   VendorPerformanceAnalyticsController,
   VendorQuotationController,
+  VendorController,
 } from './controllers';
 import {
   AuditTrail,
@@ -45,6 +46,7 @@ import {
   VendorEvaluation,
   VendorMessage,
   VendorQuotation,
+  Vendor,
 } from './entities';
 import {
   ApprovalThresholdSeederService,
@@ -64,6 +66,7 @@ import {
   VendorEvaluationService,
   VendorPerformanceAnalyticsService,
   VendorQuotationService,
+  VendorService,
 } from './services';
 import { ApprovalMatrixService } from './services/approval-matrix.service';
 import { AuditTrailService } from './services/audit-trail.service';
@@ -98,6 +101,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
       ProcurementCategory,
       SavingsInitiative,
       VendorScorecard,
+      Vendor,
     ]),
     WorkflowModule,
   ],
@@ -122,6 +126,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorEvaluationController,
     VendorPerformanceAnalyticsController,
     VendorQuotationController,
+    VendorController,
   ],
   providers: [
     ApprovalMatrixService,
@@ -149,6 +154,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorEvaluationService,
     VendorPerformanceAnalyticsService,
     VendorQuotationService,
+    VendorService,
   ],
   exports: [
     ApprovalMatrixService,
@@ -176,6 +182,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorEvaluationService,
     VendorPerformanceAnalyticsService,
     VendorQuotationService,
+    VendorService,
   ],
 })
 export class ProcurementModule {}

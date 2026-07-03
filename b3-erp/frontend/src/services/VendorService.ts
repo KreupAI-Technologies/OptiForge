@@ -89,31 +89,31 @@ export const vendorService = {
     // Vendor Management
     async getVendors(filters?: any): Promise<{ data: Vendor[]; total: number }> {
         const params = new URLSearchParams(filters);
-        const response = await apiClient.get<{ data: Vendor[]; total: number }>(`/vendors?${params.toString()}`);
+        const response = await apiClient.get<{ data: Vendor[]; total: number }>(`/procurement/vendors?${params.toString()}`);
         return response.data;
     },
 
     async getVendorById(id: string): Promise<Vendor> {
-        const response = await apiClient.get<Vendor>(`/vendors/${id}`);
+        const response = await apiClient.get<Vendor>(`/procurement/vendors/${id}`);
         return response.data;
     },
 
     async createVendor(data: CreateVendorDto): Promise<Vendor> {
-        const response = await apiClient.post<Vendor>('/vendors', data);
+        const response = await apiClient.post<Vendor>('/procurement/vendors', data);
         return response.data;
     },
 
     async updateVendor(id: string, data: UpdateVendorDto): Promise<Vendor> {
-        const response = await apiClient.put<Vendor>(`/vendors/${id}`, data);
+        const response = await apiClient.put<Vendor>(`/procurement/vendors/${id}`, data);
         return response.data;
     },
 
     async deleteVendor(id: string): Promise<void> {
-        await apiClient.delete(`/vendors/${id}`);
+        await apiClient.delete(`/procurement/vendors/${id}`);
     },
 
     async approveVendor(id: string): Promise<Vendor> {
-        const response = await apiClient.post<Vendor>(`/vendors/${id}/approve`, {});
+        const response = await apiClient.post<Vendor>(`/procurement/vendors/${id}/approve`, {});
         return response.data;
     },
 

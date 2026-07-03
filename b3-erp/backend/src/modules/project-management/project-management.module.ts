@@ -30,6 +30,7 @@ import { CustomerAcceptanceEntity } from './entities/customer-acceptance.entity'
 import { ProjectProfitabilityEntity } from './entities/project-profitability.entity';
 import { LayoutBriefingEntity } from './entities/layout-briefing.entity';
 import { ProgressEntryEntity } from './entities/progress-entry.entity';
+import { ProjectPlanEntity } from './entities/project-plan.entity';
 import { PmProjectTypeEntity } from './entities/pm-project-type.entity';
 import { PmDocumentEntity } from './entities/pm-document.entity';
 import { PmMrpMaterialEntity } from './entities/pm-mrp-material.entity';
@@ -40,6 +41,17 @@ import { PmReportEntity } from './entities/pm-report.entity';
 import { PmSiteSurveyEntity } from './entities/pm-site-survey.entity';
 import { PmWbsNodeEntity } from './entities/pm-wbs-node.entity';
 import { PmScheduleTaskEntity } from './entities/pm-schedule-task.entity';
+import { PmDocumentApprovalEntity } from './entities/pm-document-approval.entity';
+import { PmDesignerTaskEntity } from './entities/pm-designer-task.entity';
+import { PmResourceAllocationEntity } from './entities/pm-resource-allocation.entity';
+import { PmCrateEntity } from './entities/pm-crate.entity';
+import { PmDesignAssetEntity } from './entities/pm-design-asset.entity';
+import { PmMaterialStatusEntity } from './entities/pm-material-status.entity';
+import { PmMachineStatusEntity } from './entities/pm-machine-status.entity';
+import { PmBomItemEntity } from './entities/pm-bom-item.entity';
+import { PmEquipmentCatalogEntity } from './entities/pm-equipment-catalog.entity';
+import { PmDispatchCatalogEntity } from './entities/pm-dispatch-catalog.entity';
+import { PmBoqLineTemplateEntity } from './entities/pm-boq-line-template.entity';
 import { ProjectAttachment } from '../project/entities/project-attachment.entity';
 import { BOQ } from '../project/entities/boq.entity';
 import { BOQItem } from '../project/entities/boq-item.entity';
@@ -113,6 +125,18 @@ import { PmReportsService } from './services/pm-reports.service';
 import { PmSiteSurveysService } from './services/pm-site-surveys.service';
 import { PmWbsService } from './services/pm-wbs.service';
 import { PmScheduleService } from './services/pm-schedule.service';
+import { ProjectPlansService } from './services/project-plans.service';
+import { PmDocumentApprovalsService } from './services/pm-document-approvals.service';
+import { PmDesignerTasksService } from './services/pm-designer-tasks.service';
+import { PmResourceAllocationsService } from './services/pm-resource-allocations.service';
+import { PmCratesService } from './services/pm-crates.service';
+import { PmDesignAssetsService } from './services/pm-design-assets.service';
+import { PmMaterialStatusService } from './services/pm-material-status.service';
+import { PmMachineStatusService } from './services/pm-machine-status.service';
+import { PmBomItemsService } from './services/pm-bom-items.service';
+import { PmEquipmentCatalogService } from './services/pm-equipment-catalog.service';
+import { PmDispatchCatalogService } from './services/pm-dispatch-catalog.service';
+import { PmBoqLineTemplatesService } from './services/pm-boq-line-templates.service';
 
 import { ProjectStatusSeederService } from './services/project-status-seeder.service';
 import { ProjectTypeSeederService } from './services/project-type-seeder.service';
@@ -165,6 +189,18 @@ import { PmReportsController } from './controllers/pm-reports.controller';
 import { PmSiteSurveysController } from './controllers/pm-site-surveys.controller';
 import { PmWbsController } from './controllers/pm-wbs.controller';
 import { PmScheduleController } from './controllers/pm-schedule.controller';
+import { ProjectPlansController } from './controllers/project-plans.controller';
+import { PmDocumentApprovalsController } from './controllers/pm-document-approvals.controller';
+import { PmDesignerTasksController } from './controllers/pm-designer-tasks.controller';
+import { PmResourceAllocationsController } from './controllers/pm-resource-allocations.controller';
+import { PmCratesController } from './controllers/pm-crates.controller';
+import { PmDesignAssetsController } from './controllers/pm-design-assets.controller';
+import { PmMaterialStatusController } from './controllers/pm-material-status.controller';
+import { PmMachineStatusController } from './controllers/pm-machine-status.controller';
+import { PmBomItemsController } from './controllers/pm-bom-items.controller';
+import { PmEquipmentCatalogController } from './controllers/pm-equipment-catalog.controller';
+import { PmDispatchCatalogController } from './controllers/pm-dispatch-catalog.controller';
+import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-templates.controller';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
@@ -228,7 +264,19 @@ import { PmScheduleController } from './controllers/pm-schedule.controller';
         PmReportEntity,
         PmSiteSurveyEntity,
         PmWbsNodeEntity,
-        PmScheduleTaskEntity
+        PmScheduleTaskEntity,
+        PmDocumentApprovalEntity,
+        PmDesignerTaskEntity,
+        PmResourceAllocationEntity,
+        PmCrateEntity,
+        PmDesignAssetEntity,
+        PmMaterialStatusEntity,
+        PmMachineStatusEntity,
+        PmBomItemEntity,
+        PmEquipmentCatalogEntity,
+        PmDispatchCatalogEntity,
+        PmBoqLineTemplateEntity,
+        ProjectPlanEntity
     ])],
     controllers: [
         ProjectController,
@@ -276,7 +324,19 @@ import { PmScheduleController } from './controllers/pm-schedule.controller';
         PmReportsController,
         PmSiteSurveysController,
         PmWbsController,
-        PmScheduleController
+        PmScheduleController,
+        PmDocumentApprovalsController,
+        PmDesignerTasksController,
+        PmResourceAllocationsController,
+        PmCratesController,
+        PmDesignAssetsController,
+        PmMaterialStatusController,
+        PmMachineStatusController,
+        PmBomItemsController,
+        PmEquipmentCatalogController,
+        PmDispatchCatalogController,
+        PmBoqLineTemplatesController,
+        ProjectPlansController
     ],
     providers: [
         ProjectService,
@@ -330,7 +390,19 @@ import { PmScheduleController } from './controllers/pm-schedule.controller';
         PmReportsService,
         PmSiteSurveysService,
         PmWbsService,
-        PmScheduleService
+        PmScheduleService,
+        PmDocumentApprovalsService,
+        PmDesignerTasksService,
+        PmResourceAllocationsService,
+        PmCratesService,
+        PmDesignAssetsService,
+        PmMaterialStatusService,
+        PmMachineStatusService,
+        PmBomItemsService,
+        PmEquipmentCatalogService,
+        PmDispatchCatalogService,
+        PmBoqLineTemplatesService,
+        ProjectPlansService
     ],
     exports: [
         ProjectService,

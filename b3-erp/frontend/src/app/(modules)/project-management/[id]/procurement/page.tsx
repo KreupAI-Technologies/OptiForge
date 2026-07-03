@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     ShoppingBag,
     Truck,
@@ -31,8 +33,47 @@ const mockMaterials: MaterialStatus[] = [
 ];
 
 export default function ProcurementDashboard() {
+    const params = useParams() as { id?: string };
+    const [materials, setMaterials] = useState<MaterialStatus[]>(mockMaterials);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listMaterialStatus();
+                if (!active) return;
+                if (rows && rows.length > 0) {
+                    setMaterials(rows.map((r) => ({
+                        id: r.id,
+                        name: r.name || '',
+                        totalQty: r.totalQty ?? 0,
+                        reserved: r.reserved ?? 0,
+                        ordered: r.ordered ?? 0,
+                        received: r.received ?? 0,
+                        status: (r.status as MaterialStatus['status']) || 'Procuring',
+                    })));
+                }
+                setError(null);
+            } catch (e) {
+                if (active) setError('Failed to load materials');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
+    }, [params?.id]);
+
     return (
         <div className="w-full space-y-4 px-3 py-2">
+            {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+            )}
+            {loading && (
+                <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading materials…</div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -110,7 +151,7 @@ export default function ProcurementDashboard() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {mockMaterials.map(mat => (
+                            {materials.map(mat => (
                                 <tr key={mat.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="p-4">
                                         <div className="text-xs font-bold text-gray-900">{mat.name}</div>

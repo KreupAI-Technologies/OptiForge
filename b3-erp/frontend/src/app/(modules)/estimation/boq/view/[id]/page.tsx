@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { estimationBOQService } from '@/services/estimation-boq.service';
 import {
   ArrowLeft, Edit, FileText, Calendar, TrendingUp, DollarSign,
   CheckCircle, Clock, Activity, User, Building2, Package,
@@ -241,7 +242,58 @@ export default function ViewBOQPage() {
   const router = useRouter();
   const params = useParams();
   const boqId = params.id as string;
-  const boq = mockBOQ;
+
+  const [boq, setBoq] = useState<BOQ>(mockBOQ);
+  const [boqItems, setBoqItems] = useState<BOQItem[]>(mockBOQItems);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await estimationBOQService.findOne(boqId)) as any;
+        if (!cancelled && raw) {
+          setBoq((prev) => ({
+            ...prev,
+            id: raw.id ?? prev.id,
+            boqNumber: raw.boqNumber ?? prev.boqNumber,
+            projectName: raw.projectName ?? prev.projectName,
+            clientName: raw.clientName ?? prev.clientName,
+            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as BOQ['status']) || prev.status,
+            estimatedValue: raw.estimatedValue != null ? Number(raw.estimatedValue) : prev.estimatedValue,
+            projectLocation: raw.projectLocation ?? prev.projectLocation,
+            projectDuration: raw.projectDuration ?? prev.projectDuration,
+            currency: raw.currency ?? prev.currency,
+          }));
+        }
+        try {
+          const items = (await estimationBOQService.findItems(boqId)) as any[];
+          if (!cancelled && Array.isArray(items) && items.length) {
+            setBoqItems(items.map((it: any, idx: number) => ({
+              id: it.id ?? String(idx),
+              itemNo: it.itemNo ?? String(idx + 1),
+              description: it.description ?? '',
+              unit: it.unit ?? '',
+              quantity: Number(it.quantity ?? 0),
+              unitRate: Number(it.unitRate ?? 0),
+              totalAmount: Number(it.totalAmount ?? 0),
+              category: it.category ?? '',
+              specifications: it.specifications ?? '',
+            })));
+          }
+        } catch { /* keep sample items */ }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load BOQ');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [boqId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'activity'>('overview');
 
@@ -253,6 +305,16 @@ export default function ViewBOQPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+          Loading BOQ...
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button
@@ -539,7 +601,7 @@ export default function ViewBOQPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {mockBOQItems.map((item) => (
+                  {boqItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.itemNo}</td>
                       <td className="px-4 py-3">
@@ -562,7 +624,7 @@ export default function ViewBOQPage() {
                   <tr>
                     <td colSpan={6} className="px-4 py-3 text-right text-sm font-bold text-gray-900">Grand Total:</td>
                     <td className="px-4 py-3 text-right text-lg font-bold text-blue-900">
-                      ₹{mockBOQItems.reduce((sum, item) => sum + item.totalAmount, 0).toLocaleString()}
+                      ₹{boqItems.reduce((sum, item) => sum + item.totalAmount, 0).toLocaleString()}
                     </td>
                   </tr>
                 </tfoot>

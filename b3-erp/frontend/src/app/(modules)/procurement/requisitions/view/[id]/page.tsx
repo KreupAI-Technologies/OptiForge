@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { purchaseRequisitionService } from '@/services/purchase-requisition.service';
 import {
   ArrowLeft,
   Edit,
@@ -288,7 +289,68 @@ export default function ViewRequisitionPage() {
   const router = useRouter();
   const params = useParams();
   const requisitionId = params.id as string;
-  const requisition = mockRequisition;
+
+  const [requisition, setRequisition] = useState<Requisition>(mockRequisition);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const prStatusMap: Record<string, Requisition['status']> = {
+      Draft: 'draft', 'Pending Approval': 'pending_approval', Approved: 'approved',
+      Rejected: 'rejected', 'Converted to PO': 'converted_to_po', Cancelled: 'cancelled',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await purchaseRequisitionService.getRequisitionById(requisitionId)) as any;
+        if (!cancelled && raw) {
+          const mappedItems: RequisitionItem[] | undefined = Array.isArray(raw.items) && raw.items.length
+            ? raw.items.map((it: any, idx: number) => ({
+                id: it.id ?? String(idx),
+                itemCode: it.itemCode ?? '',
+                description: it.itemName ?? it.description ?? '',
+                specifications: it.notes ?? '',
+                quantity: Number(it.quantity ?? 0),
+                unit: it.unit ?? '',
+                estimatedUnitPrice: Number(it.estimatedUnitPrice ?? 0),
+                estimatedTotal: Number(it.estimatedTotalPrice ?? 0),
+                preferredVendor: it.suggestedVendorName ?? '',
+                category: 'raw_materials' as RequisitionItem['category'],
+              }))
+            : undefined;
+          setRequisition((prev) => ({
+            ...prev,
+            id: raw.id ?? prev.id,
+            prNumber: raw.prNumber ?? prev.prNumber,
+            status: prStatusMap[raw.status] ?? prev.status,
+            requestedBy: raw.requestedByName ?? raw.requestedBy ?? prev.requestedBy,
+            requesterDepartment: raw.department ?? prev.requesterDepartment,
+            requestDate: raw.requestDate ?? prev.requestDate,
+            requiredByDate: raw.requiredDate ?? prev.requiredByDate,
+            priority: (String(raw.priority ?? '').toLowerCase() as Requisition['priority']) || prev.priority,
+            purpose: raw.title ?? prev.purpose,
+            justification: raw.justification ?? prev.justification,
+            totalValue: raw.estimatedTotal != null ? Number(raw.estimatedTotal) : prev.totalValue,
+            budgetCode: raw.budgetCode ?? prev.budgetCode,
+            approverName: raw.approvedByName ?? prev.approverName,
+            approvalDate: raw.approvedAt ?? prev.approvalDate,
+            linkedPO: raw.convertedToPONumber ?? prev.linkedPO,
+            notes: raw.description ?? prev.notes,
+            items: mappedItems ?? prev.items,
+            totalItems: mappedItems ? mappedItems.length : prev.totalItems,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load requisition');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [requisitionId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'approvals'>('overview');
   const [approvalComment, setApprovalComment] = useState('');
@@ -327,6 +389,8 @@ export default function ViewRequisitionPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading requisition...</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="mb-3">
         <button

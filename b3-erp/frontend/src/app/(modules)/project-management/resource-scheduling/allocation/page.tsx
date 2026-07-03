@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   Users,
   Plus,
@@ -84,7 +85,39 @@ export default function AllocationMatrixPage() {
   const router = useRouter();
   const [resources] = useState<Resource[]>(mockResources);
   const [allocations, setAllocations] = useState<Allocation[]>(mockAllocations);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await projectManagementService.listResourceAllocations();
+        if (!active) return;
+        if (rows && rows.length > 0) {
+          setAllocations(rows.map((r) => ({
+            id: r.id,
+            resourceId: r.resourceId || '',
+            resourceName: r.resourceName || '',
+            role: r.role || '',
+            projectPhase: r.projectPhase || '',
+            allocatedHours: r.allocatedHours ?? 0,
+            startDate: r.startDate || '',
+            endDate: r.endDate || '',
+            allocation: r.allocation ?? 0,
+          })));
+        }
+        setError(null);
+      } catch (e) {
+        if (active) setError('Failed to load resource allocations');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedResource, setSelectedResource] = useState('');
   const [newAllocation, setNewAllocation] = useState({
@@ -259,6 +292,12 @@ export default function AllocationMatrixPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2">{error}</div>
+      )}
+      {loading && (
+        <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2">Loading allocations…</div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className=" px-3 py-4">

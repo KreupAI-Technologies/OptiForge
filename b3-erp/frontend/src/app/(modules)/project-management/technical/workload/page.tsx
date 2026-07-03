@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Clock,
     User,
@@ -54,8 +55,46 @@ const mockTasks: Task[] = [
 ];
 
 export default function DesignerWorkloadPage() {
+    const [tasks, setTasks] = useState<Task[]>(mockTasks);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listDesignerTasks();
+                if (!active) return;
+                if (rows && rows.length > 0) {
+                    setTasks(rows.map((r) => ({
+                        id: r.id,
+                        name: r.name || '',
+                        project: r.project || '',
+                        assignee: r.assignee || '',
+                        targetDate: r.targetDate || '',
+                        status: (r.status as Task['status']) || 'Pending Review',
+                        progress: r.progress ?? 0,
+                    })));
+                }
+                setError(null);
+            } catch (e) {
+                if (active) setError('Failed to load workload tasks');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
+    }, []);
+
     return (
         <div className="w-full space-y-4 px-3 py-2">
+            {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+            )}
+            {loading && (
+                <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading tasks…</div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -119,7 +158,7 @@ export default function DesignerWorkloadPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {mockTasks.map(task => (
+                            {tasks.map(task => (
                                 <tr key={task.id} className="hover:bg-slate-50/50 transition-colors group">
                                     <td className="p-4">
                                         <div className="space-y-1">

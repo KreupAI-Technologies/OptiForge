@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService, PmCommissioningRecord } from '@/services/ProjectManagementService';
 import { Plus, Search, Eye, Edit, Wrench, CheckCircle, XCircle, Clock, Calendar, MapPin, Download, Filter, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 
 interface Commissioning {
@@ -126,9 +127,61 @@ const documentStatusColors = {
   complete: 'bg-green-100 text-green-700',
 };
 
+const statusMap: Record<string, Commissioning['status']> = {
+  Scheduled: 'scheduled', 'In Progress': 'in_progress', InProgress: 'in_progress',
+  Completed: 'completed', Failed: 'failed', Rescheduled: 'rescheduled',
+};
+
+function mapCommissioning(c: PmCommissioningRecord): Commissioning {
+  const total = Number(c.totalTests ?? c.totalChecks ?? 0);
+  const passed = Number(c.testsPassed ?? c.passedChecks ?? 0);
+  const docState = (c.documentStatus as Commissioning['documentStatus']) ?? (c.certificateIssued ? 'complete' : 'pending');
+  return {
+    id: c.id,
+    projectCode: c.projectCode ?? c.systemCode ?? c.activityNumber ?? '',
+    projectName: c.projectName ?? c.equipmentSystem ?? '',
+    siteLocation: c.siteLocation ?? c.location ?? '',
+    commissioningDate: c.commissioningDate ?? c.scheduledDate ?? '',
+    commissioningEngineer: c.commissioningEngineer ?? c.engineer ?? '',
+    status: statusMap[c.status ?? ''] ?? (c.status as Commissioning['status']) ?? 'scheduled',
+    testsPassed: passed,
+    totalTests: total,
+    equipmentCount: Number(c.equipmentCount ?? 0),
+    commissionedEquipment: Number(c.commissionedEquipment ?? 0),
+    issuesFound: Number(c.issuesFound ?? c.failedChecks ?? 0),
+    resolvedIssues: Number(c.resolvedIssues ?? 0),
+    clientRepresentative: c.clientRepresentative ?? c.clientRep ?? '',
+    documentStatus: docState,
+    handoverDate: c.handoverDate ?? c.actualDate ?? undefined,
+  };
+}
+
 export default function CommissioningPage() {
   const router = useRouter();
-  const [commissioning, setCommissioning] = useState<Commissioning[]>(mockCommissioning);
+  const [commissioning, setCommissioning] = useState<Commissioning[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await projectManagementService.listCommissioning();
+        if (!cancelled) setCommissioning((rows ?? []).map(mapCommissioning));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load commissioning records');
+          setCommissioning([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,6 +209,8 @@ export default function CommissioningPage() {
 
   return (
     <div className="w-full min-h-screen px-3 py-2 ">
+      {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading commissioning records...</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
       {/* Stats */}
       <div className="mb-3 grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

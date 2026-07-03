@@ -4,6 +4,52 @@ import { apiClient } from './api/client';
 // feature endpoints (settings/templates/milestone-templates/analytics) live here.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
+export interface PmProjectPlan {
+    id: string;
+    companyId?: string;
+    projectCode?: string;
+    projectName: string;
+    client?: string;
+    projectManager?: string;
+    startDate?: string;
+    endDate?: string;
+    estimatedBudget?: number;
+    actualBudget?: number;
+    status?: string;
+    priority?: string;
+    progressPercentage?: number;
+    phase?: string;
+    milestones?: number;
+    completedMilestones?: number;
+    teamSize?: number;
+    location?: string;
+    projectType?: string;
+    riskLevel?: string;
+    plannedHours?: number;
+    actualHours?: number;
+}
+
+export interface PmCommissioningRecord {
+    id: string;
+    companyId?: string;
+    projectCode?: string;
+    projectName?: string;
+    siteLocation?: string;
+    commissioningDate?: string;
+    commissioningEngineer?: string;
+    status?: string;
+    testsPassed?: number;
+    totalTests?: number;
+    equipmentCount?: number;
+    commissionedEquipment?: number;
+    issuesFound?: number;
+    resolvedIssues?: number;
+    clientRepresentative?: string;
+    documentStatus?: string;
+    handoverDate?: string;
+    [key: string]: any;
+}
+
 export interface PmSettings {
     id?: string;
     companyId?: string;
@@ -975,6 +1021,144 @@ export interface PmScheduleTask {
     dependencies: string[];
     phase: string;
     status: string;
+}
+
+export interface PmDocumentApproval {
+    id: string;
+    companyId?: string;
+    documentNumber?: string;
+    documentName?: string;
+    version?: string;
+    documentType?: string;
+    projectName?: string;
+    sentToClient?: string;
+    clientEmail?: string;
+    sentDate?: string;
+    dueDate?: string;
+    status?: string;
+    approvedBy?: string;
+    approvalDate?: string;
+    signatureUrl?: string;
+    comments?: string;
+    remindersSent?: number;
+}
+
+export interface PmDesignerTask {
+    id: string;
+    companyId?: string;
+    name?: string;
+    project?: string;
+    assignee?: string;
+    targetDate?: string;
+    status?: string;
+    progress?: number;
+}
+
+export interface PmResourceAllocation {
+    id: string;
+    companyId?: string;
+    resourceId?: string;
+    resourceName?: string;
+    role?: string;
+    projectPhase?: string;
+    allocatedHours?: number;
+    startDate?: string;
+    endDate?: string;
+    allocation?: number;
+}
+
+export interface PmCrate {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    number?: string;
+    items?: number;
+    designWeight?: number;
+    actualWeight?: number;
+    status?: string;
+}
+
+export interface PmDesignAsset {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    fileName?: string;
+    category?: string;
+    version?: number;
+    uploadDate?: string;
+    status?: string;
+    thumbnailUrl?: string;
+    fileUrl?: string;
+    comments?: string;
+    isLatest?: boolean;
+}
+
+export interface PmMaterialStatus {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    name?: string;
+    totalQty?: number;
+    reserved?: number;
+    ordered?: number;
+    received?: number;
+    status?: string;
+}
+
+export interface PmMachineStatus {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    name?: string;
+    type?: string;
+    status?: string;
+    oee?: number;
+    currentJob?: string;
+}
+
+export interface PmBomItem {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    parentId?: string;
+    itemId?: string;
+    name?: string;
+    sku?: string;
+    quantity?: number;
+    uom?: string;
+    level?: number;
+    status?: string;
+}
+
+export interface PmEquipmentCatalogItem {
+    id: string;
+    companyId?: string;
+    code?: string;
+    name?: string;
+    category?: string;
+    isActive?: boolean;
+}
+
+export interface PmDispatchCatalogItem {
+    id: string;
+    companyId?: string;
+    code?: string;
+    name?: string;
+    weight?: number;
+    volume?: number;
+    isActive?: boolean;
+}
+
+export interface PmBoqLineTemplate {
+    id: string;
+    companyId?: string;
+    item?: string;
+    description?: string;
+    unit?: string;
+    quantity?: number;
+    rate?: number;
+    amount?: number;
+    isValid?: boolean;
 }
 
 class ProjectManagementService {
@@ -2474,6 +2658,81 @@ class ProjectManagementService {
     createScheduleTask(data: Partial<PmScheduleTask>) { return this.pmCreate<PmScheduleTask>('schedule', data); }
     updateScheduleTask(id: string, data: Partial<PmScheduleTask>) { return this.pmUpdate<PmScheduleTask>('schedule', id, data); }
     deleteScheduleTask(id: string) { return this.pmDelete('schedule', id); }
+
+    // Document approvals (documents/approvals)
+    listDocumentApprovals(companyId = 'default') { return this.pmList<PmDocumentApproval>('document-approvals', companyId); }
+    createDocumentApproval(data: Partial<PmDocumentApproval>) { return this.pmCreate<PmDocumentApproval>('document-approvals', data); }
+    updateDocumentApproval(id: string, data: Partial<PmDocumentApproval>) { return this.pmUpdate<PmDocumentApproval>('document-approvals', id, data); }
+    deleteDocumentApproval(id: string) { return this.pmDelete('document-approvals', id); }
+
+    // Designer tasks (technical/workload)
+    listDesignerTasks(companyId = 'default') { return this.pmList<PmDesignerTask>('designer-tasks', companyId); }
+    createDesignerTask(data: Partial<PmDesignerTask>) { return this.pmCreate<PmDesignerTask>('designer-tasks', data); }
+    updateDesignerTask(id: string, data: Partial<PmDesignerTask>) { return this.pmUpdate<PmDesignerTask>('designer-tasks', id, data); }
+    deleteDesignerTask(id: string) { return this.pmDelete('designer-tasks', id); }
+
+    // Resource allocations (resource-scheduling/allocation)
+    listResourceAllocations(companyId = 'default') { return this.pmList<PmResourceAllocation>('resource-allocations', companyId); }
+    createResourceAllocation(data: Partial<PmResourceAllocation>) { return this.pmCreate<PmResourceAllocation>('resource-allocations', data); }
+    updateResourceAllocation(id: string, data: Partial<PmResourceAllocation>) { return this.pmUpdate<PmResourceAllocation>('resource-allocations', id, data); }
+    deleteResourceAllocation(id: string) { return this.pmDelete('resource-allocations', id); }
+
+    // Packaging crates ([id]/packaging)
+    listCrates(companyId = 'default') { return this.pmList<PmCrate>('crates', companyId); }
+    createCrate(data: Partial<PmCrate>) { return this.pmCreate<PmCrate>('crates', data); }
+    updateCrate(id: string, data: Partial<PmCrate>) { return this.pmUpdate<PmCrate>('crates', id, data); }
+    deleteCrate(id: string) { return this.pmDelete('crates', id); }
+
+    // Design assets ([id]/design-assets)
+    listDesignAssets(companyId = 'default') { return this.pmList<PmDesignAsset>('design-assets', companyId); }
+    createDesignAsset(data: Partial<PmDesignAsset>) { return this.pmCreate<PmDesignAsset>('design-assets', data); }
+    updateDesignAsset(id: string, data: Partial<PmDesignAsset>) { return this.pmUpdate<PmDesignAsset>('design-assets', id, data); }
+    deleteDesignAsset(id: string) { return this.pmDelete('design-assets', id); }
+
+    // Material status ([id]/procurement)
+    listMaterialStatus(companyId = 'default') { return this.pmList<PmMaterialStatus>('material-status', companyId); }
+    createMaterialStatus(data: Partial<PmMaterialStatus>) { return this.pmCreate<PmMaterialStatus>('material-status', data); }
+    updateMaterialStatus(id: string, data: Partial<PmMaterialStatus>) { return this.pmUpdate<PmMaterialStatus>('material-status', id, data); }
+    deleteMaterialStatus(id: string) { return this.pmDelete('material-status', id); }
+
+    // Machine status ([id]/production)
+    listMachineStatus(companyId = 'default') { return this.pmList<PmMachineStatus>('machine-status', companyId); }
+    createMachineStatus(data: Partial<PmMachineStatus>) { return this.pmCreate<PmMachineStatus>('machine-status', data); }
+    updateMachineStatus(id: string, data: Partial<PmMachineStatus>) { return this.pmUpdate<PmMachineStatus>('machine-status', id, data); }
+    deleteMachineStatus(id: string) { return this.pmDelete('machine-status', id); }
+
+    // Project BOM items ([id]/technical/bom)
+    listBomItems(companyId = 'default') { return this.pmList<PmBomItem>('bom-items', companyId); }
+    createBomItem(data: Partial<PmBomItem>) { return this.pmCreate<PmBomItem>('bom-items', data); }
+    updateBomItem(id: string, data: Partial<PmBomItem>) { return this.pmUpdate<PmBomItem>('bom-items', id, data); }
+    deleteBomItem(id: string) { return this.pmDelete('bom-items', id); }
+
+    // Equipment catalog (installation-tracking-enhanced)
+    listEquipmentCatalog(companyId = 'default') { return this.pmList<PmEquipmentCatalogItem>('equipment-catalog', companyId); }
+    createEquipmentCatalogItem(data: Partial<PmEquipmentCatalogItem>) { return this.pmCreate<PmEquipmentCatalogItem>('equipment-catalog', data); }
+    updateEquipmentCatalogItem(id: string, data: Partial<PmEquipmentCatalogItem>) { return this.pmUpdate<PmEquipmentCatalogItem>('equipment-catalog', id, data); }
+    deleteEquipmentCatalogItem(id: string) { return this.pmDelete('equipment-catalog', id); }
+
+    // Dispatch catalog (dispatch-planning-enhanced)
+    listDispatchCatalog(companyId = 'default') { return this.pmList<PmDispatchCatalogItem>('dispatch-catalog', companyId); }
+    createDispatchCatalogItem(data: Partial<PmDispatchCatalogItem>) { return this.pmCreate<PmDispatchCatalogItem>('dispatch-catalog', data); }
+    updateDispatchCatalogItem(id: string, data: Partial<PmDispatchCatalogItem>) { return this.pmUpdate<PmDispatchCatalogItem>('dispatch-catalog', id, data); }
+    deleteDispatchCatalogItem(id: string) { return this.pmDelete('dispatch-catalog', id); }
+
+    // BOQ line templates (documents/upload/boq-enhanced)
+    listBoqLineTemplates(companyId = 'default') { return this.pmList<PmBoqLineTemplate>('boq-line-templates', companyId); }
+    createBoqLineTemplate(data: Partial<PmBoqLineTemplate>) { return this.pmCreate<PmBoqLineTemplate>('boq-line-templates', data); }
+    updateBoqLineTemplate(id: string, data: Partial<PmBoqLineTemplate>) { return this.pmUpdate<PmBoqLineTemplate>('boq-line-templates', id, data); }
+    deleteBoqLineTemplate(id: string) { return this.pmDelete('boq-line-templates', id); }
+
+    // Project plans (projects/planning list page)
+    listProjectPlans(companyId = 'default') { return this.pmList<PmProjectPlan>('project-plans', companyId); }
+    createProjectPlan(data: Partial<PmProjectPlan>) { return this.pmCreate<PmProjectPlan>('project-plans', data); }
+    updateProjectPlan(id: string, data: Partial<PmProjectPlan>) { return this.pmUpdate<PmProjectPlan>('project-plans', id, data); }
+    deleteProjectPlan(id: string) { return this.pmDelete('project-plans', id); }
+
+    // Commissioning activities (projects/commissioning list page)
+    listCommissioning(companyId = 'default') { return this.pmList<PmCommissioningRecord>('commissioning', companyId); }
 }
 
 export const projectManagementService = new ProjectManagementService();

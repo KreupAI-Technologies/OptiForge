@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Package,
     Layers,
@@ -79,6 +80,51 @@ export default function BOMManagementPage() {
     const { id } = useParams() as { id: string };
     const [isLocked, setIsLocked] = useState(false);
     const [expandedRows, setExpandedRows] = useState<string[]>(['1']);
+    const [bom, setBom] = useState<BOMItem[]>(mockBOM);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listBomItems();
+                if (!active) return;
+                if (rows && rows.length > 0) {
+                    // Build a tree from flat rows using parentId
+                    const byId = new Map<string, BOMItem>();
+                    rows.forEach((r) => byId.set(r.id, {
+                        id: r.id,
+                        itemId: r.itemId || '',
+                        name: r.name || '',
+                        sku: r.sku || '',
+                        quantity: r.quantity ?? 0,
+                        uom: r.uom || '',
+                        level: r.level ?? 0,
+                        status: (r.status as BOMItem['status']) || 'In Stock',
+                        children: [],
+                    }));
+                    const roots: BOMItem[] = [];
+                    rows.forEach((r) => {
+                        const node = byId.get(r.id)!;
+                        if (r.parentId && byId.has(r.parentId)) {
+                            byId.get(r.parentId)!.children!.push(node);
+                        } else {
+                            roots.push(node);
+                        }
+                    });
+                    setBom(roots);
+                }
+                setError(null);
+            } catch (e) {
+                if (active) setError('Failed to load BOM');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
+    }, [id]);
 
     const toggleRow = (rowId: string) => {
         setExpandedRows(prev =>
@@ -94,6 +140,12 @@ export default function BOMManagementPage() {
 
     return (
         <div className="w-full space-y-4 px-3 py-2">
+            {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+            )}
+            {loading && (
+                <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading BOM…</div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -138,7 +190,7 @@ export default function BOMManagementPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {mockBOM.map(item => (
+                            {bom.map(item => (
                                 <React.Fragment key={item.id}>
                                     <tr className="hover:bg-slate-50/30 transition-colors">
                                         <td className="p-4">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { vendorService } from '@/services/VendorService';
 import {
   ArrowLeft,
   Save,
@@ -261,6 +262,61 @@ export default function VendorEditPage({ params }: { params: Promise<{ id: strin
   const [formData, setFormData] = useState<VendorFormData>(mockVendor);
   const [newCertification, setNewCertification] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await vendorService.getVendorById(id)) as any;
+        if (!cancelled && raw) {
+          const bank = raw.bankDetails ?? {};
+          const terms = raw.paymentTerms ?? {};
+          const certs = raw.certifications ?? {};
+          setFormData((prev) => ({
+            ...prev,
+            legalName: raw.legalName ?? prev.legalName,
+            tradeName: raw.tradeName ?? prev.tradeName,
+            vendorCode: raw.vendorCode ?? prev.vendorCode,
+            gstNumber: raw.gstNumber ?? prev.gstNumber,
+            panNumber: raw.panNumber ?? prev.panNumber,
+            cinNumber: raw.cinNumber ?? prev.cinNumber,
+            msmeRegistration: raw.msmeRegistration ?? prev.msmeRegistration,
+            contactPersons: raw.contactPersons ?? prev.contactPersons,
+            addresses: raw.addresses ?? prev.addresses,
+            bankName: bank.bankName ?? prev.bankName,
+            bankBranch: bank.branch ?? prev.bankBranch,
+            accountNumber: bank.accountNumber ?? prev.accountNumber,
+            ifscCode: bank.ifscCode ?? prev.ifscCode,
+            accountType: bank.accountType ?? prev.accountType,
+            paymentNetDays: terms.netDays ?? prev.paymentNetDays,
+            paymentMethod: terms.paymentMethod ?? prev.paymentMethod,
+            discountTerms: terms.discountTerms ?? prev.discountTerms,
+            categories: raw.categories ?? prev.categories,
+            specificMaterials: raw.specificMaterials ?? prev.specificMaterials,
+            iso9001: certs.iso9001 ?? prev.iso9001,
+            iso14001: certs.iso14001 ?? prev.iso14001,
+            ohsas18001: certs.ohsas18001 ?? prev.ohsas18001,
+            otherCertifications: certs.other ?? prev.otherCertifications,
+            documents: raw.documents ?? prev.documents,
+            rating: raw.rating != null ? Number(raw.rating) : prev.rating,
+            status: (raw.status as VendorFormData['status']) ?? prev.status,
+            notes: raw.notes ?? prev.notes,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load vendor');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [id]);
 
   const validateGST = (gst: string): boolean => {
     const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -450,13 +506,26 @@ export default function VendorEditPage({ params }: { params: Promise<{ id: strin
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      console.log('Form submitted:', formData);
+  const handleSubmit = async () => {
+    if (!validateForm()) { alert('Please fix the validation errors'); return; }
+    setIsSaving(true);
+    try {
+      await vendorService.updateVendor(id, {
+        legalName: formData.legalName, tradeName: formData.tradeName, vendorCode: formData.vendorCode,
+        gstNumber: formData.gstNumber, panNumber: formData.panNumber, cinNumber: formData.cinNumber,
+        msmeRegistration: formData.msmeRegistration, contactPersons: formData.contactPersons, addresses: formData.addresses,
+        bankDetails: { bankName: formData.bankName, branch: formData.bankBranch, accountNumber: formData.accountNumber, ifscCode: formData.ifscCode, accountType: formData.accountType },
+        paymentTerms: { netDays: formData.paymentNetDays, paymentMethod: formData.paymentMethod, discountTerms: formData.discountTerms },
+        categories: formData.categories, specificMaterials: formData.specificMaterials,
+        certifications: { iso9001: formData.iso9001, iso14001: formData.iso14001, ohsas18001: formData.ohsas18001, other: formData.otherCertifications },
+        documents: formData.documents, rating: formData.rating, status: formData.status, notes: formData.notes,
+      } as any);
       alert('Vendor updated successfully!');
       router.push(`/procurement/vendors/view/${id}`);
-    } else {
-      alert('Please fix the validation errors');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update vendor');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -481,6 +550,9 @@ export default function VendorEditPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="w-full h-full px-3 py-2 overflow-auto">
+      {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading vendor...</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
+      {isSaving && (<div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">Saving changes...</div>)}
       {/* Header */}
       <div className="mb-3">
         <button

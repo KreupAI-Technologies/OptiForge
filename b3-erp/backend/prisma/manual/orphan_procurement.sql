@@ -157,3 +157,40 @@ CREATE TABLE IF NOT EXISTS "procurement_vendor_scorecards" (
 
 CREATE INDEX IF NOT EXISTS "IDX_procurement_vendor_scorecards_company_status"
   ON "procurement_vendor_scorecards" ("companyId", "status");
+
+-- ---------------------------------------------------------------------------
+-- Vendor master (net-new, additive) — powers procurement/vendors view & edit
+-- pages plus the vendor picker in purchase-orders/create.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "procurement_vendors" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar(100) NOT NULL,
+  "vendorCode" varchar(50) NULL,
+  "legalName" varchar(255) NOT NULL,
+  "tradeName" varchar(255) NULL,
+  "gstNumber" varchar(30) NULL,
+  "panNumber" varchar(30) NULL,
+  "cinNumber" varchar(40) NULL,
+  "msmeRegistration" varchar(50) NULL,
+  "rating" numeric(3,1) NOT NULL DEFAULT 0,
+  "status" varchar(20) NOT NULL DEFAULT 'active',
+  "contactPersons" jsonb NULL,
+  "addresses" jsonb NULL,
+  "bankDetails" jsonb NULL,
+  "paymentTerms" jsonb NULL,
+  "categories" jsonb NULL,
+  "specificMaterials" jsonb NULL,
+  "certifications" jsonb NULL,
+  "documents" jsonb NULL,
+  "totalPOs" integer NOT NULL DEFAULT 0,
+  "totalSpendYTD" numeric(18,2) NOT NULL DEFAULT 0,
+  "registeredDate" date NULL,
+  "lastOrderDate" date NULL,
+  "notes" text NULL,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_procurement_vendors" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_procurement_vendors_company_status"
+  ON "procurement_vendors" ("companyId", "status");

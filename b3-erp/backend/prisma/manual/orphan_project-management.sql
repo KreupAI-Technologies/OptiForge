@@ -702,3 +702,213 @@ CREATE TABLE IF NOT EXISTS "pm_schedule_tasks" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- Follow-up pass: wiring remaining mock-only project-management pages
+-- ADDITIVE ONLY. Safe to re-run.
+-- ============================================================================
+
+-- Client document approval requests (documents/approvals)
+CREATE TABLE IF NOT EXISTS "pm_document_approvals" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "document_number" varchar,
+  "document_name" varchar,
+  "version" varchar,
+  "document_type" varchar,
+  "project_name" varchar,
+  "sent_to_client" varchar,
+  "client_email" varchar,
+  "sent_date" varchar,
+  "due_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'Pending',
+  "approved_by" varchar,
+  "approval_date" varchar,
+  "signature_url" varchar,
+  "comments" text,
+  "reminders_sent" integer NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Designer / technical workload tasks (technical/workload)
+CREATE TABLE IF NOT EXISTS "pm_designer_tasks" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "name" varchar,
+  "project" varchar,
+  "assignee" varchar,
+  "target_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'Pending Review',
+  "progress" integer NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Resource allocation matrix (resource-scheduling/allocation)
+CREATE TABLE IF NOT EXISTS "pm_resource_allocations" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "resource_id" varchar,
+  "resource_name" varchar,
+  "role" varchar,
+  "project_phase" varchar,
+  "allocated_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "start_date" varchar,
+  "end_date" varchar,
+  "allocation" integer NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Packaging crates ([id]/packaging)
+CREATE TABLE IF NOT EXISTS "pm_crates" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "project_id" varchar,
+  "number" varchar,
+  "items" integer NOT NULL DEFAULT 0,
+  "design_weight" numeric(10,2) NOT NULL DEFAULT 0,
+  "actual_weight" numeric(10,2),
+  "status" varchar NOT NULL DEFAULT 'Open',
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Design assets / drawings ([id]/design-assets)
+CREATE TABLE IF NOT EXISTS "pm_design_assets" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "project_id" varchar,
+  "file_name" varchar,
+  "category" varchar NOT NULL DEFAULT 'drawing',
+  "version" integer NOT NULL DEFAULT 1,
+  "upload_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'pending',
+  "thumbnail_url" varchar,
+  "file_url" varchar,
+  "comments" text,
+  "is_latest" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Project material procurement status ([id]/procurement)
+CREATE TABLE IF NOT EXISTS "pm_material_status" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "project_id" varchar,
+  "name" varchar,
+  "total_qty" numeric(12,2) NOT NULL DEFAULT 0,
+  "reserved" numeric(12,2) NOT NULL DEFAULT 0,
+  "ordered" numeric(12,2) NOT NULL DEFAULT 0,
+  "received" numeric(12,2) NOT NULL DEFAULT 0,
+  "status" varchar NOT NULL DEFAULT 'Procuring',
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Factory machine status ([id]/production)
+CREATE TABLE IF NOT EXISTS "pm_machine_status" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "project_id" varchar,
+  "name" varchar,
+  "type" varchar,
+  "status" varchar NOT NULL DEFAULT 'Idle',
+  "oee" integer NOT NULL DEFAULT 0,
+  "current_job" varchar,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Project BOM tree items ([id]/technical/bom)
+CREATE TABLE IF NOT EXISTS "pm_bom_items" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "project_id" varchar,
+  "parent_id" varchar,
+  "item_id" varchar,
+  "name" varchar,
+  "sku" varchar,
+  "quantity" numeric(12,2) NOT NULL DEFAULT 0,
+  "uom" varchar,
+  "level" integer NOT NULL DEFAULT 0,
+  "status" varchar NOT NULL DEFAULT 'In Stock',
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Installation equipment catalog (installation-tracking-enhanced dropdowns)
+CREATE TABLE IF NOT EXISTS "pm_equipment_catalog" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "code" varchar,
+  "name" varchar,
+  "category" varchar,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Dispatch item catalog (dispatch-planning-enhanced dropdowns)
+CREATE TABLE IF NOT EXISTS "pm_dispatch_catalog" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "code" varchar,
+  "name" varchar,
+  "weight" numeric(10,2) NOT NULL DEFAULT 0,
+  "volume" numeric(10,2) NOT NULL DEFAULT 0,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- BOQ line item templates (documents/upload/boq-enhanced)
+CREATE TABLE IF NOT EXISTS "pm_boq_line_templates" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "item" varchar,
+  "description" varchar,
+  "unit" varchar,
+  "quantity" numeric(12,2) NOT NULL DEFAULT 0,
+  "rate" numeric(12,2) NOT NULL DEFAULT 0,
+  "amount" numeric(15,2) NOT NULL DEFAULT 0,
+  "is_valid" boolean NOT NULL DEFAULT true,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- Project plans (net-new, additive) — powers projects/planning list page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "pm_project_plans" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar(100) NOT NULL,
+  "projectCode" varchar(50) NULL,
+  "projectName" varchar(255) NOT NULL,
+  "client" varchar(255) NULL,
+  "projectManager" varchar(255) NULL,
+  "startDate" date NULL,
+  "endDate" date NULL,
+  "estimatedBudget" numeric(18,2) NOT NULL DEFAULT 0,
+  "actualBudget" numeric(18,2) NOT NULL DEFAULT 0,
+  "status" varchar(30) NOT NULL DEFAULT 'planning',
+  "priority" varchar(20) NOT NULL DEFAULT 'medium',
+  "progressPercentage" integer NOT NULL DEFAULT 0,
+  "phase" varchar(255) NULL,
+  "milestones" integer NOT NULL DEFAULT 0,
+  "completedMilestones" integer NOT NULL DEFAULT 0,
+  "teamSize" integer NOT NULL DEFAULT 0,
+  "location" varchar(255) NULL,
+  "projectType" varchar(100) NULL,
+  "riskLevel" varchar(20) NOT NULL DEFAULT 'low',
+  "plannedHours" integer NOT NULL DEFAULT 0,
+  "actualHours" integer NOT NULL DEFAULT 0,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_pm_project_plans" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_pm_project_plans_company_status"
+  ON "pm_project_plans" ("companyId", "status");

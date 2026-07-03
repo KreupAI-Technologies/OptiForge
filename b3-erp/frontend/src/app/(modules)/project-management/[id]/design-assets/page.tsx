@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Image as ImageIcon,
     FileText,
@@ -69,6 +70,39 @@ export default function DesignAssetGallery() {
     const { id } = useParams() as { id: string };
     const [assets, setAssets] = useState<DesignAsset[]>(mockAssets);
     const [filter, setFilter] = useState<'all' | 'drawing' | 'render'>('all');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listDesignAssets();
+                if (!active) return;
+                if (rows && rows.length > 0) {
+                    setAssets(rows.map((r) => ({
+                        id: r.id,
+                        fileName: r.fileName || '',
+                        category: (r.category as DesignAsset['category']) || 'drawing',
+                        version: r.version ?? 1,
+                        uploadDate: r.uploadDate || '',
+                        status: (r.status as DesignAsset['status']) || 'pending',
+                        thumbnailUrl: r.thumbnailUrl,
+                        fileUrl: r.fileUrl || '#',
+                        comments: r.comments,
+                        isLatest: r.isLatest ?? true,
+                    })));
+                }
+                setError(null);
+            } catch (e) {
+                if (active) setError('Failed to load design assets');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
+    }, [id]);
 
     const filteredAssets = filter === 'all' ? assets : assets.filter(a => a.category === filter);
 
@@ -82,6 +116,12 @@ export default function DesignAssetGallery() {
 
     return (
         <div className="w-full space-y-4 px-3 py-2">
+            {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+            )}
+            {loading && (
+                <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading assets…</div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div>

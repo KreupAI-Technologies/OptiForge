@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { costEstimateService } from '@/services/estimation-cost-estimate.service';
 import {
   ArrowLeft,
   Edit,
@@ -194,7 +195,46 @@ export default function ViewCostingPage() {
   const router = useRouter();
   const params = useParams();
   const costingId = params.id as string;
-  const costing = mockCosting;
+
+  const [costing, setCosting] = useState<Costing>(mockCosting);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await costEstimateService.findOne('default', costingId)) as any;
+        if (!cancelled && raw) {
+          setCosting((prev) => ({
+            ...prev,
+            id: raw.id ?? prev.id,
+            costingNumber: raw.estimateNumber ?? prev.costingNumber,
+            projectName: raw.title ?? prev.projectName,
+            clientName: raw.customerName ?? prev.clientName,
+            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as Costing['status']) || prev.status,
+            totalMaterialCost: raw.materialCost != null ? Number(raw.materialCost) : prev.totalMaterialCost,
+            totalLaborCost: raw.laborCost != null ? Number(raw.laborCost) : prev.totalLaborCost,
+            totalOverheadCost: raw.overheadCost != null ? Number(raw.overheadCost) : prev.totalOverheadCost,
+            totalCost: raw.totalCost != null ? Number(raw.totalCost) : prev.totalCost,
+            currency: raw.currency ?? prev.currency,
+            createdBy: raw.submittedBy ?? prev.createdBy,
+            approvedBy: raw.approvedBy ?? prev.approvedBy,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load costing');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [costingId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'breakdown' | 'activity'>('overview');
 
@@ -213,6 +253,16 @@ export default function ViewCostingPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+          Loading costing...
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

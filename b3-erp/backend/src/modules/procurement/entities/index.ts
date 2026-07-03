@@ -19,3 +19,4 @@ export * from './bom-receipt.entity';
 export * from './procurement-category.entity';
 export * from './savings-initiative.entity';
 export * from './vendor-scorecard.entity';
+export * from './vendor.entity';

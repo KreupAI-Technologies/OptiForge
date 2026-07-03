@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { useRouter } from 'next/navigation';
 import {
   Upload,
@@ -131,6 +132,30 @@ export default function UploadBOQEnhancedPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [boqTemplate, setBoqTemplate] = useState<BOQItem[]>(mockBOQItems);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await projectManagementService.listBoqLineTemplates();
+        if (!active || !rows || rows.length === 0) return;
+        setBoqTemplate(rows.map((r) => ({
+          id: r.id,
+          item: r.item || '',
+          description: r.description || '',
+          unit: r.unit || '',
+          quantity: r.quantity ?? 0,
+          rate: r.rate ?? 0,
+          amount: r.amount ?? 0,
+          isValid: r.isValid ?? true,
+        })));
+      } catch {
+        // keep static fallback
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   // Auto-save draft
   const { lastSaved, isSaving, hasDraft, clearDraft, restoreDraft } = useAutoSaveDraft(
@@ -198,9 +223,9 @@ export default function UploadBOQEnhancedPage() {
       fileName: file.name,
       fileSize: file.size,
       // Mock parsing - in real app, this would parse the file
-      boqItems: file.name.endsWith('.xlsx') || file.name.endsWith('.xls') ? mockBOQItems : [],
+      boqItems: file.name.endsWith('.xlsx') || file.name.endsWith('.xls') ? boqTemplate : [],
     }));
-  }, []);
+  }, [boqTemplate]);
 
   // Handle file input change
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

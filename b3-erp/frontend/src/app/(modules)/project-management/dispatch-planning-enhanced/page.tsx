@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
  Truck,
  Package,
@@ -134,6 +135,21 @@ export default function DispatchPlanningEnhancedPage() {
  const [currentStep, setCurrentStep] = useState(0);
  const [errors, setErrors] = useState<Record<string, string>>({});
  const [showDraftBanner, setShowDraftBanner] = useState(true);
+ const [itemCatalog, setItemCatalog] = useState(mockItems);
+
+ useEffect(() => {
+  let active = true;
+  (async () => {
+   try {
+    const rows = await projectManagementService.listDispatchCatalog();
+    if (!active || !rows || rows.length === 0) return;
+    setItemCatalog(rows.map((r) => ({ code: r.code || '', name: r.name || '', weight: r.weight ?? 0, volume: r.volume ?? 0 })));
+   } catch {
+    // keep static fallback
+   }
+  })();
+  return () => { active = false; };
+ }, []);
 
  const [formData, setFormData] = useState<DispatchFormData>({
   // Step 1
@@ -244,7 +260,7 @@ export default function DispatchPlanningEnhancedPage() {
     const updated = { ...item, [field]: value };
     // Auto-fill from mock data if item code selected
     if (field === 'itemCode') {
-     const mockItem = mockItems.find(m => m.code === value);
+     const mockItem = itemCatalog.find(m => m.code === value);
      if (mockItem) {
       updated.description = mockItem.name;
       updated.weight = mockItem.weight;
@@ -636,7 +652,7 @@ export default function DispatchPlanningEnhancedPage() {
                 <SelectValue placeholder="Select item" />
                </SelectTrigger>
                <SelectContent>
-                {mockItems.map(mi => (
+                {itemCatalog.map(mi => (
                  <SelectItem key={mi.code} value={mi.code}>
                   {mi.code}
                  </SelectItem>

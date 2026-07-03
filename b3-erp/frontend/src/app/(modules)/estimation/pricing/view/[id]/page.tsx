@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { estimationPricingService } from '@/services/estimation-pricing.service';
 import {
   ArrowLeft,
   Edit,
@@ -285,7 +286,41 @@ export default function ViewPricingPage() {
   const router = useRouter();
   const params = useParams();
   const priceListId = params.id as string;
-  const priceList = mockPriceList;
+
+  const [priceList, setPriceList] = useState<PriceList>(mockPriceList);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await estimationPricingService.findOne('default', priceListId)) as any;
+        if (!cancelled && raw) {
+          setPriceList((prev) => ({
+            ...prev,
+            id: raw.id ?? prev.id,
+            priceListNumber: raw.pricingNumber ?? raw.priceListNumber ?? prev.priceListNumber,
+            priceListName: raw.name ?? raw.priceListName ?? prev.priceListName,
+            description: raw.description ?? prev.description,
+            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as PriceList['status']) || prev.status,
+            currency: raw.currency ?? prev.currency,
+            averageMarginPercent: raw.marginPercent != null ? Number(raw.marginPercent) : prev.averageMarginPercent,
+            createdBy: raw.createdBy ?? prev.createdBy,
+            approvedBy: raw.approvedBy ?? prev.approvedBy,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load pricing');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [priceListId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'history'>('overview');
 
@@ -297,6 +332,8 @@ export default function ViewPricingPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading pricing...</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="mb-3">
         <button

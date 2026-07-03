@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Wrench,
     Users,
@@ -168,6 +169,21 @@ export default function InstallationTrackingEnhancedPage() {
     const [currentStep, setCurrentStep] = useState(0);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showDraftBanner, setShowDraftBanner] = useState(true);
+    const [equipmentCatalog, setEquipmentCatalog] = useState(mockEquipment);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const rows = await projectManagementService.listEquipmentCatalog();
+                if (!active || !rows || rows.length === 0) return;
+                setEquipmentCatalog(rows.map((r) => ({ code: r.code || '', name: r.name || '' })));
+            } catch {
+                // keep static fallback
+            }
+        })();
+        return () => { active = false; };
+    }, []);
 
     const [formData, setFormData] = useState<InstallationFormData>({
         // Step 1
@@ -259,7 +275,7 @@ export default function InstallationTrackingEnhancedPage() {
     };
 
     const handleEquipmentChange = (code: string) => {
-        const equipment = mockEquipment.find(e => e.code === code);
+        const equipment = equipmentCatalog.find(e => e.code === code);
         updateFormData('equipmentCode', code);
         updateFormData('equipmentItem', equipment?.name || '');
     };
@@ -466,7 +482,7 @@ export default function InstallationTrackingEnhancedPage() {
                                             <SelectValue placeholder="Select equipment" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {mockEquipment.map(eq => (
+                                            {equipmentCatalog.map(eq => (
                                                 <SelectItem key={eq.code} value={eq.code}>
                                                     {eq.code} - {eq.name}
                                                 </SelectItem>

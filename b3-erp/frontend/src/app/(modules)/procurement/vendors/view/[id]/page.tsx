@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { vendorService } from '@/services/VendorService';
 import {
   ArrowLeft,
   Building2,
@@ -516,7 +517,54 @@ export default function VendorViewPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'transactions'>('overview');
-  const [vendor] = useState<Vendor>(mockVendor);
+  const [vendor, setVendor] = useState<Vendor>(mockVendor);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await vendorService.getVendorById(id)) as any;
+        if (!cancelled && raw) {
+          setVendor((prev) => ({
+            ...prev,
+            id: raw.id ?? prev.id,
+            vendorCode: raw.vendorCode ?? prev.vendorCode,
+            legalName: raw.legalName ?? prev.legalName,
+            tradeName: raw.tradeName ?? prev.tradeName,
+            gstNumber: raw.gstNumber ?? prev.gstNumber,
+            panNumber: raw.panNumber ?? prev.panNumber,
+            cinNumber: raw.cinNumber ?? prev.cinNumber,
+            msmeRegistration: raw.msmeRegistration ?? prev.msmeRegistration,
+            rating: raw.rating != null ? Number(raw.rating) : prev.rating,
+            status: (raw.status as Vendor['status']) ?? prev.status,
+            contactPersons: raw.contactPersons ?? prev.contactPersons,
+            addresses: raw.addresses ?? prev.addresses,
+            bankDetails: raw.bankDetails ?? prev.bankDetails,
+            paymentTerms: raw.paymentTerms ?? prev.paymentTerms,
+            categories: raw.categories ?? prev.categories,
+            specificMaterials: raw.specificMaterials ?? prev.specificMaterials,
+            certifications: raw.certifications ?? prev.certifications,
+            documents: raw.documents ?? prev.documents,
+            totalPOs: raw.totalPOs != null ? Number(raw.totalPOs) : prev.totalPOs,
+            totalSpendYTD: raw.totalSpendYTD != null ? Number(raw.totalSpendYTD) : prev.totalSpendYTD,
+            registeredDate: raw.registeredDate ? String(raw.registeredDate).slice(0, 10) : prev.registeredDate,
+            lastOrderDate: raw.lastOrderDate ? String(raw.lastOrderDate).slice(0, 10) : prev.lastOrderDate,
+            notes: raw.notes ?? prev.notes,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load vendor');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [id]);
 
   const statusColors = {
     active: 'bg-green-100 text-green-700 border-green-200',

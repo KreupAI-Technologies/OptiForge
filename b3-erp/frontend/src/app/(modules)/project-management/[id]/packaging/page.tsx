@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Package,
     Weight,
@@ -30,8 +32,46 @@ const mockCrates: Crate[] = [
 ];
 
 export default function PackingDashboard() {
+    const params = useParams() as { id?: string };
+    const [crates, setCrates] = useState<Crate[]>(mockCrates);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setLoading(true);
+                const rows = await projectManagementService.listCrates();
+                if (!active) return;
+                if (rows && rows.length > 0) {
+                    setCrates(rows.map((r) => ({
+                        id: r.id,
+                        number: r.number || '',
+                        items: r.items ?? 0,
+                        designWeight: r.designWeight ?? 0,
+                        actualWeight: r.actualWeight,
+                        status: (r.status as Crate['status']) || 'Open',
+                    })));
+                }
+                setError(null);
+            } catch (e) {
+                if (active) setError('Failed to load crates');
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => { active = false; };
+    }, [params?.id]);
+
     return (
         <div className="w-full space-y-4 px-3 py-2">
+            {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold px-4 py-2 rounded-lg">{error}</div>
+            )}
+            {loading && (
+                <div className="bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg">Loading crates…</div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -56,7 +96,7 @@ export default function PackingDashboard() {
 
             {/* Crate Visual Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {mockCrates.map(crate => (
+                {crates.map(crate => (
                     <div key={crate.id} className={`bg-white rounded-3xl border-2 transition-all p-6 space-y-6 ${crate.status === 'Mismatch' ? 'border-rose-200 shadow-lg shadow-rose-50' : 'border-gray-100 hover:border-indigo-100'
                         }`}>
                         <div className="flex justify-between items-start">

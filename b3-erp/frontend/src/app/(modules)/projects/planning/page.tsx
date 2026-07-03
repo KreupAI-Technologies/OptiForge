@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService, PmProjectPlan } from '@/services/ProjectManagementService';
 import { Plus, Search, Eye, Edit, Trash2, FolderKanban, Calendar, Users, DollarSign, TrendingUp, Clock, CheckCircle, Download, Filter, ChevronLeft, ChevronRight, Target } from 'lucide-react';
 
 interface ProjectPlan {
@@ -169,9 +170,58 @@ const riskLevelColors = {
   critical: 'bg-red-100 text-red-700',
 };
 
+function mapPlan(p: PmProjectPlan): ProjectPlan {
+  return {
+    id: p.id,
+    projectCode: p.projectCode ?? '',
+    projectName: p.projectName ?? '',
+    client: p.client ?? '',
+    projectManager: p.projectManager ?? '',
+    startDate: p.startDate ? String(p.startDate).slice(0, 10) : '',
+    endDate: p.endDate ? String(p.endDate).slice(0, 10) : '',
+    estimatedBudget: Number(p.estimatedBudget ?? 0),
+    actualBudget: Number(p.actualBudget ?? 0),
+    status: (p.status as ProjectPlan['status']) ?? 'planning',
+    priority: (p.priority as ProjectPlan['priority']) ?? 'medium',
+    progressPercentage: Number(p.progressPercentage ?? 0),
+    phase: p.phase ?? '',
+    milestones: Number(p.milestones ?? 0),
+    completedMilestones: Number(p.completedMilestones ?? 0),
+    teamSize: Number(p.teamSize ?? 0),
+    location: p.location ?? '',
+    projectType: (p.projectType as ProjectPlan['projectType']) ?? 'Custom',
+    riskLevel: (p.riskLevel as ProjectPlan['riskLevel']) ?? 'low',
+    plannedHours: Number(p.plannedHours ?? 0),
+    actualHours: Number(p.actualHours ?? 0),
+  };
+}
+
 export default function ProjectPlanningPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState<ProjectPlan[]>(mockProjectPlans);
+  const [projects, setProjects] = useState<ProjectPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await projectManagementService.listProjectPlans();
+        if (!cancelled) setProjects((rows ?? []).map(mapPlan));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load project plans');
+          setProjects([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -217,6 +267,8 @@ export default function ProjectPlanningPage() {
 
   return (
     <div className="w-full min-h-screen px-3 py-2 ">
+      {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading project plans...</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
       {/* Stats with Add Button */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

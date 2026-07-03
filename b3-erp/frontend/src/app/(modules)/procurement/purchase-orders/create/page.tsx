@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { vendorService } from '@/services/VendorService'
 import {
   ArrowLeft,
   ArrowRight,
@@ -123,8 +124,8 @@ export default function CreatePurchaseOrderPage() {
 
   const [attachments, setAttachments] = useState<File[]>([])
 
-  // Mock vendor data
-  const mockVendors: Vendor[] = [
+  // Vendor picker data — loaded from procurement/vendors (falls back to samples)
+  const fallbackVendors: Vendor[] = [
     {
       id: '1',
       code: 'VEND-001',
@@ -156,6 +157,42 @@ export default function CreatePurchaseOrderPage() {
       rating: 4.2
     }
   ]
+
+  const [mockVendors, setMockVendors] = useState<Vendor[]>(fallbackVendors)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = (await vendorService.getVendors()) as any
+        const rows: any[] = Array.isArray(res) ? res : res?.data ?? []
+        if (!cancelled && rows.length) {
+          setMockVendors(rows.map((v: any) => {
+            const addr = Array.isArray(v.addresses) ? v.addresses[0] ?? {} : {}
+            const contact = Array.isArray(v.contactPersons) ? v.contactPersons[0] ?? {} : {}
+            const terms = v.paymentTerms ?? {}
+            return {
+              id: v.id,
+              code: v.vendorCode ?? '',
+              name: v.legalName ?? v.tradeName ?? '',
+              contactPerson: contact.name ?? '',
+              email: contact.email ?? '',
+              phone: contact.mobile ?? contact.phone ?? '',
+              address: addr.addressLine1 ?? '',
+              city: addr.city ?? '',
+              country: addr.country ?? '',
+              paymentTerms: terms.netDays ? `Net ${terms.netDays}` : (terms.discountTerms ?? 'Net 30'),
+              currency: 'INR',
+              taxId: v.gstNumber ?? '',
+              rating: Number(v.rating ?? 0),
+            } as Vendor
+          }))
+        }
+      } catch { /* keep fallback vendors on error */ }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   // Mock item catalog
   const mockCatalog = [

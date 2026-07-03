@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { purchaseOrderService } from '@/services/purchase-order.service';
 import {
   ArrowLeft,
   Edit,
@@ -391,7 +392,69 @@ export default function ViewPurchaseOrderPage() {
   const router = useRouter();
   const params = useParams();
   const poId = params.id as string;
-  const po = mockPurchaseOrder;
+
+  const [po, setPo] = useState<PurchaseOrder>(mockPurchaseOrder);
+  const [lineItems, setLineItems] = useState<POLineItem[]>(mockLineItems);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poStatusMap: Record<string, PurchaseOrder['status']> = {
+      Draft: 'draft', 'Pending Approval': 'sent', Approved: 'confirmed', 'Sent to Vendor': 'sent',
+      'Partially Received': 'partially_received', 'Fully Received': 'received', Closed: 'closed', Cancelled: 'cancelled',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await purchaseOrderService.getPurchaseOrderById(poId)) as any;
+        if (!cancelled && raw) {
+          setPo((prev) => ({
+            ...prev,
+            id: raw.id ?? prev.id,
+            poNumber: raw.poNumber ?? prev.poNumber,
+            status: poStatusMap[raw.status] ?? prev.status,
+            vendorName: raw.vendorName ?? prev.vendorName,
+            vendorContact: raw.vendorContact ?? prev.vendorContact,
+            poDate: raw.orderDate ?? raw.poDate ?? prev.poDate,
+            expectedDelivery: raw.deliveryDate ?? prev.expectedDelivery,
+            requisitionRef: raw.prReference ?? prev.requisitionRef,
+            rfqRef: raw.rfqReference ?? prev.rfqRef,
+            paymentTerms: raw.paymentTerms ?? prev.paymentTerms,
+            subtotal: raw.subtotal != null ? Number(raw.subtotal) : prev.subtotal,
+            discount: raw.discountAmount != null ? Number(raw.discountAmount) : prev.discount,
+            total: raw.totalAmount != null ? Number(raw.totalAmount) : prev.total,
+            notes: raw.notes ?? prev.notes,
+            termsConditions: raw.terms ?? prev.termsConditions,
+          }));
+          if (Array.isArray(raw.items) && raw.items.length) {
+            setLineItems(raw.items.map((it: any, idx: number) => ({
+              id: it.id ?? String(idx),
+              itemCode: it.itemCode ?? '',
+              description: it.itemName ?? it.description ?? '',
+              hsn: it.hsn ?? '',
+              quantity: Number(it.quantity ?? 0),
+              receivedQty: Number(it.receivedQuantity ?? 0),
+              unit: it.unit ?? '',
+              unitPrice: Number(it.unitPrice ?? 0),
+              taxRate: Number(it.taxRate ?? 0),
+              taxType: 'CGST+SGST' as const,
+              discountPercent: Number(it.discount ?? 0),
+              taxAmount: Number(it.taxAmount ?? 0),
+              total: Number(it.totalAmount ?? 0),
+            })));
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load purchase order');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [poId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'line_items' | 'delivery_qc'>('overview');
 
@@ -417,6 +480,8 @@ export default function ViewPurchaseOrderPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading purchase order...</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="mb-3">
         <button
@@ -880,7 +945,7 @@ export default function ViewPurchaseOrderPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {mockLineItems.map((item) => {
+                    {lineItems.map((item) => {
                       const receivedPercent = (item.receivedQty / item.quantity) * 100;
                       return (
                         <tr key={item.id} className="hover:bg-gray-50">
