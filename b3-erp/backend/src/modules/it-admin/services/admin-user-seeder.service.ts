@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User, UserStatus, UserType } from '../entities/user.entity';
 import { Role } from '../entities/role.entity';
 import { UserRole, UserRoleStatus } from '../entities/user-role.entity';

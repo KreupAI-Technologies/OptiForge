@@ -2,13 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { UserService } from '../../src/modules/it-admin/services/user.service';
 import { UserFactory } from '../factories/user.factory';
 import { createMockService } from '../utils/test-setup';
 
-jest.mock('bcrypt');
+jest.mock('bcryptjs');
 
 describe('AuthService', () => {
     let service: AuthService;

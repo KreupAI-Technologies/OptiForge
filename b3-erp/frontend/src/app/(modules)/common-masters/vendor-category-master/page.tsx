@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Truck, Star, Shield, TrendingUp, Package, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -103,7 +105,7 @@ export default function VendorCategoryMasterPage() {
       sortable: true,
       render: (value) => (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getVendorTypeColor(value)}`}>
-          {value.replace('_', ' ')}
+          {value?.replace('_', ' ') ?? ''}
         </span>
       )
     },

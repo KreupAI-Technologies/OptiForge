@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { Project, projectManagementService, SiteVisit } from '@/services/ProjectManagementService';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
