@@ -3,7 +3,7 @@
  * Handles all warranty-related API operations for the After-Sales module
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const USE_MOCK_DATA = true;
 
 // ============================================================================

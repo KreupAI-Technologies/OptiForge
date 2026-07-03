@@ -3,7 +3,7 @@
  * Handles all lead-related API operations for the CRM module
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const USE_MOCK_DATA = false; // Set to false to use backend
 
 // ============================================================================

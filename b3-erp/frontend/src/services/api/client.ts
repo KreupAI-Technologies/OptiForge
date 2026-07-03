@@ -2,7 +2,7 @@ import { config } from '@/lib/config';
 
 // Base API URL — reads from env variable set in .env.local
 const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL ?? config.apiUrl ?? 'http://localhost:8000/api/v1';
+    process.env.NEXT_PUBLIC_API_URL ?? config.apiUrl ?? 'http://localhost:3001/api/v1';
 
 export interface ApiResponse<T> {
     success: boolean;

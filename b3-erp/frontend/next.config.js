@@ -10,7 +10,8 @@ const nextConfig = {
     domains: ['localhost'],
   },
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
+    // Domain (NestJS) backend base URL, including the /api/v1 global prefix.
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1',
   },
   eslint: {
     ignoreDuringBuilds: true,

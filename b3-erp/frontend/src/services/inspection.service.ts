@@ -1,7 +1,7 @@
 // Quality Inspection Service
 // Handles quality inspection operations for the Quality Module
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const USE_MOCK_DATA = true;
 
 // ==================== ENUMS ====================

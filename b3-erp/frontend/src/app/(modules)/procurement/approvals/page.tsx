@@ -85,8 +85,10 @@ export default function ApprovalsPage() {
   useEffect(() => {
     fetchApprovals()
 
-    // Real-time updates
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000')
+    // Real-time updates. Socket.IO binds at the server origin, not the /api/v1
+    // REST prefix, so strip any path from the configured API URL.
+    const wsOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1').replace(/\/api\/v1\/?$/, '')
+    const socket = io(wsOrigin)
 
     socket.on('connect', () => {
       console.log('Connected to WebSocket for approvals')

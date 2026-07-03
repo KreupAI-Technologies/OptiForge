@@ -6,7 +6,7 @@
 
 import { coreService } from './core.service';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const USE_MOCK_DATA = false;
 
 // ============================================================================

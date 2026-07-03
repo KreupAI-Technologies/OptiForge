@@ -6,6 +6,12 @@ import { AuthProvider } from '@/context/AuthContext'
 import { NotificationProvider } from '@/context/NotificationContext'
 import { UserPreferenceProvider } from '@/contexts/UserPreferenceContext'
 
+// OptiForge is an authenticated, tenant-specific ERP: every route is user/tenant
+// scoped and gated behind AuthProvider, so static prerendering has no value and
+// only breaks the build (client pages evaluating live/mock data at export time).
+// Forcing dynamic rendering at the root cascades to all routes.
+export const dynamic = 'force-dynamic'
+
 const roboto = Roboto({
   subsets: ['latin'],
   weight: ['100', '300', '400', '500', '700', '900']

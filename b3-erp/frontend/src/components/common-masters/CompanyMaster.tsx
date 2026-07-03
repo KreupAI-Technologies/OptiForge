@@ -67,9 +67,8 @@ const CompanyMaster: React.FC = () => {
   const [filterType, setFilterType] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
 
-  // API Base URL
-  // API Base URL
-  const API_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/companies`;
+  // API Base URL (NEXT_PUBLIC_API_URL already includes the /api/v1 prefix)
+  const API_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies`;
 
   // Mock Data
   const MOCK_COMPANIES: Company[] = [
