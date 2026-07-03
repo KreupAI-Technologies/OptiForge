@@ -6,14 +6,21 @@
 |---|---|
 | FE `next build` | ✅ green (all passes) |
 | NestJS build + boot | ✅ green, live, serving real data |
-| Backend endpoint health | ✅ **157/216 controllers healthy, 0 real 500s** (all 6 originally-broken fixed; last "500" is a POST seeder) |
-| Pages wired to live endpoints | ✅ **108** (66 pass-1 + 41 orphan-pass + template) |
+| Backend endpoint health | ✅ **217/280 controllers healthy, 0 real 500s** (all 6 originally-broken fixed; last "500" is a POST seeder) |
+| Net-new endpoints built | ✅ **~64** across all 18 modules (216→280 controllers), each verified 200, DI boots |
+| New tables (additive) | ✅ **~55** via `CREATE TABLE IF NOT EXISTS` migrations (prisma/manual/orphan_*.sql) — **zero drops** |
+| Pages wired to live endpoints | ✅ **~200** (66 + 41 orphan-wire + ~90 endpoint-build passes + template) |
 | Export/Print buttons destubbed | ✅ **185 pages** → real CSV / print |
 | Mock-data flags | ✅ all 41 services flipped off |
 | Auth | ✅ consolidated on local JWT (verified) |
-| Pages needing net-new endpoints | ⏳ **210** (itemized below) — net-new feature development |
+| Pages still on mock data | ⏳ **~181** — remaining orphans, mostly analytics/settings/integration sub-features in the heavy modules (cpq, crm, sales, it-admin, project-management) |
 
-The detail sections below record each automated pass. The **210 truly-orphan pages** are the remaining work: their backend endpoints do not exist and must be built (mostly analytics, settings, workflow-approval, template, and integration sub-features) — this is net-new development, not wiring.
+**Endpoint-building rounds** (each: build TypeORM entity + additive table + service + controller + registration + FE wiring; verified 200 against the live backend):
+- Round 1 (8 modules): 23 endpoints, 19 tables.
+- Round 2 (6 modules): 20 endpoints; fixed support route collision.
+- Round 3 + light-module batch (10 modules): ~21 endpoints; hr/finance/production/estimation/workflow/common-masters/after-sales/inventory/logistics/quality all covered.
+
+Remaining ~181 pages are the same mechanical pattern (build endpoint + wire) concentrated in the high-orphan modules; clearing them is additional endpoint-building rounds.
 
 ---
 
