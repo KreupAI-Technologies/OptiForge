@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Package, FileText, ArrowLeft, Download, Eye, Calendar } from 'lucide-react';
+import { fetchReportCatalog } from '@/services/reports-management.service';
 
-const inventoryReports = [
+interface CatalogReport {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  frequency: string;
+  lastGenerated?: string;
+}
+
+const defaultInventoryReports: CatalogReport[] = [
   { id: '1', name: 'Stock Valuation Report', description: 'Current inventory value across all warehouses', category: 'Valuation', frequency: 'Daily', lastGenerated: '2025-10-27' },
   { id: '2', name: 'Inventory Aging Analysis', description: 'Stock age distribution and slow-moving items', category: 'Aging', frequency: 'Weekly', lastGenerated: '2025-10-26' },
   { id: '3', name: 'Stock Movement Report', description: 'Detailed inward/outward stock movements', category: 'Movement', frequency: 'Daily', lastGenerated: '2025-10-27' },
@@ -17,6 +27,32 @@ const inventoryReports = [
 
 export default function InventoryReportsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
+  const [inventoryReports, setInventoryReports] = useState<CatalogReport[]>(defaultInventoryReports);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReportCatalog('inventory')
+      .then((items) => {
+        if (cancelled || items.length === 0) return;
+        setInventoryReports(
+          items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            description: it.description ?? '',
+            category: it.category ?? 'General',
+            frequency: it.frequency ?? 'On-Demand',
+            lastGenerated: it.lastGenerated ?? undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        // Keep built-in defaults when the catalog endpoint is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['all', ...Array.from(new Set(inventoryReports.map(r => r.category)))];
   const filteredReports = filterCategory === 'all' ? inventoryReports : inventoryReports.filter(r => r.category === filterCategory);
 

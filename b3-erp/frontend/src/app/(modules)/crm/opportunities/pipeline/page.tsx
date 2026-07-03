@@ -30,6 +30,7 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { crmService } from '@/services/crm.service';
 
 interface Opportunity {
   id: string;
@@ -282,32 +283,96 @@ export default function OpportunitiesPipelinePage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [allOpportunities, setAllOpportunities] = useState<Opportunity[]>(mockOpportunities);
 
-  // Initialize pipeline with opportunities
+  // Map a crm_leads status to this page's stage ids.
+  const stageIdFromLeadStatus = (s: string): string => {
+    switch (s) {
+      case 'qualified':
+        return 'qualification';
+      case 'new':
+      case 'contacted':
+        return 'needs-analysis';
+      case 'proposal':
+        return 'proposal';
+      case 'negotiation':
+        return 'negotiation';
+      case 'won':
+        return 'closed-won';
+      case 'lost':
+        return 'closed-lost';
+      default:
+        return 'needs-analysis';
+    }
+  };
+
+  // Initialize pipeline with opportunities from the API (fallback to mock).
   useEffect(() => {
-    const updatedStages = stages.map((stage) => ({
-      ...stage,
-      opportunities: mockOpportunities.filter((opp) => opp.stage === stage.id),
-    }));
-    setPipelineData(updatedStages);
+    let active = true;
+    (async () => {
+      let opps: Opportunity[] = mockOpportunities;
+      try {
+        const [pipeline, won, lost] = await Promise.all([
+          crmService.opportunityViews.getPipeline(),
+          crmService.opportunityViews.getWon(),
+          crmService.opportunityViews.getLost(),
+        ]);
+        const flat: any[] = [];
+        (Array.isArray(pipeline?.stages) ? pipeline.stages : []).forEach((st: any) => {
+          (Array.isArray(st?.opportunities) ? st.opportunities : []).forEach((o: any) => flat.push(o));
+        });
+        (Array.isArray(won?.opportunities) ? won.opportunities : []).forEach((o: any) => flat.push(o));
+        (Array.isArray(lost?.opportunities) ? lost.opportunities : []).forEach((o: any) => flat.push(o));
+        if (flat.length) {
+          opps = flat.map((o: any) => ({
+            id: String(o?.id ?? ''),
+            name: o?.name ?? '',
+            accountName: o?.account ?? '',
+            contactName: o?.contact ?? '',
+            email: '',
+            phone: '',
+            stage: stageIdFromLeadStatus(String(o?.stage ?? '')),
+            value: Number(o?.value ?? 0),
+            probability: Number(o?.probability ?? 0),
+            expectedCloseDate: o?.expectedCloseDate ?? '',
+            owner: o?.owner ?? '',
+            createdDate: '',
+            lastActivity: o?.lastContactDate ?? '',
+            nextStep: '',
+            source: o?.source ?? '',
+            products: [],
+            priority: 'medium',
+            daysInStage: 0,
+          }));
+        }
+      } catch {
+        opps = mockOpportunities;
+      }
+      if (!active) return;
+      setAllOpportunities(opps);
+      setPipelineData(
+        stages.map((stage) => ({
+          ...stage,
+          opportunities: opps.filter((opp) => opp.stage === stage.id),
+        })),
+      );
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Calculate pipeline statistics
+  const openOpps = allOpportunities.filter((o) => !o.stage.includes('closed'));
   const stats = {
-    totalOpportunities: mockOpportunities.filter((o) => !o.stage.includes('closed')).length,
-    totalValue: mockOpportunities
-      .filter((o) => !o.stage.includes('closed'))
-      .reduce((sum, o) => sum + o.value, 0),
-    weightedValue: mockOpportunities
-      .filter((o) => !o.stage.includes('closed'))
-      .reduce((sum, o) => sum + o.value * (o.probability / 100), 0),
-    avgDealSize:
-      mockOpportunities
-        .filter((o) => !o.stage.includes('closed'))
-        .reduce((sum, o) => sum + o.value, 0) /
-      mockOpportunities.filter((o) => !o.stage.includes('closed')).length,
-    wonDeals: mockOpportunities.filter((o) => o.stage === 'closed-won').length,
-    wonValue: mockOpportunities
+    totalOpportunities: openOpps.length,
+    totalValue: openOpps.reduce((sum, o) => sum + o.value, 0),
+    weightedValue: openOpps.reduce((sum, o) => sum + o.value * (o.probability / 100), 0),
+    avgDealSize: openOpps.length
+      ? openOpps.reduce((sum, o) => sum + o.value, 0) / openOpps.length
+      : 0,
+    wonDeals: allOpportunities.filter((o) => o.stage === 'closed-won').length,
+    wonValue: allOpportunities
       .filter((o) => o.stage === 'closed-won')
       .reduce((sum, o) => sum + o.value, 0),
   };

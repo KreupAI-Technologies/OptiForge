@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, RefreshCw, TrendingUp, User, Building2, Send, Phone, Mail, FileText } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface ContractRenewal {
   id: string;
@@ -258,7 +259,53 @@ const mockRenewals: ContractRenewal[] = [
 ];
 
 export default function ContractRenewalsPage() {
-  const [renewals] = useState<ContractRenewal[]>(mockRenewals);
+  const [renewals, setRenewals] = useState<ContractRenewal[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.contractRenewals.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setRenewals(
+          rows.map((r: any) => ({
+            id: String(r?.id ?? ''),
+            contractNumber: r?.contractNumber ?? '',
+            contractTitle: r?.contractTitle ?? '',
+            customer: r?.customer ?? '',
+            customerCompany: r?.customerCompany ?? '',
+            contactPerson: r?.contactPerson ?? '',
+            contactEmail: r?.contactEmail ?? '',
+            contactPhone: r?.contactPhone ?? '',
+            currentValue: Number(r?.currentValue ?? 0),
+            proposedValue: Number(r?.proposedValue ?? 0),
+            valueChange: Number(r?.valueChange ?? 0),
+            changePercent: Number(r?.changePercent ?? 0),
+            currentEndDate: r?.currentEndDate ?? '',
+            proposedStartDate: r?.proposedStartDate ?? '',
+            proposedDuration: Number(r?.proposedDuration ?? 0),
+            daysUntilExpiry: Number(r?.daysUntilExpiry ?? 0),
+            renewalProbability: Number(r?.renewalProbability ?? 0),
+            status: (r?.status ?? 'upcoming') as ContractRenewal['status'],
+            lastContactDate: r?.lastContactDate ?? '',
+            nextFollowUpDate: r?.nextFollowUpDate ?? '',
+            assignedTo: r?.assignedTo ?? '',
+            tags: Array.isArray(r?.tags) ? r.tags : [],
+            notes: r?.notes ?? '',
+            autoRenew: Boolean(r?.autoRenew),
+            renewalNoticeSent: Boolean(r?.renewalNoticeSent),
+            customerResponse: r?.customerResponse ?? undefined,
+          })),
+        );
+      } catch {
+        if (active) setRenewals(mockRenewals);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'upcoming' | 'in_progress' | 'negotiation' | 'committed' | 'at_risk' | 'lost' | 'renewed'>('all');
   const [timeframeFilter, setTimeframeFilter] = useState<'all' | '30_days' | '60_days' | '90_days'>('all');

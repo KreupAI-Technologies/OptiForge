@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   FileText, Search, Filter, Plus, Download, Upload, Eye, Edit, Trash2,
   CheckCircle, XCircle, AlertCircle, Clock, DollarSign, Calendar, Link,
@@ -8,6 +8,70 @@ import {
   AlertTriangle, Check, X, RefreshCw, Send, Printer, Mail, ArrowRight,
   TrendingUp, TrendingDown, MoreVertical, Copy, ExternalLink
 } from 'lucide-react'
+import { procurementPurchaseInvoiceService } from '@/services/procurement-purchase-invoice.service'
+
+type InvoiceView = {
+  id: string
+  vendor: string
+  poNumber: string
+  grnNumber: string
+  date: string
+  dueDate: string
+  amount: number
+  status: string
+  matchingStatus: string
+  items: { name: string; qty: number; poQty: number; grnQty: number; price: number; poPrice: number }[]
+  discrepancies: string[]
+}
+
+// Maps the backend PurchaseInvoice status enum to the compact UI status vocabulary.
+const mapStatus = (raw?: string): string => {
+  const s = (raw || '').toLowerCase()
+  if (s.includes('paid')) return 'paid'
+  if (s.includes('approv') || s.includes('posted') || s.includes('matched')) return 'approved'
+  if (s.includes('reject') || s.includes('mismatch') || s.includes('dispute')) return 'disputed'
+  return 'pending'
+}
+
+// Maps the backend MatchingStatus enum to matched | partial | unmatched.
+const mapMatching = (raw?: string, isMatched?: boolean): string => {
+  const s = (raw || '').toLowerCase()
+  if (isMatched || s.includes('3-way') || s.includes('2-way')) return 'matched'
+  if (s.includes('mismatch') || s.includes('variance') || s.includes('exceeded')) return 'partial'
+  return 'unmatched'
+}
+
+const toView = (inv: any): InvoiceView => {
+  const grn = Array.isArray(inv?.goodsReceipts) && inv.goodsReceipts.length > 0
+    ? inv.goodsReceipts[0]?.grnNumber
+    : ''
+  const items = Array.isArray(inv?.items)
+    ? inv.items.map((it: any) => ({
+        name: it?.itemName || it?.itemCode || it?.description || 'Item',
+        qty: Number(it?.invoicedQuantity) || 0,
+        poQty: Number(it?.orderedQuantity ?? it?.invoicedQuantity) || 0,
+        grnQty: Number(it?.receivedQuantity ?? it?.invoicedQuantity) || 0,
+        price: Number(it?.unitPrice) || 0,
+        poPrice: Number(it?.netUnitPrice ?? it?.unitPrice) || 0,
+      }))
+    : []
+  const discrepancies = Array.isArray(inv?.matchingExceptions)
+    ? inv.matchingExceptions.map((e: any) => e?.description).filter(Boolean)
+    : []
+  return {
+    id: inv?.internalInvoiceNumber || inv?.vendorInvoiceNumber || inv?.id || '',
+    vendor: inv?.vendorName || '',
+    poNumber: inv?.purchaseOrderNumber || '',
+    grnNumber: grn || '',
+    date: inv?.invoiceDate ? String(inv.invoiceDate).slice(0, 10) : '',
+    dueDate: inv?.dueDate ? String(inv.dueDate).slice(0, 10) : '',
+    amount: Number(inv?.totalAmount) || 0,
+    status: mapStatus(inv?.status),
+    matchingStatus: mapMatching(inv?.matchingStatus, inv?.isMatched),
+    items,
+    discrepancies,
+  }
+}
 
 export default function InvoiceManagement() {
   const [activeTab, setActiveTab] = useState('all')
@@ -15,76 +79,30 @@ export default function InvoiceManagement() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState('list')
+  const [invoices, setInvoices] = useState<InvoiceView[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Invoice Data
-  const invoices = [
-    {
-      id: 'INV-2024-001',
-      vendor: 'TechSupply Solutions',
-      poNumber: 'PO-2024-045',
-      grnNumber: 'GRN-2024-032',
-      date: '2024-03-15',
-      dueDate: '2024-04-15',
-      amount: 125000,
-      status: 'pending',
-      matchingStatus: 'matched',
-      items: [
-        { name: 'Industrial Sensors', qty: 50, poQty: 50, grnQty: 50, price: 1500, poPrice: 1500 },
-        { name: 'Control Modules', qty: 25, poQty: 25, grnQty: 25, price: 2000, poPrice: 2000 },
-      ],
-      discrepancies: [],
-    },
-    {
-      id: 'INV-2024-002',
-      vendor: 'Global Manufacturing Inc',
-      poNumber: 'PO-2024-046',
-      grnNumber: 'GRN-2024-033',
-      date: '2024-03-14',
-      dueDate: '2024-04-14',
-      amount: 85000,
-      status: 'approved',
-      matchingStatus: 'partial',
-      items: [
-        { name: 'Steel Plates', qty: 100, poQty: 100, grnQty: 95, price: 500, poPrice: 500 },
-        { name: 'Aluminum Sheets', qty: 50, poQty: 50, grnQty: 50, price: 700, poPrice: 700 },
-      ],
-      discrepancies: ['Quantity mismatch: Steel Plates'],
-    },
-    {
-      id: 'INV-2024-003',
-      vendor: 'Industrial Parts Co',
-      poNumber: 'PO-2024-047',
-      grnNumber: 'GRN-2024-034',
-      date: '2024-03-13',
-      dueDate: '2024-04-13',
-      amount: 45000,
-      status: 'disputed',
-      matchingStatus: 'unmatched',
-      items: [
-        { name: 'Bearings Set A', qty: 200, poQty: 200, grnQty: 180, price: 150, poPrice: 145 },
-        { name: 'Gaskets Type B', qty: 100, poQty: 100, grnQty: 100, price: 150, poPrice: 150 },
-      ],
-      discrepancies: ['Price variance: Bearings Set A', 'Quantity shortage: 20 units'],
-    },
-    {
-      id: 'INV-2024-004',
-      vendor: 'Safety Equipment Ltd',
-      poNumber: 'PO-2024-048',
-      grnNumber: 'GRN-2024-035',
-      date: '2024-03-12',
-      dueDate: '2024-03-27',
-      amount: 32000,
-      status: 'paid',
-      matchingStatus: 'matched',
-      items: [
-        { name: 'Safety Helmets', qty: 100, poQty: 100, grnQty: 100, price: 120, poPrice: 120 },
-        { name: 'Safety Gloves', qty: 200, poQty: 200, grnQty: 200, price: 100, poPrice: 100 },
-      ],
-      discrepancies: [],
-    },
-  ]
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const rows = await procurementPurchaseInvoiceService.getInvoices()
+        if (active) setInvoices((rows || []).map(toView))
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load invoices')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Summary Stats
+  const matchedCount = invoices.filter(i => i.matchingStatus === 'matched').length
   const stats = {
     total: invoices.length,
     pending: invoices.filter(i => i.status === 'pending').length,
@@ -92,7 +110,7 @@ export default function InvoiceManagement() {
     disputed: invoices.filter(i => i.status === 'disputed').length,
     totalAmount: invoices.reduce((sum, i) => sum + i.amount, 0),
     avgProcessingTime: 2.3,
-    matchingRate: 75,
+    matchingRate: invoices.length ? Math.round((matchedCount / invoices.length) * 100) : 0,
   }
 
   const getStatusColor = (status: string) => {
@@ -456,6 +474,15 @@ export default function InvoiceManagement() {
 
         {/* Invoice List */}
         <div className="p-6">
+          {loading && (
+            <div className="text-center text-gray-500 py-8">Loading invoices...</div>
+          )}
+          {error && !loading && (
+            <div className="text-center text-red-600 py-8">{error}</div>
+          )}
+          {!loading && !error && invoices.length === 0 && (
+            <div className="text-center text-gray-500 py-8">No invoices found.</div>
+          )}
           <div className="space-y-2">
             {invoices.map((invoice) => (
               <div key={invoice.id} className="border rounded-lg hover:shadow-md transition-shadow">

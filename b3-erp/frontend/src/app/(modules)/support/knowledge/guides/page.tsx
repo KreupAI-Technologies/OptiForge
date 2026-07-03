@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportGuideService } from '@/services/support.service'
 import {
   Search, Plus, BookOpen, Clock, Eye, ThumbsUp, Download,
   Star, Play, FileText, CheckCircle, ArrowRight, Filter,
@@ -41,7 +42,7 @@ export default function Guides() {
     newThisMonth: 4
   })
 
-  const [guides] = useState<Guide[]>([
+  const [guides, setGuides] = useState<Guide[]>([
     {
       id: '1',
       guideId: 'GUIDE-001',
@@ -213,6 +214,18 @@ export default function Guides() {
       format: 'Article'
     }
   ])
+
+  useEffect(() => {
+    let cancelled = false
+    SupportGuideService.getGuides()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setGuides(rows as unknown as Guide[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const categories = ['all', 'Getting Started', 'Advanced Features', 'Best Practices', 'Integration', 'Administration']
   const difficulties = ['all', 'Beginner', 'Intermediate', 'Advanced']

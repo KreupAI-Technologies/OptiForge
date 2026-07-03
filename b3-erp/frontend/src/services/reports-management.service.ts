@@ -1074,3 +1074,83 @@ export async function fetchReportRows<T = Record<string, unknown>>(
   if (!body || !Array.isArray(body.rows)) return [];
   return body.rows;
 }
+
+// ============================================================================
+// REPORT CATALOG (available reports grouped by module)
+// ============================================================================
+
+export interface ReportCatalogItem {
+  id: string;
+  companyId: string;
+  module: string;
+  name: string;
+  description?: string;
+  category?: string;
+  frequency?: string;
+  href?: string;
+  lastGenerated?: string;
+  sortOrder?: number;
+  isActive: boolean;
+}
+
+/**
+ * Fetch the report catalog for a module (e.g. "financial", "hr"). Always
+ * resolves to an array — returns [] on any network / non-OK response so the
+ * calling page can fall back to its built-in defaults without special-casing.
+ */
+export async function fetchReportCatalog(
+  module: string,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<ReportCatalogItem[]> {
+  const url = `${API_BASE_URL}/reports/catalog?companyId=${encodeURIComponent(
+    companyId,
+  )}&module=${encodeURIComponent(module)}`;
+
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    throw new Error(`Failed to load report catalog "${module}" (${res.status})`);
+  }
+  const body = (await res.json()) as ReportCatalogItem[] | null;
+  return Array.isArray(body) ? body : [];
+}
+
+// ============================================================================
+// SAVED / CUSTOM REPORTS ("My Reports" on the custom report builder)
+// ============================================================================
+
+export interface ReportSavedItem {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  category?: string;
+  dataSource?: string;
+  config?: Record<string, unknown>;
+  outputFormat: string;
+  createdByName?: string;
+  isFavorite: boolean;
+  isShared: boolean;
+  runCount: number;
+  lastRunAt?: string;
+  isActive: boolean;
+}
+
+/**
+ * Fetch saved / custom reports for a company. Always resolves to an array
+ * (empty on non-OK responses) so pages can render empty states cleanly.
+ */
+export async function fetchSavedReportItems(
+  companyId: string = DEFAULT_COMPANY_ID,
+  category?: string,
+): Promise<ReportSavedItem[]> {
+  const params = new URLSearchParams({ companyId });
+  if (category) params.set('category', category);
+  const url = `${API_BASE_URL}/reports/saved-items?${params.toString()}`;
+
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    throw new Error(`Failed to load saved reports (${res.status})`);
+  }
+  const body = (await res.json()) as ReportSavedItem[] | null;
+  return Array.isArray(body) ? body : [];
+}

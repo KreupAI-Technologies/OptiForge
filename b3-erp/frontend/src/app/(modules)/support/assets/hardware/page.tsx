@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportHardwareAssetService } from '@/services/support.service'
 import { Monitor, Laptop, Server, Printer, HardDrive, Cpu, AlertCircle, CheckCircle, Clock, MapPin, User, Calendar, DollarSign, Settings, Eye, Edit, Trash2, Filter, Search, Plus, TrendingUp, TrendingDown } from 'lucide-react'
 
 interface HardwareAsset {
@@ -56,7 +57,7 @@ export default function HardwareAssets() {
   const [selectedAsset, setSelectedAsset] = useState<HardwareAsset | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
-  const hardwareAssets: HardwareAsset[] = [
+  const seedHardwareAssets: HardwareAsset[] = [
     {
       id: '1',
       assetTag: 'HW-2024-001',
@@ -194,6 +195,20 @@ export default function HardwareAssets() {
       lifecycle: { age: '4.6 years', expectedLife: '5 years', remainingLife: '0 years', depreciation: 100 }
     }
   ]
+
+  const [hardwareAssets, setHardwareAssets] = useState<HardwareAsset[]>(seedHardwareAssets)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportHardwareAssetService.getAssets()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setHardwareAssets(rows as unknown as HardwareAsset[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const stats = {
     totalAssets: hardwareAssets.length,

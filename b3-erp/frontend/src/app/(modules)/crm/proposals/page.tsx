@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Send, Download, Copy, Trash2, FileText, DollarSign, Clock, CheckCircle, XCircle, AlertCircle, Calendar, User } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Proposal {
   id: string;
@@ -189,7 +190,48 @@ const mockProposals: Proposal[] = [
 
 export default function ProposalsPage() {
   const router = useRouter();
-  const [proposals, setProposals] = useState<Proposal[]>(mockProposals);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.proposals.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setProposals(
+          rows.map((p: any) => ({
+            id: String(p?.id ?? ''),
+            proposalNumber: p?.proposalNumber ?? '',
+            title: p?.title ?? '',
+            customer: p?.customer ?? '',
+            customerCompany: p?.customerCompany ?? '',
+            contactPerson: p?.contactPerson ?? '',
+            status: (p?.status ?? 'draft') as Proposal['status'],
+            totalValue: Number(p?.totalValue ?? 0),
+            sections: Number(p?.sections ?? 0),
+            pages: Number(p?.pages ?? 0),
+            submittedDate: p?.submittedDate ?? undefined,
+            viewedDate: p?.viewedDate ?? undefined,
+            respondedDate: p?.respondedDate ?? undefined,
+            validUntil: p?.validUntil ?? '',
+            probability: Number(p?.probability ?? 0),
+            assignedTo: p?.assignedTo ?? '',
+            tags: Array.isArray(p?.tags) ? p.tags : [],
+            notes: p?.notes ?? '',
+            attachments: Number(p?.attachments ?? 0),
+            lastActivity: p?.lastActivity ?? '',
+            createdDate: p?.createdDate ?? (p?.createdAt ?? ''),
+          })),
+        );
+      } catch {
+        if (active) setProposals(mockProposals);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'negotiation'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'value' | 'probability'>('date');

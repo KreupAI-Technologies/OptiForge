@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqWorkflowRequestService } from '@/services/cpq/cpq-orphans.service'
 import {
   Scale,
   Search,
@@ -68,243 +69,44 @@ export default function CPQWorkflowLegalPage() {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedReview, setSelectedReview] = useState<LegalReview | null>(null)
 
-  const [reviews] = useState<LegalReview[]>([
-    {
-      id: 'LEG-001',
-      documentType: 'contract',
-      documentNumber: 'CONT-2024-890',
-      customerName: 'Metro Builders Ltd',
-      contractValue: 8200000,
-      requestedBy: 'Vikram Desai',
-      requestDate: '2024-10-17 02:15 PM',
-      reviewType: 'custom-clauses',
-      priority: 'urgent',
-      status: 'in-review',
-      assignedTo: 'Rajesh Khanna',
-      dueDate: '2024-10-19 10:00 AM',
-      riskLevel: 'high',
-      customClauses: [
-        'Modified liability cap to 2x contract value',
-        'Added force majeure extension clause',
-        'Custom payment schedule with milestones'
-      ],
-      issues: [
-        {
-          id: 'ISS-001',
-          severity: 'critical',
-          category: 'Liability',
-          description: 'Liability cap increased from 1x to 2x contract value',
-          recommendation: 'Reduce to 1.5x or add insurance requirement',
-          status: 'open'
-        },
-        {
-          id: 'ISS-002',
-          severity: 'major',
-          category: 'Force Majeure',
-          description: 'Customer added 90-day force majeure suspension clause',
-          recommendation: 'Limit to 60 days with termination option',
-          status: 'open'
-        },
-        {
-          id: 'ISS-003',
-          severity: 'minor',
-          category: 'Payment Terms',
-          description: 'Payment schedule extends to 90 days',
-          recommendation: 'Add interest clause for delayed payments',
-          status: 'resolved'
-        }
-      ],
-      complianceChecks: [
-        { name: 'Contract Law Compliance', status: 'passed', details: 'Meets Indian Contract Act requirements' },
-        { name: 'Data Protection', status: 'warning', details: 'Add GDPR compliance clause if EU data involved' },
-        { name: 'Payment Terms', status: 'passed', details: 'Payment terms are enforceable' },
-        { name: 'Jurisdiction', status: 'passed', details: 'Mumbai jurisdiction clearly stated' },
-        { name: 'IP Rights', status: 'failed', details: 'IP ownership clause is ambiguous' }
-      ],
-      comments: [
-        {
-          id: 'CMT-001',
-          author: 'Vikram Desai',
-          role: 'Sales Executive',
-          message: 'Customer insisted on higher liability cap. Large strategic account.',
-          timestamp: '2024-10-17 02:20 PM'
-        },
-        {
-          id: 'CMT-002',
-          author: 'Rajesh Khanna',
-          role: 'Legal Counsel',
-          message: 'Reviewing liability terms. IP clause needs clarification before approval.',
-          timestamp: '2024-10-18 10:30 AM'
-        }
-      ]
-    },
-    {
-      id: 'LEG-002',
-      documentType: 'nda',
-      documentNumber: 'NDA-2024-456',
-      customerName: 'TechCorp International',
-      contractValue: 0,
-      requestedBy: 'Neha Singh',
-      requestDate: '2024-10-18 11:00 AM',
-      reviewType: 'international',
-      priority: 'high',
-      status: 'pending',
-      assignedTo: 'Meera Iyer',
-      dueDate: '2024-10-19 05:00 PM',
-      riskLevel: 'medium',
-      customClauses: [
-        'International jurisdiction (Singapore)',
-        'Cross-border data transfer provisions'
-      ],
-      issues: [
-        {
-          id: 'ISS-004',
-          severity: 'major',
-          category: 'Jurisdiction',
-          description: 'Singapore law and arbitration specified',
-          recommendation: 'Assess cost implications of international arbitration',
-          status: 'open'
-        }
-      ],
-      complianceChecks: [
-        { name: 'International Law', status: 'warning', details: 'Singapore law requires local counsel review' },
-        { name: 'Data Transfer', status: 'passed', details: 'GDPR compliant data transfer mechanisms' },
-        { name: 'Confidentiality', status: 'passed', details: 'Standard NDA provisions included' }
-      ],
-      comments: [
-        {
-          id: 'CMT-003',
-          author: 'Neha Singh',
-          role: 'Sales Executive',
-          message: 'International customer prefers Singapore jurisdiction. Standard for their contracts.',
-          timestamp: '2024-10-18 11:05 AM'
-        }
-      ]
-    },
-    {
-      id: 'LEG-003',
-      documentType: 'contract',
-      documentNumber: 'CONT-2024-1234',
-      customerName: 'Prestige Properties Ltd',
-      contractValue: 4500000,
-      requestedBy: 'Rahul Kumar',
-      requestDate: '2024-10-16 10:00 AM',
-      reviewType: 'high-value',
-      priority: 'high',
-      status: 'approved',
-      assignedTo: 'Rajesh Khanna',
-      dueDate: '2024-10-17 05:00 PM',
-      riskLevel: 'low',
-      customClauses: [],
-      issues: [
-        {
-          id: 'ISS-005',
-          severity: 'minor',
-          category: 'Warranty',
-          description: 'Extended warranty period from 24 to 36 months',
-          recommendation: 'Ensure extended warranty costs are factored in pricing',
-          status: 'resolved'
-        }
-      ],
-      complianceChecks: [
-        { name: 'Contract Law Compliance', status: 'passed', details: 'All clauses legally sound' },
-        { name: 'Data Protection', status: 'passed', details: 'Customer data protection clause included' },
-        { name: 'Payment Terms', status: 'passed', details: 'Standard payment terms applied' },
-        { name: 'Jurisdiction', status: 'passed', details: 'Mumbai jurisdiction specified' },
-        { name: 'IP Rights', status: 'passed', details: 'Clear IP ownership defined' }
-      ],
-      comments: [
-        {
-          id: 'CMT-004',
-          author: 'Rajesh Khanna',
-          role: 'Legal Counsel',
-          message: 'Standard contract with minor warranty extension. Approved.',
-          timestamp: '2024-10-17 02:30 PM'
-        }
-      ]
-    },
-    {
-      id: 'LEG-004',
-      documentType: 'amendment',
-      documentNumber: 'AMD-2024-234',
-      customerName: 'Urban Homes Pvt Ltd',
-      contractValue: 2850000,
-      requestedBy: 'Anjali Mehta',
-      requestDate: '2024-10-15 03:00 PM',
-      reviewType: 'standard',
-      priority: 'medium',
-      status: 'revision-needed',
-      assignedTo: 'Meera Iyer',
-      dueDate: '2024-10-18 05:00 PM',
-      riskLevel: 'medium',
-      customClauses: [
-        'Delivery timeline extension by 30 days'
-      ],
-      issues: [
-        {
-          id: 'ISS-006',
-          severity: 'major',
-          category: 'Delivery',
-          description: 'Extension does not specify penalty waiver',
-          recommendation: 'Add clause explicitly waiving late delivery penalties',
-          status: 'open'
-        },
-        {
-          id: 'ISS-007',
-          severity: 'minor',
-          category: 'Documentation',
-          description: 'Amendment not signed by authorized signatory',
-          recommendation: 'Obtain signature from director-level authority',
-          status: 'open'
-        }
-      ],
-      complianceChecks: [
-        { name: 'Amendment Authority', status: 'failed', details: 'Signatory authority not verified' },
-        { name: 'Terms Clarity', status: 'warning', details: 'Penalty waiver needs explicit mention' },
-        { name: 'Original Contract Link', status: 'passed', details: 'Correctly references original contract' }
-      ],
-      comments: [
-        {
-          id: 'CMT-005',
-          author: 'Meera Iyer',
-          role: 'Legal Counsel',
-          message: 'Amendment needs revision. Penalty waiver must be explicit and proper signatory required.',
-          timestamp: '2024-10-16 11:00 AM'
-        }
-      ]
-    },
-    {
-      id: 'LEG-005',
-      documentType: 'proposal',
-      documentNumber: 'PROP-2024-778',
-      customerName: 'Coastal Builders',
-      contractValue: 6400000,
-      requestedBy: 'Suresh Rao',
-      requestDate: '2024-10-14 09:30 AM',
-      reviewType: 'standard',
-      priority: 'low',
-      status: 'approved',
-      assignedTo: 'Rajesh Khanna',
-      dueDate: '2024-10-15 05:00 PM',
-      riskLevel: 'low',
-      customClauses: [],
-      issues: [],
-      complianceChecks: [
-        { name: 'Terms & Conditions', status: 'passed', details: 'Standard T&C applied' },
-        { name: 'Pricing Terms', status: 'passed', details: 'Price validity clearly stated' },
-        { name: 'Payment Terms', status: 'passed', details: 'Payment schedule defined' }
-      ],
-      comments: [
-        {
-          id: 'CMT-006',
-          author: 'Rajesh Khanna',
-          role: 'Legal Counsel',
-          message: 'Standard proposal with no legal issues. Approved.',
-          timestamp: '2024-10-14 04:00 PM'
-        }
-      ]
+  const [reviews, setReviews] = useState<LegalReview[]>([])
+
+  useEffect(() => {
+    let active = true
+    cpqWorkflowRequestService
+      .findAll({ requestType: 'legal' })
+      .then((rows) => {
+        if (!active) return
+        const mapped: LegalReview[] = (Array.isArray(rows) ? rows : []).map((r) => {
+          const p = (r.payload || {}) as any
+          return {
+            ...p,
+            id: r.id,
+            documentNumber: r.documentNumber ?? p.documentNumber ?? '',
+            customerName: r.customerName ?? p.customerName ?? '',
+            contractValue: Number(r.value) || p.contractValue || 0,
+            requestedBy: r.requestedBy ?? p.requestedBy ?? '',
+            requestDate: r.requestDate ?? p.requestDate ?? '',
+            assignedTo: r.assignedTo ?? p.assignedTo ?? '',
+            dueDate: r.dueDate ?? p.dueDate ?? '',
+            priority: (r.priority ?? p.priority ?? 'medium') as LegalReview['priority'],
+            status: (r.status ?? p.status ?? 'pending') as LegalReview['status'],
+            documentType: (p.documentType ?? 'contract') as LegalReview['documentType'],
+            reviewType: (p.reviewType ?? 'standard') as LegalReview['reviewType'],
+            riskLevel: (p.riskLevel ?? 'low') as LegalReview['riskLevel'],
+            customClauses: Array.isArray(p.customClauses) ? p.customClauses : [],
+            issues: Array.isArray(p.issues) ? p.issues : [],
+            complianceChecks: Array.isArray(p.complianceChecks) ? p.complianceChecks : [],
+            comments: Array.isArray(p.comments) ? p.comments : []
+          } as LegalReview
+        })
+        setReviews(mapped)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
     }
-  ])
+  }, [])
 
   const getDocTypeColor = (type: string) => {
     const colors: any = {

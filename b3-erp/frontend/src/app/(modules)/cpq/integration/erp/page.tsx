@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { cpqIntegrationEndpointService } from '@/services/cpq/cpq-orphans.service'
 import {
   Database,
   CheckCircle,
@@ -37,7 +38,7 @@ export default function CPQIntegrationERPPage() {
   }
 
   // Order Sync Status
-  const orderSync = [
+  const [orderSync, setOrderSync] = useState<any[]>([
     {
       id: 1,
       quoteNumber: 'QT-25-00267',
@@ -88,7 +89,35 @@ export default function CPQIntegrationERPPage() {
       syncedAt: '2025-10-20 14:15:00',
       erpStatus: 'Ready to Ship'
     }
-  ]
+  ])
+
+  useEffect(() => {
+    let active = true
+    cpqIntegrationEndpointService
+      .findAll({ system: 'erp' })
+      .then((rows) => {
+        if (!active) return
+        if (!Array.isArray(rows) || rows.length === 0) return
+        const mapped = rows.map((r, idx) => {
+          const m = (r.metadata ?? {}) as any
+          return {
+            id: idx + 1,
+            quoteNumber: m.quoteNumber ?? '',
+            orderNumber: m.orderNumber ?? r.name ?? '',
+            customer: m.customer ?? '',
+            value: Number(m.value) || 0,
+            status: r.status ?? 'synced',
+            syncedAt: r.lastSync ?? null,
+            erpStatus: m.erpStatus ?? ''
+          }
+        })
+        setOrderSync(mapped)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Inventory Sync
   const inventoryItems = [

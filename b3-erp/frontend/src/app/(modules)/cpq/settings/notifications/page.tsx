@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { cpqNotificationSettingService } from '@/services/cpq/cpq-orphans.service'
 import {
   Bell,
   Mail,
@@ -81,6 +82,31 @@ export default function CPQSettingsNotificationsPage() {
       body: 'Alert: Quote #{{quote_number}} has exceeded SLA threshold.\n\nTime Pending: {{hours_pending}} hours\nSLA Target: {{sla_target}} hours\nAssigned To: {{sales_rep_name}}\n\nImmediate action required.'
     }
   ])
+
+  useEffect(() => {
+    let active = true
+    cpqNotificationSettingService
+      .findAll('email-template')
+      .then((rows) => {
+        if (!active) return
+        if (!Array.isArray(rows) || rows.length === 0) return
+        const cfg = (r: any) => (r.config ?? {}) as any
+        const mapped = rows.map((r, idx) => ({
+          id: idx + 1,
+          name: r.name ?? '',
+          subject: r.subject ?? '',
+          recipient: cfg(r).recipient ?? '',
+          trigger: cfg(r).trigger ?? '',
+          active: r.enabled !== false,
+          body: cfg(r).body ?? ''
+        }))
+        setEmailTemplates(mapped as any)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Notification Preferences
   const [notificationSettings, setNotificationSettings] = useState({

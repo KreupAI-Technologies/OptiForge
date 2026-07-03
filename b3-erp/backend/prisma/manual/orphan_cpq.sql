@@ -138,3 +138,117 @@ CREATE TABLE IF NOT EXISTS "cpq_integration_sync_logs" (
 );
 CREATE INDEX IF NOT EXISTS "IDX_cpq_integration_sync_logs_company_system"
   ON "cpq_integration_sync_logs" ("companyId", "system");
+
+-- =====================================================================
+-- Second-pass orphan-page tables (additive, CREATE TABLE IF NOT EXISTS).
+-- =====================================================================
+
+-- Workflow approval requests — backs cpq/workflow/legal and cpq/workflow/executive.
+CREATE TABLE IF NOT EXISTS "cpq_workflow_requests" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "requestType" character varying NOT NULL DEFAULT 'legal',
+  "reference" character varying,
+  "documentNumber" character varying,
+  "customerName" character varying,
+  "value" numeric(15,2) NOT NULL DEFAULT 0,
+  "requestedBy" character varying,
+  "assignedTo" character varying,
+  "priority" character varying,
+  "status" character varying,
+  "requestDate" character varying,
+  "dueDate" character varying,
+  "payload" json,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_cpq_workflow_requests" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_cpq_workflow_requests_company_type"
+  ON "cpq_workflow_requests" ("companyId", "requestType");
+
+-- Quote version history — backs cpq/quotes/versions.
+CREATE TABLE IF NOT EXISTS "cpq_quote_versions_list" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "quoteNumber" character varying,
+  "version" character varying,
+  "customerName" character varying,
+  "value" numeric(15,2) NOT NULL DEFAULT 0,
+  "changes" json,
+  "changeType" character varying NOT NULL DEFAULT 'items-added',
+  "createdBy" character varying,
+  "createdDate" character varying,
+  "status" character varying NOT NULL DEFAULT 'draft',
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_cpq_quote_versions_list" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_cpq_quote_versions_list_company_quote"
+  ON "cpq_quote_versions_list" ("companyId", "quoteNumber");
+
+-- Notification settings — backs cpq/settings/notifications.
+CREATE TABLE IF NOT EXISTS "cpq_notification_prefs" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "settingType" character varying NOT NULL DEFAULT 'email-template',
+  "name" character varying,
+  "subject" character varying,
+  "enabled" boolean NOT NULL DEFAULT true,
+  "config" json,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_cpq_notification_prefs" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_cpq_notification_prefs_company_type"
+  ON "cpq_notification_prefs" ("companyId", "settingType");
+
+-- Permission roles — backs cpq/settings/permissions.
+CREATE TABLE IF NOT EXISTS "cpq_permission_roles" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "name" character varying,
+  "description" text,
+  "usersCount" integer NOT NULL DEFAULT 0,
+  "permissions" json,
+  "approvalLimit" numeric(15,2),
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_cpq_permission_roles" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_cpq_permission_roles_company"
+  ON "cpq_permission_roles" ("companyId");
+
+-- Integration endpoints — backs cpq/integration/cad, /ecommerce, /erp.
+CREATE TABLE IF NOT EXISTS "cpq_integration_endpoints" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "system" character varying NOT NULL DEFAULT 'cad',
+  "name" character varying,
+  "type" character varying,
+  "status" character varying NOT NULL DEFAULT 'connected',
+  "version" character varying,
+  "lastSync" character varying,
+  "recordCount" integer NOT NULL DEFAULT 0,
+  "metadata" json,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_cpq_integration_endpoints" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_cpq_integration_endpoints_company_system"
+  ON "cpq_integration_endpoints" ("companyId", "system");
+
+-- Product-configurator steps — backs cpq/products/configurator.
+CREATE TABLE IF NOT EXISTS "cpq_config_steps" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" character varying NOT NULL,
+  "title" character varying,
+  "stepOrder" integer NOT NULL DEFAULT 0,
+  "completed" boolean NOT NULL DEFAULT false,
+  "active" boolean NOT NULL DEFAULT false,
+  "options" json,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_cpq_config_steps" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_cpq_config_steps_company"
+  ON "cpq_config_steps" ("companyId");

@@ -843,6 +843,129 @@ export const crmService = {
     getForecast: () => request<any>('/crm/analytics/forecast'),
     getInteractionAnalysis: () => request<any>('/crm/analytics/interaction-analysis'),
   },
+
+  // ===========================
+  // CUSTOMERS (second-pass)
+  // ===========================
+  customers: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/customers${buildQueryParams({ companyId })}`),
+
+    getHierarchy: (companyId?: string) =>
+      request<any[]>(`/crm/customers/hierarchy${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/customers/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/customers', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/customers/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // PROPOSALS (second-pass)
+  // ===========================
+  proposals: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/proposals${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/proposals/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/proposals', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/proposals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/proposals/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // MARKETING CAMPAIGNS (second-pass)
+  // ===========================
+  marketingCampaigns: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/marketing-campaigns${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/marketing-campaigns/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/marketing-campaigns', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/marketing-campaigns/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/marketing-campaigns/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // EMAIL CAMPAIGNS + PERFORMANCE (second-pass)
+  // ===========================
+  emailCampaigns: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/email-campaigns${buildQueryParams({ companyId })}`),
+
+    getPerformance: (companyId?: string) =>
+      request<any>(`/crm/email-campaigns/performance${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/email-campaigns/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/email-campaigns', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/email-campaigns/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/email-campaigns/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CONTRACT RENEWALS (second-pass)
+  // ===========================
+  contractRenewals: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/contract-renewals${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/contract-renewals/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/contract-renewals', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/contract-renewals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/contract-renewals/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CONTRACT AMENDMENTS (second-pass)
+  // ===========================
+  contractAmendments: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/contract-amendments${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/contract-amendments/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/contract-amendments', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/contract-amendments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/contract-amendments/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // OPPORTUNITY VIEWS (second-pass — derived from crm_leads, no new table)
+  // ===========================
+  opportunityViews: {
+    getPipeline: () => request<any>('/crm/opportunities-views/pipeline'),
+    getWon: () => request<any>('/crm/opportunities-views/won'),
+    getLost: () => request<any>('/crm/opportunities-views/lost'),
+  },
 };
 
 export default crmService;

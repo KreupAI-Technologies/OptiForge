@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { cpqIntegrationEndpointService } from '@/services/cpq/cpq-orphans.service';
 import {
   Box,
   Upload,
@@ -58,44 +59,30 @@ export default function CPQIntegrationCADPage() {
   const [selectedSystem, setSelectedSystem] = useState<string>('all');
 
   // CAD Systems State
-  const [cadSystems, setCadSystems] = useState<CADSystem[]>([
-    {
-      id: 1,
-      name: 'AutoCAD 2024',
-      type: 'AutoCAD',
-      status: 'connected',
-      version: '2024.1.2',
-      lastSync: '2025-01-20 14:30',
-      filesImported: 1247
-    },
-    {
-      id: 2,
-      name: 'SolidWorks 2023',
-      type: 'SolidWorks',
-      status: 'connected',
-      version: '2023 SP5',
-      lastSync: '2025-01-20 14:25',
-      filesImported: 856
-    },
-    {
-      id: 3,
-      name: 'Autodesk Inventor',
-      type: 'Inventor',
-      status: 'connected',
-      version: '2024',
-      lastSync: '2025-01-20 13:45',
-      filesImported: 432
-    },
-    {
-      id: 4,
-      name: 'Fusion 360',
-      type: 'Fusion360',
-      status: 'disconnected',
-      version: '2.0.17802',
-      lastSync: '2025-01-19 09:15',
-      filesImported: 189
-    }
-  ]);
+  const [cadSystems, setCadSystems] = useState<CADSystem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    cpqIntegrationEndpointService
+      .findAll({ system: 'cad' })
+      .then((rows) => {
+        if (!active) return;
+        const mapped: CADSystem[] = (Array.isArray(rows) ? rows : []).map((r, idx) => ({
+          id: idx + 1,
+          name: r.name ?? '',
+          type: (r.type ?? 'AutoCAD') as CADSystem['type'],
+          status: (r.status ?? 'connected') as CADSystem['status'],
+          version: r.version ?? '',
+          lastSync: r.lastSync ?? '',
+          filesImported: Number(r.recordCount) || 0
+        }));
+        setCadSystems(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Recent Design Files
   const [designFiles, setDesignFiles] = useState<DesignFile[]>([

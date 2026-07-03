@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportSoftwareAssetService } from '@/services/support.service'
 import { Package, Shield, Cloud, Code, Database, CheckCircle, AlertCircle, XCircle, Calendar, DollarSign, Users, TrendingUp, Eye, Edit, RefreshCw, Search, Plus, Filter } from 'lucide-react'
 
 interface SoftwareAsset {
@@ -51,7 +52,7 @@ export default function SoftwareAssets() {
   const [selectedSoftware, setSelectedSoftware] = useState<SoftwareAsset | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
-  const softwareAssets: SoftwareAsset[] = [
+  const seedSoftwareAssets: SoftwareAsset[] = [
     {
       id: '1',
       name: 'Microsoft Office 365',
@@ -213,6 +214,20 @@ export default function SoftwareAssets() {
       support: { level: 'Premium', expiryDate: '2025-07-01', supportHours: '24/7' }
     }
   ]
+
+  const [softwareAssets, setSoftwareAssets] = useState<SoftwareAsset[]>(seedSoftwareAssets)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportSoftwareAssetService.getAssets()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setSoftwareAssets(rows as unknown as SoftwareAsset[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const stats = {
     totalSoftware: softwareAssets.length,

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Plus, Send, Eye, Users, TrendingUp, Target, Calendar, Search, Filter, Edit, Copy, Trash2, Play, Pause } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface EmailCampaign {
   id: string;
@@ -124,7 +125,42 @@ const mockEmailCampaigns: EmailCampaign[] = [
 export default function EmailCampaignsPage() {
   const router = useRouter();
 
-  const [campaigns, setCampaigns] = useState<EmailCampaign[]>(mockEmailCampaigns);
+  const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.emailCampaigns.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setCampaigns(
+          rows.map((c: any) => ({
+            id: String(c?.id ?? ''),
+            name: c?.name ?? '',
+            subject: c?.subject ?? '',
+            status: (c?.status ?? 'draft') as EmailCampaign['status'],
+            audience: Number(c?.audience ?? 0),
+            sent: Number(c?.sent ?? 0),
+            delivered: Number(c?.delivered ?? 0),
+            opened: Number(c?.opened ?? 0),
+            clicked: Number(c?.clicked ?? 0),
+            bounced: Number(c?.bounced ?? 0),
+            unsubscribed: Number(c?.unsubscribed ?? 0),
+            scheduledDate: c?.scheduledDate ?? undefined,
+            sentDate: c?.sentDate ?? undefined,
+            template: c?.template ?? '',
+            from: c?.from ?? '',
+          })),
+        );
+      } catch {
+        if (active) setCampaigns(mockEmailCampaigns);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused'>('all');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);

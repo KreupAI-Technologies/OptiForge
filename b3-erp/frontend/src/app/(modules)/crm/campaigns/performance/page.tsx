@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Target, Mail, Users, DollarSign, Eye, MousePointer, Activity, Calendar } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface CampaignPerformance {
   campaignId: string;
@@ -116,7 +117,63 @@ const mockPerformanceData: CampaignPerformance[] = [
 ];
 
 export default function CampaignPerformancePage() {
-  const [performanceData] = useState<CampaignPerformance[]>(mockPerformanceData);
+  const [performanceData, setPerformanceData] = useState<CampaignPerformance[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.emailCampaigns.getPerformance();
+        if (!active) return;
+        const emailRows = Array.isArray(data?.emailCampaigns) ? data.emailCampaigns : [];
+        const campaignRows = Array.isArray(data?.campaigns) ? data.campaigns : [];
+        const mapped: CampaignPerformance[] = [
+          ...emailRows.map((e: any) => ({
+            campaignId: String(e?.id ?? ''),
+            name: e?.name ?? '',
+            type: e?.type ?? 'email',
+            period: '',
+            sent: Number(e?.sent ?? 0),
+            delivered: Number(e?.delivered ?? 0),
+            opened: Number(e?.opened ?? 0),
+            clicked: Number(e?.clicked ?? 0),
+            converted: 0,
+            revenue: 0,
+            roi: 0,
+            openRate: Number(e?.openRate ?? 0),
+            clickRate: Number(e?.clickRate ?? 0),
+            conversionRate: 0,
+            costPerLead: 0,
+            costPerAcquisition: 0,
+          })),
+          ...campaignRows.map((c: any) => ({
+            campaignId: String(c?.id ?? ''),
+            name: c?.name ?? '',
+            type: c?.type ?? '',
+            period: '',
+            sent: 0,
+            delivered: 0,
+            opened: 0,
+            clicked: 0,
+            converted: Number(c?.conversions ?? 0),
+            revenue: Number(c?.revenue ?? 0),
+            roi: Number(c?.roi ?? 0),
+            openRate: 0,
+            clickRate: Number(c?.clickRate ?? 0),
+            conversionRate: Number(c?.conversionRate ?? 0),
+            costPerLead: 0,
+            costPerAcquisition: 0,
+          })),
+        ];
+        setPerformanceData(mapped.length ? mapped : mockPerformanceData);
+      } catch {
+        if (active) setPerformanceData(mockPerformanceData);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
   const [sortBy, setSortBy] = useState<'revenue' | 'roi' | 'conversion'>('revenue');
 

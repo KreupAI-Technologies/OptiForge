@@ -1802,6 +1802,564 @@ export const SlaSettingsService = {
 };
 
 // ============================================================================
+// Team Agents Service (net-new: /support/team/agents)
+// ============================================================================
+
+export interface SupportAgentRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  team?: string;
+  status: string;
+  avatar?: string;
+  joinDate?: string;
+  location?: string;
+  shift?: string;
+  activeTickets: number;
+  resolvedToday: number;
+  resolvedThisMonth: number;
+  avgResolutionTime?: string;
+  satisfaction: number;
+  responseTime?: string;
+  slaCompliance: number;
+  skills?: string[];
+  specializations?: string[];
+  certifications?: string[];
+  performance?: { thisMonth: number; lastMonth: number; trend: string };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportAgentService = {
+  async getAgents(companyId = 'company-1'): Promise<SupportAgentRecord[]> {
+    return apiRequest<SupportAgentRecord[]>(
+      `/support/team/agents?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createAgent(
+    data: Partial<SupportAgentRecord> & { companyId?: string }
+  ): Promise<SupportAgentRecord> {
+    return apiRequest<SupportAgentRecord>('/support/team/agents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateAgent(
+    id: string,
+    data: Partial<SupportAgentRecord>
+  ): Promise<SupportAgentRecord> {
+    return apiRequest<SupportAgentRecord>(`/support/team/agents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteAgent(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/team/agents/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Agent Skills Service (net-new: /support/team/skills)
+// ============================================================================
+
+export interface SupportAgentSkillRecord {
+  id: string;
+  companyId: string;
+  agentId?: string;
+  agentName: string;
+  team?: string;
+  avatar?: string;
+  skills?: Array<{
+    category: string;
+    skillName: string;
+    level: string;
+    yearsExperience: number;
+    certifications: string[];
+    lastUpdated: string;
+  }>;
+  totalSkills: number;
+  expertLevel: number;
+  certifications: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportAgentSkillService = {
+  async getSkills(companyId = 'company-1'): Promise<SupportAgentSkillRecord[]> {
+    return apiRequest<SupportAgentSkillRecord[]>(
+      `/support/team/skills?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createSkill(
+    data: Partial<SupportAgentSkillRecord> & { companyId?: string }
+  ): Promise<SupportAgentSkillRecord> {
+    return apiRequest<SupportAgentSkillRecord>('/support/team/skills', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateSkill(
+    id: string,
+    data: Partial<SupportAgentSkillRecord>
+  ): Promise<SupportAgentSkillRecord> {
+    return apiRequest<SupportAgentSkillRecord>(`/support/team/skills/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteSkill(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/team/skills/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Escalation Rule Service (net-new: /support/automation/escalation)
+// ============================================================================
+
+export interface SupportEscalationRuleRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  level: number;
+  trigger?: { type: string; threshold: string };
+  escalateTo?: string;
+  notificationChannels?: string[];
+  active: boolean;
+  executionCount: number;
+  avgResponseTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportEscalationRuleService = {
+  async getRules(companyId = 'company-1'): Promise<SupportEscalationRuleRecord[]> {
+    return apiRequest<SupportEscalationRuleRecord[]>(
+      `/support/automation/escalation?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createRule(
+    data: Partial<SupportEscalationRuleRecord> & { companyId?: string }
+  ): Promise<SupportEscalationRuleRecord> {
+    return apiRequest<SupportEscalationRuleRecord>('/support/automation/escalation', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateRule(
+    id: string,
+    data: Partial<SupportEscalationRuleRecord>
+  ): Promise<SupportEscalationRuleRecord> {
+    return apiRequest<SupportEscalationRuleRecord>(`/support/automation/escalation/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteRule(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/automation/escalation/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Assignment Rule Service (net-new: /support/automation/assignment)
+// ============================================================================
+
+export interface SupportAssignmentRuleRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  priority: number;
+  conditions?: Array<{ field: string; operator: string; value: string }>;
+  assignmentLogic: string;
+  assignTo?: string;
+  active: boolean;
+  matchedTickets: number;
+  avgAssignmentTime?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportAssignmentRuleService = {
+  async getRules(companyId = 'company-1'): Promise<SupportAssignmentRuleRecord[]> {
+    return apiRequest<SupportAssignmentRuleRecord[]>(
+      `/support/automation/assignment?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createRule(
+    data: Partial<SupportAssignmentRuleRecord> & { companyId?: string }
+  ): Promise<SupportAssignmentRuleRecord> {
+    return apiRequest<SupportAssignmentRuleRecord>('/support/automation/assignment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateRule(
+    id: string,
+    data: Partial<SupportAssignmentRuleRecord>
+  ): Promise<SupportAssignmentRuleRecord> {
+    return apiRequest<SupportAssignmentRuleRecord>(`/support/automation/assignment/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteRule(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/automation/assignment/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Guide Service (net-new: /support/knowledge/guides)
+// ============================================================================
+
+export interface SupportGuideRecord {
+  id: string;
+  companyId: string;
+  guideId?: string;
+  title: string;
+  description?: string;
+  category?: string;
+  difficulty: string;
+  readTime?: string;
+  views: number;
+  helpful: number;
+  lastUpdated?: string;
+  author?: string;
+  tags?: string[];
+  sections: number;
+  featured: boolean;
+  format: string;
+  thumbnail?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportGuideService = {
+  async getGuides(companyId = 'company-1'): Promise<SupportGuideRecord[]> {
+    return apiRequest<SupportGuideRecord[]>(
+      `/support/knowledge/guides?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createGuide(
+    data: Partial<SupportGuideRecord> & { companyId?: string }
+  ): Promise<SupportGuideRecord> {
+    return apiRequest<SupportGuideRecord>('/support/knowledge/guides', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateGuide(
+    id: string,
+    data: Partial<SupportGuideRecord>
+  ): Promise<SupportGuideRecord> {
+    return apiRequest<SupportGuideRecord>(`/support/knowledge/guides/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteGuide(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/knowledge/guides/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Troubleshooting Article Service (net-new: /support/knowledge/troubleshooting)
+// ============================================================================
+
+export interface SupportTroubleshootingArticleRecord {
+  id: string;
+  companyId: string;
+  articleId?: string;
+  title: string;
+  problem?: string;
+  solution?: string;
+  category?: string;
+  severity: string;
+  steps?: string[];
+  causes?: string[];
+  prevention?: string[];
+  tags?: string[];
+  views: number;
+  helpful: number;
+  lastUpdated?: string;
+  author?: string;
+  relatedArticles?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportTroubleshootingService = {
+  async getArticles(
+    companyId = 'company-1'
+  ): Promise<SupportTroubleshootingArticleRecord[]> {
+    return apiRequest<SupportTroubleshootingArticleRecord[]>(
+      `/support/knowledge/troubleshooting?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createArticle(
+    data: Partial<SupportTroubleshootingArticleRecord> & { companyId?: string }
+  ): Promise<SupportTroubleshootingArticleRecord> {
+    return apiRequest<SupportTroubleshootingArticleRecord>('/support/knowledge/troubleshooting', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateArticle(
+    id: string,
+    data: Partial<SupportTroubleshootingArticleRecord>
+  ): Promise<SupportTroubleshootingArticleRecord> {
+    return apiRequest<SupportTroubleshootingArticleRecord>(`/support/knowledge/troubleshooting/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteArticle(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/knowledge/troubleshooting/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Known Error Service (net-new: /support/problems/known-errors)
+// ============================================================================
+
+export interface SupportKnownErrorRecord {
+  id: string;
+  companyId: string;
+  errorId?: string;
+  title: string;
+  description?: string;
+  workaround?: string;
+  status: string;
+  category?: string;
+  affectedSystems?: string[];
+  relatedProblems?: string[];
+  documentedBy?: string;
+  documentedDate?: string;
+  lastUpdated?: string;
+  affectedUsers: number;
+  severity: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportKnownErrorService = {
+  async getErrors(companyId = 'company-1'): Promise<SupportKnownErrorRecord[]> {
+    return apiRequest<SupportKnownErrorRecord[]>(
+      `/support/problems/known-errors?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createError(
+    data: Partial<SupportKnownErrorRecord> & { companyId?: string }
+  ): Promise<SupportKnownErrorRecord> {
+    return apiRequest<SupportKnownErrorRecord>('/support/problems/known-errors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateError(
+    id: string,
+    data: Partial<SupportKnownErrorRecord>
+  ): Promise<SupportKnownErrorRecord> {
+    return apiRequest<SupportKnownErrorRecord>(`/support/problems/known-errors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteError(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/problems/known-errors/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Hardware Asset Service (net-new: /support/assets/hardware)
+// ============================================================================
+
+export interface SupportHardwareAssetRecord {
+  id: string;
+  companyId: string;
+  assetTag?: string;
+  name: string;
+  category: string;
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  status: string;
+  condition: string;
+  location?: { building: string; floor: string; room: string };
+  assignedTo?: { name: string; department: string; email: string } | null;
+  purchase?: { date: string; cost: number; vendor: string; warrantyExpiry: string };
+  specifications?: Record<string, string>;
+  maintenance?: { lastService: string; nextService: string; serviceCount: number };
+  lifecycle?: { age: string; expectedLife: string; remainingLife: string; depreciation: number };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportHardwareAssetService = {
+  async getAssets(companyId = 'company-1'): Promise<SupportHardwareAssetRecord[]> {
+    return apiRequest<SupportHardwareAssetRecord[]>(
+      `/support/assets/hardware?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createAsset(
+    data: Partial<SupportHardwareAssetRecord> & { companyId?: string }
+  ): Promise<SupportHardwareAssetRecord> {
+    return apiRequest<SupportHardwareAssetRecord>('/support/assets/hardware', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateAsset(
+    id: string,
+    data: Partial<SupportHardwareAssetRecord>
+  ): Promise<SupportHardwareAssetRecord> {
+    return apiRequest<SupportHardwareAssetRecord>(`/support/assets/hardware/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteAsset(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/assets/hardware/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Software Asset Service (net-new: /support/assets/software)
+// ============================================================================
+
+export interface SupportSoftwareAssetRecord {
+  id: string;
+  companyId: string;
+  name: string;
+  vendor?: string;
+  category: string;
+  version?: string;
+  licenseType: string;
+  licenses?: { total: number; used: number; available: number };
+  cost?: { perLicense: number; totalAnnual: number; billingCycle: string };
+  deployment?: { type: string; installCount: number; lastDeployed: string };
+  contract?: {
+    startDate: string;
+    renewalDate: string;
+    vendor: string;
+    contactPerson: string;
+    contactEmail: string;
+  };
+  compliance?: { status: string; lastAudit: string; nextAudit: string };
+  support?: { level: string; expiryDate: string; supportHours: string };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportSoftwareAssetService = {
+  async getAssets(companyId = 'company-1'): Promise<SupportSoftwareAssetRecord[]> {
+    return apiRequest<SupportSoftwareAssetRecord[]>(
+      `/support/assets/software?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createAsset(
+    data: Partial<SupportSoftwareAssetRecord> & { companyId?: string }
+  ): Promise<SupportSoftwareAssetRecord> {
+    return apiRequest<SupportSoftwareAssetRecord>('/support/assets/software', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateAsset(
+    id: string,
+    data: Partial<SupportSoftwareAssetRecord>
+  ): Promise<SupportSoftwareAssetRecord> {
+    return apiRequest<SupportSoftwareAssetRecord>(`/support/assets/software/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteAsset(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/assets/software/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
+// Scheduled Change Service (net-new: /support/changes/scheduled)
+// ============================================================================
+
+export interface SupportScheduledChangeRecord {
+  id: string;
+  companyId: string;
+  ticketNumber?: string;
+  title: string;
+  type: string;
+  category?: string;
+  priority: string;
+  implementer?: string;
+  implementationDate?: string;
+  implementationTime?: string;
+  duration?: string;
+  status: string;
+  affectedSystems?: string[];
+  downtime: boolean;
+  backupCompleted: boolean;
+  stakeholdersNotified: boolean;
+  changeWindow?: string;
+  approvedBy?: string;
+  approvalDate?: string;
+  rollbackPlan: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SupportScheduledChangeService = {
+  async getChanges(companyId = 'company-1'): Promise<SupportScheduledChangeRecord[]> {
+    return apiRequest<SupportScheduledChangeRecord[]>(
+      `/support/changes/scheduled?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+  async createChange(
+    data: Partial<SupportScheduledChangeRecord> & { companyId?: string }
+  ): Promise<SupportScheduledChangeRecord> {
+    return apiRequest<SupportScheduledChangeRecord>('/support/changes/scheduled', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async updateChange(
+    id: string,
+    data: Partial<SupportScheduledChangeRecord>
+  ): Promise<SupportScheduledChangeRecord> {
+    return apiRequest<SupportScheduledChangeRecord>(`/support/changes/scheduled/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  async deleteChange(id: string): Promise<{ success: boolean }> {
+    return apiRequest<{ success: boolean }>(`/support/changes/scheduled/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
 // Unified Export
 // ============================================================================
 
@@ -1817,6 +2375,16 @@ export const SupportService = {
   ticketCategories: TicketCategoryService,
   responseTemplates: ResponseTemplateService,
   slaSettings: SlaSettingsService,
+  agents: SupportAgentService,
+  agentSkills: SupportAgentSkillService,
+  escalationRules: SupportEscalationRuleService,
+  assignmentRules: SupportAssignmentRuleService,
+  guides: SupportGuideService,
+  troubleshooting: SupportTroubleshootingService,
+  knownErrors: SupportKnownErrorService,
+  hardwareAssets: SupportHardwareAssetService,
+  softwareAssets: SupportSoftwareAssetService,
+  scheduledChanges: SupportScheduledChangeService,
 };
 
 export default SupportService;

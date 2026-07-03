@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Users, FileText, ArrowLeft, Download, Eye, Calendar } from 'lucide-react';
+import { fetchReportCatalog } from '@/services/reports-management.service';
 
-const hrReports = [
+interface CatalogReport {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  frequency: string;
+  lastGenerated?: string;
+}
+
+const defaultHrReports: CatalogReport[] = [
   { id: '1', name: 'Attendance Report', description: 'Employee attendance tracking and punctuality', category: 'Attendance', frequency: 'Daily', lastGenerated: '2025-10-27' },
   { id: '2', name: 'Leave Balance Report', description: 'Employee leave balances by type', category: 'Leave', frequency: 'Monthly', lastGenerated: '2025-10-20' },
   { id: '3', name: 'Payroll Summary', description: 'Monthly payroll processing summary', category: 'Payroll', frequency: 'Monthly', lastGenerated: '2025-10-20' },
@@ -17,6 +27,32 @@ const hrReports = [
 
 export default function HRReportsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
+  const [hrReports, setHrReports] = useState<CatalogReport[]>(defaultHrReports);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReportCatalog('hr')
+      .then((items) => {
+        if (cancelled || items.length === 0) return;
+        setHrReports(
+          items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            description: it.description ?? '',
+            category: it.category ?? 'General',
+            frequency: it.frequency ?? 'On-Demand',
+            lastGenerated: it.lastGenerated ?? undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        // Keep built-in defaults when the catalog endpoint is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['all', ...Array.from(new Set(hrReports.map(r => r.category)))];
   const filteredReports = filterCategory === 'all' ? hrReports : hrReports.filter(r => r.category === filterCategory);
 

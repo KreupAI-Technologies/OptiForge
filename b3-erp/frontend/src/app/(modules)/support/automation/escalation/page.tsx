@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportEscalationRuleService } from '@/services/support.service'
 import { Plus, AlertTriangle, Clock, TrendingUp, Users, Settings, BarChart, ArrowUp } from 'lucide-react'
 
 interface EscalationRule {
@@ -36,7 +37,7 @@ interface EscalationPath {
 export default function AutoEscalation() {
   const [activeTab, setActiveTab] = useState<'rules' | 'paths' | 'settings'>('rules')
 
-  const escalationRules: EscalationRule[] = [
+  const seedEscalationRules: EscalationRule[] = [
     {
       id: '1',
       name: 'P0 Critical - No Response in 30 Minutes',
@@ -158,6 +159,20 @@ export default function AutoEscalation() {
       avgResponseTime: '2 min'
     }
   ]
+
+  const [escalationRules, setEscalationRules] = useState<EscalationRule[]>(seedEscalationRules)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportEscalationRuleService.getRules()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setEscalationRules(rows as unknown as EscalationRule[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const escalationPaths: EscalationPath[] = [
     {

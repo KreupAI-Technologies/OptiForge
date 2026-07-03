@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
+import React, { useEffect, useState } from 'react';
+import { cpqIntegrationEndpointService } from '@/services/cpq/cpq-orphans.service';
+import {
   ShoppingCart,
   Globe,
   RefreshCw,
@@ -72,35 +73,30 @@ export default function CPQIntegrationEcommercePage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
 
   // Ecommerce Platforms State
-  const [platforms, setPlatforms] = useState<EcommercePlatform[]>([
-    {
-      id: 1,
-      name: 'B3 Manufacturing Store',
-      type: 'Shopify',
-      status: 'connected',
-      url: 'https://b3manufacturing.myshopify.com',
-      lastSync: '2025-01-20 15:30',
-      ordersImported: 1456
-    },
-    {
-      id: 2,
-      name: 'B2B Portal',
-      type: 'Custom',
-      status: 'connected',
-      url: 'https://portal.b3manufacturing.com',
-      lastSync: '2025-01-20 15:25',
-      ordersImported: 892
-    },
-    {
-      id: 3,
-      name: 'Parts Marketplace',
-      type: 'WooCommerce',
-      status: 'connected',
-      url: 'https://parts.b3manufacturing.com',
-      lastSync: '2025-01-20 14:45',
-      ordersImported: 634
-    }
-  ]);
+  const [platforms, setPlatforms] = useState<EcommercePlatform[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    cpqIntegrationEndpointService
+      .findAll({ system: 'ecommerce' })
+      .then((rows) => {
+        if (!active) return;
+        const mapped: EcommercePlatform[] = (Array.isArray(rows) ? rows : []).map((r, idx) => ({
+          id: idx + 1,
+          name: r.name ?? '',
+          type: (r.type ?? 'Custom') as EcommercePlatform['type'],
+          status: (r.status ?? 'connected') as EcommercePlatform['status'],
+          url: (r.metadata as any)?.url ?? '',
+          lastSync: r.lastSync ?? '',
+          ordersImported: Number(r.recordCount) || 0
+        }));
+        setPlatforms(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Web Quotes State
   const [webQuotes, setWebQuotes] = useState<WebQuote[]>([

@@ -56,6 +56,27 @@ import { ContactRoleController } from './contact-role.controller';
 import { ActivityRecordController } from './activity-record.controller';
 import { PipelineStageConfigController } from './pipeline-stage-config.controller';
 import { CrmAnalyticsController } from './crm-analytics.controller';
+// Second-pass wired features
+import { CrmCustomer } from './entities/crm-customer.entity';
+import { CrmProposal } from './entities/crm-proposal.entity';
+import { CrmCampaign } from './entities/crm-campaign.entity';
+import { CrmEmailCampaign } from './entities/crm-email-campaign.entity';
+import { CrmContractRenewal } from './entities/crm-contract-renewal.entity';
+import { CrmContractAmendment } from './entities/crm-contract-amendment.entity';
+import { CrmCustomerService } from './services/crm-customer.service';
+import { CrmProposalService } from './services/crm-proposal.service';
+import { CrmCampaignService } from './services/crm-campaign.service';
+import { CrmEmailCampaignService } from './services/crm-email-campaign.service';
+import { CrmContractRenewalService } from './services/crm-contract-renewal.service';
+import { CrmContractAmendmentService } from './services/crm-contract-amendment.service';
+import { CrmOpportunitiesService } from './services/crm-opportunities.service';
+import { CrmCustomerController } from './crm-customer.controller';
+import { CrmProposalController } from './crm-proposal.controller';
+import { CrmCampaignController } from './crm-campaign.controller';
+import { CrmEmailCampaignController } from './crm-email-campaign.controller';
+import { CrmContractRenewalController } from './crm-contract-renewal.controller';
+import { CrmContractAmendmentController } from './crm-contract-amendment.controller';
+import { CrmOpportunitiesController } from './crm-opportunities.controller';
 
 @Module({
   imports: [
@@ -78,6 +99,12 @@ import { CrmAnalyticsController } from './crm-analytics.controller';
       ContactRole,
       ActivityRecord,
       PipelineStageConfig,
+      CrmCustomer,
+      CrmProposal,
+      CrmCampaign,
+      CrmEmailCampaign,
+      CrmContractRenewal,
+      CrmContractAmendment,
     ]),
   ],
   controllers: [
@@ -99,6 +126,13 @@ import { CrmAnalyticsController } from './crm-analytics.controller';
     ActivityRecordController,
     PipelineStageConfigController,
     CrmAnalyticsController,
+    CrmCustomerController,
+    CrmProposalController,
+    CrmCampaignController,
+    CrmEmailCampaignController,
+    CrmContractRenewalController,
+    CrmContractAmendmentController,
+    CrmOpportunitiesController,
   ],
   providers: [
     InteractionsService,
@@ -121,6 +155,13 @@ import { CrmAnalyticsController } from './crm-analytics.controller';
     ActivityRecordService,
     PipelineStageConfigService,
     CrmAnalyticsService,
+    CrmCustomerService,
+    CrmProposalService,
+    CrmCampaignService,
+    CrmEmailCampaignService,
+    CrmContractRenewalService,
+    CrmContractAmendmentService,
+    CrmOpportunitiesService,
   ],
   exports: [
     InteractionsService,

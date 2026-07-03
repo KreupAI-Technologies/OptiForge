@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   GitBranch,
@@ -19,6 +19,7 @@ import {
   ChevronUp
 } from 'lucide-react'
 import { ViewVersionModal, CompareVersionsModal, VersionTimelineModal, FilterModal } from '@/components/cpq/QuoteVersionModals'
+import { cpqQuoteVersionService } from '@/services/cpq/cpq-orphans.service'
 
 interface QuoteVersion {
   id: string
@@ -56,92 +57,37 @@ export default function CPQQuotesVersionsPage() {
   // Advanced filters
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
 
-  const [versions] = useState<QuoteVersion[]>([
-    {
-      id: 'QV-001',
-      quoteNumber: 'QT-2024-1234',
-      version: 'v3.0',
-      customerName: 'Prestige Properties Ltd',
-      value: 2850000,
-      changes: ['Increased cabinet pricing by 5%', 'Added premium hardware option', 'Updated delivery terms'],
-      changeType: 'price-increase',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-10-18',
-      status: 'current'
-    },
-    {
-      id: 'QV-002',
-      quoteNumber: 'QT-2024-1234',
-      version: 'v2.0',
-      customerName: 'Prestige Properties Ltd',
-      value: 2720000,
-      changes: ['Removed custom lighting package', 'Applied 10% volume discount'],
-      changeType: 'price-decrease',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-10-15',
-      status: 'superseded'
-    },
-    {
-      id: 'QV-003',
-      quoteNumber: 'QT-2024-1234',
-      version: 'v1.0',
-      customerName: 'Prestige Properties Ltd',
-      value: 2650000,
-      changes: ['Initial quote created'],
-      changeType: 'items-added',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-10-12',
-      status: 'superseded'
-    },
-    {
-      id: 'QV-004',
-      quoteNumber: 'QT-2024-1235',
-      version: 'v2.0',
-      customerName: 'Urban Homes Pvt Ltd',
-      value: 1750000,
-      changes: ['Updated payment terms to Net 45', 'Changed warranty period to 3 years'],
-      changeType: 'terms-updated',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-10-17',
-      status: 'current'
-    },
-    {
-      id: 'QV-005',
-      quoteNumber: 'QT-2024-1235',
-      version: 'v1.0',
-      customerName: 'Urban Homes Pvt Ltd',
-      value: 1750000,
-      changes: ['Initial quote created'],
-      changeType: 'items-added',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-10-14',
-      status: 'superseded'
-    },
-    {
-      id: 'QV-006',
-      quoteNumber: 'QT-2024-1236',
-      version: 'v4.0',
-      customerName: 'Elite Builders & Developers',
-      value: 4200000,
-      changes: ['Added smart appliance package', 'Increased countertop quality', 'Added installation service'],
-      changeType: 'items-added',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-10-16',
-      status: 'current'
-    },
-    {
-      id: 'QV-007',
-      quoteNumber: 'QT-2024-1236',
-      version: 'v3.0',
-      customerName: 'Elite Builders & Developers',
-      value: 3950000,
-      changes: ['Removed basic hardware', 'Applied customer-specific discount'],
-      changeType: 'price-decrease',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-10-13',
-      status: 'superseded'
+  const [versions, setVersions] = useState<QuoteVersion[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    cpqQuoteVersionService
+      .findAll()
+      .then((rows) => {
+        if (!active) return
+        const mapped: QuoteVersion[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+          id: r.id,
+          quoteNumber: r.quoteNumber ?? '',
+          version: r.version ?? '',
+          customerName: r.customerName ?? '',
+          value: Number(r.value) || 0,
+          changes: Array.isArray(r.changes) ? r.changes : [],
+          changeType: (r.changeType ?? 'items-added') as QuoteVersion['changeType'],
+          createdBy: r.createdBy ?? '',
+          createdDate: r.createdDate ?? '',
+          status: (r.status ?? 'draft') as QuoteVersion['status']
+        }))
+        setVersions(mapped)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
     }
-  ])
+  }, [])
 
   // Handler functions
   const handleViewVersion = (version: QuoteVersion) => {

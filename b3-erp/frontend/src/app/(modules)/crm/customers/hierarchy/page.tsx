@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, ChevronDown, ChevronRight, Users, DollarSign, Package, MapPin, Phone, Mail, Globe, Plus, Edit, Trash2, Eye, Network, ArrowRight } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface CustomerNode {
   id: string;
@@ -440,7 +441,41 @@ function HierarchyNode({ node, level }: HierarchyNodeProps) {
 
 export default function CustomerHierarchyPage() {
   const router = useRouter();
-  const [hierarchies] = useState<CustomerNode[]>(mockHierarchy);
+  const [hierarchies, setHierarchies] = useState<CustomerNode[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const mapNode = (n: any): CustomerNode => ({
+      id: String(n?.id ?? ''),
+      name: n?.name ?? '',
+      type: 'parent',
+      industry: n?.industry ?? '',
+      location: n?.location ?? '',
+      contactPerson: n?.contactPerson ?? '',
+      email: n?.email ?? '',
+      phone: n?.phone ?? '',
+      employees: Number(n?.employees ?? 0),
+      annualRevenue: Number(n?.annualRevenue ?? 0),
+      accountValue: Number(n?.lifetimeValue ?? 0),
+      activeContracts: Number(n?.activeContracts ?? 0),
+      relationshipStart: n?.relationshipStart ?? '',
+      status: (n?.status === 'inactive' ? 'inactive' : 'active') as CustomerNode['status'],
+      children: Array.isArray(n?.children) ? n.children.map(mapNode) : [],
+    });
+    (async () => {
+      try {
+        const data = await crmService.customers.getHierarchy();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setHierarchies(rows.length ? rows.map(mapNode) : mockHierarchy);
+      } catch {
+        if (active) setHierarchies(mockHierarchy);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const calculateTotalStats = () => {
     const calculateNode = (node: CustomerNode): any => {

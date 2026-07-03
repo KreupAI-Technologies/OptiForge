@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportTroubleshootingService } from '@/services/support.service'
 import {
   Search, Plus, AlertTriangle, CheckCircle, XCircle, Clock,
   ChevronDown, ChevronUp, Tag, Filter, Eye, ThumbsUp, Wrench,
@@ -41,7 +42,7 @@ export default function Troubleshooting() {
     updatedThisWeek: 7
   })
 
-  const [articles] = useState<TroubleshootingArticle[]>([
+  const [articles, setArticles] = useState<TroubleshootingArticle[]>([
     {
       id: '1',
       articleId: 'TS-001',
@@ -276,6 +277,18 @@ export default function Troubleshooting() {
       relatedArticles: ['TS-014']
     }
   ])
+
+  useEffect(() => {
+    let cancelled = false
+    SupportTroubleshootingService.getArticles()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setArticles(rows as unknown as TroubleshootingArticle[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const categories = ['all', 'Login Issues', 'Performance', 'Errors', 'Configuration', 'Reports', 'Network']
   const severities = ['all', 'low', 'medium', 'high', 'critical']

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Building2, User, Calendar, TrendingUp, DollarSign, Download, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Upload, Save, Check, X, UserPlus, FileSpreadsheet, MapPin, ShoppingCart, FileText, Video, Users, GitMerge, Zap, Clock, Activity } from 'lucide-react';
 import { ConfirmDialog, useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Customer {
   id: string;
@@ -657,7 +658,53 @@ export default function CustomersPage() {
   const router = useRouter();
   const { addToast } = useToast();
 
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.customers.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setCustomers(
+          rows.map((c: any) => ({
+            id: String(c?.id ?? ''),
+            customerName: c?.customerName ?? '',
+            industry: c?.industry ?? '',
+            contactPerson: c?.contactPerson ?? '',
+            phone: c?.phone ?? '',
+            email: c?.email ?? '',
+            status: (c?.status ?? 'active') as Customer['status'],
+            segment: (c?.segment ?? null) as Customer['segment'],
+            accountStatus: (c?.accountStatus ?? 'Active') as Customer['accountStatus'],
+            lifetimeValue: Number(c?.lifetimeValue ?? 0),
+            lastOrder: c?.lastOrder ?? '',
+            totalOrders: Number(c?.totalOrders ?? 0),
+            location: c?.location ?? '',
+            region: c?.region ?? '',
+            createdAt: c?.createdAt ?? '',
+            accountManager: c?.accountManager ?? '',
+            creditStatus: (c?.creditStatus ?? 'approved') as Customer['creditStatus'],
+            creditLimit: Number(c?.creditLimit ?? 0),
+            paymentTerms: c?.paymentTerms ?? '',
+            salesOrganization: c?.salesOrganization ?? '',
+            customerClassification: (c?.customerClassification ?? 'C') as Customer['customerClassification'],
+            customerLifecycleStage: (c?.customerLifecycleStage ?? 'new') as Customer['customerLifecycleStage'],
+            customerGroup: (c?.customerGroup ?? 'retail') as Customer['customerGroup'],
+            salesBlock: Boolean(c?.salesBlock),
+            deliveryBlock: Boolean(c?.deliveryBlock),
+            billingBlock: Boolean(c?.billingBlock),
+          })),
+        );
+      } catch {
+        if (active) setCustomers(mockCustomers);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');

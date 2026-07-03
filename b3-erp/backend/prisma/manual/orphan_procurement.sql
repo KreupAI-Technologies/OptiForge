@@ -36,3 +36,25 @@ CREATE TABLE IF NOT EXISTS "procurement_budgets" (
 
 CREATE INDEX IF NOT EXISTS "IDX_procurement_budgets_company_year"
   ON "procurement_budgets" ("companyId", "fiscalYear");
+
+CREATE TABLE IF NOT EXISTS "procurement_calendar_events" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar(100) NOT NULL,
+  "title" varchar(255) NOT NULL,
+  "type" varchar(50) NOT NULL DEFAULT 'meeting',
+  "eventDate" date NOT NULL,
+  "time" varchar(50) NULL,
+  "vendor" varchar(255) NULL,
+  "description" text NULL,
+  "location" varchar(255) NULL,
+  "items" integer NULL,
+  "value" numeric(15,2) NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'scheduled',
+  "priority" varchar(20) NOT NULL DEFAULT 'medium',
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_procurement_calendar_events" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_procurement_calendar_events_company_date"
+  ON "procurement_calendar_events" ("companyId", "eventDate");

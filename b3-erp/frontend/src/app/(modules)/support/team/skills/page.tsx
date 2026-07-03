@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportAgentSkillService } from '@/services/support.service'
 import { Award, TrendingUp, AlertCircle, CheckCircle, Star, Users, Filter, Search, Plus, Eye, BarChart3 } from 'lucide-react'
 
 interface SkillMatrix {
@@ -35,7 +36,7 @@ export default function TeamSkills() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAgent, setSelectedAgent] = useState<SkillMatrix | null>(null)
 
-  const skillMatrix: SkillMatrix[] = [
+  const seedSkillMatrix: SkillMatrix[] = [
     {
       agentId: '1',
       agentName: 'Sarah Johnson',
@@ -157,6 +158,20 @@ export default function TeamSkills() {
       certifications: 2
     }
   ]
+
+  const [skillMatrix, setSkillMatrix] = useState<SkillMatrix[]>(seedSkillMatrix)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportAgentSkillService.getSkills()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setSkillMatrix(rows as unknown as SkillMatrix[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const skillGaps: SkillGap[] = [
     { skill: 'Kubernetes', category: 'Cloud', required: 3, current: 1, gap: 2, priority: 'High' },

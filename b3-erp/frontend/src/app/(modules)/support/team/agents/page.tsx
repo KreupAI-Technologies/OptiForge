@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Users, Star, TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle, Mail, Phone, MapPin, Calendar, Award, Filter, Search, Plus, Edit, Eye, BarChart3 } from 'lucide-react'
+import { SupportAgentService } from '@/services/support.service'
 
 interface Agent {
   id: string
@@ -38,7 +39,7 @@ export default function TeamAgents() {
   const [selectedStatus, setSelectedStatus] = useState<string>('All')
   const [searchTerm, setSearchTerm] = useState('')
 
-  const agents: Agent[] = [
+  const seedAgents: Agent[] = [
     {
       id: '1',
       name: 'Sarah Johnson',
@@ -233,12 +234,26 @@ export default function TeamAgents() {
     }
   ]
 
+  const [agents, setAgents] = useState<Agent[]>(seedAgents)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportAgentService.getAgents()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setAgents(rows as unknown as Agent[])
+        }
+      })
+      .catch(() => { /* keep seed data on error */ })
+    return () => { cancelled = true }
+  }, [])
+
   const stats = {
     totalAgents: agents.length,
     available: agents.filter(a => a.status === 'Available').length,
     busy: agents.filter(a => a.status === 'Busy').length,
-    avgSatisfaction: (agents.reduce((sum, a) => sum + a.satisfaction, 0) / agents.length).toFixed(1),
-    avgSLACompliance: (agents.reduce((sum, a) => sum + a.slaCompliance, 0) / agents.length).toFixed(1),
+    avgSatisfaction: agents.length ? (agents.reduce((sum, a) => sum + a.satisfaction, 0) / agents.length).toFixed(1) : '0.0',
+    avgSLACompliance: agents.length ? (agents.reduce((sum, a) => sum + a.slaCompliance, 0) / agents.length).toFixed(1) : '0.0',
     totalActiveTickets: agents.reduce((sum, a) => sum + a.activeTickets, 0)
   }
 

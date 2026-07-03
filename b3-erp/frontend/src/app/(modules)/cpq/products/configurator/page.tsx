@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqConfigStepService } from '@/services/cpq/cpq-orphans.service'
 import {
   Settings,
   ChevronRight,
@@ -38,7 +39,7 @@ interface ConfigOption {
 export default function CPQProductsConfiguratorPage() {
   const router = useRouter()
 
-  const [steps] = useState<ConfigStep[]>([
+  const [steps, setSteps] = useState<ConfigStep[]>([
     { id: '1', title: 'Kitchen Type', completed: true, active: false },
     { id: '2', title: 'Size & Layout', completed: true, active: false },
     { id: '3', title: 'Cabinet Materials', completed: false, active: true },
@@ -47,6 +48,27 @@ export default function CPQProductsConfiguratorPage() {
     { id: '6', title: 'Accessories', completed: false, active: false },
     { id: '7', title: 'Review & Quote', completed: false, active: false }
   ])
+
+  useEffect(() => {
+    let active = true
+    cpqConfigStepService
+      .findAll()
+      .then((rows) => {
+        if (!active) return
+        if (!Array.isArray(rows) || rows.length === 0) return
+        const mapped: ConfigStep[] = rows.map((r, idx) => ({
+          id: r.id ?? String(idx + 1),
+          title: r.title ?? '',
+          completed: !!r.completed,
+          active: !!r.active
+        }))
+        setSteps(mapped)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   const [cabinetOptions] = useState<ConfigOption[]>([
     { id: 'CAB-001', name: 'Premium Plywood - Marine Grade', price: 150000, selected: false, image: '🪵' },

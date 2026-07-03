@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ShoppingCart, FileText, ArrowLeft, Download, Eye, Calendar } from 'lucide-react';
+import { fetchReportCatalog } from '@/services/reports-management.service';
 
-const salesReports = [
+interface CatalogReport {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  frequency: string;
+  lastGenerated?: string;
+}
+
+const defaultSalesReports: CatalogReport[] = [
   { id: '1', name: 'Sales Performance Report', description: 'Overall sales metrics and KPIs', category: 'Performance', frequency: 'Monthly', lastGenerated: '2025-10-27' },
   { id: '2', name: 'Revenue Analysis', description: 'Revenue breakdown by product/service', category: 'Revenue', frequency: 'Monthly', lastGenerated: '2025-10-27' },
   { id: '3', name: 'Customer Sales Analysis', description: 'Sales performance by customer', category: 'Customers', frequency: 'Monthly', lastGenerated: '2025-10-26' },
@@ -18,6 +28,32 @@ const salesReports = [
 
 export default function SalesReportsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
+  const [salesReports, setSalesReports] = useState<CatalogReport[]>(defaultSalesReports);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReportCatalog('sales')
+      .then((items) => {
+        if (cancelled || items.length === 0) return;
+        setSalesReports(
+          items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            description: it.description ?? '',
+            category: it.category ?? 'General',
+            frequency: it.frequency ?? 'On-Demand',
+            lastGenerated: it.lastGenerated ?? undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        // Keep built-in defaults when the catalog endpoint is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['all', ...Array.from(new Set(salesReports.map(r => r.category)))];
   const filteredReports = filterCategory === 'all' ? salesReports : salesReports.filter(r => r.category === filterCategory);
 

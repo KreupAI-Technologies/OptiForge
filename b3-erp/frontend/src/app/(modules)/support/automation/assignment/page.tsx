@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportAssignmentRuleService } from '@/services/support.service'
 import { Save, Plus, Trash2, Users, Target, BarChart3, Settings, TrendingUp, AlertCircle } from 'lucide-react'
 
 interface AssignmentRule {
@@ -34,7 +35,7 @@ interface TeamMember {
 export default function AutoAssignment() {
   const [activeTab, setActiveTab] = useState<'rules' | 'team' | 'settings'>('rules')
 
-  const assignmentRules: AssignmentRule[] = [
+  const seedAssignmentRules: AssignmentRule[] = [
     {
       id: '1',
       name: 'Critical Infrastructure Tickets',
@@ -151,6 +152,20 @@ export default function AutoAssignment() {
       avgAssignmentTime: '3 min'
     }
   ]
+
+  const [assignmentRules, setAssignmentRules] = useState<AssignmentRule[]>(seedAssignmentRules)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportAssignmentRuleService.getRules()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setAssignmentRules(rows as unknown as AssignmentRule[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const teamMembers: TeamMember[] = [
     {

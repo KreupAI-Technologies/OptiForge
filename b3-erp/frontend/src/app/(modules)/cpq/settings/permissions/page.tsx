@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { cpqPermissionRoleService } from '@/services/cpq/cpq-orphans.service'
 import {
   Shield,
   Users,
@@ -150,6 +151,27 @@ export default function CPQSettingsPermissionsPage() {
       }
     }
   ])
+
+  useEffect(() => {
+    let active = true
+    cpqPermissionRoleService
+      .findAll()
+      .then((rows) => {
+        if (!active) return
+        if (!Array.isArray(rows) || rows.length === 0) return
+        const mapped = rows.map((r, idx) => ({
+          id: idx + 1,
+          name: r.name ?? '',
+          userCount: Number(r.usersCount) || 0,
+          permissions: (r.permissions ?? {}) as any
+        }))
+        setRoles(mapped as any)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Approval limits by role
   const [approvalLimits, setApprovalLimits] = useState([

@@ -90,3 +90,226 @@ CREATE TABLE IF NOT EXISTS "support_sla_settings" (
   CONSTRAINT "PK_support_sla_settings" PRIMARY KEY ("id"),
   CONSTRAINT "UQ_support_sla_settings_companyId" UNIQUE ("companyId")
 );
+
+-- Backs /support/team/agents
+CREATE TABLE IF NOT EXISTS "support_agents" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "name" varchar NOT NULL,
+  "email" varchar,
+  "phone" varchar,
+  "role" varchar,
+  "team" varchar,
+  "status" varchar NOT NULL DEFAULT 'Offline',
+  "avatar" varchar,
+  "joinDate" varchar,
+  "location" varchar,
+  "shift" varchar,
+  "activeTickets" integer NOT NULL DEFAULT 0,
+  "resolvedToday" integer NOT NULL DEFAULT 0,
+  "resolvedThisMonth" integer NOT NULL DEFAULT 0,
+  "avgResolutionTime" varchar,
+  "satisfaction" numeric(4,2) NOT NULL DEFAULT 0,
+  "responseTime" varchar,
+  "slaCompliance" numeric(5,2) NOT NULL DEFAULT 0,
+  "skills" json,
+  "specializations" json,
+  "certifications" json,
+  "performance" json,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_agents" PRIMARY KEY ("id")
+);
+
+-- Backs /support/team/skills
+CREATE TABLE IF NOT EXISTS "support_agent_skills" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "agentId" varchar,
+  "agentName" varchar NOT NULL,
+  "team" varchar,
+  "avatar" varchar,
+  "skills" json,
+  "totalSkills" integer NOT NULL DEFAULT 0,
+  "expertLevel" integer NOT NULL DEFAULT 0,
+  "certifications" integer NOT NULL DEFAULT 0,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_agent_skills" PRIMARY KEY ("id")
+);
+
+-- Backs /support/automation/escalation
+CREATE TABLE IF NOT EXISTS "support_escalation_rules" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "name" varchar NOT NULL,
+  "description" text,
+  "level" integer NOT NULL DEFAULT 1,
+  "trigger" json,
+  "escalateTo" varchar,
+  "notificationChannels" json,
+  "active" boolean NOT NULL DEFAULT true,
+  "executionCount" integer NOT NULL DEFAULT 0,
+  "avgResponseTime" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_escalation_rules" PRIMARY KEY ("id")
+);
+
+-- Backs /support/automation/assignment
+CREATE TABLE IF NOT EXISTS "support_assignment_rules" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "name" varchar NOT NULL,
+  "description" text,
+  "priority" integer NOT NULL DEFAULT 100,
+  "conditions" json,
+  "assignmentLogic" varchar NOT NULL DEFAULT 'Round Robin',
+  "assignTo" varchar,
+  "active" boolean NOT NULL DEFAULT true,
+  "matchedTickets" integer NOT NULL DEFAULT 0,
+  "avgAssignmentTime" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_assignment_rules" PRIMARY KEY ("id")
+);
+
+-- Backs /support/knowledge/guides
+CREATE TABLE IF NOT EXISTS "support_guides" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "guideId" varchar,
+  "title" varchar NOT NULL,
+  "description" text,
+  "category" varchar,
+  "difficulty" varchar NOT NULL DEFAULT 'Beginner',
+  "readTime" varchar,
+  "views" integer NOT NULL DEFAULT 0,
+  "helpful" integer NOT NULL DEFAULT 0,
+  "lastUpdated" varchar,
+  "author" varchar,
+  "tags" json,
+  "sections" integer NOT NULL DEFAULT 0,
+  "featured" boolean NOT NULL DEFAULT false,
+  "format" varchar NOT NULL DEFAULT 'Article',
+  "thumbnail" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_guides" PRIMARY KEY ("id")
+);
+
+-- Backs /support/knowledge/troubleshooting
+CREATE TABLE IF NOT EXISTS "support_troubleshooting_articles" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "articleId" varchar,
+  "title" varchar NOT NULL,
+  "problem" text,
+  "solution" text,
+  "category" varchar,
+  "severity" varchar NOT NULL DEFAULT 'medium',
+  "steps" json,
+  "causes" json,
+  "prevention" json,
+  "tags" json,
+  "views" integer NOT NULL DEFAULT 0,
+  "helpful" integer NOT NULL DEFAULT 0,
+  "lastUpdated" varchar,
+  "author" varchar,
+  "relatedArticles" json,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_troubleshooting_articles" PRIMARY KEY ("id")
+);
+
+-- Backs /support/problems/known-errors
+CREATE TABLE IF NOT EXISTS "support_known_errors" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "errorId" varchar,
+  "title" varchar NOT NULL,
+  "description" text,
+  "workaround" text,
+  "status" varchar NOT NULL DEFAULT 'Active',
+  "category" varchar,
+  "affectedSystems" json,
+  "relatedProblems" json,
+  "documentedBy" varchar,
+  "documentedDate" varchar,
+  "lastUpdated" varchar,
+  "affectedUsers" integer NOT NULL DEFAULT 0,
+  "severity" varchar NOT NULL DEFAULT 'medium',
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_known_errors" PRIMARY KEY ("id")
+);
+
+-- Backs /support/assets/hardware
+CREATE TABLE IF NOT EXISTS "support_hardware_assets" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "assetTag" varchar,
+  "name" varchar NOT NULL,
+  "category" varchar NOT NULL DEFAULT 'Other',
+  "manufacturer" varchar,
+  "model" varchar,
+  "serialNumber" varchar,
+  "status" varchar NOT NULL DEFAULT 'Active',
+  "condition" varchar NOT NULL DEFAULT 'Good',
+  "location" json,
+  "assignedTo" json,
+  "purchase" json,
+  "specifications" json,
+  "maintenance" json,
+  "lifecycle" json,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_hardware_assets" PRIMARY KEY ("id")
+);
+
+-- Backs /support/assets/software
+CREATE TABLE IF NOT EXISTS "support_software_assets" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "name" varchar NOT NULL,
+  "vendor" varchar,
+  "category" varchar NOT NULL DEFAULT 'Other',
+  "version" varchar,
+  "licenseType" varchar NOT NULL DEFAULT 'Subscription',
+  "licenses" json,
+  "cost" json,
+  "deployment" json,
+  "contract" json,
+  "compliance" json,
+  "support" json,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_software_assets" PRIMARY KEY ("id")
+);
+
+-- Backs /support/changes/scheduled
+CREATE TABLE IF NOT EXISTS "support_scheduled_changes" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "ticketNumber" varchar,
+  "title" varchar NOT NULL,
+  "type" varchar NOT NULL DEFAULT 'Normal',
+  "category" varchar,
+  "priority" varchar NOT NULL DEFAULT 'P3',
+  "implementer" varchar,
+  "implementationDate" varchar,
+  "implementationTime" varchar,
+  "duration" varchar,
+  "status" varchar NOT NULL DEFAULT 'Scheduled',
+  "affectedSystems" json,
+  "downtime" boolean NOT NULL DEFAULT false,
+  "backupCompleted" boolean NOT NULL DEFAULT false,
+  "stakeholdersNotified" boolean NOT NULL DEFAULT false,
+  "changeWindow" varchar,
+  "approvedBy" varchar,
+  "approvalDate" varchar,
+  "rollbackPlan" boolean NOT NULL DEFAULT false,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_scheduled_changes" PRIMARY KEY ("id")
+);

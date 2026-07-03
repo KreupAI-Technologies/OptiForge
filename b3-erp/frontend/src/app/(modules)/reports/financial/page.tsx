@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DollarSign, FileText, TrendingUp, ArrowLeft, Download, Eye, Calendar, Filter } from 'lucide-react';
+import { fetchReportCatalog } from '@/services/reports-management.service';
 
 interface FinancialReport {
   id: string;
@@ -14,7 +15,7 @@ interface FinancialReport {
   href: string;
 }
 
-const financialReports: FinancialReport[] = [
+const defaultFinancialReports: FinancialReport[] = [
   { id: '1', name: 'Profit & Loss Statement', description: 'Comprehensive income statement showing revenues and expenses', category: 'Financial Statements', frequency: 'Monthly', lastGenerated: '2025-10-27', href: '/reports/finance/pl' },
   { id: '2', name: 'Balance Sheet', description: 'Statement of financial position - assets, liabilities, and equity', category: 'Financial Statements', frequency: 'Monthly', lastGenerated: '2025-10-27', href: '/reports/finance/balance-sheet' },
   { id: '3', name: 'Cash Flow Statement', description: 'Analysis of cash inflows and outflows', category: 'Financial Statements', frequency: 'Monthly', lastGenerated: '2025-10-26', href: '/reports/finance/cash-flow' },
@@ -32,6 +33,44 @@ const financialReports: FinancialReport[] = [
 export default function FinancialReportsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [financialReports, setFinancialReports] = useState<FinancialReport[]>(defaultFinancialReports);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const items = await fetchReportCatalog('financial');
+        if (cancelled) return;
+        if (items.length > 0) {
+          setFinancialReports(
+            items.map((it) => ({
+              id: it.id,
+              name: it.name,
+              description: it.description ?? '',
+              category: it.category ?? 'General',
+              frequency: it.frequency ?? 'On-Demand',
+              lastGenerated: it.lastGenerated ?? undefined,
+              href: it.href ?? '/reports/financial',
+            })),
+          );
+        }
+      } catch (err) {
+        // Fall back to built-in defaults when the catalog endpoint / table
+        // is not yet available.
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load catalog');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = ['all', ...Array.from(new Set(financialReports.map(r => r.category)))];
 

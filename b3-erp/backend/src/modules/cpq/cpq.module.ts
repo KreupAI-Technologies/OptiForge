@@ -60,6 +60,14 @@ import {
   CPQCodeListItem,
   CPQIntegrationSyncLog,
 } from './entities/cpq-orphans.entity';
+import {
+  CPQWorkflowRequest,
+  CPQQuoteVersionRow,
+  CPQNotificationSettingRow,
+  CPQPermissionRole,
+  CPQIntegrationEndpoint,
+  CPQConfigStep,
+} from './entities/cpq-orphans-2.entity';
 
 // Services
 import {
@@ -81,6 +89,14 @@ import {
   CPQCodeListItemService,
   CPQIntegrationSyncLogService,
 } from './services/cpq-orphans.service';
+import {
+  CPQWorkflowRequestService,
+  CPQQuoteVersionRowService,
+  CPQNotificationSettingRowService,
+  CPQPermissionRoleService,
+  CPQIntegrationEndpointService,
+  CPQConfigStepService,
+} from './services/cpq-orphans-2.service';
 
 // Controllers
 import {
@@ -102,6 +118,14 @@ import {
   CPQCodeListItemController,
   CPQIntegrationSyncLogController,
 } from './controllers/cpq-orphans.controller';
+import {
+  CPQWorkflowRequestController,
+  CPQQuoteVersionRowController,
+  CPQNotificationSettingRowController,
+  CPQPermissionRoleController,
+  CPQIntegrationEndpointController,
+  CPQConfigStepController,
+} from './controllers/cpq-orphans-2.controller';
 
 @Module({
   imports: [
@@ -161,6 +185,13 @@ import {
       CPQRecommendation,
       CPQCodeListItem,
       CPQIntegrationSyncLog,
+      // Orphan-page tables (second pass)
+      CPQWorkflowRequest,
+      CPQQuoteVersionRow,
+      CPQNotificationSettingRow,
+      CPQPermissionRole,
+      CPQIntegrationEndpoint,
+      CPQConfigStep,
     ]),
   ],
   controllers: [
@@ -179,6 +210,12 @@ import {
     CPQRecommendationController,
     CPQCodeListItemController,
     CPQIntegrationSyncLogController,
+    CPQWorkflowRequestController,
+    CPQQuoteVersionRowController,
+    CPQNotificationSettingRowController,
+    CPQPermissionRoleController,
+    CPQIntegrationEndpointController,
+    CPQConfigStepController,
   ],
   providers: [
     ProductConfigurationService,
@@ -196,6 +233,12 @@ import {
     CPQRecommendationService,
     CPQCodeListItemService,
     CPQIntegrationSyncLogService,
+    CPQWorkflowRequestService,
+    CPQQuoteVersionRowService,
+    CPQNotificationSettingRowService,
+    CPQPermissionRoleService,
+    CPQIntegrationEndpointService,
+    CPQConfigStepService,
   ],
   exports: [
     ProductConfigurationService,

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, CheckCircle, XCircle, Clock, AlertCircle, FileText, DollarSign, Calendar, User, Building2, TrendingUp, TrendingDown } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface ContractAmendment {
   id: string;
@@ -272,7 +273,58 @@ const mockAmendments: ContractAmendment[] = [
 
 export default function ContractAmendmentsPage() {
   const router = useRouter();
-  const [amendments] = useState<ContractAmendment[]>(mockAmendments);
+  const [amendments, setAmendments] = useState<ContractAmendment[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.contractAmendments.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setAmendments(
+          rows.map((a: any) => ({
+            id: String(a?.id ?? ''),
+            amendmentNumber: a?.amendmentNumber ?? '',
+            contractNumber: a?.contractNumber ?? '',
+            contractTitle: a?.contractTitle ?? '',
+            customer: a?.customer ?? '',
+            customerCompany: a?.customerCompany ?? '',
+            amendmentType: (a?.amendmentType ?? 'value_change') as ContractAmendment['amendmentType'],
+            status: (a?.status ?? 'draft') as ContractAmendment['status'],
+            description: a?.description ?? '',
+            originalValue: a?.originalValue != null ? Number(a.originalValue) : undefined,
+            newValue: a?.newValue != null ? Number(a.newValue) : undefined,
+            valueImpact: a?.valueImpact != null ? Number(a.valueImpact) : undefined,
+            originalEndDate: a?.originalEndDate ?? undefined,
+            newEndDate: a?.newEndDate ?? undefined,
+            effectiveDate: a?.effectiveDate ?? '',
+            requestedDate: a?.requestedDate ?? '',
+            approvedDate: a?.approvedDate ?? undefined,
+            executedDate: a?.executedDate ?? undefined,
+            requestedBy: a?.requestedBy ?? '',
+            approverName: a?.approverName ?? undefined,
+            assignedTo: a?.assignedTo ?? '',
+            priority: (a?.priority ?? 'medium') as ContractAmendment['priority'],
+            reason: a?.reason ?? '',
+            impactedClauses: Array.isArray(a?.impactedClauses) ? a.impactedClauses : [],
+            requiresLegalReview: Boolean(a?.requiresLegalReview),
+            requiresCustomerApproval: Boolean(a?.requiresCustomerApproval),
+            customerApprovalStatus: a?.customerApprovalStatus ?? undefined,
+            internalApprovalStatus: a?.internalApprovalStatus ?? undefined,
+            tags: Array.isArray(a?.tags) ? a.tags : [],
+            attachments: Number(a?.attachments ?? 0),
+            notes: a?.notes ?? '',
+          })),
+        );
+      } catch {
+        if (active) setAmendments(mockAmendments);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'pending_review' | 'pending_approval' | 'approved' | 'rejected' | 'executed'>('all');
   const [filterType, setFilterType] = useState<'all' | 'value_change' | 'scope_change' | 'term_extension' | 'term_reduction' | 'pricing_adjustment' | 'service_modification'>('all');

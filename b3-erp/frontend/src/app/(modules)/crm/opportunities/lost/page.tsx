@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   XCircle,
   TrendingDown,
@@ -172,7 +173,47 @@ const mockLostOpportunities: LostOpportunity[] = [
 export default function LostOpportunitiesPage() {
   const router = useRouter();
   const { addToast } = useToast();
-  const [opportunities, setOpportunities] = useState<LostOpportunity[]>(mockLostOpportunities);
+  const [opportunities, setOpportunities] = useState<LostOpportunity[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.opportunityViews.getLost();
+        if (!active) return;
+        const rows = Array.isArray(data?.opportunities) ? data.opportunities : [];
+        if (!rows.length) {
+          setOpportunities(mockLostOpportunities);
+          return;
+        }
+        setOpportunities(
+          rows.map((o: any) => ({
+            id: String(o?.id ?? ''),
+            name: o?.name ?? '',
+            accountName: o?.account ?? '',
+            contactName: o?.contact ?? '',
+            value: Number(o?.value ?? 0),
+            lostDate: o?.expectedCloseDate ?? '',
+            daysInPipeline: 0,
+            owner: o?.owner ?? '',
+            products: [],
+            source: o?.source ?? '',
+            stage: o?.stage ?? '',
+            lostReason: '',
+            lostToCompetitor: '',
+            ourPrice: Number(o?.value ?? 0),
+            createdDate: '',
+            canReopen: true,
+          })),
+        );
+      } catch {
+        if (active) setOpportunities(mockLostOpportunities);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [lostReasonFilter, setLostReasonFilter] = useState('all');
   const [sortBy, setSortBy] = useState('lostDate');

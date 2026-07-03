@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportKnownErrorService } from '@/services/support.service'
 import {
   Search, Filter, Plus, FileText, AlertCircle, CheckCircle, Clock,
   Users, Link, ChevronRight, Database, Server, Network, Shield
@@ -37,7 +38,7 @@ export default function KnownErrors() {
     mostCommon: 'Database'
   })
 
-  const [errors] = useState<KnownError[]>([
+  const [errors, setErrors] = useState<KnownError[]>([
     {
       id: '1',
       errorId: 'KE-2024-008',
@@ -135,6 +136,18 @@ export default function KnownErrors() {
       severity: 'medium'
     }
   ])
+
+  useEffect(() => {
+    let cancelled = false
+    SupportKnownErrorService.getErrors()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setErrors(rows as unknown as KnownError[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const filteredErrors = errors.filter(error => {
     const matchesSearch = error.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

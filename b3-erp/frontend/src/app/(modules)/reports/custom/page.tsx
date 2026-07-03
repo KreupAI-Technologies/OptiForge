@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { fetchSavedReportItems } from '@/services/reports-management.service';
 import {
   Plus,
   Save,
@@ -262,7 +263,36 @@ export default function CustomReportsPage() {
         status: 'active',
       },
     ];
+
+    // Seed with built-in samples, then replace with saved reports from the
+    // backend when available (falls back to samples on error / empty).
     setReports(sampleReports);
+    fetchSavedReportItems()
+      .then((items) => {
+        if (items.length === 0) return;
+        setReports(
+          items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            description: it.description ?? '',
+            category: it.category ?? 'Custom',
+            chartType:
+              (it.config?.chartType as string | undefined) ?? 'table',
+            dataSource: it.dataSource ?? '',
+            filters: [],
+            columns: [],
+            createdBy: it.createdByName ?? 'System',
+            createdAt: '',
+            lastRun: it.lastRunAt ?? '',
+            isFavorite: it.isFavorite,
+            isShared: it.isShared,
+            status: 'active',
+          })),
+        );
+      })
+      .catch(() => {
+        // Keep built-in samples when the saved-items endpoint is unavailable.
+      });
   };
 
   const handleCreateReport = () => {

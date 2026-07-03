@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Factory, FileText, ArrowLeft, Download, Eye, Calendar } from 'lucide-react';
+import { fetchReportCatalog } from '@/services/reports-management.service';
 
-const productionReports = [
+interface CatalogReport {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  frequency: string;
+  lastGenerated?: string;
+}
+
+const defaultProductionReports: CatalogReport[] = [
   { id: '1', name: 'Work Order Status Report', description: 'Current status of all work orders', category: 'Work Orders', frequency: 'Daily', lastGenerated: '2025-10-27' },
   { id: '2', name: 'Production Efficiency Report', description: 'OEE and efficiency metrics by line/machine', category: 'Efficiency', frequency: 'Weekly', lastGenerated: '2025-10-26' },
   { id: '3', name: 'Capacity Utilization Report', description: 'Machine and labor capacity analysis', category: 'Capacity', frequency: 'Weekly', lastGenerated: '2025-10-26' },
@@ -18,6 +28,32 @@ const productionReports = [
 
 export default function ProductionReportsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
+  const [productionReports, setProductionReports] = useState<CatalogReport[]>(defaultProductionReports);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReportCatalog('production')
+      .then((items) => {
+        if (cancelled || items.length === 0) return;
+        setProductionReports(
+          items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            description: it.description ?? '',
+            category: it.category ?? 'General',
+            frequency: it.frequency ?? 'On-Demand',
+            lastGenerated: it.lastGenerated ?? undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        // Keep built-in defaults when the catalog endpoint is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['all', ...Array.from(new Set(productionReports.map(r => r.category)))];
   const filteredReports = filterCategory === 'all' ? productionReports : productionReports.filter(r => r.category === filterCategory);
 

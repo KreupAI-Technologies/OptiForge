@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   Award,
   TrendingUp,
@@ -162,7 +163,47 @@ const mockWonOpportunities: WonOpportunity[] = [
 export default function WonOpportunitiesPage() {
   const router = useRouter();
   const { addToast } = useToast();
-  const [opportunities, setOpportunities] = useState<WonOpportunity[]>(mockWonOpportunities);
+  const [opportunities, setOpportunities] = useState<WonOpportunity[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.opportunityViews.getWon();
+        if (!active) return;
+        const rows = Array.isArray(data?.opportunities) ? data.opportunities : [];
+        if (!rows.length) {
+          setOpportunities(mockWonOpportunities);
+          return;
+        }
+        setOpportunities(
+          rows.map((o: any) => ({
+            id: String(o?.id ?? ''),
+            name: o?.name ?? '',
+            accountName: o?.account ?? '',
+            contactName: o?.contact ?? '',
+            value: Number(o?.value ?? 0),
+            closeDate: o?.expectedCloseDate ?? '',
+            daysToClose: 0,
+            owner: o?.owner ?? '',
+            products: [],
+            source: o?.source ?? '',
+            initialValue: Number(o?.value ?? 0),
+            finalValue: Number(o?.value ?? 0),
+            discountPercent: 0,
+            createdDate: '',
+            winReason: '',
+            competitorName: '',
+          })),
+        );
+      } catch {
+        if (active) setOpportunities(mockWonOpportunities);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [sortBy, setSortBy] = useState('closeDate');

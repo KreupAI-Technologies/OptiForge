@@ -13,3 +13,4 @@ export * from './sourcing-integration.controller';
 export * from './procurement-notification.controller';
 export * from './procurement-budget.controller';
 export * from './vendor-performance-analytics.controller';
+export * from './procurement-calendar-event.controller';

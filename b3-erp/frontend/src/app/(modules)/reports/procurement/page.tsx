@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ShoppingBag, FileText, ArrowLeft, Download, Eye, Calendar } from 'lucide-react';
+import { fetchReportCatalog } from '@/services/reports-management.service';
 
-const procurementReports = [
+interface CatalogReport {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  frequency: string;
+  lastGenerated?: string;
+}
+
+const defaultProcurementReports: CatalogReport[] = [
   { id: '1', name: 'Purchase Order Status', description: 'Current PO status and tracking', category: 'Orders', frequency: 'Weekly', lastGenerated: '2025-10-27' },
   { id: '2', name: 'Vendor Performance Report', description: 'Supplier delivery and quality metrics', category: 'Vendors', frequency: 'Monthly', lastGenerated: '2025-10-26' },
   { id: '3', name: 'Purchase Analysis', description: 'Purchase trends and spending analysis', category: 'Analysis', frequency: 'Monthly', lastGenerated: '2025-10-26' },
@@ -17,6 +27,32 @@ const procurementReports = [
 
 export default function ProcurementReportsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
+  const [procurementReports, setProcurementReports] = useState<CatalogReport[]>(defaultProcurementReports);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchReportCatalog('procurement')
+      .then((items) => {
+        if (cancelled || items.length === 0) return;
+        setProcurementReports(
+          items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            description: it.description ?? '',
+            category: it.category ?? 'General',
+            frequency: it.frequency ?? 'On-Demand',
+            lastGenerated: it.lastGenerated ?? undefined,
+          })),
+        );
+      })
+      .catch(() => {
+        // Keep built-in defaults when the catalog endpoint is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['all', ...Array.from(new Set(procurementReports.map(r => r.category)))];
   const filteredReports = filterCategory === 'all' ? procurementReports : procurementReports.filter(r => r.category === filterCategory);
 

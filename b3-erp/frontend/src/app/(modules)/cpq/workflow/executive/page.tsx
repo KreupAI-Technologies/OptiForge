@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqWorkflowRequestService } from '@/services/cpq/cpq-orphans.service'
 import {
   Crown,
   Search,
@@ -98,313 +99,53 @@ export default function CPQWorkflowExecutivePage() {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedApproval, setSelectedApproval] = useState<ExecutiveApproval | null>(null)
 
-  const [approvals] = useState<ExecutiveApproval[]>([
-    {
-      id: 'EXEC-001',
-      type: 'strategic-deal',
-      documentNumber: 'DEAL-2024-890',
-      customerName: 'Metro Builders Ltd',
-      dealValue: 15000000,
-      requestedBy: 'Vikram Desai',
-      salesManager: 'Priya Sharma',
-      requestDate: '2024-10-17 02:15 PM',
-      priority: 'critical',
-      status: 'pending',
-      assignedTo: 'CEO - Rajesh Kumar',
-      dueDate: '2024-10-19 05:00 PM',
-      businessJustification: 'Exclusive 2-year partnership with Metro Builders for all their kitchen requirements across 15 upcoming projects. Customer guarantees minimum ₹15Cr revenue over contract period. This will establish us as their preferred vendor and open doors to their parent company network (5 more builder groups).',
-      strategicImportance: 'critical',
-      keyHighlights: [
-        'Largest deal in company history',
-        'Exclusive partnership agreement',
-        '15 projects in pipeline worth ₹15Cr+',
-        'Gateway to parent company network (potential ₹50Cr+ revenue)',
-        'Customer willing to be reference account',
-        'Joint marketing opportunities'
-      ],
-      risks: [
-        {
-          category: 'Financial',
-          level: 'medium',
-          description: '20% discount reduces margins to 20.5%',
-          mitigation: 'Volume commitment ensures profitability. Economies of scale will improve margins over time.'
-        },
-        {
-          category: 'Operational',
-          level: 'medium',
-          description: 'Capacity constraints for 50+ unit orders per project',
-          mitigation: 'Production team confirms capacity with 2-week lead time. Phased delivery schedule agreed.'
-        },
-        {
-          category: 'Contractual',
-          level: 'low',
-          description: 'Exclusivity clause limits other builder relationships',
-          mitigation: 'Exclusivity only for Metro Builders projects, not entire market. Other builders unaffected.'
-        }
-      ],
-      financialImpact: {
-        revenue: 15000000,
-        margin: 3075000,
-        marginPercentage: 20.5,
-        projectedLifetimeValue: 35000000,
-        paybackPeriod: '18 months'
-      },
-      competitiveAnalysis: {
-        competitors: ['Kitchen Concepts Ltd', 'Premium Interiors', 'Modular Solutions'],
-        ourPosition: 'Mid-tier pricing with premium quality',
-        differentiators: [
-          'German machinery for precision',
-          '36-month warranty vs industry standard 24 months',
-          'Fastest delivery time (4 weeks vs 6-8 weeks)',
-          'Dedicated account manager'
-        ]
-      },
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-17 03:00 PM',
-          comments: 'Strategic opportunity. Customer is A-grade builder with excellent track record.'
-        },
-        {
-          level: 2,
-          approver: 'Amit Patel',
-          role: 'Finance Head',
-          status: 'approved',
-          actionDate: '2024-10-17 04:30 PM',
-          comments: 'Margins acceptable for volume and strategic value. LTV projections are conservative.'
-        },
-        {
-          level: 3,
-          approver: 'Sunita Reddy',
-          role: 'VP Sales',
-          status: 'approved',
-          actionDate: '2024-10-18 10:00 AM',
-          comments: 'Strongly recommend approval. This positions us in the premium builder segment.'
-        },
-        {
-          level: 4,
-          approver: 'Rajesh Kumar',
-          role: 'CEO',
-          status: 'pending'
-        }
-      ],
-      comments: [
-        {
-          id: 'CMT-001',
-          author: 'Vikram Desai',
-          role: 'Sales Executive',
-          message: 'Customer visited our factory and was impressed. CEO requested personal meeting with our CEO to finalize partnership.',
-          timestamp: '2024-10-17 02:20 PM'
-        },
-        {
-          id: 'CMT-002',
-          author: 'Sunita Reddy',
-          role: 'VP Sales',
-          message: 'Met with customer\'s leadership. They are serious about long-term partnership. Reference check confirms excellent payment history.',
-          timestamp: '2024-10-18 10:00 AM'
-        }
-      ]
-    },
-    {
-      id: 'EXEC-002',
-      type: 'major-discount',
-      documentNumber: 'DISC-2024-567',
-      customerName: 'Coastal Builders',
-      dealValue: 6400000,
-      requestedBy: 'Suresh Rao',
-      salesManager: 'Priya Sharma',
-      requestDate: '2024-10-16 11:00 AM',
-      priority: 'high',
-      status: 'approved',
-      assignedTo: 'VP Sales - Sunita Reddy',
-      dueDate: '2024-10-18 05:00 PM',
-      businessJustification: 'First-time customer with large immediate project (52 units) and pipeline of 200+ units over next 2 years. 22% discount requested to match competitor pricing and win the account.',
-      strategicImportance: 'high',
-      keyHighlights: [
-        'Entry into new customer account',
-        'Immediate order: 52 units worth ₹6.4Cr',
-        'Pipeline: 200+ units (₹25Cr potential)',
-        'Customer is fast-growing builder (40% YoY growth)',
-        'Willing to provide testimonial and site visits for prospects'
-      ],
-      risks: [
-        {
-          category: 'Financial',
-          level: 'medium',
-          description: '22% discount reduces margin to 18.5%',
-          mitigation: 'Future orders at standard pricing will improve overall profitability'
-        },
-        {
-          category: 'Customer Credit',
-          level: 'low',
-          description: 'New customer with limited payment history',
-          mitigation: 'Credit check completed. 50% advance payment secured. Subsequent projects at standard terms.'
-        }
-      ],
-      financialImpact: {
-        revenue: 6400000,
-        margin: 1184000,
-        marginPercentage: 18.5,
-        projectedLifetimeValue: 25000000,
-        paybackPeriod: '12 months'
-      },
-      competitiveAnalysis: {
-        competitors: ['Kitchen Concepts Ltd'],
-        ourPosition: 'Premium quality at competitive pricing',
-        differentiators: [
-          'Better warranty terms',
-          'Faster delivery commitment',
-          'Premium hardware options'
-        ]
-      },
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-16 12:30 PM',
-          comments: 'Good opportunity for market expansion'
-        },
-        {
-          level: 2,
-          approver: 'Amit Patel',
-          role: 'Finance Head',
-          status: 'approved',
-          actionDate: '2024-10-16 03:15 PM',
-          comments: 'Acceptable for customer acquisition'
-        },
-        {
-          level: 3,
-          approver: 'Sunita Reddy',
-          role: 'VP Sales',
-          status: 'approved',
-          actionDate: '2024-10-17 09:30 AM',
-          comments: 'Approved. Establish milestone-based pricing for future projects.'
-        }
-      ],
-      comments: [
-        {
-          id: 'CMT-003',
-          author: 'Suresh Rao',
-          role: 'Sales Executive',
-          message: 'Customer has 3 more projects starting Q1 2025. This is our entry opportunity.',
-          timestamp: '2024-10-16 11:05 AM'
-        }
-      ]
-    },
-    {
-      id: 'EXEC-003',
-      type: 'international',
-      documentNumber: 'INTL-2024-123',
-      customerName: 'Dubai Properties LLC',
-      dealValue: 25000000,
-      requestedBy: 'Neha Singh',
-      salesManager: 'Priya Sharma',
-      requestDate: '2024-10-15 10:00 AM',
-      priority: 'urgent',
-      status: 'on-hold',
-      assignedTo: 'CEO - Rajesh Kumar',
-      dueDate: '2024-10-20 05:00 PM',
-      businessJustification: 'First international deal for company. High-rise luxury residential project in Dubai requiring 120 premium kitchens. Opens Middle East market. Customer is repeat client of our parent company.',
-      strategicImportance: 'critical',
-      keyHighlights: [
-        'First international expansion opportunity',
-        'Luxury segment entry (₹2L+ per kitchen)',
-        '120 units immediate + 300 units pipeline',
-        'Showcase project for Middle East market',
-        'Parent company connection ensures credibility'
-      ],
-      risks: [
-        {
-          category: 'Operational',
-          level: 'high',
-          description: 'International logistics and installation complexity',
-          mitigation: 'Partner with local installation agency. Conduct site visit before finalizing.'
-        },
-        {
-          category: 'Financial',
-          level: 'medium',
-          description: 'Currency fluctuation risk (USD payment)',
-          mitigation: 'Include forex clause. Payment in 3 installments to minimize exposure.'
-        },
-        {
-          category: 'Legal',
-          level: 'medium',
-          description: 'Dubai law jurisdiction and compliance',
-          mitigation: 'Engage local legal counsel. Standard Dubai construction contract terms.'
-        }
-      ],
-      financialImpact: {
-        revenue: 25000000,
-        margin: 6250000,
-        marginPercentage: 25,
-        projectedLifetimeValue: 75000000,
-        paybackPeriod: '24 months'
-      },
-      competitiveAnalysis: {
-        competitors: ['European kitchen brands', 'Turkish manufacturers'],
-        ourPosition: 'Premium quality at competitive pricing vs European brands',
-        differentiators: [
-          'German machinery quality',
-          'Competitive pricing (30% lower than European)',
-          'Customization capability',
-          'Parent company endorsement'
-        ]
-      },
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-15 11:30 AM',
-          comments: 'Groundbreaking opportunity. Need operations and legal assessment.'
-        },
-        {
-          level: 2,
-          approver: 'Rajesh Khanna',
-          role: 'Legal Head',
-          status: 'approved',
-          actionDate: '2024-10-15 04:00 PM',
-          comments: 'Legal structure feasible. Recommend local counsel review.'
-        },
-        {
-          level: 3,
-          approver: 'Sunita Reddy',
-          role: 'VP Sales',
-          status: 'approved',
-          actionDate: '2024-10-16 10:00 AM',
-          comments: 'Strategic importance high. Need CEO decision on international expansion.'
-        },
-        {
-          level: 4,
-          approver: 'Rajesh Kumar',
-          role: 'CEO',
-          status: 'pending'
-        }
-      ],
-      comments: [
-        {
-          id: 'CMT-004',
-          author: 'Neha Singh',
-          role: 'Sales Executive',
-          message: 'Customer visited India facility. Impressed with quality. Requesting site visit to Dubai to finalize specifications.',
-          timestamp: '2024-10-15 10:05 AM'
-        },
-        {
-          id: 'CMT-005',
-          author: 'Sunita Reddy',
-          role: 'VP Sales',
-          message: 'This could be our gateway to Middle East. Recommend CEO meeting with customer leadership.',
-          timestamp: '2024-10-16 10:00 AM'
-        }
-      ]
+  const [approvals, setApprovals] = useState<ExecutiveApproval[]>([])
+
+  useEffect(() => {
+    let active = true
+    cpqWorkflowRequestService
+      .findAll({ requestType: 'executive' })
+      .then((rows) => {
+        if (!active) return
+        const mapped: ExecutiveApproval[] = (Array.isArray(rows) ? rows : []).map((r) => {
+          const p = (r.payload || {}) as any
+          return {
+            ...p,
+            id: r.id,
+            documentNumber: r.documentNumber ?? p.documentNumber ?? '',
+            customerName: r.customerName ?? p.customerName ?? '',
+            dealValue: Number(r.value) || p.dealValue || 0,
+            requestedBy: r.requestedBy ?? p.requestedBy ?? '',
+            requestDate: r.requestDate ?? p.requestDate ?? '',
+            assignedTo: r.assignedTo ?? p.assignedTo ?? '',
+            dueDate: r.dueDate ?? p.dueDate ?? '',
+            priority: (r.priority ?? p.priority ?? 'high') as ExecutiveApproval['priority'],
+            status: (r.status ?? p.status ?? 'pending') as ExecutiveApproval['status'],
+            type: (p.type ?? 'high-value') as ExecutiveApproval['type'],
+            salesManager: p.salesManager ?? '',
+            businessJustification: p.businessJustification ?? '',
+            strategicImportance: (p.strategicImportance ?? 'medium') as ExecutiveApproval['strategicImportance'],
+            keyHighlights: Array.isArray(p.keyHighlights) ? p.keyHighlights : [],
+            risks: Array.isArray(p.risks) ? p.risks : [],
+            financialImpact: p.financialImpact ?? {
+              revenue: 0,
+              margin: 0,
+              marginPercentage: 0,
+              projectedLifetimeValue: 0,
+              paybackPeriod: ''
+            },
+            competitiveAnalysis: p.competitiveAnalysis,
+            approvalChain: Array.isArray(p.approvalChain) ? p.approvalChain : [],
+            comments: Array.isArray(p.comments) ? p.comments : []
+          } as ExecutiveApproval
+        })
+        setApprovals(mapped)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
     }
-  ])
+  }, [])
 
   const getTypeColor = (type: string) => {
     const colors: any = {

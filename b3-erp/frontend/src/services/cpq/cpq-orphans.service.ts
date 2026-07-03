@@ -207,3 +207,167 @@ export const cpqIntegrationSyncLogService = {
     );
   },
 };
+
+// ==================== Second-pass orphan services ======================
+
+// -------- Workflow requests (workflow/legal, workflow/executive) --------
+
+export interface CPQWorkflowRequest {
+  id: string;
+  companyId: string;
+  requestType: 'legal' | 'executive' | 'discount';
+  reference: string | null;
+  documentNumber: string | null;
+  customerName: string | null;
+  value: number;
+  requestedBy: string | null;
+  assignedTo: string | null;
+  priority: string | null;
+  status: string | null;
+  requestDate: string | null;
+  dueDate: string | null;
+  payload: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const cpqWorkflowRequestService = {
+  findAll: (filters?: { requestType?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (filters?.requestType) qs.append('requestType', filters.requestType);
+    if (filters?.status) qs.append('status', filters.status);
+    const q = qs.toString();
+    return getJson<CPQWorkflowRequest>(
+      q ? `/cpq/workflow-requests?${q}` : '/cpq/workflow-requests',
+    );
+  },
+};
+
+// -------- Quote versions (quotes/versions) ------------------------------
+
+export interface CPQQuoteVersionRow {
+  id: string;
+  companyId: string;
+  quoteNumber: string | null;
+  version: string | null;
+  customerName: string | null;
+  value: number;
+  changes: string[] | null;
+  changeType:
+    | 'price-increase'
+    | 'price-decrease'
+    | 'items-added'
+    | 'items-removed'
+    | 'terms-updated';
+  createdBy: string | null;
+  createdDate: string | null;
+  status: 'draft' | 'sent' | 'current' | 'superseded';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const cpqQuoteVersionService = {
+  findAll: (filters?: { quoteNumber?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (filters?.quoteNumber) qs.append('quoteNumber', filters.quoteNumber);
+    if (filters?.status) qs.append('status', filters.status);
+    const q = qs.toString();
+    return getJson<CPQQuoteVersionRow>(
+      q ? `/cpq/quote-versions-list?${q}` : '/cpq/quote-versions-list',
+    );
+  },
+};
+
+// -------- Notification settings (settings/notifications) ----------------
+
+export interface CPQNotificationSettingRow {
+  id: string;
+  companyId: string;
+  settingType: 'email-template' | 'escalation-rule' | 'toggle' | 'threshold';
+  name: string | null;
+  subject: string | null;
+  enabled: boolean;
+  config: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const cpqNotificationSettingService = {
+  findAll: (settingType?: string) => {
+    const q = settingType ? `?settingType=${settingType}` : '';
+    return getJson<CPQNotificationSettingRow>(`/cpq/notification-settings${q}`);
+  },
+};
+
+// -------- Permission roles (settings/permissions) -----------------------
+
+export interface CPQPermissionRole {
+  id: string;
+  companyId: string;
+  name: string | null;
+  description: string | null;
+  usersCount: number;
+  permissions: Record<string, any> | null;
+  approvalLimit: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const cpqPermissionRoleService = {
+  findAll: () => getJson<CPQPermissionRole>('/cpq/permission-roles'),
+};
+
+// -------- Integration endpoints (integration/cad|ecommerce|erp) ---------
+
+export interface CPQIntegrationEndpoint {
+  id: string;
+  companyId: string;
+  system: string;
+  name: string | null;
+  type: string | null;
+  status: 'connected' | 'disconnected' | 'error';
+  version: string | null;
+  lastSync: string | null;
+  recordCount: number;
+  metadata: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const cpqIntegrationEndpointService = {
+  findAll: (filters?: { system?: string; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (filters?.system) qs.append('system', filters.system);
+    if (filters?.status) qs.append('status', filters.status);
+    const q = qs.toString();
+    return getJson<CPQIntegrationEndpoint>(
+      q ? `/cpq/integration-endpoints?${q}` : '/cpq/integration-endpoints',
+    );
+  },
+};
+
+// -------- Config steps (products/configurator) --------------------------
+
+export interface CPQConfigStep {
+  id: string;
+  companyId: string;
+  title: string | null;
+  stepOrder: number;
+  completed: boolean;
+  active: boolean;
+  options:
+    | {
+        id?: string;
+        name?: string;
+        price?: number;
+        selected?: boolean;
+        image?: string;
+      }[]
+    | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const cpqConfigStepService = {
+  findAll: () => getJson<CPQConfigStep>('/cpq/config-steps'),
+};

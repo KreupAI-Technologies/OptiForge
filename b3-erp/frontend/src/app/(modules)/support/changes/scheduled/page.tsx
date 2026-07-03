@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SupportScheduledChangeService } from '@/services/support.service'
 import { Calendar, Clock, AlertCircle, CheckCircle, Users, Filter, ChevronLeft, ChevronRight, Eye, Play, Pause, XCircle } from 'lucide-react'
 
 interface ScheduledChange {
@@ -31,7 +32,7 @@ export default function ScheduledChanges() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedChange, setSelectedChange] = useState<ScheduledChange | null>(null)
 
-  const scheduledChanges: ScheduledChange[] = [
+  const seedScheduledChanges: ScheduledChange[] = [
     {
       id: '1',
       ticketNumber: 'CHG-2024-1240',
@@ -159,6 +160,20 @@ export default function ScheduledChanges() {
       rollbackPlan: true
     }
   ]
+
+  const [scheduledChanges, setScheduledChanges] = useState<ScheduledChange[]>(seedScheduledChanges)
+
+  useEffect(() => {
+    let cancelled = false
+    SupportScheduledChangeService.getChanges()
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows) && rows.length > 0) {
+          setScheduledChanges(rows as unknown as ScheduledChange[])
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   // Statistics
   const stats = {

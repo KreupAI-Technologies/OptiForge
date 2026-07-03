@@ -13,3 +13,4 @@ export * from './sourcing-integration.service';
 export * from './procurement-notification.service';
 export * from './procurement-budget.service';
 export * from './vendor-performance-analytics.service';
+export * from './procurement-calendar-event.service';

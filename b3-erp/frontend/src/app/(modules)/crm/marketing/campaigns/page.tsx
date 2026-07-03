@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import {
   Mail, Search, Plus, Eye, Edit, Copy, Trash2, Play, Pause,
   BarChart3, TrendingUp, Users, Target, Calendar, Clock,
@@ -371,7 +372,61 @@ const mockCampaigns: Campaign[] = [
 
 export default function MarketingCampaignsPage() {
   const { addToast } = useToast();
-  const [campaigns] = useState<Campaign[]>(mockCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.marketingCampaigns.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setCampaigns(
+          rows.map((c: any) => ({
+            id: String(c?.id ?? ''),
+            name: c?.name ?? '',
+            type: (c?.type ?? 'email') as Campaign['type'],
+            status: (c?.status ?? 'draft') as Campaign['status'],
+            description: c?.description ?? '',
+            startDate: c?.startDate ?? '',
+            endDate: c?.endDate ?? '',
+            targetAudience: {
+              segments: Array.isArray(c?.targetAudience?.segments) ? c.targetAudience.segments : [],
+              lists: Array.isArray(c?.targetAudience?.lists) ? c.targetAudience.lists : [],
+              totalContacts: Number(c?.targetAudience?.totalContacts ?? 0),
+            },
+            budget: Number(c?.budget ?? 0),
+            spent: Number(c?.spent ?? 0),
+            stages: Array.isArray(c?.stages) ? c.stages : [],
+            metrics: {
+              reach: Number(c?.metrics?.reach ?? 0),
+              delivered: Number(c?.metrics?.delivered ?? 0),
+              opened: Number(c?.metrics?.opened ?? 0),
+              clicked: Number(c?.metrics?.clicked ?? 0),
+              conversions: Number(c?.metrics?.conversions ?? 0),
+              revenue: Number(c?.metrics?.revenue ?? 0),
+              engagement: Number(c?.metrics?.engagement ?? 0),
+            },
+            goals: Array.isArray(c?.goals)
+              ? c.goals.map((g: any) => ({
+                  type: g?.type ?? '',
+                  target: Number(g?.target ?? 0),
+                  current: Number(g?.current ?? 0),
+                }))
+              : [],
+            owner: c?.owner ?? '',
+            createdAt: c?.createdAt ?? '',
+            tags: Array.isArray(c?.tags) ? c.tags : [],
+          })),
+        );
+      } catch {
+        if (active) setCampaigns(mockCampaigns);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | Campaign['type']>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | Campaign['status']>('all');

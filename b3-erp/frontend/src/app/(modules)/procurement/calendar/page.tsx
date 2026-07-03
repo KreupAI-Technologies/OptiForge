@@ -1,12 +1,31 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Calendar, ChevronLeft, ChevronRight, Package, Truck, FileText,
   Clock, AlertCircle, CheckCircle, MapPin, User, Filter, Plus,
   Search, Download, Settings, List, Grid, Info, X, Edit, Trash2,
   Bell, ArrowRight, Tag, Building2, CalendarDays, Eye
 } from 'lucide-react'
+import { procurementCalendarService } from '@/services/procurement-calendar.service'
+
+type CalendarEventView = {
+  id: string
+  title: string
+  type: string
+  date: Date
+  time?: string
+  vendor?: string
+  description?: string
+  location?: string
+  items?: number
+  value?: number
+  status?: string
+  priority?: string
+}
+
+// Known event-type styles; anything else falls back to a neutral style.
+const KNOWN_TYPES = ['delivery', 'rfq', 'contract', 'meeting', 'inspection', 'payment']
 
 export default function ProcurementCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -15,79 +34,45 @@ export default function ProcurementCalendar() {
   const [showEventModal, setShowEventModal] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [filterType, setFilterType] = useState('all')
+  const [events, setEvents] = useState<CalendarEventView[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Calendar Events
-  const events = [
-    {
-      id: 1,
-      title: 'PO-2024-045 Delivery',
-      type: 'delivery',
-      date: new Date(2024, 2, 15),
-      time: '10:00 AM',
-      vendor: 'TechSupply Solutions',
-      items: 25,
-      value: 45000,
-      status: 'scheduled',
-      location: 'Warehouse A',
-      priority: 'high',
-    },
-    {
-      id: 2,
-      title: 'RFQ-2024-101 Deadline',
-      type: 'rfq',
-      date: new Date(2024, 2, 18),
-      time: '5:00 PM',
-      description: 'Industrial Equipment Supply',
-      items: 12,
-      status: 'pending',
-      priority: 'medium',
-    },
-    {
-      id: 3,
-      title: 'Contract Renewal - Global Manufacturing',
-      type: 'contract',
-      date: new Date(2024, 2, 20),
-      time: '2:00 PM',
-      vendor: 'Global Manufacturing Inc',
-      value: 250000,
-      status: 'upcoming',
-      priority: 'high',
-    },
-    {
-      id: 4,
-      title: 'Vendor Meeting - Q2 Planning',
-      type: 'meeting',
-      date: new Date(2024, 2, 22),
-      time: '11:00 AM',
-      vendor: 'Multiple Vendors',
-      location: 'Conference Room B',
-      status: 'confirmed',
-      priority: 'medium',
-    },
-    {
-      id: 5,
-      title: 'GRN-2024-032 Inspection',
-      type: 'inspection',
-      date: new Date(2024, 2, 25),
-      time: '9:00 AM',
-      vendor: 'Industrial Parts Co',
-      items: 50,
-      status: 'scheduled',
-      location: 'Quality Lab',
-      priority: 'low',
-    },
-    {
-      id: 6,
-      title: 'Payment Due - INV-2024-015',
-      type: 'payment',
-      date: new Date(2024, 2, 28),
-      time: 'EOD',
-      vendor: 'Safety Equipment Ltd',
-      value: 32000,
-      status: 'pending',
-      priority: 'high',
-    },
-  ]
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const rows = await procurementCalendarService.getEvents()
+        if (!active) return
+        setEvents(
+          (rows || []).map((r) => ({
+            id: r.id,
+            title: r.title,
+            type: KNOWN_TYPES.includes((r.type || '').toLowerCase())
+              ? (r.type || '').toLowerCase()
+              : 'meeting',
+            date: r.eventDate ? new Date(r.eventDate) : new Date(),
+            time: r.time,
+            vendor: r.vendor,
+            description: r.description,
+            location: r.location,
+            items: r.items != null ? Number(r.items) : undefined,
+            value: r.value != null ? Number(r.value) : undefined,
+            status: r.status,
+            priority: r.priority,
+          })),
+        )
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load events')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const eventTypes = {
     delivery: { color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Truck },
