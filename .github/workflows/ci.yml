@@ -126,9 +126,8 @@ jobs:
 
   # Frontend Type Check (non-blocking until backlog of ~250 errors is cleaned up — issue #125)
   frontend-typecheck:
-    name: Frontend Type Check (informational)
+    name: Frontend Type Check
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: b3-erp/frontend
@@ -148,7 +147,7 @@ jobs:
         run: npm ci
 
       - name: Run type check
-        # Errors are reported but the job is `continue-on-error: true`. Track cleanup in #125.
+        # Typecheck is clean (0 errors) and now enforced (blocking).
         run: npm run type-check
 
   # Frontend Tests
@@ -185,13 +184,14 @@ jobs:
 
 
   # Frontend Build
-  # Currently informational because the codebase has duplicate parallel routes
-  # (e.g. /(dashboard)/inventory/page.tsx vs /(modules)/inventory/page.tsx
-  # both resolving to /inventory). Next.js refuses to build until the team
-  # decides which copy to keep. Issue #125 tracks the cleanup; once done,
-  # drop continue-on-error and add this back to ci-summary's required list.
+  # The duplicate-parallel-routes blocker (#125) is RESOLVED and the build passes
+  # locally with typecheck enforced. It remains `continue-on-error` only because
+  # `next build` of ~1670 dynamic routes needs a large Node heap (~8 GB) that
+  # exceeds the 7 GB standard GitHub runner; the step below raises the heap as far
+  # as fits. To make this blocking, move it to a larger runner (e.g. 8-core) and
+  # drop continue-on-error + add it back to ci-summary's required list.
   frontend-build:
-    name: Frontend Build (informational)
+    name: Frontend Build (informational — memory-bound on standard runners)
     runs-on: ubuntu-latest
     continue-on-error: true
     needs: [frontend-lint, frontend-test]
@@ -215,6 +215,9 @@ jobs:
         run: npm ci
 
       - name: Build
+        # ~1670 dynamic routes need a large heap; raise it as far as fits a 7 GB runner.
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm run build
 
       - name: Upload build artifacts
@@ -395,7 +398,7 @@ jobs:
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [backend-test, backend-build, frontend-lint, frontend-test, frontend-build, security-audit, docker-build-scan]
+    needs: [backend-test, backend-build, frontend-lint, frontend-typecheck, frontend-test, frontend-build, security-audit, docker-build-scan]
 
     if: always()
 
@@ -405,16 +408,18 @@ jobs:
           echo "Backend Tests: ${{ needs.backend-test.result }}"
           echo "Backend Build: ${{ needs.backend-build.result }}"
           echo "Frontend Lint: ${{ needs.frontend-lint.result }}"
+          echo "Frontend Type Check: ${{ needs.frontend-typecheck.result }}"
           echo "Frontend Build: ${{ needs.frontend-build.result }}"
           echo "Security Audit: ${{ needs.security-audit.result }}"
           echo "Docker Build & Scan: ${{ needs.docker-build-scan.result }}"
 
       - name: Fail if any blocking job failed
-        # frontend-build, frontend-typecheck, security-audit, and
-        # docker-build-scan are informational (continue-on-error: true)
-        # per #125 and are excluded from this gate.
+        # frontend-typecheck is now blocking (typecheck is clean and enforced).
+        # frontend-build (memory-bound on standard runners), security-audit, and
+        # docker-build-scan remain informational (continue-on-error: true).
         if: |
           needs.backend-test.result == 'failure' ||
           needs.backend-build.result == 'failure' ||
-          needs.frontend-lint.result == 'failure'
+          needs.frontend-lint.result == 'failure' ||
+          needs.frontend-typecheck.result == 'failure'
         run: exit 1
