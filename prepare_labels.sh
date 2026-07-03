@@ -2,7 +2,7 @@
 # Pre-create all labels this issue batch needs, in the target repo.
 # Safe to re-run: `gh label create` fails if the label already exists, so we use --force.
 set -euo pipefail
-REPO="${REPO:-boscosabujohn/ManufacturingOS}"
+REPO="${REPO:-KreupAI-Technologies/OptiForge}"
 
 gh label create "area:accessibility" --repo "$REPO" --color "6b7280" --force
 gh label create "area:api-gateway" --repo "$REPO" --color "6b7280" --force

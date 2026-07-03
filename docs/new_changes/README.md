@@ -33,7 +33,7 @@ _Phase 1 issue P1-01 delivers the initial scaffolding. Once that lands, replace 
 
 ```bash
 # Clone
-git clone https://github.com/boscosabujohn/ManufacturingOS.git
+git clone https://github.com/KreupAI-Technologies/OptiForge.git
 cd ManufacturingOS
 
 # Backend (after P1-01)

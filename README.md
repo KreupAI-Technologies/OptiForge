@@ -53,7 +53,7 @@ Preferred path: docker-compose brings up both backends + frontend + Postgres + R
 
 ```bash
 # Clone
-git clone https://github.com/boscosabujohn/ManufacturingOS.git
+git clone https://github.com/KreupAI-Technologies/OptiForge.git
 cd ManufacturingOS
 
 # Configure env
@@ -102,10 +102,10 @@ npm run dev
 
 | Phase | Status |
 |---|---|
-| **Phase 1 (Tracer Bullet)** | ✅ Merged ([#106](https://github.com/boscosabujohn/ManufacturingOS/pull/106)) |
-| **Phase 2 (Platform Depth)** | ✅ Merged ([#107](https://github.com/boscosabujohn/ManufacturingOS/pull/107)) |
-| **Phase 3 (Demand + Design Half)** | ✅ Merged ([#108](https://github.com/boscosabujohn/ManufacturingOS/pull/108)) |
-| **Phase 4 (Execution Half + Migration)** | ✅ Merged ([#109](https://github.com/boscosabujohn/ManufacturingOS/pull/109)) |
-| **Phase 5 (Hardening + Go-Live)** | ✅ Merged ([#110](https://github.com/boscosabujohn/ManufacturingOS/pull/110)) |
-| **Phase 6 (Celery publisher + BOQ upload UI)** | ✅ Merged ([#111](https://github.com/boscosabujohn/ManufacturingOS/pull/111)) |
-| **Backend-improvement milestone** | 🔄 In progress ([milestone 2](https://github.com/boscosabujohn/ManufacturingOS/milestone/2)) — docs, soft-delete/audit, pagination, compose, CI across both backends |
+| **Phase 1 (Tracer Bullet)** | ✅ Merged ([#106](https://github.com/KreupAI-Technologies/OptiForge/pull/106)) |
+| **Phase 2 (Platform Depth)** | ✅ Merged ([#107](https://github.com/KreupAI-Technologies/OptiForge/pull/107)) |
+| **Phase 3 (Demand + Design Half)** | ✅ Merged ([#108](https://github.com/KreupAI-Technologies/OptiForge/pull/108)) |
+| **Phase 4 (Execution Half + Migration)** | ✅ Merged ([#109](https://github.com/KreupAI-Technologies/OptiForge/pull/109)) |
+| **Phase 5 (Hardening + Go-Live)** | ✅ Merged ([#110](https://github.com/KreupAI-Technologies/OptiForge/pull/110)) |
+| **Phase 6 (Celery publisher + BOQ upload UI)** | ✅ Merged ([#111](https://github.com/KreupAI-Technologies/OptiForge/pull/111)) |
+| **Backend-improvement milestone** | 🔄 In progress ([milestone 2](https://github.com/KreupAI-Technologies/OptiForge/milestone/2)) — docs, soft-delete/audit, pagination, compose, CI across both backends |

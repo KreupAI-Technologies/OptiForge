@@ -29,7 +29,7 @@ Please be respectful and constructive in all interactions. We aim to maintain a 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/boscosabujohn/ManufacturingOS.git
+   git clone https://github.com/KreupAI-Technologies/OptiForge.git
    cd ManufacturingOS
    ```
 

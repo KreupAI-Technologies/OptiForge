@@ -114,7 +114,7 @@ Detailed capability documentation lives in [`.claude/capabilities/`](.claude/cap
 
 ## Status
 
-Phases 1–6 have merged into `main`. See the PR list for detail: [`feat(phase-1)` … `feat(phase-6)`](https://github.com/boscosabujohn/ManufacturingOS/pulls?q=is%3Apr+phase+merged%3Atrue). The README "Status" table is the source of truth for phase-level progress.
+Phases 1–6 have merged into `main`. See the PR list for detail: [`feat(phase-1)` … `feat(phase-6)`](https://github.com/KreupAI-Technologies/OptiForge/pulls?q=is%3Apr+phase+merged%3Atrue). The README "Status" table is the source of truth for phase-level progress.
 
 ## Further Reading
 

@@ -1,5 +1,5 @@
 # OptiForge — PRD Issues (filing bundle)
-**Target repo:** `boscosabujohn/ManufacturingOS`
+**Target repo:** `KreupAI-Technologies/OptiForge`
 **PRD:** `./prds/optiforge-layered-multi-industry-architecture.md`
 **Plan:** `./plans/optiforge-layered-multi-industry-architecture.md`
 
