@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Fuel,
   Plus,
@@ -15,8 +15,10 @@ import {
   CheckCircle,
   Truck,
   MapPin,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface FuelRecord {
   id: number;
@@ -56,287 +58,64 @@ export default function FleetFuelPage() {
   const [selectedFuelType, setSelectedFuelType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([
-    {
-      id: 1,
-      fuelId: 'FUEL-2024-001',
-      vehicleId: 'VEH-001',
-      vehicleNumber: 'MH-01-AB-1234',
-      vehicleType: '32-Ft Truck',
-      driverName: 'Ramesh Sharma',
-      fuelType: 'diesel',
-      quantity: 285,
-      unitPrice: 94.5,
-      totalCost: 26932.5,
-      fuelStation: 'Indian Oil Petrol Pump',
-      location: 'Vadodara, Gujarat',
-      odometer: 125680,
-      previousOdometer: 124255,
-      distanceCovered: 1425,
-      fuelEfficiency: 5.0,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-VAD-2024-001',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-21',
-      filledTime: '14:30',
-      tripId: 'TRP-2024-001',
-      notes: 'Full tank refill during trip stopover',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 5.2,
-      efficiencyVariance: -3.8,
-      anomalyDetected: false
-    },
-    {
-      id: 2,
-      fuelId: 'FUEL-2024-002',
-      vehicleId: 'VEH-002',
-      vehicleNumber: 'KA-05-CD-5678',
-      vehicleType: '20-Ft Container',
-      driverName: 'Suresh Kumar',
-      fuelType: 'diesel',
-      quantity: 95,
-      unitPrice: 93.8,
-      totalCost: 8911,
-      fuelStation: 'HP Petrol Pump',
-      location: 'Bangalore, Karnataka',
-      odometer: 89450,
-      previousOdometer: 89100,
-      distanceCovered: 350,
-      fuelEfficiency: 3.7,
-      fillType: 'top-up',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-BLR-2024-002',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-20',
-      filledTime: '16:45',
-      tripId: null,
-      notes: 'Top-up before next trip',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 4.0,
-      efficiencyVariance: -7.5,
-      anomalyDetected: false
-    },
-    {
-      id: 3,
-      fuelId: 'FUEL-2024-003',
-      vehicleId: 'VEH-003',
-      vehicleNumber: 'WB-02-EF-9012',
-      vehicleType: '40-Ft Truck',
-      driverName: 'Mohan Das',
-      fuelType: 'diesel',
-      quantity: 380,
-      unitPrice: 95.2,
-      totalCost: 36176,
-      fuelStation: 'Bharat Petroleum',
-      location: 'Bhubaneswar, Odisha',
-      odometer: 215680,
-      previousOdometer: 213630,
-      distanceCovered: 2050,
-      fuelEfficiency: 5.4,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-BBS-2024-003',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-21',
-      filledTime: '10:15',
-      tripId: 'TRP-2024-003',
-      notes: 'Full tank refill during long-haul trip',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 5.0,
-      efficiencyVariance: 8.0,
-      anomalyDetected: false
-    },
-    {
-      id: 4,
-      fuelId: 'FUEL-2024-004',
-      vehicleId: 'VEH-004',
-      vehicleNumber: 'TS-09-GH-3456',
-      vehicleType: '24-Ft Truck',
-      driverName: 'Prakash Reddy',
-      fuelType: 'diesel',
-      quantity: 115,
-      unitPrice: 94.0,
-      totalCost: 10810,
-      fuelStation: 'Indian Oil Petrol Pump',
-      location: 'Hyderabad, Telangana',
-      odometer: 145280,
-      previousOdometer: 144705,
-      distanceCovered: 575,
-      fuelEfficiency: 5.0,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-HYD-2024-004',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-19',
-      filledTime: '18:20',
-      tripId: 'TRP-2024-004',
-      notes: 'Full tank after trip completion',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 4.8,
-      efficiencyVariance: 4.2,
-      anomalyDetected: false
-    },
-    {
-      id: 5,
-      fuelId: 'FUEL-2024-005',
-      vehicleId: 'VEH-005',
-      vehicleNumber: 'MH-12-IJ-7890',
-      vehicleType: '18-Ft Truck',
-      driverName: 'Ganesh Patil',
-      fuelType: 'diesel',
-      quantity: 68,
-      unitPrice: 93.5,
-      totalCost: 6358,
-      fuelStation: 'HP Petrol Pump',
-      location: 'Pune, Maharashtra',
-      odometer: 98750,
-      previousOdometer: 98265,
-      distanceCovered: 485,
-      fuelEfficiency: 7.1,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-PUN-2024-005',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-20',
-      filledTime: '11:30',
-      tripId: 'TRP-2024-005',
-      notes: 'Excellent fuel efficiency achieved',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 6.5,
-      efficiencyVariance: 9.2,
-      anomalyDetected: false
-    },
-    {
-      id: 6,
-      fuelId: 'FUEL-2024-006',
-      vehicleId: 'VEH-006',
-      vehicleNumber: 'DL-03-KL-2468',
-      vehicleType: '28-Ft Truck',
-      driverName: 'Vijay Singh',
-      fuelType: 'diesel',
-      quantity: 148,
-      unitPrice: 96.0,
-      totalCost: 14208,
-      fuelStation: 'Bharat Petroleum',
-      location: 'Delhi, Delhi',
-      odometer: 178920,
-      previousOdometer: 178385,
-      distanceCovered: 535,
-      fuelEfficiency: 3.6,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-DEL-2024-006',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-21',
-      filledTime: '09:45',
-      tripId: 'TRP-2024-006',
-      notes: 'Below expected efficiency - requires investigation',
-      status: 'pending',
-      verifiedBy: null,
-      expectedEfficiency: 5.5,
-      efficiencyVariance: -34.5,
-      anomalyDetected: true
-    },
-    {
-      id: 7,
-      fuelId: 'FUEL-2024-007',
-      vehicleId: 'VEH-007',
-      vehicleNumber: 'TN-01-MN-1357',
-      vehicleType: '32-Ft Truck',
-      driverName: 'Murugan Subramanian',
-      fuelType: 'diesel',
-      quantity: 140,
-      unitPrice: 92.8,
-      totalCost: 12992,
-      fuelStation: 'Indian Oil Petrol Pump',
-      location: 'Chennai, Tamil Nadu',
-      odometer: 156890,
-      previousOdometer: 156195,
-      distanceCovered: 695,
-      fuelEfficiency: 5.0,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-CHN-2024-007',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-20',
-      filledTime: '15:00',
-      tripId: 'TRP-2024-007',
-      notes: 'Full tank refill after long trip',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 5.2,
-      efficiencyVariance: -3.8,
-      anomalyDetected: false
-    },
-    {
-      id: 8,
-      fuelId: 'FUEL-2024-008',
-      vehicleId: 'VEH-008',
-      vehicleNumber: 'GJ-01-OP-2580',
-      vehicleType: '20-Ft Truck',
-      driverName: 'Bharat Patel',
-      fuelType: 'diesel',
-      quantity: 107,
-      unitPrice: 93.0,
-      totalCost: 9951,
-      fuelStation: 'HP Petrol Pump',
-      location: 'Ahmedabad, Gujarat',
-      odometer: 134560,
-      previousOdometer: 134025,
-      distanceCovered: 535,
-      fuelEfficiency: 5.0,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-AHM-2024-008',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-19',
-      filledTime: '14:00',
-      tripId: 'TRP-2024-008',
-      notes: 'Normal fuel consumption',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 5.0,
-      efficiencyVariance: 0.0,
-      anomalyDetected: false
-    },
-    {
-      id: 9,
-      fuelId: 'FUEL-2024-009',
-      vehicleId: 'VEH-001',
-      vehicleNumber: 'MH-01-AB-1234',
-      vehicleType: '32-Ft Truck',
-      driverName: 'Ramesh Sharma',
-      fuelType: 'diesel',
-      quantity: 320,
-      unitPrice: 95.0,
-      totalCost: 30400,
-      fuelStation: 'Bharat Petroleum',
-      location: 'Mumbai, Maharashtra',
-      odometer: 124255,
-      previousOdometer: 122830,
-      distanceCovered: 1425,
-      fuelEfficiency: 4.5,
-      fillType: 'full-tank',
-      paymentMethod: 'fuel-card',
-      invoiceNumber: 'INV-MUM-2024-009',
-      filledBy: 'Pump Attendant',
-      filledDate: '2024-10-18',
-      filledTime: '08:00',
-      tripId: 'TRP-2024-001',
-      notes: 'Trip start - full tank',
-      status: 'verified',
-      verifiedBy: 'Fleet Manager',
-      expectedEfficiency: 5.0,
-      efficiencyVariance: -10.0,
-      anomalyDetected: false
-    }
-  ]);
+  const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getFuelRecords()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: FuelRecord[] = list.map((r, idx) => ({
+          id: idx + 1,
+          fuelId: r?.fuelId ?? '',
+          vehicleId: r?.vehicleId ?? '',
+          vehicleNumber: r?.vehicleNumber ?? '',
+          vehicleType: r?.vehicleType ?? '',
+          driverName: r?.driverName ?? '',
+          fuelType: (r?.fuelType ?? 'diesel') as FuelRecord['fuelType'],
+          quantity: Number(r?.quantity ?? 0),
+          unitPrice: Number(r?.unitPrice ?? 0),
+          totalCost: Number(r?.totalCost ?? 0),
+          fuelStation: r?.fuelStation ?? '',
+          location: r?.location ?? '',
+          odometer: Number(r?.odometer ?? 0),
+          previousOdometer: Number(r?.previousOdometer ?? 0),
+          distanceCovered: Number(r?.distanceCovered ?? 0),
+          fuelEfficiency: Number(r?.fuelEfficiency ?? 0),
+          fillType: (r?.fillType ?? 'full-tank') as FuelRecord['fillType'],
+          paymentMethod: (r?.paymentMethod ?? 'fuel-card') as FuelRecord['paymentMethod'],
+          invoiceNumber: r?.invoiceNumber ?? '',
+          filledBy: r?.filledBy ?? '',
+          filledDate: r?.filledDate ?? '',
+          filledTime: r?.filledTime ?? '',
+          tripId: r?.tripId ?? null,
+          notes: r?.notes ?? '',
+          status: (r?.status ?? 'pending') as FuelRecord['status'],
+          verifiedBy: r?.verifiedBy ?? null,
+          expectedEfficiency: Number(r?.expectedEfficiency ?? 0),
+          efficiencyVariance: Number(r?.efficiencyVariance ?? 0),
+          anomalyDetected: !!r?.anomalyDetected,
+        }));
+        if (!cancelled) setFuelRecords(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load fuel records');
+          setFuelRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {
@@ -399,6 +178,19 @@ export default function FleetFuelPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading fuel records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -604,6 +396,11 @@ export default function FleetFuelPage() {
               ))}
             </tbody>
           </table>
+          {!isLoading && !loadError && filteredRecords.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-gray-600">
+              No fuel records found.
+            </div>
+          )}
         </div>
       </div>
 

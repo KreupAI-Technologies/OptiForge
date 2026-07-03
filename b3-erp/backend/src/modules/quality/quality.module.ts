@@ -17,6 +17,7 @@ import {
   AuditFindings,
   NCR,
   DefectCode,
+  ReworkItem,
 } from './entities';
 
 // Services
@@ -36,6 +37,7 @@ import {
   QCTemplateSeederService,
   QCParameterSeederService,
   DefectCodeSeederService,
+  ReworkItemService,
 } from './services';
 import { CAPAManagementService } from './services/capa-management.service';
 
@@ -53,6 +55,7 @@ import {
   AuditPlanController,
   AuditFindingsController,
   NCRController, // Added NCRController
+  ReworkItemController,
 } from './controllers';
 
 @Module({
@@ -72,6 +75,7 @@ import {
       AuditFindings,
       NCR,
       DefectCode,
+      ReworkItem,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -88,6 +92,7 @@ import {
     AuditPlanController,
     AuditFindingsController,
     NCRController, // Added NCRController
+    ReworkItemController,
   ],
   providers: [
     QCTemplateService,
@@ -103,6 +108,7 @@ import {
     AuditFindingsService,
     CAPAManagementService,
     NCRService,
+    ReworkItemService,
     // Seeders
     QCTemplateSeederService,
     QCParameterSeederService,
@@ -122,6 +128,7 @@ import {
     AuditFindingsService,
     CAPAManagementService,
     NCRService,
+    ReworkItemService,
     // Seeders
     QCTemplateSeederService,
     QCParameterSeederService,

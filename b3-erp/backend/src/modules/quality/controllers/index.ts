@@ -10,3 +10,4 @@ export { QualityAlertController } from './quality-alert.controller';
 export { AuditPlanController } from './audit-plan.controller';
 export { AuditFindingsController } from './audit-findings.controller';
 export { NCRController } from './ncr.controller';
+export { ReworkItemController } from './rework-item.controller';

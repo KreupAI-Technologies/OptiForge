@@ -54,6 +54,8 @@ import {
   CycleCountService,
 } from './services';
 import { ReorderManagementService } from './services/reorder-management.service';
+import { AdjustmentReasonController } from './controllers/adjustment-reason.controller';
+import { AdjustmentReasonService } from './services/adjustment-reason.service';
 import { StorageLocationService as StorageLocationClassificationService } from './services/storage-location.service';
 import { PutawayStrategyService } from './services/putaway-strategy.service';
 import { VEDAnalysisService } from './services/ved-analysis.service';
@@ -86,6 +88,7 @@ import { VEDAnalysisService } from './services/ved-analysis.service';
     StockEntryController,
     StockBalanceController,
     StockTransferController,
+    AdjustmentReasonController,
     StockAdjustmentController,
     SerialNumberController,
     BatchNumberController,
@@ -107,6 +110,7 @@ import { VEDAnalysisService } from './services/ved-analysis.service';
     WarehouseSeederService,
     StockLocationSeederService,
     AdjustmentReasonSeederService,
+    AdjustmentReasonService,
     StockValuationService,
     InventoryAnalyticsService,
     CycleCountService,

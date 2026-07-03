@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
@@ -27,9 +27,11 @@ import {
   Wrench,
   Shield,
   ChevronRight,
-  Edit
+  Edit,
+  AlertCircle
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { WarrantyService, type WarrantyClaimRecord } from '@/services/warranty.service';
 
 interface ClaimApproval {
   id: string;
@@ -94,6 +96,108 @@ interface ClaimApproval {
   urgencyScore: number; // 1-10
 }
 
+// Map backend claim status -> approval-page display status.
+const mapApprovalStatus = (status?: string): ClaimApproval['status'] => {
+  switch ((status ?? '').toLowerCase()) {
+    case 'submitted':
+      return 'Pending Review';
+    case 'under_review':
+      return 'Under Investigation';
+    case 'in_progress':
+      return 'Ready for Approval';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    default:
+      return 'Pending Review';
+  }
+};
+
+const transformApproval = (r: WarrantyClaimRecord): ClaimApproval => {
+  const parts = Number(r.partsCost ?? 0);
+  const labor = Number(r.laborCost ?? 0);
+  const total = Number(r.totalCost ?? 0) || parts + labor;
+  const priority: ClaimApproval['priority'] =
+    (r.faultCategory ?? '').toLowerCase().includes('safety')
+      ? 'Critical'
+      : total >= 20000
+        ? 'High'
+        : total >= 8000
+          ? 'Medium'
+          : 'Low';
+  const urgencyScore = Math.min(
+    10,
+    Math.max(1, Math.round((priority === 'Critical' ? 8 : 3) + total / 5000)),
+  );
+  return {
+    id: r.id,
+    claimNumber: r.claimNumber ?? r.id,
+    warrantyNumber: r.warrantyId ?? '-',
+    warrantyType: 'Standard',
+    status: mapApprovalStatus(r.status),
+    priority,
+    customer: {
+      name: r.customerName ?? '-',
+      phone: r.contactPhone ?? '-',
+      email: '-',
+      customerId: r.customerId ?? '-',
+    },
+    equipment: {
+      model: r.equipmentId ?? '-',
+      serialNumber: r.equipmentId ?? '-',
+      category: r.faultCategory ?? '-',
+      installationDate: '-',
+    },
+    claimDetails: {
+      issueDescription: r.faultDescription ?? r.claimReason ?? '',
+      faultCategory: r.faultCategory ?? '-',
+      reportedDate: r.faultDate ? String(r.faultDate).slice(0, 10) : '',
+      submittedDate: r.claimDate ? String(r.claimDate).slice(0, 10) : '',
+      claimedAmount: total,
+      estimatedAmount: total,
+      partsCost: parts,
+      laborCost: labor,
+    },
+    technician: {
+      name: r.approvedBy ?? 'Unassigned',
+      id: '-',
+      assessment: r.claimReason ?? '',
+      visitDate: '-',
+      recommendation:
+        (r.status ?? '').toLowerCase() === 'approved'
+          ? 'Approve'
+          : (r.status ?? '').toLowerCase() === 'rejected'
+            ? 'Reject'
+            : 'Investigate',
+    },
+    documentation: {
+      photos: 0,
+      videos: 0,
+      reports: 0,
+      invoices: 0,
+      isComplete: Boolean(r.eligibilityStatus === 'eligible'),
+    },
+    approval: {
+      assignedTo: r.approvedBy ?? undefined,
+      lastUpdated: r.updatedAt ? String(r.updatedAt).slice(0, 10) : '',
+      escalated: priority === 'Critical',
+      escalationReason:
+        priority === 'Critical' ? 'Safety-critical issue requiring senior approval' : undefined,
+    },
+    warranty: {
+      startDate: '-',
+      endDate: '-',
+      coverage: '-',
+      remainingValue: 0,
+      previousClaims: 0,
+    },
+    riskFactors:
+      priority === 'Critical' ? ['Safety Critical'] : [],
+    urgencyScore,
+  };
+};
+
 const ClaimsApprovalsPage = () => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,365 +210,34 @@ const ClaimsApprovalsPage = () => {
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [approvalNotes, setApprovalNotes] = useState('');
 
-  const claimApprovals: ClaimApproval[] = [
-    {
-      id: '1',
-      claimNumber: 'CLM-2025-0001',
-      warrantyNumber: 'WRN-2025-00001',
-      warrantyType: 'Standard',
-      status: 'Ready for Approval',
-      priority: 'High',
-      customer: {
-        name: 'Sharma Modular Kitchens Pvt Ltd',
-        phone: '+91-98765-43210',
-        email: 'claims@sharma-kitchens.com',
-        customerId: 'CUST001'
-      },
-      equipment: {
-        model: 'Modular Kitchen Premium SS-304',
-        serialNumber: 'MK-SS304-2025-001',
-        category: 'Modular Kitchen',
-        installationDate: '2024-06-15'
-      },
-      claimDetails: {
-        issueDescription: 'Gas burner ignition system failure - requires control valve replacement and safety calibration',
-        faultCategory: 'Component Failure',
-        reportedDate: '2025-01-15',
-        submittedDate: '2025-01-16',
-        claimedAmount: 15000,
-        estimatedAmount: 12500,
-        partsCost: 8000,
-        laborCost: 4500
-      },
-      technician: {
-        name: 'Rajesh Kumar',
-        id: 'TECH-001',
-        assessment: 'Genuine manufacturing defect in control valve. Replacement required under warranty terms.',
-        visitDate: '2025-01-16',
-        recommendation: 'Approve'
-      },
-      documentation: {
-        photos: 8,
-        videos: 2,
-        reports: 1,
-        invoices: 0,
-        isComplete: true
-      },
-      approval: {
-        assignedTo: 'Priya Sharma',
-        reviewStarted: '2025-01-17',
-        lastUpdated: '2025-01-17',
-        escalated: false
-      },
-      warranty: {
-        startDate: '2024-06-15',
-        endDate: '2025-06-14',
-        coverage: 'Parts & Labor',
-        remainingValue: 85000,
-        previousClaims: 0
-      },
-      riskFactors: [],
-      urgencyScore: 7
-    },
-    {
-      id: '2',
-      claimNumber: 'CLM-2025-0002',
-      warrantyNumber: 'WRN-2024-00456',
-      warrantyType: 'Extended',
-      status: 'Under Investigation',
-      priority: 'Critical',
-      customer: {
-        name: 'Prestige Developers Bangalore',
-        phone: '+91-98765-54321',
-        email: 'warranty@prestigegroup.com',
-        customerId: 'CUST002'
-      },
-      equipment: {
-        model: 'Built-in Hob 4 Burner Gas',
-        serialNumber: 'HB-4B-2024-234',
-        category: 'Cooking Appliances',
-        installationDate: '2024-03-20'
-      },
-      claimDetails: {
-        issueDescription: 'Gas leak detected from main supply line connection causing safety hazard',
-        faultCategory: 'Safety Issue',
-        reportedDate: '2025-01-14',
-        submittedDate: '2025-01-14',
-        claimedAmount: 25000,
-        estimatedAmount: 22000,
-        partsCost: 15000,
-        laborCost: 7000
-      },
-      technician: {
-        name: 'Suresh Rao',
-        id: 'TECH-002',
-        assessment: 'Safety-critical issue requires immediate attention. Installation error during initial setup.',
-        visitDate: '2025-01-15',
-        recommendation: 'Investigate'
-      },
-      documentation: {
-        photos: 15,
-        videos: 3,
-        reports: 2,
-        invoices: 1,
-        isComplete: false,
-        missingDocs: ['Gas safety certificate', 'Installation compliance report']
-      },
-      approval: {
-        assignedTo: 'Vikram Singh',
-        reviewStarted: '2025-01-15',
-        lastUpdated: '2025-01-16',
-        escalated: true,
-        escalationReason: 'Safety-critical issue requiring senior approval'
-      },
-      warranty: {
-        startDate: '2024-03-20',
-        endDate: '2027-03-19',
-        coverage: 'Comprehensive',
-        remainingValue: 125000,
-        previousClaims: 1
-      },
-      riskFactors: ['Safety Critical', 'Installation Related', 'High Value'],
-      urgencyScore: 10
-    },
-    {
-      id: '3',
-      claimNumber: 'CLM-2025-0003',
-      warrantyNumber: 'WRN-2024-00789',
-      warrantyType: 'Manufacturer',
-      status: 'Requires Documentation',
-      priority: 'Medium',
-      customer: {
-        name: 'Urban Interiors & Designers',
-        phone: '+91-98765-67890',
-        email: 'service@urbaninteriors.co.in',
-        customerId: 'CUST003'
-      },
-      equipment: {
-        model: 'Chimney Auto Clean 90cm',
-        serialNumber: 'CH-AC90-2024-067',
-        category: 'Kitchen Appliances',
-        installationDate: '2024-05-10'
-      },
-      claimDetails: {
-        issueDescription: 'Auto-clean function not working, filter mechanism jammed',
-        faultCategory: 'Mechanical Failure',
-        reportedDate: '2025-01-12',
-        submittedDate: '2025-01-13',
-        claimedAmount: 8500,
-        estimatedAmount: 7200,
-        partsCost: 4500,
-        laborCost: 2700
-      },
-      technician: {
-        name: 'Prakash M',
-        id: 'TECH-003',
-        assessment: 'Filter mechanism shows wear beyond normal usage. Requires investigation into usage patterns.',
-        visitDate: '2025-01-13',
-        recommendation: 'Request More Info'
-      },
-      documentation: {
-        photos: 5,
-        videos: 0,
-        reports: 1,
-        invoices: 0,
-        isComplete: false,
-        missingDocs: ['Usage log', 'Maintenance records', 'Customer usage declaration']
-      },
-      approval: {
-        assignedTo: 'Anita Desai',
-        reviewStarted: '2025-01-14',
-        lastUpdated: '2025-01-16',
-        escalated: false
-      },
-      warranty: {
-        startDate: '2024-05-10',
-        endDate: '2026-05-09',
-        coverage: 'Parts Only',
-        remainingValue: 45000,
-        previousClaims: 0
-      },
-      riskFactors: ['Usage Related', 'Documentation Incomplete'],
-      urgencyScore: 5
-    },
-    {
-      id: '4',
-      claimNumber: 'CLM-2025-0004',
-      warrantyNumber: 'WRN-2024-00234',
-      warrantyType: 'Dealer',
-      status: 'Pending Review',
-      priority: 'Low',
-      customer: {
-        name: 'Elite Contractors & Builders',
-        phone: '+91-98765-44444',
-        email: 'warranty@elitecontractors.com',
-        customerId: 'CUST004'
-      },
-      equipment: {
-        model: 'Built-in Oven 60L',
-        serialNumber: 'OV-60L-2024-543',
-        category: 'Cooking Appliances',
-        installationDate: '2024-07-01'
-      },
-      claimDetails: {
-        issueDescription: 'Temperature sensor giving incorrect readings, affecting cooking performance',
-        faultCategory: 'Sensor Malfunction',
-        reportedDate: '2025-01-10',
-        submittedDate: '2025-01-11',
-        claimedAmount: 6500,
-        estimatedAmount: 5800,
-        partsCost: 3500,
-        laborCost: 2300
-      },
-      technician: {
-        name: 'Arun Reddy',
-        id: 'TECH-004',
-        assessment: 'Temperature sensor requires calibration. May need replacement if calibration fails.',
-        visitDate: '2025-01-12',
-        recommendation: 'Approve'
-      },
-      documentation: {
-        photos: 3,
-        videos: 1,
-        reports: 1,
-        invoices: 0,
-        isComplete: true
-      },
-      approval: {
-        lastUpdated: '2025-01-12',
-        escalated: false
-      },
-      warranty: {
-        startDate: '2024-07-01',
-        endDate: '2025-06-30',
-        coverage: 'Labor Only',
-        remainingValue: 15000,
-        previousClaims: 1
-      },
-      riskFactors: [],
-      urgencyScore: 3
-    },
-    {
-      id: '5',
-      claimNumber: 'CLM-2025-0005',
-      warrantyNumber: 'WRN-2024-00567',
-      warrantyType: 'Extended',
-      status: 'Approved',
-      priority: 'Medium',
-      customer: {
-        name: 'DLF Universal Projects',
-        phone: '+91-98765-11111',
-        email: 'maintenance@dlf.co.in',
-        customerId: 'CUST005'
-      },
-      equipment: {
-        model: 'Dishwasher 14 Place Settings',
-        serialNumber: 'DW-14PS-2023-890',
-        category: 'Kitchen Appliances',
-        installationDate: '2023-08-15'
-      },
-      claimDetails: {
-        issueDescription: 'Water pump motor failure causing drainage issues',
-        faultCategory: 'Motor Failure',
-        reportedDate: '2025-01-08',
-        submittedDate: '2025-01-09',
-        claimedAmount: 18000,
-        estimatedAmount: 16500,
-        partsCost: 12000,
-        laborCost: 4500
-      },
-      technician: {
-        name: 'Maria Gonzalez',
-        id: 'TECH-005',
-        assessment: 'Motor failure due to normal wear. Well within warranty terms for replacement.',
-        visitDate: '2025-01-10',
-        recommendation: 'Approve'
-      },
-      documentation: {
-        photos: 6,
-        videos: 1,
-        reports: 1,
-        invoices: 1,
-        isComplete: true
-      },
-      approval: {
-        assignedTo: 'Rohit Sharma',
-        reviewStarted: '2025-01-11',
-        lastUpdated: '2025-01-12',
-        notes: 'Approved for motor replacement. Schedule service within 48 hours.',
-        escalated: false
-      },
-      warranty: {
-        startDate: '2023-08-15',
-        endDate: '2026-08-14',
-        coverage: 'Comprehensive',
-        remainingValue: 95000,
-        previousClaims: 2
-      },
-      riskFactors: [],
-      urgencyScore: 6
-    },
-    {
-      id: '6',
-      claimNumber: 'CLM-2025-0006',
-      warrantyNumber: 'WRN-2024-00890',
-      warrantyType: 'Standard',
-      status: 'Rejected',
-      priority: 'Low',
-      customer: {
-        name: 'Modern Living Solutions',
-        phone: '+91-98765-66666',
-        email: 'support@modernliving.co.in',
-        customerId: 'CUST006'
-      },
-      equipment: {
-        model: 'RO Water Purifier 10L',
-        serialNumber: 'RO-10L-2024-678',
-        category: 'Water Treatment',
-        installationDate: '2024-09-01'
-      },
-      claimDetails: {
-        issueDescription: 'Filter cartridges need frequent replacement, claiming defective filtration system',
-        faultCategory: 'Performance Issue',
-        reportedDate: '2025-01-05',
-        submittedDate: '2025-01-06',
-        claimedAmount: 12000,
-        estimatedAmount: 0,
-        partsCost: 8000,
-        laborCost: 4000
-      },
-      technician: {
-        name: 'James Wilson',
-        id: 'TECH-006',
-        assessment: 'Filter replacement is normal maintenance. Water quality in area requires frequent changes.',
-        visitDate: '2025-01-07',
-        recommendation: 'Reject'
-      },
-      documentation: {
-        photos: 4,
-        videos: 0,
-        reports: 1,
-        invoices: 0,
-        isComplete: true
-      },
-      approval: {
-        assignedTo: 'Sunita Verma',
-        reviewStarted: '2025-01-08',
-        lastUpdated: '2025-01-09',
-        notes: 'Rejected - Filter replacement is routine maintenance, not covered under warranty.',
-        escalated: false
-      },
-      warranty: {
-        startDate: '2024-09-01',
-        endDate: '2025-08-31',
-        coverage: 'Parts & Labor',
-        remainingValue: 35000,
-        previousClaims: 0
-      },
-      riskFactors: ['Maintenance Related'],
-      urgencyScore: 2
-    }
-  ];
+  const [claimApprovals, setClaimApprovals] = useState<ClaimApproval[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await WarrantyService.getAllClaims();
+        const list = Array.isArray(raw) ? raw : [];
+        if (!cancelled) setClaimApprovals(list.map(transformApproval));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load claims for approval');
+          setClaimApprovals([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const filteredClaims = claimApprovals.filter(claim => {
     const matchesSearch = claim.claimNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -499,7 +272,7 @@ const ClaimsApprovalsPage = () => {
     criticalPending: claimApprovals.filter(c => c.priority === 'Critical' && ['Pending Review', 'Under Investigation', 'Ready for Approval'].includes(c.status)).length,
     totalValue: claimApprovals.reduce((sum, c) => sum + c.claimDetails.claimedAmount, 0),
     avgProcessingTime: 2.3, // days
-    approvalRate: Math.round((claimApprovals.filter(c => c.status === 'Approved').length / claimApprovals.length) * 100)
+    approvalRate: claimApprovals.length ? Math.round((claimApprovals.filter(c => c.status === 'Approved').length / claimApprovals.length) * 100) : 0
   };
 
   const getStatusColor = (status: string) => {
@@ -560,7 +333,7 @@ const ClaimsApprovalsPage = () => {
             All Claims
           </button>
           <button
-            onClick={() => exportToCsv('warranty-claim-approvals', filteredClaims)}
+            onClick={() => exportToCsv('warranty-claim-approvals', filteredClaims as unknown as Record<string, unknown>[])}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Download className="h-4 w-4" />
@@ -568,6 +341,24 @@ const ClaimsApprovalsPage = () => {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading claims for approval…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && claimApprovals.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No claims pending approval.
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">

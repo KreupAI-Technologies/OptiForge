@@ -8,3 +8,5 @@ export * from './trip.entity';
 export * from './tracking-event.entity';
 export * from './freight-charge.entity';
 export * from './transport-company.entity';
+export * from './delivery-coordination.entity';
+export * from './fuel-record.entity';

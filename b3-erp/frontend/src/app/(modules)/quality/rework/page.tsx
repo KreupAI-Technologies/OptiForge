@@ -22,6 +22,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { QualityService } from '@/services/quality.service';
 
 interface ProjectInfo {
     id: string;
@@ -41,13 +42,6 @@ interface ReworkItem {
     iterations: number;
 }
 
-const mockReworkItems: ReworkItem[] = [
-    { id: 'RW-001', defectId: 'DEF-045', component: 'Cabinet Door #3', defectType: 'Surface Finish', priority: 'High', assignedTo: 'Ravi Kumar', status: 'In Rework', iterations: 1 },
-    { id: 'RW-002', defectId: 'DEF-046', component: 'Side Panel', defectType: 'Dimension Mismatch', priority: 'Medium', assignedTo: 'Suresh P', status: 'Pending', iterations: 0 },
-    { id: 'RW-003', defectId: 'DEF-043', component: 'Main Frame', defectType: 'Weld Quality', priority: 'High', assignedTo: 'Ravi Kumar', status: 'Re-inspection', iterations: 2 },
-    { id: 'RW-004', defectId: 'DEF-044', component: 'Mounting Bracket', defectType: 'Coating Issue', priority: 'Low', assignedTo: 'Mohan S', status: 'Completed', iterations: 1 },
-];
-
 export default function ReworkLoopPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -62,6 +56,7 @@ export default function ReworkLoopPage() {
     // Rework state
     const [reworkItems, setReworkItems] = useState<ReworkItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     // Load projects
     useEffect(() => {
@@ -95,13 +90,38 @@ export default function ReworkLoopPage() {
 
     // Load rework items when project is selected
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        let cancelled = false;
+        const load = async () => {
             setLoading(true);
-            setTimeout(() => {
-                setReworkItems(mockReworkItems);
-                setLoading(false);
-            }, 300);
-        }
+            setLoadError(null);
+            try {
+                const raw = (await QualityService.getReworkItems({ projectId: selectedProject.id })) as any[];
+                const list = Array.isArray(raw) ? raw : [];
+                const mapped: ReworkItem[] = list.map((r) => ({
+                    id: String(r?.reworkCode ?? r?.id ?? ''),
+                    defectId: r?.defectId ?? '',
+                    component: r?.component ?? '',
+                    defectType: r?.defectType ?? '',
+                    priority: (r?.priority ?? 'Medium') as ReworkItem['priority'],
+                    assignedTo: r?.assignedTo ?? '',
+                    status: (r?.status ?? 'Pending') as ReworkItem['status'],
+                    iterations: Number(r?.iterations ?? 0),
+                }));
+                if (!cancelled) setReworkItems(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load rework items');
+                    setReworkItems([]);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
@@ -230,12 +250,19 @@ export default function ReworkLoopPage() {
                 </div>
             </div>
 
+            {loadError && !loading && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    {loadError}
+                </div>
+            )}
+
             {loading ? (
                 <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                     <span className="ml-2 text-gray-600">Loading rework items...</span>
                 </div>
-            ) : (
+            ) : loadError ? null : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                         <Card>
@@ -350,6 +377,13 @@ export default function ReworkLoopPage() {
                                                 </td>
                                             </tr>
                                         ))}
+                                        {reworkItems.length === 0 && (
+                                            <tr>
+                                                <td colSpan={9} className="p-8 text-center text-sm text-muted-foreground">
+                                                    No rework items found for this project.
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

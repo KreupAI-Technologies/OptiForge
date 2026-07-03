@@ -13,3 +13,4 @@ export { NCRService } from './ncr.service';
 export { QCTemplateSeederService } from './qc-template-seeder.service';
 export { QCParameterSeederService } from './qc-parameter-seeder.service';
 export { DefectCodeSeederService } from './defect-code-seeder.service';
+export { ReworkItemService } from './rework-item.service';

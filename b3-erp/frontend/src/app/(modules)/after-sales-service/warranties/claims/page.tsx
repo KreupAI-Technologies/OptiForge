@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -14,8 +14,10 @@ import {
   XCircle,
   Clock,
   Eye,
-  Download
+  Download,
+  AlertCircle
 } from 'lucide-react';
+import { WarrantyService, type WarrantyClaimRecord } from '@/services/warranty.service';
 
 interface WarrantyClaim {
   id: string;
@@ -32,6 +34,48 @@ interface WarrantyClaim {
   assignedTo: string;
 }
 
+// Map backend claim status -> the page's display status.
+const mapStatus = (status?: string): WarrantyClaim['status'] => {
+  switch ((status ?? '').toLowerCase()) {
+    case 'submitted':
+      return 'Pending Review';
+    case 'under_review':
+    case 'in_progress':
+      return 'Under Investigation';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'completed':
+    case 'closed':
+      return 'Completed';
+    default:
+      return 'Pending Review';
+  }
+};
+
+const transformClaim = (r: WarrantyClaimRecord): WarrantyClaim => {
+  const total = Number(r.totalCost ?? 0) ||
+    (Number(r.partsCost ?? 0) + Number(r.laborCost ?? 0));
+  const isResolved = ['approved', 'completed', 'closed'].includes(
+    (r.status ?? '').toLowerCase()
+  );
+  return {
+    id: r.id,
+    claimNumber: r.claimNumber ?? r.id,
+    warrantyNumber: r.warrantyId ?? '-',
+    customerName: r.customerName ?? '-',
+    productName: r.equipmentId ?? r.faultCategory ?? '-',
+    dateRaised: r.claimDate ? String(r.claimDate).slice(0, 10) : '',
+    issueDescription: r.faultDescription ?? r.claimReason ?? '',
+    claimAmount: total,
+    approvedAmount: isResolved ? total : undefined,
+    status: mapStatus(r.status),
+    priority: total >= 20000 ? 'High' : total >= 8000 ? 'Medium' : 'Low',
+    assignedTo: r.approvedBy ?? 'Unassigned',
+  };
+};
+
 export default function WarrantyClaimsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,117 +84,33 @@ export default function WarrantyClaimsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Mock Claims Data
-  const allClaims: WarrantyClaim[] = [
-    {
-      id: 'CLM-001',
-      claimNumber: 'CLM-2025-0045',
-      warrantyNumber: 'WRN-2025-0001',
-      customerName: 'Sharma Kitchens Pvt Ltd',
-      productName: 'Commercial Gas Range - 6 Burner',
-      dateRaised: '2025-02-15',
-      issueDescription: 'Gas burner ignition failure - control valve replacement required',
-      claimAmount: 8500,
-      approvedAmount: 8500,
-      status: 'Completed',
-      priority: 'High',
-      assignedTo: 'Rajesh Kumar'
-    },
-    {
-      id: 'CLM-002',
-      claimNumber: 'CLM-2025-0044',
-      warrantyNumber: 'WRN-2025-0003',
-      customerName: 'Prestige Developers',
-      productName: 'Industrial Dishwasher',
-      dateRaised: '2025-02-14',
-      issueDescription: 'Water pump motor failure causing drainage issues',
-      claimAmount: 12000,
-      status: 'Pending Review',
-      priority: 'High',
-      assignedTo: 'Amit Patel'
-    },
-    {
-      id: 'CLM-003',
-      claimNumber: 'CLM-2025-0043',
-      warrantyNumber: 'WRN-2025-0005',
-      customerName: 'Royal Restaurant Chain',
-      productName: 'Commercial Deep Fryer',
-      dateRaised: '2025-02-13',
-      issueDescription: 'Heating element malfunction - inconsistent temperature',
-      claimAmount: 6500,
-      approvedAmount: 5500,
-      status: 'Approved',
-      priority: 'Medium',
-      assignedTo: 'Priya Singh'
-    },
-    {
-      id: 'CLM-004',
-      claimNumber: 'CLM-2025-0042',
-      warrantyNumber: 'WRN-2025-0002',
-      customerName: 'Hotel Grand Plaza',
-      productName: 'Walk-in Refrigerator',
-      dateRaised: '2025-02-12',
-      issueDescription: 'Compressor failure - complete cooling system breakdown',
-      claimAmount: 25000,
-      status: 'Under Investigation',
-      priority: 'High',
-      assignedTo: 'Suresh Reddy'
-    },
-    {
-      id: 'CLM-005',
-      claimNumber: 'CLM-2025-0041',
-      warrantyNumber: 'WRN-2025-0007',
-      customerName: 'Green Valley Resorts',
-      productName: 'Commercial Mixer Grinder',
-      dateRaised: '2025-02-11',
-      issueDescription: 'Motor bearing wear - excessive noise during operation',
-      claimAmount: 3500,
-      status: 'Rejected',
-      priority: 'Low',
-      assignedTo: 'Neha Sharma'
-    },
-    {
-      id: 'CLM-006',
-      claimNumber: 'CLM-2025-0040',
-      warrantyNumber: 'WRN-2025-0004',
-      customerName: 'City Cafe Express',
-      productName: 'Espresso Machine - 3 Group',
-      dateRaised: '2025-02-10',
-      issueDescription: 'Pressure gauge failure and steam wand malfunction',
-      claimAmount: 9500,
-      approvedAmount: 9500,
-      status: 'Completed',
-      priority: 'Medium',
-      assignedTo: 'Rajesh Kumar'
-    },
-    {
-      id: 'CLM-007',
-      claimNumber: 'CLM-2025-0039',
-      warrantyNumber: 'WRN-2025-0006',
-      customerName: 'Paradise Banquet Hall',
-      productName: 'Industrial Oven - Convection',
-      dateRaised: '2025-02-09',
-      issueDescription: 'Temperature sensor failure - inaccurate heating',
-      claimAmount: 7500,
-      status: 'Pending Review',
-      priority: 'Medium',
-      assignedTo: 'Amit Patel'
-    },
-    {
-      id: 'CLM-008',
-      claimNumber: 'CLM-2025-0038',
-      warrantyNumber: 'WRN-2025-0008',
-      customerName: 'Spice Garden Restaurant',
-      productName: 'Commercial Refrigerator - 4 Door',
-      dateRaised: '2025-02-08',
-      issueDescription: 'Door seal damage causing temperature fluctuation',
-      claimAmount: 4500,
-      approvedAmount: 4000,
-      status: 'Approved',
-      priority: 'Low',
-      assignedTo: 'Priya Singh'
-    }
-  ];
+  const [allClaims, setAllClaims] = useState<WarrantyClaim[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await WarrantyService.getAllClaims();
+        const list = Array.isArray(raw) ? raw : [];
+        if (!cancelled) setAllClaims(list.map(transformClaim));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load warranty claims');
+          setAllClaims([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Filter claims
   const filteredClaims = allClaims.filter(claim => {
@@ -234,6 +194,19 @@ export default function WarrantyClaimsPage() {
         </button>
       </div>
 
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading warranty claims…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="bg-white p-3 rounded-lg border border-gray-200">
@@ -252,7 +225,7 @@ export default function WarrantyClaimsPage() {
           </div>
           <div className="text-2xl font-bold text-gray-900">{stats.approved}</div>
           <div className="text-xs text-gray-500 mt-1">
-            {((stats.approved / stats.total) * 100).toFixed(0)}% approval rate
+            {stats.total ? ((stats.approved / stats.total) * 100).toFixed(0) : 0}% approval rate
           </div>
         </div>
 
@@ -274,7 +247,7 @@ export default function WarrantyClaimsPage() {
           </div>
           <div className="text-2xl font-bold text-gray-900">{stats.rejected}</div>
           <div className="text-xs text-gray-500 mt-1">
-            {((stats.rejected / stats.total) * 100).toFixed(0)}% rejection rate
+            {stats.total ? ((stats.rejected / stats.total) * 100).toFixed(0) : 0}% rejection rate
           </div>
         </div>
       </div>

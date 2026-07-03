@@ -11,3 +11,4 @@ export { AuditPlan, AuditType, AuditStatus, AuditPriority } from './audit-plan.e
 export { AuditFindings, FindingType, FindingSeverity, FindingStatus } from './audit-findings.entity';
 export { NCR, NCRSeverity, NCRStatus } from './ncr.entity';
 export { DefectCode, DefectSeverity, DefectCategory } from './defect-code.entity';
+export { ReworkItem, ReworkPriority, ReworkStatus } from './rework-item.entity';

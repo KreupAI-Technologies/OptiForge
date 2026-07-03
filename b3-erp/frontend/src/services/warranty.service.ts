@@ -420,6 +420,55 @@ export class WarrantyService {
       totalClaimValue: number;
     }>('/after-sales/warranties/statistics');
   }
+
+  /**
+   * Get all warranty claims with optional filters.
+   * Backed by GET /after-sales/warranties/claims.
+   */
+  static async getAllClaims(filters?: {
+    status?: string;
+    customerId?: string;
+    warrantyId?: string;
+  }): Promise<WarrantyClaimRecord[]> {
+    const queryParams = new URLSearchParams();
+    if (filters?.status) queryParams.set('status', filters.status);
+    if (filters?.customerId) queryParams.set('customerId', filters.customerId);
+    if (filters?.warrantyId) queryParams.set('warrantyId', filters.warrantyId);
+    return this.request<WarrantyClaimRecord[]>(
+      `/after-sales/warranties/claims?${queryParams.toString()}`
+    );
+  }
+}
+
+/**
+ * Raw warranty claim record as returned by the backend
+ * (src/modules/after-sales-service/entities/warranty.entity.ts WarrantyClaim).
+ */
+export interface WarrantyClaimRecord {
+  id: string;
+  claimNumber: string;
+  warrantyId: string;
+  status: string;
+  equipmentId: string;
+  faultDescription: string;
+  faultCategory: string;
+  faultDate: string;
+  customerId: string;
+  customerName: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  claimDate: string;
+  claimReason: string;
+  actionRequired: string;
+  eligibilityStatus: string;
+  approvalRequired: boolean;
+  approvedBy?: string;
+  approvalDate?: string;
+  partsCost?: number;
+  laborCost?: number;
+  totalCost?: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const warrantyService = WarrantyService;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FileText,
   Plus,
@@ -11,11 +11,13 @@ import {
   Search,
   Save,
   X,
-  BarChart3
+  BarChart3,
+  AlertCircle
 } from 'lucide-react';
+import { inventoryService, type AdjustmentReason } from '@/services/InventoryService';
 
 interface ReasonCode {
-  id: number;
+  id: string;
   code: string;
   description: string;
   category: 'quantity' | 'value' | 'write-off';
@@ -28,170 +30,68 @@ interface ReasonCode {
   lastUsed?: string;
 }
 
+// Derive the page's UI category from the backend reason code/name, since the
+// backend models reasonType (Positive/Negative/Both) rather than the page's
+// quantity/value/write-off buckets.
+const deriveCategory = (r: AdjustmentReason): ReasonCode['category'] => {
+  const text = `${r.code ?? ''} ${r.name ?? ''}`.toLowerCase();
+  if (/(price|value|cost|currency|market|valuation|revaluation)/.test(text)) {
+    return 'value';
+  }
+  if (/(damage|obsolete|expire|expired|lost|theft|scrap|write.?off|shrink)/.test(text)) {
+    return 'write-off';
+  }
+  return 'quantity';
+};
+
 export default function AdjustmentReasonsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('active');
   const [isAddingReason, setIsAddingReason] = useState(false);
-  const [editingReasonId, setEditingReasonId] = useState<number | null>(null);
+  const [editingReasonId, setEditingReasonId] = useState<string | null>(null);
 
-  const [reasonCodes, setReasonCodes] = useState<ReasonCode[]>([
-    {
-      id: 1,
-      code: 'PHYS_COUNT_VAR',
-      description: 'Physical Count Variance',
-      category: 'quantity',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 24,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-15'
-    },
-    {
-      id: 2,
-      code: 'DAMAGED_GOODS',
-      description: 'Damaged Goods',
-      category: 'write-off',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 12,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-17'
-    },
-    {
-      id: 3,
-      code: 'OBSOLETE_INV',
-      description: 'Obsolete Inventory',
-      category: 'write-off',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 8,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-20'
-    },
-    {
-      id: 4,
-      code: 'SYSTEM_ERROR',
-      description: 'System Error Correction',
-      category: 'quantity',
-      requiresApproval: false,
-      requiresDocument: false,
-      active: true,
-      usageCount: 15,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-19'
-    },
-    {
-      id: 5,
-      code: 'PRICE_CORRECTION',
-      description: 'Price Correction',
-      category: 'value',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 10,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-18'
-    },
-    {
-      id: 6,
-      code: 'CYCLE_COUNT_ADJ',
-      description: 'Cycle Count Adjustment',
-      category: 'quantity',
-      requiresApproval: false,
-      requiresDocument: true,
-      active: true,
-      usageCount: 32,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-20'
-    },
-    {
-      id: 7,
-      code: 'MARKET_PRICE_CHG',
-      description: 'Market Price Change',
-      category: 'value',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 6,
-      createdBy: 'John Smith',
-      createdDate: '2024-06-15',
-      lastUsed: '2025-01-18'
-    },
-    {
-      id: 8,
-      code: 'EXPIRED_STOCK',
-      description: 'Expired Stock',
-      category: 'write-off',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 4,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-21'
-    },
-    {
-      id: 9,
-      code: 'LOST_THEFT',
-      description: 'Lost or Theft',
-      category: 'write-off',
-      requiresApproval: true,
-      requiresDocument: true,
-      active: true,
-      usageCount: 2,
-      createdBy: 'System',
-      createdDate: '2024-01-01',
-      lastUsed: '2025-01-22'
-    },
-    {
-      id: 10,
-      code: 'RECEIPT_NOT_REC',
-      description: 'Receipt Not Recorded',
-      category: 'quantity',
-      requiresApproval: false,
-      requiresDocument: true,
-      active: true,
-      usageCount: 5,
-      createdBy: 'Emily Chen',
-      createdDate: '2024-08-20',
-      lastUsed: '2025-01-20'
-    },
-    {
-      id: 11,
-      code: 'CURRENCY_FLUCT',
-      description: 'Currency Fluctuation',
-      category: 'value',
-      requiresApproval: true,
-      requiresDocument: false,
-      active: true,
-      usageCount: 3,
-      createdBy: 'Mike Davis',
-      createdDate: '2024-09-10',
-      lastUsed: '2025-01-21'
-    },
-    {
-      id: 12,
-      code: 'OLD_REASON',
-      description: 'Old Reason - Deprecated',
-      category: 'quantity',
-      requiresApproval: false,
-      requiresDocument: false,
-      active: false,
-      usageCount: 0,
-      createdBy: 'System',
-      createdDate: '2023-01-01'
-    }
-  ]);
+  const [reasonCodes, setReasonCodes] = useState<ReasonCode[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await inventoryService.getAdjustmentReasons();
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: ReasonCode[] = list.map((r) => ({
+          id: String(r.id),
+          code: r.code ?? '',
+          description: r.name ?? r.description ?? '',
+          category: deriveCategory(r),
+          requiresApproval: Boolean(r.requiresApproval),
+          // Backend has no "requires document" flag; approximate from approval need.
+          requiresDocument: Boolean(r.requiresApproval),
+          active: (r.status ?? 'Active') === 'Active',
+          usageCount: 0,
+          createdBy: r.createdBy ?? 'System',
+          createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+          lastUsed: r.updatedAt ? String(r.updatedAt).slice(0, 10) : undefined,
+        }));
+        if (!cancelled) setReasonCodes(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load adjustment reasons');
+          setReasonCodes([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -206,13 +106,13 @@ export default function AdjustmentReasonsPage() {
     }
   };
 
-  const toggleReasonStatus = (id: number) => {
+  const toggleReasonStatus = (id: string) => {
     setReasonCodes(reasonCodes.map(reason =>
       reason.id === id ? { ...reason, active: !reason.active } : reason
     ));
   };
 
-  const deleteReason = (id: number) => {
+  const deleteReason = (id: string) => {
     if (confirm('Are you sure you want to delete this reason code?')) {
       setReasonCodes(reasonCodes.filter(reason => reason.id !== id));
     }
@@ -255,6 +155,24 @@ export default function AdjustmentReasonsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading adjustment reasons…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && reasonCodes.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No adjustment reason codes found.
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

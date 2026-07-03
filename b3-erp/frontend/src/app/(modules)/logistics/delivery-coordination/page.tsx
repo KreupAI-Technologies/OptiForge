@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
     MapPin,
@@ -14,7 +14,9 @@ import {
     CheckCircle,
     ArrowLeft,
     MessageSquare,
+    AlertCircle,
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface DeliveryCoordination {
     id: string;
@@ -45,95 +47,63 @@ interface DeliveryCoordination {
     };
 }
 
-const mockCoordinations: DeliveryCoordination[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        customerName: 'Hotel Paradise Ltd',
-        siteLocation: {
-            address: 'Plot 45, Andheri East, Mumbai - 400069',
-            gps: '19.1136° N, 72.8697° E',
-            landmark: 'Near Metro Station',
-        },
-        siteContact: {
-            name: 'Rajesh Menon',
-            phone: '+91 98765 43210',
-            email: 'rajesh@hotelparadise.com',
-            role: 'Site Supervisor',
-        },
-        deliveryTiming: {
-            preferredDate: '2025-01-26',
-            preferredTime: '10:00 AM',
-            timeSlot: 'Morning',
-        },
-        transportMethod: 'Own Vehicle',
-        transporter: 'Fleet Vehicle - MH02-AB-1234',
-        status: 'Ready',
-        notifications: {
-            transporterNotified: true,
-            siteContactNotified: true,
-        },
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-003',
-        customerName: 'Springfield Academy',
-        siteLocation: {
-            address: 'Sector 21, Viman Nagar, Pune - 411014',
-            gps: '18.5679° N, 73.9143° E',
-            landmark: 'Opposite City Mall',
-        },
-        siteContact: {
-            name: 'Priya Sharma',
-            phone: '+91 98123 45678',
-            email: 'priya@springfield.edu',
-            role: 'Facilities Manager',
-        },
-        deliveryTiming: {
-            preferredDate: '2025-01-27',
-            preferredTime: '02:00 PM',
-            timeSlot: 'Afternoon',
-        },
-        transportMethod: 'Third Party',
-        transporter: 'BlueDart Express',
-        status: 'Transporter Notified',
-        notifications: {
-            transporterNotified: true,
-            siteContactNotified: false,
-        },
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        customerName: 'City General Hospital',
-        siteLocation: {
-            address: 'Whitefield Road, Bangalore - 560066',
-            gps: '12.9698° N, 77.7499° E',
-            landmark: 'Next to IT Park',
-        },
-        siteContact: {
-            name: 'Dr. Amit Patel',
-            phone: '+91 99887 65432',
-            email: 'amit@cityhospital.org',
-            role: 'Admin Head',
-        },
-        deliveryTiming: {
-            preferredDate: '2025-01-28',
-            preferredTime: '09:00 AM',
-            timeSlot: 'Morning',
-        },
-        transportMethod: 'Courier',
-        status: 'Coordinated',
-        notifications: {
-            transporterNotified: false,
-            siteContactNotified: false,
-        },
-    },
-];
-
 export default function DeliveryCoordinationPage() {
-    const [coordinations] = useState<DeliveryCoordination[]>(mockCoordinations);
+    const [coordinations, setCoordinations] = useState<DeliveryCoordination[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('all');
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = (await LogisticsService.getDeliveryCoordinations()) as any[];
+                const list = Array.isArray(raw) ? raw : [];
+                const mapped: DeliveryCoordination[] = list.map((c) => ({
+                    id: String(c?.id ?? ''),
+                    woNumber: c?.woNumber ?? '',
+                    customerName: c?.customerName ?? '',
+                    siteLocation: {
+                        address: c?.siteAddress ?? '',
+                        gps: c?.siteGps ?? '',
+                        landmark: c?.siteLandmark ?? '',
+                    },
+                    siteContact: {
+                        name: c?.contactName ?? '',
+                        phone: c?.contactPhone ?? '',
+                        email: c?.contactEmail ?? '',
+                        role: c?.contactRole ?? '',
+                    },
+                    deliveryTiming: {
+                        preferredDate: c?.preferredDate ?? '',
+                        preferredTime: c?.preferredTime ?? '',
+                        timeSlot: (c?.timeSlot ?? 'Morning') as DeliveryCoordination['deliveryTiming']['timeSlot'],
+                    },
+                    transportMethod: (c?.transportMethod ?? 'Own Vehicle') as DeliveryCoordination['transportMethod'],
+                    transporter: c?.transporter ?? undefined,
+                    status: (c?.status ?? 'Pending') as DeliveryCoordination['status'],
+                    notifications: {
+                        transporterNotified: !!c?.transporterNotified,
+                        siteContactNotified: !!c?.siteContactNotified,
+                    },
+                }));
+                if (!cancelled) setCoordinations(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load delivery coordinations');
+                    setCoordinations([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredCoordinations = coordinations.filter(
         (coord) => filterStatus === 'all' || coord.status === filterStatus
@@ -179,6 +149,19 @@ export default function DeliveryCoordinationPage() {
                         </div>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading delivery coordinations…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-2">
@@ -226,6 +209,12 @@ export default function DeliveryCoordinationPage() {
                         <option value="Ready">Ready</option>
                     </select>
                 </div>
+
+                {!isLoading && !loadError && filteredCoordinations.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-600">
+                        No delivery coordinations found.
+                    </div>
+                )}
 
                 {/* Coordinations List */}
                 <div className="grid gap-2">

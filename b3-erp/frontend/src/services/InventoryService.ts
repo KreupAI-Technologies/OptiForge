@@ -20,6 +20,23 @@ export interface StockBalance {
     lastUpdated: string;
 }
 
+export interface AdjustmentReason {
+    id: string;
+    code: string;
+    name: string;
+    description?: string;
+    reasonType: 'Positive' | 'Negative' | 'Both';
+    status: 'Active' | 'Inactive';
+    requiresApproval: boolean;
+    approvalThreshold?: number | string | null;
+    sortOrder: number;
+    icon?: string;
+    color?: string;
+    createdBy?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface RealTimeBalance {
     itemId: string;
     warehouseId: string;
@@ -176,6 +193,15 @@ class InventoryService {
     async getBatchNumbers(): Promise<any[]> {
         const response = await apiClient.get<any[]>('/inventory/batch-numbers');
         return this.unwrapArray(response);
+    }
+
+    async getAdjustmentReasons(filters?: { status?: string; reasonType?: string; search?: string }): Promise<AdjustmentReason[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.reasonType) params.append('reasonType', filters.reasonType);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<AdjustmentReason[]>(`/inventory/adjustment-reasons?${params.toString()}`);
+        return this.unwrapArray(response) as AdjustmentReason[];
     }
 }
 

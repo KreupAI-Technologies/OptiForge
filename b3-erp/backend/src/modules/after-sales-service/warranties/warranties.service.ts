@@ -16,6 +16,110 @@ export class WarrantiesService {
   private warrantyIdCounter = 1;
   private claimIdCounter = 1;
 
+  constructor() {
+    this.seedClaims();
+  }
+
+  private seedClaims(): void {
+    if (this.claims.length > 0) return;
+    const now = new Date();
+    const seed: Array<Partial<WarrantyClaim>> = [
+      {
+        warrantyId: 'WARRANTY-000001',
+        equipmentId: 'MK-SS304-2025-001',
+        faultDescription:
+          'Gas burner ignition system failure - requires control valve replacement',
+        faultCategory: 'Component Failure',
+        customerId: 'CUST001',
+        customerName: 'Sharma Modular Kitchens Pvt Ltd',
+        contactPhone: '+91-98765-43210',
+        claimReason: 'Manufacturing defect in control valve',
+        actionRequired: 'Replace control valve',
+        status: ClaimStatus.SUBMITTED,
+        eligibilityStatus: 'eligible',
+        partsCost: 8000,
+        laborCost: 4500,
+        totalCost: 12500,
+        createdBy: 'system',
+      },
+      {
+        warrantyId: 'WARRANTY-000002',
+        equipmentId: 'HB-4B-2024-234',
+        faultDescription: 'Gas leak from main supply line connection',
+        faultCategory: 'Safety Issue',
+        customerId: 'CUST002',
+        customerName: 'Prestige Developers Bangalore',
+        contactPhone: '+91-98765-54321',
+        claimReason: 'Installation-related safety hazard',
+        actionRequired: 'Investigate and reseal supply line',
+        status: ClaimStatus.UNDER_REVIEW,
+        eligibilityStatus: 'partial',
+        partsCost: 15000,
+        laborCost: 7000,
+        totalCost: 22000,
+        createdBy: 'system',
+      },
+      {
+        warrantyId: 'WARRANTY-000003',
+        equipmentId: 'DW-14PS-2023-890',
+        faultDescription: 'Water pump motor failure causing drainage issues',
+        faultCategory: 'Motor Failure',
+        customerId: 'CUST005',
+        customerName: 'DLF Universal Projects',
+        contactPhone: '+91-98765-11111',
+        claimReason: 'Normal wear motor failure under warranty',
+        actionRequired: 'Replace water pump motor',
+        status: ClaimStatus.APPROVED,
+        eligibilityStatus: 'eligible',
+        approvedBy: 'Rohit Sharma',
+        approvalDate: now,
+        partsCost: 12000,
+        laborCost: 4500,
+        totalCost: 16500,
+        createdBy: 'system',
+      },
+    ];
+
+    for (const s of seed) {
+      const defaults: Partial<WarrantyClaim> = {
+        faultDate: now,
+        claimDate: now,
+        eligibilityChecked: true,
+        approvalRequired: true,
+        customerCharge: 0,
+        companyBearing: 0,
+        oemClaim: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const claim = {
+        ...defaults,
+        ...s,
+        id: `CLAIM-${String(this.claimIdCounter++).padStart(6, '0')}`,
+        claimNumber: `WCL-${now.getFullYear()}-${String(this.claimIdCounter).padStart(5, '0')}`,
+      } as WarrantyClaim;
+      this.claims.push(claim);
+    }
+  }
+
+  findAllClaims(filters?: {
+    status?: string;
+    customerId?: string;
+    warrantyId?: string;
+  }): WarrantyClaim[] {
+    let result = [...this.claims];
+    if (filters?.status) {
+      result = result.filter((c) => c.status === filters.status);
+    }
+    if (filters?.customerId) {
+      result = result.filter((c) => c.customerId === filters.customerId);
+    }
+    if (filters?.warrantyId) {
+      result = result.filter((c) => c.warrantyId === filters.warrantyId);
+    }
+    return result;
+  }
+
   create(createWarrantyDto: CreateWarrantyDto): Warranty {
     const warranty: Warranty = {
       id: `WARRANTY-${String(this.warrantyIdCounter++).padStart(6, '0')}`,

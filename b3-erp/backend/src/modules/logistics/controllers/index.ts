@@ -7,3 +7,5 @@ export * from './trip.controller';
 export * from './tracking-event.controller';
 export * from './freight-charge.controller';
 export * from './transport-company.controller';
+export * from './delivery-coordination.controller';
+export * from './fuel-record.controller';

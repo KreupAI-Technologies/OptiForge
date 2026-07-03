@@ -1,0 +1,15 @@
+-- Additive tables for orphaned After-Sales Service pages.
+-- ADDITIVE ONLY: never DROP or ALTER existing tables.
+--
+-- Wiring notes:
+--   The warranty claims list page (/after-sales-service/warranties/claims)
+--   and the claims approvals page
+--   (/after-sales-service/warranties/claims/approvals) are now served by the
+--   new GET /api/v1/after-sales/warranties/claims endpoint. That endpoint is
+--   backed by the existing in-memory WarrantiesService (WarrantyClaim model in
+--   src/modules/after-sales-service/entities/warranty.entity.ts), consistent
+--   with the rest of that service's warranty/claim handling, which is not yet
+--   persisted to PostgreSQL.
+--
+--   No new database tables are required for these pages. This file is kept as a
+--   placeholder so future persistence work for warranty claims lands here.

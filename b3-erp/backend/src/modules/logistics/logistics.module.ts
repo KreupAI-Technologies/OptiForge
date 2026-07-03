@@ -14,6 +14,8 @@ import {
   TrackingEvent,
   FreightCharge,
   TransportCompany,
+  DeliveryCoordination,
+  FuelRecord,
 } from './entities';
 
 // Controllers
@@ -27,6 +29,8 @@ import {
   TrackingEventController,
   FreightChargeController,
   TransportCompanyController,
+  DeliveryCoordinationController,
+  FuelRecordController,
 } from './controllers';
 import { GatePassController } from './controllers/gate-pass.controller';
 
@@ -43,6 +47,8 @@ import {
   TransportCompanyService,
   TransportCompanySeederService,
   VehicleTypeSeederService,
+  DeliveryCoordinationService,
+  FuelRecordService,
 } from './services';
 import { ConsolidationService } from './services/consolidation.service';
 import { ReturnManagementService } from './services/return-management.service';
@@ -65,6 +71,8 @@ import { LogisticsManagementService } from './services/logistics-management.serv
       TrackingEvent,
       FreightCharge,
       TransportCompany,
+      DeliveryCoordination,
+      FuelRecord,
     ]),
   ],
   controllers: [
@@ -77,6 +85,8 @@ import { LogisticsManagementService } from './services/logistics-management.serv
     TrackingEventController,
     FreightChargeController,
     TransportCompanyController,
+    DeliveryCoordinationController,
+    FuelRecordController,
     GatePassController,
   ],
   providers: [
@@ -97,6 +107,8 @@ import { LogisticsManagementService } from './services/logistics-management.serv
     TransportCompanySeederService,
     VehicleTypeSeederService,
     LogisticsManagementService,
+    DeliveryCoordinationService,
+    FuelRecordService,
   ],
   exports: [
     ShipmentService,

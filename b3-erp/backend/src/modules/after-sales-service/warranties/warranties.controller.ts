@@ -41,6 +41,19 @@ export class WarrantiesController {
     return this.warrantiesService.getStatistics();
   }
 
+  @Get('claims')
+  findAllClaims(
+    @Query('status') status?: string,
+    @Query('customerId') customerId?: string,
+    @Query('warrantyId') warrantyId?: string,
+  ) {
+    return this.warrantiesService.findAllClaims({
+      status,
+      customerId,
+      warrantyId,
+    });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.warrantiesService.findOne(id);
