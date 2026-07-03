@@ -7,6 +7,14 @@ import { ServiceType } from './entities/service-type.entity';
 import { WarrantyTypeEntity } from './entities/warranty-type.entity';
 import { KnowledgeBase } from './entities/knowledge-base.entity';
 import { SparePart } from './entities/spare-part.entity';
+import { KnowledgeFaq } from './entities/knowledge-faq.entity';
+import { KnowledgeManual } from './entities/knowledge-manual.entity';
+
+// Knowledge base (FAQs + Manuals)
+import { KnowledgeFaqController } from './knowledge/knowledge-faq.controller';
+import { KnowledgeFaqService } from './knowledge/knowledge-faq.service';
+import { KnowledgeManualController } from './knowledge/knowledge-manual.controller';
+import { KnowledgeManualService } from './knowledge/knowledge-manual.service';
 
 // Service Contracts
 import { ServiceContractsController } from './service-contracts/service-contracts.controller';
@@ -47,6 +55,8 @@ import { AfterSalesController } from './after-sales.controller';
       WarrantyTypeEntity,
       KnowledgeBase,
       SparePart,
+      KnowledgeFaq,
+      KnowledgeManual,
     ]),
   ],
   controllers: [
@@ -56,6 +66,8 @@ import { AfterSalesController } from './after-sales.controller';
     InstallationsController,
     FieldServiceController,
     ServiceBillingController,
+    KnowledgeFaqController,
+    KnowledgeManualController,
     AfterSalesController,
   ],
   providers: [
@@ -65,6 +77,8 @@ import { AfterSalesController } from './after-sales.controller';
     InstallationsService,
     FieldServiceService,
     ServiceBillingService,
+    KnowledgeFaqService,
+    KnowledgeManualService,
     ServiceTypeSeederService,
     WarrantyTypeSeederService,
     AfterSalesService,

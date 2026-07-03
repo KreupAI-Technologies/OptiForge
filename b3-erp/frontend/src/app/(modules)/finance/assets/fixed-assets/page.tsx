@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   TrendingDown,
@@ -19,6 +19,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { FinanceService } from '@/services/finance.service';
 
 interface FixedAsset {
   id: string;
@@ -42,10 +43,57 @@ interface FixedAsset {
 }
 
 export default function FixedAssetsPage() {
+  const [fixedAssets, setFixedAssets] = useState<FixedAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend already returns most fields with matching names; coerce
+        // numerics and cast union-typed strings to satisfy the interface.
+        const raw = (await FinanceService.getFixedAssets()) as any[];
+        const mapped: FixedAsset[] = raw.map((a) => ({
+          id: String(a.id ?? ''),
+          assetCode: a.assetCode ?? '',
+          assetName: a.assetName ?? '',
+          category: (a.category ?? 'Office Equipment') as FixedAsset['category'],
+          location: a.location ?? '',
+          purchaseDate: a.purchaseDate ?? '',
+          purchaseValue: Number(a.purchaseValue ?? 0),
+          salvageValue: Number(a.salvageValue ?? 0),
+          usefulLife: Number(a.usefulLife ?? 0),
+          depreciationMethod: (a.depreciationMethod ?? 'Straight Line') as FixedAsset['depreciationMethod'],
+          accumulatedDepreciation: Number(a.accumulatedDepreciation ?? 0),
+          netBookValue: Number(a.netBookValue ?? 0),
+          status: (a.status ?? 'Active') as FixedAsset['status'],
+          lastDepreciationDate: a.lastDepreciationDate ?? '',
+          nextDepreciationDate: a.nextDepreciationDate ?? '',
+          warrantyExpiry: a.warrantyExpiry ?? undefined,
+          insuranceExpiry: a.insuranceExpiry ?? undefined,
+        }));
+        if (!cancelled) setFixedAssets(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load fixed assets');
+          setFixedAssets([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Toast notification handler
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -103,137 +151,6 @@ export default function FixedAssetsPage() {
   const handleExport = () => {
     exportToCsv('fixed-assets', filteredAssets as unknown as Record<string, unknown>[]);
   };
-
-  // Sample fixed assets data
-  const fixedAssets: FixedAsset[] = [
-    {
-      id: 'FA001',
-      assetCode: 'BLD-2020-001',
-      assetName: 'Factory Building - Block A',
-      category: 'Land & Building',
-      location: 'Bangalore - Whitefield',
-      purchaseDate: '2020-01-15',
-      purchaseValue: 50000000,
-      salvageValue: 5000000,
-      usefulLife: 30,
-      depreciationMethod: 'Straight Line',
-      accumulatedDepreciation: 7500000,
-      netBookValue: 42500000,
-      status: 'Active',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31',
-      insuranceExpiry: '2025-06-30'
-    },
-    {
-      id: 'FA002',
-      assetCode: 'MCH-2021-005',
-      assetName: 'CNC Machine - DMG Mori',
-      category: 'Plant & Machinery',
-      location: 'Factory - Shop Floor 1',
-      purchaseDate: '2021-06-10',
-      purchaseValue: 8500000,
-      salvageValue: 850000,
-      usefulLife: 10,
-      depreciationMethod: 'Written Down Value',
-      accumulatedDepreciation: 2720000,
-      netBookValue: 5780000,
-      status: 'Active',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31',
-      maintenanceSchedule: 'Quarterly',
-      warrantyExpiry: '2024-06-10',
-      insuranceExpiry: '2025-06-10'
-    },
-    {
-      id: 'FA003',
-      assetCode: 'VEH-2022-012',
-      assetName: 'Delivery Truck - Tata LPT 1618',
-      category: 'Vehicles',
-      location: 'Logistics Yard',
-      purchaseDate: '2022-03-20',
-      purchaseValue: 2200000,
-      salvageValue: 220000,
-      usefulLife: 8,
-      depreciationMethod: 'Written Down Value',
-      accumulatedDepreciation: 618750,
-      netBookValue: 1581250,
-      status: 'Active',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31',
-      maintenanceSchedule: 'Monthly',
-      insuranceExpiry: '2025-03-20'
-    },
-    {
-      id: 'FA004',
-      assetCode: 'COM-2023-045',
-      assetName: 'Dell Workstation - Precision 5820',
-      category: 'Computers',
-      location: 'Office - Engineering Dept',
-      purchaseDate: '2023-08-15',
-      purchaseValue: 180000,
-      salvageValue: 18000,
-      usefulLife: 3,
-      depreciationMethod: 'Straight Line',
-      accumulatedDepreciation: 72000,
-      netBookValue: 108000,
-      status: 'Active',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31',
-      warrantyExpiry: '2026-08-15'
-    },
-    {
-      id: 'FA005',
-      assetCode: 'FUR-2019-008',
-      assetName: 'Conference Table - 12 Seater',
-      category: 'Furniture & Fixtures',
-      location: 'Office - Conference Room 1',
-      purchaseDate: '2019-11-05',
-      purchaseValue: 150000,
-      salvageValue: 15000,
-      usefulLife: 10,
-      depreciationMethod: 'Straight Line',
-      accumulatedDepreciation: 70200,
-      netBookValue: 79800,
-      status: 'Active',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31'
-    },
-    {
-      id: 'FA006',
-      assetCode: 'MCH-2018-002',
-      assetName: 'Lathe Machine - HMT',
-      category: 'Plant & Machinery',
-      location: 'Factory - Shop Floor 2',
-      purchaseDate: '2018-05-15',
-      purchaseValue: 1500000,
-      salvageValue: 150000,
-      usefulLife: 12,
-      depreciationMethod: 'Written Down Value',
-      accumulatedDepreciation: 852000,
-      netBookValue: 648000,
-      status: 'Under Maintenance',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31',
-      maintenanceSchedule: 'Quarterly'
-    },
-    {
-      id: 'FA007',
-      assetCode: 'VEH-2020-003',
-      assetName: 'Maruti Suzuki Swift - KA01AB1234',
-      category: 'Vehicles',
-      location: 'N/A',
-      purchaseDate: '2020-02-10',
-      purchaseValue: 750000,
-      salvageValue: 75000,
-      usefulLife: 5,
-      depreciationMethod: 'Written Down Value',
-      accumulatedDepreciation: 600000,
-      netBookValue: 0,
-      status: 'Disposed',
-      lastDepreciationDate: '2024-12-31',
-      nextDepreciationDate: '2025-01-31'
-    }
-  ];
 
   const filteredAssets = fixedAssets.filter(asset => {
     const matchesSearch =
@@ -327,6 +244,20 @@ export default function FixedAssetsPage() {
                   {toast.type === 'info' && <AlertCircle className="w-5 h-5 text-blue-600" />}
                   <span className="font-medium">{toast.message}</span>
                 </div>
+              </div>
+            )}
+
+            {/* Loading / Error Banners */}
+            {isLoading && (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading fixed assets…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                {loadError}
               </div>
             )}
 

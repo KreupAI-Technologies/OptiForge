@@ -1,74 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageToolbar, ConfirmDialog } from '@/components/ui';
 import { TaskBoard } from '@/components/crm';
 import type { Task as CRMTask } from '@/components/crm';
 import { TaskModal, type Task as ModalTask } from '@/components/modals';
 import { ArrowLeft } from 'lucide-react';
-
-const mockTasks: CRMTask[] = [
-  {
-    id: '1',
-    title: 'Follow up on proposal with TechCorp',
-    description: 'Check if decision makers have reviewed the pricing proposal',
-    status: 'todo',
-    priority: 'high',
-    assignedTo: { id: '1', name: 'Sarah Johnson' },
-    dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-    createdBy: { id: '2', name: 'Mike Chen' },
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    relatedTo: { type: 'opportunity', id: 'opp-1', name: 'TechCorp Enterprise Deal' },
-    tags: ['high-value', 'enterprise'],
-    comments: 2,
-    attachments: 1,
-  },
-  {
-    id: '2',
-    title: 'Prepare ROI calculator for manufacturing prospect',
-    description: 'Create custom ROI analysis showing cost savings',
-    status: 'in_progress',
-    priority: 'high',
-    assignedTo: { id: '3', name: 'David Park' },
-    dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-    createdBy: { id: '1', name: 'Sarah Johnson' },
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    relatedTo: { type: 'lead', id: 'lead-2', name: 'GlobalMfg Corp' },
-    tags: ['roi', 'manufacturing'],
-    comments: 5,
-  },
-  {
-    id: '3',
-    title: 'Schedule product demo',
-    description: 'Book calendar time for comprehensive platform walkthrough',
-    status: 'review',
-    priority: 'medium',
-    assignedTo: { id: '1', name: 'Sarah Johnson' },
-    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-    createdBy: { id: '1', name: 'Sarah Johnson' },
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    tags: ['demo'],
-    comments: 1,
-  },
-  {
-    id: '4',
-    title: 'Send contract for e-signature',
-    description: 'Get final approval and send contract via DocuSign',
-    status: 'completed',
-    priority: 'high',
-    assignedTo: { id: '1', name: 'Sarah Johnson' },
-    dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    createdBy: { id: '2', name: 'Mike Chen' },
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    relatedTo: { type: 'opportunity', id: 'opp-3', name: 'FinanceHub Deal' },
-    tags: ['contract', 'closing'],
-  },
-];
+import crmService from '@/services/crm.service';
 
 export default function TaskManagementPage() {
   const router = useRouter();
-  const [tasks, setTasks] = useState<CRMTask[]>(mockTasks);
+  const [tasks, setTasks] = useState<CRMTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const rows = await crmService.tasks.getAll();
+        if (cancelled) return;
+        const mapped: CRMTask[] = (rows ?? []).map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          status: r.status as any,
+          priority: r.priority as any,
+          assignedTo:
+            r.assignedToId || r.assignedToName
+              ? { id: r.assignedToId ?? '', name: r.assignedToName ?? '' }
+              : undefined,
+          dueDate: r.dueDate,
+          createdBy: { id: r.createdById ?? '', name: r.createdByName ?? 'Unknown' },
+          createdAt: r.createdAt,
+          relatedTo: r.relatedTo ?? undefined,
+          tags: r.tags ?? [],
+          comments: Number(r.comments ?? 0),
+          attachments: Number(r.attachments ?? 0),
+        } as CRMTask));
+        setTasks(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setTasks([]);
+        setLoadError('Failed to load tasks. Please try again.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingTask, setEditingTask] = useState<CRMTask | undefined>();
@@ -167,6 +155,18 @@ export default function TaskManagementPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Advanced Features
         </button>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading tasks…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border border-gray-200 p-3">
           <h2 className="text-xl font-bold text-gray-900 mb-2">Task Management & Collaboration</h2>

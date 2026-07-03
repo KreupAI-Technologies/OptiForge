@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign, TrendingUp, Target, Zap, BarChart3, Award, Plus,
   Edit, Download, RefreshCw, Settings, CheckCircle, XCircle,
   AlertCircle, FileText, Calendar, Star, TrendingDown, Activity,
   Percent, Package, Clock, Filter, Search, Eye, Send, ArrowUpRight
 } from 'lucide-react';
+import { procurementSavingsService } from '@/services/procurement-savings.service';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -34,87 +35,46 @@ const ProcurementSavings: React.FC = () => {
   const [showRealTimeTracking, setShowRealTimeTracking] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Mock data - Savings initiatives
-  const savingsInitiatives: SavingsInitiative[] = [
-    {
-      id: 'SAV001',
-      name: 'Supplier Consolidation - Electronics',
-      category: 'Electronic Components',
-      type: 'supplier-negotiation',
-      targetSavings: 85000,
-      actualSavings: 92000,
-      status: 'completed',
-      owner: 'Sarah Johnson',
-      startDate: '2025-01-15',
-      endDate: '2025-06-30',
-      progress: 100
-    },
-    {
-      id: 'SAV002',
-      name: 'Volume Discount Program - Raw Materials',
-      category: 'Raw Materials',
-      type: 'volume-consolidation',
-      targetSavings: 120000,
-      actualSavings: 98000,
-      status: 'active',
-      owner: 'Michael Chen',
-      startDate: '2025-03-01',
-      endDate: '2025-12-31',
-      progress: 75
-    },
-    {
-      id: 'SAV003',
-      name: 'Process Automation - Purchase Orders',
-      category: 'Process Improvement',
-      type: 'process-improvement',
-      targetSavings: 45000,
-      actualSavings: 52000,
-      status: 'completed',
-      owner: 'Emily Davis',
-      startDate: '2025-02-01',
-      endDate: '2025-07-31',
-      progress: 100
-    },
-    {
-      id: 'SAV004',
-      name: 'Specification Standardization',
-      category: 'IT Equipment',
-      type: 'demand-management',
-      targetSavings: 65000,
-      actualSavings: 48000,
-      status: 'active',
-      owner: 'Robert Wilson',
-      startDate: '2025-04-15',
-      endDate: '2025-11-30',
-      progress: 65
-    },
-    {
-      id: 'SAV005',
-      name: 'Contract Renegotiation - Services',
-      category: 'Professional Services',
-      type: 'supplier-negotiation',
-      targetSavings: 78000,
-      actualSavings: 82000,
-      status: 'completed',
-      owner: 'Lisa Anderson',
-      startDate: '2025-01-01',
-      endDate: '2025-05-31',
-      progress: 100
-    },
-    {
-      id: 'SAV006',
-      name: 'SKU Rationalization - Office Supplies',
-      category: 'Office Supplies',
-      type: 'demand-management',
-      targetSavings: 32000,
-      actualSavings: 28000,
-      status: 'active',
-      owner: 'David Lee',
-      startDate: '2025-05-01',
-      endDate: '2025-12-31',
-      progress: 80
-    }
-  ];
+  // Savings initiatives — real fetch from the procurement savings service
+  // (NestJS domain backend). Backend returns raw ORM shape; map onto the
+  // SavingsInitiative model by best-fit. Derived totals via .reduce work fine
+  // with an empty array until the table is seeded.
+  const [savingsInitiatives, setSavingsInitiatives] = useState<SavingsInitiative[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = (await procurementSavingsService.getInitiatives()) as any[];
+        const target = (i: any) => Number(i.targetSavings ?? 0);
+        const actual = (i: any) => Number(i.actualSavings ?? 0);
+        const mapped: SavingsInitiative[] = raw.map((i) => {
+          const t = target(i);
+          const a = actual(i);
+          return {
+            id: i.id,
+            name: i.title ?? '',
+            category: i.category ?? '',
+            type: (i.type ?? 'price-reduction') as SavingsInitiative['type'],
+            targetSavings: t,
+            actualSavings: a,
+            status: (i.status ?? 'active') as SavingsInitiative['status'],
+            owner: i.owner ?? '',
+            startDate: i.startDate ?? '',
+            endDate: i.endDate ?? '',
+            progress: t > 0 ? Math.min(Math.round((a / t) * 100), 100) : 0,
+          };
+        });
+        if (!cancelled) setSavingsInitiatives(mapped);
+      } catch {
+        if (!cancelled) setSavingsInitiatives([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data - Monthly savings
   const monthlySavings = [

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { exportToCsv, printCurrentView } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
  ChevronLeft,
  ChevronRight,
@@ -48,7 +49,7 @@ interface Task {
  status: 'Completed' | 'In Progress' | 'Not Started' | 'Delayed';
 }
 
-const mockTasks: Task[] = [
+const seedTasks: Task[] = [
  { id: '1', name: 'Site Survey & Planning', startDate: '2024-01-15', endDate: '2024-01-25', progress: 100, assignee: 'Ramesh Nair', dependencies: [], phase: 'Initiation', status: 'Completed' },
  { id: '2', name: 'Equipment Procurement', startDate: '2024-01-26', endDate: '2024-02-15', progress: 100, assignee: 'Procurement Team', dependencies: ['1'], phase: 'Procurement', status: 'Completed' },
  { id: '3', name: 'Material Procurement', startDate: '2024-02-01', endDate: '2024-02-20', progress: 100, assignee: 'Procurement Team', dependencies: ['1'], phase: 'Procurement', status: 'Completed' },
@@ -68,6 +69,14 @@ const mockTasks: Task[] = [
 ];
 
 export default function ScheduleGanttPage() {
+ const [tasks, setTasks] = useState<Task[]>(seedTasks);
+
+ useEffect(() => {
+  projectManagementService.listScheduleTasks()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setTasks(rows as unknown as Task[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
+
  const [viewMode, setViewMode] = useState<'days' | 'weeks' | 'months'>('weeks');
  const [currentDate, setCurrentDate] = useState(new Date('2024-03-15'));
  const [filterPhase, setFilterPhase] = useState('All');
@@ -150,8 +159,8 @@ export default function ScheduleGanttPage() {
   }
  };
 
- const phases = Array.from(new Set(mockTasks.map(t => t.phase)));
- const filteredTasks = filterPhase === 'All' ? mockTasks : mockTasks.filter(t => t.phase === filterPhase);
+ const phases = Array.from(new Set(tasks.map(t => t.phase)));
+ const filteredTasks = filterPhase === 'All' ? tasks : tasks.filter(t => t.phase === filterPhase);
 
  // Calculate today's position
  const today = new Date();
@@ -471,24 +480,24 @@ export default function ScheduleGanttPage() {
    <div className="grid grid-cols-4 gap-2">
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
      <p className="text-sm text-gray-600">Total Tasks</p>
-     <p className="text-2xl font-bold text-gray-900 mt-1">{mockTasks.length}</p>
+     <p className="text-2xl font-bold text-gray-900 mt-1">{tasks.length}</p>
     </div>
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
      <p className="text-sm text-gray-600">Completed</p>
      <p className="text-2xl font-bold text-green-900 mt-1">
-      {mockTasks.filter(t => t.status === 'Completed').length}
+      {tasks.filter(t => t.status === 'Completed').length}
      </p>
     </div>
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
      <p className="text-sm text-gray-600">In Progress</p>
      <p className="text-2xl font-bold text-blue-900 mt-1">
-      {mockTasks.filter(t => t.status === 'In Progress').length}
+      {tasks.filter(t => t.status === 'In Progress').length}
      </p>
     </div>
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
      <p className="text-sm text-gray-600">Overall Progress</p>
      <p className="text-2xl font-bold text-purple-900 mt-1">
-      {Math.round(mockTasks.reduce((sum, t) => sum + t.progress, 0) / mockTasks.length)}%
+      {Math.round(tasks.reduce((sum, t) => sum + t.progress, 0) / tasks.length)}%
      </p>
     </div>
    </div>

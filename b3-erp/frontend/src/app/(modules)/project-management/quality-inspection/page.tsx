@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import { ClipboardCheck, CheckCircle, XCircle, AlertTriangle, Plus, Download, Eye, Camera, Edit, FileText, Upload, Users, TrendingUp, Calendar, Shield } from 'lucide-react';
 import {
@@ -83,7 +84,7 @@ export default function QualityInspectionPage() {
  const [showCorrectiveModal, setShowCorrectiveModal] = useState(false);
  const [showNextInspectionModal, setShowNextInspectionModal] = useState(false);
 
- const mockInspections: QualityInspection[] = [
+ const [mockInspections, setMockInspections] = useState<QualityInspection[]>([
   {
    id: 'QI-001',
    inspectionNumber: 'QC-2025-001',
@@ -417,7 +418,13 @@ export default function QualityInspectionPage() {
    nextInspectionDate: '2025-01-22',
    remarks: 'Site ready for cabinet installation. Proceed as planned.',
   },
- ];
+ ]);
+
+ useEffect(() => {
+  projectManagementService.listQualityInspections()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockInspections(rows as unknown as QualityInspection[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
 
  const stats = {
   totalInspections: mockInspections.length,

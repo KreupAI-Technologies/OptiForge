@@ -77,6 +77,28 @@ import { CrmEmailCampaignController } from './crm-email-campaign.controller';
 import { CrmContractRenewalController } from './crm-contract-renewal.controller';
 import { CrmContractAmendmentController } from './crm-contract-amendment.controller';
 import { CrmOpportunitiesController } from './crm-opportunities.controller';
+// Follow-up pass wired features
+import { CrmCampaignAutomation } from './entities/crm-campaign-automation.entity';
+import { CrmApprovalWorkflow } from './entities/crm-approval-workflow.entity';
+import { CrmCustomField } from './entities/crm-custom-field.entity';
+import { CrmTask } from './entities/crm-task.entity';
+import { CrmPortalUser } from './entities/crm-portal-user.entity';
+import { CrmSocialAccount } from './entities/crm-social-account.entity';
+import { CrmSavedReport } from './entities/crm-saved-report.entity';
+import { CrmCampaignAutomationService } from './services/crm-campaign-automation.service';
+import { CrmApprovalWorkflowService } from './services/crm-approval-workflow.service';
+import { CrmCustomFieldService } from './services/crm-custom-field.service';
+import { CrmTaskService } from './services/crm-task.service';
+import { CrmPortalUserService } from './services/crm-portal-user.service';
+import { CrmSocialAccountService } from './services/crm-social-account.service';
+import { CrmSavedReportService } from './services/crm-saved-report.service';
+import { CrmCampaignAutomationController } from './crm-campaign-automation.controller';
+import { CrmApprovalWorkflowController } from './crm-approval-workflow.controller';
+import { CrmCustomFieldController } from './crm-custom-field.controller';
+import { CrmTaskController } from './crm-task.controller';
+import { CrmPortalUserController } from './crm-portal-user.controller';
+import { CrmSocialAccountController } from './crm-social-account.controller';
+import { CrmSavedReportController } from './crm-saved-report.controller';
 
 @Module({
   imports: [
@@ -105,6 +127,13 @@ import { CrmOpportunitiesController } from './crm-opportunities.controller';
       CrmEmailCampaign,
       CrmContractRenewal,
       CrmContractAmendment,
+      CrmCampaignAutomation,
+      CrmApprovalWorkflow,
+      CrmCustomField,
+      CrmTask,
+      CrmPortalUser,
+      CrmSocialAccount,
+      CrmSavedReport,
     ]),
   ],
   controllers: [
@@ -133,6 +162,13 @@ import { CrmOpportunitiesController } from './crm-opportunities.controller';
     CrmContractRenewalController,
     CrmContractAmendmentController,
     CrmOpportunitiesController,
+    CrmCampaignAutomationController,
+    CrmApprovalWorkflowController,
+    CrmCustomFieldController,
+    CrmTaskController,
+    CrmPortalUserController,
+    CrmSocialAccountController,
+    CrmSavedReportController,
   ],
   providers: [
     InteractionsService,
@@ -162,6 +198,13 @@ import { CrmOpportunitiesController } from './crm-opportunities.controller';
     CrmContractRenewalService,
     CrmContractAmendmentService,
     CrmOpportunitiesService,
+    CrmCampaignAutomationService,
+    CrmApprovalWorkflowService,
+    CrmCustomFieldService,
+    CrmTaskService,
+    CrmPortalUserService,
+    CrmSocialAccountService,
+    CrmSavedReportService,
   ],
   exports: [
     InteractionsService,

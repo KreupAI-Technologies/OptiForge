@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
  FolderKanban,
  Plus,
@@ -160,7 +161,7 @@ export default function ProjectTypesPage() {
  };
 
  // Mock project types - 8 records
- const mockProjectTypes: ProjectType[] = [
+ const [mockProjectTypes, setMockProjectTypes] = useState<ProjectType[]>([
   {
    id: '1',
    typeName: 'Commercial Kitchen - Full Installation',
@@ -362,7 +363,13 @@ export default function ProjectTypesPage() {
    createdDate: '2023-12-01',
    lastModified: '2024-05-08',
   },
- ];
+ ]);
+
+ useEffect(() => {
+  projectManagementService.listPmProjectTypes()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockProjectTypes(rows as unknown as ProjectType[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
 
  // Mock project categories - 6 records
  const mockCategories: ProjectCategory[] = [

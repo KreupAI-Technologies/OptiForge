@@ -864,6 +864,163 @@ export class FinanceService {
       body: JSON.stringify(params),
     });
   }
+
+  // Budgets (finance/budgets)
+  static async getBudgets(filters?: {
+    status?: string;
+    budgetType?: string;
+    department?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') q.set('status', filters.status);
+    if (filters?.budgetType && filters.budgetType !== 'all') q.set('budgetType', filters.budgetType);
+    if (filters?.department && filters.department !== 'all') q.set('department', filters.department);
+    if (filters?.search) q.set('search', filters.search);
+    const qs = q.toString();
+    return this.request<any[]>(`/finance/budgets${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getBudget(id: string): Promise<any> {
+    return this.request<any>(`/finance/budgets/${id}`);
+  }
+
+  static async createBudget(data: any): Promise<any> {
+    return this.request<any>('/finance/budgets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateBudget(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/budgets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteBudget(id: string): Promise<void> {
+    await this.request<void>(`/finance/budgets/${id}`, { method: 'DELETE' });
+  }
+
+  // Fixed Assets (finance/fixed-assets)
+  static async getFixedAssets(filters?: {
+    status?: string;
+    category?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') q.set('status', filters.status);
+    if (filters?.category && filters.category !== 'all') q.set('category', filters.category);
+    if (filters?.search) q.set('search', filters.search);
+    const qs = q.toString();
+    return this.request<any[]>(`/finance/fixed-assets${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getFixedAssetsSummary(): Promise<any> {
+    return this.request<any>('/finance/fixed-assets/summary');
+  }
+
+  static async getFixedAsset(id: string): Promise<any> {
+    return this.request<any>(`/finance/fixed-assets/${id}`);
+  }
+
+  static async createFixedAsset(data: any): Promise<any> {
+    return this.request<any>('/finance/fixed-assets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateFixedAsset(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/fixed-assets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteFixedAsset(id: string): Promise<void> {
+    await this.request<void>(`/finance/fixed-assets/${id}`, { method: 'DELETE' });
+  }
+
+  // Cost Centers (finance/cost-centers)
+  static async getCostCenters(filters?: {
+    department?: string;
+    isActive?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.department && filters.department !== 'all') q.set('department', filters.department);
+    if (filters?.isActive) q.set('isActive', filters.isActive);
+    if (filters?.search) q.set('search', filters.search);
+    const qs = q.toString();
+    return this.request<any[]>(`/finance/cost-centers${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getCostCenter(id: string): Promise<any> {
+    return this.request<any>(`/finance/cost-centers/${id}`);
+  }
+
+  static async createCostCenter(data: any): Promise<any> {
+    return this.request<any>('/finance/cost-centers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateCostCenter(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/cost-centers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteCostCenter(id: string): Promise<void> {
+    await this.request<void>(`/finance/cost-centers/${id}`, { method: 'DELETE' });
+  }
+
+  // Tax Masters (finance/tax-masters)
+  static async getTaxMasters(filters?: {
+    taxType?: string;
+    taxCategory?: string;
+    isActive?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.taxType && filters.taxType !== 'all') q.set('taxType', filters.taxType);
+    if (filters?.taxCategory && filters.taxCategory !== 'all') q.set('taxCategory', filters.taxCategory);
+    if (filters?.isActive) q.set('isActive', filters.isActive);
+    if (filters?.search) q.set('search', filters.search);
+    const qs = q.toString();
+    return this.request<any[]>(`/finance/tax-masters${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getTaxMaster(id: string): Promise<any> {
+    return this.request<any>(`/finance/tax-masters/${id}`);
+  }
+
+  static async createTaxMaster(data: any): Promise<any> {
+    return this.request<any>('/finance/tax-masters', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateTaxMaster(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/tax-masters/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteTaxMaster(id: string): Promise<void> {
+    await this.request<void>(`/finance/tax-masters/${id}`, { method: 'DELETE' });
+  }
+
+  // Cash dashboard analytics (finance/cash)
+  static async getCashDashboard(): Promise<any> {
+    return this.request<any>('/finance/cash/dashboard');
+  }
 }
 
 // Export singleton instance

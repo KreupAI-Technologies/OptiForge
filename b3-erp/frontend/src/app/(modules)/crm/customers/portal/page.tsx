@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
+import crmService from '@/services/crm.service';
 import { Globe, Users, Lock, Key, Settings, CheckCircle, XCircle, Clock, Activity, Download, Upload, Eye, Edit, Trash2, Plus, FileText, Package, DollarSign, BarChart3, AlertCircle, Shield, Monitor } from 'lucide-react';
 
 interface PortalUser {
@@ -24,93 +25,6 @@ interface PortalAccess {
   icon: any;
   category: string;
 }
-
-const mockPortalUsers: PortalUser[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john.smith@techcorp.com',
-    company: 'TechCorp Global Inc.',
-    role: 'admin',
-    status: 'active',
-    lastLogin: '2024-10-20T09:30:00',
-    loginCount: 342,
-    permissions: ['orders', 'invoices', 'support', 'documents', 'analytics', 'settings'],
-    accountValue: 12500000,
-  },
-  {
-    id: '2',
-    name: 'Anna Schmidt',
-    email: 'anna.schmidt@techcorp.de',
-    company: 'TechCorp Europe GmbH',
-    role: 'admin',
-    status: 'active',
-    lastLogin: '2024-10-20T08:15:00',
-    loginCount: 287,
-    permissions: ['orders', 'invoices', 'support', 'documents', 'analytics'],
-    accountValue: 2800000,
-  },
-  {
-    id: '3',
-    name: 'Robert Davis',
-    email: 'robert.davis@globalmfg.com',
-    company: 'GlobalManufacturing Corp',
-    role: 'user',
-    status: 'active',
-    lastLogin: '2024-10-19T16:45:00',
-    loginCount: 156,
-    permissions: ['orders', 'invoices', 'support', 'documents'],
-    accountValue: 8500000,
-  },
-  {
-    id: '4',
-    name: 'Elizabeth Wilson',
-    email: 'elizabeth.wilson@financehub.com',
-    company: 'FinanceHub International',
-    role: 'admin',
-    status: 'active',
-    lastLogin: '2024-10-20T10:00:00',
-    loginCount: 421,
-    permissions: ['orders', 'invoices', 'support', 'documents', 'analytics', 'settings'],
-    accountValue: 6200000,
-  },
-  {
-    id: '5',
-    name: 'Michael Chen',
-    email: 'michael.chen@startup.io',
-    company: 'StartupTech Inc.',
-    role: 'user',
-    status: 'active',
-    lastLogin: '2024-10-18T14:20:00',
-    loginCount: 89,
-    permissions: ['orders', 'invoices', 'support'],
-    accountValue: 450000,
-  },
-  {
-    id: '6',
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@enterprise.com',
-    company: 'Enterprise Solutions Ltd.',
-    role: 'viewer',
-    status: 'inactive',
-    lastLogin: '2024-09-15T11:30:00',
-    loginCount: 23,
-    permissions: ['documents'],
-    accountValue: 1200000,
-  },
-  {
-    id: '7',
-    name: 'David Martinez',
-    email: 'david.martinez@newclient.com',
-    company: 'NewClient Corp',
-    role: 'user',
-    status: 'pending',
-    lastLogin: '',
-    loginCount: 0,
-    permissions: ['orders', 'invoices'],
-    accountValue: 0,
-  },
-];
 
 const portalFeatures: PortalAccess[] = [
   {
@@ -172,7 +86,9 @@ const portalFeatures: PortalAccess[] = [
 ];
 
 export default function CustomerPortalPage() {
-  const [users, setUsers] = useState<PortalUser[]>(mockPortalUsers);
+  const [users, setUsers] = useState<PortalUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [features] = useState<PortalAccess[]>(portalFeatures);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'pending'>('all');
@@ -184,6 +100,40 @@ export default function CustomerPortalPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await crmService.portalUsers.getAll();
+        if (cancelled) return;
+        const mapped: PortalUser[] = (rows ?? []).map((r: any) => ({
+          id: String(r.id),
+          name: r.name ?? '',
+          email: r.email ?? '',
+          company: r.customer ?? '',
+          role: (r.role ?? 'user') as PortalUser['role'],
+          status: (r.status ?? 'active') as PortalUser['status'],
+          lastLogin: r.lastLogin ?? '',
+          loginCount: 0,
+          permissions: r.permissions ?? [],
+          accountValue: 0,
+        }));
+        setUsers(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setUsers([]);
+        setLoadError('Failed to load portal users. Please try again.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredUsers = users
     .filter(user => {
@@ -292,6 +242,16 @@ export default function CustomerPortalPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading portal users…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

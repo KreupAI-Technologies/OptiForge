@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -17,8 +17,10 @@ import {
   Calendar,
   Users,
   CheckCircle2,
-  XCircle
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
+import { estimationCategoryService } from '@/services/estimation-category.service';
 
 interface EstimationCategory {
   id: string;
@@ -48,273 +50,65 @@ export default function EstimationCategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<EstimationCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const categories: EstimationCategory[] = [
-    {
-      id: '1',
-      categoryCode: 'KIT-SINK',
-      categoryName: 'Kitchen Sinks',
-      parentCategory: '-',
-      level: 1,
-      description: 'All types of kitchen sinks including SS, granite, and composite',
-      defaultMarkup: 48.5,
-      minimumOrderValue: 5000,
-      standardLeadTime: 7,
-      costAllocationMethod: 'direct',
-      allowSubcategories: true,
-      requiresApproval: true,
-      approvalThreshold: 50000,
-      estimateCount: 142,
-      totalValue: 8950000,
-      avgEstimateValue: 63028,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '2',
-      categoryCode: 'KIT-SINK-SS',
-      categoryName: 'Stainless Steel Sinks',
-      parentCategory: 'Kitchen Sinks',
-      level: 2,
-      description: 'SS304 and SS316 grade kitchen sinks',
-      defaultMarkup: 46.0,
-      minimumOrderValue: 3500,
-      standardLeadTime: 5,
-      costAllocationMethod: 'direct',
-      allowSubcategories: false,
-      requiresApproval: true,
-      approvalThreshold: 35000,
-      estimateCount: 95,
-      totalValue: 5425000,
-      avgEstimateValue: 57105,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '3',
-      categoryCode: 'KIT-SINK-GRA',
-      categoryName: 'Granite Sinks',
-      parentCategory: 'Kitchen Sinks',
-      level: 2,
-      description: 'Granite composite kitchen sinks',
-      defaultMarkup: 52.0,
-      minimumOrderValue: 8000,
-      standardLeadTime: 10,
-      costAllocationMethod: 'direct',
-      allowSubcategories: false,
-      requiresApproval: true,
-      approvalThreshold: 60000,
-      estimateCount: 47,
-      totalValue: 3525000,
-      avgEstimateValue: 75000,
-      lastUsed: '2025-10-18',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '4',
-      categoryCode: 'KIT-FAUC',
-      categoryName: 'Kitchen Faucets',
-      parentCategory: '-',
-      level: 1,
-      description: 'Kitchen faucets and tap systems',
-      defaultMarkup: 50.6,
-      minimumOrderValue: 2000,
-      standardLeadTime: 5,
-      costAllocationMethod: 'direct',
-      allowSubcategories: true,
-      requiresApproval: true,
-      approvalThreshold: 25000,
-      estimateCount: 156,
-      totalValue: 4680000,
-      avgEstimateValue: 30000,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '5',
-      categoryCode: 'KIT-COOK',
-      categoryName: 'Cookware',
-      parentCategory: '-',
-      level: 1,
-      description: 'Professional and premium cookware sets',
-      defaultMarkup: 44.2,
-      minimumOrderValue: 3000,
-      standardLeadTime: 3,
-      costAllocationMethod: 'proportional',
-      allowSubcategories: true,
-      requiresApproval: false,
-      approvalThreshold: 0,
-      estimateCount: 89,
-      totalValue: 3560000,
-      avgEstimateValue: 40000,
-      lastUsed: '2025-10-17',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '6',
-      categoryCode: 'KIT-APPL',
-      categoryName: 'Kitchen Appliances',
-      parentCategory: '-',
-      level: 1,
-      description: 'Built-in and standalone kitchen appliances',
-      defaultMarkup: 38.5,
-      minimumOrderValue: 15000,
-      standardLeadTime: 14,
-      costAllocationMethod: 'direct',
-      allowSubcategories: true,
-      requiresApproval: true,
-      approvalThreshold: 100000,
-      estimateCount: 124,
-      totalValue: 18600000,
-      avgEstimateValue: 150000,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '7',
-      categoryCode: 'KIT-APPL-CHI',
-      categoryName: 'Kitchen Chimneys',
-      parentCategory: 'Kitchen Appliances',
-      level: 2,
-      description: 'Auto-clean and filterless kitchen chimneys',
-      defaultMarkup: 36.0,
-      minimumOrderValue: 12000,
-      standardLeadTime: 10,
-      costAllocationMethod: 'direct',
-      allowSubcategories: false,
-      requiresApproval: true,
-      approvalThreshold: 75000,
-      estimateCount: 78,
-      totalValue: 11700000,
-      avgEstimateValue: 150000,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-02-10',
-      status: 'active'
-    },
-    {
-      id: '8',
-      categoryCode: 'KIT-CAB',
-      categoryName: 'Kitchen Cabinets',
-      parentCategory: '-',
-      level: 1,
-      description: 'Modular kitchen cabinets and storage systems',
-      defaultMarkup: 55.8,
-      minimumOrderValue: 25000,
-      standardLeadTime: 21,
-      costAllocationMethod: 'weighted',
-      allowSubcategories: true,
-      requiresApproval: true,
-      approvalThreshold: 150000,
-      estimateCount: 167,
-      totalValue: 33400000,
-      avgEstimateValue: 200000,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '9',
-      categoryCode: 'KIT-COUNT',
-      categoryName: 'Countertops',
-      parentCategory: '-',
-      level: 1,
-      description: 'Granite, quartz, and solid surface countertops',
-      defaultMarkup: 48.0,
-      minimumOrderValue: 20000,
-      standardLeadTime: 14,
-      costAllocationMethod: 'direct',
-      allowSubcategories: true,
-      requiresApproval: true,
-      approvalThreshold: 100000,
-      estimateCount: 134,
-      totalValue: 20100000,
-      avgEstimateValue: 150000,
-      lastUsed: '2025-10-18',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '10',
-      categoryCode: 'KIT-ACC',
-      categoryName: 'Kitchen Accessories',
-      parentCategory: '-',
-      level: 1,
-      description: 'Kitchen accessories, organizers, and fittings',
-      defaultMarkup: 52.5,
-      minimumOrderValue: 1000,
-      standardLeadTime: 3,
-      costAllocationMethod: 'proportional',
-      allowSubcategories: true,
-      requiresApproval: false,
-      approvalThreshold: 0,
-      estimateCount: 198,
-      totalValue: 5940000,
-      avgEstimateValue: 30000,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '11',
-      categoryCode: 'KIT-FINISH',
-      categoryName: 'Finishing Materials',
-      parentCategory: '-',
-      level: 1,
-      description: 'Paint, polish, plating, and finishing materials',
-      defaultMarkup: 42.0,
-      minimumOrderValue: 2000,
-      standardLeadTime: 5,
-      costAllocationMethod: 'proportional',
-      allowSubcategories: true,
-      requiresApproval: false,
-      approvalThreshold: 0,
-      estimateCount: 145,
-      totalValue: 4350000,
-      avgEstimateValue: 30000,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      status: 'active'
-    },
-    {
-      id: '12',
-      categoryCode: 'KIT-INSTALL',
-      categoryName: 'Installation Services',
-      parentCategory: '-',
-      level: 1,
-      description: 'Kitchen installation and fitting services',
-      defaultMarkup: 35.0,
-      minimumOrderValue: 5000,
-      standardLeadTime: 7,
-      costAllocationMethod: 'direct',
-      allowSubcategories: false,
-      requiresApproval: true,
-      approvalThreshold: 50000,
-      estimateCount: 112,
-      totalValue: 5600000,
-      avgEstimateValue: 50000,
-      lastUsed: '2025-10-18',
-      createdBy: 'Admin',
-      createdDate: '2024-01-20',
-      status: 'active'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape; map it onto the page's
+        // EstimationCategory model. Fields the page needs but the backend
+        // does not provide are defaulted (0 / '' / false).
+        const raw = (await estimationCategoryService.getCategories()) as any[];
+        // Resolve parentCategory (a code reference) to the parent's display name.
+        const codeToName = new Map(
+          raw.filter((c) => c.code).map((c) => [c.code, c.name]),
+        );
+        const mapped: EstimationCategory[] = raw.map((c) => {
+          const parentRef = c.parentCategory ?? '';
+          const isChild = parentRef && parentRef !== '-';
+          return {
+            id: String(c.id),
+            categoryCode: c.code ?? '',
+            categoryName: c.name ?? '',
+            parentCategory: isChild ? (codeToName.get(parentRef) ?? parentRef) : '-',
+            level: isChild ? 2 : 1,
+            description: c.description ?? '',
+            defaultMarkup: Number(c.defaultMarkup ?? 0),
+            minimumOrderValue: 0,
+            standardLeadTime: 0,
+            costAllocationMethod: 'direct',
+            allowSubcategories: false,
+            requiresApproval: false,
+            approvalThreshold: 0,
+            estimateCount: Number(c.itemCount ?? 0),
+            totalValue: 0,
+            avgEstimateValue: 0,
+            lastUsed: '',
+            createdBy: '',
+            createdDate: c.createdAt ?? '',
+            status: c.status === 'inactive' ? 'inactive' : 'active',
+          };
+        });
+        if (!cancelled) setCategories(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load categories');
+          setCategories([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredCategories = categories.filter(category => {
     const matchesSearch =
@@ -383,6 +177,19 @@ export default function EstimationCategoriesPage() {
         </button>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading categories…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3">
@@ -417,7 +224,7 @@ export default function EstimationCategoriesPage() {
             <span className="text-sm font-medium text-orange-900">Avg Estimate</span>
             <Calendar className="h-5 w-5 text-orange-600" />
           </div>
-          <div className="text-2xl font-bold text-orange-900">₹{(totalValue / totalEstimates / 1000).toFixed(0)}K</div>
+          <div className="text-2xl font-bold text-orange-900">₹{(totalEstimates > 0 ? totalValue / totalEstimates / 1000 : 0).toFixed(0)}K</div>
           <div className="text-xs text-orange-700 mt-1">Per estimate</div>
         </div>
       </div>

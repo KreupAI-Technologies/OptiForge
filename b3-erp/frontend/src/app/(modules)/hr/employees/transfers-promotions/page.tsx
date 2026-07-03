@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, Search, Filter, Plus, ArrowRight, Award, Building2, Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
 import { NewTransferPromotionModal } from '@/components/hr/NewTransferPromotionModal';
 import { TransferPromotionWorkflowModal } from '@/components/hr/TransferPromotionWorkflowModal';
+import { HrMovementsService } from '@/services/hr-movements.service';
 
 interface TransferPromotion {
   id: string;
@@ -35,66 +36,74 @@ export default function TransfersPromotionsPage() {
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
   const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<TransferPromotion | null>(null);
+  const [transfersPromotions, setTransfersPromotions] = useState<TransferPromotion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const mockTransfersPromotions: TransferPromotion[] = [
-    { id: 'TP001', employeeCode: 'KMF2018001', name: 'Rajesh Kumar', type: 'promotion',
-      fromDesignation: 'Senior Engineer', toDesignation: 'Team Lead', fromDepartment: 'Production', toDepartment: 'Production',
-      fromLocation: 'Plant A', toLocation: 'Plant A', effectiveDate: '2024-12-01', requestDate: '2024-10-15',
-      requestedBy: 'Production Manager', approvedBy: 'VP Operations', reason: 'Excellent performance, leadership skills',
-      salaryIncrement: 15, status: 'approved' },
-    { id: 'TP002', employeeCode: 'KMF2020005', name: 'Meera Nair', type: 'both',
-      fromDesignation: 'QC Inspector', toDesignation: 'QC Team Lead', fromDepartment: 'Quality', toDepartment: 'Quality',
-      fromLocation: 'Quality Lab - Building B', toLocation: 'Quality Lab - Building A', effectiveDate: '2024-11-15',
-      requestDate: '2024-10-01', requestedBy: 'QC Manager', approvedBy: 'VP Quality', reason: 'Promotion with facility transfer',
-      salaryIncrement: 20, status: 'implemented' },
-    { id: 'TP003', employeeCode: 'KMF2019008', name: 'Arun Patel', type: 'transfer',
-      fromDesignation: 'Software Engineer', toDesignation: 'Software Engineer', fromDepartment: 'IT - Development',
-      toDepartment: 'IT - Infrastructure', fromLocation: 'HQ - 3rd Floor', toLocation: 'HQ - 2nd Floor',
-      effectiveDate: '2024-12-01', requestDate: '2024-10-20', requestedBy: 'IT Manager', reason: 'Resource balancing',
-      status: 'pending' },
-    { id: 'TP004', employeeCode: 'KMF2021012', name: 'Priya Menon', type: 'promotion',
-      fromDesignation: 'Accounts Assistant', toDesignation: 'Senior Accounts Executive', fromDepartment: 'Finance',
-      toDepartment: 'Finance', fromLocation: 'Finance Dept', toLocation: 'Finance Dept', effectiveDate: '2025-01-01',
-      requestDate: '2024-11-01', requestedBy: 'Finance Manager', reason: 'Completed CA Inter, excellent work',
-      salaryIncrement: 25, status: 'approved' },
-    { id: 'TP005', employeeCode: 'KMF2017003', name: 'Vikram Singh', type: 'transfer',
-      fromDesignation: 'Production Supervisor', toDesignation: 'Production Supervisor', fromDepartment: 'Production - Plant A',
-      toDepartment: 'Production - Plant B', fromLocation: 'Plant A', toLocation: 'Plant B - Pune',
-      effectiveDate: '2024-11-01', requestDate: '2024-09-15', requestedBy: 'Production Manager', approvedBy: 'VP Operations',
-      reason: 'New plant setup requirement', status: 'implemented' },
-    { id: 'TP006', employeeCode: 'KMF2022018', name: 'Sunita Rao', type: 'promotion',
-      fromDesignation: 'HR Executive', toDesignation: 'Assistant HR Manager', fromDepartment: 'Human Resources',
-      toDepartment: 'Human Resources', fromLocation: 'HR Department', toLocation: 'HR Department',
-      effectiveDate: '2024-12-15', requestDate: '2024-11-05', requestedBy: 'HR Manager', reason: 'Performance & capability',
-      salaryIncrement: 18, status: 'pending' },
-    { id: 'TP007', employeeCode: 'KMF2020015', name: 'Ramesh Iyer', type: 'promotion',
-      fromDesignation: 'Junior Engineer', toDesignation: 'Engineer', fromDepartment: 'Maintenance', toDepartment: 'Maintenance',
-      fromLocation: 'Maintenance Workshop', toLocation: 'Maintenance Workshop', effectiveDate: '2024-10-01',
-      requestDate: '2024-08-20', requestedBy: 'Maintenance Manager', approvedBy: 'Director Operations', reason: 'Probation completion, good performance',
-      salaryIncrement: 10, status: 'implemented' }
-  ];
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    HrMovementsService.getTransfersPromotions()
+      .then((data) => {
+        if (!active) return;
+        const rows: TransferPromotion[] = data.map((m) => ({
+          id: m.id,
+          employeeCode: m.employeeCode,
+          name: m.name,
+          type: m.type,
+          fromDesignation: m.fromDesignation,
+          toDesignation: m.toDesignation,
+          fromDepartment: m.fromDepartment,
+          toDepartment: m.toDepartment,
+          fromLocation: m.fromLocation,
+          toLocation: m.toLocation,
+          effectiveDate: m.effectiveDate,
+          requestDate: m.requestDate,
+          requestedBy: m.requestedBy,
+          approvedBy: m.approvedBy,
+          reason: m.reason,
+          salaryIncrement:
+            m.salaryIncrement != null ? Number(m.salaryIncrement) : undefined,
+          status: m.status,
+        }));
+        setTransfersPromotions(rows);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : 'Failed to load records');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const types = ['all', 'promotion', 'transfer', 'both'];
   const statuses = ['all', 'pending', 'approved', 'rejected', 'implemented'];
 
   const filteredData = useMemo(() => {
-    return mockTransfersPromotions.filter(tp => {
+    return transfersPromotions.filter(tp => {
       const matchesSearch = tp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           tp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = selectedType === 'all' || tp.type === selectedType;
       const matchesStatus = selectedStatus === 'all' || tp.status === selectedStatus;
       return matchesSearch && matchesType && matchesStatus;
     });
-  }, [searchTerm, selectedType, selectedStatus]);
+  }, [transfersPromotions, searchTerm, selectedType, selectedStatus]);
 
   const stats = useMemo(() => {
-    const promotions = mockTransfersPromotions.filter(tp => tp.type === 'promotion' || tp.type === 'both').length;
-    const transfers = mockTransfersPromotions.filter(tp => tp.type === 'transfer' || tp.type === 'both').length;
-    const pending = mockTransfersPromotions.filter(tp => tp.status === 'pending').length;
-    const avgIncrement = Math.round(mockTransfersPromotions.filter(tp => tp.salaryIncrement).reduce((sum, tp) => sum + (tp.salaryIncrement || 0), 0) /
-                          mockTransfersPromotions.filter(tp => tp.salaryIncrement).length);
-    return { total: mockTransfersPromotions.length, promotions, transfers, pending, avgIncrement };
-  }, []);
+    const promotions = transfersPromotions.filter(tp => tp.type === 'promotion' || tp.type === 'both').length;
+    const transfers = transfersPromotions.filter(tp => tp.type === 'transfer' || tp.type === 'both').length;
+    const pending = transfersPromotions.filter(tp => tp.status === 'pending').length;
+    const withIncrement = transfersPromotions.filter(tp => tp.salaryIncrement);
+    const avgIncrement = withIncrement.length
+      ? Math.round(withIncrement.reduce((sum, tp) => sum + (tp.salaryIncrement || 0), 0) / withIncrement.length)
+      : 0;
+    return { total: transfersPromotions.length, promotions, transfers, pending, avgIncrement };
+  }, [transfersPromotions]);
 
   const columns: Column<TransferPromotion>[] = [
     { id: 'employeeCode', accessor: 'employeeCode', label: 'Employee', sortable: true,
@@ -237,7 +246,17 @@ export default function TransfersPromotionsPage() {
         )}
       </div>
 
-      <DataTable data={filteredData} columns={columns} />
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center text-gray-500">
+          Loading transfers & promotions...
+        </div>
+      ) : error ? (
+        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-8 text-center text-red-600">
+          {error}
+        </div>
+      ) : (
+        <DataTable data={filteredData} columns={columns} />
+      )}
 
       {/* New Transfer/Promotion Request Modal */}
       <NewTransferPromotionModal

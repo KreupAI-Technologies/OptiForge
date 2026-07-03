@@ -1,8 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { Users, TrendingUp, Target, Activity, Award, Clock, Phone, Mail, Calendar, MessageSquare, CheckCircle, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, TrendingUp, Target, Award, Clock, CheckCircle, BarChart3 } from 'lucide-react';
+import crmService from '@/services/crm.service';
 
+interface BackendMember {
+  member: string;
+  totalLeads: number;
+  won: number;
+  lost: number;
+  open: number;
+  winRate: number;
+  pipelineValue: number;
+  wonValue: number;
+}
+
+interface TeamAnalytics {
+  teamSize: number;
+  totalLeads: number;
+  totalWon: number;
+  totalWonValue: number;
+  members: BackendMember[];
+}
+
+// Derived member shape used for rendering the cards below.
 interface TeamMember {
   id: string;
   name: string;
@@ -10,148 +31,102 @@ interface TeamMember {
   role: string;
   dealsWon: number;
   revenue: number;
-  quota: number;
-  quotaAttainment: number;
-  activePipeline: number;
   pipelineValue: number;
   avgDealSize: number;
   winRate: number;
-  salesCycle: number;
-  activities: {
-    calls: number;
-    emails: number;
-    meetings: number;
-    tasks: number;
-  };
-  performance: 'excellent' | 'good' | 'needs_improvement';
+  activePipeline: number;
+  totalLeads: number;
+  lost: number;
 }
 
-interface ActivityMetric {
-  type: string;
-  total: number;
-  target: number;
-  percentage: number;
+function initialsOf(name: string): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export default function TeamAnalyticsPage() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
-  const [sortBy, setSortBy] = useState<'revenue' | 'quota' | 'winRate'>('revenue');
+  const [sortBy, setSortBy] = useState<'revenue' | 'winRate' | 'leads'>('revenue');
 
-  // Team Members Data
-  const teamMembers: TeamMember[] = [
-    {
-      id: '1',
-      name: 'Sarah Johnson',
-      avatar: 'SJ',
-      role: 'Senior Sales Executive',
-      dealsWon: 34,
-      revenue: 950000,
-      quota: 900000,
-      quotaAttainment: 105.6,
-      activePipeline: 28,
-      pipelineValue: 450000,
-      avgDealSize: 27941,
-      winRate: 42.5,
-      salesCycle: 38,
-      activities: { calls: 285, emails: 892, meetings: 67, tasks: 156 },
-      performance: 'excellent',
-    },
-    {
-      id: '2',
-      name: 'Michael Chen',
-      avatar: 'MC',
-      role: 'Sales Executive',
-      dealsWon: 28,
-      revenue: 780000,
-      quota: 800000,
-      quotaAttainment: 97.5,
-      activePipeline: 24,
-      pipelineValue: 380000,
-      avgDealSize: 27857,
-      winRate: 38.9,
-      salesCycle: 42,
-      activities: { calls: 267, emails: 845, meetings: 58, tasks: 142 },
-      performance: 'good',
-    },
-    {
-      id: '3',
-      name: 'David Park',
-      avatar: 'DP',
-      role: 'Sales Executive',
-      dealsWon: 27,
-      revenue: 720000,
-      quota: 750000,
-      quotaAttainment: 96.0,
-      activePipeline: 22,
-      pipelineValue: 420000,
-      avgDealSize: 26667,
-      winRate: 36.5,
-      salesCycle: 45,
-      activities: { calls: 248, emails: 798, meetings: 54, tasks: 138 },
-      performance: 'good',
-    },
-    {
-      id: '4',
-      name: 'Emily Davis',
-      avatar: 'ED',
-      role: 'Sales Executive',
-      dealsWon: 22,
-      revenue: 620000,
-      quota: 700000,
-      quotaAttainment: 88.6,
-      activePipeline: 19,
-      pipelineValue: 340000,
-      avgDealSize: 28182,
-      winRate: 33.8,
-      salesCycle: 48,
-      activities: { calls: 234, emails: 756, meetings: 49, tasks: 125 },
-      performance: 'good',
-    },
-    {
-      id: '5',
-      name: 'Robert Wilson',
-      avatar: 'RW',
-      role: 'Junior Sales Executive',
-      dealsWon: 19,
-      revenue: 540000,
-      quota: 650000,
-      quotaAttainment: 83.1,
-      activePipeline: 17,
-      pipelineValue: 290000,
-      avgDealSize: 28421,
-      winRate: 31.7,
-      salesCycle: 52,
-      activities: { calls: 212, emails: 698, meetings: 42, tasks: 115 },
-      performance: 'needs_improvement',
-    },
-  ];
+  const [analytics, setAnalytics] = useState<TeamAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Team-wide Activity Metrics
-  const teamActivities: ActivityMetric[] = [
-    { type: 'Calls', total: 1246, target: 1200, percentage: 103.8 },
-    { type: 'Emails', total: 3989, target: 3500, percentage: 113.9 },
-    { type: 'Meetings', total: 270, target: 300, percentage: 90.0 },
-    { type: 'Tasks Completed', total: 676, target: 700, percentage: 96.6 },
-  ];
+  useEffect(() => {
+    let cancelled = false;
 
-  // Team Performance Overview
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const result = await crmService.analyticsViews.getTeam();
+        if (cancelled) return;
+        setAnalytics(result ?? null);
+      } catch (err) {
+        if (cancelled) return;
+        setAnalytics(null);
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load team analytics.'
+        );
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const backendMembers: BackendMember[] = analytics?.members ?? [];
+
+  // Map backend members into the shape the cards render.
+  const teamMembers: TeamMember[] = backendMembers.map((m, idx) => {
+    const won = m.won ?? 0;
+    const wonValue = m.wonValue ?? 0;
+    return {
+      id: String(idx),
+      name: m.member ?? 'Unknown',
+      avatar: initialsOf(m.member ?? ''),
+      role: 'Sales Representative',
+      dealsWon: won,
+      revenue: wonValue,
+      pipelineValue: m.pipelineValue ?? 0,
+      avgDealSize: won > 0 ? Math.round(wonValue / won) : 0,
+      winRate: m.winRate ?? 0,
+      activePipeline: m.open ?? 0,
+      totalLeads: m.totalLeads ?? 0,
+      lost: m.lost ?? 0,
+    };
+  });
+
+  // Team Performance Overview (aggregates from the backend where provided).
+  const totalRevenue = analytics?.totalWonValue ?? teamMembers.reduce((sum, m) => sum + m.revenue, 0);
+  const totalPipelineValue = teamMembers.reduce((sum, m) => sum + m.pipelineValue, 0);
+  const totalActivePipeline = teamMembers.reduce((sum, m) => sum + m.activePipeline, 0);
   const teamStats = {
-    totalRevenue: teamMembers.reduce((sum, m) => sum + m.revenue, 0),
-    totalQuota: teamMembers.reduce((sum, m) => sum + m.quota, 0),
-    avgQuotaAttainment: Math.round(teamMembers.reduce((sum, m) => sum + m.quotaAttainment, 0) / teamMembers.length),
-    totalDealsWon: teamMembers.reduce((sum, m) => sum + m.dealsWon, 0),
-    avgWinRate: Math.round(teamMembers.reduce((sum, m) => sum + m.winRate, 0) / teamMembers.length * 10) / 10,
-    avgSalesCycle: Math.round(teamMembers.reduce((sum, m) => sum + m.salesCycle, 0) / teamMembers.length),
-    activePipeline: teamMembers.reduce((sum, m) => sum + m.activePipeline, 0),
-    pipelineValue: teamMembers.reduce((sum, m) => sum + m.pipelineValue, 0),
+    teamSize: analytics?.teamSize ?? teamMembers.length,
+    totalLeads: analytics?.totalLeads ?? teamMembers.reduce((sum, m) => sum + m.totalLeads, 0),
+    totalRevenue,
+    totalDealsWon: analytics?.totalWon ?? teamMembers.reduce((sum, m) => sum + m.dealsWon, 0),
+    avgWinRate:
+      teamMembers.length > 0
+        ? Math.round((teamMembers.reduce((sum, m) => sum + m.winRate, 0) / teamMembers.length) * 10) / 10
+        : 0,
+    activePipeline: totalActivePipeline,
+    pipelineValue: totalPipelineValue,
   };
 
   const sortedMembers = [...teamMembers].sort((a, b) => {
     switch (sortBy) {
       case 'revenue':
         return b.revenue - a.revenue;
-      case 'quota':
-        return b.quotaAttainment - a.quotaAttainment;
+      case 'leads':
+        return b.totalLeads - a.totalLeads;
       case 'winRate':
         return b.winRate - a.winRate;
       default:
@@ -159,21 +134,19 @@ export default function TeamAnalyticsPage() {
     }
   });
 
-  const getPerformanceColor = (performance: string) => {
-    switch (performance) {
-      case 'excellent': return 'bg-green-100 text-green-700';
-      case 'good': return 'bg-blue-100 text-blue-700';
-      case 'needs_improvement': return 'bg-orange-100 text-orange-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getPerformanceLabel = (performance: string) => {
-    return performance.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading analytics…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex gap-2 mb-3">
           {(['week', 'month', 'quarter', 'year'] as const).map((range) => (
@@ -195,19 +168,19 @@ export default function TeamAnalyticsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">
           <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-3 text-white">
             <Users className="w-8 h-8 opacity-80 mb-2" />
-            <div className="text-3xl font-bold mb-1">{teamMembers.length}</div>
+            <div className="text-3xl font-bold mb-1">{teamStats.teamSize}</div>
             <div className="text-green-100">Team Members</div>
             <div className="text-sm mt-2 opacity-90">
-              ${(teamStats.totalRevenue / 1000000).toFixed(2)}M total revenue
+              ${(teamStats.totalRevenue / 1000000).toFixed(2)}M total won value
             </div>
           </div>
 
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-3 text-white">
             <Target className="w-8 h-8 opacity-80 mb-2" />
-            <div className="text-3xl font-bold mb-1">{teamStats.avgQuotaAttainment}%</div>
-            <div className="text-blue-100">Avg Quota Attainment</div>
+            <div className="text-3xl font-bold mb-1">{teamStats.totalLeads}</div>
+            <div className="text-blue-100">Total Leads</div>
             <div className="text-sm mt-2 opacity-90">
-              ${(teamStats.totalRevenue / 1000).toFixed(0)}K / ${(teamStats.totalQuota / 1000).toFixed(0)}K
+              {teamStats.totalDealsWon} won
             </div>
           </div>
 
@@ -230,37 +203,6 @@ export default function TeamAnalyticsPage() {
           </div>
         </div>
 
-        {/* Team Activity Metrics */}
-        <div className="bg-white rounded-lg border border-gray-200 p-3 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Activity className="w-5 h-5" />
-            Team Activity Metrics
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {teamActivities.map((activity, index) => (
-              <div key={index}>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium text-gray-900">{activity.type}</span>
-                  <span className={`font-semibold ${
-                    activity.percentage >= 100 ? 'text-green-600' : 'text-orange-600'
-                  }`}>
-                    {activity.total} / {activity.target}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      activity.percentage >= 100 ? 'bg-green-500' : 'bg-orange-500'
-                    }`}
-                    style={{ width: `${Math.min(activity.percentage, 100)}%` }}
-                  ></div>
-                </div>
-                <div className="text-xs text-gray-600 mt-1">{activity.percentage.toFixed(1)}% of target</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Sort Controls */}
         <div className="bg-white rounded-lg border border-gray-200 p-3 mb-3">
           <div className="flex items-center gap-2">
@@ -275,12 +217,12 @@ export default function TeamAnalyticsPage() {
                 Revenue
               </button>
               <button
-                onClick={() => setSortBy('quota')}
+                onClick={() => setSortBy('leads')}
                 className={`px-3 py-1 rounded text-sm font-medium ${
-                  sortBy === 'quota' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+                  sortBy === 'leads' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                Quota Attainment
+                Total Leads
               </button>
               <button
                 onClick={() => setSortBy('winRate')}
@@ -297,6 +239,11 @@ export default function TeamAnalyticsPage() {
 
       {/* Team Members Performance */}
       <div className="space-y-3">
+        {!isLoading && !loadError && sortedMembers.length === 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-center text-sm text-gray-500">
+            No team members found.
+          </div>
+        )}
         {sortedMembers.map((member, index) => (
           <div key={member.id} className="bg-white rounded-lg border border-gray-200 p-3">
             <div className="flex items-start justify-between mb-3">
@@ -315,9 +262,6 @@ export default function TeamAnalyticsPage() {
                     {index < 3 && <Award className="w-5 h-5 text-yellow-500" />}
                   </div>
                   <div className="text-sm text-gray-600">{member.role}</div>
-                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${getPerformanceColor(member.performance)}`}>
-                    {getPerformanceLabel(member.performance)}
-                  </span>
                 </div>
               </div>
               <div className="text-right">
@@ -330,14 +274,11 @@ export default function TeamAnalyticsPage() {
             <div className="grid grid-cols-6 gap-2 mb-3">
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3">
                 <div className="flex items-center gap-1 text-green-700 mb-1">
-                  <Target className="w-3 h-3" />
-                  <span className="text-xs font-medium">Quota</span>
+                  <Users className="w-3 h-3" />
+                  <span className="text-xs font-medium">Total Leads</span>
                 </div>
                 <div className="text-xl font-bold text-green-900">
-                  {member.quotaAttainment.toFixed(1)}%
-                </div>
-                <div className="text-xs text-green-700 mt-1">
-                  ${(member.quota / 1000).toFixed(0)}K goal
+                  {member.totalLeads}
                 </div>
               </div>
 
@@ -377,10 +318,10 @@ export default function TeamAnalyticsPage() {
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3">
                 <div className="flex items-center gap-1 text-orange-700 mb-1">
                   <Clock className="w-3 h-3" />
-                  <span className="text-xs font-medium">Sales Cycle</span>
+                  <span className="text-xs font-medium">Lost</span>
                 </div>
                 <div className="text-xl font-bold text-orange-900">
-                  {member.salesCycle}d
+                  {member.lost}
                 </div>
               </div>
 
@@ -395,65 +336,19 @@ export default function TeamAnalyticsPage() {
               </div>
             </div>
 
-            {/* Activity Breakdown */}
-            <div className="pt-6 border-t border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Activity Breakdown</h4>
-              <div className="grid grid-cols-4 gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Phone className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{member.activities.calls}</div>
-                    <div className="text-xs text-gray-600">Calls</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Mail className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{member.activities.emails}</div>
-                    <div className="text-xs text-gray-600">Emails</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{member.activities.meetings}</div>
-                    <div className="text-xs text-gray-600">Meetings</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <MessageSquare className="w-5 h-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold text-gray-900">{member.activities.tasks}</div>
-                    <div className="text-xs text-gray-600">Tasks</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quota Progress Bar */}
+            {/* Win Rate Progress Bar */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-gray-600">Quota Progress</span>
-                <span className="font-semibold text-gray-900">{member.quotaAttainment.toFixed(1)}%</span>
+                <span className="text-gray-600">Win Rate</span>
+                <span className="font-semibold text-gray-900">{member.winRate.toFixed(1)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
                   className={`h-3 rounded-full ${
-                    member.quotaAttainment >= 100 ? 'bg-green-500' :
-                    member.quotaAttainment >= 90 ? 'bg-blue-500' : 'bg-orange-500'
+                    member.winRate >= 50 ? 'bg-green-500' :
+                    member.winRate >= 30 ? 'bg-blue-500' : 'bg-orange-500'
                   }`}
-                  style={{ width: `${Math.min(member.quotaAttainment, 100)}%` }}
+                  style={{ width: `${Math.min(member.winRate, 100)}%` }}
                 ></div>
               </div>
             </div>

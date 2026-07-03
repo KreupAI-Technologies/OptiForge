@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
 import {
@@ -103,7 +104,7 @@ export default function ProjectReportsPage() {
  const [selectedTemplateForCustomize, setSelectedTemplateForCustomize] = useState<ReportTemplate | null>(null);
 
  // Mock recent reports - 12 records
- const mockReports: Report[] = [
+ const [mockReports, setMockReports] = useState<Report[]>([
   {
    id: '1',
    reportName: 'Monthly Project Status Report - May 2024',
@@ -312,7 +313,13 @@ export default function ProjectReportsPage() {
    status: 'Available',
    icon: Factory,
   },
- ];
+ ]);
+
+ useEffect(() => {
+  projectManagementService.listPmReports()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockReports(rows as unknown as Report[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
 
  // Report templates
  const reportTemplates: ReportTemplate[] = [

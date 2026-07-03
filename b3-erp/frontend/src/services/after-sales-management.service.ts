@@ -3,6 +3,20 @@
 
 const USE_MOCK_DATA = false;
 
+// Base URL for the NestJS domain backend (b3-erp domain services).
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+async function apiRequest<T>(endpoint: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
 // ========================================
 // ENUMS
 // ========================================
@@ -525,6 +539,56 @@ export interface DashboardStats {
   technicians: {
     available: number;
   };
+}
+
+export interface KnowledgeFaq {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+  helpful: number;
+  unhelpful: number;
+  views: number;
+  featured: boolean;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KnowledgeManual {
+  id: string;
+  title: string;
+  productModel: string;
+  description: string;
+  category: string;
+  author: string;
+  datePublished: string;
+  fileSize: string;
+  format: string;
+  downloads: number;
+  rating: number;
+  views: number;
+  language: string;
+  pages: number;
+  versions: number;
+  featured: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ServicePayment {
+  id: string;
+  paymentNumber?: string;
+  invoiceNumber?: string;
+  invoiceId?: string;
+  customerId?: string;
+  customerName?: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  paymentReference?: string;
+  notes?: string;
+  status?: string;
 }
 
 // ========================================
@@ -1591,6 +1655,27 @@ export class AfterSalesManagementService {
       };
     }
     return {};
+  }
+
+  // Knowledge Base - FAQs (persisted via NestJS)
+  static async getKnowledgeFaqs(search?: string): Promise<KnowledgeFaq[]> {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return apiRequest<KnowledgeFaq[]>(
+      `/after-sales-service/knowledge-faqs${qs}`,
+    );
+  }
+
+  // Knowledge Base - Manuals (persisted via NestJS)
+  static async getKnowledgeManuals(search?: string): Promise<KnowledgeManual[]> {
+    const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+    return apiRequest<KnowledgeManual[]>(
+      `/after-sales-service/knowledge-manuals${qs}`,
+    );
+  }
+
+  // Billing - Payment collections (persisted via NestJS)
+  static async getServicePayments(): Promise<ServicePayment[]> {
+    return apiRequest<ServicePayment[]>(`/after-sales/billing/payments`);
   }
 }
 

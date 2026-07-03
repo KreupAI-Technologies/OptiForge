@@ -58,3 +58,34 @@ CREATE TABLE IF NOT EXISTS "hr_shift_swaps" (
   "updatedAt" timestamp NOT NULL DEFAULT now(),
   CONSTRAINT "PK_hr_shift_swaps" PRIMARY KEY ("id")
 );
+
+-- Backs /hr/employees/transfers-promotions
+-- ADDITIVE ONLY: idempotent, never DROP or ALTER existing tables.
+-- A single row covers transfers, promotions and combined ("both") movements.
+-- Entity: src/modules/hr/entities/employee-movement.entity.ts
+CREATE TABLE IF NOT EXISTS "hr_employee_movements" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeCode" varchar,
+  "name" varchar,
+  "type" varchar NOT NULL DEFAULT 'promotion',
+  "fromDesignation" varchar,
+  "toDesignation" varchar,
+  "fromDepartment" varchar,
+  "toDepartment" varchar,
+  "fromLocation" varchar,
+  "toLocation" varchar,
+  "effectiveDate" varchar,
+  "requestDate" varchar,
+  "requestedBy" varchar,
+  "approvedBy" varchar,
+  "reason" text,
+  "salaryIncrement" numeric(5,2),
+  "status" varchar NOT NULL DEFAULT 'pending',
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_employee_movements" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_hr_employee_movements_companyId"
+  ON "hr_employee_movements" ("companyId");

@@ -15,6 +15,7 @@ import { WorkflowEdge } from './entities/workflow-edge.entity';
 import { AutomationRule } from './entities/automation-rule.entity';
 import { PendingApprovalItem } from './entities/pending-approval-item.entity';
 import { WorkflowConfigTemplate } from './entities/workflow-config-template.entity';
+import { WorkflowBuilderGraph } from './entities/workflow-builder-graph.entity';
 
 // New workflow engine entities
 import {
@@ -79,6 +80,8 @@ import { UserTaskController } from './controllers/user-task.controller';
 import { AutomationRuleController } from './controllers/automation-rule.controller';
 import { PendingApprovalItemController } from './controllers/pending-approval-item.controller';
 import { WorkflowConfigTemplateController } from './controllers/workflow-config-template.controller';
+import { WorkflowBuilderGraphController } from './controllers/workflow-builder-graph.controller';
+import { WorkflowBuilderGraphService } from './services/workflow-builder-graph.service';
 import { AutomationRuleService } from './services/automation-rule.service';
 import { PendingApprovalItemService } from './services/pending-approval-item.service';
 import { WorkflowConfigTemplateService } from './services/workflow-config-template.service';
@@ -141,6 +144,7 @@ import { WorkflowGateway } from './gateways/workflow.gateway';
       AutomationRule,
       PendingApprovalItem,
       WorkflowConfigTemplate,
+      WorkflowBuilderGraph,
     ]),
 
     // Bull queues for async job processing
@@ -195,6 +199,7 @@ import { WorkflowGateway } from './gateways/workflow.gateway';
     AutomationRuleController,
     PendingApprovalItemController,
     WorkflowConfigTemplateController,
+    WorkflowBuilderGraphController,
   ],
   providers: [
     // Core services
@@ -232,6 +237,7 @@ import { WorkflowGateway } from './gateways/workflow.gateway';
     AutomationRuleService,
     PendingApprovalItemService,
     WorkflowConfigTemplateService,
+    WorkflowBuilderGraphService,
   ],
   exports: [
     EventBusService,

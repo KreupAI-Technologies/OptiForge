@@ -25,6 +25,23 @@ import { ShiftDefinitionService } from './services/shift-definition.service';
 import { ShutterOrderService } from './services/shutter-order.service';
 import { TrialInstallationService } from './services/trial-installation.service';
 
+// Follow-up orphan build (maintenance/quality list features) — direct imports
+import { SparePart } from './entities/spare-part.entity';
+import { PreventiveMaintenance } from './entities/preventive-maintenance.entity';
+import { MaintenanceRequest } from './entities/maintenance-request.entity';
+import { Ncr } from './entities/ncr.entity';
+import { QualityPlan } from './entities/quality-plan.entity';
+import { SparePartController } from './controllers/spare-part.controller';
+import { PreventiveMaintenanceController } from './controllers/preventive-maintenance.controller';
+import { MaintenanceRequestController } from './controllers/maintenance-request.controller';
+import { NcrController } from './controllers/ncr.controller';
+import { QualityPlanController } from './controllers/quality-plan.controller';
+import { SparePartService } from './services/spare-part.service';
+import { PreventiveMaintenanceService } from './services/preventive-maintenance.service';
+import { MaintenanceRequestService } from './services/maintenance-request.service';
+import { NcrService } from './services/ncr.service';
+import { QualityPlanService } from './services/quality-plan.service';
+
 // Entities
 import {
   BOM,
@@ -329,6 +346,12 @@ import {
       TeamMessage,
       ShiftHandoff,
       CustomerPortalAccess,
+      // Follow-up orphan entities
+      SparePart,
+      PreventiveMaintenance,
+      MaintenanceRequest,
+      Ncr,
+      QualityPlan,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -336,6 +359,9 @@ import {
     DieToolAssetController, OperationTaskController, ProductionLineConfigController,
     RoutingTemplateController, ShiftDefinitionController, ShutterOrderController,
     TrialInstallationController,
+    // Follow-up orphan controllers
+    SparePartController, PreventiveMaintenanceController, MaintenanceRequestController,
+    NcrController, QualityPlanController,
     // Core Controllers
     BOMController,
     WorkOrderController,
@@ -411,6 +437,9 @@ import {
     DieToolAssetService, OperationTaskService, ProductionLineConfigService,
     RoutingTemplateService, ShiftDefinitionService, ShutterOrderService,
     TrialInstallationService,
+    // Follow-up orphan services
+    SparePartService, PreventiveMaintenanceService, MaintenanceRequestService,
+    NcrService, QualityPlanService,
     // Core Services
     BOMService,
     WorkOrderService,

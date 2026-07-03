@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import { MapPin, Camera, Ruler, CheckCircle, AlertTriangle, Clock, Plus, Download, Eye, Edit, FileText, Upload, Image, FileCode, ClipboardList, MessageSquare, TrendingUp, FileSpreadsheet, Filter } from 'lucide-react';
 import {
@@ -80,7 +81,7 @@ export default function SiteSurveyPage() {
  const [showExportModal, setShowExportModal] = useState(false);
  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
- const mockSurveys: SiteSurvey[] = [
+ const [mockSurveys, setMockSurveys] = useState<SiteSurvey[]>([
   {
    id: 'SS-001',
    surveyNumber: 'SURV-2025-001',
@@ -393,7 +394,13 @@ export default function SiteSurveyPage() {
    estimatedBudget: 9500000,
    completionPercent: 0,
   },
- ];
+ ]);
+
+ useEffect(() => {
+  projectManagementService.listPmSiteSurveys()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockSurveys(rows as unknown as SiteSurvey[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
 
  const stats = {
   totalSurveys: mockSurveys.length,

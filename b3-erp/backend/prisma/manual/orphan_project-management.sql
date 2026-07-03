@@ -427,3 +427,278 @@ CREATE TABLE IF NOT EXISTS "pm_progress_entries" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
+
+-- ===================================================================
+-- Follow-up pass: additive tables for remaining mock-only PM pages
+-- (project-types, documents, mrp, installation-tracking,
+--  quality-inspection, resource-utilization, reports, site-survey,
+--  wbs, schedule). ADDITIVE ONLY.
+-- ===================================================================
+
+-- Project types catalog
+CREATE TABLE IF NOT EXISTS "pm_project_types" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "type_name" varchar,
+  "type_code" varchar,
+  "category" varchar,
+  "description" text,
+  "industry" varchar,
+  "default_duration" varchar,
+  "budget_range" varchar,
+  "required_approvals" integer NOT NULL DEFAULT 0,
+  "default_workflow" varchar,
+  "custom_fields" jsonb,
+  "project_count" integer NOT NULL DEFAULT 0,
+  "active_projects" integer NOT NULL DEFAULT 0,
+  "avg_success_rate" numeric(6,2) NOT NULL DEFAULT 0,
+  "total_revenue" numeric(15,2) NOT NULL DEFAULT 0,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_date" varchar,
+  "last_modified" varchar,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Project documents register
+CREATE TABLE IF NOT EXISTS "pm_documents" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "document_number" varchar,
+  "project_id" varchar,
+  "project_name" varchar,
+  "document_name" varchar,
+  "document_type" varchar,
+  "category" varchar,
+  "version" varchar,
+  "upload_date" varchar,
+  "uploaded_by" varchar,
+  "file_size" varchar,
+  "file_format" varchar,
+  "status" varchar NOT NULL DEFAULT 'Draft',
+  "access_level" varchar NOT NULL DEFAULT 'Internal',
+  "reviewed_by" varchar,
+  "approved_by" varchar,
+  "approval_date" varchar,
+  "expiry_date" varchar,
+  "tags" jsonb,
+  "description" text,
+  "related_documents" jsonb,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- MRP materials
+CREATE TABLE IF NOT EXISTS "pm_mrp_materials" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "item_code" varchar,
+  "item_name" varchar,
+  "category" varchar,
+  "required_quantity" numeric(15,2) NOT NULL DEFAULT 0,
+  "unit" varchar,
+  "available_stock" numeric(15,2) NOT NULL DEFAULT 0,
+  "required_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'Available',
+  "supplier" varchar,
+  "unit_cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "total_cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "lead_time" integer NOT NULL DEFAULT 0,
+  "project_phase" varchar,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Installation tracking activities
+CREATE TABLE IF NOT EXISTS "pm_installation_activities" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "activity_number" varchar,
+  "project_id" varchar,
+  "project_name" varchar,
+  "equipment_item" varchar,
+  "equipment_code" varchar,
+  "location" varchar,
+  "zone" varchar,
+  "installation_type" varchar,
+  "planned_start_date" varchar,
+  "planned_end_date" varchar,
+  "actual_start_date" varchar,
+  "actual_end_date" varchar,
+  "status" varchar NOT NULL DEFAULT 'Not Started',
+  "progress" integer NOT NULL DEFAULT 0,
+  "assigned_team" varchar,
+  "team_size" integer NOT NULL DEFAULT 0,
+  "supervisor" varchar,
+  "dependencies" jsonb,
+  "prerequisites_completed" boolean NOT NULL DEFAULT false,
+  "material_availability" varchar,
+  "tools_required" jsonb,
+  "safety_checklist" boolean NOT NULL DEFAULT false,
+  "quality_checkpoint" boolean NOT NULL DEFAULT false,
+  "photos" integer NOT NULL DEFAULT 0,
+  "remarks" text,
+  "issues" jsonb,
+  "delay_reason" varchar,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Quality inspections
+CREATE TABLE IF NOT EXISTS "pm_quality_inspections" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "inspection_number" varchar,
+  "project_id" varchar,
+  "project_name" varchar,
+  "inspection_date" varchar,
+  "inspection_type" varchar,
+  "phase" varchar,
+  "work_package" varchar,
+  "inspector_name" varchar,
+  "inspector_id" varchar,
+  "checklist" jsonb,
+  "total_check_points" integer NOT NULL DEFAULT 0,
+  "passed" integer NOT NULL DEFAULT 0,
+  "failed" integer NOT NULL DEFAULT 0,
+  "not_applicable" integer NOT NULL DEFAULT 0,
+  "pending" integer NOT NULL DEFAULT 0,
+  "overall_status" varchar NOT NULL DEFAULT 'Pending',
+  "defects" integer NOT NULL DEFAULT 0,
+  "critical_defects" integer NOT NULL DEFAULT 0,
+  "photos" integer NOT NULL DEFAULT 0,
+  "signed_off" boolean NOT NULL DEFAULT false,
+  "sign_off_by" varchar,
+  "sign_off_date" varchar,
+  "next_inspection_date" varchar,
+  "remarks" text,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Resource utilization records
+CREATE TABLE IF NOT EXISTS "pm_resource_utilization" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "resource_id" varchar,
+  "resource_name" varchar,
+  "role" varchar,
+  "department" varchar,
+  "employee_type" varchar,
+  "total_capacity" numeric(10,2) NOT NULL DEFAULT 0,
+  "allocated_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "actual_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "utilization" numeric(6,2) NOT NULL DEFAULT 0,
+  "efficiency" numeric(6,2) NOT NULL DEFAULT 0,
+  "billable_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "non_billable_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "overtime_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "leave_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "idle_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "active_projects" integer NOT NULL DEFAULT 0,
+  "cost_per_hour" numeric(15,2) NOT NULL DEFAULT 0,
+  "total_revenue" numeric(15,2) NOT NULL DEFAULT 0,
+  "total_cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "availability" varchar,
+  "status" varchar NOT NULL DEFAULT 'Active',
+  "current_projects" jsonb,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Project reports register
+CREATE TABLE IF NOT EXISTS "pm_reports" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "report_name" varchar,
+  "report_type" varchar,
+  "category" varchar,
+  "description" text,
+  "frequency" varchar,
+  "format" varchar,
+  "last_generated" varchar,
+  "generated_by" varchar,
+  "project_scope" varchar,
+  "project_count" integer NOT NULL DEFAULT 0,
+  "file_size" varchar,
+  "status" varchar NOT NULL DEFAULT 'Available',
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Site surveys
+CREATE TABLE IF NOT EXISTS "pm_site_surveys" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "survey_number" varchar,
+  "project_id" varchar,
+  "project_name" varchar,
+  "project_type" varchar,
+  "survey_date" varchar,
+  "site_name" varchar,
+  "site_address" text,
+  "city" varchar,
+  "state" varchar,
+  "surveyor_name" varchar,
+  "surveyor_contact" varchar,
+  "status" varchar NOT NULL DEFAULT 'Scheduled',
+  "measurements" jsonb,
+  "accessibility" varchar,
+  "power_available" boolean NOT NULL DEFAULT false,
+  "water_available" boolean NOT NULL DEFAULT false,
+  "drainage_available" boolean NOT NULL DEFAULT false,
+  "floor_level" varchar,
+  "ceiling_type" varchar,
+  "wall_condition" varchar,
+  "ventilation" varchar,
+  "natural_light" varchar,
+  "existing_equipment" text,
+  "obstacles" text,
+  "special_requirements" text,
+  "photos_count" integer NOT NULL DEFAULT 0,
+  "drawings_count" integer NOT NULL DEFAULT 0,
+  "issues" jsonb,
+  "recommendations" jsonb,
+  "estimated_budget" numeric(15,2) NOT NULL DEFAULT 0,
+  "completion_percent" integer NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Work breakdown structure nodes
+CREATE TABLE IF NOT EXISTS "pm_wbs_nodes" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "code" varchar,
+  "name" varchar,
+  "type" varchar,
+  "level" integer NOT NULL DEFAULT 0,
+  "parent_id" varchar,
+  "progress" integer NOT NULL DEFAULT 0,
+  "status" varchar NOT NULL DEFAULT 'Not Started',
+  "start_date" varchar,
+  "end_date" varchar,
+  "assigned_to" varchar,
+  "estimated_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "actual_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "budget" numeric(15,2) NOT NULL DEFAULT 0,
+  "actual_cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Schedule / Gantt tasks
+CREATE TABLE IF NOT EXISTS "pm_schedule_tasks" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default',
+  "name" varchar,
+  "start_date" varchar,
+  "end_date" varchar,
+  "progress" integer NOT NULL DEFAULT 0,
+  "assignee" varchar,
+  "dependencies" jsonb,
+  "phase" varchar,
+  "status" varchar NOT NULL DEFAULT 'Not Started',
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);

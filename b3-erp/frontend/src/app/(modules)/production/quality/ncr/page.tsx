@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, Filter, AlertTriangle, CheckCircle, Clock, XCircle, FileText, User, Eye, Edit } from 'lucide-react';
 import { RaiseNCRModal, ViewNCRDetailsModal, EditNCRModal } from '@/components/quality/NCRModals';
@@ -50,232 +51,31 @@ export default function NCRPage() {
   const [selectedNCR, setSelectedNCR] = useState<NCR | null>(null);
 
   // Mock data for NCRs
-  const ncrs: NCR[] = [
-    {
-      id: '1',
-      ncrNumber: 'NCR-2025-0042',
-      title: 'Surface Finish Defect - Kitchen Sink',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium Stainless Steel Kitchen Sink - Double Bowl',
-      workOrder: 'WO-2025-1135',
-      lotNumber: 'LOT-2025-1015',
-      quantityAffected: 15,
-      detectedBy: 'Kavita Desai',
-      detectedDate: '2025-10-18',
-      detectedStage: 'Final Inspection',
-      severity: 'major',
-      status: 'corrective-action',
-      nonconformanceType: 'visual',
-      description: 'Multiple units showing uneven polishing with visible scratch marks on the bowl surface. Does not meet mirror finish specification (Ra < 0.8)',
-      rootCause: 'Polishing wheel worn beyond replacement threshold. Operator failed to identify degraded wheel condition during daily inspection.',
-      correctiveAction: 'Replaced polishing wheel. Re-polished affected units. Implemented hourly wheel condition checks.',
-      preventiveAction: 'Introduced wheel lifetime counter and automatic replacement alerts. Enhanced operator training on wheel inspection.',
-      assignedTo: 'Production Supervisor',
-      targetCloseDate: '2025-10-25',
-      actualCloseDate: null,
-      costImpact: 45000,
-      customerImpact: false,
-      attachments: ['photo_1.jpg', 'inspection_report.pdf'],
-      approvedBy: null,
-      verifiedBy: null
-    },
-    {
-      id: '2',
-      ncrNumber: 'NCR-2025-0043',
-      title: 'Pressure Test Failure - Kitchen Faucet',
-      productCode: 'KIT-FAUCET-002',
-      productName: 'Chrome Kitchen Faucet with Pull-Down Sprayer',
-      workOrder: 'WO-2025-1138',
-      lotNumber: 'LOT-2025-1018',
-      quantityAffected: 8,
-      detectedBy: 'Quality Control Team',
-      detectedDate: '2025-10-19',
-      detectedStage: 'Pressure Testing',
-      severity: 'critical',
-      status: 'under-investigation',
-      nonconformanceType: 'functional',
-      description: '8 units failed pressure test at 120 PSI. Observed water leakage from hose connection point after 45 seconds.',
-      rootCause: 'Under investigation - suspected batch issue with O-ring supplier. Material hardness testing in progress.',
-      correctiveAction: 'Quarantined entire lot. Initiated supplier audit. Testing O-ring samples from multiple batches.',
-      preventiveAction: 'To be determined after root cause analysis complete.',
-      assignedTo: 'Quality Manager',
-      targetCloseDate: '2025-10-26',
-      actualCloseDate: null,
-      costImpact: 128000,
-      customerImpact: true,
-      attachments: ['test_results.xlsx', 'photos_leak.zip'],
-      approvedBy: null,
-      verifiedBy: null
-    },
-    {
-      id: '3',
-      ncrNumber: 'NCR-2025-0041',
-      title: 'Coating Adhesion Failure - Cookware',
-      productCode: 'KIT-COOKWARE-003',
-      productName: 'Non-Stick Cookware Set (7 Pieces)',
-      workOrder: 'WO-2025-1142',
-      lotNumber: 'LOT-2025-1012',
-      quantityAffected: 25,
-      detectedBy: 'QC Inspector',
-      detectedDate: '2025-10-16',
-      detectedStage: 'Coating Quality Check',
-      severity: 'critical',
-      status: 'closed',
-      nonconformanceType: 'material',
-      description: 'Coating adhesion test failed. Cross-hatch test showing 3B rating instead of required 5B minimum. Coating peeling observed.',
-      rootCause: 'Surface preparation incomplete - aluminum base not properly degreased before coating application. Degreasing bath temperature was 15°C below specification.',
-      correctiveAction: 'Scrapped 25 affected units. Recalibrated degreasing bath heater. Verified temperature control system. Re-coated new batch with proper surface prep.',
-      preventiveAction: 'Installed digital temperature monitoring with alerts. Updated work instruction with temperature verification checkpoints. Monthly calibration of heating system.',
-      assignedTo: 'Production Manager',
-      targetCloseDate: '2025-10-20',
-      actualCloseDate: '2025-10-20',
-      costImpact: 185000,
-      customerImpact: false,
-      attachments: ['adhesion_test_report.pdf', 'temperature_logs.csv'],
-      approvedBy: 'Quality Manager',
-      verifiedBy: 'QC Lead'
-    },
-    {
-      id: '4',
-      ncrNumber: 'NCR-2025-0044',
-      title: 'Dimensional Non-Conformance - Cabinet',
-      productCode: 'KIT-CABINET-004',
-      productName: 'Modular Kitchen Cabinet - Base Unit (36")',
-      workOrder: 'WO-2025-1150',
-      lotNumber: 'LOT-2025-1020',
-      quantityAffected: 5,
-      detectedBy: 'Assembly Team',
-      detectedDate: '2025-10-20',
-      detectedStage: 'Pre-Assembly Inspection',
-      severity: 'minor',
-      status: 'open',
-      nonconformanceType: 'dimensional',
-      description: '5 cabinet panels showing width dimension out of tolerance. Measured 917mm instead of specified 915mm ±2mm.',
-      rootCause: null,
-      correctiveAction: null,
-      preventiveAction: null,
-      assignedTo: 'Production Supervisor',
-      targetCloseDate: '2025-10-27',
-      actualCloseDate: null,
-      costImpact: 15000,
-      customerImpact: false,
-      attachments: ['measurement_report.pdf'],
-      approvedBy: null,
-      verifiedBy: null
-    },
-    {
-      id: '5',
-      ncrNumber: 'NCR-2025-0040',
-      title: 'Electrical Safety Issue - Chimney Motor',
-      productCode: 'KIT-CHIMNEY-001',
-      productName: 'Built-in Kitchen Chimney (60cm)',
-      workOrder: 'WO-2025-1145',
-      lotNumber: 'LOT-2025-1008',
-      quantityAffected: 3,
-      detectedBy: 'Electrical Testing Team',
-      detectedDate: '2025-10-15',
-      detectedStage: 'Electrical Safety Testing',
-      severity: 'critical',
-      status: 'closed',
-      nonconformanceType: 'safety',
-      description: 'Insulation resistance test failure. Measured 1.5 MΩ instead of required minimum 2 MΩ at 500V DC. Critical safety issue.',
-      rootCause: 'Motor winding insulation degraded during high-temperature assembly process. Soldering iron temperature exceeded specification by 50°C.',
-      correctiveAction: 'Scrapped 3 affected units. Replaced motors. Calibrated soldering stations. Implemented temperature monitoring during assembly.',
-      preventiveAction: 'Purchased calibrated soldering stations with auto-shutoff. Added temperature verification to work instruction. Weekly calibration checks.',
-      assignedTo: 'Engineering Manager',
-      targetCloseDate: '2025-10-18',
-      actualCloseDate: '2025-10-17',
-      costImpact: 95000,
-      customerImpact: false,
-      attachments: ['electrical_test_report.pdf', 'motor_inspection.jpg'],
-      approvedBy: 'Quality Manager',
-      verifiedBy: 'Safety Officer'
-    },
-    {
-      id: '6',
-      ncrNumber: 'NCR-2025-0045',
-      title: 'Packaging Damage - Mixer Grinder',
-      productCode: 'KIT-MIXER-007',
-      productName: 'Electric Mixer Grinder - 750W',
-      workOrder: 'WO-2025-1149',
-      lotNumber: 'LOT-2025-1022',
-      quantityAffected: 12,
-      detectedBy: 'Packaging Team',
-      detectedDate: '2025-10-20',
-      detectedStage: 'Packaging',
-      severity: 'minor',
-      status: 'corrective-action',
-      nonconformanceType: 'packaging',
-      description: 'Outer carton boxes showing damage/crushing on corners. Internal product unaffected but packaging not meeting cosmetic standards.',
-      rootCause: 'Forklift operator stacking boxes 3 layers higher than specification. Bottom layer cartons unable to support weight.',
-      correctiveAction: 'Re-packaged affected units in new cartons. Retrained forklift operators on stacking limits. Added warning labels on boxes.',
-      preventiveAction: 'Updated stacking diagram in warehouse. Installed height markers on storage racks. Weekly operator refresher training.',
-      assignedTo: 'Warehouse Manager',
-      targetCloseDate: '2025-10-24',
-      actualCloseDate: null,
-      costImpact: 8000,
-      customerImpact: false,
-      attachments: ['carton_damage_photos.zip'],
-      approvedBy: null,
-      verifiedBy: null
-    },
-    {
-      id: '7',
-      ncrNumber: 'NCR-2025-0039',
-      title: 'Material Grade Mismatch - Sink Raw Material',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium Stainless Steel Kitchen Sink - Double Bowl',
-      workOrder: 'WO-2025-1135',
-      lotNumber: 'LOT-2025-1005',
-      quantityAffected: 0,
-      detectedBy: 'Incoming Inspection',
-      detectedDate: '2025-10-12',
-      detectedStage: 'Incoming Material Inspection',
-      severity: 'critical',
-      status: 'closed',
-      nonconformanceType: 'material',
-      description: 'Supplier shipped SS316 grade instead of specified SS304. Detected during material certificate verification before production.',
-      rootCause: 'Supplier order entry error. Purchase order correctly specified SS304 but supplier fulfilled with SS316 from wrong inventory.',
-      correctiveAction: 'Rejected entire shipment. Returned to supplier. Issued supplier corrective action request. Ordered replacement material.',
-      preventiveAction: 'Added barcode scanning verification at supplier dispatch. Enhanced supplier training on order verification. Monthly supplier audit.',
-      assignedTo: 'Procurement Manager',
-      targetCloseDate: '2025-10-15',
-      actualCloseDate: '2025-10-14',
-      costImpact: 225000,
-      customerImpact: false,
-      attachments: ['material_cert.pdf', 'supplier_response.pdf'],
-      approvedBy: 'Operations Head',
-      verifiedBy: 'Quality Manager'
-    },
-    {
-      id: '8',
-      ncrNumber: 'NCR-2025-0038',
-      title: 'Noise Level Exceeds Specification - Chimney',
-      productCode: 'KIT-CHIMNEY-001',
-      productName: 'Built-in Kitchen Chimney (60cm)',
-      workOrder: 'WO-2025-1145',
-      lotNumber: 'LOT-2025-1002',
-      quantityAffected: 18,
-      detectedBy: 'Acoustic Testing',
-      detectedDate: '2025-10-10',
-      detectedStage: 'Performance Testing',
-      severity: 'major',
-      status: 'rejected',
-      nonconformanceType: 'functional',
-      description: 'Sound level measured at 62 dB instead of specified maximum 58 dB at highest speed. Exceeds BIS standard requirement.',
-      rootCause: 'Investigation revealed vibration dampening pads missing from motor mounting. Design change not communicated to production.',
-      correctiveAction: 'Proposed to retrofit dampening pads on affected units and retest.',
-      preventiveAction: 'Proposal rejected - retrofit cost exceeds scrap value. Units to be scrapped. Enhanced design change communication process.',
-      assignedTo: 'Production Manager',
-      targetCloseDate: '2025-10-18',
-      actualCloseDate: '2025-10-18',
-      costImpact: 340000,
-      customerImpact: false,
-      attachments: ['acoustic_test_report.pdf', 'design_change_notice.pdf'],
-      approvedBy: 'Quality Manager',
-      verifiedBy: null
-    }
-  ];
+  const [ncrs, setNcrs] = useState<NCR[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getNcrs()) as any[];
+        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          ...d,
+          id: String(d?.id ?? i),
+        })) as unknown as NCR[];
+        if (!cancelled) setNcrs(mapped);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredNCRs = ncrs.filter(ncr => {
     const severityMatch = filterSeverity === 'all' || ncr.severity === filterSeverity;

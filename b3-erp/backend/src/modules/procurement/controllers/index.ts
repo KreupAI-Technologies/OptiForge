@@ -14,3 +14,7 @@ export * from './procurement-notification.controller';
 export * from './procurement-budget.controller';
 export * from './vendor-performance-analytics.controller';
 export * from './procurement-calendar-event.controller';
+export * from './bom-receipt.controller';
+export * from './procurement-category.controller';
+export * from './savings-initiative.controller';
+export * from './vendor-scorecard.controller';

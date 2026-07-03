@@ -17,6 +17,19 @@ async function request<T = any>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function post<T = any>(path: string, body: any): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 /**
  * Each method returns the raw backend array (typed as any[]). Pages apply a
  * defensive transform from the raw ORM shape into their local interface.
@@ -59,4 +72,26 @@ export const ProductionOrphanService = {
 
   // GET production/operation-tasks
   getOperationTasks: () => request<any[]>('/production/operation-tasks'),
+
+  // --- Follow-up orphan maintenance/quality endpoints ---
+
+  // GET/POST production/spare-parts
+  getSpareParts: () => request<any[]>('/production/spare-parts'),
+  createSparePart: (body: any) => post<any>('/production/spare-parts', body),
+
+  // GET/POST production/preventive-maintenance
+  getPreventiveMaintenance: () => request<any[]>('/production/preventive-maintenance'),
+  createPreventiveMaintenance: (body: any) => post<any>('/production/preventive-maintenance', body),
+
+  // GET/POST production/maintenance-requests
+  getMaintenanceRequests: () => request<any[]>('/production/maintenance-requests'),
+  createMaintenanceRequest: (body: any) => post<any>('/production/maintenance-requests', body),
+
+  // GET/POST production/ncrs
+  getNcrs: () => request<any[]>('/production/ncrs'),
+  createNcr: (body: any) => post<any>('/production/ncrs', body),
+
+  // GET/POST production/quality-plans
+  getQualityPlans: () => request<any[]>('/production/quality-plans'),
+  createQualityPlan: (body: any) => post<any>('/production/quality-plans', body),
 };

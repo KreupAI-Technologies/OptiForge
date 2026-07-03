@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Lead, LeadStatus } from '../entities/lead.entity';
+import { CrmCustomer } from '../entities/crm-customer.entity';
 import { InteractionsService } from '../interactions.service';
 
 const num = (v: any): number => {
@@ -14,6 +15,8 @@ export class CrmAnalyticsService {
   constructor(
     @InjectRepository(Lead)
     private readonly leadRepo: Repository<Lead>,
+    @InjectRepository(CrmCustomer)
+    private readonly customerRepo: Repository<CrmCustomer>,
     private readonly interactionsService: InteractionsService,
   ) {}
 
@@ -196,6 +199,270 @@ export class CrmAnalyticsService {
         performer,
         count,
       })),
+    };
+  }
+
+  /** Customer analytics aggregated over crm_customers. */
+  async getCustomerAnalytics(): Promise<any> {
+    const customers = await this.customerRepo.find();
+    const total = customers.length;
+
+    const active = customers.filter(
+      (c) => (c.status || '').toLowerCase() === 'active',
+    ).length;
+    const totalRevenue = customers.reduce((s, c) => s + num(c.lifetimeValue), 0);
+    const totalOrders = customers.reduce((s, c) => s + num(c.totalOrders), 0);
+
+    const segMap = new Map<string, { count: number; revenue: number }>();
+    const industryMap = new Map<string, { count: number; revenue: number }>();
+    const regionMap = new Map<string, { count: number; revenue: number }>();
+    const lifecycleMap = new Map<string, number>();
+
+    for (const c of customers) {
+      const seg = c.segment || 'Unsegmented';
+      const s = segMap.get(seg) || { count: 0, revenue: 0 };
+      s.count += 1;
+      s.revenue += num(c.lifetimeValue);
+      segMap.set(seg, s);
+
+      const ind = c.industry || 'Unknown';
+      const i = industryMap.get(ind) || { count: 0, revenue: 0 };
+      i.count += 1;
+      i.revenue += num(c.lifetimeValue);
+      industryMap.set(ind, i);
+
+      const reg = c.region || c.location || 'Unknown';
+      const r = regionMap.get(reg) || { count: 0, revenue: 0 };
+      r.count += 1;
+      r.revenue += num(c.lifetimeValue);
+      regionMap.set(reg, r);
+
+      const lc = c.customerLifecycleStage || 'new';
+      lifecycleMap.set(lc, (lifecycleMap.get(lc) || 0) + 1);
+    }
+
+    return {
+      totalCustomers: total,
+      activeCustomers: active,
+      totalRevenue,
+      avgLifetimeValue: total ? Math.round(totalRevenue / total) : 0,
+      totalOrders,
+      bySegment: Array.from(segMap.entries()).map(([segment, v]) => ({
+        segment,
+        count: v.count,
+        revenue: v.revenue,
+      })),
+      byIndustry: Array.from(industryMap.entries()).map(([industry, v]) => ({
+        industry,
+        count: v.count,
+        revenue: v.revenue,
+      })),
+      byRegion: Array.from(regionMap.entries()).map(([region, v]) => ({
+        region,
+        count: v.count,
+        revenue: v.revenue,
+      })),
+      byLifecycleStage: Array.from(lifecycleMap.entries()).map(([stage, count]) => ({
+        stage,
+        count,
+      })),
+      topCustomers: customers
+        .slice()
+        .sort((a, b) => num(b.lifetimeValue) - num(a.lifetimeValue))
+        .slice(0, 10)
+        .map((c) => ({
+          id: c.id,
+          name: c.customerName,
+          segment: c.segment,
+          industry: c.industry,
+          lifetimeValue: num(c.lifetimeValue),
+          totalOrders: num(c.totalOrders),
+        })),
+    };
+  }
+
+  /** Revenue analytics aggregated over crm_customers (won revenue) + crm_leads (pipeline). */
+  async getRevenueAnalytics(): Promise<any> {
+    const [customers, leads] = await Promise.all([
+      this.customerRepo.find(),
+      this.leadRepo.find(),
+    ]);
+
+    const realizedRevenue = customers.reduce(
+      (s, c) => s + num(c.lifetimeValue),
+      0,
+    );
+    const wonLeads = leads.filter((l) => l.status === LeadStatus.WON);
+    const openLeads = leads.filter(
+      (l) => l.status !== LeadStatus.WON && l.status !== LeadStatus.LOST,
+    );
+    const wonRevenue = wonLeads.reduce((s, l) => s + num(l.estimatedValue), 0);
+    const pipelineValue = openLeads.reduce(
+      (s, l) => s + num(l.estimatedValue),
+      0,
+    );
+    const weightedPipeline = openLeads.reduce(
+      (s, l) => s + (num(l.estimatedValue) * num(l.probability)) / 100,
+      0,
+    );
+
+    // Revenue by segment (from customers).
+    const segMap = new Map<string, number>();
+    for (const c of customers) {
+      const seg = c.segment || 'Unsegmented';
+      segMap.set(seg, (segMap.get(seg) || 0) + num(c.lifetimeValue));
+    }
+
+    // Won revenue by close month (from leads).
+    const monthMap = new Map<string, number>();
+    for (const l of wonLeads) {
+      let key = 'Unscheduled';
+      const d = l.estimatedCloseDate ? new Date(l.estimatedCloseDate) : null;
+      if (d && !isNaN(d.getTime())) {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      }
+      monthMap.set(key, (monthMap.get(key) || 0) + num(l.estimatedValue));
+    }
+
+    return {
+      realizedRevenue,
+      wonRevenue,
+      pipelineValue,
+      weightedPipeline: Math.round(weightedPipeline),
+      wonCount: wonLeads.length,
+      openCount: openLeads.length,
+      bySegment: Array.from(segMap.entries()).map(([segment, revenue]) => ({
+        segment,
+        revenue,
+      })),
+      byMonth: Array.from(monthMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, revenue]) => ({ month, revenue })),
+    };
+  }
+
+  /** Sales-team performance aggregated over crm_leads by owner/assignee. */
+  async getTeamAnalytics(): Promise<any> {
+    const leads = await this.leadRepo.find();
+
+    const memberMap = new Map<
+      string,
+      { total: number; won: number; lost: number; open: number; pipeline: number; wonValue: number }
+    >();
+
+    for (const l of leads) {
+      const owner =
+        (l as any).assignedTo || (l as any).ownerName || (l as any).owner || 'Unassigned';
+      const m =
+        memberMap.get(owner) || {
+          total: 0,
+          won: 0,
+          lost: 0,
+          open: 0,
+          pipeline: 0,
+          wonValue: 0,
+        };
+      m.total += 1;
+      if (l.status === LeadStatus.WON) {
+        m.won += 1;
+        m.wonValue += num(l.estimatedValue);
+      } else if (l.status === LeadStatus.LOST) {
+        m.lost += 1;
+      } else {
+        m.open += 1;
+        m.pipeline += num(l.estimatedValue);
+      }
+      memberMap.set(owner, m);
+    }
+
+    const members = Array.from(memberMap.entries()).map(([member, v]) => {
+      const closed = v.won + v.lost;
+      return {
+        member,
+        totalLeads: v.total,
+        won: v.won,
+        lost: v.lost,
+        open: v.open,
+        winRate: closed ? Math.round((v.won / closed) * 100) : 0,
+        pipelineValue: v.pipeline,
+        wonValue: v.wonValue,
+      };
+    });
+
+    return {
+      teamSize: members.length,
+      totalLeads: leads.length,
+      totalWon: members.reduce((s, m) => s + m.won, 0),
+      totalWonValue: members.reduce((s, m) => s + m.wonValue, 0),
+      members: members.sort((a, b) => b.wonValue - a.wonValue),
+    };
+  }
+
+  /** CRM dashboard overview aggregated over crm_leads + crm_customers. */
+  async getOverview(): Promise<any> {
+    const [leads, customers] = await Promise.all([
+      this.leadRepo.find(),
+      this.customerRepo.find(),
+    ]);
+
+    const wonLeads = leads.filter((l) => l.status === LeadStatus.WON);
+    const lostLeads = leads.filter((l) => l.status === LeadStatus.LOST);
+    const openLeads = leads.filter(
+      (l) => l.status !== LeadStatus.WON && l.status !== LeadStatus.LOST,
+    );
+    const closed = wonLeads.length + lostLeads.length;
+
+    const statusMap = new Map<string, number>();
+    for (const l of leads) {
+      const st = l.status || 'unknown';
+      statusMap.set(st, (statusMap.get(st) || 0) + 1);
+    }
+
+    return {
+      totalLeads: leads.length,
+      openLeads: openLeads.length,
+      wonLeads: wonLeads.length,
+      lostLeads: lostLeads.length,
+      conversionRate: closed ? Math.round((wonLeads.length / closed) * 100) : 0,
+      totalCustomers: customers.length,
+      activeCustomers: customers.filter(
+        (c) => (c.status || '').toLowerCase() === 'active',
+      ).length,
+      pipelineValue: openLeads.reduce((s, l) => s + num(l.estimatedValue), 0),
+      wonValue: wonLeads.reduce((s, l) => s + num(l.estimatedValue), 0),
+      customerRevenue: customers.reduce((s, c) => s + num(c.lifetimeValue), 0),
+      leadsByStatus: Array.from(statusMap.entries()).map(([status, count]) => ({
+        status,
+        count,
+      })),
+    };
+  }
+
+  /** Pipeline forecast (alias/extension of getForecast for the advanced-features view). */
+  async getPipelineForecast(): Promise<any> {
+    const base = await this.getForecast();
+    const leads = await this.leadRepo.find();
+    const open = leads.filter(
+      (l) => l.status !== LeadStatus.WON && l.status !== LeadStatus.LOST,
+    );
+
+    // Confidence bands based on probability.
+    const bands = { high: 0, medium: 0, low: 0 };
+    const bandValue = { high: 0, medium: 0, low: 0 };
+    for (const l of open) {
+      const p = num(l.probability);
+      const key = p >= 70 ? 'high' : p >= 40 ? 'medium' : 'low';
+      bands[key] += 1;
+      bandValue[key] += num(l.estimatedValue);
+    }
+
+    return {
+      ...base,
+      byConfidence: [
+        { band: 'high', count: bands.high, value: bandValue.high },
+        { band: 'medium', count: bands.medium, value: bandValue.medium },
+        { band: 'low', count: bands.low, value: bandValue.low },
+      ],
     };
   }
 }

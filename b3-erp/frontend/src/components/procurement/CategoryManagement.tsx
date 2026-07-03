@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package, TrendingUp, DollarSign, Users, BarChart3, Plus,
   Edit, Trash2, Eye, Settings, Download, RefreshCw, AlertCircle,
@@ -8,6 +8,7 @@ import {
   FileText, Share2, Filter, Search, ArrowUpRight, ArrowDownRight,
   AlertTriangle, Award
 } from 'lucide-react';
+import { procurementCategoryService } from '@/services/procurement-category.service';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -39,93 +40,40 @@ const CategoryManagement: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mock data - Categories
-  const categories: Category[] = [
-    {
-      id: 'CAT001',
-      name: 'Raw Materials',
-      description: 'Steel, aluminum, and other raw materials for manufacturing',
-      budget: 850000,
-      spent: 720000,
-      suppliers: 12,
-      items: 245,
-      status: 'active',
-      manager: 'Sarah Johnson',
-      priority: 'critical',
-      savingsTarget: 85000,
-      actualSavings: 92000
-    },
-    {
-      id: 'CAT002',
-      name: 'Electronic Components',
-      description: 'Semiconductors, PCBs, and electronic parts',
-      budget: 450000,
-      spent: 380000,
-      suppliers: 8,
-      items: 567,
-      status: 'active',
-      manager: 'Michael Chen',
-      priority: 'high',
-      savingsTarget: 45000,
-      actualSavings: 38000
-    },
-    {
-      id: 'CAT003',
-      name: 'Office Supplies',
-      description: 'Stationery, furniture, and office equipment',
-      budget: 125000,
-      spent: 98000,
-      suppliers: 5,
-      items: 123,
-      status: 'active',
-      manager: 'Emily Davis',
-      priority: 'medium',
-      savingsTarget: 12500,
-      actualSavings: 15000
-    },
-    {
-      id: 'CAT004',
-      name: 'IT Equipment',
-      description: 'Computers, servers, and networking equipment',
-      budget: 320000,
-      spent: 285000,
-      suppliers: 6,
-      items: 89,
-      status: 'active',
-      manager: 'Robert Wilson',
-      priority: 'high',
-      savingsTarget: 32000,
-      actualSavings: 28000
-    },
-    {
-      id: 'CAT005',
-      name: 'Safety Equipment',
-      description: 'PPE, safety gear, and protective equipment',
-      budget: 180000,
-      spent: 145000,
-      suppliers: 4,
-      items: 156,
-      status: 'active',
-      manager: 'Lisa Anderson',
-      priority: 'critical',
-      savingsTarget: 18000,
-      actualSavings: 22000
-    },
-    {
-      id: 'CAT006',
-      name: 'Maintenance Parts',
-      description: 'Spare parts and maintenance supplies',
-      budget: 210000,
-      spent: 175000,
-      suppliers: 9,
-      items: 312,
-      status: 'active',
-      manager: 'David Lee',
-      priority: 'medium',
-      savingsTarget: 21000,
-      actualSavings: 19000
-    }
-  ];
+  // Categories — real fetch from the procurement category service (NestJS
+  // domain backend). Backend returns raw ORM shape; map onto the Category
+  // model. Renders fine with an empty array until the table is seeded.
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = (await procurementCategoryService.getCategories()) as any[];
+        const mapped: Category[] = raw.map((c) => ({
+          id: c.id,
+          name: c.name ?? '',
+          description: c.description ?? '',
+          budget: Number(c.budget ?? 0),
+          spent: Number(c.spent ?? 0),
+          suppliers: Number(c.suppliers ?? 0),
+          items: Number(c.items ?? 0),
+          status: (c.status ?? 'active') as Category['status'],
+          manager: c.manager ?? '',
+          priority: (c.priority ?? 'medium') as Category['priority'],
+          savingsTarget: Number(c.savingsTarget ?? 0),
+          actualSavings: Number(c.actualSavings ?? 0),
+        }));
+        if (!cancelled) setCategories(mapped);
+      } catch {
+        if (!cancelled) setCategories([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data - Category performance
   const categoryPerformance = [

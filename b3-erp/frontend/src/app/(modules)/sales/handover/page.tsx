@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { salesHandoverService } from '@/services/sales-handover.service';
 import {
   ArrowLeft,
   CheckCircle,
@@ -34,57 +35,49 @@ interface HandoverItem {
   clientRequestDate: string;
 }
 
-const mockHandovers: HandoverItem[] = [
-  {
-    id: '1',
-    handoverNumber: 'HO-2025-001',
-    projectNumber: 'PRJ-2025-001',
-    projectName: 'Taj Hotels - Commercial Kitchen Setup',
-    customer: 'Taj Hotels Limited',
-    salesPerson: 'Arjun Mehta',
-    projectManager: 'Rajesh Kumar',
-    handoverDate: '2025-01-15',
-    status: 'Completed',
-    completionPercentage: 100,
-    documentsAttached: 8,
-    requiredDocuments: 8,
-    clientRequestDate: '2025-04-30',
-  },
-  {
-    id: '2',
-    handoverNumber: 'HO-2025-002',
-    projectNumber: 'PRJ-2025-002',
-    projectName: 'BigBasket Cold Storage Facility',
-    customer: 'BigBasket Pvt Ltd',
-    salesPerson: 'Priya Sharma',
-    projectManager: 'Amit Singh',
-    handoverDate: '2025-01-20',
-    status: 'In Progress',
-    completionPercentage: 75,
-    documentsAttached: 6,
-    requiredDocuments: 8,
-    clientRequestDate: '2025-05-15',
-  },
-  {
-    id: '3',
-    handoverNumber: 'HO-2025-003',
-    projectNumber: 'PRJ-2025-003',
-    projectName: 'L&T Campus - Industrial Kitchen',
-    customer: 'L&T Construction',
-    salesPerson: 'Vikram Patel',
-    projectManager: 'Deepak Joshi',
-    handoverDate: '',
-    status: 'Pending',
-    completionPercentage: 30,
-    documentsAttached: 3,
-    requiredDocuments: 8,
-    clientRequestDate: '2025-06-10',
-  },
-];
-
 export default function SalesHandoverPage() {
-  const [handovers] = useState<HandoverItem[]>(mockHandovers);
+  const [handovers, setHandovers] = useState<HandoverItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesHandoverService.getHandovers();
+        const mapped: HandoverItem[] = raw.map((h) => ({
+          id: h.id,
+          handoverNumber: h.handoverNumber,
+          projectNumber: h.projectNumber ?? '',
+          projectName: h.projectName,
+          customer: h.customer ?? '',
+          salesPerson: h.salesPerson ?? '',
+          projectManager: h.projectManager ?? '',
+          handoverDate: h.handoverDate ?? '',
+          status: (h.status as HandoverItem['status']) ?? 'Pending',
+          completionPercentage: Number(h.completionPercentage ?? 0),
+          documentsAttached: Number(h.documentsAttached ?? 0),
+          requiredDocuments: Number(h.requiredDocuments ?? 0),
+          clientRequestDate: h.clientRequestDate ?? '',
+        }));
+        if (!cancelled) setHandovers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load handovers');
+          setHandovers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredHandovers = handovers.filter(
     (h) => statusFilter === 'All' || h.status === statusFilter
@@ -244,7 +237,28 @@ export default function SalesHandoverPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredHandovers.map((handover) => (
+                {isLoading && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                      Loading handovers...
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && loadError && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-red-600">
+                      {loadError}
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !loadError && filteredHandovers.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
+                      No handovers found.
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !loadError && filteredHandovers.map((handover) => (
                   <tr key={handover.id} className="hover:bg-gray-50">
                     <td className="px-4 py-4">
                       <div>

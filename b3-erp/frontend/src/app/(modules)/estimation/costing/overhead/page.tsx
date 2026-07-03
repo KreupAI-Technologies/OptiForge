@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Building,
@@ -14,8 +14,10 @@ import {
   Download,
   PieChart,
   Factory,
-  Truck
+  Truck,
+  AlertCircle
 } from 'lucide-react'
+import { estimationOverheadCostService } from '@/services/estimation-overhead-cost.service'
 
 interface OverheadCost {
   id: string
@@ -45,202 +47,75 @@ interface CategoryTotal {
 export default function OverheadCostingPage() {
   const router = useRouter()
 
-  const [overheadCosts] = useState<OverheadCost[]>([
-    {
-      id: 'OH-001',
-      costCode: 'ELEC-PROD',
-      costName: 'Production Electricity',
-      category: 'Utilities',
-      subcategory: 'Electricity',
-      allocationBasis: 'Machine Hours',
-      budgetedAmount: 850000,
-      actualAmount: 895000,
-      variance: 45000,
-      variancePercent: 5.3,
-      allocationRate: 45,
-      applicableTo: ['Sink Manufacturing', 'Faucet Manufacturing', 'Cookware Manufacturing'],
-      status: 'over-budget'
-    },
-    {
-      id: 'OH-002',
-      costCode: 'RENT-FAC',
-      costName: 'Factory Rent',
-      category: 'Facility',
-      subcategory: 'Rent & Lease',
-      allocationBasis: 'Floor Area',
-      budgetedAmount: 1200000,
-      actualAmount: 1200000,
-      variance: 0,
-      variancePercent: 0,
-      allocationRate: 85,
-      applicableTo: ['All Departments'],
-      status: 'within-budget'
-    },
-    {
-      id: 'OH-003',
-      costCode: 'MAINT-MACH',
-      costName: 'Machine Maintenance',
-      category: 'Maintenance',
-      subcategory: 'Equipment',
-      allocationBasis: 'Machine Hours',
-      budgetedAmount: 450000,
-      actualAmount: 485000,
-      variance: 35000,
-      variancePercent: 7.8,
-      allocationRate: 24,
-      applicableTo: ['CNC Machines', 'Welding Equipment', 'Casting Machines'],
-      status: 'over-budget'
-    },
-    {
-      id: 'OH-004',
-      costCode: 'DEPR-EQUIP',
-      costName: 'Equipment Depreciation',
-      category: 'Depreciation',
-      subcategory: 'Machinery',
-      allocationBasis: 'Straight Line',
-      budgetedAmount: 680000,
-      actualAmount: 680000,
-      variance: 0,
-      variancePercent: 0,
-      allocationRate: 35,
-      applicableTo: ['Production Equipment'],
-      status: 'within-budget'
-    },
-    {
-      id: 'OH-005',
-      costCode: 'INSUR-PROP',
-      costName: 'Property Insurance',
-      category: 'Insurance',
-      subcategory: 'Property & Equipment',
-      allocationBasis: 'Asset Value',
-      budgetedAmount: 320000,
-      actualAmount: 315000,
-      variance: -5000,
-      variancePercent: -1.6,
-      allocationRate: 16,
-      applicableTo: ['All Assets'],
-      status: 'under-budget'
-    },
-    {
-      id: 'OH-006',
-      costCode: 'QUAL-TEST',
-      costName: 'Quality Testing Materials',
-      category: 'Quality Control',
-      subcategory: 'Testing',
-      allocationBasis: 'Units Produced',
-      budgetedAmount: 280000,
-      actualAmount: 295000,
-      variance: 15000,
-      variancePercent: 5.4,
-      allocationRate: 15,
-      applicableTo: ['All Products'],
-      status: 'over-budget'
-    },
-    {
-      id: 'OH-007',
-      costCode: 'WATER-IND',
-      costName: 'Industrial Water Supply',
-      category: 'Utilities',
-      subcategory: 'Water',
-      allocationBasis: 'Direct Labor Hours',
-      budgetedAmount: 180000,
-      actualAmount: 175000,
-      variance: -5000,
-      variancePercent: -2.8,
-      allocationRate: 9,
-      applicableTo: ['Manufacturing Departments'],
-      status: 'within-budget'
-    },
-    {
-      id: 'OH-008',
-      costCode: 'SUPER-PROD',
-      costName: 'Production Supervision',
-      category: 'Supervision',
-      subcategory: 'Salaries',
-      allocationBasis: 'Direct Labor Hours',
-      budgetedAmount: 950000,
-      actualAmount: 980000,
-      variance: 30000,
-      variancePercent: 3.2,
-      allocationRate: 48,
-      applicableTo: ['Production Departments'],
-      status: 'over-budget'
-    },
-    {
-      id: 'OH-009',
-      costCode: 'TOOL-CONS',
-      costName: 'Tool & Consumables',
-      category: 'Indirect Materials',
-      subcategory: 'Tools',
-      allocationBasis: 'Machine Hours',
-      budgetedAmount: 380000,
-      actualAmount: 365000,
-      variance: -15000,
-      variancePercent: -3.9,
-      allocationRate: 19,
-      applicableTo: ['Machining Operations'],
-      status: 'under-budget'
-    },
-    {
-      id: 'OH-010',
-      costCode: 'SAFE-EQP',
-      costName: 'Safety Equipment & Training',
-      category: 'Safety',
-      subcategory: 'PPE & Training',
-      allocationBasis: 'Number of Workers',
-      budgetedAmount: 220000,
-      actualAmount: 228000,
-      variance: 8000,
-      variancePercent: 3.6,
-      allocationRate: 11,
-      applicableTo: ['All Employees'],
-      status: 'over-budget'
-    },
-    {
-      id: 'OH-011',
-      costCode: 'WASTE-DISP',
-      costName: 'Waste Disposal & Recycling',
-      category: 'Environmental',
-      subcategory: 'Waste Management',
-      allocationBasis: 'Units Produced',
-      budgetedAmount: 150000,
-      actualAmount: 145000,
-      variance: -5000,
-      variancePercent: -3.3,
-      allocationRate: 8,
-      applicableTo: ['Manufacturing Departments'],
-      status: 'within-budget'
-    },
-    {
-      id: 'OH-012',
-      costCode: 'STORE-MAT',
-      costName: 'Material Storage & Handling',
-      category: 'Warehousing',
-      subcategory: 'Storage',
-      allocationBasis: 'Material Volume',
-      budgetedAmount: 420000,
-      actualAmount: 445000,
-      variance: 25000,
-      variancePercent: 6.0,
-      allocationRate: 22,
-      applicableTo: ['Raw Materials', 'Finished Goods'],
-      status: 'over-budget'
-    }
-  ])
+  const [overheadCosts, setOverheadCosts] = useState<OverheadCost[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const categoryTotals: CategoryTotal[] = [
-    { category: 'Utilities', budgeted: 1030000, actual: 1070000, variance: 40000, variancePercent: 3.9, items: 2 },
-    { category: 'Facility', budgeted: 1200000, actual: 1200000, variance: 0, variancePercent: 0, items: 1 },
-    { category: 'Maintenance', budgeted: 450000, actual: 485000, variance: 35000, variancePercent: 7.8, items: 1 },
-    { category: 'Depreciation', budgeted: 680000, actual: 680000, variance: 0, variancePercent: 0, items: 1 },
-    { category: 'Insurance', budgeted: 320000, actual: 315000, variance: -5000, variancePercent: -1.6, items: 1 },
-    { category: 'Quality Control', budgeted: 280000, actual: 295000, variance: 15000, variancePercent: 5.4, items: 1 },
-    { category: 'Supervision', budgeted: 950000, actual: 980000, variance: 30000, variancePercent: 3.2, items: 1 },
-    { category: 'Indirect Materials', budgeted: 380000, actual: 365000, variance: -15000, variancePercent: -3.9, items: 1 },
-    { category: 'Safety', budgeted: 220000, actual: 228000, variance: 8000, variancePercent: 3.6, items: 1 },
-    { category: 'Environmental', budgeted: 150000, actual: 145000, variance: -5000, variancePercent: -3.3, items: 1 },
-    { category: 'Warehousing', budgeted: 420000, actual: 445000, variance: 25000, variancePercent: 6.0, items: 1 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw ORM shape (decimals as strings). Map onto the
+        // page's OverheadCost; page-only fields are defaulted. The annual
+        // amount is treated as the budgeted/actual figure the table displays.
+        const raw = (await estimationOverheadCostService.getCosts()) as any[]
+        const statusMap: Record<string, OverheadCost['status']> = {
+          'within-budget': 'within-budget',
+          'over-budget': 'over-budget',
+          'under-budget': 'under-budget',
+        }
+        const mapped: OverheadCost[] = raw.map((c) => {
+          const amount = Number(c.annualAmount ?? 0)
+          return {
+            id: String(c.id),
+            costCode: '',
+            costName: c.name ?? '',
+            category: c.category ?? '',
+            subcategory: c.costType ?? '',
+            allocationBasis: c.allocationMethod ?? '',
+            budgetedAmount: amount,
+            actualAmount: amount,
+            variance: 0,
+            variancePercent: 0,
+            allocationRate: Number(c.allocationRate ?? 0),
+            applicableTo: [],
+            status: statusMap[String(c.status ?? '').toLowerCase()] ?? 'within-budget',
+          }
+        })
+        if (!cancelled) setOverheadCosts(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load overhead costs')
+          setOverheadCosts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Aggregate category totals from the fetched overhead costs.
+  const categoryTotals: CategoryTotal[] = (() => {
+    const byCat = new Map<string, OverheadCost[]>()
+    overheadCosts.forEach((c) => {
+      const key = c.category || 'Uncategorized'
+      if (!byCat.has(key)) byCat.set(key, [])
+      byCat.get(key)!.push(c)
+    })
+    return Array.from(byCat.entries()).map(([category, rows]) => {
+      const budgeted = rows.reduce((s, r) => s + r.budgetedAmount, 0)
+      const actual = rows.reduce((s, r) => s + r.actualAmount, 0)
+      const variance = actual - budgeted
+      const variancePercent = budgeted ? (variance / budgeted) * 100 : 0
+      return { category, budgeted, actual, variance, variancePercent, items: rows.length }
+    })
+  })()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -279,7 +154,7 @@ export default function OverheadCostingPage() {
   const totalBudgeted = overheadCosts.reduce((sum, c) => sum + c.budgetedAmount, 0)
   const totalActual = overheadCosts.reduce((sum, c) => sum + c.actualAmount, 0)
   const totalVariance = totalActual - totalBudgeted
-  const totalVariancePercent = (totalVariance / totalBudgeted) * 100
+  const totalVariancePercent = totalBudgeted ? (totalVariance / totalBudgeted) * 100 : 0
 
   const overBudgetCount = overheadCosts.filter(c => c.status === 'over-budget').length
   const withinBudgetCount = overheadCosts.filter(c => c.status === 'within-budget').length
@@ -311,6 +186,19 @@ export default function OverheadCostingPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading overhead costs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

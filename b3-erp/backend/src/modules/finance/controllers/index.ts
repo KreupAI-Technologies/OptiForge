@@ -5,3 +5,8 @@ export * from './invoice.controller';
 export * from './payment.controller';
 export * from './financial-reports.controller';
 export * from './job-cost-sheet.controller';
+export * from './budget.controller';
+export * from './fixed-asset.controller';
+export * from './cost-center.controller';
+export * from './tax-master.controller';
+export * from './cash-analytics.controller';

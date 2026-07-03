@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Target,
   TrendingUp,
@@ -18,6 +18,7 @@ import {
   CheckCircle,
   XCircle
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface Budget {
   id: string;
@@ -51,177 +52,72 @@ export default function BudgetsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Sample budgets data
-  const budgets: Budget[] = [
-    {
-      id: 'BUD001',
-      budgetCode: 'BUD-2025-OPS-001',
-      budgetName: 'Operations Budget FY 2025',
-      fiscalYear: '2025',
-      department: 'Operations',
-      costCenter: 'CC-OPS-001',
-      budgetType: 'Operating',
-      totalBudget: 50000000,
-      allocated: 48000000,
-      spent: 35000000,
-      remaining: 13000000,
-      variance: -2000000,
-      variancePercent: -4.0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      approvedBy: 'John Doe',
-      approvedDate: '2024-12-15',
-      revisions: 2
-    },
-    {
-      id: 'BUD002',
-      budgetCode: 'BUD-2025-CAP-001',
-      budgetName: 'Capital Expenditure FY 2025',
-      fiscalYear: '2025',
-      department: 'Finance',
-      costCenter: 'CC-FIN-001',
-      budgetType: 'Capital',
-      totalBudget: 25000000,
-      allocated: 20000000,
-      spent: 12000000,
-      remaining: 8000000,
-      variance: 5000000,
-      variancePercent: 20.0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      approvedBy: 'Jane Smith',
-      approvedDate: '2024-12-20',
-      revisions: 1
-    },
-    {
-      id: 'BUD003',
-      budgetCode: 'BUD-2025-MKT-001',
-      budgetName: 'Marketing Budget Q1 2025',
-      fiscalYear: '2025',
-      department: 'Marketing',
-      costCenter: 'CC-MKT-001',
-      budgetType: 'Department',
-      totalBudget: 5000000,
-      allocated: 5000000,
-      spent: 3800000,
-      remaining: 1200000,
-      variance: 0,
-      variancePercent: 0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-03-31',
-      approvedBy: 'Robert Brown',
-      approvedDate: '2024-12-10',
-      revisions: 0
-    },
-    {
-      id: 'BUD004',
-      budgetCode: 'BUD-2025-IT-001',
-      budgetName: 'IT Infrastructure Upgrade',
-      fiscalYear: '2025',
-      department: 'IT',
-      costCenter: 'CC-IT-001',
-      budgetType: 'Project',
-      totalBudget: 15000000,
-      allocated: 12000000,
-      spent: 10500000,
-      remaining: 1500000,
-      variance: 3000000,
-      variancePercent: 20.0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-06-30',
-      approvedBy: 'Jane Smith',
-      approvedDate: '2024-12-01',
-      revisions: 3
-    },
-    {
-      id: 'BUD005',
-      budgetCode: 'BUD-2025-REV-001',
-      budgetName: 'Revenue Budget FY 2025',
-      fiscalYear: '2025',
-      department: 'Sales',
-      costCenter: 'CC-SAL-001',
-      budgetType: 'Revenue',
-      totalBudget: 150000000,
-      allocated: 150000000,
-      spent: 95000000,
-      remaining: 55000000,
-      variance: 0,
-      variancePercent: 0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      approvedBy: 'John Doe',
-      approvedDate: '2024-11-30',
-      revisions: 1
-    },
-    {
-      id: 'BUD006',
-      budgetCode: 'BUD-2025-HR-001',
-      budgetName: 'HR Department Budget Q1',
-      fiscalYear: '2025',
-      department: 'Human Resources',
-      costCenter: 'CC-HR-001',
-      budgetType: 'Department',
-      totalBudget: 8000000,
-      allocated: 8000000,
-      spent: 2100000,
-      remaining: 5900000,
-      variance: 0,
-      variancePercent: 0,
-      status: 'Approved',
-      startDate: '2025-01-01',
-      endDate: '2025-03-31',
-      approvedBy: 'Robert Brown',
-      approvedDate: '2024-12-28',
-      revisions: 0
-    },
-    {
-      id: 'BUD007',
-      budgetCode: 'BUD-2025-ENG-001',
-      budgetName: 'Engineering R&D Budget',
-      fiscalYear: '2025',
-      department: 'Engineering',
-      costCenter: 'CC-ENG-001',
-      budgetType: 'Operating',
-      totalBudget: 20000000,
-      allocated: 18000000,
-      spent: 16500000,
-      remaining: 1500000,
-      variance: 2000000,
-      variancePercent: 10.0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      approvedBy: 'Jane Smith',
-      approvedDate: '2024-12-05',
-      revisions: 2
-    },
-    {
-      id: 'BUD008',
-      budgetCode: 'BUD-2025-FAC-001',
-      budgetName: 'Facilities Maintenance',
-      fiscalYear: '2025',
-      department: 'Facilities',
-      costCenter: 'CC-FAC-001',
-      budgetType: 'Operating',
-      totalBudget: 6000000,
-      allocated: 6000000,
-      spent: 6200000,
-      remaining: -200000,
-      variance: 0,
-      variancePercent: 0,
-      status: 'Active',
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      approvedBy: 'John Doe',
-      approvedDate: '2024-12-18',
-      revisions: 1
-    }
-  ];
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getBudgets()) as any[];
+        const typeMap: Record<string, Budget['budgetType']> = {
+          'Operating Budget': 'Operating',
+          'Capital Budget': 'Capital',
+          'Cash Budget': 'Operating',
+          'Master Budget': 'Operating',
+          Operating: 'Operating',
+          Capital: 'Capital',
+          Project: 'Project',
+          Department: 'Department',
+          Revenue: 'Revenue',
+        };
+        const statusMap: Record<string, Budget['status']> = {
+          Draft: 'Draft',
+          Submitted: 'Draft',
+          Approved: 'Approved',
+          Active: 'Active',
+          Closed: 'Closed',
+          Revised: 'Active',
+        };
+        const mapped: Budget[] = raw.map((b) => ({
+          id: b.id,
+          budgetCode: b.budgetCode,
+          budgetName: b.budgetName,
+          fiscalYear: b.fiscalYear ?? '',
+          department: b.department ?? '',
+          costCenter: b.costCenter ?? '',
+          budgetType: typeMap[b.budgetType] ?? 'Operating',
+          totalBudget: Number(b.totalBudget ?? 0),
+          allocated: Number(b.allocated ?? b.totalBudget ?? 0),
+          spent: Number(b.spent ?? 0),
+          remaining: Number(b.remaining ?? 0),
+          variance: Number(b.variance ?? 0),
+          variancePercent: Number(b.variancePercent ?? 0),
+          status: statusMap[b.status] ?? 'Draft',
+          startDate: b.startDate ?? '',
+          endDate: b.endDate ?? '',
+          approvedBy: b.approvedBy ?? undefined,
+          approvedDate: b.approvedDate ?? undefined,
+          revisions: Number(b.revisions ?? 0),
+        }));
+        if (!cancelled) setBudgets(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load budgets');
+          setBudgets([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Handler Functions
   const handleCreateBudget = () => {
@@ -568,6 +464,19 @@ export default function BudgetsPage() {
             {isCreating ? 'Creating...' : 'Create Budget'}
           </button>
         </div>
+
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+            Loading budgets…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

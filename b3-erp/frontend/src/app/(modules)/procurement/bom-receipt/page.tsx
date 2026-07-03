@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
     ArrowLeft,
@@ -13,6 +13,7 @@ import {
     AlertCircle,
     ShoppingCart,
 } from 'lucide-react';
+import { procurementBomReceiptService } from '@/services/procurement-bom-receipt.service';
 
 interface BOMReceipt {
     id: string;
@@ -32,74 +33,54 @@ interface BOMReceipt {
     poNumber?: string;
 }
 
-const mockBOMReceipts: BOMReceipt[] = [
-    {
-        id: '1',
-        bomCode: 'BOM-KIT-001',
-        productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-        submittedBy: 'Technical Lead',
-        submittedDate: '2025-01-20',
-        status: 'PO Created',
-        itemsCount: 24,
-        totalValue: 125000,
-        category: {
-            accessories: 8,
-            fittings: 6,
-            materials: 10,
-        },
-        prNumber: 'PR-2025-001',
-        poNumber: 'PO-2024-001',
-    },
-    {
-        id: '2',
-        bomCode: 'BOM-KIT-003',
-        productName: 'Granite Composite Sink - Single Bowl',
-        submittedBy: 'Technical Lead',
-        submittedDate: '2025-01-21',
-        status: 'PR Generated',
-        itemsCount: 15,
-        totalValue: 45000,
-        category: {
-            accessories: 5,
-            fittings: 4,
-            materials: 6,
-        },
-        prNumber: 'PR-2025-002',
-    },
-    {
-        id: '3',
-        bomCode: 'BOM-KIT-008',
-        productName: 'Pull-Down Kitchen Faucet - Brushed Nickel',
-        submittedBy: 'Technical Lead',
-        submittedDate: '2025-01-22',
-        status: 'In Progress',
-        itemsCount: 22,
-        totalValue: 67500,
-        category: {
-            accessories: 8,
-            fittings: 10,
-            materials: 4,
-        },
-    },
-    {
-        id: '4',
-        bomCode: 'BOM-HVAC-015',
-        productName: 'Commercial Exhaust Hood System',
-        submittedBy: 'Technical Lead',
-        submittedDate: '2025-01-19',
-        status: 'Received',
-        itemsCount: 35,
-        totalValue: 285000,
-        category: {
-            accessories: 12,
-            fittings: 15,
-            materials: 8,
-        },
-    },
-];
-
 export default function BOMReceiptPage() {
-    const [receipts] = useState<BOMReceipt[]>(mockBOMReceipts);
+    const [receipts, setReceipts] = useState<BOMReceipt[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await procurementBomReceiptService.getReceipts();
+                const mapped: BOMReceipt[] = raw.map((r) => ({
+                    id: r.id,
+                    bomCode: r.bomCode,
+                    productName: r.productName,
+                    submittedBy: r.submittedBy ?? '',
+                    submittedDate: r.submittedDate
+                        ? String(r.submittedDate).slice(0, 10)
+                        : '',
+                    status: (r.status as BOMReceipt['status']) ?? 'Received',
+                    itemsCount: Number(r.itemsCount ?? 0),
+                    totalValue: Number(r.totalValue ?? 0),
+                    category: {
+                        accessories: Number(r.accessoriesCount ?? 0),
+                        fittings: Number(r.fittingsCount ?? 0),
+                        materials: Number(r.materialsCount ?? 0),
+                    },
+                    prNumber: r.prNumber || undefined,
+                    poNumber: r.poNumber || undefined,
+                }));
+                if (!cancelled) setReceipts(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(
+                        err instanceof Error ? err.message : 'Failed to load BOM receipts',
+                    );
+                    setReceipts([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -202,6 +183,24 @@ export default function BOMReceiptPage() {
                         </div>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading BOM receipts…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && receipts.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        No BOM receipts found.
+                    </div>
+                )}
 
                 {/* BOMs List */}
                 <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

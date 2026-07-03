@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -40,128 +41,31 @@ export default function PreventiveMaintenancePage() {
   const [filterFrequency, setFilterFrequency] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const maintenanceTasks: PreventiveMaintenance[] = [
-    {
-      id: 'PM-001',
-      equipmentCode: 'CNC-CUT-01',
-      equipmentName: 'CNC Cutting Machine #1',
-      taskType: 'inspection',
-      frequency: 'weekly',
-      lastCompleted: '2025-10-13',
-      nextDue: '2025-10-20',
-      estimatedDuration: 2,
-      assignedTo: 'Sunil Technician',
-      status: 'scheduled',
-      priority: 'high',
-      checklistItems: 15,
-      completedItems: 0
-    },
-    {
-      id: 'PM-002',
-      equipmentCode: 'WELD-ST-01',
-      equipmentName: 'TIG Welding Station #1',
-      taskType: 'calibration',
-      frequency: 'monthly',
-      lastCompleted: '2025-09-15',
-      nextDue: '2025-10-15',
-      estimatedDuration: 4,
-      assignedTo: 'Ramesh Technician',
-      status: 'overdue',
-      priority: 'critical',
-      checklistItems: 12,
-      completedItems: 0
-    },
-    {
-      id: 'PM-003',
-      equipmentCode: 'POLISH-01',
-      equipmentName: 'Polishing Machine #1',
-      taskType: 'lubrication',
-      frequency: 'weekly',
-      lastCompleted: '2025-10-18',
-      nextDue: '2025-10-25',
-      estimatedDuration: 1.5,
-      assignedTo: 'Maintenance Team A',
-      status: 'scheduled',
-      priority: 'medium',
-      checklistItems: 8,
-      completedItems: 0
-    },
-    {
-      id: 'PM-004',
-      equipmentCode: 'PAINT-BOOTH-01',
-      equipmentName: 'Powder Coating Booth #1',
-      taskType: 'cleaning',
-      frequency: 'daily',
-      lastCompleted: '2025-10-19',
-      nextDue: '2025-10-20',
-      estimatedDuration: 1,
-      assignedTo: 'Cleaning Crew',
-      status: 'in-progress',
-      priority: 'medium',
-      checklistItems: 6,
-      completedItems: 4
-    },
-    {
-      id: 'PM-005',
-      equipmentCode: 'PRESS-HYDRO-01',
-      equipmentName: 'Hydraulic Press Machine',
-      taskType: 'replacement',
-      frequency: 'quarterly',
-      lastCompleted: '2025-07-15',
-      nextDue: '2025-10-15',
-      estimatedDuration: 6,
-      assignedTo: 'Senior Tech Team',
-      status: 'overdue',
-      priority: 'high',
-      checklistItems: 20,
-      completedItems: 0
-    },
-    {
-      id: 'PM-006',
-      equipmentCode: 'LASER-CUT-02',
-      equipmentName: 'Laser Cutting Machine #2',
-      taskType: 'inspection',
-      frequency: 'weekly',
-      lastCompleted: '2025-10-15',
-      nextDue: '2025-10-22',
-      estimatedDuration: 2.5,
-      assignedTo: 'Sunil Technician',
-      status: 'scheduled',
-      priority: 'high',
-      checklistItems: 18,
-      completedItems: 0
-    },
-    {
-      id: 'PM-007',
-      equipmentCode: 'ASSY-LINE-01',
-      equipmentName: 'Assembly Conveyor Line #1',
-      taskType: 'lubrication',
-      frequency: 'monthly',
-      lastCompleted: '2025-09-20',
-      nextDue: '2025-10-20',
-      estimatedDuration: 3,
-      assignedTo: 'Maintenance Team B',
-      status: 'scheduled',
-      priority: 'critical',
-      checklistItems: 14,
-      completedItems: 0
-    },
-    {
-      id: 'PM-008',
-      equipmentCode: 'FORK-LIFT-03',
-      equipmentName: 'Forklift #3',
-      taskType: 'inspection',
-      frequency: 'monthly',
-      lastCompleted: '2025-09-25',
-      nextDue: '2025-10-25',
-      estimatedDuration: 1.5,
-      assignedTo: 'Fleet Technician',
-      status: 'scheduled',
-      priority: 'low',
-      checklistItems: 10,
-      completedItems: 0
-    }
-  ];
+  const [maintenanceTasks, setMaintenanceTasks] = useState<PreventiveMaintenance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getPreventiveMaintenance()) as any[];
+        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          ...d,
+          id: String(d?.id ?? i),
+        })) as unknown as PreventiveMaintenance[];
+        if (!cancelled) setMaintenanceTasks(mapped);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredTasks = maintenanceTasks.filter(task => {
     const matchesSearch =

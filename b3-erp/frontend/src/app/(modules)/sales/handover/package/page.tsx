@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { salesHandoverService } from '@/services/sales-handover.service';
 import {
     Package,
     FileText,
@@ -33,84 +34,71 @@ interface HandoverPackage {
     documents: PackageDocument[];
 }
 
-const mockPackage: HandoverPackage = {
-    projectId: 'PRJ-2025-001',
-    projectNumber: 'PRJ-2025-001',
-    projectName: 'Taj Hotels - Commercial Kitchen Setup',
-    customer: 'Taj Hotels Limited',
-    createdDate: '2025-01-10',
-    completionPercentage: 87,
-    documents: [
-        {
-            id: '1',
-            name: 'Project Confirmation Email / Signed PO',
-            type: 'Contract',
-            status: 'Available',
-            uploadDate: '2025-01-10',
-            uploadedBy: 'Sales Team',
-        },
-        {
-            id: '2',
-            name: 'Customer Details & Contact Information',
-            type: 'Customer Profile',
-            status: 'Available',
-            uploadDate: '2025-01-10',
-            uploadedBy: 'CRM System',
-        },
-        {
-            id: '3',
-            name: 'Bill of Quantities (BOQ)',
-            type: 'BOQ',
-            status: 'Available',
-            uploadDate: '2025-01-11',
-            uploadedBy: 'Sales Team',
-        },
-        {
-            id: '4',
-            name: 'Layout Drawings',
-            type: 'Drawing',
-            status: 'Available',
-            uploadDate: '2025-01-12',
-            uploadedBy: 'Design Team',
-        },
-        {
-            id: '5',
-            name: '3D Renders / Visualizations',
-            type: 'Media',
-            status: 'Available',
-            uploadDate: '2025-01-12',
-            uploadedBy: 'Design Team',
-        },
-        {
-            id: '6',
-            name: 'Kitchen Appliance Specifications',
-            type: 'Specification',
-            status: 'Available',
-            uploadDate: '2025-01-10',
-            uploadedBy: 'Sales Team',
-        },
-        {
-            id: '7',
-            name: 'Client Requested Completion Date',
-            type: 'Timeline',
-            status: 'Available',
-            uploadDate: '2025-01-10',
-            uploadedBy: 'Sales Team',
-        },
-        {
-            id: '8',
-            name: 'Sales Person Handover Notes',
-            type: 'Notes',
-            status: 'Missing',
-        },
-    ],
+const EMPTY_PACKAGE: HandoverPackage = {
+    projectId: '',
+    projectNumber: '',
+    projectName: '',
+    customer: '',
+    createdDate: '',
+    completionPercentage: 0,
+    documents: [],
 };
 
 export default function HandoverPackagePage() {
-    const [packageData, setPackageData] = useState<HandoverPackage>(mockPackage);
+    const [packageData, setPackageData] = useState<HandoverPackage>(EMPTY_PACKAGE);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [showNoteModal, setShowNoteModal] = useState(false);
     const [currentNote, setCurrentNote] = useState('');
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await salesHandoverService.getPackageDocuments();
+                const documents: PackageDocument[] = raw.map((d) => ({
+                    id: d.id,
+                    name: d.name,
+                    type: d.type ?? '',
+                    status: (d.status as PackageDocument['status']) ?? 'Missing',
+                    uploadDate: d.uploadDate ?? undefined,
+                    uploadedBy: d.uploadedBy ?? undefined,
+                    content: d.content ?? undefined,
+                }));
+                const first = raw[0];
+                const available = documents.filter((d) => d.status === 'Available').length;
+                if (!cancelled) {
+                    setPackageData({
+                        projectId: first?.projectId ?? '',
+                        projectNumber: first?.projectNumber ?? '',
+                        projectName: first?.projectName ?? '',
+                        customer: first?.customer ?? '',
+                        createdDate: first?.createdAt
+                            ? String(first.createdAt).split('T')[0]
+                            : '',
+                        completionPercentage: documents.length
+                            ? Math.round((available / documents.length) * 100)
+                            : 0,
+                        documents,
+                    });
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load handover package');
+                    setPackageData(EMPTY_PACKAGE);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const availableDocs = packageData.documents.filter((d) => d.status === 'Available').length;
     const totalDocs = packageData.documents.length;
@@ -215,6 +203,18 @@ export default function HandoverPackagePage() {
                         </div>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-3 text-sm text-gray-500">
+                        Loading handover package...
+                    </div>
+                )}
+
+                {!isLoading && loadError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+                        {loadError}
+                    </div>
+                )}
 
                 {/* Progress Overview */}
                 <div className="bg-white rounded-lg border border-gray-200 p-3">

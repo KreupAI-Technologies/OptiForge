@@ -313,3 +313,34 @@ CREATE TABLE IF NOT EXISTS "support_scheduled_changes" (
   "updatedAt" timestamp NOT NULL DEFAULT now(),
   CONSTRAINT "PK_support_scheduled_changes" PRIMARY KEY ("id")
 );
+
+-- Backs /support/omnichannel (unified inbox). Each row is a support
+-- conversation/interaction across a channel (email/chat/phone/social/whatsapp).
+-- Entity: src/modules/support/entities/omnichannel-interaction.entity.ts
+CREATE TABLE IF NOT EXISTS "support_omnichannel_interactions" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "ticketId" varchar NOT NULL,
+  "subject" varchar NOT NULL,
+  "customerName" varchar NOT NULL,
+  "customerEmail" varchar,
+  "customerAvatar" varchar,
+  "channel" varchar NOT NULL DEFAULT 'email',
+  "lastMessage" text,
+  "lastMessageTime" varchar,
+  "unreadCount" integer NOT NULL DEFAULT 0,
+  "priority" varchar NOT NULL DEFAULT 'medium',
+  "status" varchar NOT NULL DEFAULT 'open',
+  "assignedToName" varchar,
+  "assignedToAvatar" varchar,
+  "tags" json,
+  "starred" boolean NOT NULL DEFAULT false,
+  "hasAttachments" boolean NOT NULL DEFAULT false,
+  "slaDeadline" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_omnichannel_interactions" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_omnichannel_interactions_company"
+  ON "support_omnichannel_interactions" ("companyId");

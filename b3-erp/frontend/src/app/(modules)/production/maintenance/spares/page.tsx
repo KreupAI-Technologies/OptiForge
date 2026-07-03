@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -44,188 +45,31 @@ export default function SparePartsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
 
-  const spareParts: SparePart[] = [
-    {
-      id: '1',
-      partNumber: 'SP-EL-2401',
-      partName: 'Motor Bearing - 6205 2RS',
-      category: 'mechanical',
-      equipmentCompatibility: ['POLISH-01', 'WELD-ST-01', 'CNC-CUT-01'],
-      quantityInStock: 5,
-      minimumStock: 10,
-      reorderPoint: 8,
-      unit: 'pcs',
-      unitCost: 850,
-      location: 'Warehouse A - Shelf 12',
-      supplier: 'SKF Bearings India',
-      leadTime: 7,
-      lastPurchaseDate: '2025-09-15',
-      usageRate: 3,
-      status: 'critical'
-    },
-    {
-      id: '2',
-      partNumber: 'SP-HY-1202',
-      partName: 'Hydraulic Seal Kit - Press',
-      category: 'hydraulic',
-      equipmentCompatibility: ['PRESS-HYDRO-01'],
-      quantityInStock: 2,
-      minimumStock: 3,
-      reorderPoint: 2,
-      unit: 'set',
-      unitCost: 4500,
-      location: 'Warehouse A - Shelf 8',
-      supplier: 'Parker Hannifin',
-      leadTime: 14,
-      lastPurchaseDate: '2025-10-01',
-      usageRate: 0.5,
-      status: 'low'
-    },
-    {
-      id: '3',
-      partNumber: 'SP-EL-3305',
-      partName: 'Variable Frequency Drive - 5HP',
-      category: 'electronics',
-      equipmentCompatibility: ['PAINT-BOOTH-01', 'ASSY-LINE-01'],
-      quantityInStock: 1,
-      minimumStock: 2,
-      reorderPoint: 1,
-      unit: 'pcs',
-      unitCost: 18500,
-      location: 'Electronics Store - Cabinet 3',
-      supplier: 'ABB India',
-      leadTime: 21,
-      lastPurchaseDate: '2025-08-20',
-      usageRate: 0.2,
-      status: 'low'
-    },
-    {
-      id: '4',
-      partNumber: 'SP-ME-4501',
-      partName: 'CNC Cutting Blade Set',
-      category: 'mechanical',
-      equipmentCompatibility: ['CNC-CUT-01', 'LASER-CUT-02'],
-      quantityInStock: 0,
-      minimumStock: 5,
-      reorderPoint: 3,
-      unit: 'set',
-      unitCost: 6200,
-      location: 'Warehouse A - Shelf 15',
-      supplier: 'Sandvik Coromant',
-      leadTime: 10,
-      lastPurchaseDate: '2025-09-28',
-      usageRate: 2,
-      status: 'out-of-stock'
-    },
-    {
-      id: '5',
-      partNumber: 'SP-CO-5602',
-      partName: 'Air Filter Cartridge - Booth',
-      category: 'consumables',
-      equipmentCompatibility: ['PAINT-BOOTH-01'],
-      quantityInStock: 15,
-      minimumStock: 8,
-      reorderPoint: 10,
-      unit: 'pcs',
-      unitCost: 1200,
-      location: 'Warehouse B - Section 2',
-      supplier: 'Donaldson Filters',
-      leadTime: 5,
-      lastPurchaseDate: '2025-10-10',
-      usageRate: 4,
-      status: 'adequate'
-    },
-    {
-      id: '6',
-      partNumber: 'SP-EL-6703',
-      partName: 'Contactor - 25A 3-Phase',
-      category: 'electrical',
-      equipmentCompatibility: ['WELD-ST-01', 'POLISH-01', 'PRESS-HYDRO-01'],
-      quantityInStock: 8,
-      minimumStock: 6,
-      reorderPoint: 4,
-      unit: 'pcs',
-      unitCost: 950,
-      location: 'Electrical Store - Bin 5',
-      supplier: 'Schneider Electric',
-      leadTime: 7,
-      lastPurchaseDate: '2025-09-25',
-      usageRate: 1.5,
-      status: 'adequate'
-    },
-    {
-      id: '7',
-      partNumber: 'SP-PN-7801',
-      partName: 'Pneumatic Cylinder - 100mm',
-      category: 'pneumatic',
-      equipmentCompatibility: ['ASSY-LINE-01'],
-      quantityInStock: 3,
-      minimumStock: 4,
-      reorderPoint: 3,
-      unit: 'pcs',
-      unitCost: 3200,
-      location: 'Warehouse A - Shelf 6',
-      supplier: 'Festo India',
-      leadTime: 12,
-      lastPurchaseDate: '2025-09-12',
-      usageRate: 0.8,
-      status: 'low'
-    },
-    {
-      id: '8',
-      partNumber: 'SP-CO-8904',
-      partName: 'Hydraulic Oil - 68 Grade',
-      category: 'consumables',
-      equipmentCompatibility: ['PRESS-HYDRO-01'],
-      quantityInStock: 120,
-      minimumStock: 60,
-      reorderPoint: 80,
-      unit: 'liters',
-      unitCost: 45,
-      location: 'Fluid Storage - Tank 3',
-      supplier: 'Shell Lubricants',
-      leadTime: 3,
-      lastPurchaseDate: '2025-10-18',
-      usageRate: 25,
-      status: 'adequate'
-    },
-    {
-      id: '9',
-      partNumber: 'SP-ME-9105',
-      partName: 'Conveyor Chain Link',
-      category: 'mechanical',
-      equipmentCompatibility: ['ASSY-LINE-01'],
-      quantityInStock: 4,
-      minimumStock: 8,
-      reorderPoint: 6,
-      unit: 'meters',
-      unitCost: 850,
-      location: 'Warehouse A - Shelf 10',
-      supplier: 'Renold India',
-      leadTime: 14,
-      lastPurchaseDate: '2025-09-20',
-      usageRate: 2,
-      status: 'critical'
-    },
-    {
-      id: '10',
-      partNumber: 'SP-EL-1006',
-      partName: 'Temperature Sensor - Thermocouple',
-      category: 'electronics',
-      equipmentCompatibility: ['PAINT-BOOTH-01', 'WELD-ST-01'],
-      quantityInStock: 6,
-      minimumStock: 4,
-      reorderPoint: 3,
-      unit: 'pcs',
-      unitCost: 750,
-      location: 'Electronics Store - Cabinet 2',
-      supplier: 'Omega Engineering',
-      leadTime: 10,
-      lastPurchaseDate: '2025-10-05',
-      usageRate: 1,
-      status: 'adequate'
-    }
-  ];
+  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getSpareParts()) as any[];
+        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          ...d,
+          id: String(d?.id ?? i),
+        })) as unknown as SparePart[];
+        if (!cancelled) setSpareParts(mapped);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredParts = spareParts.filter(part => {
     const matchesSearch =

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { FinanceService } from '@/services/finance.service'
 import {
   Wallet,
   TrendingUp,
@@ -51,113 +52,90 @@ interface CashForecast {
   projectedBalance: number
 }
 
+const EMPTY_STATS: CashStats = {
+  totalCash: 0,
+  bankBalance: 0,
+  cashInHand: 0,
+  todayReceipts: 0,
+  todayPayments: 0,
+  netCashFlow: 0,
+  projectedBalance: 0,
+  overdraftLimit: 0
+}
+
 export default function CashManagementDashboard() {
-  const [stats] = useState<CashStats>({
-    totalCash: 15750000,
-    bankBalance: 14500000,
-    cashInHand: 1250000,
-    todayReceipts: 850000,
-    todayPayments: 320000,
-    netCashFlow: 530000,
-    projectedBalance: 16280000,
-    overdraftLimit: 5000000
-  })
+  const [stats, setStats] = useState<CashStats>(EMPTY_STATS)
+  const [recentTransactions, setRecentTransactions] = useState<CashTransaction[]>([])
+  const [cashForecast, setCashForecast] = useState<CashForecast[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [recentTransactions] = useState<CashTransaction[]>([
-    {
-      id: 'CSH-001',
-      date: '2025-10-18',
-      type: 'receipt',
-      category: 'Sales Receipt',
-      description: 'Payment received from ABC Manufacturing Ltd',
-      amount: 500000,
-      balance: 15750000,
-      account: 'Bank - HDFC Current',
-      status: 'cleared'
-    },
-    {
-      id: 'CSH-002',
-      date: '2025-10-18',
-      type: 'payment',
-      description: 'Supplier payment - Raw materials',
-      category: 'Purchase Payment',
-      amount: 250000,
-      balance: 15500000,
-      account: 'Bank - HDFC Current',
-      status: 'cleared'
-    },
-    {
-      id: 'CSH-003',
-      date: '2025-10-17',
-      type: 'receipt',
-      category: 'Sales Receipt',
-      description: 'Cash sales - Direct customer',
-      amount: 125000,
-      balance: 15625000,
-      account: 'Cash In Hand',
-      status: 'reconciled'
-    },
-    {
-      id: 'CSH-004',
-      date: '2025-10-17',
-      type: 'payment',
-      category: 'Operating Expense',
-      description: 'Office rent payment - October 2025',
-      amount: 150000,
-      balance: 15475000,
-      account: 'Bank - HDFC Current',
-      status: 'reconciled'
-    },
-    {
-      id: 'CSH-005',
-      date: '2025-10-16',
-      type: 'receipt',
-      category: 'Sales Receipt',
-      description: 'Customer payment - Invoice INV-2025-123',
-      amount: 750000,
-      balance: 15625000,
-      account: 'Bank - ICICI Current',
-      status: 'pending'
-    }
-  ])
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const res = (await FinanceService.getCashDashboard()) as any
+        const s = res?.stats ?? {}
+        const mappedStats: CashStats = {
+          // Backend exposes currentBalance/totalInflow/totalOutflow/netCashFlow/
+          // forecastInflow/forecastOutflow/projectedBalance. Map to the page model;
+          // fields with no backend source (bankBalance split, cashInHand, overdraftLimit)
+          // fall back sensibly.
+          totalCash: Number(s.currentBalance ?? 0),
+          bankBalance: Number(s.currentBalance ?? 0),
+          cashInHand: Number(s.cashInHand ?? 0),
+          todayReceipts: Number(s.totalInflow ?? 0),
+          todayPayments: Number(s.totalOutflow ?? 0),
+          netCashFlow: Number(s.netCashFlow ?? 0),
+          projectedBalance: Number(s.projectedBalance ?? 0),
+          overdraftLimit: Number(s.overdraftLimit ?? 0)
+        }
 
-  const [cashForecast] = useState<CashForecast[]>([
-    {
-      date: '2025-10-19',
-      expectedReceipts: 1200000,
-      expectedPayments: 650000,
-      netFlow: 550000,
-      projectedBalance: 16300000
-    },
-    {
-      date: '2025-10-20',
-      expectedReceipts: 850000,
-      expectedPayments: 1200000,
-      netFlow: -350000,
-      projectedBalance: 15950000
-    },
-    {
-      date: '2025-10-21',
-      expectedReceipts: 950000,
-      expectedPayments: 480000,
-      netFlow: 470000,
-      projectedBalance: 16420000
-    },
-    {
-      date: '2025-10-22',
-      expectedReceipts: 1500000,
-      expectedPayments: 850000,
-      netFlow: 650000,
-      projectedBalance: 17070000
-    },
-    {
-      date: '2025-10-23',
-      expectedReceipts: 680000,
-      expectedPayments: 920000,
-      netFlow: -240000,
-      projectedBalance: 16830000
+        const rawTxns: any[] = Array.isArray(res?.transactions) ? res.transactions : []
+        const mappedTxns: CashTransaction[] = rawTxns.map((t) => ({
+          id: t.id ?? t.transactionNumber,
+          date: t.date,
+          type: (t.type ?? 'receipt') as any,
+          category: t.category ?? '',
+          description: t.description ?? '',
+          amount: Number(t.amount ?? 0),
+          balance: Number(t.balance ?? 0),
+          account: t.account ?? t.party ?? '',
+          status: (t.status ?? 'pending') as any
+        }))
+
+        const rawForecast: any[] = Array.isArray(res?.forecast) ? res.forecast : []
+        const mappedForecast: CashForecast[] = rawForecast.map((f) => ({
+          date: f.period ?? f.date ?? '',
+          expectedReceipts: Number(f.expectedReceipts ?? 0),
+          expectedPayments: Number(f.expectedPayments ?? 0),
+          netFlow: Number(f.netFlow ?? 0),
+          projectedBalance: Number(f.projectedBalance ?? 0)
+        }))
+
+        if (!cancelled) {
+          setStats(mappedStats)
+          setRecentTransactions(mappedTxns)
+          setCashForecast(mappedForecast)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cash dashboard')
+          setStats(EMPTY_STATS)
+          setRecentTransactions([])
+          setCashForecast([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -192,6 +170,21 @@ export default function CashManagementDashboard() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full p-3">
           <div className="w-full space-y-3">
+            {/* Loading Banner */}
+            {isLoading && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                Loading cash dashboard...
+              </div>
+            )}
+
+            {/* Error Banner */}
+            {loadError && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{loadError}</span>
+              </div>
+            )}
+
             {/* Header Action */}
             <div className="flex items-center justify-end">
               <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md">

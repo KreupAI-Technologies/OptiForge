@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Users,
@@ -13,8 +13,10 @@ import {
   Download,
   Wrench,
   Activity,
-  Award
+  Award,
+  AlertCircle
 } from 'lucide-react'
+import { estimationLaborCostService } from '@/services/estimation-labor-cost.service'
 
 interface LaborRate {
   id: string
@@ -46,222 +48,90 @@ interface DepartmentStats {
 export default function LaborCostingPage() {
   const router = useRouter()
 
-  const [laborRates] = useState<LaborRate[]>([
-    {
-      id: 'LAB-001',
-      skillCode: 'WELD-SS',
-      skillName: 'Stainless Steel Welder',
-      department: 'Sink Manufacturing',
-      category: 'direct',
-      standardRate: 450,
-      actualRate: 485,
-      overtimeRate: 727.5,
-      variance: 35,
-      variancePercent: 7.8,
-      headcount: 12,
-      avgHoursPerMonth: 208,
-      efficiency: 92,
-      utilization: 88,
-      status: 'over-budget'
-    },
-    {
-      id: 'LAB-002',
-      skillCode: 'MACH-CNC',
-      skillName: 'CNC Machine Operator',
-      department: 'Faucet Manufacturing',
-      category: 'direct',
-      standardRate: 520,
-      actualRate: 515,
-      overtimeRate: 772.5,
-      variance: -5,
-      variancePercent: -0.96,
-      headcount: 8,
-      avgHoursPerMonth: 208,
-      efficiency: 95,
-      utilization: 92,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-003',
-      skillCode: 'POLISH-CHR',
-      skillName: 'Chrome Polishing Specialist',
-      department: 'Finishing',
-      category: 'direct',
-      standardRate: 380,
-      actualRate: 380,
-      overtimeRate: 570,
-      variance: 0,
-      variancePercent: 0,
-      headcount: 6,
-      avgHoursPerMonth: 208,
-      efficiency: 88,
-      utilization: 85,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-004',
-      skillCode: 'ASSY-FAUCET',
-      skillName: 'Faucet Assembly Technician',
-      department: 'Faucet Manufacturing',
-      category: 'direct',
-      standardRate: 340,
-      actualRate: 365,
-      overtimeRate: 547.5,
-      variance: 25,
-      variancePercent: 7.4,
-      headcount: 15,
-      avgHoursPerMonth: 208,
-      efficiency: 90,
-      utilization: 94,
-      status: 'over-budget'
-    },
-    {
-      id: 'LAB-005',
-      skillCode: 'CAST-ALUM',
-      skillName: 'Aluminum Casting Operator',
-      department: 'Cookware Manufacturing',
-      category: 'direct',
-      standardRate: 420,
-      actualRate: 410,
-      overtimeRate: 615,
-      variance: -10,
-      variancePercent: -2.4,
-      headcount: 10,
-      avgHoursPerMonth: 208,
-      efficiency: 94,
-      utilization: 90,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-006',
-      skillCode: 'QC-INSP',
-      skillName: 'Quality Control Inspector',
-      department: 'Quality Assurance',
-      category: 'indirect',
-      standardRate: 480,
-      actualRate: 490,
-      overtimeRate: 735,
-      variance: 10,
-      variancePercent: 2.1,
-      headcount: 8,
-      avgHoursPerMonth: 208,
-      efficiency: 96,
-      utilization: 87,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-007',
-      skillCode: 'CARP-CAB',
-      skillName: 'Cabinet Carpenter',
-      department: 'Cabinet Manufacturing',
-      category: 'direct',
-      standardRate: 460,
-      actualRate: 475,
-      overtimeRate: 712.5,
-      variance: 15,
-      variancePercent: 3.3,
-      headcount: 9,
-      avgHoursPerMonth: 208,
-      efficiency: 89,
-      utilization: 91,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-008',
-      skillCode: 'STONE-CUT',
-      skillName: 'Stone Cutting Specialist',
-      department: 'Countertop Manufacturing',
-      category: 'direct',
-      standardRate: 550,
-      actualRate: 580,
-      overtimeRate: 870,
-      variance: 30,
-      variancePercent: 5.5,
-      headcount: 5,
-      avgHoursPerMonth: 208,
-      efficiency: 93,
-      utilization: 89,
-      status: 'over-budget'
-    },
-    {
-      id: 'LAB-009',
-      skillCode: 'PAINT-IND',
-      skillName: 'Industrial Painter',
-      department: 'Finishing',
-      category: 'direct',
-      standardRate: 360,
-      actualRate: 355,
-      overtimeRate: 532.5,
-      variance: -5,
-      variancePercent: -1.4,
-      headcount: 7,
-      avgHoursPerMonth: 208,
-      efficiency: 87,
-      utilization: 82,
-      status: 'under-utilized'
-    },
-    {
-      id: 'LAB-010',
-      skillCode: 'MAINT-MECH',
-      skillName: 'Maintenance Mechanic',
-      department: 'Maintenance',
-      category: 'indirect',
-      standardRate: 500,
-      actualRate: 510,
-      overtimeRate: 765,
-      variance: 10,
-      variancePercent: 2.0,
-      headcount: 6,
-      avgHoursPerMonth: 208,
-      efficiency: 91,
-      utilization: 75,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-011',
-      skillCode: 'SUPV-PROD',
-      skillName: 'Production Supervisor',
-      department: 'Production',
-      category: 'supervision',
-      standardRate: 680,
-      actualRate: 695,
-      overtimeRate: 1042.5,
-      variance: 15,
-      variancePercent: 2.2,
-      headcount: 4,
-      avgHoursPerMonth: 208,
-      efficiency: 98,
-      utilization: 95,
-      status: 'optimal'
-    },
-    {
-      id: 'LAB-012',
-      skillCode: 'PACK-SHIP',
-      skillName: 'Packing & Shipping Staff',
-      department: 'Logistics',
-      category: 'indirect',
-      standardRate: 280,
-      actualRate: 285,
-      overtimeRate: 427.5,
-      variance: 5,
-      variancePercent: 1.8,
-      headcount: 10,
-      avgHoursPerMonth: 208,
-      efficiency: 85,
-      utilization: 90,
-      status: 'optimal'
-    }
-  ])
+  const [laborRates, setLaborRates] = useState<LaborRate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [departmentStats] = useState<DepartmentStats[]>([
-    { department: 'Sink Manufacturing', totalWorkers: 18, avgRate: 442, totalCost: 1654560, efficiency: 91, utilization: 88 },
-    { department: 'Faucet Manufacturing', totalWorkers: 23, avgRate: 438, totalCost: 2095344, efficiency: 93, utilization: 93 },
-    { department: 'Cookware Manufacturing', totalWorkers: 15, avgRate: 405, totalCost: 1263600, efficiency: 92, utilization: 89 },
-    { department: 'Cabinet Manufacturing', totalWorkers: 12, avgRate: 468, totalCost: 1166976, efficiency: 89, utilization: 90 },
-    { department: 'Countertop Manufacturing', totalWorkers: 8, avgRate: 565, totalCost: 939520, efficiency: 94, utilization: 91 },
-    { department: 'Finishing', totalWorkers: 13, avgRate: 370, totalCost: 1000880, efficiency: 87, utilization: 84 },
-    { department: 'Quality Assurance', totalWorkers: 8, avgRate: 490, totalCost: 815680, efficiency: 96, utilization: 87 }
-  ])
+  const AVG_HOURS_PER_MONTH = 208
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw ORM shape (decimals come back as strings).
+        // Map onto the page's LaborRate; page-only fields are defaulted.
+        const raw = (await estimationLaborCostService.getRates()) as any[]
+        const categoryMap: Record<string, LaborRate['category']> = {
+          direct: 'direct',
+          indirect: 'indirect',
+          supervision: 'supervision',
+        }
+        const statusMap: Record<string, LaborRate['status']> = {
+          optimal: 'optimal',
+          'over-budget': 'over-budget',
+          'under-utilized': 'under-utilized',
+        }
+        const mapped: LaborRate[] = raw.map((r) => ({
+          id: String(r.id),
+          skillCode: r.skill ?? '',
+          skillName: r.skill ?? '',
+          department: r.department ?? '',
+          category: categoryMap[String(r.level ?? '').toLowerCase()] ?? 'direct',
+          standardRate: Number(r.standardRate ?? 0),
+          actualRate: Number(r.standardRate ?? 0),
+          overtimeRate: Number(r.overtimeRate ?? 0),
+          variance: 0,
+          variancePercent: 0,
+          headcount: 0,
+          avgHoursPerMonth: AVG_HOURS_PER_MONTH,
+          efficiency: Number(r.efficiency ?? 0),
+          utilization: Number(r.utilization ?? 0),
+          status: statusMap[String(r.status ?? '').toLowerCase()] ?? 'optimal',
+        }))
+        if (!cancelled) setLaborRates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load labor rates')
+          setLaborRates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Aggregate department stats from the fetched labor rates.
+  const departmentStats: DepartmentStats[] = (() => {
+    const byDept = new Map<string, LaborRate[]>()
+    laborRates.forEach((l) => {
+      const key = l.department || 'Unassigned'
+      if (!byDept.has(key)) byDept.set(key, [])
+      byDept.get(key)!.push(l)
+    })
+    return Array.from(byDept.entries()).map(([department, rows]) => {
+      const totalWorkers = rows.reduce((s, r) => s + r.headcount, 0)
+      const avgRate = rows.length
+        ? Math.round(rows.reduce((s, r) => s + r.actualRate, 0) / rows.length)
+        : 0
+      const totalCost = rows.reduce(
+        (s, r) => s + r.actualRate * r.headcount * r.avgHoursPerMonth,
+        0,
+      )
+      const efficiency = rows.length
+        ? Math.round(rows.reduce((s, r) => s + r.efficiency, 0) / rows.length)
+        : 0
+      const utilization = rows.length
+        ? Math.round(rows.reduce((s, r) => s + r.utilization, 0) / rows.length)
+        : 0
+      return { department, totalWorkers, avgRate, totalCost, efficiency, utilization }
+    })
+  })()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -297,8 +167,8 @@ export default function LaborCostingPage() {
   }
 
   const totalWorkers = laborRates.reduce((sum, l) => sum + l.headcount, 0)
-  const avgEfficiency = laborRates.reduce((sum, l) => sum + l.efficiency, 0) / laborRates.length
-  const avgUtilization = laborRates.reduce((sum, l) => sum + l.utilization, 0) / laborRates.length
+  const avgEfficiency = laborRates.length ? laborRates.reduce((sum, l) => sum + l.efficiency, 0) / laborRates.length : 0
+  const avgUtilization = laborRates.length ? laborRates.reduce((sum, l) => sum + l.utilization, 0) / laborRates.length : 0
   const overBudgetCount = laborRates.filter(l => l.status === 'over-budget').length
 
   const totalMonthlyCost = laborRates.reduce((sum, l) => sum + (l.actualRate * l.headcount * l.avgHoursPerMonth), 0)
@@ -330,6 +200,19 @@ export default function LaborCostingPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading labor rates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

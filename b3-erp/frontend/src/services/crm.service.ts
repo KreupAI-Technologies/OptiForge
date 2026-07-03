@@ -966,6 +966,115 @@ export const crmService = {
     getWon: () => request<any>('/crm/opportunities-views/won'),
     getLost: () => request<any>('/crm/opportunities-views/lost'),
   },
+
+  // ===========================
+  // CAMPAIGN AUTOMATIONS (follow-up pass)
+  // ===========================
+  campaignAutomations: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/campaign-automations${buildQueryParams({ companyId })}`),
+    getById: (id: string) => request<any>(`/crm/campaign-automations/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/campaign-automations', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/campaign-automations/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/campaign-automations/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // APPROVAL WORKFLOWS (follow-up pass — settings/approval-workflows)
+  // ===========================
+  approvalWorkflows: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/approval-workflows${buildQueryParams({ companyId })}`),
+    getById: (id: string) => request<any>(`/crm/approval-workflows/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/approval-workflows', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/approval-workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/approval-workflows/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CUSTOM FIELDS (follow-up pass — settings/fields)
+  // ===========================
+  customFields: {
+    getAll: (filters?: { companyId?: string; module?: string }) =>
+      request<any[]>(`/crm/custom-fields${buildQueryParams(filters || {})}`),
+    getById: (id: string) => request<any>(`/crm/custom-fields/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/custom-fields', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/custom-fields/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/custom-fields/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // TASKS (follow-up pass — advanced-features/task-management)
+  // ===========================
+  tasks: {
+    getAll: (filters?: { companyId?: string; status?: string; assignedToId?: string }) =>
+      request<any[]>(`/crm/tasks${buildQueryParams(filters || {})}`),
+    getById: (id: string) => request<any>(`/crm/tasks/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/tasks', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/tasks/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // PORTAL USERS (follow-up pass — customers/portal)
+  // ===========================
+  portalUsers: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/portal-users${buildQueryParams({ companyId })}`),
+    getById: (id: string) => request<any>(`/crm/portal-users/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/portal-users', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/portal-users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/portal-users/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // SOCIAL ACCOUNTS (follow-up pass — integrations/social-media)
+  // ===========================
+  socialAccounts: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/social-accounts${buildQueryParams({ companyId })}`),
+    getById: (id: string) => request<any>(`/crm/social-accounts/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/social-accounts', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/social-accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/social-accounts/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // SAVED REPORTS (follow-up pass — analytics/custom)
+  // ===========================
+  savedReports: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/saved-reports${buildQueryParams({ companyId })}`),
+    getById: (id: string) => request<any>(`/crm/saved-reports/${id}`),
+    create: (data: any) =>
+      request<any>('/crm/saved-reports', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      request<any>(`/crm/saved-reports/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) => request<void>(`/crm/saved-reports/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CRM ANALYTICS (follow-up pass — aggregated GETs, no new table)
+  // ===========================
+  analyticsViews: {
+    getCustomers: () => request<any>('/crm/analytics/customers'),
+    getRevenue: () => request<any>('/crm/analytics/revenue'),
+    getTeam: () => request<any>('/crm/analytics/team'),
+    getOverview: () => request<any>('/crm/analytics/overview'),
+    getPipelineForecast: () => request<any>('/crm/analytics/pipeline-forecast'),
+  },
 };
 
 export default crmService;

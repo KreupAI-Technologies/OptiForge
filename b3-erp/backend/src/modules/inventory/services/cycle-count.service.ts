@@ -16,6 +16,102 @@ export class CycleCountService {
     ) { }
 
     /**
+     * List cycle count plans with derived progress/variance/accuracy metrics.
+     * Read-only aggregation over the existing plan + items tables.
+     */
+    async findAll(filters?: { status?: string; search?: string; warehouseId?: string }): Promise<any[]> {
+        const plans = await this.planRepository.find({
+            relations: ['items'],
+            order: { scheduledDate: 'DESC' },
+        });
+
+        let mapped = plans.map((p) => this.toSummary(p));
+
+        if (filters?.status && filters.status !== 'all') {
+            mapped = mapped.filter((c) => c.status === filters.status);
+        }
+        if (filters?.warehouseId) {
+            mapped = mapped.filter((c) => c.warehouseId === filters.warehouseId);
+        }
+        if (filters?.search) {
+            const q = filters.search.toLowerCase();
+            mapped = mapped.filter(
+                (c) =>
+                    (c.countNumber || '').toLowerCase().includes(q) ||
+                    (c.warehouse || '').toLowerCase().includes(q) ||
+                    (c.zone || '').toLowerCase().includes(q),
+            );
+        }
+        return mapped;
+    }
+
+    /**
+     * Fetch a single plan (with items) in the same summary shape.
+     */
+    async findOne(id: string): Promise<any> {
+        const plan = await this.planRepository.findOne({
+            where: { id },
+            relations: ['items'],
+        });
+        if (!plan) throw new NotFoundException('Plan not found');
+        const summary = this.toSummary(plan);
+        summary.items = (plan.items || []).map((i) => ({
+            id: i.id,
+            itemId: i.itemId,
+            itemCode: i.itemCode,
+            itemName: i.itemName,
+            systemQuantity: Number(i.systemQuantity),
+            actualQuantity: i.actualQuantity != null ? Number(i.actualQuantity) : null,
+            isCounted: i.isCounted,
+            countedAt: i.countedAt,
+            remarks: i.remarks,
+        }));
+        return summary;
+    }
+
+    /**
+     * Map a plan + its items into the flat summary the UI dashboard consumes.
+     */
+    private toSummary(p: CycleCountPlan): any {
+        const items = p.items || [];
+        const itemsToCount = items.length;
+        const itemsCounted = items.filter((i) => i.isCounted).length;
+        const variancesFound = items.filter(
+            (i) => i.isCounted && Number(i.actualQuantity) !== Number(i.systemQuantity),
+        ).length;
+
+        // Accuracy = counted items with no variance / counted items (percentage).
+        const accurateCounted = items.filter(
+            (i) => i.isCounted && Number(i.actualQuantity) === Number(i.systemQuantity),
+        ).length;
+        const accuracy = itemsCounted > 0 ? Math.round((accurateCounted / itemsCounted) * 1000) / 10 : 0;
+
+        const statusMap: Record<string, string> = {
+            [CycleCountStatus.SCHEDULED]: 'scheduled',
+            [CycleCountStatus.IN_PROGRESS]: 'in-progress',
+            [CycleCountStatus.COMPLETED]: p.adjustmentId ? 'reconciled' : 'completed',
+            [CycleCountStatus.CANCELLED]: 'scheduled',
+        };
+
+        return {
+            id: p.id,
+            countNumber: p.planNumber,
+            title: p.title,
+            warehouse: p.warehouseName || '',
+            warehouseId: p.warehouseId || null,
+            zone: (Array.isArray(p.itemGroups) && p.itemGroups[0]) || '',
+            countType: p.abcClass ? 'ABC' : 'Full',
+            scheduledDate: p.scheduledDate,
+            assignedTo: p.assignedTo || '',
+            itemsToCount,
+            itemsCounted,
+            variancesFound,
+            status: statusMap[p.status] || 'scheduled',
+            accuracy,
+        };
+    }
+
+    /**
      * Generate a cycle count plan based on warehouse and ABC classification.
      */
     async generatePlan(data: any): Promise<CycleCountPlan> {

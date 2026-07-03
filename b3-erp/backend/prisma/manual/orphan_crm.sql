@@ -412,3 +412,147 @@ CREATE TABLE IF NOT EXISTS "crm_contract_amendments" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
   CONSTRAINT "PK_crm_contract_amendments" PRIMARY KEY ("id")
 );
+
+-- ============================================================================
+-- Follow-up pass: additive tables for remaining mock-only CRM pages.
+-- ADDITIVE ONLY — CREATE TABLE IF NOT EXISTS, never drop/alter existing tables.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS "crm_campaign_automations" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "description" text,
+  "status" varchar NOT NULL DEFAULT 'draft',
+  "trigger" varchar,
+  "triggerType" varchar NOT NULL DEFAULT 'manual',
+  "steps" integer NOT NULL DEFAULT 0,
+  "activeContacts" integer NOT NULL DEFAULT 0,
+  "completedContacts" integer NOT NULL DEFAULT 0,
+  "conversionRate" numeric(8,2) NOT NULL DEFAULT 0,
+  "avgCompletionTime" varchar,
+  "createdDate" varchar,
+  "lastTriggered" varchar,
+  "owner" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_campaign_automations" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "crm_approval_workflows" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "description" text,
+  "type" varchar NOT NULL DEFAULT 'custom',
+  "active" boolean NOT NULL DEFAULT true,
+  "stages" text,
+  "conditions" text,
+  "totalApprovals" integer NOT NULL DEFAULT 0,
+  "pending" integer NOT NULL DEFAULT 0,
+  "approved" integer NOT NULL DEFAULT 0,
+  "rejected" integer NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_approval_workflows" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "crm_custom_fields" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "apiName" varchar,
+  "label" varchar,
+  "description" text,
+  "fieldType" varchar NOT NULL DEFAULT 'text',
+  "module" varchar NOT NULL DEFAULT 'lead',
+  "category" varchar NOT NULL DEFAULT 'custom',
+  "dataType" varchar NOT NULL DEFAULT 'string',
+  "isRequired" boolean NOT NULL DEFAULT false,
+  "isUnique" boolean NOT NULL DEFAULT false,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "isSearchable" boolean NOT NULL DEFAULT true,
+  "isEditable" boolean NOT NULL DEFAULT true,
+  "defaultValue" varchar,
+  "helpText" text,
+  "validation" text,
+  "usage" text,
+  "createdBy" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_custom_fields" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "crm_tasks" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "title" varchar NOT NULL,
+  "description" text,
+  "status" varchar NOT NULL DEFAULT 'todo',
+  "priority" varchar NOT NULL DEFAULT 'medium',
+  "assignedToId" varchar,
+  "assignedToName" varchar,
+  "dueDate" varchar,
+  "createdById" varchar,
+  "createdByName" varchar,
+  "relatedTo" text,
+  "tags" text,
+  "comments" integer NOT NULL DEFAULT 0,
+  "attachments" integer NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_tasks" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "crm_portal_users" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "email" varchar,
+  "customer" varchar,
+  "role" varchar,
+  "status" varchar NOT NULL DEFAULT 'active',
+  "lastLogin" varchar,
+  "accessLevel" varchar,
+  "ticketsCreated" integer NOT NULL DEFAULT 0,
+  "documentsAccessed" integer NOT NULL DEFAULT 0,
+  "permissions" text,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_portal_users" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "crm_social_accounts" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "platform" varchar NOT NULL,
+  "handle" varchar,
+  "status" varchar NOT NULL DEFAULT 'connected',
+  "followers" integer NOT NULL DEFAULT 0,
+  "posts" integer NOT NULL DEFAULT 0,
+  "engagement" numeric(8,2) NOT NULL DEFAULT 0,
+  "leads" integer NOT NULL DEFAULT 0,
+  "lastSync" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_social_accounts" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "crm_saved_reports" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "name" varchar NOT NULL,
+  "description" text,
+  "reportType" varchar NOT NULL DEFAULT 'table',
+  "module" varchar,
+  "category" varchar,
+  "definition" text,
+  "schedule" varchar,
+  "isFavorite" boolean NOT NULL DEFAULT false,
+  "isShared" boolean NOT NULL DEFAULT false,
+  "createdBy" varchar,
+  "lastRun" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_saved_reports" PRIMARY KEY ("id")
+);

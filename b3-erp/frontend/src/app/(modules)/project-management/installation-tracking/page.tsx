@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import { Wrench, CheckCircle, Clock, AlertTriangle, TrendingUp, Calendar, Users, Eye, Plus, Edit, Upload, Package, Link, FileText, Download } from 'lucide-react';
 import {
@@ -77,7 +78,7 @@ export default function InstallationTrackingPage() {
  const [showExportModal, setShowExportModal] = useState(false);
  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
- const mockActivities: InstallationActivity[] = [
+ const [mockActivities, setMockActivities] = useState<InstallationActivity[]>([
   {
    id: 'INST-001',
    activityNumber: 'INST-2025-001',
@@ -438,7 +439,13 @@ export default function InstallationTrackingPage() {
    issues: [],
    delayReason: '',
   },
- ];
+ ]);
+
+ useEffect(() => {
+  projectManagementService.listInstallationActivities()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockActivities(rows as unknown as InstallationActivity[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
 
  const stats = {
   totalActivities: mockActivities.length,

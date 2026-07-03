@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { HelpCircle, Search, Plus, ThumbsUp, ThumbsDown, Eye, ChevronDown, ChevronUp, Filter, TrendingUp } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { HelpCircle, Search, Plus, ThumbsUp, ThumbsDown, Eye, ChevronDown, ChevronUp, Filter, TrendingUp, AlertCircle } from 'lucide-react';
+import { AfterSalesManagementService } from '@/services/after-sales-management.service';
 
 interface FAQ {
   id: string;
@@ -16,139 +17,54 @@ interface FAQ {
   status: 'active' | 'inactive';
 }
 
-const mockFAQs: FAQ[] = [
-  {
-    id: '1',
-    question: 'How do I know if my appliance is still under warranty?',
-    answer: 'You can check your warranty status by logging into your account and navigating to My Products. If you have the purchase receipt, you can also contact our support team with the model number. Generally, standard warranty covers 1-2 years from the date of purchase, depending on the product.',
-    category: 'Warranty',
-    helpful: 156,
-    unhelpful: 8,
-    views: 421,
-    dateCreated: '2025-08-10',
-    featured: true,
-    status: 'active'
-  },
-  {
-    id: '2',
-    question: 'What should I do if my refrigerator is not cooling properly?',
-    answer: 'First, check if the thermostat is set to the correct temperature (usually 3-4°C). Ensure the air vents inside are not blocked by food items. Clean the condenser coils at the back of the unit. If the problem persists, it could be a refrigerant leak or compressor issue. Please contact our service team for professional assistance.',
-    category: 'Troubleshooting',
-    helpful: 243,
-    unhelpful: 12,
-    views: 567,
-    dateCreated: '2025-08-05',
-    featured: true,
-    status: 'active'
-  },
-  {
-    id: '3',
-    question: 'How often should I replace my water filter?',
-    answer: 'Water filters should typically be replaced every 6 months for optimal performance and water quality. However, this depends on water usage and water quality in your area. Some filters may last up to 12 months if used lightly. Always refer to your specific appliance manual for recommended replacement intervals.',
-    category: 'Maintenance',
-    helpful: 189,
-    unhelpful: 5,
-    views: 334,
-    dateCreated: '2025-08-01',
-    featured: true,
-    status: 'active'
-  },
-  {
-    id: '4',
-    question: 'Can I use my microwave if it has a slight dent?',
-    answer: 'Minor cosmetic dents that do not affect the door seal are generally safe. However, if the dent is on the interior or affects the door closure, it should be inspected by a technician. A damaged microwave could potentially allow radiation leakage. Contact our service team for a professional assessment.',
-    category: 'Safety',
-    helpful: 127,
-    unhelpful: 15,
-    views: 298,
-    dateCreated: '2025-07-28',
-    featured: false,
-    status: 'active'
-  },
-  {
-    id: '5',
-    question: 'What payment methods do you accept for service calls?',
-    answer: 'We accept all major credit cards (Visa, MasterCard, American Express), debit cards, and digital payment methods including UPI, Google Pay, and bank transfers. You can also pay using our website after receiving an invoice. For large service contracts, we offer flexible payment plans.',
-    category: 'Billing',
-    helpful: 98,
-    unhelpful: 3,
-    views: 156,
-    dateCreated: '2025-07-25',
-    featured: false,
-    status: 'active'
-  },
-  {
-    id: '6',
-    question: 'How can I extend my warranty coverage?',
-    answer: 'Extended warranty plans can be purchased within 30 days of the original purchase date. You can add coverage for additional years (typically up to 5 years total). Extended plans often include accidental damage coverage. Visit our website or contact our sales team for available plans and pricing for your specific model.',
-    category: 'Warranty',
-    helpful: 134,
-    unhelpful: 7,
-    views: 245,
-    dateCreated: '2025-07-22',
-    featured: false,
-    status: 'active'
-  },
-  {
-    id: '7',
-    question: 'What does the error code E4 mean on my washing machine?',
-    answer: 'Error code E4 typically indicates a water inlet issue. This could mean the water supply valve is closed, the inlet hose is kinked, or there is low water pressure. First, check your water supply and ensure the valve is fully open. If the error persists, the inlet valve may need replacement. Contact our technicians for assistance.',
-    category: 'Troubleshooting',
-    helpful: 201,
-    unhelpful: 9,
-    views: 389,
-    dateCreated: '2025-07-20',
-    featured: true,
-    status: 'active'
-  },
-  {
-    id: '8',
-    question: 'Is installation included with my purchase?',
-    answer: 'Installation is included with most major appliances purchased from us. Our professional installation team will deliver, unpack, and properly install your appliance according to manufacturer specifications. Additional charges may apply for complex installations or if you need removal of old appliances.',
-    category: 'Installation',
-    helpful: 167,
-    unhelpful: 4,
-    views: 312,
-    dateCreated: '2025-07-18',
-    featured: false,
-    status: 'active'
-  },
-  {
-    id: '9',
-    question: 'How can I reduce energy consumption of my appliances?',
-    answer: 'Use appliances during off-peak hours if available. Keep your refrigerator coils clean. Use the eco or energy-saving mode. Ensure proper ventilation around appliances. Avoid opening the appliance repeatedly. Fill dishwashers and washing machines to capacity before running. Regular maintenance like cleaning filters also improves efficiency.',
-    category: 'Optimization',
-    helpful: 215,
-    unhelpful: 11,
-    views: 423,
-    dateCreated: '2025-07-15',
-    featured: true,
-    status: 'active'
-  },
-  {
-    id: '10',
-    question: 'What is covered under the standard warranty?',
-    answer: 'Standard warranty typically covers manufacturing defects in materials and workmanship for 1-2 years from the purchase date. This includes parts failures and labor costs for repairs. It does not cover damage from misuse, accidents, normal wear and tear, or lack of maintenance. Extended warranties offer additional coverage options.',
-    category: 'Warranty',
-    helpful: 123,
-    unhelpful: 6,
-    views: 267,
-    dateCreated: '2025-07-12',
-    featured: false,
-    status: 'active'
-  }
-];
-
 export default function FAQsPage() {
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'helpful' | 'views' | 'recent'>('helpful');
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await AfterSalesManagementService.getKnowledgeFaqs();
+        const mapped: FAQ[] = rows.map((r) => ({
+          id: r.id,
+          question: r.question,
+          answer: r.answer,
+          category: r.category,
+          helpful: r.helpful ?? 0,
+          unhelpful: r.unhelpful ?? 0,
+          views: r.views ?? 0,
+          dateCreated: (r.createdAt ?? '').slice(0, 10),
+          featured: r.featured ?? false,
+          status: (r.status as FAQ['status']) ?? 'active',
+        }));
+        if (!cancelled) setFaqs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load FAQs');
+          setFaqs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['Warranty', 'Troubleshooting', 'Maintenance', 'Safety', 'Billing', 'Installation', 'Optimization'];
 
   const filteredFAQs = useMemo(() => {
-    let filtered = mockFAQs.filter(faq => {
+    let filtered = faqs.filter(faq => {
       const matchesSearch = faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
         faq.answer.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || faq.category === selectedCategory;
@@ -166,13 +82,13 @@ export default function FAQsPage() {
     }
 
     return filtered;
-  }, [searchTerm, selectedCategory, sortBy]);
+  }, [faqs, searchTerm, selectedCategory, sortBy]);
 
   const stats = {
-    total: mockFAQs.length,
-    active: mockFAQs.filter(f => f.status === 'active').length,
-    featured: mockFAQs.filter(f => f.featured).length,
-    totalViews: mockFAQs.reduce((sum, f) => sum + f.views, 0)
+    total: faqs.length,
+    active: faqs.filter(f => f.status === 'active').length,
+    featured: faqs.filter(f => f.featured).length,
+    totalViews: faqs.reduce((sum, f) => sum + f.views, 0)
   };
 
   const handleHelpful = (id: string) => {
@@ -201,6 +117,19 @@ export default function FAQsPage() {
           Add FAQ
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading FAQs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

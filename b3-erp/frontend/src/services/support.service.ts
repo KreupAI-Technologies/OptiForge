@@ -2360,6 +2360,53 @@ export const SupportScheduledChangeService = {
 };
 
 // ============================================================================
+// Omnichannel Interaction Service (net-new: /support/omnichannel)
+// ============================================================================
+
+export interface OmnichannelInteraction {
+  id: string;
+  companyId: string;
+  ticketId: string;
+  subject: string;
+  customerName: string;
+  customerEmail?: string;
+  customerAvatar?: string;
+  channel: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount: number;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  status: 'open' | 'pending' | 'resolved' | 'closed';
+  assignedToName?: string;
+  assignedToAvatar?: string;
+  tags?: string[];
+  starred?: boolean;
+  hasAttachments?: boolean;
+  slaDeadline?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const OmnichannelService = {
+  async getInteractions(
+    companyId = 'company-1',
+    options?: { channel?: string; status?: string; search?: string }
+  ): Promise<OmnichannelInteraction[]> {
+    const params = new URLSearchParams({ companyId });
+    if (options?.channel) params.append('channel', options.channel);
+    if (options?.status) params.append('status', options.status);
+    if (options?.search) params.append('search', options.search);
+    return apiRequest<OmnichannelInteraction[]>(
+      `/support/omnichannel?${params.toString()}`
+    );
+  },
+
+  async getInteraction(id: string): Promise<OmnichannelInteraction> {
+    return apiRequest<OmnichannelInteraction>(`/support/omnichannel/${id}`);
+  },
+};
+
+// ============================================================================
 // Unified Export
 // ============================================================================
 
@@ -2385,6 +2432,7 @@ export const SupportService = {
   hardwareAssets: SupportHardwareAssetService,
   softwareAssets: SupportSoftwareAssetService,
   scheduledChanges: SupportScheduledChangeService,
+  omnichannel: OmnichannelService,
 };
 
 export default SupportService;

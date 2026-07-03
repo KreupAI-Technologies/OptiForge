@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -46,134 +47,31 @@ export default function MaintenanceRequestsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MaintenanceRequest | null>(null);
 
-  const maintenanceRequests: MaintenanceRequest[] = [
-    {
-      id: '1',
-      requestNumber: 'MR-2025-001',
-      equipmentCode: 'ASSY-LINE-01',
-      equipmentName: 'Assembly Conveyor Line #1',
-      location: 'Assembly Department',
-      requestType: 'breakdown',
-      priority: 'critical',
-      status: 'in-progress',
-      requestedBy: 'Production Supervisor - Kumar',
-      requestDate: '2025-10-20',
-      description: 'Conveyor motor failure causing complete production line stoppage. Urgent repair needed.',
-      assignedTo: 'Maintenance Team Lead',
-      estimatedCost: 45000,
-      actualCost: null,
-      completionDate: null,
-      downtime: 4.5
-    },
-    {
-      id: '2',
-      requestNumber: 'MR-2025-002',
-      equipmentCode: 'PAINT-BOOTH-01',
-      equipmentName: 'Powder Coating Booth #1',
-      location: 'Finishing Department',
-      requestType: 'preventive',
-      priority: 'high',
-      status: 'pending',
-      requestedBy: 'Maintenance Scheduler',
-      requestDate: '2025-10-19',
-      description: 'Scheduled preventive maintenance overdue by 5 days. Filter replacement and system calibration required.',
-      assignedTo: null,
-      estimatedCost: 18000,
-      actualCost: null,
-      completionDate: null,
-      downtime: 0
-    },
-    {
-      id: '3',
-      requestNumber: 'MR-2025-003',
-      equipmentCode: 'CNC-CUT-01',
-      equipmentName: 'CNC Cutting Machine #1',
-      location: 'Cutting Department - Bay A',
-      requestType: 'corrective',
-      priority: 'medium',
-      status: 'approved',
-      requestedBy: 'Operator - Rajesh',
-      requestDate: '2025-10-18',
-      description: 'Unusual vibration detected during operation. Spindle alignment check and bearing inspection needed.',
-      assignedTo: 'Sunil Technician',
-      estimatedCost: 12000,
-      actualCost: null,
-      completionDate: null,
-      downtime: 0
-    },
-    {
-      id: '4',
-      requestNumber: 'MR-2025-004',
-      equipmentCode: 'WELD-ST-01',
-      equipmentName: 'TIG Welding Station #1',
-      location: 'Welding Department - Bay B',
-      requestType: 'inspection',
-      priority: 'low',
-      status: 'completed',
-      requestedBy: 'Quality Inspector',
-      requestDate: '2025-10-15',
-      description: 'Routine safety inspection and gas leak detection test.',
-      assignedTo: 'Ramesh Technician',
-      estimatedCost: 5000,
-      actualCost: 4500,
-      completionDate: '2025-10-17',
-      downtime: 0
-    },
-    {
-      id: '5',
-      requestNumber: 'MR-2025-005',
-      equipmentCode: 'PRESS-HYDRO-01',
-      equipmentName: 'Hydraulic Press Machine',
-      location: 'Forming Department',
-      requestType: 'breakdown',
-      priority: 'high',
-      status: 'approved',
-      requestedBy: 'Shift Supervisor - Sharma',
-      requestDate: '2025-10-19',
-      description: 'Hydraulic pressure dropping below operating range. Suspected seal failure in main cylinder.',
-      assignedTo: 'Senior Tech Team',
-      estimatedCost: 35000,
-      actualCost: null,
-      completionDate: null,
-      downtime: 2.0
-    },
-    {
-      id: '6',
-      requestNumber: 'MR-2025-006',
-      equipmentCode: 'LASER-CUT-02',
-      equipmentName: 'Laser Cutting Machine #2',
-      location: 'Cutting Department - Bay B',
-      requestType: 'preventive',
-      priority: 'medium',
-      status: 'pending',
-      requestedBy: 'Maintenance Scheduler',
-      requestDate: '2025-10-20',
-      description: 'Quarterly laser calibration and optical component cleaning scheduled.',
-      assignedTo: null,
-      estimatedCost: 22000,
-      actualCost: null,
-      completionDate: null,
-      downtime: 0
-    },
-    {
-      id: '7',
-      requestNumber: 'MR-2025-007',
-      equipmentCode: 'POLISH-01',
-      equipmentName: 'Polishing Machine #1',
-      location: 'Finishing Department',
-      requestType: 'corrective',
-      priority: 'low',
-      status: 'rejected',
-      requestedBy: 'Operator - Vijay',
-      requestDate: '2025-10-16',
-      description: 'Minor surface scratch on polishing drum. Equipment still operational.',
-      assignedTo: null,
-      estimatedCost: 8000,
-      actualCost: null,
-      completionDate: null,
-      downtime: 0
-    }
-  ];
+  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getMaintenanceRequests()) as any[];
+        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          ...d,
+          id: String(d?.id ?? i),
+        })) as unknown as MaintenanceRequest[];
+        if (!cancelled) setMaintenanceRequests(mapped);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredRequests = maintenanceRequests.filter(request => {
     const matchesSearch =

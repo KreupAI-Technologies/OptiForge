@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { BookOpen, Download, Search, Plus, FileText, Calendar, User, Tag, Eye, Star, Filter, Grid, List, BarChart3 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { BookOpen, Download, Search, Plus, FileText, Calendar, User, Tag, Eye, Star, Filter, Grid, List, BarChart3, AlertCircle } from 'lucide-react';
+import { AfterSalesManagementService } from '@/services/after-sales-management.service';
 
 interface Manual {
   id: string;
@@ -22,165 +23,62 @@ interface Manual {
   featured: boolean;
 }
 
-const mockManuals: Manual[] = [
-  {
-    id: '1',
-    title: 'Kitchen Master Pro - Complete Operation Manual',
-    productModel: 'KMP-2025-X1',
-    description: 'Comprehensive user manual covering all features and operations of Kitchen Master Pro',
-    category: 'Operation',
-    author: 'Manish Kumar',
-    datePublished: '2025-09-20',
-    fileSize: '45.2 MB',
-    format: 'pdf',
-    downloads: 342,
-    rating: 4.8,
-    views: 1245,
-    language: 'English',
-    pages: 156,
-    versions: 3,
-    featured: true
-  },
-  {
-    id: '2',
-    title: 'Advanced Refrigeration System Manual',
-    productModel: 'REF-2025-PRO',
-    description: 'Technical manual for advanced refrigeration systems with troubleshooting guide',
-    category: 'Technical',
-    author: 'Priya Sharma',
-    datePublished: '2025-09-15',
-    fileSize: '32.8 MB',
-    format: 'pdf',
-    downloads: 289,
-    rating: 4.7,
-    views: 987,
-    language: 'English',
-    pages: 198,
-    versions: 2,
-    featured: true
-  },
-  {
-    id: '3',
-    title: 'Microwave Oven Quick Start Guide',
-    productModel: 'MW-QS-2025',
-    description: 'Quick start guide for basic microwave operations and safety features',
-    category: 'Quick Start',
-    author: 'Rajesh Patel',
-    datePublished: '2025-09-10',
-    fileSize: '8.5 MB',
-    format: 'pdf',
-    downloads: 156,
-    rating: 4.6,
-    views: 523,
-    language: 'English',
-    pages: 24,
-    versions: 1,
-    featured: false
-  },
-  {
-    id: '4',
-    title: 'Installation & Maintenance Guide',
-    productModel: 'ALL-PRODUCTS',
-    description: 'Universal guide for installation and regular maintenance of all appliances',
-    category: 'Installation',
-    author: 'Vijay Singh',
-    datePublished: '2025-09-05',
-    fileSize: '28.4 MB',
-    format: 'pdf',
-    downloads: 423,
-    rating: 4.9,
-    views: 1876,
-    language: 'English',
-    pages: 112,
-    versions: 4,
-    featured: true
-  },
-  {
-    id: '5',
-    title: 'Washing Machine - Advanced Settings',
-    productModel: 'WM-ADV-2025',
-    description: 'Complete guide to advanced features and settings for smart washing machines',
-    category: 'Features',
-    author: 'Neha Desai',
-    datePublished: '2025-08-30',
-    fileSize: '22.6 MB',
-    format: 'pdf',
-    downloads: 267,
-    rating: 4.5,
-    views: 734,
-    language: 'English',
-    pages: 89,
-    versions: 2,
-    featured: false
-  },
-  {
-    id: '6',
-    title: 'Dishwasher Troubleshooting Manual',
-    productModel: 'DW-TROUBLESHOOT',
-    description: 'Step-by-step troubleshooting guide for common dishwasher issues',
-    category: 'Troubleshooting',
-    author: 'Sanjay Verma',
-    datePublished: '2025-08-25',
-    fileSize: '15.3 MB',
-    format: 'pdf',
-    downloads: 198,
-    rating: 4.7,
-    views: 621,
-    language: 'English',
-    pages: 67,
-    versions: 3,
-    featured: false
-  },
-  {
-    id: '7',
-    title: 'Smart Appliance Connectivity Guide',
-    productModel: 'SMART-2025',
-    description: 'Guide for connecting and managing smart appliances with mobile app',
-    category: 'Technology',
-    author: 'Isha Nair',
-    datePublished: '2025-08-20',
-    fileSize: '18.7 MB',
-    format: 'pdf',
-    downloads: 312,
-    rating: 4.6,
-    views: 892,
-    language: 'English',
-    pages: 78,
-    versions: 2,
-    featured: true
-  },
-  {
-    id: '8',
-    title: 'Energy Efficiency & Conservation Manual',
-    productModel: 'ENERGY-GUIDE',
-    description: 'Comprehensive guide on optimizing energy consumption across all appliances',
-    category: 'Optimization',
-    author: 'Rohan Gupta',
-    datePublished: '2025-08-15',
-    fileSize: '12.4 MB',
-    format: 'pdf',
-    downloads: 234,
-    rating: 4.8,
-    views: 756,
-    language: 'English',
-    pages: 54,
-    versions: 1,
-    featured: false
-  }
-];
-
 export default function ManualsPage() {
+  const [manuals, setManuals] = useState<Manual[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedFormat, setSelectedFormat] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'downloads' | 'rating'>('recent');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await AfterSalesManagementService.getKnowledgeManuals();
+        const mapped: Manual[] = rows.map((r) => ({
+          id: r.id,
+          title: r.title,
+          productModel: r.productModel ?? '',
+          description: r.description ?? '',
+          category: r.category,
+          author: r.author ?? '',
+          datePublished: (r.datePublished ?? '').slice(0, 10),
+          fileSize: r.fileSize ?? '',
+          format: (r.format as Manual['format']) ?? 'pdf',
+          downloads: r.downloads ?? 0,
+          rating: Number(r.rating ?? 0),
+          views: r.views ?? 0,
+          language: r.language ?? 'English',
+          pages: r.pages ?? 0,
+          versions: r.versions ?? 1,
+          featured: r.featured ?? false,
+        }));
+        if (!cancelled) setManuals(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load manuals');
+          setManuals([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const categories = ['Operation', 'Technical', 'Quick Start', 'Installation', 'Features', 'Troubleshooting', 'Technology', 'Optimization'];
   const formats = ['pdf', 'doc', 'epub'];
 
   const filteredManuals = useMemo(() => {
-    let filtered = mockManuals.filter(manual => {
+    let filtered = manuals.filter(manual => {
       const matchesSearch = manual.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         manual.productModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
         manual.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -199,13 +97,15 @@ export default function ManualsPage() {
     }
 
     return filtered;
-  }, [searchTerm, selectedCategory, selectedFormat, sortBy]);
+  }, [manuals, searchTerm, selectedCategory, selectedFormat, sortBy]);
 
   const stats = {
-    total: mockManuals.length,
-    featured: mockManuals.filter(m => m.featured).length,
-    totalDownloads: mockManuals.reduce((sum, m) => sum + m.downloads, 0),
-    avgRating: (mockManuals.reduce((sum, m) => sum + m.rating, 0) / mockManuals.length).toFixed(1)
+    total: manuals.length,
+    featured: manuals.filter(m => m.featured).length,
+    totalDownloads: manuals.reduce((sum, m) => sum + m.downloads, 0),
+    avgRating: manuals.length
+      ? (manuals.reduce((sum, m) => sum + m.rating, 0) / manuals.length).toFixed(1)
+      : '0.0'
   };
 
   const getFormatColor = (format: string) => {
@@ -233,6 +133,19 @@ export default function ManualsPage() {
           Upload Manual
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading manuals…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

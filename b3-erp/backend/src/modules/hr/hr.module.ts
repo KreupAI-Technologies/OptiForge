@@ -12,6 +12,11 @@ import { ShiftAssignmentService } from './services/shift-assignment.service';
 import { ShiftRosterService } from './services/shift-roster.service';
 import { ShiftSwapService } from './services/shift-swap.service';
 
+// Transfers & Promotions (orphan-endpoint build) — direct imports
+import { EmployeeMovement } from './entities/employee-movement.entity';
+import { EmployeeMovementController } from './controllers/employee-movement.controller';
+import { EmployeeMovementService } from './services/employee-movement.service';
+
 // Entities
 import {
   Department,
@@ -111,7 +116,7 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [
     PrismaModule,
     TypeOrmModule.forFeature([
-      ShiftAssignment, ShiftRosterEntry, ShiftSwap,
+      ShiftAssignment, ShiftRosterEntry, ShiftSwap, EmployeeMovement,
       // Core HR
       Department,
       Designation,
@@ -146,7 +151,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     ]),
   ],
   controllers: [
-    ShiftAssignmentController, ShiftRosterController, ShiftSwapController,
+    ShiftAssignmentController, ShiftRosterController, ShiftSwapController, EmployeeMovementController,
     DepartmentController,
     DesignationController,
     ShiftController,
@@ -171,7 +176,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     AdvanceController,
   ],
   providers: [
-    ShiftAssignmentService, ShiftRosterService, ShiftSwapService,
+    ShiftAssignmentService, ShiftRosterService, ShiftSwapService, EmployeeMovementService,
     DepartmentService,
     DesignationService,
     ShiftService,

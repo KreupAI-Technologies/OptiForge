@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { FinanceService } from '@/services/finance.service'
 import {
   Package,
   TrendingDown,
@@ -53,100 +54,84 @@ interface RecentActivity {
   status: string
 }
 
+// Backend byCategory items carry no visual metadata; map category name -> icon/color.
+const CATEGORY_META: Record<string, { icon: any; color: string }> = {
+  'Land & Building': { icon: Building2, color: 'blue' },
+  'Plant & Machinery': { icon: Package, color: 'purple' },
+  'Vehicles': { icon: Truck, color: 'orange' },
+  'Computers & IT': { icon: Laptop, color: 'green' },
+  'Furniture & Fixtures': { icon: Package, color: 'gray' },
+}
+const DEFAULT_CATEGORY_META = { icon: Package, color: 'gray' }
+
+const EMPTY_SUMMARY: AssetSummary = {
+  totalAssets: 0,
+  totalCost: 0,
+  totalDepreciation: 0,
+  netBookValue: 0,
+  activeAssets: 0,
+  disposedAssets: 0,
+  underMaintenance: 0,
+  monthlyDepreciation: 0,
+}
+
 export default function AssetsManagementPage() {
-  const [summary] = useState<AssetSummary>({
-    totalAssets: 347,
-    totalCost: 185750000,
-    totalDepreciation: 42350000,
-    netBookValue: 143400000,
-    activeAssets: 312,
-    disposedAssets: 28,
-    underMaintenance: 7,
-    monthlyDepreciation: 1250000
-  })
+  const [summary, setSummary] = useState<AssetSummary>(EMPTY_SUMMARY)
+  const [assetsByCategory, setAssetsByCategory] = useState<AssetByCategory[]>([])
+  // No backend endpoint exists for recent activity; kept empty rather than mocked.
+  const [recentActivities] = useState<RecentActivity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [assetsByCategory] = useState<AssetByCategory[]>([
-    {
-      category: 'Land & Building',
-      count: 15,
-      cost: 95000000,
-      nbv: 82500000,
-      depreciation: 12500000,
-      icon: Building2,
-      color: 'blue'
-    },
-    {
-      category: 'Plant & Machinery',
-      count: 85,
-      cost: 62500000,
-      nbv: 41250000,
-      depreciation: 21250000,
-      icon: Package,
-      color: 'purple'
-    },
-    {
-      category: 'Vehicles',
-      count: 42,
-      cost: 18750000,
-      nbv: 12850000,
-      depreciation: 5900000,
-      icon: Truck,
-      color: 'orange'
-    },
-    {
-      category: 'Computers & IT',
-      count: 185,
-      cost: 7250000,
-      nbv: 4500000,
-      depreciation: 2750000,
-      icon: Laptop,
-      color: 'green'
-    },
-    {
-      category: 'Furniture & Fixtures',
-      count: 20,
-      cost: 2250000,
-      nbv: 2300000,
-      depreciation: -50000,
-      icon: Package,
-      color: 'gray'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const data = (await FinanceService.getFixedAssetsSummary()) as any
+        const s = data?.summary ?? {}
+        const mappedSummary: AssetSummary = {
+          totalAssets: Number(s.totalAssets ?? 0),
+          totalCost: Number(s.totalCost ?? 0),
+          totalDepreciation: Number(s.totalDepreciation ?? 0),
+          netBookValue: Number(s.totalNetBookValue ?? 0),
+          activeAssets: Number(s.activeAssets ?? 0),
+          disposedAssets: 0,
+          underMaintenance: 0,
+          monthlyDepreciation: 0,
+        }
+        const mappedCategories: AssetByCategory[] = (data?.byCategory ?? []).map((c: any) => {
+          const meta = CATEGORY_META[c.category] ?? DEFAULT_CATEGORY_META
+          return {
+            category: c.category,
+            count: Number(c.count ?? 0),
+            cost: Number(c.cost ?? 0),
+            nbv: Number(c.nbv ?? 0),
+            depreciation: Number(c.depreciation ?? 0),
+            icon: meta.icon,
+            color: meta.color,
+          }
+        })
+        if (!cancelled) {
+          setSummary(mappedSummary)
+          setAssetsByCategory(mappedCategories)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load fixed assets summary')
+          setSummary(EMPTY_SUMMARY)
+          setAssetsByCategory([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
-
-  const [recentActivities] = useState<RecentActivity[]>([
-    {
-      id: 'ACT-001',
-      type: 'acquisition',
-      assetName: 'CNC Lathe Machine - Haas ST-30',
-      date: '2025-11-05',
-      amount: 4500000,
-      status: 'completed'
-    },
-    {
-      id: 'ACT-002',
-      type: 'depreciation',
-      assetName: 'Monthly Depreciation - October 2025',
-      date: '2025-10-31',
-      amount: 1250000,
-      status: 'completed'
-    },
-    {
-      id: 'ACT-003',
-      type: 'maintenance',
-      assetName: 'Injection Molding Machine - IM500',
-      date: '2025-11-03',
-      amount: 125000,
-      status: 'in-progress'
-    },
-    {
-      id: 'ACT-004',
-      type: 'disposal',
-      assetName: 'Old Desktop Computers (25 Units)',
-      date: '2025-10-28',
-      amount: 125000,
-      status: 'completed'
+    load()
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -205,6 +190,18 @@ export default function AssetsManagementPage() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full p-3">
           <div className="w-full space-y-3">
+            {isLoading && (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading fixed assets summary…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                {loadError}
+              </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
@@ -393,6 +390,11 @@ export default function AssetsManagementPage() {
                 </div>
               </div>
               <div className="divide-y divide-gray-200">
+                {recentActivities.length === 0 && (
+                  <div className="p-6 text-center text-sm text-gray-500">
+                    No recent activity
+                  </div>
+                )}
                 {recentActivities.map((activity) => (
                   <div key={activity.id} className="p-6 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between">

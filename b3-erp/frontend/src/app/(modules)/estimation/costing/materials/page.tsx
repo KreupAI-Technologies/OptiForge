@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Package,
@@ -14,8 +14,10 @@ import {
   Search,
   Filter,
   Download,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react'
+import { estimationMaterialCostService } from '@/services/estimation-material-cost.service'
 
 interface MaterialCost {
   id: string
@@ -47,234 +49,83 @@ interface CategoryStats {
 export default function MaterialsCostingPage() {
   const router = useRouter()
 
-  const [materialCosts] = useState<MaterialCost[]>([
-    {
-      id: 'MAT-001',
-      materialCode: 'SS304-18G',
-      materialName: 'Stainless Steel 304 - 18 Gauge Sheet',
-      category: 'Raw Material - Sinks',
-      unit: 'SQ.FT',
-      standardCost: 185,
-      currentCost: 195,
-      variance: 10,
-      variancePercent: 5.4,
-      supplier: 'Steel India Ltd',
-      lastPurchasePrice: 195,
-      lastPurchaseDate: '2025-10-15',
-      avgLeadTime: 7,
-      minimumOrderQty: 100,
-      usagePerMonth: 450,
-      status: 'increasing'
-    },
-    {
-      id: 'MAT-002',
-      materialCode: 'BRASS-C360',
-      materialName: 'Brass C360 Rod for Faucet Bodies',
-      category: 'Raw Material - Faucets',
-      unit: 'KG',
-      standardCost: 680,
-      currentCost: 665,
-      variance: -15,
-      variancePercent: -2.2,
-      supplier: 'Metals Trading Co',
-      lastPurchasePrice: 665,
-      lastPurchaseDate: '2025-10-12',
-      avgLeadTime: 5,
-      minimumOrderQty: 50,
-      usagePerMonth: 180,
-      status: 'decreasing'
-    },
-    {
-      id: 'MAT-003',
-      materialCode: 'GRANITE-BLK',
-      materialName: 'Black Galaxy Granite Slab',
-      category: 'Raw Material - Countertops',
-      unit: 'SQ.FT',
-      standardCost: 425,
-      currentCost: 425,
-      variance: 0,
-      variancePercent: 0,
-      supplier: 'Stone Masters Pvt Ltd',
-      lastPurchasePrice: 425,
-      lastPurchaseDate: '2025-10-10',
-      avgLeadTime: 10,
-      minimumOrderQty: 50,
-      usagePerMonth: 220,
-      status: 'stable'
-    },
-    {
-      id: 'MAT-004',
-      materialCode: 'CHROME-PL',
-      materialName: 'Chrome Plating Material',
-      category: 'Finishing - Faucets',
-      unit: 'LITER',
-      standardCost: 1250,
-      currentCost: 1340,
-      variance: 90,
-      variancePercent: 7.2,
-      supplier: 'Chemical Solutions Ltd',
-      lastPurchasePrice: 1340,
-      lastPurchaseDate: '2025-10-18',
-      avgLeadTime: 3,
-      minimumOrderQty: 20,
-      usagePerMonth: 85,
-      status: 'volatile'
-    },
-    {
-      id: 'MAT-005',
-      materialCode: 'ALUM-CAST',
-      materialName: 'Aluminum Alloy for Cookware Casting',
-      category: 'Raw Material - Cookware',
-      unit: 'KG',
-      standardCost: 285,
-      currentCost: 275,
-      variance: -10,
-      variancePercent: -3.5,
-      supplier: 'Aluminum Corp India',
-      lastPurchasePrice: 275,
-      lastPurchaseDate: '2025-10-16',
-      avgLeadTime: 4,
-      minimumOrderQty: 100,
-      usagePerMonth: 320,
-      status: 'stable'
-    },
-    {
-      id: 'MAT-006',
-      materialCode: 'TEFLON-COAT',
-      materialName: 'Non-Stick Teflon Coating',
-      category: 'Finishing - Cookware',
-      unit: 'KG',
-      standardCost: 1850,
-      currentCost: 1920,
-      variance: 70,
-      variancePercent: 3.8,
-      supplier: 'Coating Tech Pvt Ltd',
-      lastPurchasePrice: 1920,
-      lastPurchaseDate: '2025-10-14',
-      avgLeadTime: 6,
-      minimumOrderQty: 25,
-      usagePerMonth: 65,
-      status: 'increasing'
-    },
-    {
-      id: 'MAT-007',
-      materialCode: 'MOTOR-1HP',
-      materialName: '1HP Motor for Kitchen Chimney',
-      category: 'Components - Appliances',
-      unit: 'PCS',
-      standardCost: 3200,
-      currentCost: 3150,
-      variance: -50,
-      variancePercent: -1.6,
-      supplier: 'Motors & Drives Ltd',
-      lastPurchasePrice: 3150,
-      lastPurchaseDate: '2025-10-13',
-      avgLeadTime: 12,
-      minimumOrderQty: 10,
-      usagePerMonth: 85,
-      status: 'stable'
-    },
-    {
-      id: 'MAT-008',
-      materialCode: 'PLY-BWP',
-      materialName: 'BWP Grade Plywood for Cabinets',
-      category: 'Raw Material - Cabinets',
-      unit: 'SHEET',
-      standardCost: 1450,
-      currentCost: 1520,
-      variance: 70,
-      variancePercent: 4.8,
-      supplier: 'Wood Industries Ltd',
-      lastPurchasePrice: 1520,
-      lastPurchaseDate: '2025-10-17',
-      avgLeadTime: 5,
-      minimumOrderQty: 20,
-      usagePerMonth: 140,
-      status: 'increasing'
-    },
-    {
-      id: 'MAT-009',
-      materialCode: 'QUARTZ-WHT',
-      materialName: 'White Quartz Stone Slab',
-      category: 'Raw Material - Countertops',
-      unit: 'SQ.FT',
-      standardCost: 385,
-      currentCost: 385,
-      variance: 0,
-      variancePercent: 0,
-      supplier: 'Stone Masters Pvt Ltd',
-      lastPurchasePrice: 385,
-      lastPurchaseDate: '2025-10-11',
-      avgLeadTime: 10,
-      minimumOrderQty: 50,
-      usagePerMonth: 195,
-      status: 'stable'
-    },
-    {
-      id: 'MAT-010',
-      materialCode: 'SILICONE-SEAL',
-      materialName: 'Food Grade Silicone Sealant',
-      category: 'Components - Sinks',
-      unit: 'TUBE',
-      standardCost: 145,
-      currentCost: 158,
-      variance: 13,
-      variancePercent: 9.0,
-      supplier: 'Sealants & Adhesives Co',
-      lastPurchasePrice: 158,
-      lastPurchaseDate: '2025-10-19',
-      avgLeadTime: 3,
-      minimumOrderQty: 50,
-      usagePerMonth: 280,
-      status: 'volatile'
-    },
-    {
-      id: 'MAT-011',
-      materialCode: 'RUBBER-GSKT',
-      materialName: 'EPDM Rubber Gaskets',
-      category: 'Components - Faucets',
-      unit: 'PCS',
-      standardCost: 12,
-      currentCost: 12,
-      variance: 0,
-      variancePercent: 0,
-      supplier: 'Rubber Products Ltd',
-      lastPurchasePrice: 12,
-      lastPurchaseDate: '2025-10-08',
-      avgLeadTime: 4,
-      minimumOrderQty: 500,
-      usagePerMonth: 1850,
-      status: 'stable'
-    },
-    {
-      id: 'MAT-012',
-      materialCode: 'PAINT-ENAMEL',
-      materialName: 'Heat Resistant Enamel Paint',
-      category: 'Finishing - Appliances',
-      unit: 'LITER',
-      standardCost: 680,
-      currentCost: 715,
-      variance: 35,
-      variancePercent: 5.1,
-      supplier: 'Industrial Paints Ltd',
-      lastPurchasePrice: 715,
-      lastPurchaseDate: '2025-10-16',
-      avgLeadTime: 4,
-      minimumOrderQty: 10,
-      usagePerMonth: 45,
-      status: 'increasing'
-    }
-  ])
+  const [materialCosts, setMaterialCosts] = useState<MaterialCost[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [categoryStats] = useState<CategoryStats[]>([
-    { category: 'Raw Material - Sinks', totalMaterials: 8, avgCost: 1850, totalVariance: 4.2, status: 'increasing' },
-    { category: 'Raw Material - Faucets', totalMaterials: 6, avgCost: 2150, totalVariance: -1.5, status: 'stable' },
-    { category: 'Raw Material - Countertops', totalMaterials: 5, avgCost: 4250, totalVariance: 0.8, status: 'stable' },
-    { category: 'Raw Material - Cookware', totalMaterials: 7, avgCost: 1680, totalVariance: -2.1, status: 'decreasing' },
-    { category: 'Raw Material - Cabinets', totalMaterials: 9, avgCost: 3200, totalVariance: 4.5, status: 'increasing' },
-    { category: 'Components', totalMaterials: 15, avgCost: 850, totalVariance: 2.8, status: 'stable' },
-    { category: 'Finishing Materials', totalMaterials: 10, avgCost: 1250, totalVariance: 5.6, status: 'increasing' }
-  ])
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw ORM shape (decimals as strings). Map onto the
+        // page's MaterialCost; page-only fields are defaulted.
+        const raw = (await estimationMaterialCostService.getRates()) as any[]
+        const statusMap: Record<string, MaterialCost['status']> = {
+          stable: 'stable',
+          increasing: 'increasing',
+          decreasing: 'decreasing',
+          volatile: 'volatile',
+        }
+        const mapped: MaterialCost[] = raw.map((m) => {
+          const currentCost = Number(m.currentPrice ?? 0)
+          const previousCost = Number(m.previousPrice ?? 0)
+          return {
+            id: String(m.id),
+            materialCode: m.materialCode ?? '',
+            materialName: m.materialName ?? '',
+            category: m.category ?? '',
+            unit: m.unit ?? '',
+            standardCost: previousCost,
+            currentCost,
+            variance: currentCost - previousCost,
+            variancePercent: Number(m.variancePercent ?? 0),
+            supplier: m.supplier ?? '',
+            lastPurchasePrice: currentCost,
+            lastPurchaseDate: m.lastUpdated ?? '',
+            avgLeadTime: 0,
+            minimumOrderQty: 0,
+            usagePerMonth: 0,
+            status: statusMap[String(m.status ?? '').toLowerCase()] ?? 'stable',
+          }
+        })
+        if (!cancelled) setMaterialCosts(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load material costs')
+          setMaterialCosts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Aggregate category stats from the fetched material costs.
+  const categoryStats: CategoryStats[] = (() => {
+    const byCat = new Map<string, MaterialCost[]>()
+    materialCosts.forEach((m) => {
+      const key = m.category || 'Uncategorized'
+      if (!byCat.has(key)) byCat.set(key, [])
+      byCat.get(key)!.push(m)
+    })
+    return Array.from(byCat.entries()).map(([category, rows]) => {
+      const avgCost = rows.length
+        ? Math.round(rows.reduce((s, r) => s + r.currentCost, 0) / rows.length)
+        : 0
+      const totalVariance = rows.length
+        ? rows.reduce((s, r) => s + r.variancePercent, 0) / rows.length
+        : 0
+      const status: CategoryStats['status'] =
+        totalVariance > 0.5 ? 'increasing' : totalVariance < -0.5 ? 'decreasing' : 'stable'
+      return { category, totalMaterials: rows.length, avgCost, totalVariance, status }
+    })
+  })()
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -300,7 +151,7 @@ export default function MaterialsCostingPage() {
   }
 
   const totalMaterials = materialCosts.length
-  const avgVariance = materialCosts.reduce((sum, m) => sum + m.variancePercent, 0) / totalMaterials
+  const avgVariance = totalMaterials ? materialCosts.reduce((sum, m) => sum + m.variancePercent, 0) / totalMaterials : 0
   const increasingCount = materialCosts.filter(m => m.status === 'increasing').length
   const volatileCount = materialCosts.filter(m => m.status === 'volatile').length
 
@@ -335,6 +186,19 @@ export default function MaterialsCostingPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading material costs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

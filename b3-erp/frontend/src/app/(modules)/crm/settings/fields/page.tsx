@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import crmService from '@/services/crm.service';
 import {
   ListChecks,
   Type,
@@ -75,337 +76,58 @@ export default function CustomFieldsPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [fields, setFields] = useState<CustomField[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fields: CustomField[] = [
-    {
-      id: 'FLD-001',
-      name: 'Industry',
-      apiName: 'industry',
-      label: 'Industry',
-      description: 'Primary industry of the account',
-      fieldType: 'picklist',
-      module: 'account',
-      category: 'standard',
-      dataType: 'string',
-      isRequired: true,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Select the primary industry vertical',
-      validation: {
-        options: ['Technology', 'Healthcare', 'Finance', 'Manufacturing', 'Retail', 'Education']
-      },
-      usage: {
-        recordsWithValue: 342,
-        totalRecords: 342,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'System',
-      createdAt: '2024-01-15',
-      lastModified: '2025-10-20'
-    },
-    {
-      id: 'FLD-002',
-      name: 'Annual Revenue',
-      apiName: 'annual_revenue',
-      label: 'Annual Revenue',
-      description: 'Company annual revenue in USD',
-      fieldType: 'currency',
-      module: 'account',
-      category: 'standard',
-      dataType: 'number',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Enter the estimated or actual annual revenue',
-      validation: {
-        min: 0,
-        max: 999999999999
-      },
-      usage: {
-        recordsWithValue: 298,
-        totalRecords: 342,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'System',
-      createdAt: '2024-01-15',
-      lastModified: '2025-10-15'
-    },
-    {
-      id: 'FLD-003',
-      name: 'Lead Source',
-      apiName: 'lead_source',
-      label: 'Lead Source',
-      description: 'Origin of the lead',
-      fieldType: 'picklist',
-      module: 'lead',
-      category: 'standard',
-      dataType: 'string',
-      isRequired: true,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Select how this lead was acquired',
-      validation: {
-        options: ['Website', 'Referral', 'Trade Show', 'Cold Call', 'Partner', 'Social Media', 'Webinar']
-      },
-      usage: {
-        recordsWithValue: 248,
-        totalRecords: 248,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'System',
-      createdAt: '2024-01-15',
-      lastModified: '2025-09-12'
-    },
-    {
-      id: 'FLD-004',
-      name: 'Deal Probability',
-      apiName: 'deal_probability',
-      label: 'Win Probability',
-      description: 'Likelihood of closing the deal',
-      fieldType: 'percent',
-      module: 'opportunity',
-      category: 'custom',
-      dataType: 'number',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Enter the estimated probability of winning this deal (0-100)',
-      validation: {
-        min: 0,
-        max: 100
-      },
-      usage: {
-        recordsWithValue: 167,
-        totalRecords: 189,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'Sarah Johnson',
-      createdAt: '2024-03-10',
-      lastModified: '2025-10-18'
-    },
-    {
-      id: 'FLD-005',
-      name: 'Customer Health Score',
-      apiName: 'health_score',
-      label: 'Health Score',
-      description: 'Overall customer health rating',
-      fieldType: 'number',
-      module: 'account',
-      category: 'custom',
-      dataType: 'number',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Score from 0-100 indicating customer health',
-      validation: {
-        min: 0,
-        max: 100
-      },
-      usage: {
-        recordsWithValue: 312,
-        totalRecords: 342,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'Emily Rodriguez',
-      createdAt: '2024-04-22',
-      lastModified: '2025-10-19'
-    },
-    {
-      id: 'FLD-006',
-      name: 'Contract End Date',
-      apiName: 'contract_end_date',
-      label: 'Contract End Date',
-      description: 'Date when the contract expires',
-      fieldType: 'date',
-      module: 'contract',
-      category: 'standard',
-      dataType: 'date',
-      isRequired: true,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Select the contract expiration date',
-      usage: {
-        recordsWithValue: 89,
-        totalRecords: 89,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'System',
-      createdAt: '2024-01-15',
-      lastModified: '2025-08-30'
-    },
-    {
-      id: 'FLD-007',
-      name: 'Next Follow-up Date',
-      apiName: 'next_followup_date',
-      label: 'Next Follow-up',
-      description: 'Scheduled date for next follow-up',
-      fieldType: 'datetime',
-      module: 'opportunity',
-      category: 'custom',
-      dataType: 'date',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Set a reminder for the next follow-up activity',
-      usage: {
-        recordsWithValue: 156,
-        totalRecords: 189,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'Michael Chen',
-      createdAt: '2024-05-15',
-      lastModified: '2025-10-17'
-    },
-    {
-      id: 'FLD-008',
-      name: 'Decision Maker',
-      apiName: 'is_decision_maker',
-      label: 'Is Decision Maker?',
-      description: 'Indicates if contact is a decision maker',
-      fieldType: 'boolean',
-      module: 'contact',
-      category: 'custom',
-      dataType: 'boolean',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      defaultValue: 'false',
-      helpText: 'Check if this contact has decision-making authority',
-      usage: {
-        recordsWithValue: 234,
-        totalRecords: 467,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'David Park',
-      createdAt: '2024-06-08',
-      lastModified: '2025-09-25'
-    },
-    {
-      id: 'FLD-009',
-      name: 'Preferred Contact Method',
-      apiName: 'preferred_contact_method',
-      label: 'Preferred Contact Method',
-      description: 'How the contact prefers to be reached',
-      fieldType: 'picklist',
-      module: 'contact',
-      category: 'custom',
-      dataType: 'string',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Select the contact\'s preferred communication channel',
-      validation: {
-        options: ['Email', 'Phone', 'SMS', 'LinkedIn', 'Slack', 'Video Call']
-      },
-      usage: {
-        recordsWithValue: 389,
-        totalRecords: 467,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'Jennifer Martinez',
-      createdAt: '2024-07-12',
-      lastModified: '2025-10-10'
-    },
-    {
-      id: 'FLD-010',
-      name: 'Competitors',
-      apiName: 'competitors',
-      label: 'Competing Against',
-      description: 'List of competitors in this deal',
-      fieldType: 'multipicklist',
-      module: 'opportunity',
-      category: 'custom',
-      dataType: 'string',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Select all competitors you are competing against',
-      validation: {
-        options: ['Competitor A', 'Competitor B', 'Competitor C', 'Competitor D', 'Other']
-      },
-      usage: {
-        recordsWithValue: 134,
-        totalRecords: 189,
-        lastUsed: '2025-10-19'
-      },
-      createdBy: 'Sarah Johnson',
-      createdAt: '2024-08-20',
-      lastModified: '2025-10-05'
-    },
-    {
-      id: 'FLD-011',
-      name: 'Special Instructions',
-      apiName: 'special_instructions',
-      label: 'Special Instructions',
-      description: 'Any special handling instructions',
-      fieldType: 'textarea',
-      module: 'ticket',
-      category: 'custom',
-      dataType: 'string',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: true,
-      isEditable: true,
-      helpText: 'Provide detailed instructions for handling this ticket',
-      usage: {
-        recordsWithValue: 67,
-        totalRecords: 156,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'Alex Thompson',
-      createdAt: '2024-09-05',
-      lastModified: '2025-10-12'
-    },
-    {
-      id: 'FLD-012',
-      name: 'LinkedIn Profile',
-      apiName: 'linkedin_url',
-      label: 'LinkedIn Profile URL',
-      description: 'Contact\'s LinkedIn profile link',
-      fieldType: 'url',
-      module: 'contact',
-      category: 'custom',
-      dataType: 'string',
-      isRequired: false,
-      isUnique: false,
-      isActive: true,
-      isSearchable: false,
-      isEditable: true,
-      helpText: 'Enter the full LinkedIn profile URL',
-      validation: {
-        pattern: '^https?://.*linkedin\\.com/.*$'
-      },
-      usage: {
-        recordsWithValue: 312,
-        totalRecords: 467,
-        lastUsed: '2025-10-20'
-      },
-      createdBy: 'Lisa Anderson',
-      createdAt: '2024-10-01',
-      lastModified: '2025-10-08'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFields = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await crmService.customFields.getAll();
+        if (cancelled) return;
+        const mapped: CustomField[] = (rows ?? []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          name: r.name ?? '',
+          apiName: r.apiName ?? '',
+          label: r.label ?? r.name ?? '',
+          description: r.description ?? '',
+          fieldType: r.fieldType ?? 'text',
+          module: r.module ?? 'account',
+          category: r.category ?? 'custom',
+          dataType: r.dataType ?? 'string',
+          isRequired: r.isRequired ?? false,
+          isUnique: r.isUnique ?? false,
+          isActive: r.isActive ?? true,
+          isSearchable: r.isSearchable ?? false,
+          isEditable: r.isEditable ?? true,
+          defaultValue: r.defaultValue ?? undefined,
+          helpText: r.helpText ?? undefined,
+          validation: r.validation ?? {},
+          usage: r.usage ?? { recordsWithValue: 0, totalRecords: 0 },
+          createdBy: r.createdBy ?? 'System',
+          createdAt: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+          lastModified: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+        }));
+        setFields(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setFields([]);
+        setLoadError('Failed to load custom fields. Please try again.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadFields();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredFields = fields.filter(field => {
     const matchesSearch = field.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -512,6 +234,15 @@ export default function CustomFieldsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2  space-y-3">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading fields…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-end">
         <button

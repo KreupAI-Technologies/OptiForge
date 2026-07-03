@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Workflow, Plus, Search, Play, Pause, CheckCircle, Clock, Users, Mail, Filter as FilterIcon, TrendingUp, Target, Edit, Copy, Trash2, Eye, GitBranch } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import crmService from '@/services/crm.service';
 
 interface Automation {
   id: string;
@@ -22,139 +24,52 @@ interface Automation {
   owner: string;
 }
 
-const mockAutomations: Automation[] = [
-  {
-    id: '1',
-    name: 'Welcome Series - New Customers',
-    description: '5-email onboarding sequence for new customers with product tutorials and best practices',
-    status: 'active',
-    trigger: 'Customer signup completed',
-    triggerType: 'form_submit',
-    steps: 5,
-    activeContacts: 342,
-    completedContacts: 1847,
-    conversionRate: 68.5,
-    avgCompletionTime: '7 days',
-    createdDate: '2024-01-15',
-    lastTriggered: '2024-10-20T09:30:00',
-    owner: 'Sarah Johnson',
-  },
-  {
-    id: '2',
-    name: 'Lead Nurture - Enterprise',
-    description: 'Multi-touch campaign for enterprise leads with educational content and case studies',
-    status: 'active',
-    trigger: 'Added to "Enterprise Prospects" list',
-    triggerType: 'list_join',
-    steps: 8,
-    activeContacts: 156,
-    completedContacts: 423,
-    conversionRate: 24.3,
-    avgCompletionTime: '21 days',
-    createdDate: '2024-02-10',
-    lastTriggered: '2024-10-19T14:20:00',
-    owner: 'Michael Chen',
-  },
-  {
-    id: '3',
-    name: 'Webinar Follow-up Sequence',
-    description: 'Automated follow-up for webinar attendees with recording, resources, and next steps',
-    status: 'active',
-    trigger: 'Webinar attendance confirmed',
-    triggerType: 'tag_added',
-    steps: 3,
-    activeContacts: 87,
-    completedContacts: 645,
-    conversionRate: 32.8,
-    avgCompletionTime: '5 days',
-    createdDate: '2024-03-20',
-    lastTriggered: '2024-10-18T11:00:00',
-    owner: 'Emily Rodriguez',
-  },
-  {
-    id: '4',
-    name: 'Re-engagement Campaign',
-    description: 'Win-back sequence for inactive users with personalized offers and feature highlights',
-    status: 'active',
-    trigger: '60 days of inactivity',
-    triggerType: 'behavior',
-    steps: 4,
-    activeContacts: 234,
-    completedContacts: 892,
-    conversionRate: 18.7,
-    avgCompletionTime: '14 days',
-    createdDate: '2024-04-15',
-    lastTriggered: '2024-10-20T08:00:00',
-    owner: 'David Martinez',
-  },
-  {
-    id: '5',
-    name: 'Product Launch Announcement',
-    description: 'Scheduled multi-channel campaign for new product launch with countdown and early access',
-    status: 'paused',
-    trigger: 'Launch date: Nov 15, 2024',
-    triggerType: 'date_based',
-    steps: 6,
-    activeContacts: 0,
-    completedContacts: 0,
-    conversionRate: 0,
-    avgCompletionTime: '10 days',
-    createdDate: '2024-09-01',
-    owner: 'Sarah Johnson',
-  },
-  {
-    id: '6',
-    name: 'Trial Expiration Reminder',
-    description: 'Automated reminders and conversion incentives for trial users approaching expiration',
-    status: 'active',
-    trigger: '7 days before trial ends',
-    triggerType: 'date_based',
-    steps: 3,
-    activeContacts: 128,
-    completedContacts: 567,
-    conversionRate: 45.2,
-    avgCompletionTime: '7 days',
-    createdDate: '2024-05-10',
-    lastTriggered: '2024-10-20T07:00:00',
-    owner: 'Michael Chen',
-  },
-  {
-    id: '7',
-    name: 'Customer Success Check-in',
-    description: 'Quarterly check-in sequence for existing customers with satisfaction survey and upsell opportunities',
-    status: 'active',
-    trigger: 'Every 90 days after purchase',
-    triggerType: 'date_based',
-    steps: 4,
-    activeContacts: 98,
-    completedContacts: 234,
-    conversionRate: 28.6,
-    avgCompletionTime: '14 days',
-    createdDate: '2024-06-20',
-    lastTriggered: '2024-10-15T10:00:00',
-    owner: 'Emily Rodriguez',
-  },
-  {
-    id: '8',
-    name: 'Abandoned Cart Recovery',
-    description: 'Automated recovery sequence for abandoned quote requests with incentives',
-    status: 'draft',
-    trigger: 'Quote started but not completed',
-    triggerType: 'behavior',
-    steps: 3,
-    activeContacts: 0,
-    completedContacts: 0,
-    conversionRate: 0,
-    avgCompletionTime: '3 days',
-    createdDate: '2024-10-10',
-    owner: 'David Martinez',
-  },
-];
 
 export default function CampaignAutomationPage() {
   const router = useRouter();
 
-  const [automations, setAutomations] = useState<Automation[]>(mockAutomations);
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = (await crmService.campaignAutomations.getAll()) as any[];
+        const mapped: Automation[] = (rows || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          description: r.description ?? '',
+          status: r.status ?? 'draft',
+          trigger: r.trigger ?? '',
+          triggerType: r.triggerType ?? 'manual',
+          steps: Number(r.steps ?? 0),
+          activeContacts: Number(r.activeContacts ?? 0),
+          completedContacts: Number(r.completedContacts ?? 0),
+          conversionRate: Number(r.conversionRate ?? 0),
+          avgCompletionTime: r.avgCompletionTime ?? '',
+          createdDate: r.createdDate ?? (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
+          lastTriggered: r.lastTriggered ?? undefined,
+          owner: r.owner ?? '',
+        }));
+        if (!cancelled) setAutomations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load automations');
+          setAutomations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused' | 'draft'>('all');
   const [filterType, setFilterType] = useState<'all' | 'form_submit' | 'list_join' | 'tag_added' | 'date_based' | 'behavior' | 'manual'>('all');
@@ -254,6 +169,17 @@ export default function CampaignAutomationPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading automations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

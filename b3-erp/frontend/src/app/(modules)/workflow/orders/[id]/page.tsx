@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
     ArrowLeft,
@@ -17,37 +17,28 @@ import {
     MapPin,
     FileText
 } from 'lucide-react'
+import { WorkflowService, OrderTrackingDetail } from '@/services/workflow.service'
 
-// Mock data (same as dashboard for consistency)
-const mockOrderDetails = {
-    id: '1',
-    orderId: 'ord-001',
-    orderNumber: 'SO-2024-001',
-    customerName: 'ABC Manufacturing Ltd',
-    status: 'in_production',
-    totalAmount: 125000,
-    itemCount: 5,
-    expectedDeliveryDate: '2024-12-15',
-    progress: 45,
-    priority: 'High',
-    shippingAddress: '123 Industrial Area, Sector 4, Pune, MH 411028',
-    billingAddress: 'ABC Corp HQ, Business Bay, Mumbai, MH 400051',
-    contactPerson: 'Rajesh Kumar',
-    contactPhone: '+91 98765 43210',
-    events: [
-        { status: 'order_placed', timestamp: '2024-11-15T10:00:00', description: 'Order placed' },
-        { status: 'order_confirmed', timestamp: '2024-11-15T14:30:00', description: 'Order confirmed' },
-        { status: 'production_planning', timestamp: '2024-11-16T09:00:00', description: 'Production planning started' },
-        { status: 'in_production', timestamp: '2024-11-18T08:00:00', description: 'Production started' },
-    ],
-    workOrders: [
-        { workOrderNumber: 'WO-001', itemName: 'Kitchen Cabinet A', quantity: 10, status: 'in_progress', progress: 60 },
-        { workOrderNumber: 'WO-002', itemName: 'Kitchen Cabinet B', quantity: 5, status: 'pending', progress: 0 },
-    ],
-    items: [
-        { id: '1', name: 'Kitchen Cabinet A', quantity: 10, unitPrice: 8500, total: 85000 },
-        { id: '2', name: 'Kitchen Cabinet B', quantity: 5, unitPrice: 8000, total: 40000 },
-    ]
+// Status ordering used to derive an overall progress percentage
+// (mirrors OrderTracking.getProgressPercentage() on the backend).
+const STATUS_ORDER = [
+    'order_placed',
+    'order_confirmed',
+    'production_planning',
+    'material_procurement',
+    'in_production',
+    'quality_check',
+    'ready_for_dispatch',
+    'dispatched',
+    'in_transit',
+    'delivered',
+    'completed',
+]
+
+function deriveProgress(status: string): number {
+    const idx = STATUS_ORDER.indexOf(status)
+    if (idx === -1) return 0
+    return Math.round((idx / (STATUS_ORDER.length - 1)) * 100)
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
@@ -69,10 +60,36 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
 export default function WorkflowOrderDetailPage() {
     const params = useParams()
     const router = useRouter()
-    const [order] = useState(mockOrderDetails)
+    const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string | undefined)
 
-    const config = statusConfig[order.status] || statusConfig.order_placed
-    const StatusIcon = config.icon
+    const [order, setOrder] = useState<OrderTrackingDetail | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (!id) return
+        let cancelled = false
+
+        const load = async () => {
+            setLoading(true)
+            setError(null)
+            try {
+                const data = await WorkflowService.getOrderTrackingById(id)
+                if (!cancelled) setOrder(data)
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : 'Failed to load order')
+                }
+            } finally {
+                if (!cancelled) setLoading(false)
+            }
+        }
+
+        load()
+        return () => {
+            cancelled = true
+        }
+    }, [id])
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('en-IN', {
@@ -82,7 +99,8 @@ export default function WorkflowOrderDetailPage() {
         }).format(amount)
     }
 
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return '—'
         return new Date(dateString).toLocaleDateString('en-IN', {
             day: 'numeric',
             month: 'short',
@@ -91,6 +109,42 @@ export default function WorkflowOrderDetailPage() {
             minute: '2-digit'
         })
     }
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="flex items-center gap-3 text-gray-500">
+                    <Clock className="h-5 w-5 animate-spin" />
+                    <span>Loading order…</span>
+                </div>
+            </div>
+        )
+    }
+
+    if (error || !order) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-md w-full text-center">
+                    <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Unable to load order</h2>
+                    <p className="text-sm text-gray-500 mb-4">{error || 'Order not found'}</p>
+                    <button
+                        onClick={() => router.back()}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
+    const config = statusConfig[order.status] || statusConfig.order_placed
+    const StatusIcon = config.icon
+    const progress = deriveProgress(order.status)
+    const events = order.events ?? []
+    const workOrders = order.workOrders ?? []
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
@@ -114,7 +168,7 @@ export default function WorkflowOrderDetailPage() {
                                 </span>
                             </div>
                             <p className="mt-1 text-sm text-gray-500">
-                                Created on {formatDate(order.events[0].timestamp)} • Customer: {order.customerName}
+                                Created on {formatDate(events[0]?.timestamp ?? order.createdAt)} • Customer: {order.customerName}
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -139,19 +193,19 @@ export default function WorkflowOrderDetailPage() {
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                             <h2 className="text-lg font-semibold text-gray-900 mb-2">Order Progress</h2>
                             <div className="mb-2 flex justify-between text-sm">
-                                <span className="font-medium text-gray-700">{order.progress}% Completed</span>
-                                <span className="text-gray-500">Est. Delivery: {new Date(order.expectedDeliveryDate).toLocaleDateString()}</span>
+                                <span className="font-medium text-gray-700">{progress}% Completed</span>
+                                <span className="text-gray-500">Est. Delivery: {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : '—'}</span>
                             </div>
                             <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                                 <div
                                     className="h-full bg-blue-600 rounded-full transition-all duration-500"
-                                    style={{ width: `${order.progress}%` }}
+                                    style={{ width: `${progress}%` }}
                                 />
                             </div>
                             <div className="mt-6 flex justify-between items-center relative">
                                 {/* Simplified milestones for visual */}
                                 {['Placed', 'Confirmed', 'Production', 'QC', 'Dispatch', 'Delivered'].map((step, idx) => {
-                                    const isCompleted = idx * 20 <= order.progress
+                                    const isCompleted = idx * 20 <= progress
                                     return (
                                         <div key={step} className="flex flex-col items-center z-10">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${isCompleted ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300 text-gray-300'
@@ -171,9 +225,14 @@ export default function WorkflowOrderDetailPage() {
                         {/* Work Orders */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                             <h2 className="text-lg font-semibold text-gray-900 mb-2">Work Orders</h2>
+                            {workOrders.length === 0 ? (
+                                <p className="text-sm text-gray-500">No work orders yet.</p>
+                            ) : (
                             <div className="space-y-2">
-                                {order.workOrders.map((wo) => (
-                                    <div key={wo.workOrderNumber} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                                {workOrders.map((wo) => {
+                                    const woProgress = wo.status === 'completed' ? 100 : wo.status === 'in_progress' ? 50 : 0
+                                    return (
+                                    <div key={wo.workOrderId ?? wo.workOrderNumber} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-orange-100 rounded-lg">
@@ -194,48 +253,57 @@ export default function WorkflowOrderDetailPage() {
                                         <div className="mt-3">
                                             <div className="flex justify-between text-xs text-gray-500 mb-1">
                                                 <span>Progress</span>
-                                                <span>{wo.progress}%</span>
+                                                <span>{woProgress}%</span>
                                             </div>
                                             <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-orange-500 rounded-full"
-                                                    style={{ width: `${wo.progress}%` }}
+                                                    style={{ width: `${woProgress}%` }}
                                                 />
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                    )
+                                })}
                             </div>
+                            )}
                         </div>
 
-                        {/* Order Items */}
+                        {/* Order Items (derived from work orders) */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="px-3 py-2 border-b border-gray-200">
+                            <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
                                 <h2 className="text-lg font-semibold text-gray-900">Order Items</h2>
+                                <span className="text-sm text-gray-500">{order.itemCount} item{order.itemCount === 1 ? '' : 's'}</span>
                             </div>
                             <table className="w-full">
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {order.items.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-right">{item.quantity}</td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-right">{formatCurrency(item.unitPrice)}</td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 text-right">{formatCurrency(item.total)}</td>
+                                    {workOrders.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3} className="px-3 py-4 text-center text-sm text-gray-500">
+                                                No line items available yet.
+                                            </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        workOrders.map((wo) => (
+                                            <tr key={wo.workOrderId ?? wo.workOrderNumber}>
+                                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{wo.itemName}</td>
+                                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-right">{wo.quantity}</td>
+                                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-right">{wo.status.replace('_', ' ')}</td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                                 <tfoot className="bg-gray-50">
                                     <tr>
-                                        <td colSpan={3} className="px-3 py-2 text-right text-sm font-medium text-gray-900">Total Amount</td>
-                                        <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{formatCurrency(order.totalAmount)}</td>
+                                        <td colSpan={2} className="px-3 py-2 text-right text-sm font-medium text-gray-900">Total Amount</td>
+                                        <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{formatCurrency(Number(order.totalAmount))}</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -251,16 +319,15 @@ export default function WorkflowOrderDetailPage() {
                                 <div className="flex items-start gap-3">
                                     <User className="h-5 w-5 text-gray-400 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">{order.contactPerson}</p>
-                                        <p className="text-sm text-gray-500">{order.customerName}</p>
-                                        <p className="text-sm text-blue-600 mt-1">{order.contactPhone}</p>
+                                        <p className="text-sm font-medium text-gray-900">{order.customerName}</p>
+                                        <p className="text-xs text-gray-500 mt-1">Customer ID: {order.customerId}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-3">
-                                    <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                                    <Package className="h-5 w-5 text-gray-400 mt-0.5" />
                                     <div>
-                                        <p className="text-xs font-medium text-gray-500 uppercase mb-1">Shipping Address</p>
-                                        <p className="text-sm text-gray-700">{order.shippingAddress}</p>
+                                        <p className="text-xs font-medium text-gray-500 uppercase mb-1">Order Reference</p>
+                                        <p className="text-sm text-gray-700">{order.orderNumber}</p>
                                     </div>
                                 </div>
                             </div>
@@ -270,11 +337,14 @@ export default function WorkflowOrderDetailPage() {
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                             <h2 className="text-lg font-semibold text-gray-900 mb-2">Activity Log</h2>
                             <div className="space-y-3">
-                                {order.events.map((event, index) => (
+                                {events.length === 0 && (
+                                    <p className="text-sm text-gray-500">No activity recorded yet.</p>
+                                )}
+                                {events.map((event, index) => (
                                     <div key={index} className="relative flex gap-2">
                                         <div className={`
                       absolute left-0 top-0 bottom-0 w-px bg-gray-200
-                      ${index === order.events.length - 1 ? 'h-2' : ''}
+                      ${index === events.length - 1 ? 'h-2' : ''}
                     `} style={{ left: '9px' }} />
                                         <div className="relative z-10 w-5 h-5 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center">
                                             <div className="w-2 h-2 rounded-full bg-blue-600" />

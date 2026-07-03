@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   ClipboardList,
   Calendar,
@@ -31,7 +32,7 @@ import {
 } from '@/components/inventory/InventoryCycleCountModals';
 
 interface CycleCount {
-  id: number;
+  id: string;
   countNumber: string;
   warehouse: string;
   zone: string;
@@ -61,78 +62,43 @@ export default function CycleCountPage() {
   const [selectedSession, setSelectedSession] = useState<CycleCountSession | null>(null);
   const [selectedVarianceAnalysis, setSelectedVarianceAnalysis] = useState<CycleCountVarianceAnalysis | null>(null);
 
-  const [cycleCounts, setCycleCounts] = useState<CycleCount[]>([
-    {
-      id: 1,
-      countNumber: 'CC-2025-001',
-      warehouse: 'Main Warehouse',
-      zone: 'Zone A - Raw Materials',
-      countType: 'ABC',
-      scheduledDate: '2025-01-22',
-      assignedTo: 'John Smith',
-      itemsToCount: 145,
-      itemsCounted: 145,
-      variancesFound: 8,
-      status: 'completed',
-      accuracy: 94.5
-    },
-    {
-      id: 2,
-      countNumber: 'CC-2025-002',
-      warehouse: 'Main Warehouse',
-      zone: 'Zone B - Components',
-      countType: 'Random',
-      scheduledDate: '2025-01-21',
-      assignedTo: 'Sarah Johnson',
-      itemsToCount: 50,
-      itemsCounted: 38,
-      variancesFound: 3,
-      status: 'in-progress',
-      accuracy: 92.1
-    },
-    {
-      id: 3,
-      countNumber: 'CC-2025-003',
-      warehouse: 'FG Store',
-      zone: 'Zone A - Finished Goods',
-      countType: 'Full',
-      scheduledDate: '2025-01-23',
-      assignedTo: 'Mike Davis',
-      itemsToCount: 230,
-      itemsCounted: 0,
-      variancesFound: 0,
-      status: 'scheduled',
-      accuracy: 0
-    },
-    {
-      id: 4,
-      countNumber: 'CC-2025-004',
-      warehouse: 'Assembly Plant',
-      zone: 'Zone C - High Value Items',
-      countType: 'ABC',
-      scheduledDate: '2025-01-20',
-      assignedTo: 'Emily Chen',
-      itemsToCount: 89,
-      itemsCounted: 89,
-      variancesFound: 12,
-      status: 'reconciled',
-      accuracy: 86.5
-    },
-    {
-      id: 5,
-      countNumber: 'CC-2025-005',
-      warehouse: 'Main Warehouse',
-      zone: 'Zone D - Consumables',
-      countType: 'Spot',
-      scheduledDate: '2025-01-21',
-      assignedTo: 'Robert Lee',
-      itemsToCount: 25,
-      itemsCounted: 25,
-      variancesFound: 2,
-      status: 'completed',
-      accuracy: 92.0
+  const [cycleCounts, setCycleCounts] = useState<CycleCount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchCycleCounts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await inventoryService.getCycleCounts();
+      const mapped: CycleCount[] = (data || []).map((c) => ({
+        id: String(c.id),
+        countNumber: c.countNumber,
+        warehouse: c.warehouse,
+        zone: c.zone,
+        countType: (c.countType as CycleCount['countType']) || 'Full',
+        scheduledDate: c.scheduledDate
+          ? String(c.scheduledDate).split('T')[0]
+          : '',
+        assignedTo: c.assignedTo,
+        itemsToCount: Number(c.itemsToCount) || 0,
+        itemsCounted: Number(c.itemsCounted) || 0,
+        variancesFound: Number(c.variancesFound) || 0,
+        status: (c.status as CycleCount['status']) || 'scheduled',
+        accuracy: Number(c.accuracy) || 0,
+      }));
+      setCycleCounts(mapped);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load cycle counts');
+      setCycleCounts([]);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchCycleCounts();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -317,7 +283,7 @@ export default function CycleCountPage() {
 
     // Add new count to the list
     const newCount: CycleCount = {
-      id: cycleCounts.length + 1,
+      id: `local-${cycleCounts.length + 1}`,
       countNumber: data.sessionId,
       warehouse: data.warehouse,
       zone: data.zones[0] || 'Unknown Zone',
@@ -457,8 +423,12 @@ export default function CycleCountPage() {
               <span>Perform Count</span>
             </button>
           )}
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
-            <RefreshCw className="w-4 h-4" />
+          <button
+            onClick={fetchCycleCounts}
+            disabled={loading}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
@@ -711,9 +681,29 @@ export default function CycleCountPage() {
           </table>
         </div>
 
-        {filteredCounts.length === 0 && (
+        {loading && (
           <div className="text-center py-12">
-            <ClipboardList className="w-12 h-12 text-gray-400 mb-2" />
+            <RefreshCw className="w-8 h-8 text-blue-500 mb-2 mx-auto animate-spin" />
+            <p className="text-gray-500">Loading cycle counts...</p>
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="text-center py-12">
+            <AlertTriangle className="w-12 h-12 text-red-400 mb-2 mx-auto" />
+            <p className="text-red-600">{error}</p>
+            <button
+              onClick={fetchCycleCounts}
+              className="mt-3 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && filteredCounts.length === 0 && (
+          <div className="text-center py-12">
+            <ClipboardList className="w-12 h-12 text-gray-400 mb-2 mx-auto" />
             <p className="text-gray-500">No cycle counts found matching your filters</p>
           </div>
         )}

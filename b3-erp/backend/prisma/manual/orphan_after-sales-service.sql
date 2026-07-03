@@ -13,3 +13,52 @@
 --
 --   No new database tables are required for these pages. This file is kept as a
 --   placeholder so future persistence work for warranty claims lands here.
+
+-- =============================================================================
+-- Knowledge base FAQs
+--   Backs GET /api/v1/after-sales-service/knowledge-faqs
+--   (KnowledgeFaq entity / KnowledgeFaqService), wiring the previously
+--   mock-only /after-sales-service/knowledge/faqs page.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "as_knowledge_faqs" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "question" character varying(500) NOT NULL,
+  "answer" text NOT NULL,
+  "category" character varying(100) NOT NULL DEFAULT 'General',
+  "helpful" integer NOT NULL DEFAULT 0,
+  "unhelpful" integer NOT NULL DEFAULT 0,
+  "views" integer NOT NULL DEFAULT 0,
+  "featured" boolean NOT NULL DEFAULT false,
+  "status" character varying(20) NOT NULL DEFAULT 'active',
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_as_knowledge_faqs" PRIMARY KEY ("id")
+);
+
+-- =============================================================================
+-- Knowledge base product manuals
+--   Backs GET /api/v1/after-sales-service/knowledge-manuals
+--   (KnowledgeManual entity / KnowledgeManualService), wiring the previously
+--   mock-only /after-sales-service/knowledge/manuals page.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "as_knowledge_manuals" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "title" character varying(255) NOT NULL,
+  "productModel" character varying(100),
+  "description" text,
+  "category" character varying(100) NOT NULL DEFAULT 'General',
+  "author" character varying(150),
+  "datePublished" date,
+  "fileSize" character varying(50),
+  "format" character varying(20) NOT NULL DEFAULT 'pdf',
+  "downloads" integer NOT NULL DEFAULT 0,
+  "rating" numeric(3,1) NOT NULL DEFAULT 0,
+  "views" integer NOT NULL DEFAULT 0,
+  "language" character varying(50) NOT NULL DEFAULT 'English',
+  "pages" integer NOT NULL DEFAULT 0,
+  "versions" integer NOT NULL DEFAULT 1,
+  "featured" boolean NOT NULL DEFAULT false,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_as_knowledge_manuals" PRIMARY KEY ("id")
+);

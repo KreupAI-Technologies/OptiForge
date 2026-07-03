@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Linkedin, Twitter, Facebook, Instagram, Youtube, MessageCircle, TrendingUp, Users, Heart, Share2, Eye, BarChart3, Link as LinkIcon, RefreshCw, Settings } from 'lucide-react'
 import { useToast } from '@/components/ui'
+import crmService from '@/services/crm.service'
 
 interface SocialAccount {
   id: string
@@ -51,93 +52,55 @@ interface SocialPost {
 export default function SocialMediaIntegrationPage() {
   const { addToast } = useToast()
 
-  const [accounts, setAccounts] = useState<SocialAccount[]>([
-    {
-      id: '1',
-      platform: 'linkedin',
-      accountName: 'OptiForge Manufacturing',
-      accountHandle: '@b3macbis',
-      connected: true,
-      followers: 12500,
-      engagement: 4.8,
-      lastSync: '2025-10-28 16:30',
-      stats: {
-        posts: 145,
-        likes: 8900,
-        shares: 1200,
-        comments: 890,
-        reach: 45000
-      }
-    },
-    {
-      id: '2',
-      platform: 'twitter',
-      accountName: 'OptiForge',
-      accountHandle: '@OptiForge',
-      connected: true,
-      followers: 8900,
-      engagement: 3.2,
-      lastSync: '2025-10-28 16:25',
-      stats: {
-        posts: 456,
-        likes: 12000,
-        shares: 3400,
-        comments: 1200,
-        reach: 78000
-      }
-    },
-    {
-      id: '3',
-      platform: 'facebook',
-      accountName: 'OptiForge Manufacturing Solutions',
-      accountHandle: '@b3macbis.manufacturing',
-      connected: false,
-      followers: 15600,
-      engagement: 5.1,
-      lastSync: '2025-10-27 10:15',
-      stats: {
-        posts: 234,
-        likes: 15600,
-        shares: 2300,
-        comments: 1890,
-        reach: 92000
-      }
-    },
-    {
-      id: '4',
-      platform: 'instagram',
-      accountName: 'OptiForge',
-      accountHandle: '@b3macbis',
-      connected: false,
-      followers: 6700,
-      engagement: 6.2,
-      lastSync: '2025-10-26 14:00',
-      stats: {
-        posts: 189,
-        likes: 34000,
-        shares: 890,
-        comments: 2300,
-        reach: 120000
-      }
-    },
-    {
-      id: '5',
-      platform: 'youtube',
-      accountName: 'OptiForge Manufacturing',
-      accountHandle: '@OptiForge',
-      connected: true,
-      followers: 4300,
-      engagement: 7.8,
-      lastSync: '2025-10-28 15:00',
-      stats: {
-        posts: 67,
-        likes: 12000,
-        shares: 890,
-        comments: 1200,
-        reach: 230000
+  const [accounts, setAccounts] = useState<SocialAccount[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await crmService.socialAccounts.getAll()
+        if (cancelled) return
+        const mapped: SocialAccount[] = (rows || []).map((row: any) => {
+          const rawStatus = String(row.status ?? '').toLowerCase()
+          return {
+            id: String(row.id ?? ''),
+            platform: (row.platform ?? 'linkedin') as SocialAccount['platform'],
+            accountName: row.handle ?? row.accountName ?? '',
+            accountHandle: row.handle ?? '',
+            connected: rawStatus === 'connected' || rawStatus === 'active',
+            followers: Number(row.followers) || 0,
+            engagement: Number(row.engagement) || 0,
+            lastSync: row.lastSync ?? '',
+            stats: {
+              posts: Number(row.posts) || 0,
+              likes: 0,
+              shares: 0,
+              comments: 0,
+              reach: 0
+            }
+          }
+        })
+        setAccounts(mapped)
+      } catch (err) {
+        if (cancelled) return
+        setAccounts([])
+        setLoadError(err instanceof Error ? err.message : 'Failed to load social accounts')
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
     }
-  ])
+
+    load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [socialLeads] = useState<SocialLead[]>([
     {
@@ -339,6 +302,8 @@ export default function SocialMediaIntegrationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading accounts…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="p-6">

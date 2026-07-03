@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
 import {
@@ -98,7 +99,7 @@ export default function ResourceUtilizationPage() {
  const [selectedResource, setSelectedResource] = useState<ResourceUtilization | null>(null);
 
  // Mock data - 12 resource records
- const mockResources: ResourceUtilization[] = [
+ const [mockResources, setMockResources] = useState<ResourceUtilization[]>([
   {
    id: '1',
    resourceId: 'EMP001',
@@ -441,7 +442,13 @@ export default function ResourceUtilizationPage() {
     { projectId: 'PRJ008', projectName: 'Marriott Upgrade', allocatedHours: 33, actualHours: 32, startDate: '2024-03-10', endDate: '2024-08-15' },
    ],
   },
- ];
+ ]);
+
+ useEffect(() => {
+  projectManagementService.listResourceUtilization()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockResources(rows as unknown as ResourceUtilization[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
 
  // Calculate department metrics
  const departmentMetrics: DepartmentMetrics[] = [

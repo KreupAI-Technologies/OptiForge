@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { OmnichannelService, type OmnichannelInteraction } from '@/services/support.service'
 import {
   ChannelSelector,
   UnifiedInbox,
@@ -30,111 +31,50 @@ function OmnichannelSupportPageContent() {
   const [showConversationDetails, setShowConversationDetails] = useState(false)
   const { addToast } = useToast()
 
-  // Mock data for conversations
-  const mockConversations: ConversationMessage[] = [
-    {
-      id: '1',
-      ticketId: 'TKT-2025-001',
-      subject: 'Cannot access my account',
-      customer: {
-        name: 'John Doe',
-        email: 'john.doe@example.com'
-      },
-      channel: 'email',
-      lastMessage: 'I have been trying to reset my password but the email never arrives...',
-      lastMessageTime: '5 min ago',
-      unreadCount: 3,
-      priority: 'high',
-      status: 'open',
-      assignedTo: {
-        name: 'Agent Smith'
-      },
-      tags: ['password', 'urgent'],
-      starred: true,
-      hasAttachments: false,
-      slaDeadline: '1h 45m remaining'
+  const [mockConversations, setMockConversations] = useState<ConversationMessage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const mapInteraction = (i: OmnichannelInteraction): ConversationMessage => ({
+    id: i.id,
+    ticketId: i.ticketId,
+    subject: i.subject,
+    customer: {
+      name: i.customerName,
+      email: i.customerEmail || '',
+      avatar: i.customerAvatar,
     },
-    {
-      id: '2',
-      ticketId: 'TKT-2025-002',
-      subject: 'Product inquiry - Hydraulic Press',
-      customer: {
-        name: 'Jane Smith',
-        email: 'jane.smith@manufacturing.com'
-      },
-      channel: 'chat',
-      lastMessage: 'What are the specifications for the HP-500 model?',
-      lastMessageTime: '12 min ago',
-      unreadCount: 1,
-      priority: 'medium',
-      status: 'open',
-      assignedTo: {
-        name: 'Agent Johnson'
-      },
-      hasAttachments: false,
-      slaDeadline: '3h 20m remaining'
-    },
-    {
-      id: '3',
-      ticketId: 'TKT-2025-003',
-      subject: 'Order status inquiry',
-      customer: {
-        name: 'Bob Wilson',
-        email: 'bob.w@techcorp.com'
-      },
-      channel: 'whatsapp',
-      lastMessage: 'Hi, I placed order #ORD-12345 last week. When will it ship?',
-      lastMessageTime: '25 min ago',
-      unreadCount: 0,
-      priority: 'low',
-      status: 'pending',
-      assignedTo: {
-        name: 'Agent Davis'
-      },
-      tags: ['order', 'shipping'],
-      hasAttachments: true,
-      slaDeadline: '5h 10m remaining'
-    },
-    {
-      id: '4',
-      ticketId: 'TKT-2025-004',
-      subject: 'Urgent: Machine malfunction',
-      customer: {
-        name: 'Sarah Johnson',
-        email: 'sarah.j@industrial.com'
-      },
-      channel: 'phone',
-      lastMessage: 'Our CNC machine stopped working. Need immediate assistance!',
-      lastMessageTime: '2 min ago',
-      unreadCount: 5,
-      priority: 'critical',
-      status: 'open',
-      tags: ['emergency', 'machine'],
-      starred: true,
-      hasAttachments: false,
-      slaDeadline: '30m remaining'
-    },
-    {
-      id: '5',
-      ticketId: 'TKT-2025-005',
-      subject: 'Billing question',
-      customer: {
-        name: 'Mike Brown',
-        email: 'mike.brown@finance.com'
-      },
-      channel: 'email',
-      lastMessage: 'I see a charge on my account that I don\'t recognize...',
-      lastMessageTime: '1 hour ago',
-      unreadCount: 0,
-      priority: 'medium',
-      status: 'resolved',
-      assignedTo: {
-        name: 'Agent Martinez'
-      },
-      tags: ['billing'],
-      hasAttachments: true
+    channel: i.channel as Channel,
+    lastMessage: i.lastMessage || '',
+    lastMessageTime: i.lastMessageTime || '',
+    unreadCount: i.unreadCount ?? 0,
+    priority: i.priority,
+    status: i.status,
+    assignedTo: i.assignedToName
+      ? { name: i.assignedToName, avatar: i.assignedToAvatar }
+      : undefined,
+    tags: i.tags,
+    starred: i.starred,
+    hasAttachments: i.hasAttachments,
+    slaDeadline: i.slaDeadline,
+  })
+
+  const loadConversations = React.useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await OmnichannelService.getInteractions()
+      setMockConversations(data.map(mapInteraction))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load conversations')
+    } finally {
+      setLoading(false)
     }
-  ]
+  }, [])
+
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
 
   // Mock data for queue
   const mockQueueItems: QueueItem[] = [
@@ -326,20 +266,28 @@ function OmnichannelSupportPageContent() {
         <div className="flex-1 overflow-hidden p-3">
           <TabContent activeTab={activeTab} tabId="inbox">
             <div className="h-full">
-              <UnifiedInbox
-                conversations={filteredConversations}
-                selectedConversation={selectedConversation}
-                onConversationSelect={handleConversationSelect}
-                onRefresh={() => {
-                  addToast({
-                    title: 'Refreshed',
-                    message: 'Inbox updated',
-                    variant: 'info',
-                    duration: 2000
-                  })
-                }}
-                onSearch={(query) => console.log('Search:', query)}
-              />
+              {error ? (
+                <div className="flex items-center justify-center h-full text-sm text-red-600">
+                  {error}
+                </div>
+              ) : (
+                <UnifiedInbox
+                  conversations={filteredConversations}
+                  selectedConversation={selectedConversation}
+                  onConversationSelect={handleConversationSelect}
+                  loading={loading}
+                  onRefresh={() => {
+                    loadConversations()
+                    addToast({
+                      title: 'Refreshed',
+                      message: 'Inbox updated',
+                      variant: 'info',
+                      duration: 2000
+                    })
+                  }}
+                  onSearch={(query) => console.log('Search:', query)}
+                />
+              )}
             </div>
           </TabContent>
 
@@ -368,7 +316,9 @@ function OmnichannelSupportPageContent() {
                 conversations={filteredConversations.filter(c => c.assignedTo)}
                 selectedConversation={selectedConversation}
                 onConversationSelect={handleConversationSelect}
+                loading={loading}
                 onRefresh={() => {
+                  loadConversations()
                   addToast({
                     title: 'Refreshed',
                     message: 'Assigned tickets updated',

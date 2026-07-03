@@ -34,6 +34,12 @@ import { SalesReportController } from './controllers/sales-report.controller';
 import { PriceListItemService } from './services/price-list-item.service';
 import { SalesTargetService } from './services/sales-target.service';
 import { SalesReportService } from './services/sales-report.service';
+import { Handover } from './entities/handover.entity';
+import { HandoverPackageDocument } from './entities/handover-package-document.entity';
+import { HandoverController } from './controllers/handover.controller';
+import { HandoverPackageDocumentController } from './controllers/handover-package-document.controller';
+import { HandoverService } from './services/handover.service';
+import { HandoverPackageDocumentService } from './services/handover-package-document.service';
 import { RFPController } from './rfp.controller';
 import { RFPService } from './rfp.service';
 import { ApprovalWorkflowService } from './services/approval-workflow.service';
@@ -68,6 +74,8 @@ import { SalesMastersService } from './services/sales-masters.service';
       PriceListItem,
       SalesTarget,
       SalesReport,
+      Handover,
+      HandoverPackageDocument,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -86,6 +94,8 @@ import { SalesMastersService } from './services/sales-masters.service';
     PromotionController,
     SpecialPriceController,
     PriceListItemController,
+    HandoverController,
+    HandoverPackageDocumentController,
   ],
   providers: [
     RFPService,
@@ -108,6 +118,8 @@ import { SalesMastersService } from './services/sales-masters.service';
     PriceListItemService,
     SalesTargetService,
     SalesReportService,
+    HandoverService,
+    HandoverPackageDocumentService,
   ],
   exports: [
     RFPService,

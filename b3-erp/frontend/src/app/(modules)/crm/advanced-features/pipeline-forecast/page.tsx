@@ -1,79 +1,121 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { PipelineForecast } from '@/components/crm';
-import type { ForecastPeriod } from '@/components/crm';
-import { ArrowLeft } from 'lucide-react';
+import type { ForecastPeriod, ForecastScenario } from '@/components/crm/PipelineForecast';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import crmService from '@/services/crm.service';
 
-const mockForecastPeriods: ForecastPeriod[] = [
-  {
-    month: 'Oct 2025',
-    committed: 420000,
-    bestCase: 680000,
-    pipeline: 855000,
-    closed: 320000,
-    target: 650000,
-    opportunities: 7,
-    aiPrediction: {
-      expectedRevenue: 590000,
-      confidence: 85,
-      risk: 'low',
-      factors: [
-        'Strong historical conversion rate in Q4',
-        '3 high-value deals in negotiation stage',
-        'Sales team velocity 15% above average',
-        'Market conditions favorable for closing',
-      ],
-    },
-  },
-  {
-    month: 'Nov 2025',
-    committed: 580000,
-    bestCase: 825000,
-    pipeline: 1150000,
-    closed: 0,
-    target: 700000,
-    opportunities: 9,
-    aiPrediction: {
-      expectedRevenue: 720000,
-      confidence: 78,
-      risk: 'medium',
-      factors: [
-        'Pipeline coverage ratio is healthy at 1.6x',
-        'Holiday season may slow decision making',
-        'Need to accelerate 2 key opportunities',
-      ],
-    },
-  },
-  {
-    month: 'Dec 2025',
-    committed: 450000,
-    bestCase: 720000,
-    pipeline: 920000,
-    closed: 0,
-    target: 750000,
-    opportunities: 6,
-    aiPrediction: {
-      expectedRevenue: 650000,
-      confidence: 72,
-      risk: 'medium',
-      factors: [
-        'End-of-year budget flush expected',
-        'Shorter working days may impact closings',
-        'Strong Q4 finish historically',
-      ],
-    },
-  },
-];
+interface PipelineForecastAnalytics {
+  totalPipeline?: number;
+  weightedPipeline?: number;
+  openCount?: number;
+  wonCount?: number;
+  wonValue?: number;
+  byStage?: Array<{ stage: string; count: number; value: number; weighted: number }>;
+  byMonth?: Array<{ month: string; count: number; value: number; weighted: number }>;
+  byConfidence?: Array<{ band: string; count: number; value: number }>;
+}
 
 export default function PipelineForecastPage() {
   const router = useRouter();
 
+  const [analytics, setAnalytics] = useState<PipelineForecastAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const result = await crmService.analyticsViews.getPipelineForecast();
+        if (!cancelled) {
+          setAnalytics(result ?? null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAnalytics(null);
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load pipeline forecast.'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const byMonth = analytics?.byMonth ?? [];
+  const byStage = analytics?.byStage ?? [];
+  const byConfidence = analytics?.byConfidence ?? [];
+  const totalPipeline = analytics?.totalPipeline ?? 0;
+  const weightedPipeline = analytics?.weightedPipeline ?? 0;
+
+  // Map the aggregated monthly rollup into the component's ForecastPeriod shape.
+  const periods: ForecastPeriod[] = byMonth.map((m) => ({
+    month: m.month ?? '',
+    committed: m.weighted ?? 0,
+    bestCase: Math.round(((m.weighted ?? 0) + (m.value ?? 0)) / 2),
+    pipeline: m.value ?? 0,
+    closed: 0,
+    target: m.value ?? 0,
+    opportunities: m.count ?? 0,
+  }));
+
+  // Derive scenarios from confidence bands / totals (cosmetic labels kept static).
+  const bandValue = (predicate: (band: string) => boolean) =>
+    byConfidence
+      .filter((c) => predicate((c.band ?? '').toLowerCase()))
+      .reduce((sum, c) => sum + (c.value ?? 0), 0);
+
+  const highBand = bandValue((b) => b.includes('high'));
+  const scenarios: ForecastScenario[] = [
+    {
+      name: 'Conservative',
+      probability: 90,
+      revenue: weightedPipeline,
+      description: 'Weighted pipeline based on stage probability',
+    },
+    {
+      name: 'Likely',
+      probability: 70,
+      revenue: highBand > 0 ? weightedPipeline + highBand : Math.round((weightedPipeline + totalPipeline) / 2),
+      description: 'Weighted pipeline plus high-confidence upside',
+    },
+    {
+      name: 'Optimistic',
+      probability: 40,
+      revenue: totalPipeline,
+      description: 'All open pipeline deals close',
+    },
+  ];
+
   return (
     <div className="w-full h-full flex flex-col bg-gray-50">
-
       <div className="flex-1 px-3 py-2 overflow-auto">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading forecast…
+          </div>
+        )}
+        {loadError && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+
         <button
           onClick={() => router.push('/crm/advanced-features')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3"
@@ -89,27 +131,8 @@ export default function PipelineForecastPage() {
             powered by machine learning.
           </p>
           <PipelineForecast
-            periods={mockForecastPeriods}
-            scenarios={[
-              {
-                name: 'Conservative',
-                probability: 90,
-                revenue: 1450000,
-                description: 'Only committed deals close',
-              },
-              {
-                name: 'Likely',
-                probability: 70,
-                revenue: 1960000,
-                description: 'Best case scenario with some slippage',
-              },
-              {
-                name: 'Optimistic',
-                probability: 40,
-                revenue: 2225000,
-                description: 'All pipeline deals close',
-              },
-            ]}
+            periods={periods}
+            scenarios={scenarios}
             currentPeriodIndex={0}
             showAIPredictions={true}
             showScenarios={true}

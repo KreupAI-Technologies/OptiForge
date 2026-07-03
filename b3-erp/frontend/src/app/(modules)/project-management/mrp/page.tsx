@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
  Package,
  Plus,
@@ -54,7 +55,7 @@ interface Material {
  projectPhase: string;
 }
 
-const mockMaterials: Material[] = [
+const seedMaterials: Material[] = [
  {
   id: '1',
   itemCode: 'STOVE-COM-001',
@@ -218,7 +219,14 @@ const mockMaterials: Material[] = [
 ];
 
 export default function MRPPage() {
- const [materials] = useState<Material[]>(mockMaterials);
+ const [materials, setMaterials] = useState<Material[]>(seedMaterials);
+
+ useEffect(() => {
+  projectManagementService.listMrpMaterials()
+   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMaterials(rows as unknown as Material[]); })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
+
  const [searchTerm, setSearchTerm] = useState('');
  const [statusFilter, setStatusFilter] = useState('All');
  const [categoryFilter, setCategoryFilter] = useState('All');

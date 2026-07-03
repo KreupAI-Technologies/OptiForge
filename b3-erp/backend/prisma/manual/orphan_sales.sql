@@ -201,3 +201,54 @@ CREATE TABLE IF NOT EXISTS "sales_reports" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
   CONSTRAINT "PK_sales_reports" PRIMARY KEY ("id")
 );
+
+-- ---------------------------------------------------------------------------
+-- Sales-to-Project Handover (sales/handover page).
+-- ADDITIVE ONLY: never DROP or ALTER existing tables.
+-- Entity: src/modules/sales/entities/handover.entity.ts
+CREATE TABLE IF NOT EXISTS "sales_handovers" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "handoverNumber" varchar NOT NULL,
+  "projectNumber" varchar,
+  "projectName" varchar NOT NULL,
+  "customer" varchar,
+  "salesPerson" varchar,
+  "projectManager" varchar,
+  "handoverDate" date,
+  "status" varchar NOT NULL DEFAULT 'Pending',
+  "completionPercentage" integer NOT NULL DEFAULT 0,
+  "documentsAttached" integer NOT NULL DEFAULT 0,
+  "requiredDocuments" integer NOT NULL DEFAULT 0,
+  "clientRequestDate" date,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_handovers" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_sales_handovers_status"
+  ON "sales_handovers" ("status");
+
+-- Handover package document checklist (sales/handover/package page).
+-- Entity: src/modules/sales/entities/handover-package-document.entity.ts
+CREATE TABLE IF NOT EXISTS "sales_handover_package_documents" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar,
+  "projectId" varchar,
+  "projectNumber" varchar,
+  "projectName" varchar,
+  "customer" varchar,
+  "name" varchar NOT NULL,
+  "type" varchar,
+  "status" varchar NOT NULL DEFAULT 'Missing',
+  "uploadDate" date,
+  "uploadedBy" varchar,
+  "content" text,
+  "sortOrder" integer NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_handover_package_documents" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_sales_handover_package_documents_project"
+  ON "sales_handover_package_documents" ("projectId");

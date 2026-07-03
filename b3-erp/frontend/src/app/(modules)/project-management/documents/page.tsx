@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { FileText, Folder, Upload, Download, Eye, Trash2, Search, Filter, Calendar, User, Edit, Share2, FolderInput, Lock, Clock, Archive, Tag, FileSearch } from 'lucide-react';
 import {
   UploadDocumentModal,
@@ -80,7 +81,7 @@ export default function DocumentsPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
 
-  const mockDocuments: Document[] = [
+  const [mockDocuments, setMockDocuments] = useState<Document[]>([
     // ==================== TAJ HOTELS - COMMERCIAL KITCHEN SETUP ====================
     {
       id: 'DOC-001',
@@ -781,7 +782,13 @@ export default function DocumentsPage() {
       description: 'Space-optimized equipment specifications for 400 sq.ft micro fulfillment kitchen. Focus on: rapid heating equipment, modular storage, easy cleaning, and high throughput (200 orders/hour capacity).',
       relatedDocuments: ['SWG-INV-2026-001'],
     },
-  ];
+  ]);
+
+  useEffect(() => {
+    projectManagementService.listPmDocuments()
+     .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockDocuments(rows as unknown as Document[]); })
+     .catch(() => { /* keep seed data on error */ });
+  }, []);
 
   const stats = {
     totalDocuments: mockDocuments.length,

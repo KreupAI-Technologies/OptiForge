@@ -738,6 +738,245 @@ export interface StockItem {
     status: 'Available' | 'Shortfall';
 }
 
+// --- Follow-up pass: remaining PM list features (NestJS CRUD) ---
+export interface PmProjectTypeItem {
+    id: string;
+    companyId?: string;
+    typeName: string;
+    typeCode: string;
+    category: string;
+    description: string;
+    industry: string;
+    defaultDuration: string;
+    budgetRange: string;
+    requiredApprovals: number;
+    defaultWorkflow: string;
+    customFields: any[];
+    projectCount: number;
+    activeProjects: number;
+    avgSuccessRate: number;
+    totalRevenue: number;
+    isActive: boolean;
+    createdDate: string;
+    lastModified: string;
+}
+
+export interface PmDocument {
+    id: string;
+    companyId?: string;
+    documentNumber: string;
+    projectId: string;
+    projectName: string;
+    documentName: string;
+    documentType: string;
+    category: string;
+    version: string;
+    uploadDate: string;
+    uploadedBy: string;
+    fileSize: string;
+    fileFormat: string;
+    status: string;
+    accessLevel: string;
+    reviewedBy: string;
+    approvedBy: string;
+    approvalDate: string;
+    expiryDate: string;
+    tags: string[];
+    description: string;
+    relatedDocuments: string[];
+}
+
+export interface PmMrpMaterial {
+    id: string;
+    companyId?: string;
+    itemCode: string;
+    itemName: string;
+    category: string;
+    requiredQuantity: number;
+    unit: string;
+    availableStock: number;
+    requiredDate: string;
+    status: string;
+    supplier: string;
+    unitCost: number;
+    totalCost: number;
+    leadTime: number;
+    projectPhase: string;
+}
+
+export interface PmInstallationActivity {
+    id: string;
+    companyId?: string;
+    activityNumber: string;
+    projectId: string;
+    projectName: string;
+    equipmentItem: string;
+    equipmentCode: string;
+    location: string;
+    zone: string;
+    installationType: string;
+    plannedStartDate: string;
+    plannedEndDate: string;
+    actualStartDate: string;
+    actualEndDate: string;
+    status: string;
+    progress: number;
+    assignedTeam: string;
+    teamSize: number;
+    supervisor: string;
+    dependencies: string[];
+    prerequisitesCompleted: boolean;
+    materialAvailability: string;
+    toolsRequired: string[];
+    safetyChecklist: boolean;
+    qualityCheckpoint: boolean;
+    photos: number;
+    remarks: string;
+    issues: string[];
+    delayReason: string;
+}
+
+export interface PmQualityInspection {
+    id: string;
+    companyId?: string;
+    inspectionNumber: string;
+    projectId: string;
+    projectName: string;
+    inspectionDate: string;
+    inspectionType: string;
+    phase: string;
+    workPackage: string;
+    inspectorName: string;
+    inspectorId: string;
+    checklist: any[];
+    totalCheckPoints: number;
+    passed: number;
+    failed: number;
+    notApplicable: number;
+    pending: number;
+    overallStatus: string;
+    defects: number;
+    criticalDefects: number;
+    photos: number;
+    signedOff: boolean;
+    signOffBy: string;
+    signOffDate: string;
+    nextInspectionDate: string;
+    remarks: string;
+}
+
+export interface PmResourceUtilization {
+    id: string;
+    companyId?: string;
+    resourceId: string;
+    resourceName: string;
+    role: string;
+    department: string;
+    employeeType: string;
+    totalCapacity: number;
+    allocatedHours: number;
+    actualHours: number;
+    utilization: number;
+    efficiency: number;
+    billableHours: number;
+    nonBillableHours: number;
+    overtimeHours: number;
+    leaveHours: number;
+    idleHours: number;
+    activeProjects: number;
+    costPerHour: number;
+    totalRevenue: number;
+    totalCost: number;
+    availability: string;
+    status: string;
+    currentProjects: any[];
+}
+
+export interface PmReport {
+    id: string;
+    companyId?: string;
+    reportName: string;
+    reportType: string;
+    category: string;
+    description: string;
+    frequency: string;
+    format: string;
+    lastGenerated: string;
+    generatedBy: string;
+    projectScope: string;
+    projectCount: number;
+    fileSize: string;
+    status: string;
+}
+
+export interface PmSiteSurvey {
+    id: string;
+    companyId?: string;
+    surveyNumber: string;
+    projectId: string;
+    projectName: string;
+    projectType: string;
+    surveyDate: string;
+    siteName: string;
+    siteAddress: string;
+    city: string;
+    state: string;
+    surveyorName: string;
+    surveyorContact: string;
+    status: string;
+    measurements: { length: number; width: number; height: number; area: number };
+    accessibility: string;
+    powerAvailable: boolean;
+    waterAvailable: boolean;
+    drainageAvailable: boolean;
+    floorLevel: string;
+    ceilingType: string;
+    wallCondition: string;
+    ventilation: string;
+    naturalLight: string;
+    existingEquipment: string;
+    obstacles: string;
+    specialRequirements: string;
+    photosCount: number;
+    drawingsCount: number;
+    issues: string[];
+    recommendations: string[];
+    estimatedBudget: number;
+    completionPercent: number;
+}
+
+export interface PmWbsNode {
+    id: string;
+    companyId?: string;
+    code: string;
+    name: string;
+    type: string;
+    level: number;
+    parentId: string | null;
+    progress: number;
+    status: string;
+    startDate: string;
+    endDate: string;
+    assignedTo: string;
+    estimatedHours: number;
+    actualHours: number;
+    budget: number;
+    actualCost: number;
+}
+
+export interface PmScheduleTask {
+    id: string;
+    companyId?: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    progress: number;
+    assignee: string;
+    dependencies: string[];
+    phase: string;
+    status: string;
+}
+
 class ProjectManagementService {
     private bomValidations: BOMValidation[] = [
         {
@@ -2175,6 +2414,66 @@ class ProjectManagementService {
     createProgressEntry(data: Partial<PmProgressEntry>) { return this.pmCreate<PmProgressEntry>('progress', data); }
     updateProgressEntry(id: string, data: Partial<PmProgressEntry>) { return this.pmUpdate<PmProgressEntry>('progress', id, data); }
     deleteProgressEntry(id: string) { return this.pmDelete('progress', id); }
+
+    // Project types (catalog)
+    listPmProjectTypes(companyId = 'default') { return this.pmList<PmProjectTypeItem>('project-types', companyId); }
+    createPmProjectType(data: Partial<PmProjectTypeItem>) { return this.pmCreate<PmProjectTypeItem>('project-types', data); }
+    updatePmProjectType(id: string, data: Partial<PmProjectTypeItem>) { return this.pmUpdate<PmProjectTypeItem>('project-types', id, data); }
+    deletePmProjectType(id: string) { return this.pmDelete('project-types', id); }
+
+    // Documents
+    listPmDocuments(companyId = 'default') { return this.pmList<PmDocument>('documents', companyId); }
+    createPmDocument(data: Partial<PmDocument>) { return this.pmCreate<PmDocument>('documents', data); }
+    updatePmDocument(id: string, data: Partial<PmDocument>) { return this.pmUpdate<PmDocument>('documents', id, data); }
+    deletePmDocument(id: string) { return this.pmDelete('documents', id); }
+
+    // MRP materials
+    listMrpMaterials(companyId = 'default') { return this.pmList<PmMrpMaterial>('mrp', companyId); }
+    createMrpMaterial(data: Partial<PmMrpMaterial>) { return this.pmCreate<PmMrpMaterial>('mrp', data); }
+    updateMrpMaterial(id: string, data: Partial<PmMrpMaterial>) { return this.pmUpdate<PmMrpMaterial>('mrp', id, data); }
+    deleteMrpMaterial(id: string) { return this.pmDelete('mrp', id); }
+
+    // Installation tracking
+    listInstallationActivities(companyId = 'default') { return this.pmList<PmInstallationActivity>('installation-tracking', companyId); }
+    createInstallationActivity(data: Partial<PmInstallationActivity>) { return this.pmCreate<PmInstallationActivity>('installation-tracking', data); }
+    updateInstallationActivity(id: string, data: Partial<PmInstallationActivity>) { return this.pmUpdate<PmInstallationActivity>('installation-tracking', id, data); }
+    deleteInstallationActivity(id: string) { return this.pmDelete('installation-tracking', id); }
+
+    // Quality inspections
+    listQualityInspections(companyId = 'default') { return this.pmList<PmQualityInspection>('quality-inspection', companyId); }
+    createQualityInspection(data: Partial<PmQualityInspection>) { return this.pmCreate<PmQualityInspection>('quality-inspection', data); }
+    updateQualityInspection(id: string, data: Partial<PmQualityInspection>) { return this.pmUpdate<PmQualityInspection>('quality-inspection', id, data); }
+    deleteQualityInspection(id: string) { return this.pmDelete('quality-inspection', id); }
+
+    // Resource utilization
+    listResourceUtilization(companyId = 'default') { return this.pmList<PmResourceUtilization>('resource-utilization', companyId); }
+    createResourceUtilization(data: Partial<PmResourceUtilization>) { return this.pmCreate<PmResourceUtilization>('resource-utilization', data); }
+    updateResourceUtilization(id: string, data: Partial<PmResourceUtilization>) { return this.pmUpdate<PmResourceUtilization>('resource-utilization', id, data); }
+    deleteResourceUtilization(id: string) { return this.pmDelete('resource-utilization', id); }
+
+    // Reports
+    listPmReports(companyId = 'default') { return this.pmList<PmReport>('reports', companyId); }
+    createPmReport(data: Partial<PmReport>) { return this.pmCreate<PmReport>('reports', data); }
+    updatePmReport(id: string, data: Partial<PmReport>) { return this.pmUpdate<PmReport>('reports', id, data); }
+    deletePmReport(id: string) { return this.pmDelete('reports', id); }
+
+    // Site surveys
+    listPmSiteSurveys(companyId = 'default') { return this.pmList<PmSiteSurvey>('site-survey', companyId); }
+    createPmSiteSurvey(data: Partial<PmSiteSurvey>) { return this.pmCreate<PmSiteSurvey>('site-survey', data); }
+    updatePmSiteSurvey(id: string, data: Partial<PmSiteSurvey>) { return this.pmUpdate<PmSiteSurvey>('site-survey', id, data); }
+    deletePmSiteSurvey(id: string) { return this.pmDelete('site-survey', id); }
+
+    // WBS nodes
+    listWbsNodes(companyId = 'default') { return this.pmList<PmWbsNode>('wbs', companyId); }
+    createWbsNode(data: Partial<PmWbsNode>) { return this.pmCreate<PmWbsNode>('wbs', data); }
+    updateWbsNode(id: string, data: Partial<PmWbsNode>) { return this.pmUpdate<PmWbsNode>('wbs', id, data); }
+    deleteWbsNode(id: string) { return this.pmDelete('wbs', id); }
+
+    // Schedule tasks
+    listScheduleTasks(companyId = 'default') { return this.pmList<PmScheduleTask>('schedule', companyId); }
+    createScheduleTask(data: Partial<PmScheduleTask>) { return this.pmCreate<PmScheduleTask>('schedule', data); }
+    updateScheduleTask(id: string, data: Partial<PmScheduleTask>) { return this.pmUpdate<PmScheduleTask>('schedule', id, data); }
+    deleteScheduleTask(id: string) { return this.pmDelete('schedule', id); }
 }
 
 export const projectManagementService = new ProjectManagementService();

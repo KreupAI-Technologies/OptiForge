@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GitBranch, Plus, Edit2, Trash2, Play, Pause, CheckCircle, XCircle, Clock, Users, AlertTriangle } from 'lucide-react'
 import { useToast } from '@/components/ui'
+import crmService from '@/services/crm.service'
 
 interface ApprovalWorkflow {
   id: string
@@ -45,170 +46,47 @@ interface WorkflowCondition {
 
 export default function ApprovalWorkflowsPage() {
   const { addToast } = useToast()
-  const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>([
-    {
-      id: '1',
-      name: 'Discount Approval - Multi-Level',
-      description: 'Approval chain for discounts based on percentage',
-      type: 'discount',
-      active: true,
-      stages: [
-        {
-          id: 's1',
-          name: 'Sales Manager Approval',
-          order: 1,
-          approvers: [
-            { id: 'u1', name: 'Rajesh Kumar', email: 'rajesh@example.com', role: 'Sales Manager' }
-          ],
-          approvalType: 'any',
-          autoApprove: false,
-          escalationHours: 24
-        },
-        {
-          id: 's2',
-          name: 'VP Sales Approval',
-          order: 2,
-          approvers: [
-            { id: 'u2', name: 'Priya Sharma', email: 'priya@example.com', role: 'VP Sales' }
-          ],
-          approvalType: 'any',
-          escalationHours: 48,
-          escalateTo: 'CEO'
-        }
-      ],
-      conditions: [
-        { field: 'discount_percentage', operator: '>', value: 10 }
-      ],
-      totalApprovals: 345,
-      pending: 12,
-      approved: 298,
-      rejected: 35,
-      createdAt: '2025-09-15'
-    },
-    {
-      id: '2',
-      name: 'High-Value Deal Approval',
-      description: 'Multi-stage approval for deals > ₹50 Lakhs',
-      type: 'deal',
-      active: true,
-      stages: [
-        {
-          id: 's3',
-          name: 'Regional Sales Head',
-          order: 1,
-          approvers: [
-            { id: 'u3', name: 'Amit Patel', email: 'amit@example.com', role: 'Regional Head - North' },
-            { id: 'u4', name: 'Vikram Singh', email: 'vikram@example.com', role: 'Regional Head - South' }
-          ],
-          approvalType: 'any',
-          escalationHours: 24
-        },
-        {
-          id: 's4',
-          name: 'Finance Review',
-          order: 2,
-          approvers: [
-            { id: 'u5', name: 'Anjali Verma', email: 'anjali@example.com', role: 'CFO' }
-          ],
-          approvalType: 'any',
-          escalationHours: 48
-        },
-        {
-          id: 's5',
-          name: 'Executive Approval',
-          order: 3,
-          approvers: [
-            { id: 'u6', name: 'Sanjay Gupta', email: 'sanjay@example.com', role: 'CEO' }
-          ],
-          approvalType: 'any',
-          escalationHours: 72
-        }
-      ],
-      conditions: [
-        { field: 'deal_value', operator: '>', value: 5000000 }
-      ],
-      totalApprovals: 89,
-      pending: 5,
-      approved: 67,
-      rejected: 17,
-      createdAt: '2025-09-20'
-    },
-    {
-      id: '3',
-      name: 'Contract Approval - Legal Review',
-      description: 'Contract approval with legal and executive sign-off',
-      type: 'contract',
-      active: true,
-      stages: [
-        {
-          id: 's6',
-          name: 'Legal Review',
-          order: 1,
-          approvers: [
-            { id: 'u7', name: 'Neha Reddy', email: 'neha@example.com', role: 'Legal Counsel' },
-            { id: 'u8', name: 'Karan Malhotra', email: 'karan@example.com', role: 'Contract Manager' }
-          ],
-          approvalType: 'all',
-          escalationHours: 72
-        },
-        {
-          id: 's7',
-          name: 'Finance Approval',
-          order: 2,
-          approvers: [
-            { id: 'u5', name: 'Anjali Verma', email: 'anjali@example.com', role: 'CFO' }
-          ],
-          approvalType: 'any',
-          escalationHours: 48
-        },
-        {
-          id: 's8',
-          name: 'Executive Sign-off',
-          order: 3,
-          approvers: [
-            { id: 'u6', name: 'Sanjay Gupta', email: 'sanjay@example.com', role: 'CEO' }
-          ],
-          approvalType: 'any'
-        }
-      ],
-      conditions: [
-        { field: 'contract_value', operator: '>', value: 10000000 },
-        { field: 'contract_duration', operator: '>', value: 12 }
-      ],
-      totalApprovals: 45,
-      pending: 3,
-      approved: 38,
-      rejected: 4,
-      createdAt: '2025-09-25'
-    },
-    {
-      id: '4',
-      name: 'Express Approval - Small Discounts',
-      description: 'Auto-approve discounts < 5% with notification',
-      type: 'discount',
-      active: true,
-      stages: [
-        {
-          id: 's9',
-          name: 'Auto-Approval',
-          order: 1,
-          approvers: [
-            { id: 'u1', name: 'Rajesh Kumar', email: 'rajesh@example.com', role: 'Sales Manager' }
-          ],
-          approvalType: 'any',
-          autoApprove: true
-        }
-      ],
-      conditions: [
-        { field: 'discount_percentage', operator: '<=', value: 5 }
-      ],
-      totalApprovals: 1234,
-      pending: 0,
-      approved: 1234,
-      rejected: 0,
-      createdAt: '2025-10-01'
+  const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+    setLoadError(null)
+    crmService.approvalWorkflows
+      .getAll()
+      .then((rows) => {
+        if (cancelled) return
+        const mapped: ApprovalWorkflow[] = (rows ?? []).map((r: any) => ({
+          id: String(r.id),
+          name: r.name,
+          description: r.description,
+          type: r.type,
+          active: r.active,
+          stages: r.stages ?? [],
+          conditions: r.conditions ?? [],
+          totalApprovals: Number(r.totalApprovals),
+          pending: Number(r.pending),
+          approved: Number(r.approved),
+          rejected: Number(r.rejected),
+          createdAt: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+        }))
+        setWorkflows(mapped)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setWorkflows([])
+        setLoadError('Failed to load approval workflows. Please try again.')
+      })
+      .finally(() => {
+        if (cancelled) return
+        setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -269,6 +147,8 @@ export default function ApprovalWorkflowsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading workflows…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="p-6">

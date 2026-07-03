@@ -15,3 +15,7 @@ export * from './sourcing-rule.entity';
 export * from './procurement-notification.entity';
 export * from './procurement-budget.entity';
 export * from './procurement-calendar-event.entity';
+export * from './bom-receipt.entity';
+export * from './procurement-category.entity';
+export * from './savings-initiative.entity';
+export * from './vendor-scorecard.entity';

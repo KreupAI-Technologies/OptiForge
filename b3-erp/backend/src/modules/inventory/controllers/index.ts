@@ -7,3 +7,4 @@ export * from './stock-adjustment.controller';
 export * from './serial-number.controller';
 export * from './batch-number.controller';
 export * from './reorder-management.controller';
+export * from './cycle-count.controller';

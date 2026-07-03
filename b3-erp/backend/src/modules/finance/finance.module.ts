@@ -44,6 +44,11 @@ import {
   PaymentController,
   FinancialReportsController,
   JobCostSheetController,
+  BudgetController,
+  FixedAssetController,
+  CostCenterController,
+  TaxMasterController,
+  CashAnalyticsController,
 } from './controllers';
 
 // Services
@@ -58,6 +63,11 @@ import {
   TaxConfigSeederService,
   CostCenterSeederService,
   JobCostSheetService,
+  BudgetCrudService,
+  FixedAssetService,
+  CostCenterCrudService,
+  TaxMasterService,
+  CashAnalyticsService,
 } from './services';
 import { AccountsReceivableService } from './services/accounts-receivable.service';
 import { AccountsPayableService } from './services/accounts-payable.service';
@@ -131,6 +141,11 @@ import { Company } from '../core/entities/company.entity';
     PaymentController,
     FinancialReportsController,
     JobCostSheetController,
+    BudgetController,
+    FixedAssetController,
+    CostCenterController,
+    TaxMasterController,
+    CashAnalyticsController,
   ],
   providers: [
     ChartOfAccountsService,
@@ -148,6 +163,11 @@ import { Company } from '../core/entities/company.entity';
     ConsolidationService,
     FinanceSeederService,
     JobCostSheetService,
+    BudgetCrudService,
+    FixedAssetService,
+    CostCenterCrudService,
+    TaxMasterService,
+    CashAnalyticsService,
   ],
   exports: [
     ChartOfAccountsService,

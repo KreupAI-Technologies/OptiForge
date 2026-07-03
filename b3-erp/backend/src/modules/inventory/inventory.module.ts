@@ -34,6 +34,7 @@ import {
   SerialNumberController,
   BatchNumberController,
   ReorderManagementController,
+  CycleCountController,
 } from './controllers';
 
 // Services
@@ -93,6 +94,7 @@ import { VEDAnalysisService } from './services/ved-analysis.service';
     SerialNumberController,
     BatchNumberController,
     ReorderManagementController,
+    CycleCountController,
   ],
   providers: [
     WarehouseService,

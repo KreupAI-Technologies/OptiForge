@@ -30,6 +30,16 @@ import { CustomerAcceptanceEntity } from './entities/customer-acceptance.entity'
 import { ProjectProfitabilityEntity } from './entities/project-profitability.entity';
 import { LayoutBriefingEntity } from './entities/layout-briefing.entity';
 import { ProgressEntryEntity } from './entities/progress-entry.entity';
+import { PmProjectTypeEntity } from './entities/pm-project-type.entity';
+import { PmDocumentEntity } from './entities/pm-document.entity';
+import { PmMrpMaterialEntity } from './entities/pm-mrp-material.entity';
+import { PmInstallationActivityEntity } from './entities/pm-installation-activity.entity';
+import { PmQualityInspectionEntity } from './entities/pm-quality-inspection.entity';
+import { PmResourceUtilizationEntity } from './entities/pm-resource-utilization.entity';
+import { PmReportEntity } from './entities/pm-report.entity';
+import { PmSiteSurveyEntity } from './entities/pm-site-survey.entity';
+import { PmWbsNodeEntity } from './entities/pm-wbs-node.entity';
+import { PmScheduleTaskEntity } from './entities/pm-schedule-task.entity';
 import { ProjectAttachment } from '../project/entities/project-attachment.entity';
 import { BOQ } from '../project/entities/boq.entity';
 import { BOQItem } from '../project/entities/boq-item.entity';
@@ -93,6 +103,16 @@ import { CustomerAcceptanceService } from './services/customer-acceptance.servic
 import { ProfitabilityService } from './services/profitability.service';
 import { BriefingsService } from './services/briefings.service';
 import { ProgressService } from './services/progress.service';
+import { PmProjectTypesService } from './services/pm-project-types.service';
+import { PmDocumentsService } from './services/pm-documents.service';
+import { PmMrpService } from './services/pm-mrp.service';
+import { PmInstallationTrackingService } from './services/pm-installation-tracking.service';
+import { PmQualityInspectionsService } from './services/pm-quality-inspections.service';
+import { PmResourceUtilizationService } from './services/pm-resource-utilization.service';
+import { PmReportsService } from './services/pm-reports.service';
+import { PmSiteSurveysService } from './services/pm-site-surveys.service';
+import { PmWbsService } from './services/pm-wbs.service';
+import { PmScheduleService } from './services/pm-schedule.service';
 
 import { ProjectStatusSeederService } from './services/project-status-seeder.service';
 import { ProjectTypeSeederService } from './services/project-type-seeder.service';
@@ -135,6 +155,16 @@ import { CustomerAcceptanceController } from './controllers/customer-acceptance.
 import { ProfitabilityController } from './controllers/profitability.controller';
 import { BriefingsController } from './controllers/briefings.controller';
 import { ProgressController } from './controllers/progress.controller';
+import { PmProjectTypesController } from './controllers/pm-project-types.controller';
+import { PmDocumentsController } from './controllers/pm-documents.controller';
+import { PmMrpController } from './controllers/pm-mrp.controller';
+import { PmInstallationTrackingController } from './controllers/pm-installation-tracking.controller';
+import { PmQualityInspectionsController } from './controllers/pm-quality-inspections.controller';
+import { PmResourceUtilizationController } from './controllers/pm-resource-utilization.controller';
+import { PmReportsController } from './controllers/pm-reports.controller';
+import { PmSiteSurveysController } from './controllers/pm-site-surveys.controller';
+import { PmWbsController } from './controllers/pm-wbs.controller';
+import { PmScheduleController } from './controllers/pm-schedule.controller';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
@@ -188,7 +218,17 @@ import { ProgressController } from './controllers/progress.controller';
         DailyInstallReport,
         Invoice,
         PurchaseOrder,
-        GeneralLedger
+        GeneralLedger,
+        PmProjectTypeEntity,
+        PmDocumentEntity,
+        PmMrpMaterialEntity,
+        PmInstallationActivityEntity,
+        PmQualityInspectionEntity,
+        PmResourceUtilizationEntity,
+        PmReportEntity,
+        PmSiteSurveyEntity,
+        PmWbsNodeEntity,
+        PmScheduleTaskEntity
     ])],
     controllers: [
         ProjectController,
@@ -226,7 +266,17 @@ import { ProgressController } from './controllers/progress.controller';
         CustomerAcceptanceController,
         ProfitabilityController,
         BriefingsController,
-        ProgressController
+        ProgressController,
+        PmProjectTypesController,
+        PmDocumentsController,
+        PmMrpController,
+        PmInstallationTrackingController,
+        PmQualityInspectionsController,
+        PmResourceUtilizationController,
+        PmReportsController,
+        PmSiteSurveysController,
+        PmWbsController,
+        PmScheduleController
     ],
     providers: [
         ProjectService,
@@ -270,7 +320,17 @@ import { ProgressController } from './controllers/progress.controller';
         CustomerAcceptanceService,
         ProfitabilityService,
         BriefingsService,
-        ProgressService
+        ProgressService,
+        PmProjectTypesService,
+        PmDocumentsService,
+        PmMrpService,
+        PmInstallationTrackingService,
+        PmQualityInspectionsService,
+        PmResourceUtilizationService,
+        PmReportsService,
+        PmSiteSurveysService,
+        PmWbsService,
+        PmScheduleService
     ],
     exports: [
         ProjectService,

@@ -78,3 +78,26 @@ CREATE TABLE IF NOT EXISTS "workflow_config_templates" (
 
 CREATE INDEX IF NOT EXISTS "IDX_workflow_config_templates_company"
   ON "workflow_config_templates" ("companyId");
+
+-- ============================================================================
+-- Backs the visual workflow builder (ReactFlow canvas) at
+-- frontend /admin/workflows/builder (save/load of the node/edge graph).
+-- Entity: src/modules/workflow/entities/workflow-builder-graph.entity.ts
+-- Additive only.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "workflow_builder_graphs" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "name" character varying(255) NOT NULL,
+  "description" text,
+  "nodes" jsonb,
+  "edges" jsonb,
+  "status" character varying(50) NOT NULL DEFAULT 'draft',
+  "createdBy" character varying(100),
+  "updatedBy" character varying(100),
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_workflow_builder_graphs" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_workflow_builder_graphs_status"
+  ON "workflow_builder_graphs" ("status");

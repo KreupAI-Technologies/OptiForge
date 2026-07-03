@@ -16,6 +16,7 @@ import { SupportKnownError } from './entities/support-known-error.entity';
 import { SupportHardwareAsset } from './entities/support-hardware-asset.entity';
 import { SupportSoftwareAsset } from './entities/support-software-asset.entity';
 import { SupportScheduledChange } from './entities/support-scheduled-change.entity';
+import { OmnichannelInteraction } from './entities/omnichannel-interaction.entity';
 import { SupportAutomationRuleController } from './controllers/support-automation-rule.controller';
 import { SupportFaqController } from './controllers/support-faq.controller';
 import { SupportTicketCategoryController } from './controllers/support-ticket-category.controller';
@@ -31,6 +32,7 @@ import { SupportKnownErrorController } from './controllers/support-known-error.c
 import { SupportHardwareAssetController } from './controllers/support-hardware-asset.controller';
 import { SupportSoftwareAssetController } from './controllers/support-software-asset.controller';
 import { SupportScheduledChangeController } from './controllers/support-scheduled-change.controller';
+import { OmnichannelInteractionController } from './controllers/omnichannel-interaction.controller';
 import { SupportAutomationRuleService } from './services/support-automation-rule.service';
 import { SupportFaqService } from './services/support-faq.service';
 import { SupportTicketCategoryService } from './services/support-ticket-category.service';
@@ -46,6 +48,7 @@ import { SupportKnownErrorService } from './services/support-known-error.service
 import { SupportHardwareAssetService } from './services/support-hardware-asset.service';
 import { SupportSoftwareAssetService } from './services/support-software-asset.service';
 import { SupportScheduledChangeService } from './services/support-scheduled-change.service';
+import { OmnichannelInteractionService } from './services/omnichannel-interaction.service';
 import { AIResponsesService } from './services/ai-responses.service';
 import { BacklogService } from './services/backlog.service';
 import { ChannelRoutingService } from './services/channel-routing.service';
@@ -78,6 +81,7 @@ import { SupportController } from './support.controller';
       SupportHardwareAsset,
       SupportSoftwareAsset,
       SupportScheduledChange,
+      OmnichannelInteraction,
     ]),
   ],
   controllers: [
@@ -99,6 +103,7 @@ import { SupportController } from './support.controller';
     SupportHardwareAssetController,
     SupportSoftwareAssetController,
     SupportScheduledChangeController,
+    OmnichannelInteractionController,
     SupportController,
   ],
   providers: [
@@ -117,6 +122,7 @@ import { SupportController } from './support.controller';
     SupportHardwareAssetService,
     SupportSoftwareAssetService,
     SupportScheduledChangeService,
+    OmnichannelInteractionService,
     AIResponsesService,
     BacklogService,
     ChannelRoutingService,

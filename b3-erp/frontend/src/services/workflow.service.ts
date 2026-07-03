@@ -180,6 +180,53 @@ export interface WorkflowStatistics {
   avgCompletionDays: number;
 }
 
+// ---------------------------------------------------------------------------
+// Order Tracking detail (live) — matches the OrderTracking ORM entity shape
+// Backend controller: @Controller('api/workflow/order-tracking') @Get(':orderId')
+// ---------------------------------------------------------------------------
+
+export interface OrderTrackingEventInfo {
+  status: string;
+  timestamp: string;
+  description: string;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface OrderTrackingWorkOrderInfo {
+  workOrderId?: string;
+  workOrderNumber: string;
+  itemName: string;
+  quantity: number;
+  status: string;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+}
+
+export interface OrderTrackingDetail {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  status: string;
+  totalAmount: number;
+  itemCount: number;
+  expectedDeliveryDate?: string;
+  actualDeliveryDate?: string;
+  completedDate?: string;
+  events: OrderTrackingEventInfo[];
+  workOrders: OrderTrackingWorkOrderInfo[];
+  shipments?: any[];
+  invoices?: any[];
+  payments?: any[];
+  metadata?: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // ============================================================================
 // Mock Data
 // ============================================================================
@@ -1019,6 +1066,44 @@ export class WorkflowService {
     );
     const raw = res && res.data ? res.data : res;
     return (raw as Record<string, number>) ?? {};
+  }
+
+  // -------------------------------------------------------------------------
+  // Order Tracking detail (live) — GET /api/workflow/order-tracking/:orderId
+  // -------------------------------------------------------------------------
+
+  /**
+   * Get a single order-tracking record by its orderId (the [id] route param).
+   * The backend controller returns the OrderTracking entity directly (not
+   * wrapped in { success, data }), so this fetches raw and returns the object.
+   * Backend controller: @Controller('api/workflow/order-tracking') @Get(':orderId')
+   */
+  static async getOrderTrackingById(orderId: string): Promise<OrderTrackingDetail> {
+    const base =
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const response = await fetch(
+      `${base}/api/workflow/order-tracking/${encodeURIComponent(orderId)}`,
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    if (!response.ok) {
+      let message = response.statusText || `HTTP ${response.status}`;
+      try {
+        const body = await response.json();
+        if (body?.message) {
+          message = Array.isArray(body.message) ? body.message.join('; ') : body.message;
+        }
+      } catch {
+        // keep fallback
+      }
+      throw new Error(message);
+    }
+    const body = await response.json();
+    // Tolerate both the raw entity and a { data } envelope.
+    return (body && body.data ? body.data : body) as OrderTrackingDetail;
   }
 }
 

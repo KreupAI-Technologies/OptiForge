@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Users, Target, Activity, Calendar, BarChart3, PieChart, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { TrendingUp, DollarSign, Users, Target, Activity, BarChart3, PieChart } from 'lucide-react';
+import crmService from '@/services/crm.service';
 
 interface MetricData {
   label: string;
@@ -15,64 +16,75 @@ interface ChartDataPoint {
   value: number;
 }
 
+interface LeadStatusBucket {
+  status: string;
+  count: number;
+}
+
+interface CRMAnalyticsOverview {
+  totalLeads: number;
+  openLeads: number;
+  wonLeads: number;
+  lostLeads: number;
+  conversionRate: number;
+  totalCustomers: number;
+  activeCustomers: number;
+  pipelineValue: number;
+  wonValue: number;
+  customerRevenue: number;
+  leadsByStatus: LeadStatusBucket[];
+}
+
+// Cosmetic palette applied to lead-status buckets in the status chart.
+const STATUS_COLORS = [
+  'from-blue-500 to-blue-600',
+  'from-purple-500 to-purple-600',
+  'from-yellow-500 to-yellow-600',
+  'from-orange-500 to-orange-600',
+  'from-green-500 to-green-600',
+  'from-teal-500 to-teal-600',
+  'from-pink-500 to-pink-600',
+];
+
 export default function CRMAnalyticsPage() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
+  const [analytics, setAnalytics] = useState<CRMAnalyticsOverview | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Key Metrics
-  const metrics: {
-    revenue: { current: number; previous: number; change: number; trend: 'up' | 'down' };
-    customers: { current: number; previous: number; change: number; trend: 'up' | 'down' };
-    deals: { current: number; previous: number; change: number; trend: 'up' | 'down' };
-    conversion: { current: number; previous: number; change: number; trend: 'up' | 'down' };
-  } = {
-    revenue: {
-      current: 2450000,
-      previous: 2180000,
-      change: 12.4,
-      trend: 'up',
-    },
-    customers: {
-      current: 1247,
-      previous: 1189,
-      change: 4.9,
-      trend: 'up',
-    },
-    deals: {
-      current: 89,
-      previous: 102,
-      change: -12.7,
-      trend: 'down',
-    },
-    conversion: {
-      current: 24.5,
-      previous: 22.8,
-      change: 7.5,
-      trend: 'up',
-    },
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  // Sales Pipeline Data
-  const pipelineStages = [
-    { stage: 'Prospecting', count: 145, value: 1250000, color: 'from-blue-500 to-blue-600' },
-    { stage: 'Qualification', count: 89, value: 890000, color: 'from-purple-500 to-purple-600' },
-    { stage: 'Proposal', count: 45, value: 650000, color: 'from-yellow-500 to-yellow-600' },
-    { stage: 'Negotiation', count: 28, value: 480000, color: 'from-orange-500 to-orange-600' },
-    { stage: 'Closed Won', count: 67, value: 1200000, color: 'from-green-500 to-green-600' },
-  ];
+    const loadAnalytics = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const result = await crmService.analyticsViews.getOverview();
+        if (!cancelled) {
+          setAnalytics(result as CRMAnalyticsOverview);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAnalytics(null);
+          setLoadError('Failed to load CRM analytics. Please try again.');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-  // Revenue Trend Data
-  const revenueData: ChartDataPoint[] = [
-    { month: 'Jan', value: 1850000 },
-    { month: 'Feb', value: 1920000 },
-    { month: 'Mar', value: 2100000 },
-    { month: 'Apr', value: 2050000 },
-    { month: 'May', value: 2280000 },
-    { month: 'Jun', value: 2350000 },
-    { month: 'Jul', value: 2180000 },
-    { month: 'Aug', value: 2420000 },
-    { month: 'Sep', value: 2450000 },
-    { month: 'Oct', value: 2650000 },
-  ];
+    loadAnalytics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Derived lead-status data for the status chart, sourced from the backend.
+  const leadsByStatus: LeadStatusBucket[] = analytics?.leadsByStatus ?? [];
+  const maxStatusCount = Math.max(1, ...leadsByStatus.map((s) => s.count));
 
   // Customer Acquisition
   const customerAcquisition = [
@@ -106,10 +118,19 @@ export default function CRMAnalyticsPage() {
     { segment: 'Small Business', count: 749, revenue: 310000, avgDeal: 414 },
   ];
 
-  const maxRevenue = Math.max(...revenueData.map(d => d.value));
-
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          <span>Loading analytics…</span>
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex gap-2 mb-3">
           {(['week', 'month', 'quarter', 'year'] as const).map((range) => (
@@ -131,21 +152,14 @@ export default function CRMAnalyticsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Total Revenue</span>
+              <span className="text-sm font-medium text-gray-600">Customer Revenue</span>
               <DollarSign className="w-5 h-5 text-green-600" />
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-2">
-              ${(metrics.revenue.current / 1000000).toFixed(2)}M
+              ${((analytics?.customerRevenue ?? 0) / 1000000).toFixed(2)}M
             </div>
-            <div className={`flex items-center gap-1 text-sm ${
-              metrics.revenue.trend === 'down' ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {metrics.revenue.trend === 'down' ? (
-                <ArrowDownRight className="w-4 h-4" />
-              ) : (
-                <ArrowUpRight className="w-4 h-4" />
-              )}
-              <span>{Math.abs(metrics.revenue.change)}% vs last period</span>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <span>Won value: ${((analytics?.wonValue ?? 0) / 1000000).toFixed(2)}M</span>
             </div>
           </div>
 
@@ -155,37 +169,23 @@ export default function CRMAnalyticsPage() {
               <Users className="w-5 h-5 text-blue-600" />
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-2">
-              {metrics.customers.current.toLocaleString()}
+              {(analytics?.totalCustomers ?? 0).toLocaleString()}
             </div>
-            <div className={`flex items-center gap-1 text-sm ${
-              metrics.customers.trend === 'down' ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {metrics.customers.trend === 'down' ? (
-                <ArrowDownRight className="w-4 h-4" />
-              ) : (
-                <ArrowUpRight className="w-4 h-4" />
-              )}
-              <span>{Math.abs(metrics.customers.change)}% vs last period</span>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <span>{(analytics?.activeCustomers ?? 0).toLocaleString()} active</span>
             </div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Closed Deals</span>
+              <span className="text-sm font-medium text-gray-600">Won Leads</span>
               <Target className="w-5 h-5 text-purple-600" />
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-2">
-              {metrics.deals.current}
+              {(analytics?.wonLeads ?? 0).toLocaleString()}
             </div>
-            <div className={`flex items-center gap-1 text-sm ${
-              metrics.deals.trend === 'down' ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {metrics.deals.trend === 'down' ? (
-                <ArrowDownRight className="w-4 h-4" />
-              ) : (
-                <ArrowUpRight className="w-4 h-4" />
-              )}
-              <span>{Math.abs(metrics.deals.change)}% vs last period</span>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <span>{(analytics?.totalLeads ?? 0).toLocaleString()} total leads</span>
             </div>
           </div>
 
@@ -195,74 +195,71 @@ export default function CRMAnalyticsPage() {
               <Activity className="w-5 h-5 text-orange-600" />
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-2">
-              {metrics.conversion.current}%
+              {(analytics?.conversionRate ?? 0).toFixed(1)}%
             </div>
-            <div className={`flex items-center gap-1 text-sm ${
-              metrics.conversion.trend === 'down' ? 'text-red-600' : 'text-green-600'
-            }`}>
-              {metrics.conversion.trend === 'down' ? (
-                <ArrowDownRight className="w-4 h-4" />
-              ) : (
-                <ArrowUpRight className="w-4 h-4" />
-              )}
-              <span>{Math.abs(metrics.conversion.change)}% vs last period</span>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <span>{(analytics?.openLeads ?? 0).toLocaleString()} open · {(analytics?.lostLeads ?? 0).toLocaleString()} lost</span>
             </div>
           </div>
         </div>
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-8">
-          {/* Revenue Trend Chart */}
+          {/* Pipeline Value Summary */}
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
-                Revenue Trend
+                Pipeline &amp; Revenue
               </h2>
             </div>
-            <div className="space-y-2">
-              {revenueData.map((data, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <span className="text-xs font-medium text-gray-600 w-8">{data.month}</span>
-                  <div className="flex-1 bg-gray-100 rounded-full h-8 relative overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full flex items-center justify-end pr-3 transition-all"
-                      style={{ width: `${(data.value / maxRevenue) * 100}%` }}
-                    >
-                      <span className="text-xs font-semibold text-white">
-                        ${(data.value / 1000000).toFixed(2)}M
-                      </span>
-                    </div>
-                  </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-white rounded-lg border border-blue-100">
+                <div className="text-xs text-gray-600 mb-1">Open Pipeline Value</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  ${((analytics?.pipelineValue ?? 0) / 1000000).toFixed(2)}M
                 </div>
-              ))}
+              </div>
+              <div className="p-4 bg-gradient-to-br from-green-50 to-white rounded-lg border border-green-100">
+                <div className="text-xs text-gray-600 mb-1">Won Value</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  ${((analytics?.wonValue ?? 0) / 1000000).toFixed(2)}M
+                </div>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-white rounded-lg border border-purple-100">
+                <div className="text-xs text-gray-600 mb-1">Customer Revenue</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  ${((analytics?.customerRevenue ?? 0) / 1000000).toFixed(2)}M
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Sales Pipeline */}
+          {/* Leads by Status */}
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Target className="w-5 h-5" />
-              Sales Pipeline
+              Leads by Status
             </h2>
             <div className="space-y-2">
-              {pipelineStages.map((stage, index) => (
-                <div key={index}>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="font-medium text-gray-900">{stage.stage}</span>
-                    <div className="text-right">
-                      <span className="font-semibold text-gray-900">${(stage.value / 1000).toFixed(0)}K</span>
-                      <span className="text-gray-600 ml-2">({stage.count} deals)</span>
+              {leadsByStatus.length === 0 ? (
+                <p className="text-sm text-gray-500">No lead data available.</p>
+              ) : (
+                leadsByStatus.map((bucket, index) => (
+                  <div key={bucket.status ?? index}>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="font-medium text-gray-900">{bucket.status}</span>
+                      <span className="text-gray-600">{bucket.count} leads</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`bg-gradient-to-r ${STATUS_COLORS[index % STATUS_COLORS.length]} h-full rounded-full`}
+                        style={{ width: `${(bucket.count / maxStatusCount) * 100}%` }}
+                      ></div>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                    <div
-                      className={`bg-gradient-to-r ${stage.color} h-full rounded-full`}
-                      style={{ width: `${(stage.value / 1250000) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

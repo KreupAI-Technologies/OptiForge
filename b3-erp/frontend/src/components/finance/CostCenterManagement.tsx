@@ -12,6 +12,7 @@ import {
   FileText, CalculatorIcon, Filter, ShareIcon,
   Users, Banknote, TrendingUpIcon, TrendingDownIcon
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface CostCenter {
   id: string;
@@ -160,6 +161,26 @@ interface CostCenterReport {
   format: 'pdf' | 'excel' | 'csv';
 }
 
+// Zeroed defaults for sub-objects the backend does not provide (budget/actual/
+// allocation data). These keep the CostCenter interface satisfied and the UI
+// from crashing, while computing to honest 0 totals in derived values.
+const emptyBudget = (): CostCenterBudget => ({
+  totalBudget: 0,
+  categories: [],
+  period: '',
+  currency: 'INR',
+  lastUpdated: '',
+});
+
+const emptyActualCosts = (): CostCenterActual => ({
+  totalActual: 0,
+  currentPeriod: 0,
+  previousPeriod: 0,
+  yearToDate: 0,
+  categories: [],
+  lastUpdated: '',
+});
+
 const CostCenterManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'cost-centers' | 'allocations' | 'rules' | 'transactions' | 'reports'>('dashboard');
   const [selectedCostCenter, setSelectedCostCenter] = useState<CostCenter | null>(null);
@@ -168,173 +189,58 @@ const CostCenterManagement: React.FC = () => {
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [viewMode, setViewMode] = useState<'hierarchy' | 'flat'>('hierarchy');
 
-  // Mock data
-  const [costCenters] = useState<CostCenter[]>([
-    {
-      id: '1',
-      code: 'CC-001',
-      name: 'Information Technology',
-      description: 'IT department managing technology infrastructure and systems',
-      type: 'department',
-      level: 1,
-      isActive: true,
-      manager: 'John Smith',
-      managerEmail: 'john.smith@company.com',
-      department: 'IT',
-      location: 'Headquarters',
-      budget: {
-        totalBudget: 2500000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', budgetAmount: 1800000, spentAmount: 1650000, variance: -150000, variancePercent: -8.3 },
-          { categoryId: '2', categoryName: 'Software', budgetAmount: 400000, spentAmount: 420000, variance: 20000, variancePercent: 5.0 },
-          { categoryId: '3', categoryName: 'Hardware', budgetAmount: 300000, spentAmount: 280000, variance: -20000, variancePercent: -6.7 }
-        ],
-        period: '2024',
-        currency: 'USD',
-        lastUpdated: '2024-01-15T10:30:00Z'
-      },
-      actualCosts: {
-        totalActual: 2350000,
-        currentPeriod: 195000,
-        previousPeriod: 188000,
-        yearToDate: 2350000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', actualAmount: 1650000, allocatedAmount: 0, directAmount: 1650000, trend: 'up' },
-          { categoryId: '2', categoryName: 'Software', actualAmount: 420000, allocatedAmount: 0, directAmount: 420000, trend: 'stable' },
-          { categoryId: '3', categoryName: 'Hardware', actualAmount: 280000, allocatedAmount: 0, directAmount: 280000, trend: 'down' }
-        ],
-        lastUpdated: '2024-01-18T14:30:00Z'
-      },
-      allocations: [],
-      responsibilityType: 'cost',
-      createdDate: '2024-01-01T09:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z',
-      tags: ['technology', 'infrastructure', 'support']
-    },
-    {
-      id: '2',
-      code: 'CC-002',
-      name: 'Sales Department',
-      description: 'Sales team responsible for revenue generation',
-      type: 'department',
-      level: 1,
-      isActive: true,
-      manager: 'Sarah Johnson',
-      managerEmail: 'sarah.johnson@company.com',
-      department: 'Sales',
-      location: 'Headquarters',
-      budget: {
-        totalBudget: 3200000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', budgetAmount: 2400000, spentAmount: 2380000, variance: -20000, variancePercent: -0.8 },
-          { categoryId: '2', categoryName: 'Marketing', budgetAmount: 500000, spentAmount: 520000, variance: 20000, variancePercent: 4.0 },
-          { categoryId: '3', categoryName: 'Travel', budgetAmount: 300000, spentAmount: 285000, variance: -15000, variancePercent: -5.0 }
-        ],
-        period: '2024',
-        currency: 'USD',
-        lastUpdated: '2024-01-15T10:30:00Z'
-      },
-      actualCosts: {
-        totalActual: 3185000,
-        currentPeriod: 265000,
-        previousPeriod: 248000,
-        yearToDate: 3185000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', actualAmount: 2380000, allocatedAmount: 350000, directAmount: 2030000, trend: 'up' },
-          { categoryId: '2', categoryName: 'Marketing', actualAmount: 520000, allocatedAmount: 0, directAmount: 520000, trend: 'stable' },
-          { categoryId: '3', categoryName: 'Travel', actualAmount: 285000, allocatedAmount: 0, directAmount: 285000, trend: 'down' }
-        ],
-        lastUpdated: '2024-01-18T14:30:00Z'
-      },
-      allocations: [],
-      responsibilityType: 'profit',
-      createdDate: '2024-01-01T09:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z',
-      tags: ['sales', 'revenue', 'customer']
-    },
-    {
-      id: '3',
-      code: 'CC-003',
-      name: 'Manufacturing Operations',
-      description: 'Production and manufacturing operations',
-      type: 'department',
-      level: 1,
-      isActive: true,
-      manager: 'Mike Chen',
-      managerEmail: 'mike.chen@company.com',
-      department: 'Operations',
-      location: 'Factory A',
-      budget: {
-        totalBudget: 4500000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', budgetAmount: 2200000, spentAmount: 2150000, variance: -50000, variancePercent: -2.3 },
-          { categoryId: '2', categoryName: 'Materials', budgetAmount: 1800000, spentAmount: 1850000, variance: 50000, variancePercent: 2.8 },
-          { categoryId: '3', categoryName: 'Equipment', budgetAmount: 500000, spentAmount: 480000, variance: -20000, variancePercent: -4.0 }
-        ],
-        period: '2024',
-        currency: 'USD',
-        lastUpdated: '2024-01-15T10:30:00Z'
-      },
-      actualCosts: {
-        totalActual: 4480000,
-        currentPeriod: 374000,
-        previousPeriod: 368000,
-        yearToDate: 4480000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', actualAmount: 2150000, allocatedAmount: 200000, directAmount: 1950000, trend: 'stable' },
-          { categoryId: '2', categoryName: 'Materials', actualAmount: 1850000, allocatedAmount: 0, directAmount: 1850000, trend: 'up' },
-          { categoryId: '3', categoryName: 'Equipment', actualAmount: 480000, allocatedAmount: 0, directAmount: 480000, trend: 'down' }
-        ],
-        lastUpdated: '2024-01-18T14:30:00Z'
-      },
-      allocations: [],
-      responsibilityType: 'cost',
-      createdDate: '2024-01-01T09:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z',
-      tags: ['manufacturing', 'production', 'operations']
-    },
-    {
-      id: '4',
-      code: 'CC-004',
-      name: 'Human Resources',
-      description: 'HR department managing employee relations and benefits',
-      type: 'department',
-      level: 1,
-      isActive: true,
-      manager: 'Emma Davis',
-      managerEmail: 'emma.davis@company.com',
-      department: 'HR',
-      location: 'Headquarters',
-      budget: {
-        totalBudget: 1200000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', budgetAmount: 800000, spentAmount: 795000, variance: -5000, variancePercent: -0.6 },
-          { categoryId: '2', categoryName: 'Benefits Admin', budgetAmount: 250000, spentAmount: 260000, variance: 10000, variancePercent: 4.0 },
-          { categoryId: '3', categoryName: 'Training', budgetAmount: 150000, spentAmount: 140000, variance: -10000, variancePercent: -6.7 }
-        ],
-        period: '2024',
-        currency: 'USD',
-        lastUpdated: '2024-01-15T10:30:00Z'
-      },
-      actualCosts: {
-        totalActual: 1195000,
-        currentPeriod: 99000,
-        previousPeriod: 96000,
-        yearToDate: 1195000,
-        categories: [
-          { categoryId: '1', categoryName: 'Personnel', actualAmount: 795000, allocatedAmount: 0, directAmount: 795000, trend: 'stable' },
-          { categoryId: '2', categoryName: 'Benefits Admin', actualAmount: 260000, allocatedAmount: 0, directAmount: 260000, trend: 'up' },
-          { categoryId: '3', categoryName: 'Training', actualAmount: 140000, allocatedAmount: 0, directAmount: 140000, trend: 'down' }
-        ],
-        lastUpdated: '2024-01-18T14:30:00Z'
-      },
-      allocations: [],
-      responsibilityType: 'cost',
-      createdDate: '2024-01-01T09:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z',
-      tags: ['hr', 'people', 'benefits']
-    }
-  ]);
+  // Cost centers loaded from the backend (master records only). Budget/actual/
+  // allocation data is not provided by the backend and is defaulted to zero.
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM rows (costCenterCode/costCenterName/
+        // parentCostCenterId/isProfitCenter/...); map into the richer
+        // CostCenter model with zeroed budget/actual/allocation defaults.
+        const raw = (await FinanceService.getCostCenters()) as any[];
+        const mapped: CostCenter[] = raw.map((row) => ({
+          id: String(row.id),
+          code: row.costCenterCode,
+          name: row.costCenterName,
+          description: row.description ?? '',
+          type: 'department' as any,
+          parentId: row.parentCostCenterId ?? undefined,
+          level: row.parentCostCenterId ? 2 : 1,
+          isActive: row.isActive ?? true,
+          manager: row.managerName ?? '',
+          managerEmail: '',
+          department: row.department ?? '',
+          location: row.location ?? '',
+          budget: emptyBudget(),
+          actualCosts: emptyActualCosts(),
+          allocations: [],
+          responsibilityType: (row.isProfitCenter ? 'profit' : 'cost') as any,
+          createdDate: row.createdAt ?? '',
+          lastModified: row.updatedAt ?? '',
+          tags: [],
+        }));
+        if (!cancelled) setCostCenters(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cost centers');
+          setCostCenters([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [allocationRules] = useState<AllocationRule[]>([
     {
@@ -1113,6 +1019,20 @@ const CostCenterManagement: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900">Cost Center Management</h1>
         <p className="text-gray-600 mt-2">Manage cost centers, allocation rules, and track financial performance</p>
       </div>
+
+      {/* Loading / Error banners for cost-center master data */}
+      {isLoading && (
+        <div className="mb-4 flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <ClockIcon className="w-5 h-5 mr-2" />
+          Loading cost centers...
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-4 flex items-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-5 h-5 mr-2" />
+          {loadError}
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-3">

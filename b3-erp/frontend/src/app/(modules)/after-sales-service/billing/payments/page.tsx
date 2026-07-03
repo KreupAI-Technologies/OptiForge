@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Eye, Download, CreditCard, DollarSign, TrendingUp, Calendar, CheckCircle, Building2 } from 'lucide-react';
+import { Search, Eye, Download, CreditCard, DollarSign, TrendingUp, Calendar, CheckCircle, Building2, AlertCircle } from 'lucide-react';
+import { AfterSalesManagementService } from '@/services/after-sales-management.service';
 
 interface Payment {
   id: string;
@@ -18,141 +19,6 @@ interface Payment {
   notes?: string;
   status: 'completed' | 'pending' | 'failed';
 }
-
-const mockPayments: Payment[] = [
-  {
-    id: '1',
-    paymentNumber: 'PMT-2025-000234',
-    invoiceNumber: 'SI-2025-00145',
-    invoiceId: '3',
-    customerId: 'CUST003',
-    customerName: 'Urban Interiors & Designers',
-    amount: 150000,
-    paymentDate: '2025-10-06',
-    paymentMethod: 'Bank Transfer',
-    paymentReference: 'NEFT/UTR123456789',
-    notes: 'Advance payment - 50%',
-    status: 'completed',
-  },
-  {
-    id: '2',
-    paymentNumber: 'PMT-2025-000245',
-    invoiceNumber: 'SI-2025-00123',
-    invoiceId: '1',
-    customerId: 'CUST001',
-    customerName: 'Sharma Modular Kitchens Pvt Ltd',
-    amount: 10030,
-    paymentDate: '2025-10-11',
-    paymentMethod: 'UPI',
-    paymentReference: 'UPI/234567890123',
-    status: 'completed',
-  },
-  {
-    id: '3',
-    paymentNumber: 'PMT-2025-000256',
-    invoiceNumber: 'SI-2025-00156',
-    invoiceId: '5',
-    customerId: 'CUST005',
-    customerName: 'DLF Universal Projects',
-    amount: 1416,
-    paymentDate: '2025-10-13',
-    paymentMethod: 'Cash',
-    status: 'completed',
-  },
-  {
-    id: '4',
-    paymentNumber: 'PMT-2025-000267',
-    invoiceNumber: 'SI-2025-00201',
-    invoiceId: '10',
-    customerId: 'CUST010',
-    customerName: 'Cosmos Furniture Mart',
-    amount: 1003,
-    paymentDate: '2025-10-14',
-    paymentMethod: 'Bank Transfer',
-    paymentReference: 'RTGS/987654321',
-    status: 'completed',
-  },
-  {
-    id: '5',
-    paymentNumber: 'PMT-2025-000198',
-    invoiceNumber: 'SI-2025-00112',
-    invoiceId: '9',
-    customerId: 'CUST009',
-    customerName: 'Decor Studio Chennai',
-    amount: 40000,
-    paymentDate: '2025-10-01',
-    paymentMethod: 'Cheque',
-    paymentReference: 'CHQ#789456',
-    notes: 'Partial payment against AMC invoice',
-    status: 'completed',
-  },
-  {
-    id: '6',
-    paymentNumber: 'PMT-2025-000278',
-    invoiceNumber: 'SI-2025-00167',
-    invoiceId: '6',
-    customerId: 'CUST006',
-    customerName: 'Signature Interiors Pune',
-    amount: 14160,
-    paymentDate: '2025-10-15',
-    paymentMethod: 'Credit Card',
-    paymentReference: 'CC/VISA/****1234',
-    status: 'completed',
-  },
-  {
-    id: '7',
-    paymentNumber: 'PMT-2025-000289',
-    invoiceNumber: 'SI-2025-00134',
-    invoiceId: '2',
-    customerId: 'CUST002',
-    customerName: 'Prestige Developers Bangalore',
-    amount: 368750,
-    paymentDate: '2025-10-16',
-    paymentMethod: 'Bank Transfer',
-    paymentReference: 'NEFT/567890123456',
-    notes: 'Quarterly AMC payment',
-    status: 'completed',
-  },
-  {
-    id: '8',
-    paymentNumber: 'PMT-2025-000295',
-    invoiceNumber: 'SI-2025-00189',
-    invoiceId: '8',
-    customerId: 'CUST008',
-    customerName: 'Modern Living Ahmedabad',
-    amount: 973500,
-    paymentDate: '2025-10-17',
-    paymentMethod: 'Bank Transfer',
-    paymentReference: 'RTGS/345678901234',
-    notes: '50% advance for premium kitchen installation',
-    status: 'completed',
-  },
-  {
-    id: '9',
-    paymentNumber: 'PMT-2025-000301',
-    invoiceNumber: 'SI-2025-00212',
-    invoiceId: '11',
-    customerId: 'CUST011',
-    customerName: 'Green Valley Builders',
-    amount: 0,
-    paymentDate: '2025-10-17',
-    paymentMethod: 'Bank Transfer',
-    status: 'pending',
-  },
-  {
-    id: '10',
-    paymentNumber: 'PMT-2025-000312',
-    invoiceNumber: 'SI-2025-00223',
-    invoiceId: '12',
-    customerId: 'CUST012',
-    customerName: 'Infinity Kitchen Solutions',
-    amount: 17700,
-    paymentDate: '2025-10-17',
-    paymentMethod: 'UPI',
-    paymentReference: 'UPI/678901234567',
-    status: 'completed',
-  },
-];
 
 const paymentMethodColors = {
   'Cash': 'bg-green-100 text-green-700',
@@ -171,13 +37,53 @@ const statusColors = {
 
 export default function PaymentsPage() {
   const router = useRouter();
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = (await AfterSalesManagementService.getServicePayments()) as any[];
+        const mapped: Payment[] = rows.map((r) => ({
+          id: r.id,
+          paymentNumber: r.paymentNumber ?? r.paymentCode ?? r.id,
+          invoiceNumber: r.invoiceNumber ?? '',
+          invoiceId: r.invoiceId ?? '',
+          customerId: r.customerId ?? '',
+          customerName: r.customerName ?? '',
+          amount: Number(r.amount ?? 0),
+          paymentDate: (r.paymentDate ?? '').toString().slice(0, 10),
+          paymentMethod: r.paymentMethod ?? '',
+          paymentReference: r.paymentReference ?? undefined,
+          notes: r.notes ?? undefined,
+          status: (r.status as Payment['status']) ?? 'completed',
+        }));
+        if (!cancelled) setPayments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load payments');
+          setPayments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Filter payments
-  const filteredPayments = mockPayments.filter((payment) => {
+  const filteredPayments = payments.filter((payment) => {
     const matchesSearch =
       payment.paymentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -195,18 +101,18 @@ export default function PaymentsPage() {
 
   // Calculate statistics
   const stats = {
-    totalPayments: mockPayments.length,
-    totalCollected: mockPayments
+    totalPayments: payments.length,
+    totalCollected: payments
       .filter(p => p.status === 'completed')
       .reduce((sum, p) => sum + p.amount, 0),
-    todayCollections: mockPayments
+    todayCollections: payments
       .filter(p => p.paymentDate === new Date().toISOString().split('T')[0] && p.status === 'completed')
       .reduce((sum, p) => sum + p.amount, 0),
-    pendingPayments: mockPayments.filter(p => p.status === 'pending').length,
+    pendingPayments: payments.filter(p => p.status === 'pending').length,
   };
 
   // Payment method breakdown
-  const methodBreakdown = mockPayments
+  const methodBreakdown = payments
     .filter(p => p.status === 'completed')
     .reduce((acc, payment) => {
       const method = payment.paymentMethod;
@@ -233,6 +139,19 @@ export default function PaymentsPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Collections</h1>
         <p className="text-gray-600">Track and manage payment receipts</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading payments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">

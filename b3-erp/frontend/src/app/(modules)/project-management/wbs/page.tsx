@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import {
  Search,
@@ -54,7 +55,7 @@ interface WBSNode {
  actualCost: number;
 }
 
-const mockWBS: WBSNode[] = [
+const seedWBS: WBSNode[] = [
  {
   id: '1',
   code: '1.0',
@@ -515,6 +516,31 @@ const mockWBS: WBSNode[] = [
 ];
 
 export default function WBSPage() {
+ const [wbsTree, setWbsTree] = useState<WBSNode[]>(seedWBS);
+
+ useEffect(() => {
+  projectManagementService.listWbsNodes()
+   .then((rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    // Rebuild nested tree from flat parentId-linked rows returned by the API
+    const map = new Map<string, WBSNode>();
+    rows.forEach((r: any) => {
+     map.set(r.id, { ...r, parent: r.parentId ?? null, children: [] } as WBSNode);
+    });
+    const roots: WBSNode[] = [];
+    map.forEach((node) => {
+     const parentId = (node as any).parent as string | null;
+     if (parentId && map.has(parentId)) {
+      map.get(parentId)!.children.push(node);
+     } else {
+      roots.push(node);
+     }
+    });
+    setWbsTree(roots);
+   })
+   .catch(() => { /* keep seed data on error */ });
+ }, []);
+
  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['1']));
  const [searchTerm, setSearchTerm] = useState('');
 
@@ -569,7 +595,7 @@ export default function WBSPage() {
  };
 
  const handleExport = (options: any) => {
-  exportToCsv('wbs', mockWBS as unknown as Record<string, unknown>[]);
+  exportToCsv('wbs', wbsTree as unknown as Record<string, unknown>[]);
   setShowExport(false);
  };
 
@@ -848,7 +874,7 @@ export default function WBSPage() {
 
     {/* Tree Content */}
     <div>
-     {mockWBS.map(node => renderNode(node))}
+     {wbsTree.map(node => renderNode(node))}
     </div>
    </div>
 

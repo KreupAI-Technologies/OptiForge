@@ -92,6 +92,23 @@ export interface ReorderAnalysis {
     }[];
 }
 
+export interface CycleCountSummary {
+    id: string;
+    countNumber: string;
+    title?: string;
+    warehouse: string;
+    warehouseId?: string | null;
+    zone: string;
+    countType: 'ABC' | 'Random' | 'Full' | 'Spot';
+    scheduledDate: string;
+    assignedTo: string;
+    itemsToCount: number;
+    itemsCounted: number;
+    variancesFound: number;
+    status: 'scheduled' | 'in-progress' | 'completed' | 'reconciled';
+    accuracy: number;
+}
+
 class InventoryService {
     async getStockBalances(filters?: { itemId?: string; warehouseId?: string; locationId?: string }): Promise<StockBalance[]> {
         const params = new URLSearchParams();
@@ -202,6 +219,15 @@ class InventoryService {
         if (filters?.search) params.append('search', filters.search);
         const response = await apiClient.get<AdjustmentReason[]>(`/inventory/adjustment-reasons?${params.toString()}`);
         return this.unwrapArray(response) as AdjustmentReason[];
+    }
+
+    async getCycleCounts(filters?: { status?: string; search?: string; warehouseId?: string }): Promise<CycleCountSummary[]> {
+        const params = new URLSearchParams();
+        if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
+        const response = await apiClient.get<CycleCountSummary[]>(`/inventory/cycle-counts?${params.toString()}`);
+        return this.unwrapArray(response) as CycleCountSummary[];
     }
 }
 

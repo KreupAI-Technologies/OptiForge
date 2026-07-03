@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
+import { procurementVendorScorecardService } from '@/services/procurement-vendor-scorecard.service';
 import {
   Building2,
   TrendingUp,
@@ -145,7 +146,7 @@ const VendorManagementDashboard = () => {
       setLoading(true);
 
       // Simulate API call
-      setTimeout(() => {
+      setTimeout(async () => {
         // Mock Metrics
         setMetrics({
           total_vendors: 147,
@@ -158,214 +159,68 @@ const VendorManagementDashboard = () => {
           blacklisted_vendors: 3
         });
 
-        // Mock Vendor Performance Data
-        const mockVendors: VendorPerformance[] = [
-          {
-            vendor_id: 'V001',
-            vendor_code: 'V001',
-            vendor_name: 'Tata Steel Limited',
-            category: 'Raw Materials',
-            total_pos: 245,
-            total_spend: 45500000,
-            ytd_spend: 38200000,
-            on_time_delivery_rate: 95.5,
-            quality_acceptance_rate: 98.2,
-            price_competitiveness: 92.0,
-            overall_rating: 4.8,
-            grade: 'A',
-            status: 'active',
-            last_po_date: '2025-01-15',
-            pending_pos: 3,
-            avg_delivery_days: 5,
-            rejection_rate: 1.8,
-            risk_level: 'low',
-            contract_expiry: '2025-12-31'
-          },
-          {
-            vendor_id: 'V002',
-            vendor_code: 'V002',
-            vendor_name: 'JSW Steel',
-            category: 'Raw Materials',
-            total_pos: 198,
-            total_spend: 32400000,
-            ytd_spend: 28900000,
-            on_time_delivery_rate: 89.3,
-            quality_acceptance_rate: 96.5,
-            price_competitiveness: 88.5,
-            overall_rating: 4.3,
-            grade: 'B',
-            status: 'active',
-            last_po_date: '2025-01-12',
-            pending_pos: 2,
-            avg_delivery_days: 7,
-            rejection_rate: 3.5,
-            risk_level: 'low'
-          },
-          {
-            vendor_id: 'V003',
-            vendor_code: 'V003',
-            vendor_name: 'Essar Steel',
-            category: 'Raw Materials',
-            total_pos: 156,
-            total_spend: 18750000,
-            ytd_spend: 15200000,
-            on_time_delivery_rate: 78.5,
-            quality_acceptance_rate: 91.2,
-            price_competitiveness: 85.0,
-            overall_rating: 3.8,
-            grade: 'B',
-            status: 'under_review',
-            last_po_date: '2025-01-08',
-            pending_pos: 1,
-            avg_delivery_days: 10,
-            rejection_rate: 8.8,
-            risk_level: 'medium',
-            contract_expiry: '2025-03-31'
-          },
-          {
-            vendor_id: 'V004',
-            vendor_code: 'V004',
-            vendor_name: 'Bosch India',
-            category: 'Components',
-            total_pos: 312,
-            total_spend: 22350000,
-            ytd_spend: 19800000,
-            on_time_delivery_rate: 97.8,
-            quality_acceptance_rate: 99.5,
-            price_competitiveness: 94.5,
-            overall_rating: 4.9,
-            grade: 'A',
-            status: 'active',
-            last_po_date: '2025-01-14',
-            pending_pos: 5,
-            avg_delivery_days: 3,
-            rejection_rate: 0.5,
-            risk_level: 'low'
-          },
-          {
-            vendor_id: 'V005',
-            vendor_code: 'V005',
-            vendor_name: 'SKF Bearings',
-            category: 'Components',
-            total_pos: 189,
-            total_spend: 15600000,
-            ytd_spend: 13400000,
-            on_time_delivery_rate: 92.4,
-            quality_acceptance_rate: 97.8,
-            price_competitiveness: 90.2,
-            overall_rating: 4.5,
-            grade: 'A',
-            status: 'active',
-            last_po_date: '2025-01-10',
-            pending_pos: 2,
-            avg_delivery_days: 6,
-            rejection_rate: 2.2,
-            risk_level: 'low'
-          },
-          {
-            vendor_id: 'V006',
-            vendor_code: 'V006',
-            vendor_name: 'Reliance Industries',
-            category: 'Packaging',
-            total_pos: 143,
-            total_spend: 8950000,
-            ytd_spend: 7600000,
-            on_time_delivery_rate: 85.6,
-            quality_acceptance_rate: 94.3,
-            price_competitiveness: 87.8,
-            overall_rating: 4.0,
-            grade: 'B',
-            status: 'active',
-            last_po_date: '2025-01-09',
-            pending_pos: 1,
-            avg_delivery_days: 8,
-            rejection_rate: 5.7,
-            risk_level: 'low'
-          },
-          {
-            vendor_id: 'V007',
-            vendor_code: 'V007',
-            vendor_name: 'Mahindra Logistics',
-            category: 'Logistics',
-            total_pos: 267,
-            total_spend: 12350000,
-            ytd_spend: 10500000,
-            on_time_delivery_rate: 88.9,
-            quality_acceptance_rate: 95.6,
-            price_competitiveness: 89.3,
-            overall_rating: 4.2,
-            grade: 'B',
-            status: 'active',
-            last_po_date: '2025-01-11',
-            pending_pos: 4,
-            avg_delivery_days: 7,
-            rejection_rate: 4.4,
-            risk_level: 'low'
-          },
-          {
-            vendor_id: 'V008',
-            vendor_code: 'V008',
-            vendor_name: 'ABC Chemicals Ltd',
-            category: 'Chemicals',
-            total_pos: 98,
-            total_spend: 6780000,
-            ytd_spend: 5400000,
-            on_time_delivery_rate: 72.3,
-            quality_acceptance_rate: 88.5,
-            price_competitiveness: 82.0,
-            overall_rating: 3.2,
-            grade: 'C',
-            status: 'under_review',
-            last_po_date: '2024-12-28',
-            pending_pos: 0,
-            avg_delivery_days: 12,
-            rejection_rate: 11.5,
-            risk_level: 'high',
-            contract_expiry: '2025-02-28'
-          },
-          {
-            vendor_id: 'V009',
-            vendor_code: 'V009',
-            vendor_name: 'XYZ Trading Co',
-            category: 'MRO Supplies',
-            total_pos: 234,
-            total_spend: 4560000,
-            ytd_spend: 3890000,
-            on_time_delivery_rate: 81.7,
-            quality_acceptance_rate: 92.8,
-            price_competitiveness: 86.5,
-            overall_rating: 3.9,
-            grade: 'B',
-            status: 'active',
-            last_po_date: '2025-01-07',
-            pending_pos: 2,
-            avg_delivery_days: 9,
-            rejection_rate: 7.2,
-            risk_level: 'medium'
-          },
-          {
-            vendor_id: 'V010',
-            vendor_code: 'V010',
-            vendor_name: 'L&T Construction',
-            category: 'Services',
-            total_pos: 45,
-            total_spend: 28900000,
-            ytd_spend: 24500000,
-            on_time_delivery_rate: 94.2,
-            quality_acceptance_rate: 97.3,
-            price_competitiveness: 91.8,
-            overall_rating: 4.6,
-            grade: 'A',
-            status: 'active',
-            last_po_date: '2025-01-13',
-            pending_pos: 1,
-            avg_delivery_days: 15,
-            rejection_rate: 2.7,
-            risk_level: 'low'
-          }
-        ];
-
-        setVendors(mockVendors);
+        // Vendor Performance Data — real fetch from the vendor scorecards
+        // service (NestJS domain backend). Backend returns raw ORM shape; map
+        // it onto the page's VendorPerformance model by best-fit. Wrapped in its
+        // own try/catch so the secondary mock widgets below still populate even
+        // if this fetch fails or the table is unseeded (returns []).
+        try {
+          const raw = (await procurementVendorScorecardService.getScorecards()) as any[];
+          const toGrade = (score: number): VendorPerformance['grade'] => {
+            if (score >= 90) return 'A';
+            if (score >= 80) return 'B';
+            if (score >= 70) return 'C';
+            return 'D';
+          };
+          const toStatus = (s: string): VendorPerformance['status'] => {
+            switch (s) {
+              case 'active':
+              case 'inactive':
+              case 'blacklisted':
+              case 'under_review':
+                return s;
+              default:
+                return 'active';
+            }
+          };
+          const toRisk = (r: string): VendorPerformance['risk_level'] => {
+            switch (r) {
+              case 'low':
+              case 'medium':
+              case 'high':
+                return r;
+              default:
+                return 'low';
+            }
+          };
+          const mappedVendors: VendorPerformance[] = raw.map((v) => {
+            const overall = Number(v.overallScore ?? 0);
+            const spend = Number(v.totalSpend ?? 0);
+            return {
+              vendor_id: v.id,
+              vendor_code: v.vendorCode ?? '',
+              vendor_name: v.vendorName ?? '',
+              category: v.category ?? '',
+              total_pos: Number(v.totalOrders ?? 0),
+              total_spend: spend,
+              ytd_spend: spend,
+              on_time_delivery_rate: Number(v.deliveryScore ?? 0),
+              quality_acceptance_rate: Number(v.qualityScore ?? 0),
+              price_competitiveness: Number(v.costScore ?? 0),
+              overall_rating: overall,
+              grade: toGrade(overall),
+              status: toStatus(v.status),
+              last_po_date: v.lastEvaluated ?? '',
+              pending_pos: 0,
+              avg_delivery_days: 0,
+              rejection_rate: 0,
+              risk_level: toRisk(v.riskLevel),
+            };
+          });
+          setVendors(mappedVendors);
+        } catch {
+          setVendors([]);
+        }
 
         // Mock Activities
         const mockActivities: VendorActivity[] = [
