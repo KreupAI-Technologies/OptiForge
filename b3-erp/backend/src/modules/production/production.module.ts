@@ -42,6 +42,23 @@ import { MaintenanceRequestService } from './services/maintenance-request.servic
 import { NcrService } from './services/ncr.service';
 import { QualityPlanService } from './services/quality-plan.service';
 
+// Newly-built components (floor activity / bom verification / gantt / machine timeline / andon) — direct imports
+import { FloorActivity } from './entities/floor-activity.entity';
+import { BomVerification } from './entities/bom-verification.entity';
+import { GanttTask } from './entities/gantt-task.entity';
+import { MachineTimeline } from './entities/machine-timeline.entity';
+import { AndonLine } from './entities/andon-line.entity';
+import { FloorActivityController } from './controllers/floor-activity.controller';
+import { BomVerificationController } from './controllers/bom-verification.controller';
+import { GanttTaskController } from './controllers/gantt-task.controller';
+import { MachineTimelineController } from './controllers/machine-timeline.controller';
+import { AndonLineController } from './controllers/andon-line.controller';
+import { FloorActivityService } from './services/floor-activity.service';
+import { BomVerificationService } from './services/bom-verification.service';
+import { GanttTaskService } from './services/gantt-task.service';
+import { MachineTimelineService } from './services/machine-timeline.service';
+import { AndonLineService } from './services/andon-line.service';
+
 // Entities
 import {
   BOM,
@@ -352,6 +369,12 @@ import {
       MaintenanceRequest,
       Ncr,
       QualityPlan,
+      // Newly-built entities
+      FloorActivity,
+      BomVerification,
+      GanttTask,
+      MachineTimeline,
+      AndonLine,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -362,6 +385,9 @@ import {
     // Follow-up orphan controllers
     SparePartController, PreventiveMaintenanceController, MaintenanceRequestController,
     NcrController, QualityPlanController,
+    // Newly-built controllers
+    FloorActivityController, BomVerificationController, GanttTaskController,
+    MachineTimelineController, AndonLineController,
     // Core Controllers
     BOMController,
     WorkOrderController,
@@ -440,6 +466,9 @@ import {
     // Follow-up orphan services
     SparePartService, PreventiveMaintenanceService, MaintenanceRequestService,
     NcrService, QualityPlanService,
+    // Newly-built services
+    FloorActivityService, BomVerificationService, GanttTaskService,
+    MachineTimelineService, AndonLineService,
     // Core Services
     BOMService,
     WorkOrderService,

@@ -99,6 +99,10 @@ import { CrmTaskController } from './crm-task.controller';
 import { CrmPortalUserController } from './crm-portal-user.controller';
 import { CrmSocialAccountController } from './crm-social-account.controller';
 import { CrmSavedReportController } from './crm-saved-report.controller';
+// CrmPricingRule wiring
+import { CrmPricingRule } from './entities/crm-pricing-rule.entity';
+import { CrmPricingRuleService } from './services/crm-pricing-rule.service';
+import { CrmPricingRuleController } from './crm-pricing-rule.controller';
 
 @Module({
   imports: [
@@ -134,6 +138,7 @@ import { CrmSavedReportController } from './crm-saved-report.controller';
       CrmPortalUser,
       CrmSocialAccount,
       CrmSavedReport,
+      CrmPricingRule,
     ]),
   ],
   controllers: [
@@ -169,6 +174,7 @@ import { CrmSavedReportController } from './crm-saved-report.controller';
     CrmPortalUserController,
     CrmSocialAccountController,
     CrmSavedReportController,
+    CrmPricingRuleController,
   ],
   providers: [
     InteractionsService,
@@ -205,6 +211,7 @@ import { CrmSavedReportController } from './crm-saved-report.controller';
     CrmPortalUserService,
     CrmSocialAccountService,
     CrmSavedReportService,
+    CrmPricingRuleService,
   ],
   exports: [
     InteractionsService,

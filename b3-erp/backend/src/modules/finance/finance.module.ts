@@ -34,6 +34,8 @@ import {
   TDSTransaction,
   GSTRPeriod,
 } from './entities';
+import { ApVendorAccount } from './entities/ap-vendor-account.entity';
+import { ArCustomerAccount } from './entities/ar-customer-account.entity';
 
 // Controllers
 import {
@@ -50,6 +52,9 @@ import {
   TaxMasterController,
   CashAnalyticsController,
 } from './controllers';
+import { AdvancedAnalyticsController } from './controllers/advanced-analytics.controller';
+import { ApVendorAccountController } from './controllers/ap-vendor-account.controller';
+import { ArCustomerAccountController } from './controllers/ar-customer-account.controller';
 
 // Services
 import {
@@ -74,6 +79,9 @@ import { AccountsPayableService } from './services/accounts-payable.service';
 import { BankReconciliationService } from './services/bank-reconciliation.service';
 import { ConsolidationService } from './services/consolidation.service';
 import { FinanceSeederService } from './services/finance-seeder.service';
+import { AdvancedAnalyticsService } from './services/advanced-analytics.service';
+import { ApVendorAccountService } from './services/ap-vendor-account.service';
+import { ArCustomerAccountService } from './services/ar-customer-account.service';
 import { Company } from '../core/entities/company.entity';
 
 @Module({
@@ -131,6 +139,10 @@ import { Company } from '../core/entities/company.entity';
       GSTTransaction,
       TDSTransaction,
       GSTRPeriod,
+
+      // Accounts Payable / Receivable master
+      ApVendorAccount,
+      ArCustomerAccount,
     ]),
   ],
   controllers: [
@@ -146,6 +158,9 @@ import { Company } from '../core/entities/company.entity';
     CostCenterController,
     TaxMasterController,
     CashAnalyticsController,
+    AdvancedAnalyticsController,
+    ApVendorAccountController,
+    ArCustomerAccountController,
   ],
   providers: [
     ChartOfAccountsService,
@@ -168,6 +183,9 @@ import { Company } from '../core/entities/company.entity';
     CostCenterCrudService,
     TaxMasterService,
     CashAnalyticsService,
+    AdvancedAnalyticsService,
+    ApVendorAccountService,
+    ArCustomerAccountService,
   ],
   exports: [
     ChartOfAccountsService,
