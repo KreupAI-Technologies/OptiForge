@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Target, Search, Filter, PlusCircle, CheckCircle, XCircle, AlertCircle, Download } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface ScopeItem {
   id: string;
@@ -311,15 +312,59 @@ export default function ScopeManagementPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
+  const [scopeData, setScopeData] = useState<ScopeItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.listScope();
+        const mapped: ScopeItem[] = (raw ?? []).map((r: any) => ({
+          id: String(r.id),
+          itemCode: r.itemCode ?? '',
+          itemName: r.itemName ?? '',
+          description: r.description ?? '',
+          projectCode: r.projectCode ?? '',
+          projectName: r.projectName ?? '',
+          category: r.category ?? 'deliverable',
+          type: r.type ?? 'in-scope',
+          status: r.status ?? 'defined',
+          wbsReference: r.wbsReference ?? '-',
+          priority: r.priority ?? 'medium',
+          estimatedCost: Number(r.estimatedCost ?? 0),
+          estimatedDuration: Number(r.estimatedDuration ?? 0),
+          dependencies: Array.isArray(r.dependencies) ? r.dependencies : [],
+          approvedBy: r.approvedBy ?? undefined,
+          approvedDate: r.approvedDate ?? undefined,
+          notes: r.notes ?? '',
+        }));
+        if (!cancelled) setScopeData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load scope items');
+          setScopeData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
   // Get unique values for filters
   const projects = useMemo(() =>
-    ['all', ...Array.from(new Set(mockScopeData.map(s => s.projectName)))],
-    []
+    ['all', ...Array.from(new Set(scopeData.map(s => s.projectName)))],
+    [scopeData]
   );
 
   // Filter scope items
   const filteredItems = useMemo(() => {
-    return mockScopeData.filter(item => {
+    return scopeData.filter(item => {
       const matchesSearch = searchTerm === '' ||
         item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -332,22 +377,19 @@ export default function ScopeManagementPage() {
 
       return matchesSearch && matchesProject && matchesType && matchesStatus && matchesCategory;
     });
-  }, [searchTerm, projectFilter, typeFilter, statusFilter, categoryFilter]);
+  }, [scopeData, searchTerm, projectFilter, typeFilter, statusFilter, categoryFilter]);
 
   // Calculate stats
   const stats = useMemo(() => {
-    const inScopeItems = mockScopeData.filter(s => s.type === 'in-scope').length;
-    const outOfScopeItems = mockScopeData.filter(s => s.type === 'out-of-scope').length;
-    const changedItems = mockScopeData.filter(s => s.status === 'changed').length;
-    const approvedItems = mockScopeData.filter(s => s.status === 'approved').length;
-    const totalCost = mockScopeData
+    const inScopeItems = scopeData.filter(s => s.type === 'in-scope').length;
+    const outOfScopeItems = scopeData.filter(s => s.type === 'out-of-scope').length;
+    const changedItems = scopeData.filter(s => s.status === 'changed').length;
+    const approvedItems = scopeData.filter(s => s.status === 'approved').length;
+    const totalCost = scopeData
       .filter(s => s.type === 'in-scope')
       .reduce((sum, s) => sum + s.estimatedCost, 0);
-    const totalDuration = Math.max(
-      ...mockScopeData
-        .filter(s => s.type === 'in-scope')
-        .map(s => s.estimatedDuration)
-    );
+    const inScopeDurations = scopeData.filter(s => s.type === 'in-scope').map(s => s.estimatedDuration);
+    const totalDuration = inScopeDurations.length ? Math.max(...inScopeDurations) : 0;
 
     return {
       inScopeItems,
@@ -357,7 +399,7 @@ export default function ScopeManagementPage() {
       totalCost,
       totalDuration
     };
-  }, []);
+  }, [scopeData]);
 
   const getTypeColor = (type: ScopeItem['type']) => {
     switch (type) {
@@ -396,6 +438,19 @@ export default function ScopeManagementPage() {
         </h1>
         <p className="text-gray-600 mt-2">Define and manage project scope boundaries, deliverables, and exclusions</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading scope items…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -539,7 +594,7 @@ export default function ScopeManagementPage() {
           </select>
 
           <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredItems.length} of {mockScopeData.length} items
+            Showing {filteredItems.length} of {scopeData.length} items
           </div>
         </div>
       </div>
