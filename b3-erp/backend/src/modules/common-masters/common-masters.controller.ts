@@ -70,6 +70,23 @@ export class CommonMastersController {
         return this.commonMastersService.findCitiesByState(stateId);
     }
 
+    // List-all variants (no parent filter) for the state/city master pages.
+    // Distinct path so it does not collide with states/:countryId.
+    @Get('states-all')
+    findAllStates() {
+        return this.commonMastersService.findAllStates();
+    }
+
+    @Get('cities-all')
+    findAllCities() {
+        return this.commonMastersService.findAllCities();
+    }
+
+    @Get('grades')
+    findAllHrGrades(@Query('companyId') companyId: string) {
+        return this.commonMastersService.findAllHrGrades(companyId);
+    }
+
     @Get('territories')
     findAllTerritories(@Query('companyId') companyId: string) {
         return this.commonMastersService.findAllTerritories(companyId);
@@ -694,6 +711,77 @@ export class CommonMastersController {
     @Delete('territories/:id')
     deleteTerritory(@Param('id') id: string) {
         return this.commonMastersService.deleteTerritory(id);
+    }
+
+    // ===========================
+    // STATE CRUD
+    // ===========================
+    @Post('states')
+    createState(@Body() data: { code: string; name: string; countryId: string }) {
+        return this.commonMastersService.createState(data);
+    }
+
+    @Put('states/:id')
+    updateState(@Param('id') id: string, @Body() data: { code?: string; name?: string; countryId?: string; isActive?: boolean }) {
+        return this.commonMastersService.updateState(id, data);
+    }
+
+    @Delete('states/:id')
+    deleteState(@Param('id') id: string) {
+        return this.commonMastersService.deleteState(id);
+    }
+
+    // ===========================
+    // CITY CRUD
+    // ===========================
+    @Post('cities')
+    createCity(@Body() data: { name: string; stateId: string; pincode?: string }) {
+        return this.commonMastersService.createCity(data);
+    }
+
+    @Put('cities/:id')
+    updateCity(@Param('id') id: string, @Body() data: { name?: string; stateId?: string; pincode?: string; isActive?: boolean }) {
+        return this.commonMastersService.updateCity(id, data);
+    }
+
+    @Delete('cities/:id')
+    deleteCity(@Param('id') id: string) {
+        return this.commonMastersService.deleteCity(id);
+    }
+
+    // ===========================
+    // HR GRADE CRUD
+    // ===========================
+    @Post('grades')
+    createHrGrade(@Body() data: {
+        gradeCode: string;
+        gradeName: string;
+        companyId: string;
+        level?: number;
+        category?: string;
+        minSalary?: number;
+        maxSalary?: number;
+        currency?: string;
+        benefits?: any;
+        leaveEntitlement?: any;
+        perks?: string[];
+        probationPeriod?: number;
+        noticePeriod?: number;
+        appraisalCycle?: string;
+        eligibleDesignations?: string[];
+        description?: string;
+    }) {
+        return this.commonMastersService.createHrGrade(data);
+    }
+
+    @Put('grades/:id')
+    updateHrGrade(@Param('id') id: string, @Body() data: any) {
+        return this.commonMastersService.updateHrGrade(id, data);
+    }
+
+    @Delete('grades/:id')
+    deleteHrGrade(@Param('id') id: string) {
+        return this.commonMastersService.deleteHrGrade(id);
     }
 
 }

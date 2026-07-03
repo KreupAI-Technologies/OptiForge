@@ -4,11 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Package, ChevronRight, ChevronDown, Layers, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockItemGroups, ItemGroup, getItemGroupStats, getChildGroups } from '@/data/common-masters/item-groups';
+import { ItemGroup, getItemGroupStats, getChildGroups } from '@/data/common-masters/item-groups';
+import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
 export default function ItemGroupMasterPage() {
-  const [itemGroups, setItemGroups] = useState<ItemGroup[]>(mockItemGroups);
+  const [itemGroups, setItemGroups] = useState<ItemGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterLevel, setFilterLevel] = useState<string>('all');
@@ -24,6 +27,69 @@ export default function ItemGroupMasterPage() {
     }
   }, [toast]);
 
+  // Load item groups from API
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadItemGroups = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await commonMastersService.getAllItemGroups();
+        if (cancelled) return;
+
+        const mapped: ItemGroup[] = rows.map((row) => ({
+          id: row.id,
+          groupCode: row.id ? row.id.slice(0, 8).toUpperCase() : '',
+          groupName: row.name,
+          parentGroupId: null,
+          parentGroupName: undefined,
+          level: 0,
+          category: (row.category?.name ?? 'raw_material') as ItemGroup['category'],
+          description: '',
+          defaultPurchaseAccount: undefined,
+          defaultSalesAccount: undefined,
+          defaultInventoryAccount: undefined,
+          isAsset: false,
+          isStockItem: false,
+          allowNegativeStock: false,
+          valuationMethod: 'FIFO' as ItemGroup['valuationMethod'],
+          hasSerialNo: false,
+          hasBatchNo: false,
+          hasExpiryDate: false,
+          shelfLife: undefined,
+          isManufactured: false,
+          isPurchased: false,
+          isSold: false,
+          requiresQualityInspection: false,
+          inspectionCriteria: undefined,
+          defaultTaxCategory: '',
+          hsnCode: undefined,
+          totalItems: 0,
+          activeItems: 0,
+          isActive: row.isActive,
+          createdAt: '',
+          updatedAt: '',
+          createdBy: '',
+        }));
+
+        setItemGroups(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load item groups');
+        setItemGroups([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadItemGroups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
   };
@@ -37,7 +103,7 @@ export default function ItemGroupMasterPage() {
   };
 
   const handleExport = () => {
-    exportToCsv('item-group-master', filteredData);
+    exportToCsv('item-group-master', filteredData as unknown as Record<string, unknown>[]);
     showToast('Exporting item groups data...', 'success');
   };
 
@@ -283,6 +349,18 @@ export default function ItemGroupMasterPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-amber-50 to-orange-50">
       <div className="flex-1 overflow-y-auto">
         <div className="px-3 py-2 space-y-3">
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading item groups…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
           {/* Toast Notification */}
           {toast && (
             <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${

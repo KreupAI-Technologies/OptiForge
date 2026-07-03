@@ -12,6 +12,9 @@ import { WorkflowStep } from './entities/workflow-step.entity';
 import { WorkflowHistory } from './entities/workflow-history.entity';
 import { WorkflowNode } from './entities/workflow-node.entity';
 import { WorkflowEdge } from './entities/workflow-edge.entity';
+import { AutomationRule } from './entities/automation-rule.entity';
+import { PendingApprovalItem } from './entities/pending-approval-item.entity';
+import { WorkflowConfigTemplate } from './entities/workflow-config-template.entity';
 
 // New workflow engine entities
 import {
@@ -73,6 +76,12 @@ import { AnalyticsController } from './controllers/analytics.controller';
 import { WorkflowTemplateController } from './controllers/workflow-template.controller';
 import { WorkflowAnalyticsController } from './controllers/workflow-analytics.controller';
 import { UserTaskController } from './controllers/user-task.controller';
+import { AutomationRuleController } from './controllers/automation-rule.controller';
+import { PendingApprovalItemController } from './controllers/pending-approval-item.controller';
+import { WorkflowConfigTemplateController } from './controllers/workflow-config-template.controller';
+import { AutomationRuleService } from './services/automation-rule.service';
+import { PendingApprovalItemService } from './services/pending-approval-item.service';
+import { WorkflowConfigTemplateService } from './services/workflow-config-template.service';
 import { AnalyticsService } from './services/analytics.service';
 import { Project } from '../project/entities/project.entity';
 import { ProjectService } from '../project-management/project.service';
@@ -129,6 +138,9 @@ import { WorkflowGateway } from './gateways/workflow.gateway';
       BOQItem,
       WorkflowNode,
       WorkflowEdge,
+      AutomationRule,
+      PendingApprovalItem,
+      WorkflowConfigTemplate,
     ]),
 
     // Bull queues for async job processing
@@ -180,6 +192,9 @@ import { WorkflowGateway } from './gateways/workflow.gateway';
     WorkflowTemplateController,
     WorkflowAnalyticsController,
     UserTaskController,
+    AutomationRuleController,
+    PendingApprovalItemController,
+    WorkflowConfigTemplateController,
   ],
   providers: [
     // Core services
@@ -214,6 +229,9 @@ import { WorkflowGateway } from './gateways/workflow.gateway';
     WorkflowGateway,
     UserTaskService,
     EnhancedNotificationService,
+    AutomationRuleService,
+    PendingApprovalItemService,
+    WorkflowConfigTemplateService,
   ],
   exports: [
     EventBusService,

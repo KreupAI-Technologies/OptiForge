@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Search, Edit2, Trash2, GitBranch, Clock, DollarSign, Layers, ChevronRight, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit2, Trash2, GitBranch, Clock, DollarSign, Layers, ChevronRight, Settings, AlertTriangle } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface RoutingOperation {
   sequence: number;
@@ -37,188 +38,62 @@ export default function RoutingSettingsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedRouting, setExpandedRouting] = useState<string | null>(null);
 
-  // Mock routing data
-  const routings: Routing[] = [
-    {
-      id: 'ROUTE-001',
-      code: 'RT-ASSY-001',
-      name: 'Standard Assembly Routing',
-      productCode: 'PROD-001',
-      productName: 'Industrial Valve Assembly',
-      version: 'v1.2',
-      department: 'Assembly',
-      totalOperations: 5,
-      totalSetupTime: 45,
-      totalCycleTime: 120,
-      totalCost: 850,
-      status: 'active',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'ASSY-LINE-01', operation: 'Base Assembly', setupTime: 15, cycleTime: 30, laborCost: 200 },
-        { sequence: 20, workCenter: 'WELD-ST-01', operation: 'Welding', setupTime: 10, cycleTime: 25, laborCost: 180 },
-        { sequence: 30, workCenter: 'QC-STATION-01', operation: 'Quality Check', setupTime: 5, cycleTime: 15, laborCost: 120 },
-        { sequence: 40, workCenter: 'POLISH-01', operation: 'Polishing', setupTime: 10, cycleTime: 35, laborCost: 220 },
-        { sequence: 50, workCenter: 'PACK-LINE-01', operation: 'Final Packaging', setupTime: 5, cycleTime: 15, laborCost: 130 }
-      ]
-    },
-    {
-      id: 'ROUTE-002',
-      code: 'RT-FAB-001',
-      name: 'Metal Fabrication Routing',
-      productCode: 'PROD-002',
-      productName: 'Steel Frame Component',
-      version: 'v2.0',
-      department: 'Fabrication',
-      totalOperations: 4,
-      totalSetupTime: 35,
-      totalCycleTime: 95,
-      totalCost: 720,
-      status: 'active',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'CNC-CUT-01', operation: 'CNC Cutting', setupTime: 15, cycleTime: 30, laborCost: 250 },
-        { sequence: 20, workCenter: 'PRESS-HYDRO-01', operation: 'Press Forming', setupTime: 10, cycleTime: 25, laborCost: 200 },
-        { sequence: 30, workCenter: 'WELD-ST-01', operation: 'Welding', setupTime: 5, cycleTime: 25, laborCost: 180 },
-        { sequence: 40, workCenter: 'QC-STATION-01', operation: 'Final Inspection', setupTime: 5, cycleTime: 15, laborCost: 90 }
-      ]
-    },
-    {
-      id: 'ROUTE-003',
-      code: 'RT-PAINT-001',
-      name: 'Paint & Finish Routing',
-      productCode: 'PROD-003',
-      productName: 'Painted Chassis',
-      version: 'v1.5',
-      department: 'Finishing',
-      totalOperations: 6,
-      totalSetupTime: 50,
-      totalCycleTime: 140,
-      totalCost: 950,
-      status: 'active',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'POLISH-01', operation: 'Surface Prep', setupTime: 10, cycleTime: 20, laborCost: 150 },
-        { sequence: 20, workCenter: 'PAINT-BOOTH-01', operation: 'Primer Coat', setupTime: 10, cycleTime: 25, laborCost: 180 },
-        { sequence: 30, workCenter: 'PAINT-BOOTH-01', operation: 'Base Coat', setupTime: 10, cycleTime: 30, laborCost: 200 },
-        { sequence: 40, workCenter: 'PAINT-BOOTH-01', operation: 'Clear Coat', setupTime: 10, cycleTime: 30, laborCost: 200 },
-        { sequence: 50, workCenter: 'QC-STATION-01', operation: 'Quality Check', setupTime: 5, cycleTime: 20, laborCost: 120 },
-        { sequence: 60, workCenter: 'PACK-LINE-01', operation: 'Packaging', setupTime: 5, cycleTime: 15, laborCost: 100 }
-      ]
-    },
-    {
-      id: 'ROUTE-004',
-      code: 'RT-MACH-001',
-      name: 'CNC Machining Routing',
-      productCode: 'PROD-004',
-      productName: 'Precision Gear',
-      version: 'v1.0',
-      department: 'Machining',
-      totalOperations: 3,
-      totalSetupTime: 40,
-      totalCycleTime: 75,
-      totalCost: 680,
-      status: 'active',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'CNC-CUT-01', operation: 'Rough Machining', setupTime: 20, cycleTime: 35, laborCost: 300 },
-        { sequence: 20, workCenter: 'CNC-CUT-01', operation: 'Finish Machining', setupTime: 15, cycleTime: 30, laborCost: 280 },
-        { sequence: 30, workCenter: 'QC-STATION-01', operation: 'Dimensional Check', setupTime: 5, cycleTime: 10, laborCost: 100 }
-      ]
-    },
-    {
-      id: 'ROUTE-005',
-      code: 'RT-LASER-001',
-      name: 'Laser Cutting Routing',
-      productCode: 'PROD-005',
-      productName: 'Sheet Metal Part',
-      version: 'v1.1',
-      department: 'Cutting',
-      totalOperations: 3,
-      totalSetupTime: 25,
-      totalCycleTime: 55,
-      totalCost: 520,
-      status: 'active',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'LASER-CUT-02', operation: 'Laser Cutting', setupTime: 15, cycleTime: 30, laborCost: 280 },
-        { sequence: 20, workCenter: 'POLISH-01', operation: 'Deburring', setupTime: 5, cycleTime: 15, laborCost: 140 },
-        { sequence: 30, workCenter: 'QC-STATION-01', operation: 'Inspection', setupTime: 5, cycleTime: 10, laborCost: 100 }
-      ]
-    },
-    {
-      id: 'ROUTE-006',
-      code: 'RT-DRAFT-001',
-      name: 'New Product Routing',
-      productCode: 'PROD-006',
-      productName: 'Prototype Assembly',
-      version: 'v0.1',
-      department: 'R&D',
-      totalOperations: 4,
-      totalSetupTime: 30,
-      totalCycleTime: 80,
-      totalCost: 600,
-      status: 'draft',
-      effectiveFrom: '2025-11-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'ASSY-LINE-01', operation: 'Assembly', setupTime: 10, cycleTime: 30, laborCost: 200 },
-        { sequence: 20, workCenter: 'QC-STATION-01', operation: 'Testing', setupTime: 10, cycleTime: 25, laborCost: 180 },
-        { sequence: 30, workCenter: 'POLISH-01', operation: 'Finishing', setupTime: 5, cycleTime: 15, laborCost: 120 },
-        { sequence: 40, workCenter: 'PACK-LINE-01', operation: 'Packaging', setupTime: 5, cycleTime: 10, laborCost: 100 }
-      ]
-    },
-    {
-      id: 'ROUTE-007',
-      code: 'RT-ASSY-002',
-      name: 'Complex Assembly Routing',
-      productCode: 'PROD-007',
-      productName: 'Multi-component System',
-      version: 'v3.0',
-      department: 'Assembly',
-      totalOperations: 7,
-      totalSetupTime: 60,
-      totalCycleTime: 180,
-      totalCost: 1250,
-      status: 'active',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'ASSY-LINE-01', operation: 'Sub-assembly 1', setupTime: 10, cycleTime: 25, laborCost: 180 },
-        { sequence: 20, workCenter: 'ASSY-LINE-01', operation: 'Sub-assembly 2', setupTime: 10, cycleTime: 25, laborCost: 180 },
-        { sequence: 30, workCenter: 'ASSY-LINE-01', operation: 'Main Assembly', setupTime: 15, cycleTime: 40, laborCost: 250 },
-        { sequence: 40, workCenter: 'WELD-ST-01', operation: 'Welding', setupTime: 10, cycleTime: 30, laborCost: 200 },
-        { sequence: 50, workCenter: 'QC-STATION-01', operation: 'Testing', setupTime: 5, cycleTime: 30, laborCost: 200 },
-        { sequence: 60, workCenter: 'PAINT-BOOTH-01', operation: 'Coating', setupTime: 5, cycleTime: 20, laborCost: 140 },
-        { sequence: 70, workCenter: 'PACK-LINE-01', operation: 'Final Packaging', setupTime: 5, cycleTime: 10, laborCost: 100 }
-      ]
-    },
-    {
-      id: 'ROUTE-008',
-      code: 'RT-OLD-001',
-      name: 'Legacy Product Routing',
-      productCode: 'PROD-OLD',
-      productName: 'Discontinued Model',
-      version: 'v1.0',
-      department: 'Assembly',
-      totalOperations: 3,
-      totalSetupTime: 20,
-      totalCycleTime: 50,
-      totalCost: 380,
-      status: 'archived',
-      effectiveFrom: '2024-01-01',
-      effectiveTo: '2024-12-31',
-      operations: [
-        { sequence: 10, workCenter: 'ASSY-LINE-01', operation: 'Assembly', setupTime: 10, cycleTime: 25, laborCost: 180 },
-        { sequence: 20, workCenter: 'QC-STATION-01', operation: 'Inspection', setupTime: 5, cycleTime: 15, laborCost: 100 },
-        { sequence: 30, workCenter: 'PACK-LINE-01', operation: 'Packaging', setupTime: 5, cycleTime: 10, laborCost: 100 }
-      ]
-    }
-  ];
+  // Routing templates loaded from the NestJS backend (production routing-templates).
+  const [routings, setRoutings] = useState<Routing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (id/code/name/productCode/productName/version/
+        // department/totalOperations/totalSetupTime/totalCycleTime/totalCost/status/
+        // effectiveFrom/effectiveTo/operations[]).
+        const raw = (await ProductionOrphanService.getRoutingTemplates()) as any[];
+        const mapped: Routing[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          id: String(d?.id ?? i),
+          code: d?.code ?? '',
+          name: d?.name ?? '',
+          productCode: d?.productCode ?? '',
+          productName: d?.productName ?? '',
+          version: d?.version ?? '',
+          department: d?.department ?? '',
+          totalOperations: Number(d?.totalOperations ?? 0),
+          totalSetupTime: Number(d?.totalSetupTime ?? 0),
+          totalCycleTime: Number(d?.totalCycleTime ?? 0),
+          totalCost: Number(d?.totalCost ?? 0),
+          status: (d?.status ?? 'active') as Routing['status'],
+          effectiveFrom: d?.effectiveFrom ?? '',
+          effectiveTo: d?.effectiveTo ?? '',
+          operations: Array.isArray(d?.operations)
+            ? d.operations.map((op: any) => ({
+                sequence: Number(op?.sequence ?? 0),
+                workCenter: op?.workCenter ?? '',
+                operation: op?.operation ?? '',
+                setupTime: Number(op?.setupTime ?? 0),
+                cycleTime: Number(op?.cycleTime ?? 0),
+                laborCost: Number(op?.laborCost ?? 0),
+              }))
+            : [],
+        }));
+        if (!cancelled) setRoutings(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load routing templates');
+          setRoutings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRoutings = routings.filter(routing => {
     const matchesSearch = routing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -245,6 +120,23 @@ export default function RoutingSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading routing templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && routings.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No routing templates found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

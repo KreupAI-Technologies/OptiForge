@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { GeneralLedger } from '../entities/general-ledger.entity';
 import { ChartOfAccounts } from '../entities/chart-of-accounts.entity';
 import { Budget } from '../entities/budget.entity';
+import { Invoice } from '../entities/invoice.entity';
 
 @Injectable()
 export class FinancialReportsService {
@@ -14,6 +15,8 @@ export class FinancialReportsService {
     private readonly chartOfAccountsRepository: Repository<ChartOfAccounts>,
     @InjectRepository(Budget)
     private readonly budgetRepository: Repository<Budget>,
+    @InjectRepository(Invoice)
+    private readonly invoiceRepository: Repository<Invoice>,
   ) { }
 
   async getProfitLossStatement(params: {
@@ -142,12 +145,164 @@ export class FinancialReportsService {
     return { reportType: 'Custom Report', parameters: reportParams, data: [], generatedAt: new Date() };
   }
 
-  async getReceivablesAging(params: any): Promise<any> {
-    return { reportType: 'Receivables Aging', data: [], generatedAt: new Date() };
+  async getReceivablesAging(params: {
+    asOfDate?: string;
+    partyId?: string;
+    companyId?: string;
+  }): Promise<any> {
+    return this.buildAgingReport('Customer', 'Receivables Aging', params);
   }
 
-  async getPayablesAging(params: any): Promise<any> {
-    return { reportType: 'Payables Aging', data: [], generatedAt: new Date() };
+  async getPayablesAging(params: {
+    asOfDate?: string;
+    partyId?: string;
+    companyId?: string;
+  }): Promise<any> {
+    return this.buildAgingReport('Vendor', 'Payables Aging', params);
+  }
+
+  /**
+   * Aggregates open invoices (balanceAmount > 0) into aging buckets grouped by
+   * party. Pure read over the existing `invoices` table — no new table.
+   */
+  private async buildAgingReport(
+    partyType: 'Customer' | 'Vendor',
+    reportType: string,
+    params: { asOfDate?: string; partyId?: string; companyId?: string },
+  ): Promise<any> {
+    const asOf = params.asOfDate ? new Date(params.asOfDate) : new Date();
+
+    const qb = this.invoiceRepository
+      .createQueryBuilder('inv')
+      .where('inv.partyType = :partyType', { partyType })
+      .andWhere('inv.balanceAmount > 0')
+      .andWhere('inv.status NOT IN (:...excluded)', {
+        excluded: ['Cancelled', 'Void', 'Draft'],
+      });
+
+    if (params.partyId) {
+      qb.andWhere('inv.partyId = :partyId', { partyId: params.partyId });
+    }
+    if (params.companyId) {
+      qb.andWhere('inv.companyId = :companyId', { companyId: params.companyId });
+    }
+
+    const invoices = await qb.getMany();
+
+    const daysBetween = (due: Date): number => {
+      const dueTime = new Date(due).getTime();
+      return Math.floor((asOf.getTime() - dueTime) / (1000 * 60 * 60 * 24));
+    };
+
+    interface AgingBucket {
+      partyId: string;
+      partyName: string;
+      partyType: string;
+      totalOutstanding: number;
+      current: number;
+      days30to60: number;
+      days60to90: number;
+      days90to120: number;
+      over120: number;
+      invoiceCount: number;
+      oldestInvoice: string;
+      oldestInvoiceDate: string | null;
+      oldestDueDays: number;
+      creditDays: number;
+      currency: string;
+    }
+
+    const byParty = new Map<string, AgingBucket>();
+
+    for (const inv of invoices) {
+      const balance = Number(inv.balanceAmount) || 0;
+      const overdueDays = daysBetween(inv.dueDate);
+      const key = inv.partyId || inv.partyName || 'UNKNOWN';
+
+      let bucket = byParty.get(key);
+      if (!bucket) {
+        bucket = {
+          partyId: inv.partyId,
+          partyName: inv.partyName,
+          partyType: inv.partyType,
+          totalOutstanding: 0,
+          current: 0,
+          days30to60: 0,
+          days60to90: 0,
+          days90to120: 0,
+          over120: 0,
+          invoiceCount: 0,
+          oldestInvoice: inv.invoiceNumber,
+          oldestInvoiceDate: inv.invoiceDate
+            ? new Date(inv.invoiceDate).toISOString().slice(0, 10)
+            : null,
+          oldestDueDays: overdueDays,
+          creditDays: inv.creditDays || 0,
+          currency: inv.currency || 'INR',
+        };
+        byParty.set(key, bucket);
+      }
+
+      bucket.totalOutstanding += balance;
+      bucket.invoiceCount += 1;
+
+      if (overdueDays <= 30) bucket.current += balance;
+      else if (overdueDays <= 60) bucket.days30to60 += balance;
+      else if (overdueDays <= 90) bucket.days60to90 += balance;
+      else if (overdueDays <= 120) bucket.days90to120 += balance;
+      else bucket.over120 += balance;
+
+      if (overdueDays > bucket.oldestDueDays) {
+        bucket.oldestDueDays = overdueDays;
+        bucket.oldestInvoice = inv.invoiceNumber;
+        bucket.oldestInvoiceDate = inv.invoiceDate
+          ? new Date(inv.invoiceDate).toISOString().slice(0, 10)
+          : null;
+      }
+    }
+
+    const data = Array.from(byParty.values()).sort(
+      (a, b) => b.totalOutstanding - a.totalOutstanding,
+    );
+
+    const summary = data.reduce(
+      (acc, r) => {
+        acc.total += r.totalOutstanding;
+        acc.current += r.current;
+        acc.days30to60 += r.days30to60;
+        acc.days60to90 += r.days60to90;
+        acc.days90to120 += r.days90to120;
+        acc.over120 += r.over120;
+        return acc;
+      },
+      {
+        total: 0,
+        current: 0,
+        days30to60: 0,
+        days60to90: 0,
+        days90to120: 0,
+        over120: 0,
+      },
+    );
+
+    const overdue =
+      summary.days30to60 +
+      summary.days60to90 +
+      summary.days90to120 +
+      summary.over120;
+
+    return {
+      reportType,
+      asOfDate: asOf.toISOString().slice(0, 10),
+      data,
+      summary: {
+        ...summary,
+        overdue,
+        overduePercentage: summary.total > 0 ? (overdue / summary.total) * 100 : 0,
+        partyCount: data.length,
+      },
+      generatedAt: new Date(),
+    };
   }
 
   async getBudgetVarianceReport(params: any): Promise<any> {

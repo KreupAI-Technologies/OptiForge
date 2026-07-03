@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   GitBranch,
@@ -14,6 +14,9 @@ import {
   Users,
   CheckCircle
 } from 'lucide-react'
+import { estimationWorkflowStageService } from '@/services/estimation-workflow-stage.service'
+
+const COMPANY_ID = 'company-001'
 
 interface WorkflowStage {
   id: string
@@ -38,199 +41,51 @@ interface WorkflowStage {
 export default function EstimationSettingsWorkflowPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [workflowStages, setWorkflowStages] = useState<WorkflowStage[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [workflowStages] = useState<WorkflowStage[]>([
-    {
-      id: 'WF-001',
-      stageCode: 'DRAFT',
-      stageName: 'Draft',
-      stageOrder: 1,
-      description: 'Initial draft stage where estimate is being prepared',
-      approverRole: 'None',
-      approvalRequired: false,
-      autoAdvance: false,
-      notifyOnEntry: false,
-      notifyOnApproval: false,
-      maxDaysInStage: 7,
-      escalationEnabled: true,
-      escalationDays: 5,
-      escalateTo: 'Sales Manager',
-      allowReject: false,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-002',
-      stageCode: 'REVIEW',
-      stageName: 'Technical Review',
-      stageOrder: 2,
-      description: 'Technical review by estimation manager',
-      approverRole: 'Estimation Manager',
-      approvalRequired: true,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: true,
-      maxDaysInStage: 2,
-      escalationEnabled: true,
-      escalationDays: 2,
-      escalateTo: 'Senior Manager',
-      allowReject: true,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-003',
-      stageCode: 'PRICING',
-      stageName: 'Pricing Approval',
-      stageOrder: 3,
-      description: 'Pricing and margin approval by sales manager',
-      approverRole: 'Sales Manager',
-      approvalRequired: true,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: true,
-      maxDaysInStage: 2,
-      escalationEnabled: true,
-      escalationDays: 2,
-      escalateTo: 'Director',
-      allowReject: true,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-004',
-      stageCode: 'MGR-APPROVE',
-      stageName: 'Manager Approval',
-      stageOrder: 4,
-      description: 'Final approval by senior manager for estimates above threshold',
-      approverRole: 'Senior Manager',
-      approvalRequired: true,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: true,
-      maxDaysInStage: 3,
-      escalationEnabled: true,
-      escalationDays: 3,
-      escalateTo: 'Director',
-      allowReject: true,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-005',
-      stageCode: 'DIR-APPROVE',
-      stageName: 'Director Approval',
-      stageOrder: 5,
-      description: 'Director approval for high-value estimates (above 50L)',
-      approverRole: 'Director',
-      approvalRequired: true,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: true,
-      maxDaysInStage: 5,
-      escalationEnabled: true,
-      escalationDays: 4,
-      escalateTo: 'CEO',
-      allowReject: true,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-006',
-      stageCode: 'APPROVED',
-      stageName: 'Approved',
-      stageOrder: 6,
-      description: 'Estimate approved and ready to send to customer',
-      approverRole: 'None',
-      approvalRequired: false,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: false,
-      maxDaysInStage: 30,
-      escalationEnabled: true,
-      escalationDays: 25,
-      escalateTo: 'Sales Manager',
-      allowReject: false,
-      allowRevision: false,
-      status: 'active'
-    },
-    {
-      id: 'WF-007',
-      stageCode: 'SENT',
-      stageName: 'Sent to Customer',
-      stageOrder: 7,
-      description: 'Estimate sent to customer, awaiting response',
-      approverRole: 'None',
-      approvalRequired: false,
-      autoAdvance: false,
-      notifyOnEntry: false,
-      notifyOnApproval: false,
-      maxDaysInStage: 30,
-      escalationEnabled: true,
-      escalationDays: 20,
-      escalateTo: 'Sales Manager',
-      allowReject: false,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-008',
-      stageCode: 'NEGOTIATION',
-      stageName: 'Under Negotiation',
-      stageOrder: 8,
-      description: 'Customer negotiating terms and pricing',
-      approverRole: 'Sales Manager',
-      approvalRequired: true,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: false,
-      maxDaysInStage: 15,
-      escalationEnabled: true,
-      escalationDays: 12,
-      escalateTo: 'Senior Manager',
-      allowReject: false,
-      allowRevision: true,
-      status: 'active'
-    },
-    {
-      id: 'WF-009',
-      stageCode: 'CONVERTED',
-      stageName: 'Converted to Order',
-      stageOrder: 9,
-      description: 'Estimate accepted and converted to sales order',
-      approverRole: 'None',
-      approvalRequired: false,
-      autoAdvance: true,
-      notifyOnEntry: true,
-      notifyOnApproval: false,
-      maxDaysInStage: 0,
-      escalationEnabled: false,
-      escalationDays: 0,
-      escalateTo: 'None',
-      allowReject: false,
-      allowRevision: false,
-      status: 'active'
-    },
-    {
-      id: 'WF-010',
-      stageCode: 'REJECTED',
-      stageName: 'Rejected',
-      stageOrder: 10,
-      description: 'Estimate rejected by approver or customer',
-      approverRole: 'None',
-      approvalRequired: false,
-      autoAdvance: false,
-      notifyOnEntry: true,
-      notifyOnApproval: false,
-      maxDaysInStage: 0,
-      escalationEnabled: false,
-      escalationDays: 0,
-      escalateTo: 'None',
-      allowReject: false,
-      allowRevision: true,
-      status: 'active'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await estimationWorkflowStageService.findAll(COMPANY_ID)
+        const mapped: WorkflowStage[] = raw.map((r) => ({
+          id: r.id,
+          stageCode: r.stageCode,
+          stageName: r.stageName,
+          stageOrder: Number(r.stageOrder ?? 0),
+          description: r.description ?? '',
+          approverRole: r.approverRole ?? 'None',
+          approvalRequired: !!r.approvalRequired,
+          autoAdvance: !!r.autoAdvance,
+          notifyOnEntry: !!r.notifyOnEntry,
+          notifyOnApproval: !!r.notifyOnApproval,
+          maxDaysInStage: Number(r.maxDaysInStage ?? 0),
+          escalationEnabled: !!r.escalationEnabled,
+          escalationDays: Number(r.escalationDays ?? 0),
+          escalateTo: r.escalateTo ?? 'None',
+          allowReject: !!r.allowReject,
+          allowRevision: !!r.allowRevision,
+          status: r.status
+        }))
+        if (!cancelled) setWorkflowStages(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load workflow stages')
+          setWorkflowStages([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -342,6 +197,15 @@ export default function EstimationSettingsWorkflowPage() {
             </div>
           </div>
         </div>
+        {isLoading && (
+          <div className="px-6 py-6 text-sm text-gray-500">Loading workflow stages...</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="px-6 py-6 text-sm text-red-600">{loadError}</div>
+        )}
+        {!isLoading && !loadError && workflowStages.length === 0 && (
+          <div className="px-6 py-6 text-sm text-gray-500">No workflow stages found.</div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -358,7 +222,7 @@ export default function EstimationSettingsWorkflowPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {workflowStages.sort((a, b) => a.stageOrder - b.stageOrder).map((stage) => (
+              {[...workflowStages].sort((a, b) => a.stageOrder - b.stageOrder).map((stage) => (
                 <tr key={stage.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">
@@ -424,7 +288,6 @@ export default function EstimationSettingsWorkflowPage() {
                         <button
                           onClick={() => setEditingId(null)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                         
                         >
                           <Save className="h-4 w-4" />
                         </button>
@@ -432,7 +295,6 @@ export default function EstimationSettingsWorkflowPage() {
                         <button
                           onClick={() => setEditingId(stage.id)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                         
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>

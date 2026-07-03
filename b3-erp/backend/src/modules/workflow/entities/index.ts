@@ -11,6 +11,11 @@ export * from './workflow-rule.entity';
 export * from './notification-template.entity';
 export * from './notification-preference.entity';
 
+// Additive orphan-page entities
+export * from './automation-rule.entity';
+export * from './pending-approval-item.entity';
+export * from './workflow-config-template.entity';
+
 // Existing entities
 export * from './order-tracking.entity';
 export * from './workflow-definition.entity';

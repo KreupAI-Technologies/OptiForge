@@ -4,11 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockStates, State } from '@/data/common-masters/states';
+import type { State } from '@/data/common-masters/states';
 import { exportToCsv } from '@/lib/export';
+import { commonMastersService } from '@/services/common-masters.service';
 
 export default function StateMasterPage() {
-  const [states, setStates] = useState<State[]>(mockStates);
+  const [states, setStates] = useState<State[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCountry, setFilterCountry] = useState<string>('all');
   const [filterZone, setFilterZone] = useState<string>('all');
@@ -23,6 +26,40 @@ export default function StateMasterPage() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  // Load states from the backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await commonMastersService.getAllStates();
+        const mapped: State[] = raw.map((s: any) => ({
+          id: s.id,
+          code: s.code ?? '',
+          name: s.name,
+          countryCode: s.country?.code ?? '',
+          countryName: s.country?.name ?? '',
+          zone: undefined,
+          isUT: false,
+          isActive: s.isActive ?? true,
+          stateGSTCode: undefined,
+          createdAt: s.createdAt ?? '',
+          updatedAt: s.updatedAt ?? '',
+        }));
+        if (!cancelled) setStates(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load states');
+          setStates([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Show toast notification
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
@@ -48,7 +85,7 @@ export default function StateMasterPage() {
   };
 
   const handleExport = () => {
-    exportToCsv('state-master', filteredData);
+    exportToCsv('state-master', filteredData as unknown as Record<string, unknown>[]);
     showToast('Exporting states data...', 'success');
   };
 
@@ -199,6 +236,18 @@ export default function StateMasterPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="px-3 py-2 space-y-3">
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading states…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
           {/* Toast Notification */}
           {toast && (
             <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-5">

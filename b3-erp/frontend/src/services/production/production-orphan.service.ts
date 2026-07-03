@@ -36,4 +36,27 @@ export const ProductionOrphanService = {
 
   // GET production/maintenance-logs
   getMaintenanceLogs: () => request<any[]>('/production/maintenance-logs'),
+
+  // --- Net-new orphan settings/list endpoints ---
+
+  // GET production/routing-templates
+  getRoutingTemplates: () => request<any[]>('/production/routing-templates'),
+
+  // GET production/line-configs
+  getLineConfigs: () => request<any[]>('/production/line-configs'),
+
+  // GET production/shift-definitions
+  getShiftDefinitions: () => request<any[]>('/production/shift-definitions'),
+
+  // GET production/die-tool-assets
+  getDieToolAssets: () => request<any[]>('/production/die-tool-assets'),
+
+  // GET production/shutter-orders
+  getShutterOrders: () => request<any[]>('/production/shutter-orders'),
+
+  // GET production/trial-installations
+  getTrialInstallations: () => request<any[]>('/production/trial-installations'),
+
+  // GET production/operation-tasks
+  getOperationTasks: () => request<any[]>('/production/operation-tasks'),
 };

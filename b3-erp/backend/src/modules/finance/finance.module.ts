@@ -22,6 +22,7 @@ import {
   StandardCost,
   VarianceAnalysis,
   WIPAccounting,
+  JobCostSheet,
   CashFlowTransaction,
   AnticipatedReceipt,
   AnticipatedPayment,
@@ -42,6 +43,7 @@ import {
   InvoiceController,
   PaymentController,
   FinancialReportsController,
+  JobCostSheetController,
 } from './controllers';
 
 // Services
@@ -55,6 +57,7 @@ import {
   FinancialPeriodSeederService,
   TaxConfigSeederService,
   CostCenterSeederService,
+  JobCostSheetService,
 } from './services';
 import { AccountsReceivableService } from './services/accounts-receivable.service';
 import { AccountsPayableService } from './services/accounts-payable.service';
@@ -101,6 +104,7 @@ import { Company } from '../core/entities/company.entity';
       StandardCost,
       VarianceAnalysis,
       WIPAccounting,
+      JobCostSheet,
 
       // Cash Flow
       CashFlowTransaction,
@@ -126,6 +130,7 @@ import { Company } from '../core/entities/company.entity';
     InvoiceController,
     PaymentController,
     FinancialReportsController,
+    JobCostSheetController,
   ],
   providers: [
     ChartOfAccountsService,
@@ -142,6 +147,7 @@ import { Company } from '../core/entities/company.entity';
     CostCenterSeederService,
     ConsolidationService,
     FinanceSeederService,
+    JobCostSheetService,
   ],
   exports: [
     ChartOfAccountsService,

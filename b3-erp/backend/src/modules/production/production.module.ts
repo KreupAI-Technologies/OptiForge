@@ -2,6 +2,29 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkflowModule } from '../workflow/workflow.module';
 
+// Orphan-endpoint build (settings/list features) — direct imports
+import { DieToolAsset } from './entities/die-tool-asset.entity';
+import { OperationTask } from './entities/operation-task.entity';
+import { ProductionLineConfig } from './entities/production-line-config.entity';
+import { RoutingTemplate } from './entities/routing-template.entity';
+import { ShiftDefinition } from './entities/shift-definition.entity';
+import { ShutterOrder } from './entities/shutter-order.entity';
+import { TrialInstallation } from './entities/trial-installation.entity';
+import { DieToolAssetController } from './controllers/die-tool-asset.controller';
+import { OperationTaskController } from './controllers/operation-task.controller';
+import { ProductionLineConfigController } from './controllers/production-line-config.controller';
+import { RoutingTemplateController } from './controllers/routing-template.controller';
+import { ShiftDefinitionController } from './controllers/shift-definition.controller';
+import { ShutterOrderController } from './controllers/shutter-order.controller';
+import { TrialInstallationController } from './controllers/trial-installation.controller';
+import { DieToolAssetService } from './services/die-tool-asset.service';
+import { OperationTaskService } from './services/operation-task.service';
+import { ProductionLineConfigService } from './services/production-line-config.service';
+import { RoutingTemplateService } from './services/routing-template.service';
+import { ShiftDefinitionService } from './services/shift-definition.service';
+import { ShutterOrderService } from './services/shutter-order.service';
+import { TrialInstallationService } from './services/trial-installation.service';
+
 // Entities
 import {
   BOM,
@@ -232,6 +255,8 @@ import {
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      DieToolAsset, OperationTask, ProductionLineConfig, RoutingTemplate,
+      ShiftDefinition, ShutterOrder, TrialInstallation,
       // Main entities
       BOM,
       BOMItem,
@@ -308,6 +333,9 @@ import {
     forwardRef(() => WorkflowModule),
   ],
   controllers: [
+    DieToolAssetController, OperationTaskController, ProductionLineConfigController,
+    RoutingTemplateController, ShiftDefinitionController, ShutterOrderController,
+    TrialInstallationController,
     // Core Controllers
     BOMController,
     WorkOrderController,
@@ -380,6 +408,9 @@ import {
     CustomerPortalAccessController,
   ],
   providers: [
+    DieToolAssetService, OperationTaskService, ProductionLineConfigService,
+    RoutingTemplateService, ShiftDefinitionService, ShutterOrderService,
+    TrialInstallationService,
     // Core Services
     BOMService,
     WorkOrderService,

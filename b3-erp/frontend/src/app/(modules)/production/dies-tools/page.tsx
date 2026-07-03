@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,12 +10,52 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+interface DieTool {
+    id: string;
+    name: string;
+    type: string;
+    status: string;
+    lifeUsed: number;
+    maxLife: number;
+    location?: string;
+    currentWorkOrder?: string;
+}
+
 export default function DiesToolsManagerPage() {
-    const [tools, setTools] = useState([
-        { id: 'DIE-001', name: 'Sheet Metal Cutter Die', type: 'Die', status: 'Available', lifeUsed: 500, maxLife: 10000, location: 'Store' },
-        { id: 'TOOL-002', name: 'CNC Drill Bit Set', type: 'Tool', status: 'Issued', lifeUsed: 200, maxLife: 1000, currentWorkOrder: 'WO-123' },
-        { id: 'DIE-003', name: 'Press Die Type A', type: 'Die', status: 'Maintenance', lifeUsed: 8500, maxLife: 10000, location: 'Workshop' },
-    ]);
+    const [tools, setTools] = useState<DieTool[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = (await ProductionOrphanService.getDieToolAssets()) as any[];
+                const mapped: DieTool[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+                    id: d?.assetCode ?? d?.id ?? String(i),
+                    name: d?.name ?? '',
+                    type: d?.type ?? 'Tool',
+                    status: d?.status ?? 'Available',
+                    lifeUsed: Number(d?.lifeUsed ?? 0),
+                    maxLife: Number(d?.maxLife ?? 0),
+                    location: d?.location ?? undefined,
+                    currentWorkOrder: d?.currentWorkOrder ?? undefined,
+                }));
+                if (!cancelled) setTools(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load dies & tools');
+                    setTools([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -78,7 +119,16 @@ export default function DiesToolsManagerPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {tools.map((tool) => (
+                            {isLoading && (
+                                <TableRow><TableCell colSpan={7} className="text-center text-sm text-gray-500 py-6">Loading dies &amp; tools...</TableCell></TableRow>
+                            )}
+                            {!isLoading && loadError && (
+                                <TableRow><TableCell colSpan={7} className="text-center text-sm text-red-600 py-6">{loadError}</TableCell></TableRow>
+                            )}
+                            {!isLoading && !loadError && tools.length === 0 && (
+                                <TableRow><TableCell colSpan={7} className="text-center text-sm text-gray-500 py-6">No dies or tools found.</TableCell></TableRow>
+                            )}
+                            {!isLoading && !loadError && tools.map((tool) => (
                                 <TableRow key={tool.id}>
                                     <TableCell className="font-medium">{tool.id}</TableCell>
                                     <TableCell>{tool.name}</TableCell>

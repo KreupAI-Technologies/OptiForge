@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
     Hammer,
     CheckCircle,
@@ -37,79 +38,53 @@ interface TrialInstallation {
     notes?: string;
 }
 
-const mockTrials: TrialInstallation[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'Premium Modular Kitchen - Model A',
-        installationType: 'Full Kitchen',
-        status: 'Completed',
-        scheduledDate: '2025-01-22',
-        completionDate: '2025-01-22',
-        supervisor: 'Rajesh Menon',
-        location: 'Trial Room 1',
-        checklist: [
-            { id: '1', item: 'Cabinet dimensions match drawings', status: 'Pass' },
-            { id: '2', item: 'Doors open/close smoothly', status: 'Pass' },
-            { id: '3', item: 'Drawer alignment correct', status: 'Pass' },
-            { id: '4', item: 'Hardware installation proper', status: 'Pass' },
-            { id: '5', item: 'Finish quality acceptable', status: 'Pass' },
-            { id: '6', item: 'Level and plumb check', status: 'Pass' },
-        ],
-        issuesFound: 0,
-        approved: true,
-        notes: 'Perfect installation. All checks passed. Ready for client delivery.',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-003',
-        productName: 'Wall-Mounted Cabinet Set',
-        installationType: 'Wall Cabinet',
-        status: 'Issues Found',
-        scheduledDate: '2025-01-23',
-        completionDate: '2025-01-23',
-        supervisor: 'Priya Sharma',
-        location: 'Trial Room 2',
-        checklist: [
-            { id: '1', item: 'Cabinet dimensions match drawings', status: 'Pass' },
-            { id: '2', item: 'Doors open/close smoothly', status: 'Fail', notes: 'Left door slightly misaligned' },
-            { id: '3', item: 'Drawer alignment correct', status: 'Pass' },
-            { id: '4', item: 'Hardware installation proper', status: 'Fail', notes: 'Soft-close hinge needs adjustment' },
-            { id: '5', item: 'Finish quality acceptable', status: 'Pass' },
-            { id: '6', item: 'Level and plumb check', status: 'Pass' },
-        ],
-        issuesFound: 2,
-        approved: false,
-        notes: '2 minor issues found. Rework assigned to production team.',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        productName: 'Base Cabinet with Granite Top',
-        installationType: 'Base Cabinet',
-        status: 'In Progress',
-        scheduledDate: '2025-01-24',
-        supervisor: 'Amit Patel',
-        location: 'Trial Room 1',
-        checklist: [
-            { id: '1', item: 'Cabinet dimensions match drawings', status: 'Pass' },
-            { id: '2', item: 'Doors open/close smoothly', status: 'Pass' },
-            { id: '3', item: 'Drawer alignment correct', status: 'Pending' },
-            { id: '4', item: 'Hardware installation proper', status: 'Pending' },
-            { id: '5', item: 'Finish quality acceptable', status: 'Pending' },
-            { id: '6', item: 'Level and plumb check', status: 'Pending' },
-        ],
-        issuesFound: 0,
-        approved: false,
-        notes: 'Trial in progress. 2/6 checks completed.',
-    },
-];
-
 export default function TrialInstallationPage() {
-    const [trials] = useState<TrialInstallation[]>(mockTrials);
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [selectedTrial, setSelectedTrial] = useState<TrialInstallation | null>(null);
     const [showDetails, setShowDetails] = useState(false);
+
+    // Trial installations loaded from the NestJS backend (production/trial-installations).
+    const [trials, setTrials] = useState<TrialInstallation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = (await ProductionOrphanService.getTrialInstallations()) as any[];
+                const mapped: TrialInstallation[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+                    id: String(d?.id ?? i),
+                    woNumber: d?.woNumber ?? '',
+                    productName: d?.productName ?? '',
+                    installationType: d?.installationType ?? 'Other',
+                    status: d?.status ?? 'Scheduled',
+                    scheduledDate: d?.scheduledDate ?? '',
+                    completionDate: d?.completionDate ?? undefined,
+                    supervisor: d?.supervisor ?? '',
+                    location: d?.location ?? '',
+                    checklist: Array.isArray(d?.checklist) ? d.checklist : [],
+                    issuesFound: Number(d?.issuesFound ?? 0),
+                    approved: Boolean(d?.approved),
+                    notes: d?.notes ?? undefined,
+                }));
+                if (!cancelled) setTrials(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load trial installations');
+                    setTrials([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredTrials = trials.filter((trial) => {
         return filterStatus === 'all' || trial.status === filterStatus;
@@ -244,6 +219,25 @@ export default function TrialInstallationPage() {
                         </select>
                     </div>
                 </div>
+
+                {/* Load states */}
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading trial installations…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertTriangle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && filteredTrials.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        No trial installations found.
+                    </div>
+                )}
 
                 {/* Trials List */}
                 <div className="grid grid-cols-1 gap-2">

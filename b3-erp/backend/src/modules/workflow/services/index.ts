@@ -16,3 +16,8 @@ export * from './rule-engine.service';
 export * from './document.service';
 export * from './approval.service';
 export * from './quality-gate.service';
+
+// Additive orphan-page services
+export * from './automation-rule.service';
+export * from './pending-approval-item.service';
+export * from './workflow-config-template.service';

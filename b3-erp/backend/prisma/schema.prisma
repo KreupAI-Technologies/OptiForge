@@ -7,6 +7,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- HR Grade Master (orphan common-masters page) ---
+
+model HrGrade {
+  id                String   @id @default(uuid())
+  gradeCode         String
+  gradeName         String
+  level             Int      @default(1)
+  category          String   @default("staff") // executive, management, supervisory, staff, worker
+  minSalary         Float    @default(0)
+  maxSalary         Float    @default(0)
+  currency          String   @default("INR")
+  benefits          Json?
+  leaveEntitlement  Json?
+  perks             String[]
+  probationPeriod   Int      @default(0) // months
+  noticePeriod      Int      @default(0) // months
+  appraisalCycle    String   @default("annual") // quarterly, half-yearly, annual
+  eligibleDesignations String[]
+  description       String?
+  companyId         String
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([gradeCode, companyId])
+  @@map("core_hr_grades")
+}
+
 // --- Geographic Masters ---
 
 model Country {

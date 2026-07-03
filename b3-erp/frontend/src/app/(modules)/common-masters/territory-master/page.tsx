@@ -4,11 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, MapPin, TrendingUp, Users, Target, ChevronRight, ChevronDown, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockTerritories, Territory, getTerritoryStats, getChildTerritories } from '@/data/common-masters/territories';
+import { Territory, getTerritoryStats, getChildTerritories } from '@/data/common-masters/territories';
+import { commonMastersService } from '@/services/common-masters.service';
 import { exportToCsv } from '@/lib/export';
 
 export default function TerritoryMasterPage() {
-  const [territories, setTerritories] = useState<Territory[]>(mockTerritories);
+  const [territories, setTerritories] = useState<Territory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterRegion, setFilterRegion] = useState<string>('all');
@@ -23,6 +26,70 @@ export default function TerritoryMasterPage() {
     }
   }, [toast]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTerritories = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await commonMastersService.getAllTerritories();
+        if (cancelled) return;
+
+        const mapped: Territory[] = rows.map((row) => ({
+          id: row.id,
+          territoryCode: row.code,
+          territoryName: row.name,
+          territoryType: 'area' as any,
+          parentTerritoryId: null,
+          parentTerritoryName: null,
+          level: 0,
+          country: '',
+          cities: [],
+          pincodes: [],
+          coverageArea: '',
+          salesManager: '',
+          salesTeam: [],
+          totalCustomers: 0,
+          activeCustomers: 0,
+          currentMonthSales: 0,
+          currentYearSales: 0,
+          lastYearSales: 0,
+          salesTarget: 0,
+          targetAchievement: 0,
+          marketPotential: 'medium' as any,
+          competitionLevel: 'moderate' as any,
+          growthRate: 0,
+          avgDeliveryDays: 0,
+          transportCost: 0,
+          currency: '',
+          taxRegion: '',
+          allowCreditSales: false,
+          defaultPaymentTerms: '',
+          isActive: row.isActive,
+          createdBy: '',
+          createdDate: '',
+          modifiedBy: '',
+          modifiedDate: '',
+        }));
+
+        setTerritories(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError('Failed to load territories. Please try again.');
+        setTerritories([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadTerritories();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
   };
@@ -31,7 +98,7 @@ export default function TerritoryMasterPage() {
   const handleViewTerritory = (territory: Territory) => showToast(`Viewing territory: ${territory.territoryName}`, 'info');
   const handleEditTerritory = (territory: Territory) => showToast(`Editing territory: ${territory.territoryName}`, 'info');
   const handleExport = () => {
-    exportToCsv('territory-master', filteredData);
+    exportToCsv('territory-master', filteredData as unknown as Record<string, unknown>[]);
     showToast('Exporting territories data...', 'success');
   };
 
@@ -290,6 +357,18 @@ export default function TerritoryMasterPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-teal-50 to-emerald-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="px-3 py-2 space-y-3">
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading territories…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
           {toast && (
             <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-5">
               <div className={`rounded-lg px-4 py-3 shadow-lg flex items-center gap-3 ${

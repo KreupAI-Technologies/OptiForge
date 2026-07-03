@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { workflowPendingApprovalService } from '@/services/workflow-pending-approval.service';
 import {
     Clock,
     CheckCircle2,
@@ -43,143 +44,76 @@ interface PendingApproval {
     currentStep: number;
 }
 
-const mockPendingApprovals: PendingApproval[] = [
-    {
-        id: '1',
-        referenceNo: 'PO-2024-0892',
-        title: 'Purchase Order - Raw Materials',
-        description: 'Steel plates and aluminum sheets from ABC Suppliers for production batch',
-        module: 'Procurement',
-        moduleIcon: ShoppingCart,
-        moduleUrl: '/procurement/purchase-orders/PO-2024-0892',
-        requestedBy: 'John Smith',
-        requestedAt: '2024-01-22 09:30',
-        amount: 45000,
-        priority: 'high',
-        dueDate: '2024-01-23',
-        slaStatus: 'warning',
-        step: 'Manager Approval',
-        totalSteps: 3,
-        currentStep: 2
-    },
-    {
-        id: '2',
-        referenceNo: 'QUO-2024-1234',
-        title: 'Sales Quotation - Tech Industries',
-        description: 'Annual contract renewal with special pricing terms',
-        module: 'Sales',
-        moduleIcon: FileText,
-        moduleUrl: '/crm/quotations/QUO-2024-1234',
-        requestedBy: 'Sarah Johnson',
-        requestedAt: '2024-01-22 08:15',
-        amount: 125000,
-        priority: 'critical',
-        dueDate: '2024-01-22',
-        slaStatus: 'overdue',
-        step: 'Director Approval',
-        totalSteps: 2,
-        currentStep: 2
-    },
-    {
-        id: '3',
-        referenceNo: 'INV-2024-3456',
-        title: 'Invoice Payment Approval',
-        description: 'Vendor invoice for IT equipment and software licenses',
-        module: 'Finance',
-        moduleIcon: DollarSign,
-        moduleUrl: '/finance/invoices/INV-2024-3456',
-        requestedBy: 'Lisa Wong',
-        requestedAt: '2024-01-21 14:30',
-        amount: 78500,
-        priority: 'high',
-        dueDate: '2024-01-24',
-        slaStatus: 'on-track',
-        step: 'Finance Controller',
-        totalSteps: 3,
-        currentStep: 2
-    },
-    {
-        id: '4',
-        referenceNo: 'LR-2024-0234',
-        title: 'Leave Request - Annual Leave',
-        description: 'Annual leave request from Engineering Department - 5 working days',
-        module: 'HR',
-        moduleIcon: Users,
-        moduleUrl: '/hr/leave/requests/LR-2024-0234',
-        requestedBy: 'David Chen',
-        requestedAt: '2024-01-21 16:00',
-        priority: 'medium',
-        slaStatus: 'on-track',
-        step: 'Team Lead Approval',
-        totalSteps: 2,
-        currentStep: 1
-    },
-    {
-        id: '5',
-        referenceNo: 'SHP-2024-0567',
-        title: 'Shipment Authorization',
-        description: 'Export shipment to Dubai - Customs documentation required',
-        module: 'Logistics',
-        moduleIcon: Truck,
-        moduleUrl: '/logistics/shipping/outbound/SHP-2024-0567',
-        requestedBy: 'Mike Davis',
-        requestedAt: '2024-01-22 07:45',
-        priority: 'high',
-        dueDate: '2024-01-23',
-        slaStatus: 'on-track',
-        step: 'Logistics Manager',
-        totalSteps: 2,
-        currentStep: 1
-    },
-    {
-        id: '6',
-        referenceNo: 'PR-2024-0445',
-        title: 'Purchase Requisition - Office Supplies',
-        description: 'Monthly office supplies requisition for Admin department',
-        module: 'Procurement',
-        moduleIcon: Package,
-        moduleUrl: '/procurement/requisitions/PR-2024-0445',
-        requestedBy: 'Emily Brown',
-        requestedAt: '2024-01-20 11:00',
-        amount: 2500,
-        priority: 'low',
-        slaStatus: 'on-track',
-        step: 'Department Head',
-        totalSteps: 2,
-        currentStep: 1
-    },
-    {
-        id: '7',
-        referenceNo: 'EXP-2024-0189',
-        title: 'Expense Claim Approval',
-        description: 'Travel expenses for client meeting in Dubai',
-        module: 'Finance',
-        moduleIcon: DollarSign,
-        moduleUrl: '/finance/expenses/EXP-2024-0189',
-        requestedBy: 'Robert Wilson',
-        requestedAt: '2024-01-19 15:30',
-        amount: 3200,
-        priority: 'medium',
-        dueDate: '2024-01-25',
-        slaStatus: 'warning',
-        step: 'Manager Approval',
-        totalSteps: 3,
-        currentStep: 1
-    }
-];
+const COMPANY_ID = 'company-001';
 
-const stats = {
-    total: 7,
-    onTrack: 4,
-    warning: 2,
-    overdue: 1,
-    critical: 2
+// Map a module name (string from the API) to its lucide icon.
+const moduleIconFor = (module?: string): React.ElementType => {
+    switch ((module || '').toLowerCase()) {
+        case 'procurement': return ShoppingCart;
+        case 'sales': return FileText;
+        case 'finance': return DollarSign;
+        case 'hr': return Users;
+        case 'logistics': return Truck;
+        case 'inventory': return Package;
+        default: return FileText;
+    }
 };
 
 export default function PendingApprovalsPage() {
-    const [approvals] = useState<PendingApproval[]>(mockPendingApprovals);
+    const [approvals, setApprovals] = useState<PendingApproval[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                setIsLoading(true);
+                setLoadError(null);
+                const rows = await workflowPendingApprovalService.findAll(COMPANY_ID);
+                if (!active) return;
+                const mapped: PendingApproval[] = rows.map((r) => ({
+                    id: r.id,
+                    referenceNo: r.referenceNo ?? '',
+                    title: r.title ?? '',
+                    description: r.description ?? '',
+                    module: r.module ?? '',
+                    moduleIcon: moduleIconFor(r.module),
+                    moduleUrl: r.moduleUrl ?? '#',
+                    requestedBy: r.requestedBy ?? '',
+                    requestedAt: r.requestedAt ?? '',
+                    amount: r.amount != null ? Number(r.amount) : undefined,
+                    priority: (r.priority ?? 'medium') as PendingApproval['priority'],
+                    dueDate: r.dueDate ?? undefined,
+                    slaStatus: (r.slaStatus ?? 'on-track') as PendingApproval['slaStatus'],
+                    step: r.step ?? '',
+                    totalSteps: Number(r.totalSteps ?? 1),
+                    currentStep: Number(r.currentStep ?? 1),
+                }));
+                setApprovals(mapped);
+            } catch (err) {
+                if (!active) return;
+                setLoadError(
+                    err instanceof Error ? err.message : 'Failed to load approvals',
+                );
+            } finally {
+                if (active) setIsLoading(false);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const stats = {
+        total: approvals.length,
+        onTrack: approvals.filter((a) => a.slaStatus === 'on-track').length,
+        warning: approvals.filter((a) => a.slaStatus === 'warning').length,
+        overdue: approvals.filter((a) => a.slaStatus === 'overdue').length,
+        critical: approvals.filter((a) => a.priority === 'critical').length,
+    };
 
     const getPriorityStyles = (priority: string) => {
         switch (priority) {
@@ -237,6 +171,16 @@ export default function PendingApprovalsPage() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && (
+                    <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm text-sm text-gray-500">
+                        Loading pending approvals...
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-sm text-red-700">
+                        {loadError}
+                    </div>
+                )}
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                     <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">

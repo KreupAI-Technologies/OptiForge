@@ -1,6 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+// Shift management (orphan-endpoint build) — direct imports to avoid barrel churn
+import { ShiftAssignment } from './entities/shift-assignment.entity';
+import { ShiftRosterEntry } from './entities/shift-roster-entry.entity';
+import { ShiftSwap } from './entities/shift-swap.entity';
+import { ShiftAssignmentController } from './controllers/shift-assignment.controller';
+import { ShiftRosterController } from './controllers/shift-roster.controller';
+import { ShiftSwapController } from './controllers/shift-swap.controller';
+import { ShiftAssignmentService } from './services/shift-assignment.service';
+import { ShiftRosterService } from './services/shift-roster.service';
+import { ShiftSwapService } from './services/shift-swap.service';
+
 // Entities
 import {
   Department,
@@ -100,6 +111,7 @@ import { PrismaModule } from '../prisma/prisma.module';
   imports: [
     PrismaModule,
     TypeOrmModule.forFeature([
+      ShiftAssignment, ShiftRosterEntry, ShiftSwap,
       // Core HR
       Department,
       Designation,
@@ -134,6 +146,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     ]),
   ],
   controllers: [
+    ShiftAssignmentController, ShiftRosterController, ShiftSwapController,
     DepartmentController,
     DesignationController,
     ShiftController,
@@ -158,6 +171,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     AdvanceController,
   ],
   providers: [
+    ShiftAssignmentService, ShiftRosterService, ShiftSwapService,
     DepartmentService,
     DesignationService,
     ShiftService,

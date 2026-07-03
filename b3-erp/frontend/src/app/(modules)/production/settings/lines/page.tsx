@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Search, Edit2, Trash2, Factory, MapPin, Users, Activity, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit2, Trash2, Factory, MapPin, Users, Activity, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface ProductionLine {
   id: string;
@@ -26,169 +27,51 @@ export default function LinesSettingsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Mock production lines data
-  const productionLines: ProductionLine[] = [
-    {
-      id: 'LINE-001',
-      code: 'ASSY-LINE-01',
-      name: 'Assembly Line 1',
-      department: 'Assembly Department',
-      location: 'Building A - Floor 1',
-      lineType: 'Final Assembly',
-      workCenters: 8,
-      operators: 12,
-      capacity: 100,
-      efficiency: 92.5,
-      utilization: 88.3,
-      status: 'operational',
-      shiftSchedule: '3 Shifts',
-      supervisor: 'John Miller'
-    },
-    {
-      id: 'LINE-002',
-      code: 'ASSY-LINE-02',
-      name: 'Assembly Line 2',
-      department: 'Assembly Department',
-      location: 'Building A - Floor 1',
-      lineType: 'Sub-Assembly',
-      workCenters: 6,
-      operators: 10,
-      capacity: 80,
-      efficiency: 89.7,
-      utilization: 85.2,
-      status: 'operational',
-      shiftSchedule: '2 Shifts',
-      supervisor: 'Sarah Johnson'
-    },
-    {
-      id: 'LINE-003',
-      code: 'FAB-LINE-01',
-      name: 'Fabrication Line 1',
-      department: 'Fabrication Department',
-      location: 'Building B - Bay A',
-      lineType: 'Metal Fabrication',
-      workCenters: 10,
-      operators: 15,
-      capacity: 120,
-      efficiency: 94.2,
-      utilization: 91.5,
-      status: 'operational',
-      shiftSchedule: '3 Shifts',
-      supervisor: 'Michael Chen'
-    },
-    {
-      id: 'LINE-004',
-      code: 'WELD-LINE-01',
-      name: 'Welding Line 1',
-      department: 'Welding Department',
-      location: 'Building A - Bay B',
-      lineType: 'Automated Welding',
-      workCenters: 5,
-      operators: 8,
-      capacity: 60,
-      efficiency: 91.8,
-      utilization: 87.9,
-      status: 'operational',
-      shiftSchedule: '2 Shifts',
-      supervisor: 'Robert Davis'
-    },
-    {
-      id: 'LINE-005',
-      code: 'FINISH-LINE-01',
-      name: 'Finishing Line 1',
-      department: 'Finishing Department',
-      location: 'Building B - Floor 2',
-      lineType: 'Surface Finishing',
-      workCenters: 7,
-      operators: 11,
-      capacity: 70,
-      efficiency: 87.3,
-      utilization: 82.4,
-      status: 'maintenance',
-      shiftSchedule: '2 Shifts',
-      supervisor: 'Lisa Anderson'
-    },
-    {
-      id: 'LINE-006',
-      code: 'PAINT-LINE-01',
-      name: 'Paint Line 1',
-      department: 'Finishing Department',
-      location: 'Building C - Floor 1',
-      lineType: 'Powder Coating',
-      workCenters: 4,
-      operators: 6,
-      capacity: 50,
-      efficiency: 90.5,
-      utilization: 86.8,
-      status: 'operational',
-      shiftSchedule: '2 Shifts',
-      supervisor: 'James Wilson'
-    },
-    {
-      id: 'LINE-007',
-      code: 'PACK-LINE-01',
-      name: 'Packaging Line 1',
-      department: 'Packaging Department',
-      location: 'Building C - Floor 2',
-      lineType: 'Automated Packaging',
-      workCenters: 6,
-      operators: 9,
-      capacity: 90,
-      efficiency: 93.8,
-      utilization: 89.5,
-      status: 'operational',
-      shiftSchedule: '3 Shifts',
-      supervisor: 'Emily Brown'
-    },
-    {
-      id: 'LINE-008',
-      code: 'QC-LINE-01',
-      name: 'Quality Control Line 1',
-      department: 'Quality Department',
-      location: 'Building B - Floor 1',
-      lineType: 'Inspection & Testing',
-      workCenters: 5,
-      operators: 7,
-      capacity: 45,
-      efficiency: 96.2,
-      utilization: 92.3,
-      status: 'operational',
-      shiftSchedule: '2 Shifts',
-      supervisor: 'David Martinez'
-    },
-    {
-      id: 'LINE-009',
-      code: 'CNC-LINE-01',
-      name: 'CNC Machining Line 1',
-      department: 'Machining Department',
-      location: 'Building D - Bay A',
-      lineType: 'CNC Machining',
-      workCenters: 8,
-      operators: 5,
-      capacity: 75,
-      efficiency: 95.5,
-      utilization: 90.8,
-      status: 'operational',
-      shiftSchedule: '3 Shifts',
-      supervisor: 'Kevin Lee'
-    },
-    {
-      id: 'LINE-010',
-      code: 'MAINT-LINE-01',
-      name: 'Maintenance Line',
-      department: 'Maintenance Department',
-      location: 'Building D - Floor 1',
-      lineType: 'Service & Repair',
-      workCenters: 3,
-      operators: 8,
-      capacity: 30,
-      efficiency: 78.9,
-      utilization: 65.4,
-      status: 'idle',
-      shiftSchedule: '1 Shift',
-      supervisor: 'Patrick Taylor'
-    }
-  ];
+  // Production lines loaded from the backend (production/line-configs).
+  const [productionLines, setProductionLines] = useState<ProductionLine[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (id/code/name/department/location/lineType/
+        // workCenters/operators/capacity/efficiency/utilization/status/shiftSchedule/supervisor).
+        const raw = (await ProductionOrphanService.getLineConfigs()) as any[];
+        const mapped: ProductionLine[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          id: String(d?.id ?? i),
+          code: d?.code ?? '',
+          name: d?.name ?? '',
+          department: d?.department ?? '',
+          location: d?.location ?? '',
+          lineType: d?.lineType ?? '',
+          workCenters: Number(d?.workCenters ?? 0),
+          operators: Number(d?.operators ?? 0),
+          capacity: Number(d?.capacity ?? 0),
+          efficiency: Number(d?.efficiency ?? 0),
+          utilization: Number(d?.utilization ?? 0),
+          status: d?.status ?? 'operational',
+          shiftSchedule: d?.shiftSchedule ?? '',
+          supervisor: d?.supervisor ?? '',
+        }));
+        if (!cancelled) setProductionLines(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load production lines');
+          setProductionLines([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredLines = productionLines.filter(line => {
     const matchesSearch = line.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -223,6 +106,23 @@ export default function LinesSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading production lines…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && productionLines.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No production lines found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -292,7 +192,9 @@ export default function LinesSettingsPage() {
             <div>
               <p className="text-sm font-medium text-orange-600">Avg Efficiency</p>
               <p className="text-3xl font-bold text-orange-900 mt-1">
-                {(productionLines.reduce((sum, line) => sum + line.efficiency, 0) / productionLines.length).toFixed(1)}%
+                {productionLines.length
+                  ? (productionLines.reduce((sum, line) => sum + line.efficiency, 0) / productionLines.length).toFixed(1)
+                  : '0.0'}%
               </p>
             </div>
             <div className="p-3 bg-orange-200 rounded-lg">
@@ -409,7 +311,7 @@ export default function LinesSettingsPage() {
           </table>
         </div>
 
-        {filteredLines.length === 0 && (
+        {!isLoading && !loadError && filteredLines.length === 0 && productionLines.length > 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500">No production lines found matching your criteria</p>
           </div>

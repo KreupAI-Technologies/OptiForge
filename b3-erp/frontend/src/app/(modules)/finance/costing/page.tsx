@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Search,
@@ -15,6 +15,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface JobCosting {
   id: string;
@@ -36,163 +37,53 @@ interface JobCosting {
   costEngineer: string;
 }
 
-const mockJobCostings: JobCosting[] = [
-  {
-    id: '1',
-    costSheetNumber: 'CST-2024-001',
-    jobNumber: 'JOB-001',
-    jobName: 'Taj Hotel Kitchen Equipment',
-    projectType: 'Commercial Kitchen',
-    customer: 'Taj Hotels Limited',
-    costingDate: '2024-01-10',
-    status: 'Closed',
-    totalEstimatedCost: 7200000,
-    totalActualCost: 7450000,
-    variance: -250000,
-    variancePercent: -3.47,
-    profitMargin: 15.5,
-    materialCost: 4800000,
-    laborCost: 1850000,
-    overheadCost: 800000,
-    costEngineer: 'Suresh Kumar',
-  },
-  {
-    id: '2',
-    costSheetNumber: 'CST-2024-002',
-    jobNumber: 'JOB-002',
-    jobName: 'BigBasket Cold Storage Unit',
-    projectType: 'Cold Room',
-    customer: 'BigBasket Pvt Ltd',
-    costingDate: '2024-01-25',
-    status: 'Approved',
-    totalEstimatedCost: 10500000,
-    totalActualCost: 4800000,
-    variance: 5700000,
-    variancePercent: 54.29,
-    profitMargin: 18.0,
-    materialCost: 3200000,
-    laborCost: 1200000,
-    overheadCost: 400000,
-    costEngineer: 'Priya Sharma',
-  },
-  {
-    id: '3',
-    costSheetNumber: 'CST-2024-003',
-    jobNumber: 'JOB-003',
-    jobName: 'L&T HT Switchgear Panels',
-    projectType: 'Switchgear',
-    customer: 'Larsen & Toubro Limited',
-    costingDate: '2024-01-05',
-    status: 'Revised',
-    totalEstimatedCost: 6800000,
-    totalActualCost: 5400000,
-    variance: 1400000,
-    variancePercent: 20.59,
-    profitMargin: 12.5,
-    materialCost: 3800000,
-    laborCost: 1200000,
-    overheadCost: 400000,
-    costEngineer: 'Amit Patel',
-  },
-  {
-    id: '4',
-    costSheetNumber: 'CST-2024-004',
-    jobNumber: 'JOB-004',
-    jobName: 'ITC Grand Kitchen Renovation',
-    projectType: 'Commercial Kitchen',
-    customer: 'ITC Hotels',
-    costingDate: '2024-02-20',
-    status: 'Approved',
-    totalEstimatedCost: 8200000,
-    totalActualCost: 950000,
-    variance: 7250000,
-    variancePercent: 88.41,
-    profitMargin: 16.8,
-    materialCost: 550000,
-    laborCost: 280000,
-    overheadCost: 120000,
-    costEngineer: 'Sunita Reddy',
-  },
-  {
-    id: '5',
-    costSheetNumber: 'CST-2024-005',
-    jobNumber: 'JOB-005',
-    jobName: 'Godrej Cold Room Assembly',
-    projectType: 'Cold Room',
-    customer: 'Godrej Appliances',
-    costingDate: '2024-02-10',
-    status: 'Approved',
-    totalEstimatedCost: 6900000,
-    totalActualCost: 4200000,
-    variance: 2700000,
-    variancePercent: 39.13,
-    profitMargin: 17.2,
-    materialCost: 2800000,
-    laborCost: 1100000,
-    overheadCost: 300000,
-    costEngineer: 'Vikram Singh',
-  },
-  {
-    id: '6',
-    costSheetNumber: 'CST-2024-006',
-    jobNumber: 'JOB-006',
-    jobName: 'Siemens Switchgear Manufacturing',
-    projectType: 'Switchgear',
-    customer: 'Siemens India',
-    costingDate: '2024-03-01',
-    status: 'Draft',
-    totalEstimatedCost: 13500000,
-    totalActualCost: 0,
-    variance: 13500000,
-    variancePercent: 100.0,
-    profitMargin: 14.5,
-    materialCost: 0,
-    laborCost: 0,
-    overheadCost: 0,
-    costEngineer: 'Manoj Kumar',
-  },
-  {
-    id: '7',
-    costSheetNumber: 'CST-2024-007',
-    jobNumber: 'JOB-007',
-    jobName: 'Prestige Modular Kitchens',
-    projectType: 'Modular Kitchen',
-    customer: 'Prestige Estates',
-    costingDate: '2024-02-15',
-    status: 'Approved',
-    totalEstimatedCost: 15500000,
-    totalActualCost: 6800000,
-    variance: 8700000,
-    variancePercent: 56.13,
-    profitMargin: 19.5,
-    materialCost: 4500000,
-    laborCost: 1800000,
-    overheadCost: 500000,
-    costEngineer: 'Neha Gupta',
-  },
-  {
-    id: '8',
-    costSheetNumber: 'CST-2024-008',
-    jobNumber: 'JOB-008',
-    jobName: 'Zomato Cloud Kitchen Setup',
-    projectType: 'Commercial Kitchen',
-    customer: 'Zomato Limited',
-    costingDate: '2024-02-28',
-    status: 'Approved',
-    totalEstimatedCost: 4800000,
-    totalActualCost: 1400000,
-    variance: 3400000,
-    variancePercent: 70.83,
-    profitMargin: 15.0,
-    materialCost: 900000,
-    laborCost: 380000,
-    overheadCost: 120000,
-    costEngineer: 'Karan Malhotra',
-  },
-];
-
 export default function JobCostingListPage() {
-  const [costings] = useState<JobCosting[]>(mockJobCostings);
+  const [costings, setCostings] = useState<JobCosting[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getJobCostSheets()) as any[];
+        const mapped: JobCosting[] = raw.map((c) => ({
+          id: c.id,
+          costSheetNumber: c.costSheetNumber,
+          jobNumber: c.jobNumber,
+          jobName: c.jobName,
+          projectType: c.projectType ?? '',
+          customer: c.customer ?? '',
+          costingDate: c.costingDate,
+          status: c.status,
+          totalEstimatedCost: Number(c.totalEstimatedCost ?? 0),
+          totalActualCost: Number(c.totalActualCost ?? 0),
+          variance: Number(c.variance ?? 0),
+          variancePercent: Number(c.variancePercent ?? 0),
+          profitMargin: Number(c.profitMargin ?? 0),
+          materialCost: Number(c.materialCost ?? 0),
+          laborCost: Number(c.laborCost ?? 0),
+          overheadCost: Number(c.overheadCost ?? 0),
+          costEngineer: c.costEngineer ?? '',
+        }));
+        if (!cancelled) setCostings(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cost sheets');
+          setCostings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
@@ -207,7 +98,9 @@ export default function JobCostingListPage() {
     totalVariance: costings.reduce((sum, c) => sum + c.variance, 0),
     underBudget: costings.filter(c => c.variance > 0 && c.status !== 'Draft').length,
     overBudget: costings.filter(c => c.variance < 0).length,
-    avgProfitMargin: costings.reduce((sum, c) => sum + c.profitMargin, 0) / costings.length,
+    avgProfitMargin: costings.length
+      ? costings.reduce((sum, c) => sum + c.profitMargin, 0) / costings.length
+      : 0,
   };
 
   // Filter costings
@@ -268,6 +161,24 @@ export default function JobCostingListPage() {
           Create Cost Sheet
         </Link>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading cost sheets…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && costings.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No cost sheets found.
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">

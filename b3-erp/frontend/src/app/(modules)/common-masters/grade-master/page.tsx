@@ -4,11 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, TrendingUp, Award, DollarSign, Users, Calendar, Shield, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockGrades, Grade } from '@/data/common-masters/grades';
+import type { Grade } from '@/data/common-masters/grades';
 import { exportToCsv } from '@/lib/export';
+import { commonMastersService } from '@/services/common-masters.service';
 
 export default function GradeMasterPage() {
-  const [grades, setGrades] = useState<Grade[]>(mockGrades);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -21,6 +24,59 @@ export default function GradeMasterPage() {
     }
   }, [toast]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await commonMastersService.getAllHrGrades();
+        const mapped: Grade[] = raw.map((g: any) => ({
+          id: g.id,
+          gradeCode: g.gradeCode,
+          gradeName: g.gradeName,
+          level: g.level ?? 1,
+          category: (g.category ?? 'staff') as any,
+          salaryRange: {
+            minSalary: g.minSalary ?? 0,
+            maxSalary: g.maxSalary ?? 0,
+            currency: g.currency ?? 'INR',
+          },
+          benefits: g.benefits ?? {
+            pfApplicable: false,
+            esiApplicable: false,
+            gratuityApplicable: false,
+            bonusApplicable: false,
+            medicalInsurance: false,
+          },
+          leaveEntitlement: g.leaveEntitlement ?? {
+            earnedLeave: 0,
+            casualLeave: 0,
+            sickLeave: 0,
+          },
+          perks: g.perks ?? [],
+          probationPeriod: g.probationPeriod ?? 0,
+          noticePeriod: g.noticePeriod ?? 0,
+          appraisalCycle: (g.appraisalCycle ?? 'annual') as any,
+          eligibleDesignations: g.eligibleDesignations ?? [],
+          description: g.description ?? '',
+          isActive: g.isActive ?? true,
+          createdAt: g.createdAt ?? '',
+          updatedAt: g.updatedAt ?? '',
+        }));
+        if (!cancelled) setGrades(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load grades');
+          setGrades([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
   };
@@ -30,7 +86,7 @@ export default function GradeMasterPage() {
   };
 
   const handleExport = () => {
-    exportToCsv('grade-master', filteredData);
+    exportToCsv('grade-master', filteredData as unknown as Record<string, unknown>[]);
     showToast('Exporting grades...', 'success');
   };
 
@@ -255,7 +311,20 @@ export default function GradeMasterPage() {
           <span className="text-sm text-gray-700">{toast.message}</span>
         </div>
       )}
-      
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading grades…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+
       <div className="flex-none p-3 pb-4 space-y-2">
         <div className="flex items-center justify-between">
           <div>

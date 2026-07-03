@@ -4,11 +4,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, MapPin, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockCities, City } from '@/data/common-masters/cities';
+import type { City } from '@/data/common-masters/cities';
 import { exportToCsv } from '@/lib/export';
+import { commonMastersService } from '@/services/common-masters.service';
 
 export default function CityMasterPage() {
-  const [cities, setCities] = useState<City[]>(mockCities);
+  const [cities, setCities] = useState<City[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCountry, setFilterCountry] = useState<string>('all');
   const [filterState, setFilterState] = useState<string>('all');
@@ -24,6 +27,43 @@ export default function CityMasterPage() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  // Load cities from the backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await commonMastersService.getAllCities();
+        const mapped: City[] = raw.map((c: any) => ({
+          id: c.id,
+          code: c.code ?? '',
+          name: c.name,
+          stateCode: c.state?.code ?? '',
+          stateName: c.state?.name ?? '',
+          countryCode: c.state?.country?.code ?? '',
+          countryName: c.state?.country?.name ?? '',
+          tier: undefined,
+          isMetro: false,
+          isActive: c.isActive ?? true,
+          population: undefined,
+          timezone: undefined,
+          createdAt: c.createdAt ?? '',
+          updatedAt: c.updatedAt ?? '',
+        }));
+        if (!cancelled) setCities(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cities');
+          setCities([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Show toast notification
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
@@ -47,7 +87,7 @@ export default function CityMasterPage() {
   };
 
   const handleExport = () => {
-    exportToCsv('city-master', filteredData);
+    exportToCsv('city-master', filteredData as unknown as Record<string, unknown>[]);
     showToast('Exporting cities data...', 'success');
   };
 
@@ -239,6 +279,18 @@ export default function CityMasterPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-indigo-50 to-blue-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="px-3 py-2 space-y-3">
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading cities…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
           {/* Toast Notification */}
           {toast && (
             <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-5">

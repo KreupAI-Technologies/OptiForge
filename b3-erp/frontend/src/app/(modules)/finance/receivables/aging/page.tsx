@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Clock,
   TrendingDown,
   AlertTriangle,
+  AlertCircle,
   DollarSign,
   Calendar,
   Users,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 import { ViewInvoiceModal } from '@/components/finance/ar/InvoicesModals'
 import { SendCustomerStatementModal } from '@/components/finance/ar/CustomerManagementModals'
+import { FinanceService } from '@/services/finance.service'
 
 interface ARAgingRecord {
   id: string
@@ -38,138 +40,56 @@ interface ARAgingRecord {
   lastPaymentAmount: number
 }
 
-const mockARData: ARAgingRecord[] = [
-  {
-    id: '1',
-    customerCode: 'CUST001',
-    customerName: 'ABC Manufacturing Ltd',
-    contactPerson: 'Rajesh Kumar',
-    phone: '+91-98765-43210',
-    email: 'rajesh@abcmfg.com',
-    totalOutstanding: 1250000,
-    current: 450000,
-    days30to60: 350000,
-    days60to90: 250000,
-    days90to120: 150000,
-    over120: 50000,
-    oldestInvoice: 'INV-2024-0523',
-    oldestInvoiceDate: '2024-05-15',
-    invoiceCount: 8,
-    creditLimit: 2000000,
-    creditDays: 45,
-    lastPaymentDate: '2024-09-25',
-    lastPaymentAmount: 350000
-  },
-  {
-    id: '2',
-    customerCode: 'CUST002',
-    customerName: 'XYZ Industries Pvt Ltd',
-    contactPerson: 'Priya Sharma',
-    phone: '+91-98234-56789',
-    email: 'priya@xyzind.com',
-    totalOutstanding: 875000,
-    current: 525000,
-    days30to60: 250000,
-    days60to90: 100000,
-    days90to120: 0,
-    over120: 0,
-    oldestInvoice: 'INV-2024-0678',
-    oldestInvoiceDate: '2024-08-10',
-    invoiceCount: 5,
-    creditLimit: 1500000,
-    creditDays: 30,
-    lastPaymentDate: '2024-10-05',
-    lastPaymentAmount: 425000
-  },
-  {
-    id: '3',
-    customerCode: 'CUST003',
-    customerName: 'Precision Tools Co',
-    contactPerson: 'Amit Patel',
-    phone: '+91-97123-45678',
-    email: 'amit@precisiontools.com',
-    totalOutstanding: 2100000,
-    current: 850000,
-    days30to60: 650000,
-    days60to90: 400000,
-    days90to120: 150000,
-    over120: 50000,
-    oldestInvoice: 'INV-2024-0412',
-    oldestInvoiceDate: '2024-04-20',
-    invoiceCount: 12,
-    creditLimit: 3000000,
-    creditDays: 60,
-    lastPaymentDate: '2024-09-30',
-    lastPaymentAmount: 750000
-  },
-  {
-    id: '4',
-    customerCode: 'CUST004',
-    customerName: 'Steel Forge Limited',
-    contactPerson: 'Sneha Reddy',
-    phone: '+91-96543-21098',
-    email: 'sneha@steelforge.com',
-    totalOutstanding: 625000,
-    current: 325000,
-    days30to60: 200000,
-    days60to90: 100000,
-    days90to120: 0,
-    over120: 0,
-    oldestInvoice: 'INV-2024-0734',
-    oldestInvoiceDate: '2024-08-25',
-    invoiceCount: 4,
-    creditLimit: 1000000,
-    creditDays: 45,
-    lastPaymentDate: '2024-10-10',
-    lastPaymentAmount: 275000
-  },
-  {
-    id: '5',
-    customerCode: 'CUST005',
-    customerName: 'AutoParts Solutions',
-    contactPerson: 'Vikram Singh',
-    phone: '+91-95432-10987',
-    email: 'vikram@autoparts.com',
-    totalOutstanding: 1450000,
-    current: 650000,
-    days30to60: 400000,
-    days60to90: 250000,
-    days90to120: 100000,
-    over120: 50000,
-    oldestInvoice: 'INV-2024-0589',
-    oldestInvoiceDate: '2024-06-05',
-    invoiceCount: 9,
-    creditLimit: 2500000,
-    creditDays: 30,
-    lastPaymentDate: '2024-09-20',
-    lastPaymentAmount: 550000
-  },
-  {
-    id: '6',
-    customerCode: 'CUST006',
-    customerName: 'Engineering Works Ltd',
-    contactPerson: 'Anita Desai',
-    phone: '+91-94321-09876',
-    email: 'anita@engworks.com',
-    totalOutstanding: 950000,
-    current: 550000,
-    days30to60: 300000,
-    days60to90: 100000,
-    days90to120: 0,
-    over120: 0,
-    oldestInvoice: 'INV-2024-0801',
-    oldestInvoiceDate: '2024-08-30',
-    invoiceCount: 6,
-    creditLimit: 1500000,
-    creditDays: 45,
-    lastPaymentDate: '2024-10-12',
-    lastPaymentAmount: 400000
-  }
-]
-
 export default function ARAgingPage() {
+  const [arData, setArData] = useState<ARAgingRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [ageFilter, setAgeFilter] = useState<string>('all')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const res = await FinanceService.getReceivablesAging()
+        const mapped: ARAgingRecord[] = (res.data || []).map((r: any, idx: number) => ({
+          id: r.partyId || String(idx),
+          customerCode: r.partyId || '—',
+          customerName: r.partyName || 'Unknown',
+          contactPerson: '',
+          phone: '',
+          email: '',
+          totalOutstanding: Number(r.totalOutstanding ?? 0),
+          current: Number(r.current ?? 0),
+          days30to60: Number(r.days30to60 ?? 0),
+          days60to90: Number(r.days60to90 ?? 0),
+          days90to120: Number(r.days90to120 ?? 0),
+          over120: Number(r.over120 ?? 0),
+          oldestInvoice: r.oldestInvoice || '—',
+          oldestInvoiceDate: r.oldestInvoiceDate || '',
+          invoiceCount: Number(r.invoiceCount ?? 0),
+          creditLimit: 0,
+          creditDays: Number(r.creditDays ?? 0),
+          lastPaymentDate: '',
+          lastPaymentAmount: 0,
+        }))
+        if (!cancelled) setArData(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load receivables aging')
+          setArData([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Modal states
   const [isViewInvoiceModalOpen, setIsViewInvoiceModalOpen] = useState(false)
@@ -177,7 +97,7 @@ export default function ARAgingPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<ARAgingRecord | null>(null)
 
   const filteredData = useMemo(() => {
-    let data = mockARData.filter(record =>
+    let data = arData.filter(record =>
       record.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.customerCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.contactPerson.toLowerCase().includes(searchTerm.toLowerCase())
@@ -196,20 +116,20 @@ export default function ARAgingPage() {
     }
 
     return data
-  }, [searchTerm, ageFilter])
+  }, [arData, searchTerm, ageFilter])
 
   const stats = useMemo(() => {
-    const total = mockARData.reduce((sum, r) => sum + r.totalOutstanding, 0)
-    const current = mockARData.reduce((sum, r) => sum + r.current, 0)
-    const days30to60 = mockARData.reduce((sum, r) => sum + r.days30to60, 0)
-    const days60to90 = mockARData.reduce((sum, r) => sum + r.days60to90, 0)
-    const days90to120 = mockARData.reduce((sum, r) => sum + r.days90to120, 0)
-    const over120 = mockARData.reduce((sum, r) => sum + r.over120, 0)
+    const total = arData.reduce((sum, r) => sum + r.totalOutstanding, 0)
+    const current = arData.reduce((sum, r) => sum + r.current, 0)
+    const days30to60 = arData.reduce((sum, r) => sum + r.days30to60, 0)
+    const days60to90 = arData.reduce((sum, r) => sum + r.days60to90, 0)
+    const days90to120 = arData.reduce((sum, r) => sum + r.days90to120, 0)
+    const over120 = arData.reduce((sum, r) => sum + r.over120, 0)
     const overdue = days30to60 + days60to90 + days90to120 + over120
-    const overduePercentage = (overdue / total) * 100
+    const overduePercentage = total > 0 ? (overdue / total) * 100 : 0
 
     return { total, current, days30to60, days60to90, days90to120, over120, overdue, overduePercentage }
-  }, [])
+  }, [arData])
 
   const getCreditUtilization = (outstanding: number, limit: number) => {
     return Math.round((outstanding / limit) * 100)
@@ -227,6 +147,24 @@ export default function ARAgingPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Accounts Receivable Aging Report</h1>
         <p className="text-gray-600">Track overdue customer invoices by aging buckets</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading receivables aging…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && arData.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No outstanding receivables found.
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">

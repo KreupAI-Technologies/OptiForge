@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
     Square,
@@ -12,9 +12,11 @@ import {
     CheckCircle,
     Clock,
     AlertCircle,
+    AlertTriangle,
     TrendingUp,
     ArrowLeft,
 } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface Shutter {
     id: string;
@@ -32,73 +34,58 @@ interface Shutter {
     notes?: string;
 }
 
-const mockShutters: Shutter[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'Tempered Glass Cabinet Door',
-        shutterType: 'Glass',
-        quantity: 8,
-        completedQuantity: 8,
-        status: 'Ready',
-        assignedTo: 'Glass Team A',
-        startDate: '2025-01-18',
-        targetDate: '2025-01-22',
-        dimensions: '600 x 400 x 5mm',
-        finish: 'Clear Tempered',
-        notes: 'All units ready for installation. QC passed.',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-002',
-        productName: 'Teak Wood Cabinet Shutter',
-        shutterType: 'Wood',
-        quantity: 12,
-        completedQuantity: 9,
-        status: 'In Production',
-        assignedTo: 'Carpentry Team',
-        startDate: '2025-01-20',
-        targetDate: '2025-01-26',
-        dimensions: '800 x 600 x 18mm',
-        finish: 'Polished Teak',
-        notes: '9/12 shutters completed. Polishing in progress.',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-003',
-        productName: 'SS304 Rolling Shutter',
-        shutterType: 'Steel',
-        quantity: 4,
-        completedQuantity: 4,
-        status: 'Installed',
-        assignedTo: 'Metal Works Team',
-        startDate: '2025-01-15',
-        targetDate: '2025-01-20',
-        dimensions: '2000 x 2500 x 0.8mm',
-        finish: 'Powder Coated Grey',
-        notes: 'Installation complete. Customer signed off.',
-    },
-    {
-        id: '4',
-        woNumber: 'WO-2025-004',
-        productName: 'Frosted Glass Partition',
-        shutterType: 'Glass',
-        quantity: 6,
-        completedQuantity: 0,
-        status: 'Pending',
-        assignedTo: 'Glass Team B',
-        startDate: '2025-01-25',
-        targetDate: '2025-01-30',
-        dimensions: '1200 x 2100 x 8mm',
-        finish: 'Frosted + Tinted',
-        notes: 'Waiting for glass procurement.',
-    },
-];
-
 export default function ShutterTrackerPage() {
-    const [shutters] = useState<Shutter[]>(mockShutters);
+    // Shutter orders loaded from the NestJS backend (production/shutter-orders).
+    const [shutters, setShutters] = useState<Shutter[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [filterType, setFilterType] = useState<string>('all');
     const [filterStatus, setFilterStatus] = useState<string>('all');
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns raw ORM shape (woNumber/productName/shutterType/
+                // quantity/completedQuantity/status/assignedTo/startDate/targetDate/
+                // dimensions/finish/notes...).
+                const raw = (await ProductionOrphanService.getShutterOrders()) as any[];
+                const mapped: Shutter[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => {
+                    const type = String(d?.shutterType ?? '');
+                    const st = String(d?.status ?? '');
+                    return {
+                        id: String(d?.id ?? i),
+                        woNumber: d?.woNumber ?? '',
+                        productName: d?.productName ?? '',
+                        shutterType: (['Glass', 'Wood', 'Steel'].includes(type) ? type : 'Glass') as Shutter['shutterType'],
+                        quantity: Number(d?.quantity ?? 0),
+                        completedQuantity: Number(d?.completedQuantity ?? 0),
+                        status: (['Pending', 'In Production', 'Ready', 'Installed'].includes(st) ? st : 'Pending') as Shutter['status'],
+                        assignedTo: d?.assignedTo ?? '',
+                        startDate: d?.startDate ?? '',
+                        targetDate: d?.targetDate ?? '',
+                        dimensions: d?.dimensions ?? '',
+                        finish: d?.finish ?? '',
+                        notes: d?.notes ?? undefined,
+                    };
+                });
+                if (!cancelled) setShutters(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load shutter orders');
+                    setShutters([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredShutters = shutters.filter((shutter) => {
         const matchesType = filterType === 'all' || shutter.shutterType === filterType;
@@ -267,6 +254,25 @@ export default function ShutterTrackerPage() {
                         </select>
                     </div>
                 </div>
+
+                {/* Load states */}
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading shutter orders…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertTriangle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && filteredShutters.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        No shutter orders found.
+                    </div>
+                )}
 
                 {/* Shutters List */}
                 <div className="grid grid-cols-1 gap-2">

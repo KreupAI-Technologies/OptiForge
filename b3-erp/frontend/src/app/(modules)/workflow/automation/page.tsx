@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { workflowAutomationService } from '@/services/workflow-automation.service';
 import {
   Plus, Search, Eye, Edit, Trash2, Play, Pause, Power,
   Zap, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp,
@@ -29,198 +30,7 @@ interface AutomationRule {
   createdAt: string;
 }
 
-const mockAutomations: AutomationRule[] = [
-  {
-    id: 'AUTO001',
-    name: 'Auto Purchase Requisition',
-    description: 'Automatically create purchase requisitions when inventory falls below minimum stock level',
-    trigger: 'condition',
-    triggerDetails: 'Stock Level < Minimum Stock',
-    action: 'Create Purchase Requisition',
-    status: 'active',
-    frequency: 'Real-time',
-    lastRun: '2025-10-17 09:30',
-    nextRun: 'Real-time',
-    executionCount: 1247,
-    successRate: 98.5,
-    avgExecutionTime: '1.2s',
-    category: 'procurement',
-    priority: 'high',
-    createdBy: 'System Admin',
-    createdAt: '2025-08-15',
-  },
-  {
-    id: 'AUTO002',
-    name: 'Daily Production Report',
-    description: 'Generate and email daily production summary reports to management',
-    trigger: 'schedule',
-    triggerDetails: 'Daily at 6:00 PM',
-    action: 'Generate Report & Send Email',
-    status: 'active',
-    frequency: 'Daily',
-    lastRun: '2025-10-16 18:00',
-    nextRun: '2025-10-17 18:00',
-    executionCount: 89,
-    successRate: 100,
-    avgExecutionTime: '4.5s',
-    category: 'production',
-    priority: 'medium',
-    createdBy: 'Production Manager',
-    createdAt: '2025-09-01',
-  },
-  {
-    id: 'AUTO003',
-    name: 'Invoice Payment Reminder',
-    description: 'Send payment reminders to customers for overdue invoices',
-    trigger: 'schedule',
-    triggerDetails: 'Daily at 9:00 AM',
-    action: 'Send Email Notification',
-    status: 'active',
-    frequency: 'Daily',
-    lastRun: '2025-10-17 09:00',
-    nextRun: '2025-10-18 09:00',
-    executionCount: 156,
-    successRate: 94.2,
-    avgExecutionTime: '2.8s',
-    category: 'finance',
-    priority: 'high',
-    createdBy: 'Finance Controller',
-    createdAt: '2025-08-20',
-  },
-  {
-    id: 'AUTO004',
-    name: 'Employee Birthday Notification',
-    description: 'Send birthday wishes to employees and notify HR team',
-    trigger: 'schedule',
-    triggerDetails: 'Daily at 8:00 AM',
-    action: 'Send Email & Create Task',
-    status: 'active',
-    frequency: 'Daily',
-    lastRun: '2025-10-17 08:00',
-    nextRun: '2025-10-18 08:00',
-    executionCount: 94,
-    successRate: 100,
-    avgExecutionTime: '0.9s',
-    category: 'hr',
-    priority: 'low',
-    createdBy: 'HR Manager',
-    createdAt: '2025-09-10',
-  },
-  {
-    id: 'AUTO005',
-    name: 'Quality Check Assignment',
-    description: 'Auto-assign quality checks when production orders reach completion stage',
-    trigger: 'event',
-    triggerDetails: 'Production Order Completed',
-    action: 'Assign QC Task',
-    status: 'active',
-    frequency: 'Event-driven',
-    lastRun: '2025-10-17 11:45',
-    nextRun: 'On Event',
-    executionCount: 342,
-    successRate: 97.8,
-    avgExecutionTime: '1.5s',
-    category: 'production',
-    priority: 'critical',
-    createdBy: 'QC Manager',
-    createdAt: '2025-08-25',
-  },
-  {
-    id: 'AUTO006',
-    name: 'Inventory Cycle Count',
-    description: 'Schedule automated cycle counts for high-value inventory items',
-    trigger: 'schedule',
-    triggerDetails: 'Weekly on Monday',
-    action: 'Create Cycle Count Task',
-    status: 'active',
-    frequency: 'Weekly',
-    lastRun: '2025-10-14 07:00',
-    nextRun: '2025-10-21 07:00',
-    executionCount: 12,
-    successRate: 91.7,
-    avgExecutionTime: '3.2s',
-    category: 'inventory',
-    priority: 'medium',
-    createdBy: 'Inventory Manager',
-    createdAt: '2025-09-05',
-  },
-  {
-    id: 'AUTO007',
-    name: 'Sales Lead Distribution',
-    description: 'Automatically distribute new sales leads to sales representatives based on territory',
-    trigger: 'event',
-    triggerDetails: 'New Lead Created',
-    action: 'Assign to Sales Rep',
-    status: 'active',
-    frequency: 'Event-driven',
-    lastRun: '2025-10-17 10:15',
-    nextRun: 'On Event',
-    executionCount: 234,
-    successRate: 99.1,
-    avgExecutionTime: '0.8s',
-    category: 'sales',
-    priority: 'high',
-    createdBy: 'Sales Director',
-    createdAt: '2025-09-15',
-  },
-  {
-    id: 'AUTO008',
-    name: 'Expense Approval Escalation',
-    description: 'Escalate pending expense approvals after 3 days to next level manager',
-    trigger: 'condition',
-    triggerDetails: 'Pending > 3 Days',
-    action: 'Escalate Approval',
-    status: 'paused',
-    frequency: 'Real-time',
-    lastRun: '2025-10-15 14:20',
-    nextRun: 'Paused',
-    executionCount: 67,
-    successRate: 88.1,
-    avgExecutionTime: '1.1s',
-    category: 'finance',
-    priority: 'medium',
-    createdBy: 'Finance Manager',
-    createdAt: '2025-09-20',
-  },
-  {
-    id: 'AUTO009',
-    name: 'Customer Satisfaction Survey',
-    description: 'Send satisfaction survey to customers after order delivery',
-    trigger: 'event',
-    triggerDetails: 'Order Delivered',
-    action: 'Send Survey Email',
-    status: 'active',
-    frequency: 'Event-driven',
-    lastRun: '2025-10-17 13:20',
-    nextRun: 'On Event',
-    executionCount: 189,
-    successRate: 96.3,
-    avgExecutionTime: '2.1s',
-    category: 'sales',
-    priority: 'low',
-    createdBy: 'Customer Success',
-    createdAt: '2025-10-01',
-  },
-  {
-    id: 'AUTO010',
-    name: 'Material Shortage Alert',
-    description: 'Alert production planning team when material shortages are detected for scheduled orders',
-    trigger: 'condition',
-    triggerDetails: 'Material Shortage Detected',
-    action: 'Send Alert & Create Task',
-    status: 'error',
-    frequency: 'Real-time',
-    lastRun: '2025-10-17 12:00',
-    nextRun: 'Error - Needs Fix',
-    executionCount: 45,
-    successRate: 77.8,
-    avgExecutionTime: '1.8s',
-    category: 'production',
-    priority: 'critical',
-    createdBy: 'Production Planner',
-    createdAt: '2025-10-05',
-  },
-];
+const COMPANY_ID = 'company-001';
 
 const statusColors = {
   active: 'bg-green-100 text-green-700',
@@ -254,7 +64,9 @@ const triggerIcons = {
 
 export default function WorkflowAutomationPage() {
   const router = useRouter();
-  const [automations, setAutomations] = useState<AutomationRule[]>(mockAutomations);
+  const [automations, setAutomations] = useState<AutomationRule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -262,6 +74,48 @@ export default function WorkflowAutomationPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const itemsPerPage = 8;
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const rows = await workflowAutomationService.findAll(COMPANY_ID);
+        if (!active) return;
+        const mapped: AutomationRule[] = rows.map((r) => ({
+          id: r.id,
+          name: r.name ?? '',
+          description: r.description ?? '',
+          trigger: (r.trigger ?? 'manual') as AutomationRule['trigger'],
+          triggerDetails: r.triggerDetails ?? '',
+          action: r.action ?? '',
+          status: (r.status ?? 'draft') as AutomationRule['status'],
+          frequency: r.frequency ?? '',
+          lastRun: r.lastRun ?? '',
+          nextRun: r.nextRun ?? '',
+          executionCount: Number(r.executionCount ?? 0),
+          successRate: Number(r.successRate ?? 0),
+          avgExecutionTime: r.avgExecutionTime ?? '',
+          category: (r.category ?? 'production') as AutomationRule['category'],
+          priority: (r.priority ?? 'medium') as AutomationRule['priority'],
+          createdBy: r.createdByName ?? '',
+          createdAt: r.createdAt ?? '',
+        }));
+        setAutomations(mapped);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load automations',
+        );
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredAutomations = automations.filter((automation) => {
     const matchesSearch =
@@ -285,7 +139,9 @@ export default function WorkflowAutomationPage() {
     paused: automations.filter((a) => a.status === 'paused').length,
     error: automations.filter((a) => a.status === 'error').length,
     totalExecutions: automations.reduce((sum, a) => sum + a.executionCount, 0),
-    avgSuccessRate: (automations.reduce((sum, a) => sum + a.successRate, 0) / automations.length).toFixed(1),
+    avgSuccessRate: automations.length
+      ? (automations.reduce((sum, a) => sum + a.successRate, 0) / automations.length).toFixed(1)
+      : '0.0',
   };
 
   const handleToggleAutomation = (id: string) => {
@@ -355,6 +211,16 @@ export default function WorkflowAutomationPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {isLoading && (
+          <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm text-sm text-gray-500">
+            Loading automation rules...
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">

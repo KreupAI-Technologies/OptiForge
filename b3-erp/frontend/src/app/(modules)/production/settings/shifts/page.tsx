@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Search, Edit2, Trash2, Clock, Calendar, Users, Moon, Sun, Sunset } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit2, Trash2, Clock, Calendar, Users, Moon, Sun, Sunset, AlertTriangle } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface Shift {
   id: string;
@@ -27,179 +28,53 @@ export default function ShiftsSettingsPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all');
 
-  // Mock shifts data
-  const shifts: Shift[] = [
-    {
-      id: 'SHIFT-001',
-      code: 'DAY-SHIFT-A',
-      name: 'Day Shift A',
-      shiftType: 'day',
-      startTime: '06:00',
-      endTime: '14:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 45,
-      status: 'active',
-      allowOvertimeAfter: 8,
-      shiftPremium: 0
-    },
-    {
-      id: 'SHIFT-002',
-      code: 'DAY-SHIFT-B',
-      name: 'Day Shift B',
-      shiftType: 'day',
-      startTime: '08:00',
-      endTime: '16:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 52,
-      status: 'active',
-      allowOvertimeAfter: 8,
-      shiftPremium: 0
-    },
-    {
-      id: 'SHIFT-003',
-      code: 'EVE-SHIFT-A',
-      name: 'Evening Shift A',
-      shiftType: 'evening',
-      startTime: '14:00',
-      endTime: '22:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 38,
-      status: 'active',
-      allowOvertimeAfter: 8,
-      shiftPremium: 10
-    },
-    {
-      id: 'SHIFT-004',
-      code: 'EVE-SHIFT-B',
-      name: 'Evening Shift B',
-      shiftType: 'evening',
-      startTime: '16:00',
-      endTime: '00:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 35,
-      status: 'active',
-      allowOvertimeAfter: 8,
-      shiftPremium: 15
-    },
-    {
-      id: 'SHIFT-005',
-      code: 'NIGHT-SHIFT-A',
-      name: 'Night Shift A',
-      shiftType: 'night',
-      startTime: '22:00',
-      endTime: '06:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 28,
-      status: 'active',
-      allowOvertimeAfter: 8,
-      shiftPremium: 25
-    },
-    {
-      id: 'SHIFT-006',
-      code: 'NIGHT-SHIFT-B',
-      name: 'Night Shift B',
-      shiftType: 'night',
-      startTime: '00:00',
-      endTime: '08:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 24,
-      status: 'active',
-      allowOvertimeAfter: 8,
-      shiftPremium: 25
-    },
-    {
-      id: 'SHIFT-007',
-      code: 'WEEKEND-DAY',
-      name: 'Weekend Day Shift',
-      shiftType: 'day',
-      startTime: '08:00',
-      endTime: '20:00',
-      duration: 12,
-      breakTime: 90,
-      workingDays: ['Sat', 'Sun'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 18,
-      status: 'active',
-      allowOvertimeAfter: 10,
-      shiftPremium: 30
-    },
-    {
-      id: 'SHIFT-008',
-      code: 'WEEKEND-NIGHT',
-      name: 'Weekend Night Shift',
-      shiftType: 'night',
-      startTime: '20:00',
-      endTime: '08:00',
-      duration: 12,
-      breakTime: 90,
-      workingDays: ['Sat', 'Sun'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 15,
-      status: 'active',
-      allowOvertimeAfter: 10,
-      shiftPremium: 40
-    },
-    {
-      id: 'SHIFT-009',
-      code: 'MAINT-SHIFT',
-      name: 'Maintenance Shift',
-      shiftType: 'day',
-      startTime: '08:00',
-      endTime: '17:00',
-      duration: 9,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      assignedWorkers: 12,
-      status: 'active',
-      allowOvertimeAfter: 9,
-      shiftPremium: 5
-    },
-    {
-      id: 'SHIFT-010',
-      code: 'TEMP-SHIFT-01',
-      name: 'Temporary Shift',
-      shiftType: 'day',
-      startTime: '10:00',
-      endTime: '18:00',
-      duration: 8,
-      breakTime: 60,
-      workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-      effectiveFrom: '2025-10-01',
-      effectiveTo: '2025-10-31',
-      assignedWorkers: 0,
-      status: 'scheduled',
-      allowOvertimeAfter: 8,
-      shiftPremium: 0
-    }
-  ];
+  // Shift definitions loaded from the NestJS backend (production/shift-definitions).
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (id/code/name/shiftType/startTime/endTime/
+        // duration/breakTime/workingDays/effectiveFrom/effectiveTo/assignedWorkers/
+        // status/allowOvertimeAfter/shiftPremium...).
+        const raw = (await ProductionOrphanService.getShiftDefinitions()) as any[];
+        const mapped: Shift[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+          id: String(d?.id ?? i),
+          code: d?.code ?? '',
+          name: d?.name ?? '',
+          shiftType: d?.shiftType ?? 'day',
+          startTime: d?.startTime ?? '',
+          endTime: d?.endTime ?? '',
+          duration: Number(d?.duration ?? 0),
+          breakTime: Number(d?.breakTime ?? 0),
+          workingDays: Array.isArray(d?.workingDays) ? d.workingDays : [],
+          effectiveFrom: d?.effectiveFrom ?? '',
+          effectiveTo: d?.effectiveTo ?? '',
+          assignedWorkers: Number(d?.assignedWorkers ?? 0),
+          status: d?.status ?? 'active',
+          allowOvertimeAfter: Number(d?.allowOvertimeAfter ?? 0),
+          shiftPremium: Number(d?.shiftPremium ?? 0),
+        }));
+        if (!cancelled) setShifts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load shift definitions');
+          setShifts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredShifts = shifts.filter(shift => {
     const matchesSearch = shift.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -237,6 +112,23 @@ export default function ShiftsSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading shifts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && shifts.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No shifts found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

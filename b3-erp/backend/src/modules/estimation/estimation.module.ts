@@ -5,8 +5,11 @@ import {
   CostEstimateController,
   EstimateAnalyticsController,
   EstimateTemplateController,
+  MarkupSettingController,
+  PriceListController,
   PricingController,
   ResourceRateController,
+  WorkflowStageSettingController,
 } from './controllers';
 import {
   BOQ,
@@ -24,20 +27,26 @@ import {
   HistoricalBenchmark,
   LaborRateCard,
   MarkupRule,
+  MarkupSetting,
   MaterialRateCard,
+  PriceList,
   Pricing,
   ResourceRate,
   RiskAnalysis,
   SubcontractorRate,
   WinLossRecord,
+  WorkflowStageSetting,
 } from './entities';
 import {
   BOQService,
   CostEstimateService,
   EstimateAnalyticsService,
   EstimateTemplateService,
+  MarkupSettingService,
+  PriceListService,
   PricingService,
   ResourceRateService,
+  WorkflowStageSettingService,
 } from './services';
 
 @Module({
@@ -53,6 +62,10 @@ import {
       // Pricing
       Pricing,
       MarkupRule,
+      // Settings (orphan pages)
+      PriceList,
+      MarkupSetting,
+      WorkflowStageSetting,
       // Resource Rates
       ResourceRate,
       MaterialRateCard,
@@ -77,24 +90,33 @@ import {
     CostEstimateController,
     EstimateAnalyticsController,
     EstimateTemplateController,
+    MarkupSettingController,
+    PriceListController,
     PricingController,
     ResourceRateController,
+    WorkflowStageSettingController,
   ],
   providers: [
     BOQService,
     CostEstimateService,
     EstimateAnalyticsService,
     EstimateTemplateService,
+    MarkupSettingService,
+    PriceListService,
     PricingService,
     ResourceRateService,
+    WorkflowStageSettingService,
   ],
   exports: [
     BOQService,
     CostEstimateService,
     EstimateAnalyticsService,
     EstimateTemplateService,
+    MarkupSettingService,
+    PriceListService,
     PricingService,
     ResourceRateService,
+    WorkflowStageSettingService,
   ],
 })
 export class EstimationModule {}

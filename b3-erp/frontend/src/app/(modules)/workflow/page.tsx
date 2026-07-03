@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Workflow, GitBranch, CheckCircle, Clock, Users, Settings, Plus, Play, Pause, Search, Filter } from 'lucide-react';
+import { workflowConfigTemplateService } from '@/services/workflow-config-template.service';
 
 interface WorkflowTemplate {
   id: string;
@@ -15,73 +16,48 @@ interface WorkflowTemplate {
   status: 'active' | 'draft' | 'archived';
 }
 
-const workflowTemplates: WorkflowTemplate[] = [
-  {
-    id: '1',
-    name: 'Purchase Requisition Approval',
-    description: 'Multi-level approval workflow for purchase requisitions',
-    category: 'Procurement',
-    triggerType: 'Manual',
-    steps: 4,
-    activeInstances: 23,
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Sales Order Processing',
-    description: 'Automated order confirmation and fulfillment workflow',
-    category: 'Sales',
-    triggerType: 'Automatic',
-    steps: 6,
-    activeInstances: 45,
-    status: 'active',
-  },
-  {
-    id: '3',
-    name: 'Employee Onboarding',
-    description: 'Complete onboarding process for new hires',
-    category: 'HR',
-    triggerType: 'Manual',
-    steps: 8,
-    activeInstances: 5,
-    status: 'active',
-  },
-  {
-    id: '4',
-    name: 'Invoice Approval Process',
-    description: 'Finance approval workflow for vendor invoices',
-    category: 'Finance',
-    triggerType: 'Automatic',
-    steps: 3,
-    activeInstances: 67,
-    status: 'active',
-  },
-  {
-    id: '5',
-    name: 'Quality Control Checklist',
-    description: 'Production quality inspection workflow',
-    category: 'Production',
-    triggerType: 'Manual',
-    steps: 5,
-    activeInstances: 12,
-    status: 'active',
-  },
-  {
-    id: '6',
-    name: 'Customer Complaint Resolution',
-    description: 'Support ticket escalation and resolution',
-    category: 'Support',
-    triggerType: 'Automatic',
-    steps: 4,
-    activeInstances: 8,
-    status: 'active',
-  },
-];
+const COMPANY_ID = 'company-001';
 
 export default function WorkflowPage() {
+  const [workflowTemplates, setWorkflowTemplates] = useState<WorkflowTemplate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const rows = await workflowConfigTemplateService.findAll(COMPANY_ID);
+        if (!active) return;
+        const mapped: WorkflowTemplate[] = rows.map((r) => ({
+          id: r.id,
+          name: r.name ?? '',
+          description: r.description ?? '',
+          category: r.category ?? '',
+          triggerType: r.triggerType ?? '',
+          steps: Number(r.steps ?? 0),
+          activeInstances: Number(r.activeInstances ?? 0),
+          status: (r.status ?? 'draft') as WorkflowTemplate['status'],
+        }));
+        setWorkflowTemplates(mapped);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load workflow templates',
+        );
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const categories = ['all', ...Array.from(new Set(workflowTemplates.map(w => w.category)))];
 
@@ -174,6 +150,17 @@ export default function WorkflowPage() {
             </select>
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 bg-white rounded-lg shadow border border-gray-200 p-3 text-sm text-gray-500">
+            Loading workflow templates...
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 bg-red-50 rounded-lg border border-red-200 p-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
     Scissors,
     Tag,
@@ -34,92 +35,52 @@ interface Operation {
     notes?: string;
 }
 
-const mockOperations: Operation[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        operationType: 'Laser Cutting',
-        operator: 'Rajesh Kumar',
-        machine: 'Laser-01',
-        status: 'Completed',
-        startTime: '08:00 AM',
-        endTime: '10:30 AM',
-        targetQuantity: 24,
-        completedQuantity: 24,
-        notes: 'Nested cutting completed. Ready for etching.',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        operationType: 'Logo Etching',
-        operator: 'Priya Sharma',
-        machine: 'Laser-01',
-        status: 'In Progress',
-        startTime: '10:45 AM',
-        targetQuantity: 24,
-        completedQuantity: 18,
-        notes: 'Company logo etching before bending. 18/24 complete.',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-002',
-        productName: 'Faucet Mounting Bracket',
-        operationType: 'Bending',
-        operator: 'Suresh Reddy',
-        machine: 'Bending-02',
-        status: 'Queued',
-        targetQuantity: 50,
-        completedQuantity: 0,
-        notes: 'Waiting for logo etching completion',
-    },
-    {
-        id: '4',
-        woNumber: 'WO-2025-003',
-        productName: 'Cabinet Frame Assembly',
-        operationType: 'Welding',
-        operator: 'Amit Patel',
-        machine: 'Weld-Station-03',
-        status: 'In Progress',
-        startTime: '09:00 AM',
-        targetQuantity: 12,
-        completedQuantity: 8,
-        notes: 'TIG welding in progress. 8/12 frames welded.',
-    },
-    {
-        id: '5',
-        woNumber: 'WO-2025-004',
-        productName: 'Drawer Slide Assembly',
-        operationType: 'Fabrication',
-        operator: 'Kiran Verma',
-        machine: 'Fab-Cell-01',
-        status: 'In Progress',
-        startTime: '07:30 AM',
-        targetQuantity: 30,
-        completedQuantity: 22,
-        notes: 'Assembly in progress. On track for completion.',
-    },
-    {
-        id: '6',
-        woNumber: 'WO-2025-005',
-        productName: 'Countertop Support Bracket',
-        operationType: 'Finishing',
-        operator: 'Meena Nair',
-        machine: 'Buffing-Station-02',
-        status: 'Completed',
-        startTime: '06:00 AM',
-        endTime: '11:00 AM',
-        targetQuantity: 40,
-        completedQuantity: 40,
-        notes: 'Buffing and polishing completed. Mirror finish achieved.',
-    },
-];
-
 export default function ProductionOperationsPage() {
-    const [operations] = useState<Operation[]>(mockOperations);
+    // Operations loaded from the NestJS backend (production operation tasks).
+    const [operations, setOperations] = useState<Operation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [filterType, setFilterType] = useState<string>('all');
     const [filterStatus, setFilterStatus] = useState<string>('all');
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns raw ORM shape (id/woNumber/productName/operationType/
+                // operator/machine/status/startTime/endTime/targetQuantity/completedQuantity/notes).
+                const raw = (await ProductionOrphanService.getOperationTasks()) as any[];
+                const mapped: Operation[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+                    id: String(d?.id ?? i),
+                    woNumber: d?.woNumber ?? '',
+                    productName: d?.productName ?? '',
+                    operationType: d?.operationType ?? '',
+                    operator: d?.operator ?? '',
+                    machine: d?.machine ?? '',
+                    status: d?.status ?? 'Queued',
+                    startTime: d?.startTime ?? undefined,
+                    endTime: d?.endTime ?? undefined,
+                    targetQuantity: Number(d?.targetQuantity ?? 0),
+                    completedQuantity: Number(d?.completedQuantity ?? 0),
+                    notes: d?.notes ?? undefined,
+                }));
+                if (!cancelled) setOperations(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load operations');
+                    setOperations([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredOps = operations.filter((op) => {
         const matchesType = filterType === 'all' || op.operationType === filterType;
@@ -294,6 +255,25 @@ export default function ProductionOperationsPage() {
                         </select>
                     </div>
                 </div>
+
+                {/* Load states */}
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading operations…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertTriangle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && filteredOps.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        No operations found.
+                    </div>
+                )}
 
                 {/* Operations List */}
                 <div className="grid grid-cols-1 gap-2">

@@ -793,6 +793,61 @@ export class FinanceService {
     return Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
   }
 
+  // Receivables Aging (analytics — aggregates existing invoices, no new table)
+  // Backend envelope: { reportType, asOfDate, data: [...], summary, generatedAt }.
+  static async getReceivablesAging(params?: {
+    asOfDate?: string;
+    partyId?: string;
+  }): Promise<{ data: any[]; summary: any }> {
+    const queryParams = new URLSearchParams();
+    if (params?.asOfDate) queryParams.set('asOfDate', params.asOfDate);
+    if (params?.partyId) queryParams.set('partyId', params.partyId);
+    const qs = queryParams.toString();
+    const res = await this.request<any>(
+      `/finance/reports/receivables-aging${qs ? `?${qs}` : ''}`,
+    );
+    return {
+      data: Array.isArray(res?.data) ? res.data : [],
+      summary: res?.summary ?? null,
+    };
+  }
+
+  // Job Cost Sheets (config/tracking list — backed by job_cost_sheets table)
+  static async getJobCostSheets(filters?: {
+    status?: string;
+    projectType?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (filters?.status && filters.status !== 'All') queryParams.set('status', filters.status);
+    if (filters?.projectType && filters.projectType !== 'All') queryParams.set('projectType', filters.projectType);
+    if (filters?.search) queryParams.set('search', filters.search);
+    const qs = queryParams.toString();
+    return this.request<any[]>(`/finance/cost-sheets${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getJobCostSheet(id: string): Promise<any> {
+    return this.request<any>(`/finance/cost-sheets/${id}`);
+  }
+
+  static async createJobCostSheet(data: any): Promise<any> {
+    return this.request<any>('/finance/cost-sheets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateJobCostSheet(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/cost-sheets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteJobCostSheet(id: string): Promise<void> {
+    await this.request<void>(`/finance/cost-sheets/${id}`, { method: 'DELETE' });
+  }
+
   static async exportFinancialReport(params: {
     reportType: string;
     format: 'excel' | 'pdf';

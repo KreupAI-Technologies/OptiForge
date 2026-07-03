@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, DollarSign, TrendingUp, Package, Calendar, Percent, Download, ChevronLeft, ChevronRight, Tag, Activity } from 'lucide-react';
+import { estimationPriceListService } from '@/services/estimation-price-list.service';
+
+const COMPANY_ID = 'company-001';
 
 interface PriceList {
   id: string;
@@ -19,99 +22,6 @@ interface PriceList {
   updatedBy: string;
   averageMargin: number;
 }
-
-const mockPriceLists: PriceList[] = [
-  {
-    id: 'PL-001',
-    priceListName: 'Standard Commercial Kitchen Equipment',
-    description: 'Default pricing for all commercial kitchen products',
-    currency: 'USD',
-    effectiveFrom: '2025-01-01',
-    effectiveTo: '2025-12-31',
-    status: 'active',
-    totalItems: 250,
-    priceType: 'standard',
-    customerSegment: 'All Customers',
-    lastUpdated: '2025-10-15',
-    updatedBy: 'John Pricing',
-    averageMargin: 22.5,
-  },
-  {
-    id: 'PL-002',
-    priceListName: 'Hospital & Healthcare Special Pricing',
-    description: 'Special pricing for healthcare sector clients',
-    currency: 'USD',
-    effectiveFrom: '2025-09-01',
-    effectiveTo: '2025-11-30',
-    status: 'active',
-    totalItems: 180,
-    priceType: 'custom',
-    customerSegment: 'Healthcare',
-    lastUpdated: '2025-10-10',
-    updatedBy: 'Sarah Pricing',
-    averageMargin: 18.0,
-  },
-  {
-    id: 'PL-003',
-    priceListName: 'Q4 2025 Promotional Pricing',
-    description: 'Year-end promotional offers',
-    currency: 'USD',
-    effectiveFrom: '2025-10-01',
-    effectiveTo: '2025-12-31',
-    status: 'active',
-    totalItems: 95,
-    priceType: 'promotional',
-    customerSegment: 'All Customers',
-    lastUpdated: '2025-10-01',
-    updatedBy: 'Michael Marketing',
-    averageMargin: 15.5,
-  },
-  {
-    id: 'PL-004',
-    priceListName: 'Bulk Order Pricing - Hotels',
-    description: 'Volume-based pricing for hotel chains',
-    currency: 'USD',
-    effectiveFrom: '2025-08-01',
-    effectiveTo: '2026-07-31',
-    status: 'active',
-    totalItems: 220,
-    priceType: 'bulk',
-    customerSegment: 'Hospitality',
-    lastUpdated: '2025-09-25',
-    updatedBy: 'Lisa Sales',
-    averageMargin: 20.0,
-  },
-  {
-    id: 'PL-005',
-    priceListName: 'Legacy Price List 2024',
-    description: 'Previous year pricing - for reference only',
-    currency: 'USD',
-    effectiveFrom: '2024-01-01',
-    effectiveTo: '2024-12-31',
-    status: 'expired',
-    totalItems: 235,
-    priceType: 'standard',
-    customerSegment: 'All Customers',
-    lastUpdated: '2024-12-31',
-    updatedBy: 'System',
-    averageMargin: 21.0,
-  },
-  {
-    id: 'PL-006',
-    priceListName: 'Education Sector Special Rates',
-    description: 'Discounted pricing for schools and universities',
-    currency: 'USD',
-    effectiveFrom: '2025-11-01',
-    effectiveTo: '2026-10-31',
-    status: 'draft',
-    totalItems: 160,
-    priceType: 'custom',
-    customerSegment: 'Education',
-    lastUpdated: '2025-10-14',
-    updatedBy: 'Robert Pricing',
-    averageMargin: 17.5,
-  },
-];
 
 const statusColors = {
   active: 'bg-green-100 text-green-700',
@@ -143,12 +53,52 @@ const priceTypeLabels = {
 
 export default function PricingPage() {
   const router = useRouter();
-  const [priceLists, setPriceLists] = useState<PriceList[]>(mockPriceLists);
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priceTypeFilter, setPriceTypeFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await estimationPriceListService.findAll(COMPANY_ID);
+        const mapped: PriceList[] = raw.map((r) => ({
+          id: r.id,
+          priceListName: r.priceListName,
+          description: r.description ?? '',
+          currency: r.currency,
+          effectiveFrom: r.effectiveFrom ?? '',
+          effectiveTo: r.effectiveTo ?? '',
+          status: r.status,
+          totalItems: Number(r.totalItems ?? 0),
+          priceType: r.priceType,
+          customerSegment: r.customerSegment ?? '',
+          lastUpdated: r.lastUpdated ?? (r.updatedAt ? r.updatedAt.slice(0, 10) : ''),
+          updatedBy: r.updatedBy ?? '',
+          averageMargin: Number(r.averageMargin ?? 0),
+        }));
+        if (!cancelled) setPriceLists(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load price lists');
+          setPriceLists([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredPriceLists = priceLists.filter((pl) => {
     const matchesSearch =
@@ -168,7 +118,9 @@ export default function PricingPage() {
     totalPriceLists: priceLists.length,
     activePriceLists: priceLists.filter((pl) => pl.status === 'active').length,
     totalProducts: priceLists.reduce((sum, pl) => sum + pl.totalItems, 0),
-    averageMargin: priceLists.reduce((sum, pl) => sum + pl.averageMargin, 0) / priceLists.length,
+    averageMargin: priceLists.length
+      ? priceLists.reduce((sum, pl) => sum + pl.averageMargin, 0) / priceLists.length
+      : 0,
   };
 
   const handleDelete = (id: string) => {
@@ -280,6 +232,15 @@ export default function PricingPage() {
 
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        {isLoading && (
+          <div className="px-3 py-6 text-sm text-gray-500">Loading price lists...</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="px-3 py-6 text-sm text-red-600">{loadError}</div>
+        )}
+        {!isLoading && !loadError && priceLists.length === 0 && (
+          <div className="px-3 py-6 text-sm text-gray-500">No price lists found.</div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -298,7 +259,6 @@ export default function PricingPage() {
             <tbody className="divide-y divide-gray-200">
               {paginatedPriceLists.map((pl) => {
                 const isExpired = new Date(pl.effectiveTo) < new Date();
-                const isActive = pl.status === 'active' && !isExpired;
 
                 return (
                   <tr key={pl.id} className="hover:bg-gray-50">
@@ -363,7 +323,6 @@ export default function PricingPage() {
                         <button
                           onClick={() => router.push(`/estimation/pricing/view/${pl.id}`)}
                           className="flex items-center space-x-1 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
-                         
                         >
                           <Eye className="h-4 w-4" />
                           <span>View</span>
@@ -371,7 +330,6 @@ export default function PricingPage() {
                         <button
                           onClick={() => router.push(`/estimation/pricing/edit/${pl.id}`)}
                           className="flex items-center space-x-1 px-3 py-1.5 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-sm font-medium"
-                         
                         >
                           <Edit className="h-4 w-4" />
                           <span>Edit</span>
@@ -379,7 +337,6 @@ export default function PricingPage() {
                         <button
                           onClick={() => handleDelete(pl.id)}
                           className="flex items-center space-x-1 px-3 py-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors text-sm font-medium"
-                         
                         >
                           <Trash2 className="h-4 w-4" />
                           <span>Delete</span>
@@ -396,7 +353,7 @@ export default function PricingPage() {
         {/* Pagination */}
         <div className="px-3 py-2 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-700">
-            Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredPriceLists.length)} of{' '}
+            Showing {filteredPriceLists.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredPriceLists.length)} of{' '}
             {filteredPriceLists.length} items
           </div>
           <div className="flex items-center space-x-2">
@@ -428,7 +385,7 @@ export default function PricingPage() {
             </div>
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || totalPages === 0}
               className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronRight className="h-4 w-4" />

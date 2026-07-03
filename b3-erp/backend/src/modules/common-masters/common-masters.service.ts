@@ -113,6 +113,21 @@ export class CommonMastersService {
         });
     }
 
+    // List-all variants for the state/city master pages (no parent filter).
+    async findAllStates() {
+        return this.prisma.state.findMany({
+            include: { country: true },
+            orderBy: { name: 'asc' },
+        });
+    }
+
+    async findAllCities() {
+        return this.prisma.city.findMany({
+            include: { state: { include: { country: true } } },
+            orderBy: { name: 'asc' },
+        });
+    }
+
     async findAllTerritories(companyId: string) {
         return this.prisma.territory.findMany({
             where: { companyId, isActive: true },
@@ -1520,6 +1535,62 @@ export class CommonMastersService {
     async deleteCity(id: string) {
         await this.findByIdOrThrow(this.prisma.city, id, 'City');
         return this.prisma.city.delete({ where: { id } });
+    }
+
+    // --- HR Grades (grade-master page) ---
+    async findAllHrGrades(companyId: string) {
+        return this.prisma.hrGrade.findMany({
+            where: { companyId, isActive: true },
+            orderBy: { level: 'asc' },
+        });
+    }
+
+    async createHrGrade(data: {
+        gradeCode: string;
+        gradeName: string;
+        companyId: string;
+        level?: number;
+        category?: string;
+        minSalary?: number;
+        maxSalary?: number;
+        currency?: string;
+        benefits?: any;
+        leaveEntitlement?: any;
+        perks?: string[];
+        probationPeriod?: number;
+        noticePeriod?: number;
+        appraisalCycle?: string;
+        eligibleDesignations?: string[];
+        description?: string;
+    }) {
+        return this.prisma.hrGrade.create({ data });
+    }
+
+    async updateHrGrade(id: string, data: {
+        gradeCode?: string;
+        gradeName?: string;
+        level?: number;
+        category?: string;
+        minSalary?: number;
+        maxSalary?: number;
+        currency?: string;
+        benefits?: any;
+        leaveEntitlement?: any;
+        perks?: string[];
+        probationPeriod?: number;
+        noticePeriod?: number;
+        appraisalCycle?: string;
+        eligibleDesignations?: string[];
+        description?: string;
+        isActive?: boolean;
+    }) {
+        await this.findByIdOrThrow(this.prisma.hrGrade, id, 'HrGrade');
+        return this.prisma.hrGrade.update({ where: { id }, data });
+    }
+
+    async deleteHrGrade(id: string) {
+        await this.findByIdOrThrow(this.prisma.hrGrade, id, 'HrGrade');
+        return this.prisma.hrGrade.delete({ where: { id } });
     }
 
 }

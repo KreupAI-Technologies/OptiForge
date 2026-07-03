@@ -21,6 +21,7 @@ export * from './budget.entity';
 
 // Cost Accounting
 export * from './cost-accounting.entity';
+export * from './job-cost-sheet.entity';
 
 // Accounts Receivable/Payable
 export * from './invoice.entity';

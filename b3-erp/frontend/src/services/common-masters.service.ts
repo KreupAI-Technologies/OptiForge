@@ -254,6 +254,7 @@ export interface State {
     id: string;
     name: string;
     countryId: string;
+    country?: Country;
     isActive: boolean;
 }
 
@@ -261,6 +262,7 @@ export interface City {
     id: string;
     name: string;
     stateId: string;
+    state?: State & { country?: Country };
     isActive: boolean;
 }
 
@@ -270,6 +272,29 @@ export interface Territory {
     name: string;
     companyId: string;
     isActive: boolean;
+}
+
+export interface HrGrade {
+    id: string;
+    gradeCode: string;
+    gradeName: string;
+    level: number;
+    category: string;
+    minSalary: number;
+    maxSalary: number;
+    currency: string;
+    benefits?: any;
+    leaveEntitlement?: any;
+    perks: string[];
+    probationPeriod: number;
+    noticePeriod: number;
+    appraisalCycle: string;
+    eligibleDesignations: string[];
+    description?: string;
+    companyId: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface Company {
@@ -632,6 +657,32 @@ class CommonMastersService {
      */
     async getCitiesByState(stateId: string): Promise<City[]> {
         const response = await apiClient.get<City[]>(`/api/v1/common-masters/cities/${stateId}`);
+        return response.data || [];
+    }
+
+    /**
+     * Get all states (no country filter) — for the state-master page
+     */
+    async getAllStates(): Promise<State[]> {
+        const response = await apiClient.get<State[]>('/api/v1/common-masters/states-all');
+        return response.data || [];
+    }
+
+    /**
+     * Get all cities (no state filter) — for the city-master page
+     */
+    async getAllCities(): Promise<City[]> {
+        const response = await apiClient.get<City[]>('/api/v1/common-masters/cities-all');
+        return response.data || [];
+    }
+
+    /**
+     * Get all HR grades — for the grade-master page
+     */
+    async getAllHrGrades(companyId?: string): Promise<HrGrade[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<HrGrade[]>(`/api/v1/common-masters/grades?${params.toString()}`);
         return response.data || [];
     }
 
@@ -1285,6 +1336,23 @@ class CommonMastersService {
 
     async deleteCity(id: string): Promise<void> {
         await apiClient.delete(`/api/v1/common-masters/cities/${id}`);
+    }
+
+    // ===========================
+    // HR GRADE CRUD
+    // ===========================
+    async createHrGrade(data: Partial<HrGrade> & { gradeCode: string; gradeName: string; companyId: string }): Promise<HrGrade> {
+        const response = await apiClient.post<HrGrade>('/api/v1/common-masters/grades', data);
+        return response.data;
+    }
+
+    async updateHrGrade(id: string, data: Partial<HrGrade>): Promise<HrGrade> {
+        const response = await apiClient.put<HrGrade>(`/api/v1/common-masters/grades/${id}`, data);
+        return response.data;
+    }
+
+    async deleteHrGrade(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/grades/${id}`);
     }
 }
 

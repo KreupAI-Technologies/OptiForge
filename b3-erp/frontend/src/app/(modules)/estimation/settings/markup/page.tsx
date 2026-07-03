@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Percent,
@@ -13,6 +13,9 @@ import {
   Plus,
   TrendingUp
 } from 'lucide-react'
+import { estimationMarkupSettingService } from '@/services/estimation-markup-setting.service'
+
+const COMPANY_ID = 'company-001'
 
 interface MarkupSetting {
   id: string
@@ -32,177 +35,46 @@ interface MarkupSetting {
 export default function EstimationSettingsMarkupPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [markupSettings, setMarkupSettings] = useState<MarkupSetting[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [markupSettings] = useState<MarkupSetting[]>([
-    {
-      id: 'MKP-001',
-      category: 'Kitchen Sinks',
-      subcategory: 'Standard Sinks',
-      defaultMarkup: 48.0,
-      minMarkup: 40.0,
-      maxMarkup: 55.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 40.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-002',
-      category: 'Kitchen Sinks',
-      subcategory: 'Premium Sinks',
-      defaultMarkup: 52.0,
-      minMarkup: 45.0,
-      maxMarkup: 60.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 45.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-003',
-      category: 'Kitchen Faucets',
-      subcategory: 'Chrome Faucets',
-      defaultMarkup: 50.6,
-      minMarkup: 45.0,
-      maxMarkup: 58.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 45.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-004',
-      category: 'Kitchen Faucets',
-      subcategory: 'Premium Faucets',
-      defaultMarkup: 55.0,
-      minMarkup: 48.0,
-      maxMarkup: 65.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 48.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-005',
-      category: 'Cookware',
-      subcategory: 'Non-Stick',
-      defaultMarkup: 56.0,
-      minMarkup: 50.0,
-      maxMarkup: 65.0,
-      costBasis: 'full-cost',
-      approvalRequired: false,
-      approvalThreshold: 50.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-006',
-      category: 'Cookware',
-      subcategory: 'Stainless Steel',
-      defaultMarkup: 55.0,
-      minMarkup: 48.0,
-      maxMarkup: 62.0,
-      costBasis: 'full-cost',
-      approvalRequired: false,
-      approvalThreshold: 48.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-007',
-      category: 'Kitchen Appliances',
-      subcategory: 'Chimneys',
-      defaultMarkup: 54.0,
-      minMarkup: 48.0,
-      maxMarkup: 62.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 48.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-008',
-      category: 'Kitchen Cabinets',
-      subcategory: 'Base Cabinets',
-      defaultMarkup: 45.0,
-      minMarkup: 38.0,
-      maxMarkup: 52.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 38.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-009',
-      category: 'Kitchen Cabinets',
-      subcategory: 'Wall Cabinets',
-      defaultMarkup: 46.0,
-      minMarkup: 40.0,
-      maxMarkup: 53.0,
-      costBasis: 'full-cost',
-      approvalRequired: true,
-      approvalThreshold: 40.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-010',
-      category: 'Countertops',
-      subcategory: 'Granite',
-      defaultMarkup: 47.5,
-      minMarkup: 42.0,
-      maxMarkup: 55.0,
-      costBasis: 'material-labor',
-      approvalRequired: true,
-      approvalThreshold: 42.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-011',
-      category: 'Countertops',
-      subcategory: 'Quartz',
-      defaultMarkup: 48.0,
-      minMarkup: 43.0,
-      maxMarkup: 56.0,
-      costBasis: 'material-labor',
-      approvalRequired: true,
-      approvalThreshold: 43.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
-    },
-    {
-      id: 'MKP-012',
-      category: 'Kitchen Accessories',
-      subcategory: 'Storage Solutions',
-      defaultMarkup: 51.5,
-      minMarkup: 45.0,
-      maxMarkup: 60.0,
-      costBasis: 'full-cost',
-      approvalRequired: false,
-      approvalThreshold: 45.0,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Admin',
-      status: 'active'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await estimationMarkupSettingService.findAll(COMPANY_ID)
+        const mapped: MarkupSetting[] = raw.map((r) => ({
+          id: r.id,
+          category: r.category,
+          subcategory: r.subcategory ?? '',
+          defaultMarkup: Number(r.defaultMarkup ?? 0),
+          minMarkup: Number(r.minMarkup ?? 0),
+          maxMarkup: Number(r.maxMarkup ?? 0),
+          costBasis: r.costBasis,
+          approvalRequired: !!r.approvalRequired,
+          approvalThreshold: Number(r.approvalThreshold ?? 0),
+          lastUpdated: r.updatedAt ? r.updatedAt.slice(0, 10) : '',
+          updatedBy: r.updatedBy ?? '',
+          status: r.status
+        }))
+        if (!cancelled) setMarkupSettings(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load markup settings')
+          setMarkupSettings([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -229,7 +101,9 @@ export default function EstimationSettingsMarkupPage() {
   }
 
   const totalSettings = markupSettings.length
-  const avgMarkup = markupSettings.reduce((sum, s) => sum + s.defaultMarkup, 0) / totalSettings
+  const avgMarkup = totalSettings
+    ? markupSettings.reduce((sum, s) => sum + s.defaultMarkup, 0) / totalSettings
+    : 0
   const activeSettings = markupSettings.filter(s => s.status === 'active').length
   const requireApproval = markupSettings.filter(s => s.approvalRequired).length
 
@@ -327,6 +201,15 @@ export default function EstimationSettingsMarkupPage() {
             </div>
           </div>
         </div>
+        {isLoading && (
+          <div className="px-6 py-6 text-sm text-gray-500">Loading markup settings...</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="px-6 py-6 text-sm text-red-600">{loadError}</div>
+        )}
+        {!isLoading && !loadError && markupSettings.length === 0 && (
+          <div className="px-6 py-6 text-sm text-gray-500">No markup settings found.</div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -398,7 +281,6 @@ export default function EstimationSettingsMarkupPage() {
                         <button
                           onClick={() => setEditingId(null)}
                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                         
                         >
                           <Save className="h-4 w-4" />
                         </button>
@@ -406,7 +288,6 @@ export default function EstimationSettingsMarkupPage() {
                         <button
                           onClick={() => setEditingId(setting.id)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                         
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
