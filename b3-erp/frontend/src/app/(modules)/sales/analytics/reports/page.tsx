@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, FileText, Download, Calendar, Filter, TrendingUp, DollarSign, Package, Users, Eye } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface Report {
   id: string
@@ -26,212 +27,40 @@ export default function ReportsPage() {
   const [selectedType, setSelectedType] = useState('all')
   const [selectedPeriod, setSelectedPeriod] = useState('all')
 
-  const [reports] = useState<Report[]>([
-    {
-      id: 'REP-001',
-      name: 'Monthly Kitchen Products Sales Report',
-      type: 'sales',
-      description: 'Comprehensive sales analysis for all kitchen products including revenue, orders, and trends',
-      period: 'October 2025',
-      generatedDate: '2025-10-20',
-      generatedBy: 'Sales Manager',
-      fileSize: '2.4 MB',
-      format: 'PDF',
-      keyMetrics: [
-        { label: 'Total Revenue', value: '₹5.12Cr' },
-        { label: 'Total Orders', value: '325' },
-        { label: 'Growth', value: '+18.5%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-002',
-      name: 'Kitchen Sinks Product Performance',
-      type: 'product',
-      description: 'Detailed analysis of kitchen sink sales, inventory levels, and customer preferences',
-      period: 'Q3 2025',
-      generatedDate: '2025-10-15',
-      generatedBy: 'Product Manager',
-      fileSize: '1.8 MB',
-      format: 'Excel',
-      keyMetrics: [
-        { label: 'Units Sold', value: '1,245' },
-        { label: 'Revenue', value: '₹1.56Cr' },
-        { label: 'Market Share', value: '23%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-003',
-      name: 'Top 50 Kitchen Products Customers Report',
-      type: 'customer',
-      description: 'Customer segmentation and purchasing patterns for kitchen products',
-      period: 'October 2025',
-      generatedDate: '2025-10-18',
-      generatedBy: 'CRM Manager',
-      fileSize: '3.1 MB',
-      format: 'PDF',
-      keyMetrics: [
-        { label: 'Active Customers', value: '234' },
-        { label: 'Avg Order Value', value: '₹1.58L' },
-        { label: 'Repeat Rate', value: '67%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-004',
-      name: 'Kitchen Appliances Inventory Analysis',
-      type: 'inventory',
-      description: 'Stock levels, turnover rates, and reorder recommendations for kitchen appliances',
-      period: 'October 2025',
-      generatedDate: '2025-10-19',
-      generatedBy: 'Inventory Manager',
-      fileSize: '1.5 MB',
-      format: 'Excel',
-      keyMetrics: [
-        { label: 'In Stock', value: '2,456 units' },
-        { label: 'Low Stock', value: '23 items' },
-        { label: 'Turnover', value: '8.5x' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-005',
-      name: 'Quarterly Kitchen Products Financial Summary',
-      type: 'financial',
-      description: 'Revenue, costs, margins, and profitability analysis for kitchen product line',
-      period: 'Q3 2025',
-      generatedDate: '2025-10-10',
-      generatedBy: 'Finance Manager',
-      fileSize: '4.2 MB',
-      format: 'PDF',
-      keyMetrics: [
-        { label: 'Total Revenue', value: '₹14.5Cr' },
-        { label: 'Gross Margin', value: '42%' },
-        { label: 'Net Profit', value: '₹3.8Cr' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-006',
-      name: 'Cookware Sales Performance Report',
-      type: 'product',
-      description: 'Sales trends, customer feedback, and market analysis for cookware products',
-      period: 'September 2025',
-      generatedDate: '2025-10-05',
-      generatedBy: 'Product Manager',
-      fileSize: '2.1 MB',
-      format: 'Excel',
-      keyMetrics: [
-        { label: 'Units Sold', value: '3,456' },
-        { label: 'Revenue', value: '₹0.99Cr' },
-        { label: 'Growth', value: '-5.2%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-007',
-      name: 'Regional Kitchen Products Sales Comparison',
-      type: 'sales',
-      description: 'Comparative analysis of kitchen product sales across North, South, East, and West regions',
-      period: 'Q3 2025',
-      generatedDate: '2025-10-12',
-      generatedBy: 'Regional Manager',
-      fileSize: '3.5 MB',
-      format: 'PDF',
-      keyMetrics: [
-        { label: 'Best Region', value: 'South India' },
-        { label: 'Total Revenue', value: '₹13.9Cr' },
-        { label: 'Avg Growth', value: '+13.3%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-008',
-      name: 'Kitchen Faucets Customer Satisfaction Survey',
-      type: 'customer',
-      description: 'Customer feedback, ratings, and satisfaction scores for kitchen faucet products',
-      period: 'October 2025',
-      generatedDate: '2025-10-17',
-      generatedBy: 'Quality Manager',
-      fileSize: '1.2 MB',
-      format: 'CSV',
-      keyMetrics: [
-        { label: 'Responses', value: '456' },
-        { label: 'Avg Rating', value: '4.3/5' },
-        { label: 'NPS Score', value: '67' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-009',
-      name: 'Weekly Kitchen Products Sales Dashboard',
-      type: 'sales',
-      description: 'Real-time sales metrics, order tracking, and performance indicators',
-      period: 'Week of Oct 14-20, 2025',
-      generatedDate: '2025-10-20',
-      generatedBy: 'Auto-Generated',
-      fileSize: '0.8 MB',
-      format: 'PDF',
-      keyMetrics: [
-        { label: 'Weekly Revenue', value: '₹1.28Cr' },
-        { label: 'Orders', value: '78' },
-        { label: 'Growth', value: '+12%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-010',
-      name: 'Modular Kitchen Cabinet Sales Forecast',
-      type: 'product',
-      description: 'Sales projections and demand forecasting for modular kitchen cabinets',
-      period: 'Q4 2025 Forecast',
-      generatedDate: '2025-10-16',
-      generatedBy: 'Analytics Team',
-      fileSize: '2.7 MB',
-      format: 'Excel',
-      keyMetrics: [
-        { label: 'Projected Units', value: '1,890' },
-        { label: 'Projected Revenue', value: '₹4.7Cr' },
-        { label: 'Confidence', value: '87%' }
-      ],
-      status: 'ready'
-    },
-    {
-      id: 'REP-011',
-      name: 'Annual Kitchen Products Summary 2025',
-      type: 'sales',
-      description: 'Year-end comprehensive report covering all aspects of kitchen products business',
-      period: 'Jan-Dec 2025',
-      generatedDate: 'Scheduled',
-      generatedBy: 'Auto-Scheduled',
-      fileSize: '-',
-      format: 'PDF',
-      keyMetrics: [
-        { label: 'Status', value: 'Scheduled' },
-        { label: 'Generation Date', value: 'Jan 1, 2026' },
-        { label: 'Type', value: 'Annual' }
-      ],
-      status: 'scheduled'
-    },
-    {
-      id: 'REP-012',
-      name: 'Customer Retention Analysis - Kitchen Products',
-      type: 'customer',
-      description: 'Analysis of customer loyalty, churn rates, and retention strategies',
-      period: 'October 2025',
-      generatedDate: 'In Progress',
-      generatedBy: 'CRM Manager',
-      fileSize: '-',
-      format: 'Excel',
-      keyMetrics: [
-        { label: 'Status', value: 'Generating' },
-        { label: 'Progress', value: '68%' },
-        { label: 'ETA', value: '2 hours' }
-      ],
-      status: 'generating'
+  const [reports, setReports] = useState<Report[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getSalesReports()
+        const mapped: Report[] = (rows || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: (r.type as Report['type']) || 'sales',
+          description: r.description || '',
+          period: r.period || '',
+          generatedDate: r.generatedDate || '',
+          generatedBy: r.generatedBy || '',
+          fileSize: r.fileSize || '',
+          format: (r.format as Report['format']) || 'PDF',
+          keyMetrics: r.keyMetrics || [],
+          status: (r.status as Report['status']) || 'ready',
+        }))
+        if (!cancelled) setReports(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load reports')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const reportTypes = ['all', 'sales', 'product', 'customer', 'inventory', 'financial']
   const periods = ['all', 'weekly', 'monthly', 'quarterly', 'annual']
@@ -280,7 +109,7 @@ export default function ReportsPage() {
     totalReports: reports.filter(r => r.status === 'ready').length,
     generatingReports: reports.filter(r => r.status === 'generating').length,
     scheduledReports: reports.filter(r => r.status === 'scheduled').length,
-    thisMonth: reports.filter(r => r.period.includes('October 2025')).length
+    thisMonth: reports.filter(r => (r.period || '').includes('October 2025')).length
   }
 
   return (

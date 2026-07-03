@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   TrendingUp,
   DollarSign,
@@ -44,130 +45,69 @@ interface TeamMember {
   winRate: number;
 }
 
-const mockForecastData: ForecastPeriod[] = [
-  {
-    month: 'Oct 2025',
-    committed: 420000,
-    bestCase: 680000,
-    pipeline: 855000,
-    closed: 320000,
-    target: 650000,
-    opportunities: 7,
-  },
-  {
-    month: 'Nov 2025',
-    committed: 580000,
-    bestCase: 825000,
-    pipeline: 1150000,
-    closed: 0,
-    target: 700000,
-    opportunities: 9,
-  },
-  {
-    month: 'Dec 2025',
-    committed: 450000,
-    bestCase: 720000,
-    pipeline: 920000,
-    closed: 0,
-    target: 750000,
-    opportunities: 6,
-  },
-  {
-    month: 'Jan 2026',
-    committed: 380000,
-    bestCase: 590000,
-    pipeline: 780000,
-    closed: 0,
-    target: 650000,
-    opportunities: 5,
-  },
-  {
-    month: 'Feb 2026',
-    committed: 420000,
-    bestCase: 680000,
-    pipeline: 850000,
-    closed: 0,
-    target: 650000,
-    opportunities: 7,
-  },
-  {
-    month: 'Mar 2026',
-    committed: 520000,
-    bestCase: 780000,
-    pipeline: 1020000,
-    closed: 0,
-    target: 700000,
-    opportunities: 8,
-  },
-];
-
-const mockTeamForecast: TeamMember[] = [
-  {
-    name: 'David Lee',
-    committed: 320000,
-    bestCase: 520000,
-    pipeline: 740000,
-    quota: 500000,
-    opportunities: 5,
-    winRate: 72,
-  },
-  {
-    name: 'Sarah Johnson',
-    committed: 285000,
-    bestCase: 465000,
-    pipeline: 620000,
-    quota: 450000,
-    opportunities: 6,
-    winRate: 68,
-  },
-  {
-    name: 'Michael Park',
-    committed: 195000,
-    bestCase: 320000,
-    pipeline: 450000,
-    quota: 400000,
-    opportunities: 4,
-    winRate: 64,
-  },
-  {
-    name: 'Emily Davis',
-    committed: 165000,
-    bestCase: 280000,
-    pipeline: 385000,
-    quota: 350000,
-    opportunities: 3,
-    winRate: 71,
-  },
-];
-
 export default function SalesForecastPage() {
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState('quarter');
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+  const [forecastData, setForecastData] = useState<ForecastPeriod[]>([]);
+  const [teamForecast, setTeamForecast] = useState<TeamMember[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await crmService.crmAnalytics.getForecast();
+        if (!mounted) return;
+        const byMonth = Array.isArray(data?.byMonth) ? data.byMonth : [];
+        const mapped: ForecastPeriod[] = byMonth.map((m: any) => ({
+          month: m?.month ?? '',
+          committed: Number(m?.weighted ?? 0),
+          bestCase: Number(m?.value ?? 0),
+          pipeline: Number(m?.value ?? 0),
+          closed: 0,
+          target: 0,
+          opportunities: Number(m?.count ?? 0),
+        }));
+        setError(null);
+        setForecastData(mapped);
+        setTeamForecast([]);
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message ?? 'Failed to load forecast data');
+        setForecastData([]);
+        setTeamForecast([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Calculate quarterly totals
   const quarterlyStats = {
-    committed: mockForecastData.slice(0, 3).reduce((sum, period) => sum + period.committed, 0),
-    bestCase: mockForecastData.slice(0, 3).reduce((sum, period) => sum + period.bestCase, 0),
-    pipeline: mockForecastData.slice(0, 3).reduce((sum, period) => sum + period.pipeline, 0),
-    closed: mockForecastData.slice(0, 3).reduce((sum, period) => sum + period.closed, 0),
-    target: mockForecastData.slice(0, 3).reduce((sum, period) => sum + period.target, 0),
+    committed: forecastData.slice(0, 3).reduce((sum, period) => sum + period.committed, 0),
+    bestCase: forecastData.slice(0, 3).reduce((sum, period) => sum + period.bestCase, 0),
+    pipeline: forecastData.slice(0, 3).reduce((sum, period) => sum + period.pipeline, 0),
+    closed: forecastData.slice(0, 3).reduce((sum, period) => sum + period.closed, 0),
+    target: forecastData.slice(0, 3).reduce((sum, period) => sum + period.target, 0),
   };
 
   // Calculate team totals
   const teamStats = {
-    totalCommitted: mockTeamForecast.reduce((sum, member) => sum + member.committed, 0),
-    totalBestCase: mockTeamForecast.reduce((sum, member) => sum + member.bestCase, 0),
-    totalPipeline: mockTeamForecast.reduce((sum, member) => sum + member.pipeline, 0),
-    totalQuota: mockTeamForecast.reduce((sum, member) => sum + member.quota, 0),
-    avgWinRate:
-      mockTeamForecast.reduce((sum, member) => sum + member.winRate, 0) / mockTeamForecast.length,
+    totalCommitted: teamForecast.reduce((sum, member) => sum + member.committed, 0),
+    totalBestCase: teamForecast.reduce((sum, member) => sum + member.bestCase, 0),
+    totalPipeline: teamForecast.reduce((sum, member) => sum + member.pipeline, 0),
+    totalQuota: teamForecast.reduce((sum, member) => sum + member.quota, 0),
+    avgWinRate: teamForecast.length
+      ? teamForecast.reduce((sum, member) => sum + member.winRate, 0) / teamForecast.length
+      : 0,
   };
 
   // Attainment calculations
-  const committedAttainment = (quarterlyStats.committed / quarterlyStats.target) * 100;
-  const bestCaseAttainment = (quarterlyStats.bestCase / quarterlyStats.target) * 100;
-  const currentAttainment = (quarterlyStats.closed / quarterlyStats.target) * 100;
+  const committedAttainment = quarterlyStats.target ? (quarterlyStats.committed / quarterlyStats.target) * 100 : 0;
+  const bestCaseAttainment = quarterlyStats.target ? (quarterlyStats.bestCase / quarterlyStats.target) * 100 : 0;
+  const currentAttainment = quarterlyStats.target ? (quarterlyStats.closed / quarterlyStats.target) * 100 : 0;
 
   const getAttainmentColor = (attainment: number) => {
     if (attainment >= 100) return 'text-green-600';
@@ -183,6 +123,7 @@ export default function SalesForecastPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       {/* Period Selector */}
       <div className="mb-3 bg-white rounded-lg border border-gray-200 p-3">
         <div className="flex items-center space-x-4">
@@ -251,7 +192,7 @@ export default function SalesForecastPage() {
             ${(quarterlyStats.pipeline / 1000).toFixed(0)}K
           </p>
           <div className="mt-2 text-sm text-purple-700">
-            {((quarterlyStats.pipeline / quarterlyStats.target) * 100).toFixed(0)}% of target
+            {(quarterlyStats.target ? (quarterlyStats.pipeline / quarterlyStats.target) * 100 : 0).toFixed(0)}% of target
           </div>
         </div>
 
@@ -297,7 +238,7 @@ export default function SalesForecastPage() {
               <div
                 className="h-3 bg-green-500 rounded-full"
                 style={{
-                  width: `${Math.min((quarterlyStats.committed / quarterlyStats.target) * 100, 100)}%`,
+                  width: `${Math.min(quarterlyStats.target ? (quarterlyStats.committed / quarterlyStats.target) * 100 : 0, 100)}%`,
                 }}
               ></div>
             </div>
@@ -313,7 +254,7 @@ export default function SalesForecastPage() {
               <div
                 className="h-3 bg-blue-500 rounded-full"
                 style={{
-                  width: `${Math.min((quarterlyStats.bestCase / quarterlyStats.target) * 100, 100)}%`,
+                  width: `${Math.min(quarterlyStats.target ? (quarterlyStats.bestCase / quarterlyStats.target) * 100 : 0, 100)}%`,
                 }}
               ></div>
             </div>
@@ -329,7 +270,7 @@ export default function SalesForecastPage() {
               <div
                 className="h-3 bg-purple-500 rounded-full"
                 style={{
-                  width: `${Math.min((quarterlyStats.pipeline / quarterlyStats.target) * 100, 100)}%`,
+                  width: `${Math.min(quarterlyStats.target ? (quarterlyStats.pipeline / quarterlyStats.target) * 100 : 0, 100)}%`,
                 }}
               ></div>
             </div>
@@ -373,8 +314,8 @@ export default function SalesForecastPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {mockForecastData.map((period, index) => {
-                const attainment = ((period.committed + period.closed) / period.target) * 100;
+              {forecastData.map((period, index) => {
+                const attainment = period.target ? ((period.committed + period.closed) / period.target) * 100 : 0;
                 return (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-semibold text-gray-900">{period.month}</td>
@@ -468,8 +409,8 @@ export default function SalesForecastPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {mockTeamForecast.map((member, index) => {
-                const attainment = (member.committed / member.quota) * 100;
+              {teamForecast.map((member, index) => {
+                const attainment = member.quota ? (member.committed / member.quota) * 100 : 0;
                 return (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-3 py-2">

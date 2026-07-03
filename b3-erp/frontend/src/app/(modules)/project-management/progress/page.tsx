@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/projectManagementService';
 import { exportToCsv } from '@/lib/export';
 import {
  Calendar,
@@ -58,106 +59,14 @@ interface ProgressEntry {
  status: 'Draft' | 'Submitted' | 'Approved';
 }
 
-const mockProgressEntries: ProgressEntry[] = [
- {
-  id: '1',
-  date: '2024-03-14',
-  workPackage: 'Equipment Installation',
-  activity: 'Cooking Equipment Installation',
-  plannedWork: 'Install 2 gas ranges and 1 convection oven',
-  actualWork: 'Installed 2 gas ranges, convection oven delayed due to late delivery',
-  completionPercent: 70,
-  laborDeployed: 6,
-  hoursWorked: 48,
-  materialUsed: 'Gas ranges (2), connecting pipes, fittings',
-  equipmentUsed: 'Forklift, power tools, welding equipment',
-  issues: 'Convection oven delivery delayed by 1 day',
-  photos: 5,
-  weather: 'Clear',
-  safetyIncidents: 0,
-  reportedBy: 'Suresh Patel',
-  status: 'Approved',
- },
- {
-  id: '2',
-  date: '2024-03-13',
-  workPackage: 'Equipment Installation',
-  activity: 'Refrigeration Units Setup',
-  plannedWork: 'Install walk-in cooler panels',
-  actualWork: 'Completed panel installation, started refrigeration unit mounting',
-  completionPercent: 60,
-  laborDeployed: 4,
-  hoursWorked: 32,
-  materialUsed: 'Cooler panels (20), insulation, door frame',
-  equipmentUsed: 'Scaffolding, power drill, level',
-  issues: 'None',
-  photos: 3,
-  weather: 'Clear',
-  safetyIncidents: 0,
-  reportedBy: 'Installation Team B',
-  status: 'Approved',
- },
- {
-  id: '3',
-  date: '2024-03-12',
-  workPackage: 'Equipment Installation',
-  activity: 'Exhaust System Installation',
-  plannedWork: 'Mount exhaust hood #1 and ductwork',
-  actualWork: 'Hood mounted, ductwork 50% complete',
-  completionPercent: 50,
-  laborDeployed: 5,
-  hoursWorked: 40,
-  materialUsed: 'Exhaust hood, duct pipes, hangers, fasteners',
-  equipmentUsed: 'Cherry picker, cutting tools, welding machine',
-  issues: 'Ceiling height mismatch, required design adjustment',
-  photos: 4,
-  weather: 'Clear',
-  safetyIncidents: 0,
-  reportedBy: 'HVAC Team',
-  status: 'Submitted',
- },
- {
-  id: '4',
-  date: '2024-03-11',
-  workPackage: 'Civil Work',
-  activity: 'Electrical Infrastructure',
-  plannedWork: 'Complete main panel installation and wiring',
-  actualWork: 'Main panel installed, wiring 80% complete',
-  completionPercent: 85,
-  laborDeployed: 3,
-  hoursWorked: 24,
-  materialUsed: 'Electrical panel, cables, conduits, circuit breakers',
-  equipmentUsed: 'Voltage tester, cable puller, crimping tools',
-  issues: 'None',
-  photos: 2,
-  weather: 'Clear',
-  safetyIncidents: 0,
-  reportedBy: 'Electrical Team',
-  status: 'Approved',
- },
- {
-  id: '5',
-  date: '2024-03-10',
-  workPackage: 'Civil Work',
-  activity: 'Drainage & Plumbing',
-  plannedWork: 'Install floor drains and connect to main line',
-  actualWork: 'All 8 floor drains installed and tested',
-  completionPercent: 100,
-  laborDeployed: 4,
-  hoursWorked: 32,
-  materialUsed: 'Floor drains, PVC pipes, cement, sealant',
-  equipmentUsed: 'Jackhammer, pipe cutter, testing equipment',
-  issues: 'None',
-  photos: 6,
-  weather: 'Clear',
-  safetyIncidents: 0,
-  reportedBy: 'Plumbing Team',
-  status: 'Approved',
- },
-];
 
 export default function DailyProgressPage() {
- const [entries] = useState<ProgressEntry[]>(mockProgressEntries);
+ const [entries, setEntries] = useState<ProgressEntry[]>([]);
+  useEffect(() => {
+    projectManagementService.listProgressEntries().then((rows) => {
+      if (Array.isArray(rows)) setEntries(rows as unknown as ProgressEntry[]);
+    });
+  }, []);
  const [showAddModal, setShowAddModal] = useState(false);
  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
  const [newEntry, setNewEntry] = useState({

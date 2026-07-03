@@ -105,6 +105,124 @@ export interface NotificationSettingDto {
   updatedAt: string;
 }
 
+export interface UserGroupDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  memberCount: number;
+  permissions?: string[];
+  members?: Array<{ id: string; name: string; email: string; role: string }>;
+  createdDate?: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LicenseFeatureDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  category: string;
+  enabled: boolean;
+  included: boolean;
+  tier?: string;
+  usageLimit?: number;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LicenseUserDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  email?: string;
+  role?: string;
+  department?: string;
+  licenseType: string;
+  status: string;
+  assignedDate?: string;
+  lastActive?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SecurityPolicyDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  description?: string;
+  type: string;
+  enabled: boolean;
+  appliedRoles?: string[];
+  severity: string;
+  config?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookEndpointDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  url?: string;
+  events?: string[];
+  status: string;
+  secret?: string;
+  lastTriggered?: string;
+  successCount: number;
+  failureCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiEndpointDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  method: string;
+  path?: string;
+  description?: string;
+  category: string;
+  enabled: boolean;
+  authRequired: boolean;
+  parameters?: any;
+  rateLimit?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BackupRecordDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  type: string;
+  status: string;
+  size?: string;
+  location?: string;
+  startedAt?: string;
+  completedAt?: string;
+  duration?: string;
+  automated: boolean;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExportDatasetDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  category: string;
+  recordCount: number;
+  size?: string;
+  exportable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -238,6 +356,167 @@ class ItAdminServiceClass {
         body: JSON.stringify(items),
       },
     );
+  }
+
+  // --- User Groups ---
+  async getUserGroups(params?: {
+    companyId?: string;
+    status?: string;
+  }): Promise<UserGroupDto[]> {
+    return request<UserGroupDto[]>(`/it-admin/user-groups${qs(params)}`);
+  }
+
+  async createUserGroup(data: Partial<UserGroupDto>): Promise<UserGroupDto> {
+    return request<UserGroupDto>('/it-admin/user-groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateUserGroup(
+    id: string,
+    data: Partial<UserGroupDto>,
+  ): Promise<UserGroupDto> {
+    return request<UserGroupDto>(`/it-admin/user-groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUserGroup(id: string): Promise<void> {
+    return request<void>(`/it-admin/user-groups/${id}`, { method: 'DELETE' });
+  }
+
+  // --- License Features ---
+  async getLicenseFeatures(params?: {
+    companyId?: string;
+    category?: string;
+  }): Promise<LicenseFeatureDto[]> {
+    return request<LicenseFeatureDto[]>(
+      `/it-admin/license-features${qs(params)}`,
+    );
+  }
+
+  async updateLicenseFeature(
+    id: string,
+    data: Partial<LicenseFeatureDto>,
+  ): Promise<LicenseFeatureDto> {
+    return request<LicenseFeatureDto>(`/it-admin/license-features/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- License Users ---
+  async getLicenseUsers(params?: {
+    companyId?: string;
+    status?: string;
+    licenseType?: string;
+  }): Promise<LicenseUserDto[]> {
+    return request<LicenseUserDto[]>(`/it-admin/license-users${qs(params)}`);
+  }
+
+  async updateLicenseUser(
+    id: string,
+    data: Partial<LicenseUserDto>,
+  ): Promise<LicenseUserDto> {
+    return request<LicenseUserDto>(`/it-admin/license-users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- Security Policies ---
+  async getSecurityPolicies(params?: {
+    companyId?: string;
+    type?: string;
+  }): Promise<SecurityPolicyDto[]> {
+    return request<SecurityPolicyDto[]>(
+      `/it-admin/security-policies${qs(params)}`,
+    );
+  }
+
+  async updateSecurityPolicy(
+    id: string,
+    data: Partial<SecurityPolicyDto>,
+  ): Promise<SecurityPolicyDto> {
+    return request<SecurityPolicyDto>(`/it-admin/security-policies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- Webhook Endpoints ---
+  async getWebhookEndpoints(params?: {
+    companyId?: string;
+    status?: string;
+  }): Promise<WebhookEndpointDto[]> {
+    return request<WebhookEndpointDto[]>(
+      `/it-admin/webhook-endpoints${qs(params)}`,
+    );
+  }
+
+  async createWebhookEndpoint(
+    data: Partial<WebhookEndpointDto>,
+  ): Promise<WebhookEndpointDto> {
+    return request<WebhookEndpointDto>('/it-admin/webhook-endpoints', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWebhookEndpoint(
+    id: string,
+    data: Partial<WebhookEndpointDto>,
+  ): Promise<WebhookEndpointDto> {
+    return request<WebhookEndpointDto>(`/it-admin/webhook-endpoints/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- API Endpoints ---
+  async getApiEndpoints(params?: {
+    companyId?: string;
+    category?: string;
+  }): Promise<ApiEndpointDto[]> {
+    return request<ApiEndpointDto[]>(`/it-admin/api-endpoints${qs(params)}`);
+  }
+
+  async updateApiEndpoint(
+    id: string,
+    data: Partial<ApiEndpointDto>,
+  ): Promise<ApiEndpointDto> {
+    return request<ApiEndpointDto>(`/it-admin/api-endpoints/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- Backup Records ---
+  async getBackupRecords(params?: {
+    companyId?: string;
+    type?: string;
+    status?: string;
+  }): Promise<BackupRecordDto[]> {
+    return request<BackupRecordDto[]>(`/it-admin/backup-records${qs(params)}`);
+  }
+
+  async createBackupRecord(
+    data: Partial<BackupRecordDto>,
+  ): Promise<BackupRecordDto> {
+    return request<BackupRecordDto>('/it-admin/backup-records', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- Export Datasets ---
+  async getExportDatasets(params?: {
+    companyId?: string;
+    category?: string;
+  }): Promise<ExportDatasetDto[]> {
+    return request<ExportDatasetDto[]>(`/it-admin/export-datasets${qs(params)}`);
   }
 }
 

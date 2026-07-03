@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Edit2, Trash2, Users, Settings, Search, Eye, Filter } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface GroupMember {
   id: string;
@@ -23,68 +24,41 @@ interface UserGroup {
 
 export default function UserGroupsPage() {
   const router = useRouter();
-  const [groups, setGroups] = useState<UserGroup[]>([
-    {
-      id: '1',
-      name: 'Operations Managers',
-      description: 'Managers in operations department with full access',
-      memberCount: 5,
-      permissions: ['view', 'edit', 'export', 'manage_users'],
-      createdDate: '2024-01-10',
-      members: [
-        { id: '1', name: 'Raj Kumar', email: 'raj.kumar@company.com', role: 'Manager' },
-        { id: '2', name: 'Priya Singh', email: 'priya.singh@company.com', role: 'Senior Manager' },
-        { id: '3', name: 'Amit Patel', email: 'amit.patel@company.com', role: 'Manager' },
-        { id: '4', name: 'Neha Sharma', email: 'neha.sharma@company.com', role: 'Coordinator' },
-        { id: '5', name: 'Vikram Singh', email: 'vikram.singh@company.com', role: 'Manager' }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Sales Team',
-      description: 'Sales executives and team leads',
-      memberCount: 8,
-      permissions: ['view', 'edit', 'export'],
-      createdDate: '2024-01-12',
-      members: [
-        { id: '6', name: 'Arun Kumar', email: 'arun.kumar@company.com', role: 'Executive' },
-        { id: '7', name: 'Deepak Nair', email: 'deepak.nair@company.com', role: 'Executive' },
-        { id: '8', name: 'Kavya Reddy', email: 'kavya.reddy@company.com', role: 'Team Lead' },
-        { id: '9', name: 'Sanjay Verma', email: 'sanjay.verma@company.com', role: 'Executive' },
-        { id: '10', name: 'Meera Gupta', email: 'meera.gupta@company.com', role: 'Executive' },
-        { id: '11', name: 'Rohan Singh', email: 'rohan.singh@company.com', role: 'Executive' },
-        { id: '12', name: 'Anjali Kumar', email: 'anjali.kumar@company.com', role: 'Team Lead' },
-        { id: '13', name: 'Harsh Patel', email: 'harsh.patel@company.com', role: 'Executive' }
-      ]
-    },
-    {
-      id: '3',
-      name: 'IT Administrators',
-      description: 'System administrators with elevated privileges',
-      memberCount: 3,
-      permissions: ['view', 'edit', 'delete', 'export', 'manage_users', 'system_config'],
-      createdDate: '2024-01-08',
-      members: [
-        { id: '14', name: 'Sumit Mishra', email: 'sumit.mishra@company.com', role: 'Administrator' },
-        { id: '15', name: 'Pooja Desai', email: 'pooja.desai@company.com', role: 'Specialist' },
-        { id: '16', name: 'Ravi Singh', email: 'ravi.singh@company.com', role: 'Technician' }
-      ]
-    },
-    {
-      id: '4',
-      name: 'HR Team',
-      description: 'Human resources department staff',
-      memberCount: 4,
-      permissions: ['view', 'edit', 'export'],
-      createdDate: '2024-01-15',
-      members: [
-        { id: '17', name: 'Anita Sharma', email: 'anita.sharma@company.com', role: 'Manager' },
-        { id: '18', name: 'Rahul Desai', email: 'rahul.desai@company.com', role: 'Specialist' },
-        { id: '19', name: 'Divya Patel', email: 'divya.patel@company.com', role: 'Coordinator' },
-        { id: '20', name: 'Vikram Kumar', email: 'vikram.kumar@company.com', role: 'Analyst' }
-      ]
-    }
-  ]);
+  const [groups, setGroups] = useState<UserGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await ItAdminService.getUserGroups();
+        const mapped: UserGroup[] = (Array.isArray(raw) ? raw : []).map((g) => ({
+          id: String(g.id),
+          name: g.name ?? '',
+          description: g.description ?? '',
+          memberCount: Number(g.memberCount ?? (g.members?.length ?? 0)),
+          permissions: Array.isArray(g.permissions) ? g.permissions : [],
+          createdDate: g.createdDate ?? '',
+          members: Array.isArray(g.members) ? g.members : [],
+        }));
+        if (!cancelled) setGroups(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load user groups');
+          setGroups([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [selectedGroup, setSelectedGroup] = useState<UserGroup | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -121,6 +95,16 @@ export default function UserGroupsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3">
       <div className="w-full">
+        {loadError && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+        {isLoading && (
+          <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700">
+            Loading user groups...
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Target, Trophy, TrendingUp, TrendingDown, Users, Package, DollarSign, Calendar, Award, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface SalesTarget {
   id: string
@@ -26,179 +27,43 @@ export default function TargetsPage() {
   const [selectedType, setSelectedType] = useState('all')
   const [selectedPeriod, setSelectedPeriod] = useState('all')
 
-  const [targets] = useState<SalesTarget[]>([
-    {
-      id: 'TGT-001',
-      name: 'Q4 2025 Kitchen Products Revenue',
-      type: 'team',
-      period: 'Q4 2025',
-      target: 180000000,
-      achieved: 51200000,
-      progress: 28.4,
-      status: 'on-track',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-002',
-      name: 'Premium Countertops Sales - Rajesh Kumar',
-      type: 'individual',
-      period: 'October 2025',
-      target: 5000000,
-      achieved: 4156000,
-      progress: 83.1,
-      status: 'on-track',
-      assignedTo: 'Rajesh Kumar (Senior Sales Manager)',
-      category: 'Countertops',
-      startDate: '2025-10-01',
-      endDate: '2025-10-31',
-      daysRemaining: 11
-    },
-    {
-      id: 'TGT-003',
-      name: 'Kitchen Appliances Monthly Target',
-      type: 'category',
-      period: 'October 2025',
-      target: 3000000,
-      achieved: 2345000,
-      progress: 78.2,
-      status: 'on-track',
-      category: 'Kitchen Appliances',
-      startDate: '2025-10-01',
-      endDate: '2025-10-31',
-      daysRemaining: 11
-    },
-    {
-      id: 'TGT-004',
-      name: 'South India Regional Sales',
-      type: 'regional',
-      period: 'Q4 2025',
-      target: 50000000,
-      achieved: 14123000,
-      progress: 28.2,
-      status: 'on-track',
-      region: 'South India',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-005',
-      name: 'Kitchen Storage Sales - Priya Sharma',
-      type: 'individual',
-      period: 'October 2025',
-      target: 2500000,
-      achieved: 1876000,
-      progress: 75.0,
-      status: 'at-risk',
-      assignedTo: 'Priya Sharma (Sales Executive)',
-      category: 'Kitchen Storage',
-      startDate: '2025-10-01',
-      endDate: '2025-10-31',
-      daysRemaining: 11
-    },
-    {
-      id: 'TGT-006',
-      name: 'Kitchen Faucets Category Target',
-      type: 'category',
-      period: 'Q4 2025',
-      target: 6000000,
-      achieved: 1567000,
-      progress: 26.1,
-      status: 'on-track',
-      category: 'Kitchen Faucets',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-007',
-      name: 'West India Market Expansion',
-      type: 'regional',
-      period: 'Q4 2025',
-      target: 45000000,
-      achieved: 13987000,
-      progress: 31.1,
-      status: 'exceeded',
-      region: 'West India',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-008',
-      name: 'Cookware Turnaround - Amit Patel',
-      type: 'individual',
-      period: 'Q4 2025',
-      target: 3500000,
-      achieved: 987000,
-      progress: 28.2,
-      status: 'behind',
-      assignedTo: 'Amit Patel (Sales Manager)',
-      category: 'Cookware',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-009',
-      name: 'North India Builder Segment',
-      type: 'regional',
-      period: 'October 2025',
-      target: 15000000,
-      achieved: 12456000,
-      progress: 83.0,
-      status: 'on-track',
-      region: 'North India',
-      startDate: '2025-10-01',
-      endDate: '2025-10-31',
-      daysRemaining: 11
-    },
-    {
-      id: 'TGT-010',
-      name: 'Kitchen Sinks Sales Target',
-      type: 'category',
-      period: 'Q4 2025',
-      target: 5000000,
-      achieved: 1245000,
-      progress: 24.9,
-      status: 'on-track',
-      category: 'Kitchen Sinks',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-011',
-      name: 'Premium Segment Growth - Sneha Reddy',
-      type: 'individual',
-      period: 'Q4 2025',
-      target: 8000000,
-      achieved: 3567000,
-      progress: 44.6,
-      status: 'exceeded',
-      assignedTo: 'Sneha Reddy (Regional Manager)',
-      category: 'Countertops',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
-    },
-    {
-      id: 'TGT-012',
-      name: 'East India Market Recovery',
-      type: 'regional',
-      period: 'Q4 2025',
-      target: 30000000,
-      achieved: 7345000,
-      progress: 24.5,
-      status: 'at-risk',
-      region: 'East India',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      daysRemaining: 72
+  const [targets, setTargets] = useState<SalesTarget[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getSalesTargets()
+        const mapped: SalesTarget[] = (rows || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: (r.type as SalesTarget['type']) || 'team',
+          period: r.period || '',
+          target: Number(r.target) || 0,
+          achieved: Number(r.achieved) || 0,
+          progress: Number(r.progress) || 0,
+          status: (r.status as SalesTarget['status']) || 'on-track',
+          assignedTo: r.assignedTo,
+          category: r.category,
+          region: r.region,
+          startDate: r.startDate || '',
+          endDate: r.endDate || '',
+          daysRemaining: Number(r.daysRemaining) || 0,
+        }))
+        if (!cancelled) setTargets(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load sales targets')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const targetTypes = ['all', 'individual', 'team', 'category', 'regional']
   const periods = ['all', 'October 2025', 'Q4 2025', 'FY 2025-26']
@@ -260,7 +125,7 @@ export default function TargetsPage() {
     onTrack: filteredTargets.filter(t => t.status === 'on-track').length,
     atRisk: filteredTargets.filter(t => t.status === 'at-risk').length,
     behind: filteredTargets.filter(t => t.status === 'behind').length,
-    avgProgress: filteredTargets.reduce((sum, t) => sum + t.progress, 0) / filteredTargets.length
+    avgProgress: filteredTargets.length > 0 ? filteredTargets.reduce((sum, t) => sum + t.progress, 0) / filteredTargets.length : 0
   }
 
   return (

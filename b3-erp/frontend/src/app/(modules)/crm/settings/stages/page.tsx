@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, GripVertical, Edit, Trash2, CheckCircle, Clock, Target, TrendingUp, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface DealStage {
   id: string;
@@ -22,126 +23,53 @@ interface DealStage {
   createdDate: string;
 }
 
-const mockStages: DealStage[] = [
-  {
-    id: '1',
-    name: 'Lead',
-    description: 'Initial contact or inquiry from potential customer',
-    order: 1,
-    probability: 10,
-    color: 'blue',
-    isActive: true,
-    rottenDays: 30,
-    dealsCount: 145,
-    totalValue: 1250000,
-    avgDealSize: 8620,
-    avgDaysInStage: 5,
-    conversionRate: 68.2,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '2',
-    name: 'Qualified',
-    description: 'Lead has been qualified and shows genuine interest',
-    order: 2,
-    probability: 25,
-    color: 'purple',
-    isActive: true,
-    rottenDays: 21,
-    dealsCount: 98,
-    totalValue: 890000,
-    avgDealSize: 9081,
-    avgDaysInStage: 7,
-    conversionRate: 72.4,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '3',
-    name: 'Meeting Scheduled',
-    description: 'Discovery or demo meeting has been scheduled',
-    order: 3,
-    probability: 40,
-    color: 'yellow',
-    isActive: true,
-    rottenDays: 14,
-    dealsCount: 71,
-    totalValue: 680000,
-    avgDealSize: 9577,
-    avgDaysInStage: 4,
-    conversionRate: 78.9,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '4',
-    name: 'Proposal Sent',
-    description: 'Formal proposal or quote has been sent to customer',
-    order: 4,
-    probability: 60,
-    color: 'orange',
-    isActive: true,
-    rottenDays: 10,
-    dealsCount: 56,
-    totalValue: 590000,
-    avgDealSize: 10535,
-    avgDaysInStage: 6,
-    conversionRate: 64.3,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '5',
-    name: 'Negotiation',
-    description: 'Actively negotiating terms, pricing, or contract details',
-    order: 5,
-    probability: 80,
-    color: 'teal',
-    isActive: true,
-    rottenDays: 7,
-    dealsCount: 36,
-    totalValue: 480000,
-    avgDealSize: 13333,
-    avgDaysInStage: 5,
-    conversionRate: 83.3,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '6',
-    name: 'Closed Won',
-    description: 'Deal successfully closed and contract signed',
-    order: 6,
-    probability: 100,
-    color: 'green',
-    isActive: true,
-    rottenDays: 0,
-    dealsCount: 30,
-    totalValue: 450000,
-    avgDealSize: 15000,
-    avgDaysInStage: 0,
-    conversionRate: 100,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '7',
-    name: 'Closed Lost',
-    description: 'Deal was lost to competitor or customer decided not to proceed',
-    order: 7,
-    probability: 0,
-    color: 'red',
-    isActive: true,
-    rottenDays: 0,
-    dealsCount: 78,
-    totalValue: 0,
-    avgDealSize: 0,
-    avgDaysInStage: 0,
-    conversionRate: 0,
-    createdDate: '2024-01-10',
-  },
-];
-
 export default function DealStagesPage() {
   const router = useRouter();
-  const [stages, setStages] = useState<DealStage[]>(mockStages);
+  const [stages, setStages] = useState<DealStage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [stageToDelete, setStageToDelete] = useState<DealStage | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.pipelineStageConfigs.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setStages(
+          rows.map((s: any): DealStage => ({
+            id: String(s.id),
+            name: s.name ?? '',
+            description: s.description ?? '',
+            order: Number(s.orderIndex ?? s.order ?? 0),
+            probability: Number(s.probability ?? 0),
+            color: s.color ?? 'blue',
+            isActive: s.active ?? s.isActive ?? true,
+            rottenDays: Number(s.rottenDays ?? 0),
+            dealsCount: Number(s.dealsCount ?? 0),
+            totalValue: Number(s.totalValue ?? 0),
+            avgDealSize: Number(s.avgDealSize ?? 0),
+            avgDaysInStage: Number(s.avgDaysInStage ?? 0),
+            conversionRate: Number(s.conversionRate ?? 0),
+            createdDate: s.createdAt ?? s.createdDate ?? '',
+          })),
+        );
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load stages');
+        setStages([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleAddStage = () => {
     router.push('/crm/settings/stages/add');
@@ -209,6 +137,11 @@ export default function DealStagesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

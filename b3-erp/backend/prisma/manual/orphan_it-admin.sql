@@ -212,3 +212,149 @@ CREATE TABLE IF NOT EXISTS "it_notification_settings" (
   CONSTRAINT "PK_it_notification_settings" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_it_notification_settings_companyId" ON "it_notification_settings" ("companyId");
+
+-- ============================================================================
+-- Round 2 additive tables (mock-only page wiring)
+-- ============================================================================
+
+-- User groups (users/groups)
+CREATE TABLE IF NOT EXISTS "it_user_groups" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "description" text,
+  "memberCount" integer NOT NULL DEFAULT 0,
+  "permissions" text,
+  "members" jsonb,
+  "createdDate" varchar(50),
+  "status" varchar(50) NOT NULL DEFAULT 'Active',
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_user_groups" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_user_groups_companyId" ON "it_user_groups" ("companyId");
+
+-- License features (license/features)
+CREATE TABLE IF NOT EXISTS "it_license_features" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "description" text,
+  "category" varchar(100) NOT NULL DEFAULT 'Core Features',
+  "enabled" boolean NOT NULL DEFAULT false,
+  "included" boolean NOT NULL DEFAULT true,
+  "tier" varchar(50),
+  "usageLimit" integer,
+  "usageCount" integer NOT NULL DEFAULT 0,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_license_features" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_license_features_companyId" ON "it_license_features" ("companyId");
+
+-- License users (license/users)
+CREATE TABLE IF NOT EXISTS "it_license_users" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "email" varchar(200),
+  "role" varchar(100),
+  "department" varchar(100),
+  "licenseType" varchar(50) NOT NULL DEFAULT 'Named',
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "assignedDate" varchar(50),
+  "lastActive" varchar(50),
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_license_users" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_license_users_companyId" ON "it_license_users" ("companyId");
+
+-- Security policies (roles/policies)
+CREATE TABLE IF NOT EXISTS "it_security_policies" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "description" text,
+  "type" varchar(50) NOT NULL DEFAULT 'security',
+  "enabled" boolean NOT NULL DEFAULT true,
+  "appliedRoles" text,
+  "severity" varchar(50) NOT NULL DEFAULT 'medium',
+  "config" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_security_policies" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_security_policies_companyId" ON "it_security_policies" ("companyId");
+
+-- Webhook endpoints (system/webhooks)
+CREATE TABLE IF NOT EXISTS "it_webhook_endpoints" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "url" text,
+  "events" text,
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "secret" varchar(200),
+  "lastTriggered" varchar(50),
+  "successCount" integer NOT NULL DEFAULT 0,
+  "failureCount" integer NOT NULL DEFAULT 0,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_webhook_endpoints" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_webhook_endpoints_companyId" ON "it_webhook_endpoints" ("companyId");
+
+-- API endpoints (system/api)
+CREATE TABLE IF NOT EXISTS "it_api_endpoints" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "method" varchar(20) NOT NULL DEFAULT 'GET',
+  "path" text,
+  "description" text,
+  "category" varchar(100) NOT NULL DEFAULT 'General',
+  "enabled" boolean NOT NULL DEFAULT true,
+  "authRequired" boolean NOT NULL DEFAULT true,
+  "parameters" jsonb,
+  "rateLimit" integer,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_api_endpoints" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_api_endpoints_companyId" ON "it_api_endpoints" ("companyId");
+
+-- Backup records (database/backup)
+CREATE TABLE IF NOT EXISTS "it_backup_records" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "type" varchar(50) NOT NULL DEFAULT 'full',
+  "status" varchar(50) NOT NULL DEFAULT 'completed',
+  "size" varchar(50),
+  "location" varchar(50),
+  "startedAt" varchar(50),
+  "completedAt" varchar(50),
+  "duration" varchar(50),
+  "automated" boolean NOT NULL DEFAULT false,
+  "createdBy" varchar(150),
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_backup_records" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_backup_records_companyId" ON "it_backup_records" ("companyId");
+
+-- Export datasets (database/export)
+CREATE TABLE IF NOT EXISTS "it_export_datasets" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "name" varchar(200) NOT NULL,
+  "category" varchar(100) NOT NULL DEFAULT 'General',
+  "recordCount" integer NOT NULL DEFAULT 0,
+  "size" varchar(50),
+  "exportable" boolean NOT NULL DEFAULT true,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_export_datasets" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_export_datasets_companyId" ON "it_export_datasets" ("companyId");

@@ -52,6 +52,14 @@ import {
   CPQIntegration,
 } from './entities';
 import { CPQApprovalItem } from './entities/cpq-approval-item.entity';
+import {
+  CPQConfigRuleItem,
+  CPQCompatibilityEntry,
+  CPQCrossSellRule,
+  CPQRecommendation,
+  CPQCodeListItem,
+  CPQIntegrationSyncLog,
+} from './entities/cpq-orphans.entity';
 
 // Services
 import {
@@ -65,6 +73,14 @@ import {
 } from './services';
 import { CPQApprovalItemService } from './services/cpq-approval-item.service';
 import { CPQAnalyticsDashboardsService } from './services/cpq-analytics-dashboards.service';
+import {
+  CPQConfigRuleItemService,
+  CPQCompatibilityEntryService,
+  CPQCrossSellRuleService,
+  CPQRecommendationService,
+  CPQCodeListItemService,
+  CPQIntegrationSyncLogService,
+} from './services/cpq-orphans.service';
 
 // Controllers
 import {
@@ -78,6 +94,14 @@ import {
 } from './controllers';
 import { CPQApprovalItemController } from './controllers/cpq-approval-item.controller';
 import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-dashboards.controller';
+import {
+  CPQConfigRuleItemController,
+  CPQCompatibilityEntryController,
+  CPQCrossSellRuleController,
+  CPQRecommendationController,
+  CPQCodeListItemController,
+  CPQIntegrationSyncLogController,
+} from './controllers/cpq-orphans.controller';
 
 @Module({
   imports: [
@@ -130,6 +154,13 @@ import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-da
       CPQNotificationSetting,
       CPQIntegration,
       CPQApprovalItem,
+      // Orphan-page tables
+      CPQConfigRuleItem,
+      CPQCompatibilityEntry,
+      CPQCrossSellRule,
+      CPQRecommendation,
+      CPQCodeListItem,
+      CPQIntegrationSyncLog,
     ]),
   ],
   controllers: [
@@ -142,6 +173,12 @@ import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-da
     CPQSettingsController,
     CPQApprovalItemController,
     CPQAnalyticsDashboardsController,
+    CPQConfigRuleItemController,
+    CPQCompatibilityEntryController,
+    CPQCrossSellRuleController,
+    CPQRecommendationController,
+    CPQCodeListItemController,
+    CPQIntegrationSyncLogController,
   ],
   providers: [
     ProductConfigurationService,
@@ -153,6 +190,12 @@ import { CPQAnalyticsDashboardsController } from './controllers/cpq-analytics-da
     CPQSettingsService,
     CPQApprovalItemService,
     CPQAnalyticsDashboardsService,
+    CPQConfigRuleItemService,
+    CPQCompatibilityEntryService,
+    CPQCrossSellRuleService,
+    CPQRecommendationService,
+    CPQCodeListItemService,
+    CPQIntegrationSyncLogService,
   ],
   exports: [
     ProductConfigurationService,

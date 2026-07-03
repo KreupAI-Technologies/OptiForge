@@ -25,6 +25,14 @@ import { AutomationRule } from './entities/automation-rule.entity';
 import { SecurityAlert } from './entities/security-alert.entity';
 import { PasswordPolicy } from './entities/password-policy.entity';
 import { NotificationSetting } from './entities/notification-setting.entity';
+import { UserGroup } from './entities/user-group.entity';
+import { LicenseFeature } from './entities/license-feature.entity';
+import { LicenseUser } from './entities/license-user.entity';
+import { SecurityPolicy } from './entities/security-policy.entity';
+import { WebhookEndpoint } from './entities/webhook-endpoint.entity';
+import { ApiEndpoint } from './entities/api-endpoint.entity';
+import { BackupRecord } from './entities/backup-record.entity';
+import { ExportDataset } from './entities/export-dataset.entity';
 
 // Services
 import { UserService } from './services/user.service';
@@ -49,6 +57,14 @@ import { AutomationRuleService } from './services/automation-rule.service';
 import { SecurityAlertService } from './services/security-alert.service';
 import { PasswordPolicyService } from './services/password-policy.service';
 import { NotificationSettingService } from './services/notification-setting.service';
+import { UserGroupService } from './services/user-group.service';
+import { LicenseFeatureService } from './services/license-feature.service';
+import { LicenseUserService } from './services/license-user.service';
+import { SecurityPolicyService } from './services/security-policy.service';
+import { WebhookEndpointService } from './services/webhook-endpoint.service';
+import { ApiEndpointService } from './services/api-endpoint.service';
+import { BackupRecordService } from './services/backup-record.service';
+import { ExportDatasetService } from './services/export-dataset.service';
 
 // Seeders
 import { RoleSeederService } from './services/role-seeder.service';
@@ -79,6 +95,14 @@ import { AutomationRuleController } from './controllers/automation-rule.controll
 import { SecurityAlertController } from './controllers/security-alert.controller';
 import { PasswordPolicyController } from './controllers/password-policy.controller';
 import { NotificationSettingController } from './controllers/notification-setting.controller';
+import { UserGroupController } from './controllers/user-group.controller';
+import { LicenseFeatureController } from './controllers/license-feature.controller';
+import { LicenseUserController } from './controllers/license-user.controller';
+import { SecurityPolicyController } from './controllers/security-policy.controller';
+import { WebhookEndpointController } from './controllers/webhook-endpoint.controller';
+import { ApiEndpointController } from './controllers/api-endpoint.controller';
+import { BackupRecordController } from './controllers/backup-record.controller';
+import { ExportDatasetController } from './controllers/export-dataset.controller';
 
 @Module({
   imports: [
@@ -106,6 +130,14 @@ import { NotificationSettingController } from './controllers/notification-settin
       SecurityAlert,
       PasswordPolicy,
       NotificationSetting,
+      UserGroup,
+      LicenseFeature,
+      LicenseUser,
+      SecurityPolicy,
+      WebhookEndpoint,
+      ApiEndpoint,
+      BackupRecord,
+      ExportDataset,
     ]),
   ],
   controllers: [
@@ -128,6 +160,14 @@ import { NotificationSettingController } from './controllers/notification-settin
     SecurityAlertController,
     PasswordPolicyController,
     NotificationSettingController,
+    UserGroupController,
+    LicenseFeatureController,
+    LicenseUserController,
+    SecurityPolicyController,
+    WebhookEndpointController,
+    ApiEndpointController,
+    BackupRecordController,
+    ExportDatasetController,
   ],
   providers: [
     UserService,
@@ -153,6 +193,14 @@ import { NotificationSettingController } from './controllers/notification-settin
     SecurityAlertService,
     PasswordPolicyService,
     NotificationSettingService,
+    UserGroupService,
+    LicenseFeatureService,
+    LicenseUserService,
+    SecurityPolicyService,
+    WebhookEndpointService,
+    ApiEndpointService,
+    BackupRecordService,
+    ExportDatasetService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,

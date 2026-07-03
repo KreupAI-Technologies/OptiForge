@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Database, Plus, Download, RotateCcw, Trash2, CheckCircle, XCircle, Clock, HardDrive, Calendar, Settings } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface Backup {
   id: string;
@@ -36,92 +37,48 @@ export default function DatabaseBackupPage() {
   const [selectedBackup, setSelectedBackup] = useState<string | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-  const [backups, setBackups] = useState<Backup[]>([
-    {
-      id: '1',
-      name: 'daily_backup_20240120_0200',
-      type: 'full',
-      status: 'completed',
-      size: '2.4 GB',
-      timestamp: '2024-01-20 02:00:00',
-      duration: '12m 34s',
-      location: '/backups/2024/01/daily_backup_20240120_0200.sql.gz',
-      tables: 156,
-      records: 2847563,
-      compression: 'gzip',
-      encryption: true
-    },
-    {
-      id: '2',
-      name: 'incremental_20240120_1400',
-      type: 'incremental',
-      status: 'completed',
-      size: '345 MB',
-      timestamp: '2024-01-20 14:00:00',
-      duration: '3m 12s',
-      location: '/backups/2024/01/incremental_20240120_1400.sql.gz',
-      tables: 42,
-      records: 184521,
-      compression: 'gzip',
-      encryption: true
-    },
-    {
-      id: '3',
-      name: 'manual_backup_20240119_1630',
-      type: 'full',
-      status: 'completed',
-      size: '2.3 GB',
-      timestamp: '2024-01-19 16:30:00',
-      duration: '11m 58s',
-      location: '/backups/2024/01/manual_backup_20240119_1630.sql.gz',
-      tables: 156,
-      records: 2832145,
-      compression: 'gzip',
-      encryption: true
-    },
-    {
-      id: '4',
-      name: 'weekly_backup_20240115_0300',
-      type: 'full',
-      status: 'completed',
-      size: '2.2 GB',
-      timestamp: '2024-01-15 03:00:00',
-      duration: '11m 45s',
-      location: '/backups/2024/01/weekly_backup_20240115_0300.sql.gz',
-      tables: 156,
-      records: 2765432,
-      compression: 'gzip',
-      encryption: true
-    },
-    {
-      id: '5',
-      name: 'backup_in_progress',
-      type: 'incremental',
-      status: 'in-progress',
-      size: '0 MB',
-      timestamp: '2024-01-20 18:00:00',
-      duration: '1m 24s',
-      location: '/backups/temp/backup_in_progress.sql.gz',
-      tables: 28,
-      records: 95234,
-      compression: 'gzip',
-      encryption: true
-    },
-    {
-      id: '6',
-      name: 'failed_backup_20240118',
-      type: 'full',
-      status: 'failed',
-      size: '0 MB',
-      timestamp: '2024-01-18 02:00:00',
-      duration: '0m 45s',
-      location: '/backups/failed/failed_backup_20240118.sql.gz',
-      tables: 0,
-      records: 0,
-      compression: 'gzip',
-      encryption: false
-    }
-  ]);
+  const [backups, setBackups] = useState<Backup[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBackups = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const records = await ItAdminService.getBackupRecords();
+        if (cancelled) return;
+        const mapped: Backup[] = records.map((record) => ({
+          id: record.id,
+          name: record.name,
+          type: (record.type as Backup['type']) || 'full',
+          status: (record.status as Backup['status']) || 'scheduled',
+          size: record.size || '0 MB',
+          timestamp: record.completedAt || record.startedAt || record.createdAt || '',
+          duration: record.duration || '-',
+          location: record.location || '',
+          tables: 0,
+          records: 0,
+          compression: 'gzip',
+          encryption: false
+        }));
+        setBackups(mapped);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load backup records');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    loadBackups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [scheduledBackups, setScheduledBackups] = useState<ScheduledBackup[]>([
     {
@@ -231,6 +188,16 @@ export default function DatabaseBackupPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2 w-full max-w-full">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 text-sm">
+          Loading...
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+          {loadError}
+        </div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

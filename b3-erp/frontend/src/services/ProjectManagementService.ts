@@ -170,6 +170,246 @@ export interface PmAnalyticsSummary {
     }>;
 }
 
+// --- Newly-wired PM CRUD list feature types ---
+export interface PmSiteIssue {
+    id: string;
+    companyId?: string;
+    issueNumber?: string;
+    projectId?: string;
+    projectName?: string;
+    issueTitle?: string;
+    issueType?: string;
+    severity?: string;
+    priority?: string;
+    reportedDate?: string;
+    reportedBy?: string;
+    reportedByRole?: string;
+    location?: string;
+    description?: string;
+    impactOnWork?: string;
+    rootCause?: string;
+    proposedSolution?: string;
+    assignedTo?: string;
+    targetDate?: string;
+    actualResolutionDate?: string;
+    status?: string;
+    resolutionDetails?: string;
+    costImpact?: number;
+    scheduleImpact?: number;
+    preventiveMeasures?: string;
+    attachments?: number;
+    relatedIssues?: string[];
+}
+
+export interface PmMaterialConsumption {
+    id: string;
+    companyId?: string;
+    date?: string;
+    projectId?: string;
+    projectName?: string;
+    workPackage?: string;
+    materialCode?: string;
+    materialName?: string;
+    category?: string;
+    unit?: string;
+    plannedQty?: number;
+    consumedQty?: number;
+    variance?: number;
+    variancePercent?: number;
+    unitCost?: number;
+    totalCost?: number;
+    source?: string;
+    issuedBy?: string;
+    receivedBy?: string;
+    warehouseLocation?: string;
+    remarks?: string;
+    status?: string;
+}
+
+export interface PmLaborEntry {
+    id: string;
+    companyId?: string;
+    date?: string;
+    projectId?: string;
+    projectName?: string;
+    workPackage?: string;
+    laborCategory?: string;
+    workersDeployed?: number;
+    hoursWorked?: number;
+    overtimeHours?: number;
+    totalManhours?: number;
+    plannedManhours?: number;
+    variance?: number;
+    hourlyRate?: number;
+    overtimeRate?: number;
+    totalCost?: number;
+    workDescription?: string;
+    shift?: string;
+    efficiency?: number;
+    supervisor?: string;
+    remarks?: string;
+}
+
+export interface PmProjectCost {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    projectName?: string;
+    projectType?: string;
+    customer?: string;
+    startDate?: string;
+    endDate?: string;
+    progress?: number;
+    status?: string;
+    totalBudget?: number;
+    actualCost?: number;
+    committedCost?: number;
+    forecastedCost?: number;
+    variance?: number;
+    variancePercent?: number;
+    costBreakdown?: any[];
+    profitMargin?: number;
+    actualProfit?: number;
+}
+
+export interface PmCommissioningActivity {
+    id: string;
+    companyId?: string;
+    activityNumber?: string;
+    projectId?: string;
+    projectName?: string;
+    equipmentSystem?: string;
+    systemCode?: string;
+    commissioningType?: string;
+    scheduledDate?: string;
+    actualDate?: string;
+    duration?: number;
+    status?: string;
+    progress?: number;
+    engineer?: string;
+    clientRep?: string;
+    testParameters?: any[];
+    checklistItems?: any[];
+    totalChecks?: number;
+    passedChecks?: number;
+    failedChecks?: number;
+    observations?: string;
+    recommendations?: string;
+    certificateIssued?: boolean;
+    certificateNumber?: string;
+    nextActivity?: string;
+    dependencies?: string[];
+    attachments?: number;
+}
+
+export interface PmCustomerAcceptance {
+    id: string;
+    companyId?: string;
+    acceptanceNumber?: string;
+    projectId?: string;
+    projectName?: string;
+    projectType?: string;
+    customer?: string;
+    customerContact?: string;
+    customerEmail?: string;
+    acceptanceDate?: string;
+    acceptanceType?: string;
+    phase?: string;
+    deliverables?: string[];
+    acceptanceCriteria?: any[];
+    totalCriteria?: number;
+    criteriaMet?: number;
+    criteriaPending?: number;
+    documentation?: any[];
+    totalDocuments?: number;
+    docsSubmitted?: number;
+    docsPending?: number;
+    defectsList?: string[];
+    punchListItems?: number;
+    completedPunchItems?: number;
+    trainingCompleted?: boolean;
+    warrantyPeriod?: string;
+    warrantyStartDate?: string;
+    amcOffered?: boolean;
+    amcDuration?: string;
+    signedBy?: string;
+    signedByDesignation?: string;
+    signedDate?: string;
+    witnessedBy?: string;
+    overallStatus?: string;
+    remarks?: string;
+    attachments?: number;
+}
+
+export interface PmProjectProfitability {
+    id: string;
+    companyId?: string;
+    projectId?: string;
+    projectName?: string;
+    clientName?: string;
+    projectType?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    contractValue?: number;
+    actualRevenue?: number;
+    revenueRecognized?: number;
+    totalBudget?: number;
+    actualCost?: number;
+    directCosts?: any;
+    indirectCosts?: any;
+    grossProfit?: number;
+    grossMargin?: number;
+    netProfit?: number;
+    netMargin?: number;
+    budgetVariance?: number;
+    variancePercent?: number;
+    billedAmount?: number;
+    outstandingAmount?: number;
+    paymentStatus?: string;
+    riskLevel?: string;
+}
+
+export interface PmLayoutBriefing {
+    id: string;
+    companyId?: string;
+    briefingNumber?: string;
+    projectId?: string;
+    projectName?: string;
+    briefingDate?: string;
+    briefingTime?: string;
+    location?: string;
+    organizer?: string;
+    status?: string;
+    attendees?: Array<{ name: string; role: string; attended: boolean }>;
+    agenda?: string;
+    minutes?: string;
+    actionItems?: string;
+    attachments?: Array<{ id: string; name: string; type: string }>;
+    duration?: string;
+}
+
+export interface PmProgressEntry {
+    id: string;
+    companyId?: string;
+    date?: string;
+    workPackage?: string;
+    activity?: string;
+    plannedWork?: string;
+    actualWork?: string;
+    completionPercent?: number;
+    laborDeployed?: number;
+    hoursWorked?: number;
+    materialUsed?: string;
+    equipmentUsed?: string;
+    issues?: string;
+    photos?: number;
+    weather?: string;
+    safetyIncidents?: number;
+    reportedBy?: string;
+    status?: string;
+}
+
 export interface Project {
     id: string;
     name: string;
@@ -1830,6 +2070,111 @@ class ProjectManagementService {
             return null;
         }
     }
+
+    // --- Generic CRUD helper for new PM list features ---
+    private async pmList<T>(feature: string, companyId = 'default'): Promise<T[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/${feature}?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? (data as T[]) : [];
+        } catch (error) {
+            console.error(`Error fetching ${feature}:`, error);
+            return [];
+        }
+    }
+
+    private async pmCreate<T>(feature: string, data: Partial<T>): Promise<T | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/${feature}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`POST ${feature} failed: ${res.status}`);
+            return (await res.json()) as T;
+        } catch (error) {
+            console.error(`Error creating ${feature}:`, error);
+            return null;
+        }
+    }
+
+    private async pmUpdate<T>(feature: string, id: string, data: Partial<T>): Promise<T | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/${feature}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT ${feature} failed: ${res.status}`);
+            return (await res.json()) as T;
+        } catch (error) {
+            console.error(`Error updating ${feature}:`, error);
+            return null;
+        }
+    }
+
+    private async pmDelete(feature: string, id: string): Promise<void> {
+        try {
+            await fetch(`${API_BASE_URL}/project-management/${feature}/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error(`Error deleting ${feature}:`, error);
+        }
+    }
+
+    // Site issues
+    listSiteIssues(companyId = 'default') { return this.pmList<PmSiteIssue>('site-issues', companyId); }
+    createSiteIssue(data: Partial<PmSiteIssue>) { return this.pmCreate<PmSiteIssue>('site-issues', data); }
+    updateSiteIssue(id: string, data: Partial<PmSiteIssue>) { return this.pmUpdate<PmSiteIssue>('site-issues', id, data); }
+    deleteSiteIssue(id: string) { return this.pmDelete('site-issues', id); }
+
+    // Material consumption
+    listMaterialConsumption(companyId = 'default') { return this.pmList<PmMaterialConsumption>('material-consumption', companyId); }
+    createMaterialConsumption(data: Partial<PmMaterialConsumption>) { return this.pmCreate<PmMaterialConsumption>('material-consumption', data); }
+    updateMaterialConsumption(id: string, data: Partial<PmMaterialConsumption>) { return this.pmUpdate<PmMaterialConsumption>('material-consumption', id, data); }
+    deleteMaterialConsumption(id: string) { return this.pmDelete('material-consumption', id); }
+
+    // Labor tracking
+    listLaborEntries(companyId = 'default') { return this.pmList<PmLaborEntry>('labor-tracking', companyId); }
+    createLaborEntry(data: Partial<PmLaborEntry>) { return this.pmCreate<PmLaborEntry>('labor-tracking', data); }
+    updateLaborEntry(id: string, data: Partial<PmLaborEntry>) { return this.pmUpdate<PmLaborEntry>('labor-tracking', id, data); }
+    deleteLaborEntry(id: string) { return this.pmDelete('labor-tracking', id); }
+
+    // Project costing
+    listProjectCosts(companyId = 'default') { return this.pmList<PmProjectCost>('project-costing', companyId); }
+    createProjectCost(data: Partial<PmProjectCost>) { return this.pmCreate<PmProjectCost>('project-costing', data); }
+    updateProjectCost(id: string, data: Partial<PmProjectCost>) { return this.pmUpdate<PmProjectCost>('project-costing', id, data); }
+    deleteProjectCost(id: string) { return this.pmDelete('project-costing', id); }
+
+    // Commissioning
+    listCommissioningActivities(companyId = 'default') { return this.pmList<PmCommissioningActivity>('commissioning', companyId); }
+    createCommissioningActivity(data: Partial<PmCommissioningActivity>) { return this.pmCreate<PmCommissioningActivity>('commissioning', data); }
+    updateCommissioningActivity(id: string, data: Partial<PmCommissioningActivity>) { return this.pmUpdate<PmCommissioningActivity>('commissioning', id, data); }
+    deleteCommissioningActivity(id: string) { return this.pmDelete('commissioning', id); }
+
+    // Customer acceptance
+    listCustomerAcceptances(companyId = 'default') { return this.pmList<PmCustomerAcceptance>('customer-acceptance', companyId); }
+    createCustomerAcceptance(data: Partial<PmCustomerAcceptance>) { return this.pmCreate<PmCustomerAcceptance>('customer-acceptance', data); }
+    updateCustomerAcceptance(id: string, data: Partial<PmCustomerAcceptance>) { return this.pmUpdate<PmCustomerAcceptance>('customer-acceptance', id, data); }
+    deleteCustomerAcceptance(id: string) { return this.pmDelete('customer-acceptance', id); }
+
+    // Profitability
+    listProfitability(companyId = 'default') { return this.pmList<PmProjectProfitability>('profitability', companyId); }
+    createProfitability(data: Partial<PmProjectProfitability>) { return this.pmCreate<PmProjectProfitability>('profitability', data); }
+    updateProfitability(id: string, data: Partial<PmProjectProfitability>) { return this.pmUpdate<PmProjectProfitability>('profitability', id, data); }
+    deleteProfitability(id: string) { return this.pmDelete('profitability', id); }
+
+    // Briefings
+    listBriefings(companyId = 'default') { return this.pmList<PmLayoutBriefing>('briefings', companyId); }
+    createBriefing(data: Partial<PmLayoutBriefing>) { return this.pmCreate<PmLayoutBriefing>('briefings', data); }
+    updateBriefing(id: string, data: Partial<PmLayoutBriefing>) { return this.pmUpdate<PmLayoutBriefing>('briefings', id, data); }
+    deleteBriefing(id: string) { return this.pmDelete('briefings', id); }
+
+    // Progress entries
+    listProgressEntries(companyId = 'default') { return this.pmList<PmProgressEntry>('progress', companyId); }
+    createProgressEntry(data: Partial<PmProgressEntry>) { return this.pmCreate<PmProgressEntry>('progress', data); }
+    updateProgressEntry(id: string, data: Partial<PmProgressEntry>) { return this.pmUpdate<PmProgressEntry>('progress', id, data); }
+    deleteProgressEntry(id: string) { return this.pmDelete('progress', id); }
 }
 
 export const projectManagementService = new ProjectManagementService();

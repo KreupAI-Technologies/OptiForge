@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Search, Filter, Star, Building2, TrendingDown, Package, Calendar, Award } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface SpecialPrice {
   id: string
@@ -29,235 +30,46 @@ export default function SpecialPricingPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('all')
 
-  const [specialPrices] = useState<SpecialPrice[]>([
-    {
-      id: 'SP-001',
-      customerName: 'Builders Association India',
-      customerType: 'builder',
-      productCode: 'KIT-SS-001',
-      productName: 'Stainless Steel Kitchen Sink (Single Bowl)',
-      category: 'Kitchen Sinks',
-      standardPrice: 12500,
-      specialPrice: 9375,
-      discountPercent: 25,
-      minOrderQty: 50,
-      validFrom: '2025-10-01',
-      validTo: '2026-03-31',
-      status: 'active',
-      approvedBy: 'Sales Director',
-      contractRef: 'CNT-2025-089',
-      orderCount: 8,
-      totalRevenue: 3750000
-    },
-    {
-      id: 'SP-002',
-      customerName: 'Home Decor Plus (Dealer)',
-      customerType: 'dealer',
-      productCode: 'KIT-FC-002',
-      productName: 'Brass Kitchen Faucet with Pull-Out Spray',
-      category: 'Kitchen Faucets',
-      standardPrice: 18500,
-      specialPrice: 14800,
-      discountPercent: 20,
-      minOrderQty: 30,
-      validFrom: '2025-09-15',
-      validTo: '2025-12-31',
-      status: 'active',
-      approvedBy: 'Regional Manager',
-      contractRef: 'CNT-2025-124',
-      orderCount: 5,
-      totalRevenue: 2220000
-    },
-    {
-      id: 'SP-003',
-      customerName: 'Elite Contractors Pvt Ltd',
-      customerType: 'contractor',
-      productCode: 'KIT-CB-001',
-      productName: 'Modular Kitchen Base Cabinet (24")',
-      category: 'Kitchen Storage',
-      standardPrice: 25000,
-      specialPrice: 17500,
-      discountPercent: 30,
-      minOrderQty: 20,
-      validFrom: '2025-10-01',
-      validTo: '2026-06-30',
-      status: 'active',
-      approvedBy: 'Sales Director',
-      contractRef: 'CNT-2025-156',
-      orderCount: 12,
-      totalRevenue: 4200000
-    },
-    {
-      id: 'SP-004',
-      customerName: 'Luxury Homes & Villas',
-      customerType: 'vip',
-      productCode: 'KIT-CT-002',
-      productName: 'Premium Quartz Countertop (per sq.ft)',
-      category: 'Countertops',
-      standardPrice: 850,
-      specialPrice: 595,
-      discountPercent: 30,
-      minOrderQty: 100,
-      validFrom: '2025-08-01',
-      validTo: '2026-01-31',
-      status: 'active',
-      approvedBy: 'CEO',
-      contractRef: 'CNT-2025-078',
-      orderCount: 15,
-      totalRevenue: 8925000
-    },
-    {
-      id: 'SP-005',
-      customerName: 'City Hospital Kitchen Department',
-      customerType: 'institutional',
-      productCode: 'KIT-AP-001',
-      productName: '750W Mixer Grinder with 3 Jars',
-      category: 'Kitchen Appliances',
-      standardPrice: 8500,
-      specialPrice: 6375,
-      discountPercent: 25,
-      minOrderQty: 40,
-      validFrom: '2025-09-01',
-      validTo: '2026-02-28',
-      status: 'active',
-      approvedBy: 'Sales Manager',
-      contractRef: 'CNT-2025-201',
-      orderCount: 6,
-      totalRevenue: 1530000
-    },
-    {
-      id: 'SP-006',
-      customerName: 'Modern Kitchen Solutions',
-      customerType: 'dealer',
-      productCode: 'KIT-CW-001',
-      productName: 'Granite Coated Non-Stick Cookware Set (7 Pcs)',
-      category: 'Cookware',
-      standardPrice: 12500,
-      specialPrice: 10000,
-      discountPercent: 20,
-      minOrderQty: 50,
-      validFrom: '2025-10-15',
-      validTo: '2025-12-31',
-      status: 'active',
-      approvedBy: 'Regional Manager',
-      contractRef: 'CNT-2025-234',
-      orderCount: 4,
-      totalRevenue: 2000000
-    },
-    {
-      id: 'SP-007',
-      customerName: 'Premium Builders Group',
-      customerType: 'builder',
-      productCode: 'KIT-CH-001',
-      productName: 'Chimney Hood 60cm with Auto-Clean',
-      category: 'Kitchen Ventilation',
-      standardPrice: 22000,
-      specialPrice: 15400,
-      discountPercent: 30,
-      minOrderQty: 15,
-      validFrom: '2025-10-01',
-      validTo: '2026-03-31',
-      status: 'active',
-      approvedBy: 'Sales Director',
-      contractRef: 'CNT-2025-189',
-      orderCount: 7,
-      totalRevenue: 1617000
-    },
-    {
-      id: 'SP-008',
-      customerName: 'VIP Homes & Interiors',
-      customerType: 'vip',
-      productCode: 'KIT-SS-002',
-      productName: 'Stainless Steel Kitchen Sink (Double Bowl)',
-      category: 'Kitchen Sinks',
-      standardPrice: 18500,
-      specialPrice: 12950,
-      discountPercent: 30,
-      minOrderQty: 25,
-      validFrom: '2025-11-01',
-      validTo: '2026-04-30',
-      status: 'pending_approval',
-      contractRef: 'CNT-2025-289',
-      orderCount: 0,
-      totalRevenue: 0
-    },
-    {
-      id: 'SP-009',
-      customerName: 'College Hostel Management',
-      customerType: 'institutional',
-      productCode: 'KIT-CW-002',
-      productName: 'Stainless Steel Pressure Cooker 5L',
-      category: 'Cookware',
-      standardPrice: 4500,
-      specialPrice: 3375,
-      discountPercent: 25,
-      minOrderQty: 100,
-      validFrom: '2025-09-15',
-      validTo: '2026-02-28',
-      status: 'active',
-      approvedBy: 'Sales Manager',
-      contractRef: 'CNT-2025-167',
-      orderCount: 9,
-      totalRevenue: 3037500
-    },
-    {
-      id: 'SP-010',
-      customerName: 'Kitchen World (Dealer Network)',
-      customerType: 'dealer',
-      productCode: 'KIT-AP-002',
-      productName: '2000W Induction Cooktop Digital',
-      category: 'Kitchen Appliances',
-      standardPrice: 6500,
-      specialPrice: 5200,
-      discountPercent: 20,
-      minOrderQty: 40,
-      validFrom: '2025-10-10',
-      validTo: '2025-12-31',
-      status: 'active',
-      approvedBy: 'Regional Manager',
-      contractRef: 'CNT-2025-245',
-      orderCount: 6,
-      totalRevenue: 1248000
-    },
-    {
-      id: 'SP-011',
-      customerName: 'Smart Contractors Ltd',
-      customerType: 'contractor',
-      productCode: 'KIT-AC-001',
-      productName: 'Modular Kitchen Basket Organizer',
-      category: 'Kitchen Accessories',
-      standardPrice: 3500,
-      specialPrice: 2625,
-      discountPercent: 25,
-      minOrderQty: 50,
-      validFrom: '2025-08-01',
-      validTo: '2025-11-30',
-      status: 'active',
-      approvedBy: 'Sales Manager',
-      contractRef: 'CNT-2025-112',
-      orderCount: 11,
-      totalRevenue: 1443750
-    },
-    {
-      id: 'SP-012',
-      customerName: 'Grand Hotels Kitchen Supply',
-      customerType: 'institutional',
-      productCode: 'KIT-SS-001',
-      productName: 'Stainless Steel Kitchen Sink (Single Bowl)',
-      category: 'Kitchen Sinks',
-      standardPrice: 12500,
-      specialPrice: 9375,
-      discountPercent: 25,
-      minOrderQty: 30,
-      validFrom: '2025-07-01',
-      validTo: '2025-10-31',
-      status: 'expired',
-      approvedBy: 'Sales Director',
-      contractRef: 'CNT-2025-045',
-      orderCount: 14,
-      totalRevenue: 3937500
+  const [specialPrices, setSpecialPrices] = useState<SpecialPrice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getSpecialPrices()
+        const mapped: SpecialPrice[] = (rows || []).map((r) => ({
+          id: r.id,
+          customerName: r.customerName,
+          customerType: (r.customerType as SpecialPrice['customerType']) || 'dealer',
+          productCode: r.productCode || '',
+          productName: r.productName || '',
+          category: r.category || '',
+          standardPrice: Number(r.standardPrice) || 0,
+          specialPrice: Number(r.specialPrice) || 0,
+          discountPercent: Number(r.discountPercent) || 0,
+          minOrderQty: Number(r.minOrderQty) || 0,
+          validFrom: r.validFrom || '',
+          validTo: r.validTo || '',
+          status: (r.status as SpecialPrice['status']) || 'active',
+          approvedBy: r.approvedBy,
+          contractRef: r.contractRef,
+          orderCount: Number(r.orderCount) || 0,
+          totalRevenue: Number(r.totalRevenue) || 0,
+        }))
+        if (!cancelled) setSpecialPrices(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load special prices')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const customerTypes = ['all', 'contractor', 'dealer', 'builder', 'vip', 'institutional']
 

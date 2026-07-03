@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -14,6 +14,7 @@ import {
   Tag,
   Plus
 } from 'lucide-react';
+import { salesConfigService } from '@/services/sales-config.service';
 
 interface PriceListItem {
   id: string;
@@ -35,233 +36,42 @@ export default function PriceListsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const priceList: PriceListItem[] = [
-    {
-      id: '1',
-      productCode: 'KIT-SS-001',
-      productName: 'Stainless Steel Kitchen Sink (Single Bowl)',
-      category: 'Kitchen Sinks',
-      basePrice: 12500,
-      currentPrice: 11250,
-      unit: 'piece',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-15',
-      priceChange: -1250,
-      priceChangePercent: -10,
-      moq: 10,
-      stock: 450
-    },
-    {
-      id: '2',
-      productCode: 'KIT-SS-002',
-      productName: 'Stainless Steel Kitchen Sink (Double Bowl)',
-      category: 'Kitchen Sinks',
-      basePrice: 18500,
-      currentPrice: 17575,
-      unit: 'piece',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-15',
-      priceChange: -925,
-      priceChangePercent: -5,
-      moq: 5,
-      stock: 280
-    },
-    {
-      id: '3',
-      productCode: 'KIT-TAP-001',
-      productName: 'Chrome Plated Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      basePrice: 4500,
-      currentPrice: 4500,
-      unit: 'piece',
-      effectiveFrom: '2025-09-15',
-      lastUpdated: '2025-09-15',
-      priceChange: 0,
-      priceChangePercent: 0,
-      moq: 20,
-      stock: 850
-    },
-    {
-      id: '4',
-      productCode: 'KIT-TAP-002',
-      productName: 'Brass Kitchen Mixer Tap with Pull-Out Spray',
-      category: 'Kitchen Faucets',
-      basePrice: 8900,
-      currentPrice: 9345,
-      unit: 'piece',
-      effectiveFrom: '2025-10-10',
-      lastUpdated: '2025-10-10',
-      priceChange: 445,
-      priceChangePercent: 5,
-      moq: 15,
-      stock: 320
-    },
-    {
-      id: '5',
-      productCode: 'KIT-COOK-001',
-      productName: 'Granite Coated Non-Stick Cookware Set (7 Pieces)',
-      category: 'Cookware',
-      basePrice: 15000,
-      currentPrice: 13500,
-      unit: 'set',
-      effectiveFrom: '2025-10-05',
-      lastUpdated: '2025-10-05',
-      priceChange: -1500,
-      priceChangePercent: -10,
-      moq: 8,
-      stock: 180
-    },
-    {
-      id: '6',
-      productCode: 'KIT-COOK-002',
-      productName: 'Stainless Steel Pressure Cooker (5 Liters)',
-      category: 'Cookware',
-      basePrice: 3500,
-      currentPrice: 3500,
-      unit: 'piece',
-      effectiveFrom: '2025-09-20',
-      lastUpdated: '2025-09-20',
-      priceChange: 0,
-      priceChangePercent: 0,
-      moq: 25,
-      stock: 620
-    },
-    {
-      id: '7',
-      productCode: 'KIT-APPL-001',
-      productName: 'Commercial Mixer Grinder (750W)',
-      category: 'Kitchen Appliances',
-      basePrice: 8500,
-      currentPrice: 9350,
-      unit: 'piece',
-      effectiveFrom: '2025-10-12',
-      lastUpdated: '2025-10-12',
-      priceChange: 850,
-      priceChangePercent: 10,
-      moq: 12,
-      stock: 245
-    },
-    {
-      id: '8',
-      productCode: 'KIT-APPL-002',
-      productName: 'Electric Induction Cooktop (2000W)',
-      category: 'Kitchen Appliances',
-      basePrice: 12000,
-      currentPrice: 11400,
-      unit: 'piece',
-      effectiveFrom: '2025-10-08',
-      lastUpdated: '2025-10-08',
-      priceChange: -600,
-      priceChangePercent: -5,
-      moq: 10,
-      stock: 390
-    },
-    {
-      id: '9',
-      productCode: 'KIT-STOR-001',
-      productName: 'Modular Kitchen Cabinet (Base Unit)',
-      category: 'Kitchen Storage',
-      basePrice: 25000,
-      currentPrice: 23750,
-      unit: 'unit',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-15',
-      priceChange: -1250,
-      priceChangePercent: -5,
-      moq: 5,
-      stock: 120
-    },
-    {
-      id: '10',
-      productCode: 'KIT-STOR-002',
-      productName: 'Modular Kitchen Cabinet (Wall Unit)',
-      category: 'Kitchen Storage',
-      basePrice: 18000,
-      currentPrice: 17100,
-      unit: 'unit',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-15',
-      priceChange: -900,
-      priceChangePercent: -5,
-      moq: 5,
-      stock: 150
-    },
-    {
-      id: '11',
-      productCode: 'KIT-HOOD-001',
-      productName: 'Chimney Hood (Auto-Clean, 1200 m³/hr)',
-      category: 'Kitchen Ventilation',
-      basePrice: 22000,
-      currentPrice: 20900,
-      unit: 'piece',
-      effectiveFrom: '2025-10-05',
-      lastUpdated: '2025-10-05',
-      priceChange: -1100,
-      priceChangePercent: -5,
-      moq: 6,
-      stock: 95
-    },
-    {
-      id: '12',
-      productCode: 'KIT-COUNT-001',
-      productName: 'Granite Kitchen Countertop (Per Square Foot)',
-      category: 'Countertops',
-      basePrice: 450,
-      currentPrice: 472,
-      unit: 'sq.ft',
-      effectiveFrom: '2025-10-10',
-      lastUpdated: '2025-10-10',
-      priceChange: 22,
-      priceChangePercent: 5,
-      moq: 100,
-      stock: 5000
-    },
-    {
-      id: '13',
-      productCode: 'KIT-COUNT-002',
-      productName: 'Quartz Kitchen Countertop (Per Square Foot)',
-      category: 'Countertops',
-      basePrice: 650,
-      currentPrice: 682,
-      unit: 'sq.ft',
-      effectiveFrom: '2025-10-10',
-      lastUpdated: '2025-10-10',
-      priceChange: 32,
-      priceChangePercent: 5,
-      moq: 100,
-      stock: 3500
-    },
-    {
-      id: '14',
-      productCode: 'KIT-ACC-001',
-      productName: 'Kitchen Basket Organizer (Pull-Out)',
-      category: 'Kitchen Accessories',
-      basePrice: 3200,
-      currentPrice: 3200,
-      unit: 'piece',
-      effectiveFrom: '2025-09-25',
-      lastUpdated: '2025-09-25',
-      priceChange: 0,
-      priceChangePercent: 0,
-      moq: 20,
-      stock: 480
-    },
-    {
-      id: '15',
-      productCode: 'KIT-ACC-002',
-      productName: 'Dish Drainer Rack (Stainless Steel)',
-      category: 'Kitchen Accessories',
-      basePrice: 1800,
-      currentPrice: 1710,
-      unit: 'piece',
-      effectiveFrom: '2025-10-08',
-      lastUpdated: '2025-10-08',
-      priceChange: -90,
-      priceChangePercent: -5,
-      moq: 30,
-      stock: 720
-    }
-  ];
+  const [priceList, setPriceList] = useState<PriceListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await salesConfigService.getPriceListItems();
+        const mapped: PriceListItem[] = (rows || []).map((r) => ({
+          id: r.id,
+          productCode: r.productCode || '',
+          productName: r.productName,
+          category: r.category || '',
+          basePrice: Number(r.basePrice) || 0,
+          currentPrice: Number(r.currentPrice) || 0,
+          unit: r.unit || 'piece',
+          effectiveFrom: r.effectiveFrom || '',
+          lastUpdated: r.updatedAt || '',
+          priceChange: Number(r.priceChange) || 0,
+          priceChangePercent: Number(r.priceChangePercent) || 0,
+          moq: Number(r.moq) || 0,
+          stock: Number(r.stock) || 0,
+        }));
+        if (!cancelled) setPriceList(mapped);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load price list');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredProducts = priceList.filter(product => {
     const matchesSearch =
@@ -277,7 +87,7 @@ export default function PriceListsPage() {
   const totalProducts = priceList.length;
   const priceIncreases = priceList.filter(p => p.priceChange > 0).length;
   const priceDecreases = priceList.filter(p => p.priceChange < 0).length;
-  const avgPrice = priceList.reduce((sum, p) => sum + p.currentPrice, 0) / priceList.length;
+  const avgPrice = priceList.length > 0 ? priceList.reduce((sum, p) => sum + p.currentPrice, 0) / priceList.length : 0;
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 px-3 py-2">

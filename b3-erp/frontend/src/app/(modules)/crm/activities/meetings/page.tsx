@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import { Users, Plus, Search, Calendar, Clock, MapPin, Video, User, CheckCircle, XCircle, AlertCircle, BarChart3, TrendingUp, Edit, Trash2, Eye, FileText } from 'lucide-react';
 
 interface Meeting {
@@ -24,144 +25,51 @@ interface Meeting {
   notes?: string;
 }
 
-const mockMeetings: Meeting[] = [
-  {
-    id: '1',
-    title: 'Product Demo - Enterprise Solutions',
-    description: 'Demonstrate new features and capabilities to potential enterprise client',
-    type: 'demo',
-    status: 'scheduled',
-    startTime: '2024-10-21T14:00:00',
-    endTime: '2024-10-21T15:00:00',
-    duration: 60,
-    location: 'Virtual',
-    meetingLink: 'https://zoom.us/j/meeting123',
-    organizer: 'Michael Chen',
-    attendees: ['John Anderson (CTO)', 'Lisa Thompson (VP Eng)', 'Robert Chang (Dir IT)'],
-    relatedTo: 'Enterprise Solutions Ltd.',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '2',
-    title: 'Q4 Strategic Planning Session',
-    description: 'Review Q3 performance and plan Q4 initiatives',
-    type: 'internal',
-    status: 'scheduled',
-    startTime: '2024-10-23T09:00:00',
-    endTime: '2024-10-23T11:00:00',
-    duration: 120,
-    location: 'Board Room',
-    organizer: 'Sarah Johnson',
-    attendees: ['Michael Chen', 'Emily Rodriguez', 'David Martinez', 'Leadership Team'],
-    relatedTo: 'Sales Department',
-    relatedType: 'internal',
-  },
-  {
-    id: '3',
-    title: 'Discovery Call - FinanceHub',
-    description: 'Understand pain points, requirements, and decision-making process',
-    type: 'discovery',
-    status: 'completed',
-    startTime: '2024-10-20T10:00:00',
-    endTime: '2024-10-20T10:45:00',
-    duration: 45,
-    location: 'Virtual',
-    meetingLink: 'https://zoom.us/j/meeting456',
-    organizer: 'Emily Rodriguez',
-    attendees: ['Elizabeth Wilson (CFO)', 'David Anderson (Dir Investment)'],
-    relatedTo: 'FinanceHub International',
-    relatedType: 'opportunity',
-    outcome: 'Positive - identified 3 key pain points, budget approved for Q4',
-    nextSteps: ['Send proposal by Oct 25', 'Schedule technical demo', 'Connect with IT team'],
-    recordingUrl: 'https://recordings.zoom.us/meeting456',
-    notes: 'Client is looking for robust security features and multi-region support.',
-  },
-  {
-    id: '4',
-    title: 'Contract Negotiation - TechCorp',
-    description: 'Finalize terms, pricing, and implementation timeline',
-    type: 'negotiation',
-    status: 'scheduled',
-    startTime: '2024-10-22T15:00:00',
-    endTime: '2024-10-22T16:30:00',
-    duration: 90,
-    location: 'Virtual',
-    meetingLink: 'https://zoom.us/j/meeting789',
-    organizer: 'Sarah Johnson',
-    attendees: ['Sarah Johnson (CTO)', 'Legal Team', 'Procurement Manager'],
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '5',
-    title: 'Quarterly Business Review - GlobalMfg',
-    description: 'Review usage metrics, ROI, and expansion opportunities',
-    type: 'review',
-    status: 'scheduled',
-    startTime: '2024-10-24T13:00:00',
-    endTime: '2024-10-24T14:00:00',
-    duration: 60,
-    location: 'Client Office',
-    organizer: 'David Martinez',
-    attendees: ['Robert Davis (VP Ops)', 'Account Team'],
-    relatedTo: 'GlobalManufacturing Corp',
-    relatedType: 'customer',
-  },
-  {
-    id: '6',
-    title: 'Weekly Team Sync',
-    description: 'Review pipeline, blockers, and team updates',
-    type: 'internal',
-    status: 'completed',
-    startTime: '2024-10-20T09:00:00',
-    endTime: '2024-10-20T10:00:00',
-    duration: 60,
-    location: 'Conference Room A',
-    organizer: 'Sarah Johnson',
-    attendees: ['Michael Chen', 'Emily Rodriguez', 'David Martinez'],
-    relatedTo: 'Sales Team',
-    relatedType: 'internal',
-    outcome: 'Pipeline review completed, 3 deals moving to negotiation',
-    nextSteps: ['Follow up on Q4 forecasts', 'Prepare customer success stories'],
-  },
-  {
-    id: '7',
-    title: 'Product Training - New Features',
-    description: 'Train team on Q4 product releases',
-    type: 'training',
-    status: 'completed',
-    startTime: '2024-10-18T14:00:00',
-    endTime: '2024-10-18T16:00:00',
-    duration: 120,
-    location: 'Virtual',
-    meetingLink: 'https://zoom.us/j/training101',
-    organizer: 'Product Team',
-    attendees: ['All Sales Team', 'Customer Success Team'],
-    relatedTo: 'Product Launch',
-    relatedType: 'internal',
-    outcome: 'Team trained on 5 new features and demo scenarios',
-    recordingUrl: 'https://recordings.zoom.us/training101',
-  },
-  {
-    id: '8',
-    title: 'Executive Briefing - StartupTech',
-    description: 'Present solution to C-level executives',
-    type: 'demo',
-    status: 'cancelled',
-    startTime: '2024-10-19T11:00:00',
-    endTime: '2024-10-19T12:00:00',
-    duration: 60,
-    location: 'Virtual',
-    organizer: 'Michael Chen',
-    attendees: ['CEO', 'CTO', 'CFO'],
-    relatedTo: 'StartupTech Inc.',
-    relatedType: 'lead',
-    notes: 'Rescheduled to next week due to client emergency',
-  },
-];
-
 export default function MeetingsPage() {
-  const [meetings] = useState<Meeting[]>(mockMeetings);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.activityRecords.getAll({ type: 'meeting' });
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setMeetings(rows.map((r: any): Meeting => ({
+          id: String(r.id ?? ''),
+          title: r.subject ?? '',
+          description: r.description ?? '',
+          type: (r.meetingType ?? 'internal') as Meeting['type'],
+          status: (r.status ?? 'scheduled') as Meeting['status'],
+          startTime: r.scheduledAt ?? r.dueDate ?? r.createdAt ?? '',
+          endTime: r.completedAt ?? r.scheduledAt ?? r.dueDate ?? r.createdAt ?? '',
+          duration: r.durationMinutes ?? 0,
+          location: r.location ?? '',
+          meetingLink: r.meetingLink ?? undefined,
+          organizer: r.assignedTo ?? '',
+          attendees: r.contactName ? [r.contactName] : [],
+          relatedTo: r.relatedTo ?? '',
+          relatedType: (r.relatedType ?? 'internal') as Meeting['relatedType'],
+          outcome: r.outcome ?? undefined,
+          nextSteps: Array.isArray(r.tags) ? r.tags : [],
+          recordingUrl: undefined,
+          notes: r.description ?? '',
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load');
+        setMeetings([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all');
   const [filterType, setFilterType] = useState<'all' | 'demo' | 'discovery' | 'negotiation' | 'review' | 'internal' | 'training'>('all');
@@ -195,7 +103,7 @@ export default function MeetingsPage() {
     completed: meetings.filter(m => m.status === 'completed').length,
     cancelled: meetings.filter(m => m.status === 'cancelled').length,
     totalHours: meetings.filter(m => m.status === 'completed').reduce((sum, m) => sum + m.duration, 0) / 60,
-    avgDuration: meetings.reduce((sum, m) => sum + m.duration, 0) / meetings.length,
+    avgDuration: meetings.length ? meetings.reduce((sum, m) => sum + m.duration, 0) / meetings.length : 0,
   };
 
   const getStatusColor = (status: string) => {
@@ -247,6 +155,7 @@ export default function MeetingsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

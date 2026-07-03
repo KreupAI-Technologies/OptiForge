@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Users, CheckCircle, XCircle, Clock, Search, Filter,
   Download, UserPlus, UserMinus, Calendar, Shield, Mail
 } from 'lucide-react'
+import { ItAdminService } from '@/services/it-admin.service'
 
 interface LicensedUser {
   id: string
@@ -24,152 +25,42 @@ export default function LicenseUsers() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [departmentFilter, setDepartmentFilter] = useState('all')
 
-  const [users] = useState<LicensedUser[]>([
-    {
-      id: '1',
-      name: 'Rajesh Kumar',
-      email: 'rajesh.kumar@company.com',
-      department: 'IT Administration',
-      role: 'System Administrator',
-      licenseType: 'Full Access',
-      status: 'active',
-      assignedDate: '2024-01-15',
-      lastLogin: '2024-10-21 10:30 AM',
-      modulesAccess: ['IT Admin', 'User Management', 'Security', 'Database']
-    },
-    {
-      id: '2',
-      name: 'Priya Sharma',
-      email: 'priya.sharma@company.com',
-      department: 'Sales',
-      role: 'Sales Manager',
-      licenseType: 'Full Access',
-      status: 'active',
-      assignedDate: '2024-01-20',
-      lastLogin: '2024-10-21 09:15 AM',
-      modulesAccess: ['CRM', 'Sales', 'Quotes', 'Customers']
-    },
-    {
-      id: '3',
-      name: 'Amit Patel',
-      email: 'amit.patel@company.com',
-      department: 'Production',
-      role: 'Production Manager',
-      licenseType: 'Full Access',
-      status: 'active',
-      assignedDate: '2024-02-01',
-      lastLogin: '2024-10-21 08:45 AM',
-      modulesAccess: ['Production', 'Inventory', 'Quality Control', 'BOM']
-    },
-    {
-      id: '4',
-      name: 'Sneha Reddy',
-      email: 'sneha.reddy@company.com',
-      department: 'Finance',
-      role: 'Finance Head',
-      licenseType: 'Full Access',
-      status: 'active',
-      assignedDate: '2024-01-18',
-      lastLogin: '2024-10-21 11:00 AM',
-      modulesAccess: ['Finance', 'Accounting', 'Reports', 'Budgets']
-    },
-    {
-      id: '5',
-      name: 'Vikram Singh',
-      email: 'vikram.singh@company.com',
-      department: 'HR',
-      role: 'HR Manager',
-      licenseType: 'Full Access',
-      status: 'active',
-      assignedDate: '2024-02-10',
-      lastLogin: '2024-10-20 04:30 PM',
-      modulesAccess: ['HR', 'Payroll', 'Recruitment', 'Training']
-    },
-    {
-      id: '6',
-      name: 'Anjali Desai',
-      email: 'anjali.desai@company.com',
-      department: 'Inventory',
-      role: 'Inventory Manager',
-      licenseType: 'Full Access',
-      status: 'active',
-      assignedDate: '2024-02-15',
-      lastLogin: '2024-10-21 07:20 AM',
-      modulesAccess: ['Inventory', 'Warehouse', 'Stock', 'Transfers']
-    },
-    {
-      id: '7',
-      name: 'Rahul Mehta',
-      email: 'rahul.mehta@company.com',
-      department: 'Sales',
-      role: 'Sales Executive',
-      licenseType: 'Standard',
-      status: 'active',
-      assignedDate: '2024-03-01',
-      lastLogin: '2024-10-21 09:45 AM',
-      modulesAccess: ['CRM', 'Sales', 'Customers']
-    },
-    {
-      id: '8',
-      name: 'Kavita Joshi',
-      email: 'kavita.joshi@company.com',
-      department: 'Production',
-      role: 'Production Supervisor',
-      licenseType: 'Standard',
-      status: 'active',
-      assignedDate: '2024-03-10',
-      lastLogin: '2024-10-21 06:30 AM',
-      modulesAccess: ['Production', 'Work Orders', 'Quality']
-    },
-    {
-      id: '9',
-      name: 'Manish Gupta',
-      email: 'manish.gupta@company.com',
-      department: 'IT Support',
-      role: 'IT Support Specialist',
-      licenseType: 'Limited',
-      status: 'active',
-      assignedDate: '2024-03-15',
-      lastLogin: '2024-10-21 10:00 AM',
-      modulesAccess: ['Support', 'Tickets', 'Knowledge Base']
-    },
-    {
-      id: '10',
-      name: 'Deepa Nair',
-      email: 'deepa.nair@company.com',
-      department: 'Finance',
-      role: 'Accountant',
-      licenseType: 'Standard',
-      status: 'inactive',
-      assignedDate: '2024-02-20',
-      lastLogin: '2024-09-15 03:20 PM',
-      modulesAccess: ['Finance', 'Accounting', 'Reports']
-    },
-    {
-      id: '11',
-      name: 'Suresh Iyer',
-      email: 'suresh.iyer@company.com',
-      department: 'Sales',
-      role: 'Sales Executive',
-      licenseType: 'Standard',
-      status: 'suspended',
-      assignedDate: '2024-04-01',
-      lastLogin: '2024-10-10 02:00 PM',
-      modulesAccess: ['CRM', 'Sales']
-    },
-    {
-      id: '12',
-      name: 'Pooja Verma',
-      email: 'pooja.verma@company.com',
-      department: 'HR',
-      role: 'HR Executive',
-      licenseType: 'Standard',
-      status: 'active',
-      assignedDate: '2024-04-15',
-      lastLogin: '2024-10-21 08:00 AM',
-      modulesAccess: ['HR', 'Recruitment', 'Employee Records']
+  const [users, setUsers] = useState<LicensedUser[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+    setLoadError(null)
+    ItAdminService.getLicenseUsers()
+      .then((data) => {
+        if (cancelled) return
+        const mapped: LicensedUser[] = data.map((dto) => ({
+          id: dto.id,
+          name: dto.name,
+          email: dto.email ?? '',
+          department: dto.department ?? '',
+          role: dto.role ?? '',
+          licenseType: dto.licenseType,
+          status: dto.status as LicensedUser['status'],
+          assignedDate: dto.assignedDate ?? '',
+          lastLogin: dto.lastActive ?? '',
+          modulesAccess: [],
+        }))
+        setUsers(mapped)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(err instanceof Error ? err.message : 'Failed to load licensed users')
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const [stats] = useState({
     totalLicenses: 500,
@@ -232,6 +123,17 @@ export default function LicenseUsers() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading...
+        </div>
+      )}
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

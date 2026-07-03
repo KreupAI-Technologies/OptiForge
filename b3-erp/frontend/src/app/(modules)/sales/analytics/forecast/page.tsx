@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, TrendingUp, Calendar, Package, DollarSign, BarChart3, AlertTriangle, CheckCircle, Activity } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface ForecastData {
   month: string
@@ -28,94 +29,38 @@ export default function ForecastPage() {
   const router = useRouter()
   const [forecastPeriod, setForecastPeriod] = useState('3months')
 
-  const [monthlyForecast] = useState<ForecastData[]>([
-    { month: 'Aug 2025', actualRevenue: 44500, forecastRevenue: 44200, actualOrders: 289, forecastOrders: 285, confidence: 95, trend: 'up' },
-    { month: 'Sep 2025', actualRevenue: 46700, forecastRevenue: 46500, actualOrders: 298, forecastOrders: 295, confidence: 93, trend: 'up' },
-    { month: 'Oct 2025', actualRevenue: 51200, forecastRevenue: 50800, actualOrders: 325, forecastOrders: 320, confidence: 91, trend: 'up' },
-    { month: 'Nov 2025', forecastRevenue: 54500, forecastOrders: 348, confidence: 87, trend: 'up' },
-    { month: 'Dec 2025', forecastRevenue: 58900, forecastOrders: 375, confidence: 85, trend: 'up' },
-    { month: 'Jan 2026', forecastRevenue: 48700, forecastOrders: 310, confidence: 78, trend: 'down' },
-    { month: 'Feb 2026', forecastRevenue: 51200, forecastOrders: 325, confidence: 76, trend: 'up' },
-    { month: 'Mar 2026', forecastRevenue: 56800, forecastOrders: 360, confidence: 74, trend: 'up' },
-    { month: 'Apr 2026', forecastRevenue: 59300, forecastOrders: 378, confidence: 72, trend: 'up' },
-    { month: 'May 2026', forecastRevenue: 63400, forecastOrders: 405, confidence: 70, trend: 'up' },
-    { month: 'Jun 2026', forecastRevenue: 67800, forecastOrders: 435, confidence: 68, trend: 'up' }
-  ])
+  const [monthlyForecast, setMonthlyForecast] = useState<ForecastData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [categoryForecasts] = useState<CategoryForecast[]>([
-    {
-      category: 'Countertops',
-      currentSales: 3456000,
-      forecastSales: 4534000,
-      growth: 31.2,
-      confidence: 89,
-      risk: 'low',
-      keyDrivers: ['Real estate boom', 'Premium segment growth', 'Renovation demand']
-    },
-    {
-      category: 'Kitchen Appliances',
-      currentSales: 2345000,
-      forecastSales: 2901000,
-      growth: 23.7,
-      confidence: 85,
-      risk: 'low',
-      keyDrivers: ['Smart home trend', 'Energy efficiency focus', 'Festival season']
-    },
-    {
-      category: 'Kitchen Faucets',
-      currentSales: 1567000,
-      forecastSales: 1854000,
-      growth: 18.3,
-      confidence: 82,
-      risk: 'medium',
-      keyDrivers: ['Bathroom modernization', 'Water-saving features', 'Design trends']
-    },
-    {
-      category: 'Kitchen Storage',
-      currentSales: 1876000,
-      forecastSales: 2173000,
-      growth: 15.8,
-      confidence: 88,
-      risk: 'low',
-      keyDrivers: ['Space optimization trend', 'Modular kitchen demand', 'Builder projects']
-    },
-    {
-      category: 'Kitchen Sinks',
-      currentSales: 1245000,
-      forecastSales: 1401000,
-      growth: 12.5,
-      confidence: 86,
-      risk: 'low',
-      keyDrivers: ['Construction activity', 'Replacement market', 'Stainless steel preference']
-    },
-    {
-      category: 'Kitchen Ventilation',
-      currentSales: 1234000,
-      forecastSales: 1338000,
-      growth: 8.4,
-      confidence: 80,
-      risk: 'medium',
-      keyDrivers: ['Open kitchen trend', 'Health consciousness', 'Auto-clean feature']
-    },
-    {
-      category: 'Kitchen Accessories',
-      currentSales: 678000,
-      forecastSales: 723000,
-      growth: 6.7,
-      confidence: 78,
-      risk: 'medium',
-      keyDrivers: ['Organization trend', 'Budget-friendly upgrades', 'DIY home improvement']
-    },
-    {
-      category: 'Cookware',
-      currentSales: 987000,
-      forecastSales: 936000,
-      growth: -5.2,
-      confidence: 75,
-      risk: 'high',
-      keyDrivers: ['Market saturation', 'Quality concerns', 'Competition from online brands']
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getForecast()
+        const mapped: ForecastData[] = (rows || []).map((r) => ({
+          month: r.period,
+          actualRevenue: Number(r.actual) || undefined,
+          forecastRevenue: Number(r.predicted) || 0,
+          actualOrders: Number(r.orders) || undefined,
+          forecastOrders: Number(r.orders) || 0,
+          confidence: 80,
+          trend: 'stable',
+        }))
+        if (!cancelled) setMonthlyForecast(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load forecast')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const [categoryForecasts] = useState<CategoryForecast[]>([])
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -148,7 +93,7 @@ export default function ForecastPage() {
   const overallGrowth = ((totalForecastRevenue - totalCurrentRevenue) / totalCurrentRevenue) * 100
 
   const nextMonthForecast = monthlyForecast.find(m => !m.actualRevenue)
-  const avgConfidence = categoryForecasts.reduce((sum, cat) => sum + cat.confidence, 0) / categoryForecasts.length
+  const avgConfidence = categoryForecasts.length > 0 ? categoryForecasts.reduce((sum, cat) => sum + cat.confidence, 0) / categoryForecasts.length : 0
 
   return (
     <div className="w-full h-full px-4 py-2">

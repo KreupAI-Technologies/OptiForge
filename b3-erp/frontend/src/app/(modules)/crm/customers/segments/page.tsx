@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, TrendingUp, DollarSign, Target, Search, Filter, Download, Plus, Edit, Trash2, Eye, PieChart, BarChart3 } from 'lucide-react';
 import { useToast, ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Segment {
   id: string;
@@ -20,125 +21,50 @@ interface Segment {
   lastUpdated: string;
 }
 
-const mockSegments: Segment[] = [
-  {
-    id: '1',
-    name: 'Enterprise Premium',
-    description: 'Large enterprises with high-value contracts and premium support',
-    criteria: ['Revenue > $1M', 'Employees > 500', 'Contract Type: Premium'],
-    customerCount: 45,
-    totalRevenue: 12500000,
-    avgLifetimeValue: 278000,
-    growthRate: 23.5,
-    color: 'purple',
-    status: 'active',
-    createdDate: '2024-01-15',
-    lastUpdated: '2024-10-15',
-  },
-  {
-    id: '2',
-    name: 'Mid-Market Growth',
-    description: 'Growing mid-market companies with expansion potential',
-    criteria: ['Revenue $250K-$1M', 'Employees 100-500', 'Growth Rate > 15%'],
-    customerCount: 128,
-    totalRevenue: 8750000,
-    avgLifetimeValue: 68400,
-    growthRate: 31.2,
-    color: 'blue',
-    status: 'active',
-    createdDate: '2024-02-10',
-    lastUpdated: '2024-10-18',
-  },
-  {
-    id: '3',
-    name: 'Small Business Starter',
-    description: 'Small businesses and startups in early growth stage',
-    criteria: ['Revenue < $250K', 'Employees < 100', 'Account Age < 1 year'],
-    customerCount: 342,
-    totalRevenue: 3420000,
-    avgLifetimeValue: 10000,
-    growthRate: 45.8,
-    color: 'green',
-    status: 'active',
-    createdDate: '2024-03-05',
-    lastUpdated: '2024-10-19',
-  },
-  {
-    id: '4',
-    name: 'At-Risk High Value',
-    description: 'High-value customers showing signs of churn risk',
-    criteria: ['LTV > $100K', 'NPS < 6', 'Support Tickets > 10/month'],
-    customerCount: 23,
-    totalRevenue: 4150000,
-    avgLifetimeValue: 180400,
-    growthRate: -12.3,
-    color: 'red',
-    status: 'active',
-    createdDate: '2024-04-20',
-    lastUpdated: '2024-10-20',
-  },
-  {
-    id: '5',
-    name: 'Loyal Advocates',
-    description: 'Long-term customers with high satisfaction and referrals',
-    criteria: ['Account Age > 3 years', 'NPS > 9', 'Referrals > 2'],
-    customerCount: 87,
-    totalRevenue: 6960000,
-    avgLifetimeValue: 80000,
-    growthRate: 8.7,
-    color: 'yellow',
-    status: 'active',
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-10-17',
-  },
-  {
-    id: '6',
-    name: 'Seasonal Buyers',
-    description: 'Customers with predictable seasonal purchasing patterns',
-    criteria: ['Purchase Frequency: Seasonal', 'Order Concentration > 60%'],
-    customerCount: 156,
-    totalRevenue: 2340000,
-    avgLifetimeValue: 15000,
-    growthRate: 5.2,
-    color: 'orange',
-    status: 'active',
-    createdDate: '2024-05-15',
-    lastUpdated: '2024-10-16',
-  },
-  {
-    id: '7',
-    name: 'Cross-Sell Opportunity',
-    description: 'Customers using single product with high cross-sell potential',
-    criteria: ['Products: 1', 'Usage > 80%', 'Support Satisfaction > 8'],
-    customerCount: 201,
-    totalRevenue: 4020000,
-    avgLifetimeValue: 20000,
-    growthRate: 19.4,
-    color: 'teal',
-    status: 'active',
-    createdDate: '2024-06-01',
-    lastUpdated: '2024-10-19',
-  },
-  {
-    id: '8',
-    name: 'Dormant Accounts',
-    description: 'Previously active customers with no recent activity',
-    criteria: ['Last Purchase > 6 months', 'Previous LTV > $50K'],
-    customerCount: 64,
-    totalRevenue: 0,
-    avgLifetimeValue: 78000,
-    growthRate: -100,
-    color: 'gray',
-    status: 'inactive',
-    createdDate: '2024-07-10',
-    lastUpdated: '2024-10-15',
-  },
-];
-
 export default function CustomerSegmentsPage() {
   const router = useRouter();
   const { addToast } = useToast();
-  const [segments] = useState<Segment[]>(mockSegments);
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.customerSegments.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setSegments(
+          rows.map((s: any): Segment => ({
+            id: String(s.id),
+            name: s.name ?? '',
+            description: s.description ?? '',
+            criteria: Array.isArray(s.criteria) ? s.criteria : [],
+            customerCount: Number(s.customerCount ?? 0),
+            totalRevenue: Number(s.totalRevenue ?? 0),
+            avgLifetimeValue: Number(s.avgLifetimeValue ?? 0),
+            growthRate: Number(s.growthRate ?? 0),
+            color: s.color ?? 'blue',
+            status: (s.status ?? 'active') as 'active' | 'inactive',
+            createdDate: s.createdAt ?? s.createdDate ?? '',
+            lastUpdated: s.updatedAt ?? s.lastUpdated ?? '',
+          })),
+        );
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load segments');
+        setSegments([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -171,7 +97,9 @@ export default function CustomerSegmentsPage() {
     totalSegments: segments.filter(s => s.status === 'active').length,
     totalCustomers: segments.reduce((sum, s) => sum + s.customerCount, 0),
     totalRevenue: segments.reduce((sum, s) => sum + s.totalRevenue, 0),
-    avgGrowthRate: segments.filter(s => s.status === 'active').reduce((sum, s) => sum + s.growthRate, 0) / segments.filter(s => s.status === 'active').length,
+    avgGrowthRate: segments.filter(s => s.status === 'active').length
+      ? segments.filter(s => s.status === 'active').reduce((sum, s) => sum + s.growthRate, 0) / segments.filter(s => s.status === 'active').length
+      : 0,
   };
 
   const getColorClasses = (color: string) => {
@@ -224,6 +152,11 @@ export default function CustomerSegmentsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">

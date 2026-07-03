@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Copy, Check, Play, Code, Server, Shield, Lock, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ApiEndpoint {
     id: string;
@@ -37,56 +38,40 @@ export default function ApiDocsPage() {
         );
     };
 
-    const endpoints: ApiEndpoint[] = [
-        {
-            id: 'auth-login',
-            method: 'POST',
-            path: '/api/v1/auth/login',
-            summary: 'User Login',
-            description: 'Authenticate a user and return an access token.',
-            parameters: [
-                { name: 'email', type: 'string', required: true, description: 'User email address' },
-                { name: 'password', type: 'string', required: true, description: 'User password' }
-            ],
-            response: '{\n  "token": "eyJhbGciOiJIUzI1NiIs...",\n  "user": {\n    "id": "usr_123",\n    "email": "user@example.com"\n  }\n}'
-        },
-        {
-            id: 'orders-list',
-            method: 'GET',
-            path: '/api/v1/orders',
-            summary: 'List Orders',
-            description: 'Retrieve a list of sales orders with optional filtering.',
-            parameters: [
-                { name: 'page', type: 'integer', required: false, description: 'Page number (default: 1)' },
-                { name: 'limit', type: 'integer', required: false, description: 'Items per page (default: 20)' },
-                { name: 'status', type: 'string', required: false, description: 'Filter by order status' }
-            ],
-            response: '{\n  "data": [\n    {\n      "id": "ord_123",\n      "customer": "Acme Corp",\n      "total": 1250.00,\n      "status": "pending"\n    }\n  ],\n  "meta": {\n    "total": 45,\n    "page": 1\n  }\n}'
-        },
-        {
-            id: 'orders-create',
-            method: 'POST',
-            path: '/api/v1/orders',
-            summary: 'Create Order',
-            description: 'Create a new sales order.',
-            parameters: [
-                { name: 'customer_id', type: 'string', required: true, description: 'ID of the customer' },
-                { name: 'items', type: 'array', required: true, description: 'List of order items' }
-            ],
-            response: '{\n  "id": "ord_124",\n  "status": "draft",\n  "created_at": "2024-01-20T10:00:00Z"\n}'
-        },
-        {
-            id: 'inventory-check',
-            method: 'GET',
-            path: '/api/v1/inventory/{sku}',
-            summary: 'Check Stock',
-            description: 'Get current stock level for a specific product SKU.',
-            parameters: [
-                { name: 'sku', type: 'string', required: true, description: 'Product SKU code' }
-            ],
-            response: '{\n  "sku": "PROD-001",\n  "quantity": 150,\n  "reserved": 20,\n  "available": 130\n}'
-        }
-    ];
+    const [endpoints, setEndpoints] = useState<ApiEndpoint[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await ItAdminService.getApiEndpoints();
+                const mapped: ApiEndpoint[] = (Array.isArray(raw) ? raw : []).map((e) => ({
+                    id: String(e.id),
+                    method: (e.method ?? 'GET') as ApiEndpoint['method'],
+                    path: e.path ?? '',
+                    summary: e.name ?? '',
+                    description: e.description ?? '',
+                    parameters: Array.isArray(e.parameters) ? e.parameters : [],
+                }));
+                if (!cancelled) setEndpoints(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load API endpoints');
+                    setEndpoints([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const getMethodColor = (method: string) => {
         const colors: { [key: string]: string } = {
@@ -101,6 +86,16 @@ export default function ApiDocsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 px-3 py-2 w-full max-w-full">
+            {loadError && (
+                <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+                    {loadError}
+                </div>
+            )}
+            {isLoading && (
+                <div className="mb-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700">
+                    Loading API endpoints...
+                </div>
+            )}
             <div className="mb-3 flex items-center gap-2">
                 <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
                     <ArrowLeft className="w-5 h-5 text-gray-600" />

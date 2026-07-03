@@ -744,6 +744,105 @@ export const crmService = {
 
     delete: (id: string) => request<void>(`/crm/assignment-rules/${id}`, { method: 'DELETE' }),
   },
+
+  // ===========================
+  // CUSTOMER SEGMENTS
+  // ===========================
+  customerSegments: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/customer-segments${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/customer-segments/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/customer-segments', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/customer-segments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/customer-segments/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CONTACT LISTS
+  // ===========================
+  contactLists: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/contact-lists${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/contact-lists/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/contact-lists', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/contact-lists/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/contact-lists/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CONTACT ROLES
+  // ===========================
+  contactRoles: {
+    getAll: (companyId?: string) =>
+      request<any[]>(`/crm/contact-roles${buildQueryParams({ companyId })}`),
+
+    getById: (id: string) => request<any>(`/crm/contact-roles/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/contact-roles', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/contact-roles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/contact-roles/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // ACTIVITY RECORDS (calls / tasks / emails / meetings)
+  // ===========================
+  activityRecords: {
+    getAll: (filters?: { companyId?: string; type?: string; status?: string }) =>
+      request<any[]>(`/crm/activity-records${buildQueryParams(filters || {})}`),
+
+    getById: (id: string) => request<any>(`/crm/activity-records/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/activity-records', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/activity-records/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/activity-records/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // PIPELINE STAGE CONFIGS (settings/stages)
+  // ===========================
+  pipelineStageConfigs: {
+    getAll: (filters?: { companyId?: string; pipelineType?: string }) =>
+      request<any[]>(`/crm/pipeline-stage-configs${buildQueryParams(filters || {})}`),
+
+    getById: (id: string) => request<any>(`/crm/pipeline-stage-configs/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/pipeline-stage-configs', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/pipeline-stage-configs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/pipeline-stage-configs/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // CRM ANALYTICS (aggregated GETs — no new table)
+  // ===========================
+  crmAnalytics: {
+    getLeadScoring: () => request<any>('/crm/analytics/lead-scoring'),
+    getForecast: () => request<any>('/crm/analytics/forecast'),
+    getInteractionAnalysis: () => request<any>('/crm/analytics/interaction-analysis'),
+  },
 };
 
 export default crmService;

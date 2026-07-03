@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { List, Users, Mail, Phone, Filter as FilterIcon, TrendingUp, Target, Calendar, Search, Plus, Edit, Trash2, Eye, Download, Upload, CheckCircle, XCircle, Clock, BarChart3, Send, UserPlus, Copy, Archive } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface ContactList {
   id: string;
@@ -35,199 +36,6 @@ interface ListContact {
   engagementScore: number;
   status: 'subscribed' | 'unsubscribed' | 'bounced';
 }
-
-const mockLists: ContactList[] = [
-  {
-    id: '1',
-    name: 'Enterprise Prospects 2024',
-    description: 'High-value enterprise prospects for Q4 outreach campaign',
-    contactCount: 487,
-    type: 'static',
-    category: 'Prospects',
-    filters: ['Revenue > $10M', 'Employees > 500', 'Tech Industry'],
-    emailsSent: 1245,
-    openRate: 42.5,
-    clickRate: 18.3,
-    unsubscribeRate: 1.2,
-    lastUpdated: '2024-10-18',
-    createdDate: '2024-01-15',
-    owner: 'Sarah Johnson',
-    status: 'active',
-    color: 'purple',
-    tags: ['Enterprise', 'High Priority', 'Technology'],
-  },
-  {
-    id: '2',
-    name: 'Active Customers - Premium',
-    description: 'Premium tier customers with active subscriptions',
-    contactCount: 1243,
-    type: 'dynamic',
-    category: 'Customers',
-    filters: ['Plan = Premium', 'Status = Active', 'MRR > $5000'],
-    emailsSent: 3890,
-    openRate: 58.7,
-    clickRate: 31.2,
-    unsubscribeRate: 0.4,
-    lastUpdated: '2024-10-20',
-    createdDate: '2024-02-10',
-    owner: 'Michael Chen',
-    status: 'active',
-    color: 'blue',
-    tags: ['Customers', 'Premium', 'Active'],
-  },
-  {
-    id: '3',
-    name: 'Webinar Attendees - AI Series',
-    description: 'Contacts who attended AI webinar series in Q3',
-    contactCount: 856,
-    type: 'static',
-    category: 'Events',
-    filters: ['Webinar = AI Series', 'Attended = Yes', 'Date >= Q3 2024'],
-    emailsSent: 2140,
-    openRate: 51.3,
-    clickRate: 24.7,
-    unsubscribeRate: 2.1,
-    lastUpdated: '2024-10-15',
-    createdDate: '2024-07-01',
-    owner: 'Emily Rodriguez',
-    status: 'active',
-    color: 'green',
-    tags: ['Events', 'Webinar', 'AI'],
-  },
-  {
-    id: '4',
-    name: 'At-Risk Customers',
-    description: 'Customers showing signs of churn risk - high priority retention',
-    contactCount: 156,
-    type: 'smart',
-    category: 'Retention',
-    filters: ['NPS < 6', 'Last Login > 30 days', 'Support Tickets > 5'],
-    emailsSent: 468,
-    openRate: 38.2,
-    clickRate: 15.8,
-    unsubscribeRate: 3.5,
-    lastUpdated: '2024-10-19',
-    createdDate: '2024-03-20',
-    owner: 'David Martinez',
-    status: 'active',
-    color: 'red',
-    tags: ['Churn Risk', 'High Priority', 'Retention'],
-  },
-  {
-    id: '5',
-    name: 'Newsletter Subscribers',
-    description: 'Weekly newsletter subscribers - general audience',
-    contactCount: 12450,
-    type: 'dynamic',
-    category: 'Marketing',
-    filters: ['Newsletter = Yes', 'Status = Subscribed'],
-    emailsSent: 49800,
-    openRate: 28.4,
-    clickRate: 8.2,
-    unsubscribeRate: 0.8,
-    lastUpdated: '2024-10-20',
-    createdDate: '2023-06-01',
-    owner: 'Sarah Johnson',
-    status: 'active',
-    color: 'yellow',
-    tags: ['Newsletter', 'Marketing', 'General'],
-  },
-  {
-    id: '6',
-    name: 'Product Launch - Beta Testers',
-    description: 'Selected beta testers for new product launch',
-    contactCount: 234,
-    type: 'static',
-    category: 'Product',
-    filters: ['Beta = Yes', 'NPS > 8', 'Tech Savvy = Yes'],
-    emailsSent: 702,
-    openRate: 72.5,
-    clickRate: 48.3,
-    unsubscribeRate: 0.2,
-    lastUpdated: '2024-10-17',
-    createdDate: '2024-09-01',
-    owner: 'Michael Chen',
-    status: 'active',
-    color: 'orange',
-    tags: ['Beta', 'Product', 'Early Access'],
-  },
-  {
-    id: '7',
-    name: 'SMB Growth Segment',
-    description: 'Small-medium businesses with growth potential',
-    contactCount: 2340,
-    type: 'smart',
-    category: 'Prospects',
-    filters: ['Employees 50-500', 'Growth Rate > 15%', 'No Active Deal'],
-    emailsSent: 7020,
-    openRate: 35.8,
-    clickRate: 12.4,
-    unsubscribeRate: 1.8,
-    lastUpdated: '2024-10-18',
-    createdDate: '2024-04-15',
-    owner: 'Emily Rodriguez',
-    status: 'active',
-    color: 'teal',
-    tags: ['SMB', 'Growth', 'Prospects'],
-  },
-  {
-    id: '8',
-    name: 'Inactive Leads - Nurture',
-    description: 'Leads that went cold but have reengagement potential',
-    contactCount: 1876,
-    type: 'static',
-    category: 'Nurture',
-    filters: ['Last Contact > 90 days', 'Initial Interest = High'],
-    emailsSent: 5628,
-    openRate: 22.1,
-    clickRate: 6.8,
-    unsubscribeRate: 2.9,
-    lastUpdated: '2024-10-10',
-    createdDate: '2024-05-20',
-    owner: 'David Martinez',
-    status: 'active',
-    color: 'gray',
-    tags: ['Nurture', 'Reengagement', 'Cold Leads'],
-  },
-  {
-    id: '9',
-    name: 'Executive Decision Makers',
-    description: 'C-level and VP contacts across all accounts',
-    contactCount: 543,
-    type: 'dynamic',
-    category: 'Executives',
-    filters: ['Title = C-Level OR VP', 'Decision Maker = Yes'],
-    emailsSent: 1629,
-    openRate: 45.8,
-    clickRate: 22.6,
-    unsubscribeRate: 0.9,
-    lastUpdated: '2024-10-19',
-    createdDate: '2024-01-10',
-    owner: 'Sarah Johnson',
-    status: 'active',
-    color: 'indigo',
-    tags: ['Executives', 'Decision Makers', 'C-Level'],
-  },
-  {
-    id: '10',
-    name: 'Q3 Trade Show Leads',
-    description: 'Leads collected from Q3 trade shows and conferences',
-    contactCount: 678,
-    type: 'static',
-    category: 'Events',
-    filters: ['Source = Trade Show', 'Date = Q3 2024'],
-    emailsSent: 0,
-    openRate: 0,
-    clickRate: 0,
-    unsubscribeRate: 0,
-    lastUpdated: '2024-09-30',
-    createdDate: '2024-09-30',
-    owner: 'Michael Chen',
-    status: 'draft',
-    color: 'pink',
-    tags: ['Trade Show', 'Events', 'New Leads'],
-  },
-];
 
 const mockContacts: ListContact[] = [
   {
@@ -269,8 +77,51 @@ const mockContacts: ListContact[] = [
 ];
 
 export default function ContactListsPage() {
-  const [lists] = useState<ContactList[]>(mockLists);
+  const [lists, setLists] = useState<ContactList[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [contacts] = useState<ListContact[]>(mockContacts);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const data = await crmService.contactLists.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setLists(rows.map((r: any): ContactList => ({
+          id: String(r.id ?? ''),
+          name: r.name ?? '',
+          description: r.description ?? '',
+          contactCount: r.contactCount ?? 0,
+          type: (r.type ?? 'static') as ContactList['type'],
+          category: r.category ?? '',
+          filters: Array.isArray(r.filters)
+            ? r.filters
+            : Array.isArray(r.criteria)
+              ? r.criteria
+              : r.criteria
+                ? Object.entries(r.criteria).map(([k, v]) => `${k}: ${v}`)
+                : [],
+          emailsSent: r.emailsSent ?? 0,
+          openRate: r.openRate ?? 0,
+          clickRate: r.clickRate ?? 0,
+          unsubscribeRate: r.unsubscribeRate ?? 0,
+          lastUpdated: r.lastUpdated ?? r.lastUsed ?? r.updatedAt ?? '',
+          createdDate: r.createdDate ?? r.createdAt ?? '',
+          owner: r.owner ?? '',
+          status: (r.status ?? 'active') as ContactList['status'],
+          color: r.color ?? '',
+          tags: Array.isArray(r.tags) ? r.tags : [],
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load'); setLists([]);
+      } finally { if (mounted) setLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'static' | 'dynamic' | 'smart'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -305,13 +156,14 @@ export default function ContactListsPage() {
       }
     });
 
+  const sentLists = lists.filter(l => l.emailsSent > 0);
   const stats = {
     totalLists: lists.filter(l => l.status === 'active').length,
     totalContacts: lists.reduce((sum, l) => sum + l.contactCount, 0),
-    avgOpenRate: lists.filter(l => l.emailsSent > 0).reduce((sum, l) => sum + l.openRate, 0) / lists.filter(l => l.emailsSent > 0).length,
-    avgClickRate: lists.filter(l => l.emailsSent > 0).reduce((sum, l) => sum + l.clickRate, 0) / lists.filter(l => l.emailsSent > 0).length,
+    avgOpenRate: sentLists.length ? sentLists.reduce((sum, l) => sum + l.openRate, 0) / sentLists.length : 0,
+    avgClickRate: sentLists.length ? sentLists.reduce((sum, l) => sum + l.clickRate, 0) / sentLists.length : 0,
     totalEmailsSent: lists.reduce((sum, l) => sum + l.emailsSent, 0),
-    avgUnsubscribeRate: lists.filter(l => l.emailsSent > 0).reduce((sum, l) => sum + l.unsubscribeRate, 0) / lists.filter(l => l.emailsSent > 0).length,
+    avgUnsubscribeRate: sentLists.length ? sentLists.reduce((sum, l) => sum + l.unsubscribeRate, 0) / sentLists.length : 0,
   };
 
   const getTypeColor = (type: string) => {
@@ -359,6 +211,7 @@ export default function ContactListsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

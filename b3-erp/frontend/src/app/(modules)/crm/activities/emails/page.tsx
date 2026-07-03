@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import { Mail, Plus, Search, Send, Inbox, Archive, Star, Clock, User, CheckCircle, XCircle, Eye, TrendingUp, BarChart3, Calendar, Edit, Trash2, FileText, Paperclip } from 'lucide-react';
 
 interface Email {
@@ -26,153 +27,53 @@ interface Email {
   campaign?: string;
 }
 
-const mockEmails: Email[] = [
-  {
-    id: '1',
-    subject: 'Re: Enterprise Implementation Timeline',
-    body: 'Thank you for the detailed proposal. We would like to schedule a call next week to discuss the implementation timeline and resource requirements.',
-    type: 'received',
-    status: 'delivered',
-    from: 'john.anderson@enterprise.com',
-    to: ['michael.chen@company.com'],
-    timestamp: '2024-10-20T14:30:00',
-    relatedTo: 'Enterprise Solutions Ltd.',
-    relatedType: 'opportunity',
-    priority: 'high',
-    hasAttachments: false,
-    tags: ['Response', 'Implementation'],
-  },
-  {
-    id: '2',
-    subject: 'Product Demo Follow-up & Proposal',
-    body: 'Hi Sarah,\n\nThank you for taking the time to meet with us yesterday. As discussed, I have attached our comprehensive proposal including pricing, timeline, and implementation plan.\n\nKey highlights:\n- 25% discount for annual commitment\n- Dedicated success manager\n- 24/7 premium support\n\nPlease let me know if you have any questions.\n\nBest regards,\nMichael',
-    type: 'sent',
-    status: 'opened',
-    from: 'michael.chen@company.com',
-    to: ['sarah.j@techcorp.com'],
-    cc: ['team@techcorp.com'],
-    timestamp: '2024-10-19T16:45:00',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'opportunity',
-    priority: 'high',
-    hasAttachments: true,
-    attachmentCount: 2,
-    openCount: 5,
-    clickCount: 3,
-    firstOpenedAt: '2024-10-19T17:30:00',
-    lastOpenedAt: '2024-10-20T10:15:00',
-    tags: ['Proposal', 'Follow-up'],
-  },
-  {
-    id: '3',
-    subject: 'Q4 Newsletter - New Features & Updates',
-    body: 'Check out our latest product updates and upcoming webinar series...',
-    type: 'sent',
-    status: 'sent',
-    from: 'marketing@company.com',
-    to: ['newsletter@list.com'],
-    timestamp: '2024-10-18T09:00:00',
-    relatedTo: 'Marketing Campaign',
-    relatedType: 'internal',
-    priority: 'low',
-    hasAttachments: false,
-    openCount: 1248,
-    clickCount: 342,
-    tags: ['Newsletter', 'Marketing'],
-    campaign: 'Q4 Newsletter',
-  },
-  {
-    id: '4',
-    subject: 'Urgent: Contract Review Required',
-    body: 'Please review the updated contract terms by EOD. Legal team has made several revisions based on our last discussion.',
-    type: 'sent',
-    status: 'opened',
-    from: 'emily.r@company.com',
-    to: ['robert.davis@globalmfg.com'],
-    cc: ['legal@company.com'],
-    timestamp: '2024-10-20T11:20:00',
-    relatedTo: 'GlobalManufacturing Corp',
-    relatedType: 'customer',
-    priority: 'high',
-    hasAttachments: true,
-    attachmentCount: 1,
-    openCount: 2,
-    firstOpenedAt: '2024-10-20T11:45:00',
-    lastOpenedAt: '2024-10-20T13:20:00',
-    tags: ['Contract', 'Urgent', 'Legal'],
-  },
-  {
-    id: '5',
-    subject: 'Welcome to [Company] - Getting Started Guide',
-    body: 'Welcome aboard! We are excited to have you as a customer. This email contains everything you need to get started...',
-    type: 'sent',
-    status: 'clicked',
-    from: 'success@company.com',
-    to: ['new.customer@startup.io'],
-    timestamp: '2024-10-19T10:00:00',
-    relatedTo: 'StartupTech Inc.',
-    relatedType: 'customer',
-    priority: 'medium',
-    hasAttachments: true,
-    attachmentCount: 3,
-    openCount: 3,
-    clickCount: 8,
-    firstOpenedAt: '2024-10-19T10:15:00',
-    tags: ['Onboarding', 'Welcome'],
-  },
-  {
-    id: '6',
-    subject: 'Draft: Q4 Sales Strategy Presentation',
-    body: 'Draft content for Q4 sales strategy presentation to leadership team...',
-    type: 'draft',
-    status: 'draft',
-    from: 'sarah.j@company.com',
-    to: ['leadership@company.com'],
-    timestamp: '2024-10-20T15:30:00',
-    relatedTo: 'Internal Planning',
-    relatedType: 'internal',
-    priority: 'medium',
-    hasAttachments: false,
-    tags: ['Draft', 'Internal', 'Planning'],
-  },
-  {
-    id: '7',
-    subject: 'Thank You for Attending Our Webinar',
-    body: 'Thank you for attending our AI Innovation webinar. As promised, here are the recording and slides...',
-    type: 'sent',
-    status: 'opened',
-    from: 'webinar@company.com',
-    to: ['attendees@list.com'],
-    timestamp: '2024-10-17T14:00:00',
-    relatedTo: 'AI Webinar Series',
-    relatedType: 'internal',
-    priority: 'low',
-    hasAttachments: true,
-    attachmentCount: 2,
-    openCount: 456,
-    clickCount: 189,
-    tags: ['Webinar', 'Follow-up', 'Marketing'],
-    campaign: 'AI Webinar Series',
-  },
-  {
-    id: '8',
-    subject: 'Payment Failed - Action Required',
-    body: 'Your recent payment attempt was unsuccessful. Please update your payment information to continue service.',
-    type: 'sent',
-    status: 'bounced',
-    from: 'billing@company.com',
-    to: ['billing@customer.com'],
-    timestamp: '2024-10-20T08:00:00',
-    relatedTo: 'Customer Account',
-    relatedType: 'customer',
-    priority: 'high',
-    hasAttachments: false,
-    tags: ['Billing', 'Alert'],
-  },
-];
-
 export default function EmailsPage() {
-  const [emails] = useState<Email[]>(mockEmails);
+  const [emails, setEmails] = useState<Email[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.activityRecords.getAll({ type: 'email' });
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setEmails(rows.map((r: any): Email => ({
+          id: String(r.id ?? ''),
+          subject: r.subject ?? '',
+          body: r.description ?? '',
+          type: (r.direction ?? 'sent') as Email['type'],
+          status: (r.status ?? 'sent') as Email['status'],
+          from: r.assignedTo ?? '',
+          to: r.contactName ? [r.contactName] : [],
+          cc: undefined,
+          timestamp: r.scheduledAt ?? r.completedAt ?? r.createdAt ?? '',
+          relatedTo: r.relatedTo ?? '',
+          relatedType: (r.relatedType ?? 'internal') as Email['relatedType'],
+          priority: (r.priority ?? 'medium') as Email['priority'],
+          hasAttachments: false,
+          attachmentCount: 0,
+          openCount: 0,
+          clickCount: 0,
+          firstOpenedAt: undefined,
+          lastOpenedAt: undefined,
+          tags: Array.isArray(r.tags) ? r.tags : [],
+          campaign: undefined,
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load');
+        setEmails([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'sent' | 'received' | 'draft'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'draft'>('all');
@@ -259,6 +160,7 @@ export default function EmailsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-8">

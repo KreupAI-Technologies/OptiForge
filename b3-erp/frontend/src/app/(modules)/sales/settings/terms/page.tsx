@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, FileText, Plus, Edit, Trash2, Eye, CheckCircle, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface TermsTemplate {
   id: string
@@ -21,152 +22,39 @@ export default function TermsSettingsPage() {
   const router = useRouter()
   const [selectedType, setSelectedType] = useState('all')
 
-  const [templates] = useState<TermsTemplate[]>([
-    {
-      id: 'TERM-001',
-      name: 'Kitchen Products General Terms & Conditions',
-      type: 'general',
-      category: 'All Kitchen Products',
-      content: 'This agreement covers the sale and purchase of kitchen products including sinks, faucets, appliances, cabinets, and accessories. All products are subject to availability and pricing at time of order confirmation. Specifications may change without notice.',
-      status: 'active',
-      applicableTo: ['All Products', 'All Customers'],
-      createdDate: '2024-01-15',
-      lastModified: '2025-09-20',
-      usageCount: 1245
-    },
-    {
-      id: 'TERM-002',
-      name: 'Kitchen Appliances Warranty Terms',
-      type: 'warranty',
-      category: 'Kitchen Appliances',
-      content: 'All kitchen appliances come with manufacturer warranty. Mixer grinders: 2 years motor warranty, 1 year product warranty. Induction cooktops: 1 year comprehensive warranty. Chimney hoods: 1 year on product, 5 years on motor. Warranty void if tampered or damaged by customer.',
-      status: 'active',
-      applicableTo: ['Kitchen Appliances', 'All Customers'],
-      createdDate: '2024-02-10',
-      lastModified: '2025-10-01',
-      usageCount: 567
-    },
-    {
-      id: 'TERM-003',
-      name: 'Kitchen Products Return Policy',
-      type: 'return',
-      category: 'All Kitchen Products',
-      content: 'Returns accepted within 7 days of delivery for manufacturing defects only. Product must be unused and in original packaging. Return shipping costs borne by customer unless product is defective. Refund processed within 7-10 business days. Custom-made products (countertops, cabinets) are non-returnable.',
-      status: 'active',
-      applicableTo: ['All Products', 'Retail Customers', 'Dealers'],
-      createdDate: '2024-01-20',
-      lastModified: '2025-08-15',
-      usageCount: 892
-    },
-    {
-      id: 'TERM-004',
-      name: 'Modular Kitchen Delivery & Installation',
-      type: 'delivery',
-      category: 'Kitchen Storage',
-      content: 'Modular kitchen cabinets delivered and installed by our certified technicians. Installation includes assembly, fitting, and alignment. Customer must ensure site is ready with proper measurements, electrical points, and water connections. Any site modification costs are additional and borne by customer.',
-      status: 'active',
-      applicableTo: ['Kitchen Storage', 'Kitchen Cabinets', 'Builders', 'Contractors'],
-      createdDate: '2024-03-05',
-      lastModified: '2025-09-10',
-      usageCount: 234
-    },
-    {
-      id: 'TERM-005',
-      name: 'Countertop Material & Installation Terms',
-      type: 'custom',
-      category: 'Countertops',
-      content: 'Countertops are custom-made to customer specifications. Final measurements taken on-site after cabinet installation. Granite and quartz slabs are natural materials - color and pattern variations are inherent characteristics. Installation includes cutting, polishing, and sealing. Cutouts for sinks and cooktops included as per approved design.',
-      status: 'active',
-      applicableTo: ['Countertops', 'All Customers'],
-      createdDate: '2024-02-28',
-      lastModified: '2025-10-05',
-      usageCount: 445
-    },
-    {
-      id: 'TERM-006',
-      name: 'Bulk Order Payment Terms - Builders',
-      type: 'payment',
-      category: 'Builder Segment',
-      content: 'For builder projects: 30% advance payment on order confirmation, 40% on delivery, 30% on installation completion. Credit facility available for approved builders with Net 45 payment terms. Delayed payments attract 2% monthly interest. Orders dispatched only after advance payment clearance.',
-      status: 'active',
-      applicableTo: ['Builders', 'Contractors', 'Bulk Orders'],
-      createdDate: '2024-04-15',
-      lastModified: '2025-09-25',
-      usageCount: 178
-    },
-    {
-      id: 'TERM-007',
-      name: 'Kitchen Sink Installation Guidelines',
-      type: 'delivery',
-      category: 'Kitchen Sinks',
-      content: 'Stainless steel sinks supplied with installation kit including drain assembly, clips, and sealant. Installation by customer or their contractor. Undermount sinks require proper cabinet support. Top-mount sinks easier to install. We provide installation manual and video guide. Professional installation available at additional cost.',
-      status: 'active',
-      applicableTo: ['Kitchen Sinks', 'All Customers'],
-      createdDate: '2024-03-20',
-      lastModified: '2025-08-30',
-      usageCount: 334
-    },
-    {
-      id: 'TERM-008',
-      name: 'Cookware Quality & Care Instructions',
-      type: 'warranty',
-      category: 'Cookware',
-      content: 'Non-stick cookware warranty covers coating defects for 6 months from purchase. Pressure cookers have 2-year warranty on gasket and 5-year warranty on body. Proper care required - avoid metal utensils on non-stick, hand wash recommended. Warranty void if used on high flame or overheated.',
-      status: 'active',
-      applicableTo: ['Cookware', 'All Customers'],
-      createdDate: '2024-05-10',
-      lastModified: '2025-07-20',
-      usageCount: 678
-    },
-    {
-      id: 'TERM-009',
-      name: 'Dealer & Distributor Terms',
-      type: 'payment',
-      category: 'Dealer Segment',
-      content: 'Authorized dealers get Net 30 payment terms with approved credit limit. Minimum order quantity applies. Discounts as per dealer agreement. Products dispatched only to registered dealer address. Dealers responsible for end-customer warranty support. Quarterly targets must be met to maintain dealer status.',
-      status: 'active',
-      applicableTo: ['Dealers', 'Distributors'],
-      createdDate: '2024-01-30',
-      lastModified: '2025-10-10',
-      usageCount: 156
-    },
-    {
-      id: 'TERM-010',
-      name: 'Kitchen Faucet Warranty & Maintenance',
-      type: 'warranty',
-      category: 'Kitchen Faucets',
-      content: 'Kitchen faucets have 5-year warranty on cartridge and 10-year warranty on finish (chrome/brass). Warranty covers manufacturing defects only. Not covered: normal wear, water quality damage, improper installation. Annual maintenance recommended for optimal performance. Aerator cleaning required every 3 months.',
-      status: 'active',
-      applicableTo: ['Kitchen Faucets', 'All Customers'],
-      createdDate: '2024-06-01',
-      lastModified: '2025-09-15',
-      usageCount: 423
-    },
-    {
-      id: 'TERM-011',
-      name: 'Institutional Sales Terms - Updated 2025',
-      type: 'payment',
-      category: 'Institutional Segment',
-      content: 'Hospitals, hotels, and institutions: Net 60 payment terms post delivery. Bulk discount applicable. Annual maintenance contract available. Products certified for commercial use. Installation and training included. Dedicated account manager assigned for orders above ₹10L.',
-      status: 'draft',
-      applicableTo: ['Institutions', 'Hospitals', 'Hotels'],
-      createdDate: '2025-10-15',
-      lastModified: '2025-10-18',
-      usageCount: 0
-    },
-    {
-      id: 'TERM-012',
-      name: 'Old Terms - Kitchen Products 2023',
-      type: 'general',
-      category: 'All Kitchen Products',
-      content: 'Previous version of general terms and conditions. Archived for reference only. Not applicable to new orders.',
-      status: 'archived',
-      applicableTo: ['All Products'],
-      createdDate: '2023-01-01',
-      lastModified: '2024-01-14',
-      usageCount: 2341
+  const [templates, setTemplates] = useState<TermsTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getTermsTemplates()
+        const mapped: TermsTemplate[] = (rows || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: (r.type as TermsTemplate['type']) || 'general',
+          category: r.category || '',
+          content: r.content || '',
+          status: (r.status as TermsTemplate['status']) || 'active',
+          applicableTo: r.applicableTo || [],
+          createdDate: r.createdAt || '',
+          lastModified: r.updatedAt || '',
+          usageCount: Number(r.usageCount) || 0,
+        }))
+        if (!cancelled) setTemplates(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load terms templates')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const termTypes = ['all', 'general', 'warranty', 'return', 'delivery', 'payment', 'custom']
 

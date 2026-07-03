@@ -25,6 +25,15 @@ import { SpecialPriceController } from './controllers/special-price.controller';
 import { TermsTemplateService } from './services/terms-template.service';
 import { PromotionService } from './services/promotion.service';
 import { SpecialPriceService } from './services/special-price.service';
+import { PriceListItem } from './entities/price-list-item.entity';
+import { SalesTarget } from './entities/sales-target.entity';
+import { SalesReport } from './entities/sales-report.entity';
+import { PriceListItemController } from './controllers/price-list-item.controller';
+import { SalesTargetController } from './controllers/sales-target.controller';
+import { SalesReportController } from './controllers/sales-report.controller';
+import { PriceListItemService } from './services/price-list-item.service';
+import { SalesTargetService } from './services/sales-target.service';
+import { SalesReportService } from './services/sales-report.service';
 import { RFPController } from './rfp.controller';
 import { RFPService } from './rfp.service';
 import { ApprovalWorkflowService } from './services/approval-workflow.service';
@@ -56,6 +65,9 @@ import { SalesMastersService } from './services/sales-masters.service';
       TermsTemplate,
       Promotion,
       SpecialPrice,
+      PriceListItem,
+      SalesTarget,
+      SalesReport,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -66,11 +78,14 @@ import { SalesMastersService } from './services/sales-masters.service';
     SalesMastersController,
     DiscountController,
     SalesAnalyticsController,
+    SalesTargetController,
+    SalesReportController,
     ShippingMethodController,
     TaxRateController,
     TermsTemplateController,
     PromotionController,
     SpecialPriceController,
+    PriceListItemController,
   ],
   providers: [
     RFPService,
@@ -90,6 +105,9 @@ import { SalesMastersService } from './services/sales-masters.service';
     TermsTemplateService,
     PromotionService,
     SpecialPriceService,
+    PriceListItemService,
+    SalesTargetService,
+    SalesReportService,
   ],
   exports: [
     RFPService,

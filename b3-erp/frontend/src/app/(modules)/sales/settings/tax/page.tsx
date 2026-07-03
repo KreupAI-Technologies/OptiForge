@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Edit, Percent, FileText, CheckCircle, AlertCircle, Package } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface TaxRate {
   id: string
@@ -26,197 +27,44 @@ export default function TaxSettingsPage() {
   const router = useRouter()
   const [selectedType, setSelectedType] = useState('all')
 
-  const [taxRates] = useState<TaxRate[]>([
-    {
-      id: 'TAX-001',
-      name: 'GST 18% - Kitchen Appliances',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      hsnCode: '8516',
-      category: 'Kitchen Appliances',
-      applicableProducts: ['Mixer Grinders', 'Induction Cooktops', 'Kitchen Appliances'],
-      description: 'GST rate for electric kitchen appliances under HSN 8516. Includes mixer grinders, induction cooktops, and other electric appliances.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 1567
-    },
-    {
-      id: 'TAX-002',
-      name: 'GST 18% - Kitchen Sinks',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      hsnCode: '7324',
-      category: 'Kitchen Sinks',
-      applicableProducts: ['Stainless Steel Sinks', 'Kitchen Sinks', 'All Sink Types'],
-      description: 'GST for sanitary ware including kitchen sinks made of stainless steel, iron, or steel (HSN 7324).',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 2345
-    },
-    {
-      id: 'TAX-003',
-      name: 'GST 18% - Kitchen Faucets',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      hsnCode: '8481',
-      category: 'Kitchen Faucets',
-      applicableProducts: ['Kitchen Faucets', 'Taps', 'Faucet Accessories'],
-      description: 'GST on taps, cocks, valves and similar appliances (HSN 8481). Includes kitchen faucets in all materials.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 1234
-    },
-    {
-      id: 'TAX-004',
-      name: 'GST 12% - Cookware',
-      taxType: 'CGST+SGST',
-      rate: 12,
-      cgstRate: 6,
-      sgstRate: 6,
-      igstRate: 12,
-      hsnCode: '7615',
-      category: 'Cookware',
-      applicableProducts: ['Cookware', 'Utensils', 'Pressure Cookers', 'Pots & Pans'],
-      description: 'Reduced GST rate for aluminum cookware and utensils (HSN 7615). Includes pressure cookers, non-stick pans, and other cooking vessels.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 3456
-    },
-    {
-      id: 'TAX-005',
-      name: 'GST 18% - Modular Kitchen Cabinets',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      hsnCode: '9403',
-      category: 'Kitchen Storage',
-      applicableProducts: ['Kitchen Cabinets', 'Modular Kitchen', 'Storage Units'],
-      description: 'GST for furniture including modular kitchen cabinets and storage units (HSN 9403).',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 892
-    },
-    {
-      id: 'TAX-006',
-      name: 'GST 28% - Chimney Hoods',
-      taxType: 'CGST+SGST',
-      rate: 28,
-      cgstRate: 14,
-      sgstRate: 14,
-      igstRate: 28,
-      hsnCode: '8414',
-      category: 'Kitchen Ventilation',
-      applicableProducts: ['Chimney Hoods', 'Kitchen Exhaust Fans', 'Ventilation Systems'],
-      description: 'Higher GST slab for luxury and comfort items including kitchen chimneys and exhaust systems (HSN 8414).',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 456
-    },
-    {
-      id: 'TAX-007',
-      name: 'GST 18% - Granite Countertops',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      hsnCode: '6802',
-      category: 'Countertops',
-      applicableProducts: ['Granite Countertops', 'Marble Slabs', 'Stone Work'],
-      description: 'GST on worked monumental or building stone (HSN 6802). Includes granite and marble countertops.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 678
-    },
-    {
-      id: 'TAX-008',
-      name: 'GST 18% - Quartz Countertops',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      hsnCode: '6810',
-      category: 'Countertops',
-      applicableProducts: ['Quartz Countertops', 'Engineered Stone', 'Composite Stone'],
-      description: 'GST for articles of cement, concrete or artificial stone (HSN 6810). Includes quartz and engineered stone countertops.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 534
-    },
-    {
-      id: 'TAX-009',
-      name: 'GST 12% - Kitchen Accessories',
-      taxType: 'CGST+SGST',
-      rate: 12,
-      cgstRate: 6,
-      sgstRate: 6,
-      igstRate: 12,
-      hsnCode: '7323',
-      category: 'Kitchen Accessories',
-      applicableProducts: ['Kitchen Organizers', 'Baskets', 'Dish Drainers', 'Accessories'],
-      description: 'GST on table, kitchen or other household articles of iron or steel (HSN 7323). Includes organizers, racks, and accessories.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 2134
-    },
-    {
-      id: 'TAX-010',
-      name: 'Installation Services - GST 18%',
-      taxType: 'CGST+SGST',
-      rate: 18,
-      cgstRate: 9,
-      sgstRate: 9,
-      igstRate: 18,
-      sacCode: '995439',
-      category: 'Services',
-      applicableProducts: ['Installation Services', 'Fitting Services', 'Assembly Services'],
-      description: 'GST on installation, fitting and assembly services (SAC 995439). Applicable for modular kitchen and appliance installation.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 789
-    },
-    {
-      id: 'TAX-011',
-      name: 'IGST 18% - Interstate Sales',
-      taxType: 'IGST',
-      rate: 18,
-      igstRate: 18,
-      category: 'Interstate',
-      applicableProducts: ['All Products'],
-      description: 'Integrated GST for interstate transactions. Applicable when supplier and buyer are in different states.',
-      status: 'active',
-      effectiveDate: '2017-07-01',
-      usageCount: 4567
-    },
-    {
-      id: 'TAX-012',
-      name: 'GST 5% - Essential Items (Historical)',
-      taxType: 'CGST+SGST',
-      rate: 5,
-      cgstRate: 2.5,
-      sgstRate: 2.5,
-      igstRate: 5,
-      hsnCode: '7323',
-      category: 'Basic Items',
-      applicableProducts: ['Basic Utensils', 'Simple Cookware'],
-      description: 'Historical tax rate. Now mostly replaced by 12% rate. Kept for reference.',
-      status: 'inactive',
-      effectiveDate: '2017-07-01',
-      usageCount: 1234
+  const [taxRates, setTaxRates] = useState<TaxRate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getTaxRates()
+        const mapped: TaxRate[] = (rows || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          taxType: (r.taxType as TaxRate['taxType']) || 'GST',
+          rate: Number(r.rate) || 0,
+          cgstRate: r.cgstRate != null ? Number(r.cgstRate) : undefined,
+          sgstRate: r.sgstRate != null ? Number(r.sgstRate) : undefined,
+          igstRate: r.igstRate != null ? Number(r.igstRate) : undefined,
+          hsnCode: r.hsnCode,
+          sacCode: r.sacCode,
+          category: r.category || '',
+          applicableProducts: r.applicableProducts || [],
+          description: r.description || '',
+          status: (r.status as TaxRate['status']) || 'active',
+          effectiveDate: r.effectiveDate || '',
+          usageCount: Number(r.usageCount) || 0,
+        }))
+        if (!cancelled) setTaxRates(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load tax rates')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const taxTypes = ['all', 'GST', 'IGST', 'CGST+SGST', 'VAT', 'Custom']
 

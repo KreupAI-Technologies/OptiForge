@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Search, Filter, Megaphone, Gift, Sparkles, Calendar, Package, Target, TrendingUp, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface Promotion {
   id: string
@@ -31,246 +32,48 @@ export default function PromotionsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('all')
 
-  const [promotions] = useState<Promotion[]>([
-    {
-      id: 'PROMO-001',
-      name: 'Diwali Kitchen Bonanza',
-      code: 'DIWALI2025',
-      type: 'festival',
-      description: 'Special Diwali discounts on all kitchen products. Light up your kitchen with amazing deals!',
-      category: 'All Kitchen Products',
-      applicableProducts: ['ALL'],
-      discountType: 'percentage',
-      discountValue: 40,
-      startDate: '2025-10-20',
-      endDate: '2025-11-10',
-      status: 'active',
-      targetAudience: 'All Customers',
-      minPurchase: 50000,
-      maxDiscount: 50000,
-      claimedCount: 234,
-      targetCount: 500,
-      revenue: 11700000
-    },
-    {
-      id: 'PROMO-002',
-      name: 'Kitchen Sink & Faucet Combo',
-      code: 'COMBO-SF',
-      type: 'combo',
-      description: 'Buy any kitchen sink and get matching faucet at 50% off. Perfect pair for your dream kitchen!',
-      category: 'Kitchen Sinks & Faucets',
-      applicableProducts: ['KIT-SS-001', 'KIT-SS-002', 'KIT-FC-001', 'KIT-FC-002'],
-      discountType: 'percentage',
-      discountValue: 50,
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      status: 'active',
-      targetAudience: 'Retail & Contractors',
-      minPurchase: 20000,
-      maxDiscount: 10000,
-      claimedCount: 156,
-      targetCount: 300,
-      revenue: 3120000
-    },
-    {
-      id: 'PROMO-003',
-      name: 'Cookware Clearance Sale',
-      code: 'CLEAR-COOK',
-      type: 'clearance',
-      description: 'End of season clearance! Premium cookware sets at unbeatable prices. Limited stock available.',
-      category: 'Cookware',
-      applicableProducts: ['KIT-CW-001', 'KIT-CW-002'],
-      discountType: 'percentage',
-      discountValue: 35,
-      startDate: '2025-09-15',
-      endDate: '2025-11-30',
-      status: 'active',
-      targetAudience: 'All Customers',
-      minPurchase: 30000,
-      maxDiscount: 15000,
-      claimedCount: 89,
-      targetCount: 150,
-      revenue: 2670000
-    },
-    {
-      id: 'PROMO-004',
-      name: 'Smart Appliance Launch Offer',
-      code: 'LAUNCH-APP',
-      type: 'launch',
-      description: 'Introducing new smart kitchen appliances! Early bird special pricing for limited time only.',
-      category: 'Kitchen Appliances',
-      applicableProducts: ['KIT-AP-001', 'KIT-AP-002'],
-      discountType: 'percentage',
-      discountValue: 25,
-      startDate: '2025-11-01',
-      endDate: '2025-12-15',
-      status: 'scheduled',
-      targetAudience: 'Tech-Savvy Customers',
-      minPurchase: 15000,
-      maxDiscount: 8000,
-      claimedCount: 0,
-      targetCount: 200,
-      revenue: 0
-    },
-    {
-      id: 'PROMO-005',
-      name: 'Modular Kitchen Package Deal',
-      code: 'MODULAR-PKG',
-      type: 'bundle',
-      description: 'Complete modular kitchen solution! Cabinets + Countertop + Sink + Accessories at bundle price.',
-      category: 'Kitchen Storage & Countertops',
-      applicableProducts: ['KIT-CB-001', 'KIT-CB-002', 'KIT-CT-001', 'KIT-CT-002', 'KIT-SS-001', 'KIT-AC-001'],
-      discountType: 'percentage',
-      discountValue: 30,
-      startDate: '2025-10-10',
-      endDate: '2026-01-31',
-      status: 'active',
-      targetAudience: 'Builders & Contractors',
-      minPurchase: 200000,
-      maxDiscount: 75000,
-      claimedCount: 45,
-      targetCount: 100,
-      revenue: 9000000
-    },
-    {
-      id: 'PROMO-006',
-      name: 'Winter Kitchen Refresh',
-      code: 'WINTER2025',
-      type: 'seasonal',
-      description: 'Winter special on kitchen ventilation and chimneys. Keep your kitchen fresh and smoke-free!',
-      category: 'Kitchen Ventilation',
-      applicableProducts: ['KIT-CH-001'],
-      discountType: 'percentage',
-      discountValue: 20,
-      startDate: '2025-12-01',
-      endDate: '2026-02-28',
-      status: 'scheduled',
-      targetAudience: 'All Customers',
-      minPurchase: 18000,
-      maxDiscount: 5000,
-      claimedCount: 0,
-      targetCount: 120,
-      revenue: 0
-    },
-    {
-      id: 'PROMO-007',
-      name: 'Countertop Mega Sale',
-      code: 'COUNTER-MEGA',
-      type: 'clearance',
-      description: 'Limited time offer on premium granite and quartz countertops. Transform your kitchen today!',
-      category: 'Countertops',
-      applicableProducts: ['KIT-CT-001', 'KIT-CT-002'],
-      discountType: 'fixed',
-      discountValue: 200,
-      startDate: '2025-10-05',
-      endDate: '2025-11-20',
-      status: 'active',
-      targetAudience: 'Retail & Builders',
-      minPurchase: 25000,
-      claimedCount: 178,
-      targetCount: 250,
-      revenue: 4450000
-    },
-    {
-      id: 'PROMO-008',
-      name: 'Kitchen Accessories Bundle',
-      code: 'ACCESS-BUNDLE',
-      type: 'combo',
-      description: 'Buy 5 kitchen accessories and get 2 free! Organize your kitchen efficiently.',
-      category: 'Kitchen Accessories',
-      applicableProducts: ['KIT-AC-001', 'KIT-AC-002'],
-      discountType: 'bundle',
-      discountValue: 40,
-      startDate: '2025-09-20',
-      endDate: '2025-12-31',
-      status: 'active',
-      targetAudience: 'All Customers',
-      minPurchase: 10000,
-      claimedCount: 267,
-      targetCount: 400,
-      revenue: 2670000
-    },
-    {
-      id: 'PROMO-009',
-      name: 'Holi Color Your Kitchen',
-      code: 'HOLI2026',
-      type: 'festival',
-      description: 'Holi special! Add vibrant colors to your kitchen with our exclusive festive offers.',
-      category: 'All Kitchen Products',
-      applicableProducts: ['ALL'],
-      discountType: 'percentage',
-      discountValue: 35,
-      startDate: '2026-03-01',
-      endDate: '2026-03-20',
-      status: 'scheduled',
-      targetAudience: 'All Customers',
-      minPurchase: 40000,
-      maxDiscount: 40000,
-      claimedCount: 0,
-      targetCount: 350,
-      revenue: 0
-    },
-    {
-      id: 'PROMO-010',
-      name: 'Premium Faucet Collection',
-      code: 'FAUCET-PREM',
-      type: 'launch',
-      description: 'New premium brass and chrome faucet collection launch. Exclusive introductory pricing!',
-      category: 'Kitchen Faucets',
-      applicableProducts: ['KIT-FC-001', 'KIT-FC-002'],
-      discountType: 'percentage',
-      discountValue: 22,
-      startDate: '2025-10-15',
-      endDate: '2025-12-15',
-      status: 'active',
-      targetAudience: 'Premium Segment',
-      minPurchase: 15000,
-      maxDiscount: 6000,
-      claimedCount: 112,
-      targetCount: 200,
-      revenue: 1680000
-    },
-    {
-      id: 'PROMO-011',
-      name: 'Summer Kitchen Sale',
-      code: 'SUMMER2025',
-      type: 'seasonal',
-      description: 'Beat the heat with hot summer deals! Special discounts on all kitchen products.',
-      category: 'All Kitchen Products',
-      applicableProducts: ['ALL'],
-      discountType: 'percentage',
-      discountValue: 30,
-      startDate: '2025-05-01',
-      endDate: '2025-07-31',
-      status: 'ended',
-      targetAudience: 'All Customers',
-      minPurchase: 35000,
-      maxDiscount: 35000,
-      claimedCount: 423,
-      targetCount: 400,
-      revenue: 14805000
-    },
-    {
-      id: 'PROMO-012',
-      name: 'Builder Bulk Kitchen Package',
-      code: 'BUILDER-BULK',
-      type: 'bundle',
-      description: 'Special package for builders! Complete kitchen solution for apartments at wholesale rates.',
-      category: 'All Kitchen Products',
-      applicableProducts: ['ALL'],
-      discountType: 'percentage',
-      discountValue: 35,
-      startDate: '2025-10-01',
-      endDate: '2026-03-31',
-      status: 'active',
-      targetAudience: 'Builders Only',
-      minPurchase: 500000,
-      maxDiscount: 200000,
-      claimedCount: 34,
-      targetCount: 75,
-      revenue: 17000000
+  const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getPromotions()
+        const mapped: Promotion[] = (rows || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          code: r.code || '',
+          type: (r.type as Promotion['type']) || 'seasonal',
+          description: r.description || '',
+          category: r.category || '',
+          applicableProducts: r.applicableProducts || [],
+          discountType: (r.discountType as Promotion['discountType']) || 'percentage',
+          discountValue: Number(r.discountValue) || 0,
+          startDate: r.startDate || '',
+          endDate: r.endDate || '',
+          status: (r.status as Promotion['status']) || 'active',
+          targetAudience: r.targetAudience || '',
+          minPurchase: Number(r.minPurchase) || 0,
+          maxDiscount: r.maxDiscount != null ? Number(r.maxDiscount) : undefined,
+          claimedCount: Number(r.claimedCount) || 0,
+          targetCount: Number(r.targetCount) || 0,
+          revenue: Number(r.revenue) || 0,
+          bannerImage: r.bannerImage,
+        }))
+        if (!cancelled) setPromotions(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load promotions')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const promotionTypes = ['all', 'festival', 'clearance', 'combo', 'seasonal', 'launch']
 

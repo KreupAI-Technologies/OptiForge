@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   CheckCircle, XCircle, Zap, Shield, Cloud, Globe, Smartphone,
-  Database, Lock, BarChart, Users, Mail, FileText, RefreshCw,
-  Settings, Code, Package, Workflow, Calendar, HelpCircle
+  BarChart, Settings, Code, Package, HelpCircle
 } from 'lucide-react'
+import { ItAdminService, LicenseFeatureDto } from '@/services/it-admin.service'
 
 interface Feature {
   id: string
@@ -24,341 +24,89 @@ interface FeatureCategory {
   features: Feature[]
 }
 
+const ICON_BY_CATEGORY: Record<string, any> = {
+  Core: Globe,
+  Analytics: BarChart,
+  Security: Shield,
+  Integration: Code,
+  Infrastructure: Cloud,
+  Mobile: Smartphone,
+  Customization: Settings,
+  Support: HelpCircle
+}
+
+const VALID_TIERS: Feature['tier'][] = ['Basic', 'Standard', 'Enterprise', 'Premium']
+
+const normalizeTier = (tier?: string): Feature['tier'] =>
+  (VALID_TIERS.includes(tier as Feature['tier']) ? tier : 'Basic') as Feature['tier']
+
+const groupFeatures = (dtos: LicenseFeatureDto[]): FeatureCategory[] => {
+  const byCategory = new Map<string, Feature[]>()
+
+  dtos.forEach((dto) => {
+    const feature: Feature = {
+      id: dto.id,
+      name: dto.name,
+      category: dto.category,
+      description: dto.description ?? '',
+      licensed: dto.included,
+      icon: ICON_BY_CATEGORY[dto.category] ?? Package,
+      tier: normalizeTier(dto.tier),
+      limitations:
+        dto.usageLimit !== undefined
+          ? `Limited to ${dto.usageLimit} (used ${dto.usageCount})`
+          : undefined
+    }
+
+    const existing = byCategory.get(dto.category)
+    if (existing) {
+      existing.push(feature)
+    } else {
+      byCategory.set(dto.category, [feature])
+    }
+  })
+
+  return Array.from(byCategory.entries()).map(([name, features]) => ({
+    name,
+    description: `${name} features`,
+    features
+  }))
+}
+
 export default function LicenseFeatures() {
   const [selectedTier, setSelectedTier] = useState('all')
+  const [categories, setCategories] = useState<FeatureCategory[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [categories] = useState<FeatureCategory[]>([
-    {
-      name: 'Core Features',
-      description: 'Essential system functionality',
-      features: [
-        {
-          id: '1',
-          name: 'Multi-Company Support',
-          category: 'Core',
-          description: 'Manage multiple companies within a single instance',
-          licensed: true,
-          icon: Globe,
-          tier: 'Enterprise'
-        },
-        {
-          id: '2',
-          name: 'Multi-Currency',
-          category: 'Core',
-          description: 'Support for multiple currencies with real-time conversion',
-          licensed: true,
-          icon: RefreshCw,
-          tier: 'Enterprise'
-        },
-        {
-          id: '3',
-          name: 'Multi-Language',
-          category: 'Core',
-          description: 'Interface available in 20+ languages',
-          licensed: true,
-          icon: Globe,
-          tier: 'Standard'
-        },
-        {
-          id: '4',
-          name: 'Workflow Automation',
-          category: 'Core',
-          description: 'Create custom automated workflows and business rules',
-          licensed: true,
-          icon: Workflow,
-          tier: 'Enterprise'
+  useEffect(() => {
+    let active = true
+
+    const loadFeatures = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const features = await ItAdminService.getLicenseFeatures()
+        if (active) {
+          setCategories(groupFeatures(features))
         }
-      ]
-    },
-    {
-      name: 'Data & Analytics',
-      description: 'Reporting and business intelligence tools',
-      features: [
-        {
-          id: '5',
-          name: 'Advanced Reporting',
-          category: 'Analytics',
-          description: 'Custom report builder with 100+ templates',
-          licensed: true,
-          icon: BarChart,
-          tier: 'Enterprise'
-        },
-        {
-          id: '6',
-          name: 'Real-time Dashboards',
-          category: 'Analytics',
-          description: 'Live dashboards with customizable widgets',
-          licensed: true,
-          icon: BarChart,
-          tier: 'Standard'
-        },
-        {
-          id: '7',
-          name: 'Data Export',
-          category: 'Analytics',
-          description: 'Export data to Excel, CSV, PDF, and other formats',
-          licensed: true,
-          icon: FileText,
-          tier: 'Standard'
-        },
-        {
-          id: '8',
-          name: 'Predictive Analytics',
-          category: 'Analytics',
-          description: 'AI-powered forecasting and trend analysis',
-          licensed: true,
-          icon: BarChart,
-          tier: 'Premium',
-          limitations: 'Limited to 1000 predictions/month'
+      } catch (err) {
+        if (active) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load license features')
         }
-      ]
-    },
-    {
-      name: 'Security & Access',
-      description: 'Security features and access controls',
-      features: [
-        {
-          id: '9',
-          name: 'Two-Factor Authentication',
-          category: 'Security',
-          description: 'Enhanced security with 2FA support',
-          licensed: true,
-          icon: Shield,
-          tier: 'Enterprise'
-        },
-        {
-          id: '10',
-          name: 'Single Sign-On (SSO)',
-          category: 'Security',
-          description: 'SAML/OAuth integration for enterprise authentication',
-          licensed: true,
-          icon: Lock,
-          tier: 'Enterprise'
-        },
-        {
-          id: '11',
-          name: 'IP Whitelisting',
-          category: 'Security',
-          description: 'Restrict access by IP address ranges',
-          licensed: true,
-          icon: Shield,
-          tier: 'Enterprise'
-        },
-        {
-          id: '12',
-          name: 'Advanced Audit Logs',
-          category: 'Security',
-          description: 'Comprehensive activity tracking and compliance logging',
-          licensed: true,
-          icon: FileText,
-          tier: 'Enterprise'
-        },
-        {
-          id: '13',
-          name: 'Role-Based Access Control',
-          category: 'Security',
-          description: 'Granular permission management at field level',
-          licensed: true,
-          icon: Users,
-          tier: 'Standard'
+      } finally {
+        if (active) {
+          setIsLoading(false)
         }
-      ]
-    },
-    {
-      name: 'Integration & API',
-      description: 'Third-party integrations and API access',
-      features: [
-        {
-          id: '14',
-          name: 'REST API Access',
-          category: 'Integration',
-          description: 'Full API access for custom integrations',
-          licensed: true,
-          icon: Code,
-          tier: 'Enterprise',
-          limitations: '10,000 API calls/day'
-        },
-        {
-          id: '15',
-          name: 'Webhook Support',
-          category: 'Integration',
-          description: 'Real-time event notifications via webhooks',
-          licensed: true,
-          icon: Zap,
-          tier: 'Enterprise'
-        },
-        {
-          id: '16',
-          name: 'Third-Party Integrations',
-          category: 'Integration',
-          description: 'Pre-built integrations with popular services',
-          licensed: true,
-          icon: Package,
-          tier: 'Standard'
-        },
-        {
-          id: '17',
-          name: 'Email Integration',
-          category: 'Integration',
-          description: 'SMTP/IMAP email server integration',
-          licensed: true,
-          icon: Mail,
-          tier: 'Standard'
-        }
-      ]
-    },
-    {
-      name: 'Cloud & Infrastructure',
-      description: 'Cloud services and infrastructure features',
-      features: [
-        {
-          id: '18',
-          name: 'Cloud Backup',
-          category: 'Infrastructure',
-          description: 'Automated daily backups to cloud storage',
-          licensed: true,
-          icon: Cloud,
-          tier: 'Enterprise'
-        },
-        {
-          id: '19',
-          name: 'Disaster Recovery',
-          category: 'Infrastructure',
-          description: 'Point-in-time recovery with 30-day retention',
-          licensed: true,
-          icon: RefreshCw,
-          tier: 'Enterprise'
-        },
-        {
-          id: '20',
-          name: 'High Availability',
-          category: 'Infrastructure',
-          description: '99.9% uptime SLA with failover support',
-          licensed: true,
-          icon: Shield,
-          tier: 'Premium'
-        },
-        {
-          id: '21',
-          name: 'CDN Distribution',
-          category: 'Infrastructure',
-          description: 'Global content delivery network for faster access',
-          licensed: true,
-          icon: Globe,
-          tier: 'Premium'
-        }
-      ]
-    },
-    {
-      name: 'Mobile & Remote Access',
-      description: 'Mobile applications and remote access',
-      features: [
-        {
-          id: '22',
-          name: 'Mobile Application',
-          category: 'Mobile',
-          description: 'Native iOS and Android apps',
-          licensed: true,
-          icon: Smartphone,
-          tier: 'Enterprise'
-        },
-        {
-          id: '23',
-          name: 'Offline Mode',
-          category: 'Mobile',
-          description: 'Work offline and sync when connected',
-          licensed: true,
-          icon: Smartphone,
-          tier: 'Enterprise'
-        },
-        {
-          id: '24',
-          name: 'Remote Desktop Access',
-          category: 'Mobile',
-          description: 'Secure remote access to desktop interface',
-          licensed: true,
-          icon: Globe,
-          tier: 'Standard'
-        }
-      ]
-    },
-    {
-      name: 'Customization',
-      description: 'Customization and branding options',
-      features: [
-        {
-          id: '25',
-          name: 'Custom Fields',
-          category: 'Customization',
-          description: 'Add unlimited custom fields to modules',
-          licensed: true,
-          icon: Settings,
-          tier: 'Standard'
-        },
-        {
-          id: '26',
-          name: 'Custom Branding',
-          category: 'Customization',
-          description: 'White-label with your company branding',
-          licensed: true,
-          icon: Zap,
-          tier: 'Enterprise'
-        },
-        {
-          id: '27',
-          name: 'Custom Templates',
-          category: 'Customization',
-          description: 'Create custom email and document templates',
-          licensed: true,
-          icon: FileText,
-          tier: 'Standard'
-        }
-      ]
-    },
-    {
-      name: 'Support & Training',
-      description: 'Customer support and training resources',
-      features: [
-        {
-          id: '28',
-          name: '24/7 Priority Support',
-          category: 'Support',
-          description: 'Round-the-clock email and phone support',
-          licensed: true,
-          icon: HelpCircle,
-          tier: 'Enterprise'
-        },
-        {
-          id: '29',
-          name: 'Dedicated Account Manager',
-          category: 'Support',
-          description: 'Personal account manager for strategic guidance',
-          licensed: true,
-          icon: Users,
-          tier: 'Premium'
-        },
-        {
-          id: '30',
-          name: 'Online Training',
-          category: 'Support',
-          description: 'Access to video tutorials and documentation',
-          licensed: true,
-          icon: Calendar,
-          tier: 'Standard'
-        },
-        {
-          id: '31',
-          name: 'Custom Training',
-          category: 'Support',
-          description: 'On-site training sessions for your team',
-          licensed: true,
-          icon: Users,
-          tier: 'Enterprise',
-          limitations: '2 sessions per year'
-        }
-      ]
+      }
     }
-  ])
+
+    loadFeatures()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const allFeatures = categories.flatMap(cat => cat.features)
 
@@ -390,6 +138,17 @@ export default function LicenseFeatures() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading...
+        </div>
+      )}
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

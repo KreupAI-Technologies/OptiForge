@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import { Phone, Plus, Search, Clock, User, CheckCircle, XCircle, PhoneMissed, PhoneIncoming, PhoneOutgoing, BarChart3, TrendingUp, Calendar, Edit, Trash2, Eye, FileText } from 'lucide-react';
 
 interface Call {
@@ -22,137 +23,49 @@ interface Call {
   recordingUrl?: string;
 }
 
-const mockCalls: Call[] = [
-  {
-    id: '1',
-    subject: 'Discovery Call - FinanceHub',
-    description: 'Initial discovery to understand pain points and requirements',
-    type: 'outbound',
-    status: 'completed',
-    callType: 'discovery',
-    scheduledTime: '2024-10-20T10:00:00',
-    duration: 35,
-    caller: 'Emily Rodriguez',
-    recipient: 'Elizabeth Wilson (CFO)',
-    relatedTo: 'FinanceHub International',
-    relatedType: 'opportunity',
-    outcome: 'positive',
-    nextSteps: ['Send proposal by Oct 25', 'Schedule technical demo', 'Connect with IT team'],
-    notes: 'Client expressed strong interest in security features. Budget approved for Q4. Three decision makers involved.',
-    recordingUrl: 'https://recordings.crm.com/call001',
-  },
-  {
-    id: '2',
-    subject: 'Follow-up Call - StartupTech',
-    description: 'Discuss pricing and next steps after demo',
-    type: 'outbound',
-    status: 'scheduled',
-    callType: 'follow-up',
-    scheduledTime: '2024-10-21T11:00:00',
-    duration: 30,
-    caller: 'Michael Chen',
-    recipient: 'Michael Chen (CEO)',
-    relatedTo: 'StartupTech Inc.',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '3',
-    subject: 'Support Call - TechCorp',
-    description: 'Address implementation questions',
-    type: 'inbound',
-    status: 'completed',
-    callType: 'support',
-    scheduledTime: '2024-10-19T14:30:00',
-    duration: 25,
-    caller: 'Sarah Johnson (Tech Lead)',
-    recipient: 'Support Team',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'customer',
-    outcome: 'positive',
-    notes: 'Resolved integration issue with API authentication. Customer satisfied with solution.',
-  },
-  {
-    id: '4',
-    subject: 'Cold Call - Manufacturing Lead',
-    description: 'Initial outreach to qualified lead from trade show',
-    type: 'outbound',
-    status: 'completed',
-    callType: 'cold-call',
-    scheduledTime: '2024-10-20T15:00:00',
-    duration: 12,
-    caller: 'David Martinez',
-    recipient: 'Operations Manager',
-    relatedTo: 'Manufacturing Corp XYZ',
-    relatedType: 'lead',
-    outcome: 'neutral',
-    nextSteps: ['Send information email', 'Follow up in 1 week'],
-    notes: 'Contact was busy but interested. Requested email with case studies.',
-  },
-  {
-    id: '5',
-    subject: 'Closing Call - Enterprise Solutions',
-    description: 'Final discussion before contract signing',
-    type: 'outbound',
-    status: 'scheduled',
-    callType: 'closing',
-    scheduledTime: '2024-10-22T16:00:00',
-    duration: 45,
-    caller: 'Sarah Johnson',
-    recipient: 'John Anderson (CTO)',
-    relatedTo: 'Enterprise Solutions Ltd.',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '6',
-    subject: 'Missed Call - GlobalMfg',
-    description: 'Attempted follow-up call',
-    type: 'outbound',
-    status: 'missed',
-    callType: 'follow-up',
-    scheduledTime: '2024-10-20T11:00:00',
-    caller: 'Emily Rodriguez',
-    recipient: 'Robert Davis (VP)',
-    relatedTo: 'GlobalManufacturing Corp',
-    relatedType: 'customer',
-    outcome: 'no-answer',
-    nextSteps: ['Reschedule call', 'Send follow-up email'],
-  },
-  {
-    id: '7',
-    subject: 'Demo Call - Financial Services Lead',
-    description: 'Product demonstration focused on compliance features',
-    type: 'outbound',
-    status: 'completed',
-    callType: 'demo',
-    scheduledTime: '2024-10-18T13:00:00',
-    duration: 45,
-    caller: 'Michael Chen',
-    recipient: 'Compliance Director',
-    relatedTo: 'FinServ Group',
-    relatedType: 'opportunity',
-    outcome: 'positive',
-    nextSteps: ['Send security documentation', 'Schedule technical deep-dive', 'Connect with legal team'],
-    notes: 'Strong interest in compliance automation features. Ready to move forward pending legal review.',
-    recordingUrl: 'https://recordings.crm.com/call007',
-  },
-  {
-    id: '8',
-    subject: 'Quarterly Check-in - Top Account',
-    description: 'Regular touchpoint with executive sponsor',
-    type: 'outbound',
-    status: 'scheduled',
-    callType: 'follow-up',
-    scheduledTime: '2024-10-23T10:00:00',
-    duration: 30,
-    caller: 'Sarah Johnson',
-    recipient: 'Executive Sponsor',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'customer',
-  },
-];
-
 export default function CallsPage() {
-  const [calls] = useState<Call[]>(mockCalls);
+  const [calls, setCalls] = useState<Call[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.activityRecords.getAll({ type: 'call' });
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setCalls(rows.map((r: any): Call => ({
+          id: String(r.id ?? ''),
+          subject: r.subject ?? '',
+          description: r.description ?? '',
+          type: (r.direction ?? 'outbound') as Call['type'],
+          status: (r.status ?? 'completed') as Call['status'],
+          callType: (r.callType ?? 'follow-up') as Call['callType'],
+          scheduledTime: r.scheduledAt ?? r.dueDate ?? r.createdAt ?? '',
+          duration: r.durationMinutes ?? 0,
+          caller: r.assignedTo ?? '',
+          recipient: r.contactName ?? '',
+          relatedTo: r.relatedTo ?? '',
+          relatedType: (r.relatedType ?? 'lead') as Call['relatedType'],
+          outcome: (r.outcome ?? undefined) as Call['outcome'],
+          nextSteps: Array.isArray(r.tags) ? r.tags : [],
+          notes: r.description ?? '',
+          recordingUrl: r.meetingLink ?? undefined,
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load');
+        setCalls([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'scheduled' | 'missed'>('all');
   const [filterType, setFilterType] = useState<'all' | 'outbound' | 'inbound' | 'missed'>('all');
@@ -188,7 +101,9 @@ export default function CallsPage() {
     scheduled: calls.filter(c => c.status === 'scheduled').length,
     missed: calls.filter(c => c.status === 'missed').length,
     totalMinutes: calls.filter(c => c.duration).reduce((sum, c) => sum + (c.duration || 0), 0),
-    avgDuration: calls.filter(c => c.duration).reduce((sum, c) => sum + (c.duration || 0), 0) / calls.filter(c => c.duration).length,
+    avgDuration: calls.filter(c => c.duration).length
+      ? calls.filter(c => c.duration).reduce((sum, c) => sum + (c.duration || 0), 0) / calls.filter(c => c.duration).length
+      : 0,
     positiveOutcome: calls.filter(c => c.outcome === 'positive').length,
   };
 
@@ -237,6 +152,7 @@ export default function CallsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-8">

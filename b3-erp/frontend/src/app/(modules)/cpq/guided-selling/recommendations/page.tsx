@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -15,7 +15,8 @@ import {
   Filter,
   Brain,
   BarChart3,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import {
   SendToCustomerModal,
@@ -23,6 +24,7 @@ import {
   GenerateRecommendationModal,
   Recommendation as RecommendationType
 } from '@/components/cpq/RecommendationModals';
+import { cpqRecommendationService } from '@/services/cpq/cpq-orphans.service';
 
 interface Recommendation {
   id: string;
@@ -56,236 +58,47 @@ export default function RecommendationsPage() {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null);
 
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([
-    {
-      id: '1',
-      customerId: 'CUST-2025-1142',
-      customerName: 'Rajesh & Priya Sharma',
-      segment: 'Luxury Residential',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      category: 'Kitchen Sinks',
-      recommendationType: 'best-match',
-      confidenceScore: 94.5,
-      estimatedValue: 18500,
-      reason: 'Perfect fit based on kitchen size (12x10 ft) and premium countertop selection',
-      basedOn: 'Kitchen dimensions, material preferences, budget range',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 87.5,
-      createdDate: '2025-10-20',
-      expiresDate: '2025-10-27'
-    },
-    {
-      id: '2',
-      customerId: 'CUST-2025-1142',
-      customerName: 'Rajesh & Priya Sharma',
-      segment: 'Luxury Residential',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      category: 'Kitchen Appliances',
-      recommendationType: 'frequently-bought',
-      confidenceScore: 91.2,
-      estimatedValue: 45000,
-      reason: 'Customers who bought premium sinks also purchased this chimney 78% of the time',
-      basedOn: 'Purchase patterns, co-occurrence analysis',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 82.3,
-      createdDate: '2025-10-20',
-      expiresDate: '2025-10-27'
-    },
-    {
-      id: '3',
-      customerId: 'CUST-2025-1138',
-      customerName: 'Amit & Sneha Patel',
-      segment: 'Middle Income Residential',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      category: 'Kitchen Cabinets',
-      recommendationType: 'best-match',
-      confidenceScore: 88.7,
-      estimatedValue: 28500,
-      reason: 'Matches budget constraints while offering optimal storage for family of 4',
-      basedOn: 'Budget range, family size, storage requirements',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 79.5,
-      createdDate: '2025-10-19',
-      expiresDate: '2025-10-26'
-    },
-    {
-      id: '4',
-      customerId: 'CUST-2025-1145',
-      customerName: 'Vikram Industries Ltd',
-      segment: 'B2B - Commercial',
-      productCode: 'KIT-APPL-003',
-      productName: 'Commercial Kitchen Chimney - 120cm Industrial',
-      category: 'Kitchen Appliances',
-      recommendationType: 'upgrade',
-      confidenceScore: 85.3,
-      estimatedValue: 125000,
-      reason: 'Upgrade to industrial-grade for better performance and compliance with safety norms',
-      basedOn: 'Commercial requirements, regulatory compliance',
-      priority: 'medium',
-      aiGenerated: true,
-      acceptanceRate: 68.4,
-      createdDate: '2025-10-19',
-      expiresDate: '2025-11-02'
-    },
-    {
-      id: '5',
-      customerId: 'CUST-2025-1139',
-      customerName: 'Meera & Arjun Iyer',
-      segment: 'Luxury Residential',
-      productCode: 'KIT-COUNT-001',
-      productName: 'Granite Countertop - Premium Black Galaxy',
-      category: 'Countertops',
-      recommendationType: 'trending',
-      confidenceScore: 92.8,
-      estimatedValue: 185000,
-      reason: 'Top trending choice among luxury segment in your area this month',
-      basedOn: 'Geographic trends, segment preferences, seasonal popularity',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 85.7,
-      createdDate: '2025-10-18',
-      expiresDate: '2025-10-25'
-    },
-    {
-      id: '6',
-      customerId: 'CUST-2025-1141',
-      customerName: 'Suresh & Kavita Reddy',
-      segment: 'Middle Income Residential',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      category: 'Kitchen Faucets',
-      recommendationType: 'alternative',
-      confidenceScore: 76.5,
-      estimatedValue: 8500,
-      reason: 'More affordable alternative with similar features to your wishlist item',
-      basedOn: 'Budget optimization, feature comparison',
-      priority: 'medium',
-      aiGenerated: true,
-      acceptanceRate: 72.1,
-      createdDate: '2025-10-18',
-      expiresDate: '2025-10-25'
-    },
-    {
-      id: '7',
-      customerId: 'CUST-2025-1143',
-      customerName: 'Neha & Arun Gupta',
-      segment: 'New Home Buyers',
-      productCode: 'KIT-COOK-001',
-      productName: 'Professional Cookware Set - 7 Piece',
-      category: 'Cookware',
-      recommendationType: 'frequently-bought',
-      confidenceScore: 89.4,
-      estimatedValue: 15500,
-      reason: 'New homeowners typically add quality cookware with their kitchen setup',
-      basedOn: 'New homeowner buying patterns, lifecycle stage',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 81.9,
-      createdDate: '2025-10-17',
-      expiresDate: '2025-10-24'
-    },
-    {
-      id: '8',
-      customerId: 'CUST-2025-1144',
-      customerName: 'Pooja & Karan Nair',
-      segment: 'Luxury Residential',
-      productCode: 'KIT-ACC-001',
-      productName: 'Modular Kitchen Organizer Set - Premium',
-      category: 'Kitchen Accessories',
-      recommendationType: 'frequently-bought',
-      confidenceScore: 83.2,
-      estimatedValue: 12500,
-      reason: 'Complements your selected modular kitchen perfectly for enhanced organization',
-      basedOn: 'Cross-sell patterns, complementary products',
-      priority: 'medium',
-      aiGenerated: true,
-      acceptanceRate: 76.8,
-      createdDate: '2025-10-17',
-      expiresDate: '2025-10-24'
-    },
-    {
-      id: '9',
-      customerId: 'CUST-2025-1140',
-      customerName: 'Rahul & Divya Menon',
-      segment: 'Tech-Savvy Urban',
-      productCode: 'KIT-APPL-005',
-      productName: 'Smart Built-in Microwave - IoT Enabled 30L',
-      category: 'Kitchen Appliances',
-      recommendationType: 'best-match',
-      confidenceScore: 95.1,
-      estimatedValue: 38500,
-      reason: 'Perfect match for smart kitchen setup with voice control and app integration',
-      basedOn: 'Smart home preferences, tech adoption profile',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 88.3,
-      createdDate: '2025-10-16',
-      expiresDate: '2025-10-23'
-    },
-    {
-      id: '10',
-      customerId: 'CUST-2025-1137',
-      customerName: 'Sandeep & Anjali Kumar',
-      segment: 'Environmentally Conscious',
-      productCode: 'KIT-APPL-006',
-      productName: 'Energy Star Dishwasher - Eco Mode',
-      category: 'Kitchen Appliances',
-      recommendationType: 'best-match',
-      confidenceScore: 90.6,
-      estimatedValue: 52000,
-      reason: 'Aligns with your sustainability goals - saves 40% water and energy',
-      basedOn: 'Environmental preferences, green product interest',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 84.2,
-      createdDate: '2025-10-16',
-      expiresDate: '2025-10-23'
-    },
-    {
-      id: '11',
-      customerId: 'CUST-2025-1146',
-      customerName: 'Deepak Builders Pvt Ltd',
-      segment: 'B2B - Builder',
-      productCode: 'KIT-PKG-001',
-      productName: 'Standard Builder Package - 50 Units',
-      category: 'Builder Packages',
-      recommendationType: 'upgrade',
-      confidenceScore: 81.5,
-      estimatedValue: 8500000,
-      reason: 'Volume discount available - save 18% compared to individual purchases',
-      basedOn: 'Bulk order potential, project size',
-      priority: 'high',
-      aiGenerated: true,
-      acceptanceRate: 71.4,
-      createdDate: '2025-10-15',
-      expiresDate: '2025-11-15'
-    },
-    {
-      id: '12',
-      customerId: 'CUST-2025-1136',
-      customerName: 'Ravi & Lakshmi Desai',
-      segment: 'Renovation',
-      productCode: 'KIT-SINK-003',
-      productName: 'Undermount SS Sink - Single Bowl Large',
-      category: 'Kitchen Sinks',
-      recommendationType: 'trending',
-      confidenceScore: 86.9,
-      estimatedValue: 22500,
-      reason: 'Most popular renovation choice - seamless look with granite countertops',
-      basedOn: 'Renovation trends, aesthetic preferences',
-      priority: 'medium',
-      aiGenerated: true,
-      acceptanceRate: 78.6,
-      createdDate: '2025-10-15',
-      expiresDate: '2025-10-22'
-    }
-  ]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await cpqRecommendationService.findAll();
+        if (!active) return;
+        const mapped: Recommendation[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: r.id ?? '',
+          customerId: r.customerId ?? '',
+          customerName: r.customerName ?? '',
+          segment: r.segment ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          category: r.category ?? '',
+          recommendationType: (r.recommendationType ?? 'best-match') as any,
+          confidenceScore: Number(r.confidenceScore) || 0,
+          estimatedValue: Number(r.estimatedValue) || 0,
+          reason: r.reason ?? '',
+          basedOn: r.basedOn ?? '',
+          priority: (r.priority ?? 'medium') as any,
+          aiGenerated: Boolean(r.aiGenerated),
+          acceptanceRate: Number(r.acceptanceRate) || 0,
+          createdDate: r.createdAt ? String(r.createdAt).split('T')[0] : '',
+          expiresDate: r.expiresDate ? String(r.expiresDate).split('T')[0] : ''
+        }));
+        setRecommendations(mapped);
+      } catch (err: any) {
+        if (!active) return;
+        setError(err?.message || 'Failed to load recommendations');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const types = ['all', 'best-match', 'upgrade', 'alternative', 'frequently-bought', 'trending'];
 
@@ -343,7 +156,9 @@ export default function RecommendationsPage() {
 
   // Summary stats
   const totalRecommendations = recommendations.length;
-  const avgConfidence = recommendations.reduce((sum, r) => sum + r.confidenceScore, 0) / totalRecommendations;
+  const avgConfidence = totalRecommendations > 0
+    ? recommendations.reduce((sum, r) => sum + r.confidenceScore, 0) / totalRecommendations
+    : 0;
   const highPriority = recommendations.filter(r => r.priority === 'high').length;
   const aiGenerated = recommendations.filter(r => r.aiGenerated).length;
 
@@ -375,6 +190,21 @@ export default function RecommendationsPage() {
           </button>
         </div>
       </div>
+
+      {/* Loading Banner */}
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading recommendations...</span>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

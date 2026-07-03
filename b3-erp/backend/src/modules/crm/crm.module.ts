@@ -39,6 +39,23 @@ import { ContractTemplateController } from './contract-template.controller';
 import { CampaignTemplateController } from './campaign-template.controller';
 import { SalesTeamController } from './sales-team.controller';
 import { AssignmentRuleController } from './assignment-rule.controller';
+import { CustomerSegment } from './entities/customer-segment.entity';
+import { ContactList } from './entities/contact-list.entity';
+import { ContactRole } from './entities/contact-role.entity';
+import { ActivityRecord } from './entities/activity-record.entity';
+import { PipelineStageConfig } from './entities/pipeline-stage-config.entity';
+import { CustomerSegmentService } from './services/customer-segment.service';
+import { ContactListService } from './services/contact-list.service';
+import { ContactRoleService } from './services/contact-role.service';
+import { ActivityRecordService } from './services/activity-record.service';
+import { PipelineStageConfigService } from './services/pipeline-stage-config.service';
+import { CrmAnalyticsService } from './services/crm-analytics.service';
+import { CustomerSegmentController } from './customer-segment.controller';
+import { ContactListController } from './contact-list.controller';
+import { ContactRoleController } from './contact-role.controller';
+import { ActivityRecordController } from './activity-record.controller';
+import { PipelineStageConfigController } from './pipeline-stage-config.controller';
+import { CrmAnalyticsController } from './crm-analytics.controller';
 
 @Module({
   imports: [
@@ -56,6 +73,11 @@ import { AssignmentRuleController } from './assignment-rule.controller';
       CampaignTemplate,
       SalesTeam,
       AssignmentRule,
+      CustomerSegment,
+      ContactList,
+      ContactRole,
+      ActivityRecord,
+      PipelineStageConfig,
     ]),
   ],
   controllers: [
@@ -71,6 +93,12 @@ import { AssignmentRuleController } from './assignment-rule.controller';
     CampaignTemplateController,
     SalesTeamController,
     AssignmentRuleController,
+    CustomerSegmentController,
+    ContactListController,
+    ContactRoleController,
+    ActivityRecordController,
+    PipelineStageConfigController,
+    CrmAnalyticsController,
   ],
   providers: [
     InteractionsService,
@@ -87,6 +115,12 @@ import { AssignmentRuleController } from './assignment-rule.controller';
     CampaignTemplateService,
     SalesTeamService,
     AssignmentRuleService,
+    CustomerSegmentService,
+    ContactListService,
+    ContactRoleService,
+    ActivityRecordService,
+    PipelineStageConfigService,
+    CrmAnalyticsService,
   ],
   exports: [
     InteractionsService,

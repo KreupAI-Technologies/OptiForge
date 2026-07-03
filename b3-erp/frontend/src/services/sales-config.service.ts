@@ -168,7 +168,119 @@ export const salesConfigService = {
     request<{ deleted: boolean }>(`/sales/pricing/special/${id}`, {
       method: 'DELETE',
     }),
+
+  // Price list items (pricing/lists)
+  getPriceListItems: (companyId?: string) =>
+    request<PriceListItemDto[]>(
+      `/sales/pricing/lists${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`,
+    ),
+  createPriceListItem: (data: Partial<PriceListItemDto>) =>
+    request<PriceListItemDto>('/sales/pricing/lists', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updatePriceListItem: (id: string, data: Partial<PriceListItemDto>) =>
+    request<PriceListItemDto>(`/sales/pricing/lists/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deletePriceListItem: (id: string) =>
+    request<{ deleted: boolean }>(`/sales/pricing/lists/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Sales targets (analytics/targets)
+  getSalesTargets: (companyId?: string) =>
+    request<SalesTargetDto[]>(
+      `/sales/analytics/targets${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`,
+    ),
+  createSalesTarget: (data: Partial<SalesTargetDto>) =>
+    request<SalesTargetDto>('/sales/analytics/targets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateSalesTarget: (id: string, data: Partial<SalesTargetDto>) =>
+    request<SalesTargetDto>(`/sales/analytics/targets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteSalesTarget: (id: string) =>
+    request<{ deleted: boolean }>(`/sales/analytics/targets/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Sales reports (analytics/reports)
+  getSalesReports: (companyId?: string) =>
+    request<SalesReportDto[]>(
+      `/sales/analytics/reports${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`,
+    ),
+  createSalesReport: (data: Partial<SalesReportDto>) =>
+    request<SalesReportDto>('/sales/analytics/reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateSalesReport: (id: string, data: Partial<SalesReportDto>) =>
+    request<SalesReportDto>(`/sales/analytics/reports/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteSalesReport: (id: string) =>
+    request<{ deleted: boolean }>(`/sales/analytics/reports/${id}`, {
+      method: 'DELETE',
+    }),
 };
+
+export interface PriceListItemDto {
+  id: string;
+  companyId?: string;
+  productCode?: string;
+  productName: string;
+  category?: string;
+  basePrice: number;
+  currentPrice: number;
+  unit: string;
+  effectiveFrom?: string;
+  priceChange: number;
+  priceChangePercent: number;
+  moq: number;
+  stock: number;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SalesTargetDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  type: string;
+  period?: string;
+  target: number;
+  achieved: number;
+  progress: number;
+  status: string;
+  assignedTo?: string;
+  category?: string;
+  region?: string;
+  startDate?: string;
+  endDate?: string;
+  daysRemaining: number;
+}
+
+export interface SalesReportDto {
+  id: string;
+  companyId?: string;
+  name: string;
+  type: string;
+  description?: string;
+  period?: string;
+  generatedDate?: string;
+  generatedBy?: string;
+  fileSize?: string;
+  format: string;
+  keyMetrics: { label: string; value: string }[];
+  status: string;
+}
 
 export interface ProductAnalyticsDto {
   code: string;

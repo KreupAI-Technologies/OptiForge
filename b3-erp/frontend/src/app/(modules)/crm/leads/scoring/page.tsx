@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   TrendingUp,
   Star,
@@ -48,148 +49,56 @@ interface ScoredLead {
   };
 }
 
-const mockScoredLeads: ScoredLead[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    company: 'Tech Solutions Inc',
-    email: 'john.smith@techsolutions.com',
-    phone: '+1 234-567-8900',
-    score: 85,
-    previousScore: 75,
-    rating: 'hot',
-    status: 'qualified',
-    value: 45000,
-    source: 'Referral',
-    assignedTo: 'Sarah Johnson',
-    lastContact: '2025-10-18',
-    factors: {
-      companySize: 15,
-      revenue: 15,
-      engagement: 20,
-      interest: 20,
-      sourceQuality: 15,
-    },
-  },
-  {
-    id: '2',
-    name: 'Emily Davis',
-    company: 'Global Manufacturing Ltd',
-    email: 'emily.davis@globalmanuf.com',
-    phone: '+1 234-567-8901',
-    score: 78,
-    previousScore: 80,
-    rating: 'hot',
-    status: 'proposal',
-    value: 75000,
-    source: 'Website',
-    assignedTo: 'Michael Chen',
-    lastContact: '2025-10-19',
-    factors: {
-      companySize: 20,
-      revenue: 20,
-      engagement: 15,
-      interest: 15,
-      sourceQuality: 8,
-    },
-  },
-  {
-    id: '3',
-    name: 'Robert Wilson',
-    company: 'Precision Parts Co',
-    email: 'r.wilson@precisionparts.com',
-    phone: '+1 234-567-8902',
-    score: 72,
-    previousScore: 72,
-    rating: 'warm',
-    status: 'contacted',
-    value: 120000,
-    source: 'Trade Show',
-    assignedTo: 'Sarah Johnson',
-    lastContact: '2025-10-17',
-    factors: {
-      companySize: 15,
-      revenue: 15,
-      engagement: 15,
-      interest: 17,
-      sourceQuality: 10,
-    },
-  },
-  {
-    id: '4',
-    name: 'Lisa Anderson',
-    company: 'Industrial Automation Inc',
-    email: 'l.anderson@indauto.com',
-    phone: '+1 234-567-8903',
-    score: 65,
-    previousScore: 58,
-    rating: 'warm',
-    status: 'negotiation',
-    value: 95000,
-    source: 'LinkedIn',
-    assignedTo: 'David Park',
-    lastContact: '2025-10-20',
-    factors: {
-      companySize: 10,
-      revenue: 10,
-      engagement: 20,
-      interest: 15,
-      sourceQuality: 10,
-    },
-  },
-  {
-    id: '5',
-    name: 'James Martinez',
-    company: 'Smart Systems Corp',
-    email: 'j.martinez@smartsys.com',
-    phone: '+1 234-567-8904',
-    score: 52,
-    previousScore: 45,
-    rating: 'warm',
-    status: 'new',
-    value: 60000,
-    source: 'Cold Call',
-    assignedTo: 'Michael Chen',
-    lastContact: '2025-10-16',
-    factors: {
-      companySize: 10,
-      revenue: 10,
-      engagement: 12,
-      interest: 15,
-      sourceQuality: 5,
-    },
-  },
-  {
-    id: '6',
-    name: 'Patricia Brown',
-    company: 'Modern Kitchens LLC',
-    email: 'p.brown@modernkitchens.com',
-    phone: '+1 234-567-8905',
-    score: 45,
-    previousScore: 50,
-    rating: 'cold',
-    status: 'contacted',
-    value: 35000,
-    source: 'Website',
-    assignedTo: 'Emily Davis',
-    lastContact: '2025-10-10',
-    factors: {
-      companySize: 5,
-      revenue: 5,
-      engagement: 10,
-      interest: 15,
-      sourceQuality: 10,
-    },
-  },
-];
-
 export default function LeadScoringPage() {
   const router = useRouter();
-  const [leads, setLeads] = useState<ScoredLead[]>(mockScoredLeads);
+  const [leads, setLeads] = useState<ScoredLead[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [scoreFilter, setScoreFilter] = useState('all');
   const [ratingFilter, setRatingFilter] = useState('all');
   const [selectedLead, setSelectedLead] = useState<ScoredLead | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await crmService.crmAnalytics.getLeadScoring();
+        if (!mounted) return;
+        const topLeads = Array.isArray(data?.topLeads) ? data.topLeads : [];
+        const mapped: ScoredLead[] = topLeads.map((l: any) => ({
+          id: String(l?.id ?? ''),
+          name: l?.name ?? '',
+          company: l?.company ?? '',
+          email: '',
+          phone: '',
+          score: Number(l?.score ?? 0),
+          previousScore: 0,
+          rating: (l?.rating ?? 'cold') as any,
+          status: l?.status ?? '',
+          value: Number(l?.estimatedValue ?? 0),
+          source: '',
+          assignedTo: '',
+          lastContact: '',
+          factors: {
+            companySize: 0,
+            revenue: 0,
+            engagement: 0,
+            interest: 0,
+            sourceQuality: 0,
+          },
+        }));
+        setError(null);
+        setLeads(mapped);
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message ?? 'Failed to load lead scoring data');
+        setLeads([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
@@ -208,7 +117,7 @@ export default function LeadScoringPage() {
   });
 
   const stats = {
-    avgScore: Math.round(leads.reduce((sum, l) => sum + l.score, 0) / leads.length),
+    avgScore: leads.length ? Math.round(leads.reduce((sum, l) => sum + l.score, 0) / leads.length) : 0,
     highScore: leads.filter((l) => l.score >= 75).length,
     mediumScore: leads.filter((l) => l.score >= 50 && l.score < 75).length,
     lowScore: leads.filter((l) => l.score < 50).length,
@@ -241,6 +150,7 @@ export default function LeadScoringPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

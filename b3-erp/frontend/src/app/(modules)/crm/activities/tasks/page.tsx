@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import { CheckSquare, Plus, Search, Filter, Calendar, User, Tag, Clock, AlertCircle, CheckCircle, XCircle, Flag, Edit, Trash2, Eye, MoreVertical } from 'lucide-react';
 
 interface Task {
@@ -22,170 +23,49 @@ interface Task {
   subtasksCompleted?: number;
 }
 
-const mockTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Follow up with TechCorp on proposal',
-    description: 'Send detailed pricing breakdown and timeline for enterprise implementation',
-    status: 'todo',
-    priority: 'high',
-    assignedTo: 'Sarah Johnson',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'opportunity',
-    dueDate: '2024-10-21T15:00:00',
-    createdDate: '2024-10-15T09:00:00',
-    tags: ['Sales', 'Proposal', 'Enterprise'],
-    estimatedHours: 4,
-    subtasks: 3,
-    subtasksCompleted: 1,
-  },
-  {
-    id: '2',
-    title: 'Prepare Q4 sales presentation',
-    description: 'Create comprehensive slides with metrics, goals, and strategy',
-    status: 'in_progress',
-    priority: 'high',
-    assignedTo: 'Sarah Johnson',
-    relatedTo: 'Sales Team',
-    relatedType: 'internal',
-    dueDate: '2024-10-22T17:00:00',
-    createdDate: '2024-10-16T10:00:00',
-    tags: ['Internal', 'Presentation', 'Q4'],
-    estimatedHours: 8,
-    actualHours: 3,
-    subtasks: 5,
-    subtasksCompleted: 2,
-  },
-  {
-    id: '3',
-    title: 'Update CRM data for Enterprise accounts',
-    description: 'Ensure all contact information and opportunity stages are current',
-    status: 'completed',
-    priority: 'medium',
-    assignedTo: 'Michael Chen',
-    relatedTo: 'Enterprise Division',
-    relatedType: 'customer',
-    dueDate: '2024-10-20T16:00:00',
-    createdDate: '2024-10-18T11:00:00',
-    completedDate: '2024-10-20T14:30:00',
-    tags: ['Data', 'Maintenance', 'CRM'],
-    estimatedHours: 3,
-    actualHours: 2.5,
-  },
-  {
-    id: '4',
-    title: 'Schedule product demo with FinanceHub',
-    description: 'Coordinate with technical team and client for comprehensive demo',
-    status: 'todo',
-    priority: 'high',
-    assignedTo: 'Emily Rodriguez',
-    relatedTo: 'FinanceHub International',
-    relatedType: 'opportunity',
-    dueDate: '2024-10-21T12:00:00',
-    createdDate: '2024-10-19T13:00:00',
-    tags: ['Demo', 'Enterprise', 'Coordination'],
-    estimatedHours: 2,
-    subtasks: 4,
-    subtasksCompleted: 2,
-  },
-  {
-    id: '5',
-    title: 'Research competitor pricing strategy',
-    description: 'Analyze top 3 competitors pricing models and features',
-    status: 'in_progress',
-    priority: 'medium',
-    assignedTo: 'David Martinez',
-    relatedTo: 'Market Research',
-    relatedType: 'internal',
-    dueDate: '2024-10-23T18:00:00',
-    createdDate: '2024-10-17T09:30:00',
-    tags: ['Research', 'Competitive', 'Strategy'],
-    estimatedHours: 6,
-    actualHours: 2,
-  },
-  {
-    id: '6',
-    title: 'Send onboarding materials to new client',
-    description: 'Package and send welcome kit and getting started guides',
-    status: 'completed',
-    priority: 'medium',
-    assignedTo: 'Emily Rodriguez',
-    relatedTo: 'StartupTech Inc.',
-    relatedType: 'customer',
-    dueDate: '2024-10-19T10:00:00',
-    createdDate: '2024-10-18T14:00:00',
-    completedDate: '2024-10-19T09:15:00',
-    tags: ['Onboarding', 'Customer Success'],
-    estimatedHours: 1,
-    actualHours: 0.5,
-  },
-  {
-    id: '7',
-    title: 'Qualify new inbound leads from webinar',
-    description: 'Review and score 45 leads from AI webinar series',
-    status: 'todo',
-    priority: 'high',
-    assignedTo: 'Michael Chen',
-    relatedTo: 'AI Webinar Campaign',
-    relatedType: 'lead',
-    dueDate: '2024-10-21T16:00:00',
-    createdDate: '2024-10-20T08:00:00',
-    tags: ['Lead Qualification', 'Webinar', 'Inbound'],
-    estimatedHours: 4,
-    subtasks: 45,
-    subtasksCompleted: 12,
-  },
-  {
-    id: '8',
-    title: 'Create case study from successful deployment',
-    description: 'Interview client and document implementation success story',
-    status: 'in_progress',
-    priority: 'low',
-    assignedTo: 'Sarah Johnson',
-    relatedTo: 'GlobalMfg Corp',
-    relatedType: 'customer',
-    dueDate: '2024-10-25T17:00:00',
-    createdDate: '2024-10-14T10:00:00',
-    tags: ['Marketing', 'Case Study', 'Content'],
-    estimatedHours: 10,
-    actualHours: 4,
-    subtasks: 3,
-    subtasksCompleted: 1,
-  },
-  {
-    id: '9',
-    title: 'Review and update sales playbook',
-    description: 'Update objection handling and closing techniques',
-    status: 'todo',
-    priority: 'low',
-    assignedTo: 'David Martinez',
-    relatedTo: 'Sales Enablement',
-    relatedType: 'internal',
-    dueDate: '2024-10-24T15:00:00',
-    createdDate: '2024-10-16T11:00:00',
-    tags: ['Training', 'Documentation', 'Sales'],
-    estimatedHours: 5,
-  },
-  {
-    id: '10',
-    title: 'Conduct quarterly business review with top account',
-    description: 'Prepare QBR deck and schedule with executive stakeholders',
-    status: 'todo',
-    priority: 'high',
-    assignedTo: 'Sarah Johnson',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'customer',
-    dueDate: '2024-10-22T14:00:00',
-    createdDate: '2024-10-15T15:00:00',
-    tags: ['QBR', 'Executive', 'Account Management'],
-    estimatedHours: 6,
-    subtasks: 5,
-    subtasksCompleted: 0,
-  },
-];
-
 export default function TasksPage() {
-  const [tasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.activityRecords.getAll({ type: 'task' });
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setTasks(rows.map((r: any): Task => ({
+          id: String(r.id ?? ''),
+          title: r.subject ?? '',
+          description: r.description ?? '',
+          status: (r.status ?? 'todo') as Task['status'],
+          priority: (r.priority ?? 'medium') as Task['priority'],
+          assignedTo: r.assignedTo ?? '',
+          relatedTo: r.relatedTo ?? '',
+          relatedType: (r.relatedType ?? 'internal') as Task['relatedType'],
+          dueDate: r.dueDate ?? r.scheduledAt ?? r.createdAt ?? '',
+          createdDate: r.createdAt ?? '',
+          completedDate: r.completedAt ?? undefined,
+          tags: Array.isArray(r.tags) ? r.tags : [],
+          estimatedHours: 0,
+          actualHours: r.durationMinutes ? r.durationMinutes / 60 : 0,
+          subtasks: 0,
+          subtasksCompleted: 0,
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load');
+        setTasks([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'todo' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [filterPriority, setFilterPriority] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -225,7 +105,7 @@ export default function TasksPage() {
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
     completed: tasks.filter(t => t.status === 'completed').length,
     overdue: tasks.filter(t => t.status !== 'completed' && new Date(t.dueDate) < new Date()).length,
-    completionRate: (tasks.filter(t => t.status === 'completed').length / tasks.length) * 100,
+    completionRate: tasks.length ? (tasks.filter(t => t.status === 'completed').length / tasks.length) * 100 : 0,
   };
 
   const getStatusColor = (status: string) => {
@@ -277,6 +157,7 @@ export default function TasksPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

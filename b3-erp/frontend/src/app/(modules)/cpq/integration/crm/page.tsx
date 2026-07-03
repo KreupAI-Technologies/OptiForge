@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   GitBranch,
   CheckCircle,
@@ -16,8 +16,10 @@ import {
   ArrowRight,
   ArrowLeftRight,
   Play,
-  Pause
+  Pause,
+  Loader2
 } from 'lucide-react'
+import { cpqIntegrationSyncLogService } from '@/services/cpq/cpq-orphans.service'
 
 export default function CPQIntegrationCRMPage() {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
@@ -109,53 +111,48 @@ export default function CPQIntegrationCRMPage() {
   ]
 
   // Sync Logs
-  const [syncLogs, setSyncLogs] = useState([
-    {
-      id: 1,
-      timestamp: '2025-10-20 14:30:15',
-      operation: 'Lead Sync',
-      records: 12,
-      status: 'success',
-      duration: '2.3s',
-      message: 'Successfully synced 12 leads from CRM'
-    },
-    {
-      id: 2,
-      timestamp: '2025-10-20 14:28:42',
-      operation: 'Opportunity Update',
-      records: 5,
-      status: 'success',
-      duration: '1.8s',
-      message: 'Updated 5 opportunities with quote status'
-    },
-    {
-      id: 3,
-      timestamp: '2025-10-20 14:25:10',
-      operation: 'Contact Sync',
-      records: 28,
-      status: 'success',
-      duration: '4.2s',
-      message: 'Synced 28 contacts successfully'
-    },
-    {
-      id: 4,
-      timestamp: '2025-10-20 14:20:33',
-      operation: 'Quote Status Push',
-      records: 1,
-      status: 'error',
-      duration: '0.5s',
-      message: 'Failed to update opportunity: Field validation error'
-    },
-    {
-      id: 5,
-      timestamp: '2025-10-20 14:15:22',
-      operation: 'Account Sync',
-      records: 6,
-      status: 'success',
-      duration: '3.1s',
-      message: 'Synced 6 accounts from CRM'
+  const [syncLogs, setSyncLogs] = useState<{
+    id: string
+    timestamp: string
+    operation: string
+    records: number
+    status: string
+    duration: string
+    message: string
+  }[]>([])
+  const [logsLoading, setLogsLoading] = useState(true)
+  const [logsError, setLogsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setLogsLoading(true)
+    setLogsError(null)
+    cpqIntegrationSyncLogService
+      .findAll()
+      .then((rows) => {
+        if (!active) return
+        const mapped = (rows || []).map((r) => ({
+          id: r.id,
+          timestamp: r.createdAt ? new Date(r.createdAt).toLocaleString() : '',
+          operation: r.operation ?? '',
+          records: Number(r.records) || 0,
+          status: r.status ?? 'success',
+          duration: r.duration ?? '',
+          message: r.message ?? ''
+        }))
+        setSyncLogs(mapped)
+      })
+      .catch((err: any) => {
+        if (!active) return
+        setLogsError(err?.message || 'Failed to load sync logs')
+      })
+      .finally(() => {
+        if (active) setLogsLoading(false)
+      })
+    return () => {
+      active = false
     }
-  ])
+  }, [])
 
   const handleManualSync = () => {
     setSyncStatus('syncing')
@@ -437,6 +434,22 @@ export default function CPQIntegrationCRMPage() {
               <p className="text-sm text-gray-600">Recent synchronization activity</p>
             </div>
           </div>
+
+          {logsLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 py-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading sync logs...
+            </div>
+          )}
+          {!logsLoading && logsError && (
+            <div className="flex items-center gap-2 text-sm text-red-600 py-4">
+              <XCircle className="h-4 w-4" />
+              {logsError}
+            </div>
+          )}
+          {!logsLoading && !logsError && syncLogs.length === 0 && (
+            <div className="text-sm text-gray-500 py-4">No sync activity yet</div>
+          )}
 
           <div className="space-y-3">
             {syncLogs.map((log) => (

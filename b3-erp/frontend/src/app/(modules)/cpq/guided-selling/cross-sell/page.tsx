@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -14,13 +14,15 @@ import {
   Sparkles,
   CheckCircle2,
   Plus,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from 'lucide-react';
 import {
   AnalyticsModal,
   CreateCampaignModal,
   CrossSellOpportunity as CrossSellOpportunityType
 } from '@/components/cpq/CrossSellModals';
+import { cpqCrossSellService } from '@/services/cpq/cpq-orphans.service';
 
 interface CrossSellOpportunity {
   id: string;
@@ -58,296 +60,55 @@ export default function CrossSellPage() {
   const [isCampaignOpen, setIsCampaignOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<CrossSellOpportunity | null>(null);
 
-  const [opportunities, setOpportunities] = useState<CrossSellOpportunity[]>([
-    {
-      id: '1',
-      primaryProduct: {
-        code: 'KIT-SINK-001',
-        name: 'Premium SS304 Kitchen Sink - Double Bowl',
-        category: 'Kitchen Sinks',
-        value: 18500
-      },
-      suggestedProduct: {
-        code: 'KIT-FAUC-001',
-        name: 'Chrome Finish Kitchen Faucet - Single Lever',
-        category: 'Kitchen Faucets',
-        value: 8500
-      },
-      relationship: 'complement',
-      coOccurrenceRate: 87.5,
-      avgAdditionalRevenue: 8350,
-      conversionRate: 76.8,
-      customersCount: 142,
-      totalOpportunityValue: 1185700,
-      recommendationStrength: 'strong',
-      activeCampaigns: 3,
-      lastUpdated: '2025-10-18'
-    },
-    {
-      id: '2',
-      primaryProduct: {
-        code: 'KIT-CAB-001',
-        name: 'Modular Base Cabinet - 3 Drawer',
-        category: 'Kitchen Cabinets',
-        value: 28500
-      },
-      suggestedProduct: {
-        code: 'KIT-ACC-001',
-        name: 'Modular Kitchen Organizer Set - Premium',
-        category: 'Kitchen Accessories',
-        value: 12500
-      },
-      relationship: 'complement',
-      coOccurrenceRate: 82.3,
-      avgAdditionalRevenue: 11850,
-      conversionRate: 79.2,
-      customersCount: 167,
-      totalOpportunityValue: 1979950,
-      recommendationStrength: 'strong',
-      activeCampaigns: 2,
-      lastUpdated: '2025-10-17'
-    },
-    {
-      id: '3',
-      primaryProduct: {
-        code: 'KIT-APPL-001',
-        name: 'Auto-Clean Kitchen Chimney - 90cm',
-        category: 'Kitchen Appliances',
-        value: 45000
-      },
-      suggestedProduct: {
-        code: 'KIT-APPL-002',
-        name: 'Built-in Microwave Oven - 30L',
-        category: 'Kitchen Appliances',
-        value: 38500
-      },
-      relationship: 'bundle',
-      coOccurrenceRate: 68.4,
-      avgAdditionalRevenue: 36250,
-      conversionRate: 64.5,
-      customersCount: 98,
-      totalOpportunityValue: 3552500,
-      recommendationStrength: 'strong',
-      activeCampaigns: 1,
-      lastUpdated: '2025-10-16'
-    },
-    {
-      id: '4',
-      primaryProduct: {
-        code: 'KIT-COUNT-001',
-        name: 'Granite Countertop - Premium Black Galaxy',
-        category: 'Countertops',
-        value: 185000
-      },
-      suggestedProduct: {
-        code: 'KIT-SINK-003',
-        name: 'Undermount SS Sink - Single Bowl Large',
-        category: 'Kitchen Sinks',
-        value: 22500
-      },
-      relationship: 'essential',
-      coOccurrenceRate: 94.2,
-      avgAdditionalRevenue: 21850,
-      conversionRate: 88.7,
-      customersCount: 124,
-      totalOpportunityValue: 2709400,
-      recommendationStrength: 'strong',
-      activeCampaigns: 4,
-      lastUpdated: '2025-10-19'
-    },
-    {
-      id: '5',
-      primaryProduct: {
-        code: 'KIT-COOK-001',
-        name: 'Professional Cookware Set - 7 Piece',
-        category: 'Cookware',
-        value: 15500
-      },
-      suggestedProduct: {
-        code: 'KIT-ACC-003',
-        name: 'Kitchen Knife Set - German Steel 8 Piece',
-        category: 'Kitchen Accessories',
-        value: 9500
-      },
-      relationship: 'complement',
-      coOccurrenceRate: 71.8,
-      avgAdditionalRevenue: 8950,
-      conversionRate: 68.3,
-      customersCount: 189,
-      totalOpportunityValue: 1691550,
-      recommendationStrength: 'medium',
-      activeCampaigns: 2,
-      lastUpdated: '2025-10-15'
-    },
-    {
-      id: '6',
-      primaryProduct: {
-        code: 'KIT-FAUC-001',
-        name: 'Chrome Finish Kitchen Faucet - Single Lever',
-        category: 'Kitchen Faucets',
-        value: 8500
-      },
-      suggestedProduct: {
-        code: 'KIT-ACC-004',
-        name: 'Water Filter - Under Sink Mount',
-        category: 'Kitchen Accessories',
-        value: 6800
-      },
-      relationship: 'complement',
-      coOccurrenceRate: 58.9,
-      avgAdditionalRevenue: 6350,
-      conversionRate: 55.2,
-      customersCount: 234,
-      totalOpportunityValue: 1485900,
-      recommendationStrength: 'medium',
-      activeCampaigns: 1,
-      lastUpdated: '2025-10-14'
-    },
-    {
-      id: '7',
-      primaryProduct: {
-        code: 'KIT-CAB-001',
-        name: 'Modular Base Cabinet - 3 Drawer',
-        category: 'Kitchen Cabinets',
-        value: 28500
-      },
-      suggestedProduct: {
-        code: 'KIT-CAB-004',
-        name: 'Wall Cabinet - Glass Door Double',
-        category: 'Kitchen Cabinets',
-        value: 18900
-      },
-      relationship: 'bundle',
-      coOccurrenceRate: 76.5,
-      avgAdditionalRevenue: 17850,
-      conversionRate: 72.4,
-      customersCount: 156,
-      totalOpportunityValue: 2784600,
-      recommendationStrength: 'strong',
-      activeCampaigns: 2,
-      lastUpdated: '2025-10-13'
-    },
-    {
-      id: '8',
-      primaryProduct: {
-        code: 'KIT-APPL-001',
-        name: 'Auto-Clean Kitchen Chimney - 90cm',
-        category: 'Kitchen Appliances',
-        value: 45000
-      },
-      suggestedProduct: {
-        code: 'KIT-APPL-007',
-        name: 'Built-in Gas Hob - 4 Burner',
-        category: 'Kitchen Appliances',
-        value: 28500
-      },
-      relationship: 'essential',
-      coOccurrenceRate: 91.7,
-      avgAdditionalRevenue: 27250,
-      conversionRate: 85.3,
-      customersCount: 145,
-      totalOpportunityValue: 3951250,
-      recommendationStrength: 'strong',
-      activeCampaigns: 3,
-      lastUpdated: '2025-10-12'
-    },
-    {
-      id: '9',
-      primaryProduct: {
-        code: 'KIT-SINK-001',
-        name: 'Premium SS304 Kitchen Sink - Double Bowl',
-        category: 'Kitchen Sinks',
-        value: 18500
-      },
-      suggestedProduct: {
-        code: 'KIT-ACC-005',
-        name: 'Sink Drain Basket & Accessories Kit',
-        category: 'Kitchen Accessories',
-        value: 2500
-      },
-      relationship: 'essential',
-      coOccurrenceRate: 89.3,
-      avgAdditionalRevenue: 2350,
-      conversionRate: 84.7,
-      customersCount: 198,
-      totalOpportunityValue: 465300,
-      recommendationStrength: 'strong',
-      activeCampaigns: 1,
-      lastUpdated: '2025-10-11'
-    },
-    {
-      id: '10',
-      primaryProduct: {
-        code: 'KIT-APPL-002',
-        name: 'Built-in Microwave Oven - 30L',
-        category: 'Kitchen Appliances',
-        value: 38500
-      },
-      suggestedProduct: {
-        code: 'KIT-APPL-008',
-        name: 'Microwave Cookware Set - Premium',
-        category: 'Kitchen Accessories',
-        value: 4500
-      },
-      relationship: 'complement',
-      coOccurrenceRate: 48.2,
-      avgAdditionalRevenue: 4150,
-      conversionRate: 45.8,
-      customersCount: 167,
-      totalOpportunityValue: 693050,
-      recommendationStrength: 'weak',
-      activeCampaigns: 0,
-      lastUpdated: '2025-10-10'
-    },
-    {
-      id: '11',
-      primaryProduct: {
-        code: 'KIT-CAB-001',
-        name: 'Modular Base Cabinet - 3 Drawer',
-        category: 'Kitchen Cabinets',
-        value: 28500
-      },
-      suggestedProduct: {
-        code: 'KIT-CAB-005',
-        name: 'Soft-Close Drawer Mechanism Upgrade',
-        category: 'Cabinet Hardware',
-        value: 5800
-      },
-      relationship: 'upgrade',
-      coOccurrenceRate: 62.5,
-      avgAdditionalRevenue: 5450,
-      conversionRate: 58.9,
-      customersCount: 178,
-      totalOpportunityValue: 970100,
-      recommendationStrength: 'medium',
-      activeCampaigns: 1,
-      lastUpdated: '2025-10-09'
-    },
-    {
-      id: '12',
-      primaryProduct: {
-        code: 'KIT-COUNT-001',
-        name: 'Granite Countertop - Premium Black Galaxy',
-        category: 'Countertops',
-        value: 185000
-      },
-      suggestedProduct: {
-        code: 'KIT-ACC-006',
-        name: 'Granite Sealer & Maintenance Kit',
-        category: 'Kitchen Accessories',
-        value: 3500
-      },
-      relationship: 'essential',
-      coOccurrenceRate: 73.8,
-      avgAdditionalRevenue: 3250,
-      conversionRate: 69.4,
-      customersCount: 142,
-      totalOpportunityValue: 461500,
-      recommendationStrength: 'medium',
-      activeCampaigns: 2,
-      lastUpdated: '2025-10-08'
-    }
-  ]);
+  const [opportunities, setOpportunities] = useState<CrossSellOpportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    cpqCrossSellService
+      .findAll()
+      .then((rows) => {
+        if (!active) return;
+        const mapped: CrossSellOpportunity[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          primaryProduct: {
+            code: r?.primaryProduct?.code ?? '',
+            name: r?.primaryProduct?.name ?? '',
+            category: r?.primaryProduct?.category ?? '',
+            value: Number(r?.primaryProduct?.value) || 0
+          },
+          suggestedProduct: {
+            code: r?.suggestedProduct?.code ?? '',
+            name: r?.suggestedProduct?.name ?? '',
+            category: r?.suggestedProduct?.category ?? '',
+            value: Number(r?.suggestedProduct?.value) || 0
+          },
+          relationship: (r?.relationship ?? 'complement') as any,
+          coOccurrenceRate: Number(r?.coOccurrenceRate) || 0,
+          avgAdditionalRevenue: Number(r?.avgAdditionalRevenue) || 0,
+          conversionRate: Number(r?.conversionRate) || 0,
+          customersCount: Number(r?.customersCount) || 0,
+          totalOpportunityValue: Number(r?.totalOpportunityValue) || 0,
+          recommendationStrength: (r?.recommendationStrength ?? 'medium') as any,
+          activeCampaigns: Number(r?.activeCampaigns) || 0,
+          lastUpdated: r?.updatedAt ? String(r.updatedAt).split('T')[0] : ''
+        }));
+        setOpportunities(mapped);
+      })
+      .catch((e: any) => {
+        if (!active) return;
+        setError(e?.message || 'Failed to load cross-sell opportunities');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const relationships = ['all', 'complement', 'essential', 'upgrade', 'bundle'];
 
@@ -403,7 +164,9 @@ export default function CrossSellPage() {
   // Summary stats
   const totalOpportunities = opportunities.length;
   const totalValue = opportunities.reduce((sum, o) => sum + o.totalOpportunityValue, 0);
-  const avgConversion = opportunities.reduce((sum, o) => sum + o.conversionRate, 0) / totalOpportunities;
+  const avgConversion = totalOpportunities > 0
+    ? opportunities.reduce((sum, o) => sum + o.conversionRate, 0) / totalOpportunities
+    : 0;
   const strongOpportunities = opportunities.filter(o => o.recommendationStrength === 'strong').length;
 
   return (
@@ -432,6 +195,21 @@ export default function CrossSellPage() {
           Create Campaign
         </button>
       </div>
+
+      {/* Loading Banner */}
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading cross-sell opportunities...
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

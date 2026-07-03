@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Network,
@@ -10,8 +10,10 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react'
+import { cpqCompatibilityService } from '@/services/cpq/cpq-orphans.service'
 
 interface CompatibilityMatrix {
   product1: string
@@ -35,132 +37,19 @@ export default function CPQProductsCompatibilityPage() {
     'Smart Appliances'
   ]
 
-  const [compatibilityData] = useState<CompatibilityMatrix[]>([
-    // Premium Cabinets compatibility
-    {
-      product1: 'Premium Cabinets',
-      product2: 'Stone Countertop',
-      compatible: true
-    },
-    {
-      product1: 'Premium Cabinets',
-      product2: 'Quartz Countertop',
-      compatible: true
-    },
-    {
-      product1: 'Premium Cabinets',
-      product2: 'Smart Appliances',
-      compatible: true
-    },
-    {
-      product1: 'Premium Cabinets',
-      product2: 'Straight Kitchen',
-      compatible: false,
-      reason: 'Premium cabinets require modular or custom designs',
-      severity: 'critical'
-    },
+  const [compatibilityData, setCompatibilityData] = useState<CompatibilityMatrix[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-    // Modular Kitchen compatibility
-    {
-      product1: 'Modular Kitchen',
-      product2: 'Smart Appliances',
-      compatible: true
-    },
-    {
-      product1: 'Modular Kitchen',
-      product2: 'Stone Countertop',
-      compatible: true
-    },
-    {
-      product1: 'Modular Kitchen',
-      product2: 'Island Kitchen',
-      compatible: false,
-      reason: 'Choose either modular or island layout, not both',
-      severity: 'critical'
-    },
-    {
-      product1: 'Modular Kitchen',
-      product2: 'L-Shaped Kitchen',
-      compatible: false,
-      reason: 'Choose either modular or L-shaped layout, not both',
-      severity: 'critical'
-    },
-
-    // Island Kitchen compatibility
-    {
-      product1: 'Island Kitchen',
-      product2: 'Premium Cabinets',
-      compatible: true
-    },
-    {
-      product1: 'Island Kitchen',
-      product2: 'Quartz Countertop',
-      compatible: true
-    },
-    {
-      product1: 'Island Kitchen',
-      product2: 'Smart Appliances',
-      compatible: true
-    },
-    {
-      product1: 'Island Kitchen',
-      product2: 'L-Shaped Kitchen',
-      compatible: false,
-      reason: 'Choose either island or L-shaped layout, not both',
-      severity: 'critical'
-    },
-    {
-      product1: 'Island Kitchen',
-      product2: 'Straight Kitchen',
-      compatible: false,
-      reason: 'Choose either island or straight layout, not both',
-      severity: 'critical'
-    },
-
-    // L-Shaped Kitchen compatibility
-    {
-      product1: 'L-Shaped Kitchen',
-      product2: 'Stone Countertop',
-      compatible: true
-    },
-    {
-      product1: 'L-Shaped Kitchen',
-      product2: 'Smart Appliances',
-      compatible: true,
-      reason: 'Recommended for medium to large L-shaped kitchens',
-      severity: 'info'
-    },
-    {
-      product1: 'L-Shaped Kitchen',
-      product2: 'Straight Kitchen',
-      compatible: false,
-      reason: 'Choose either L-shaped or straight layout, not both',
-      severity: 'critical'
-    },
-
-    // Straight Kitchen compatibility
-    {
-      product1: 'Straight Kitchen',
-      product2: 'Quartz Countertop',
-      compatible: true
-    },
-    {
-      product1: 'Straight Kitchen',
-      product2: 'Smart Appliances',
-      compatible: true,
-      reason: 'Limited space may restrict appliance options',
-      severity: 'warning'
-    },
-
-    // Countertop compatibility
-    {
-      product1: 'Stone Countertop',
-      product2: 'Quartz Countertop',
-      compatible: false,
-      reason: 'Choose one countertop material',
-      severity: 'critical'
-    }
-  ])
+  useEffect(() => {
+    let active = true
+    setLoading(true); setError(null)
+    cpqCompatibilityService.findAll()
+      .then(rows => { if (active) setCompatibilityData((Array.isArray(rows) ? rows : []).map(r => ({ product1: r.product1, product2: r.product2, compatible: Boolean(r.compatible), reason: r.reason ?? undefined, severity: (r.severity ?? undefined) as any }))) })
+      .catch(err => { if (active) setError(err?.message || 'Failed to load compatibility data') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const getCompatibilityCount = () => {
     const compatible = compatibilityData.filter(c => c.compatible).length
@@ -190,6 +79,22 @@ export default function CPQProductsCompatibilityPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {/* Loading Banner */}
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading compatibility data...
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {error}
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
@@ -222,7 +127,7 @@ export default function CPQProductsCompatibilityPage() {
             <div>
               <p className="text-sm font-medium text-green-600">Compatible</p>
               <p className="text-2xl font-bold text-green-900 mt-1">{stats.compatible}</p>
-              <p className="text-xs text-green-700 mt-1">{Math.round((stats.compatible / stats.total) * 100)}% of rules</p>
+              <p className="text-xs text-green-700 mt-1">{stats.total > 0 ? Math.round((stats.compatible / stats.total) * 100) : 0}% of rules</p>
             </div>
             <CheckCircle className="h-10 w-10 text-green-600" />
           </div>
@@ -233,7 +138,7 @@ export default function CPQProductsCompatibilityPage() {
             <div>
               <p className="text-sm font-medium text-red-600">Incompatible</p>
               <p className="text-2xl font-bold text-red-900 mt-1">{stats.incompatible}</p>
-              <p className="text-xs text-red-700 mt-1">{Math.round((stats.incompatible / stats.total) * 100)}% of rules</p>
+              <p className="text-xs text-red-700 mt-1">{stats.total > 0 ? Math.round((stats.incompatible / stats.total) * 100) : 0}% of rules</p>
             </div>
             <XCircle className="h-10 w-10 text-red-600" />
           </div>

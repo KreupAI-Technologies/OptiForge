@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, FileText, Database, CheckSquare, Square, Filter, Calendar, FileSpreadsheet, FileJson, FileCode } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ExportTemplate {
   id: string;
@@ -31,25 +32,38 @@ export default function DatabaseExportPage() {
   const [includeData, setIncludeData] = useState(true);
   const [compression, setCompression] = useState(true);
 
-  const [tables, setTables] = useState<TableSelection[]>([
-    { name: 'users', category: 'User Management', recordCount: 248, size: '2.4 MB', selected: false },
-    { name: 'roles', category: 'User Management', recordCount: 12, size: '8 KB', selected: false },
-    { name: 'permissions', category: 'User Management', recordCount: 156, size: '24 KB', selected: false },
-    { name: 'sales_orders', category: 'Sales', recordCount: 5847, size: '156 MB', selected: false },
-    { name: 'quotations', category: 'Sales', recordCount: 3245, size: '89 MB', selected: false },
-    { name: 'invoices', category: 'Sales', recordCount: 4521, size: '124 MB', selected: false },
-    { name: 'customers', category: 'Sales', recordCount: 1856, size: '45 MB', selected: false },
-    { name: 'work_orders', category: 'Production', recordCount: 2847, size: '178 MB', selected: false },
-    { name: 'bom', category: 'Production', recordCount: 1234, size: '67 MB', selected: false },
-    { name: 'quality_checks', category: 'Production', recordCount: 8956, size: '234 MB', selected: false },
-    { name: 'inventory', category: 'Inventory', recordCount: 15678, size: '345 MB', selected: false },
-    { name: 'stock_movements', category: 'Inventory', recordCount: 45892, size: '567 MB', selected: false },
-    { name: 'warehouses', category: 'Inventory', recordCount: 24, size: '12 KB', selected: false },
-    { name: 'products', category: 'Master Data', recordCount: 8934, size: '234 MB', selected: false },
-    { name: 'suppliers', category: 'Master Data', recordCount: 456, size: '12 MB', selected: false },
-    { name: 'transactions', category: 'Finance', recordCount: 23456, size: '456 MB', selected: false },
-    { name: 'payments', category: 'Finance', recordCount: 12345, size: '234 MB', selected: false }
-  ]);
+  const [tables, setTables] = useState<TableSelection[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
+    ItAdminService.getExportDatasets()
+      .then((datasets) => {
+        if (cancelled) return;
+        setTables(
+          datasets.map((d) => ({
+            name: d.name,
+            category: d.category,
+            recordCount: d.recordCount,
+            size: d.size ?? '',
+            selected: false,
+          }))
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : 'Failed to load export datasets');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [templates] = useState<ExportTemplate[]>([
     {
@@ -154,6 +168,16 @@ export default function DatabaseExportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2 w-full max-w-full">
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+          Loading...
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

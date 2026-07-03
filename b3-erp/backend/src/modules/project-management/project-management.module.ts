@@ -21,6 +21,15 @@ import { MilestoneTemplateEntity } from './entities/milestone-template.entity';
 import { ChangeOrderEntity } from './entities/change-order.entity';
 import { DeliverableEntity } from './entities/deliverable.entity';
 import { ProjectIssueEntity } from './entities/project-issue.entity';
+import { SiteIssueEntity } from './entities/site-issue.entity';
+import { MaterialConsumptionEntity } from './entities/material-consumption.entity';
+import { LaborEntryEntity } from './entities/labor-entry.entity';
+import { ProjectCostEntity } from './entities/project-cost.entity';
+import { CommissioningActivityEntity } from './entities/commissioning-activity.entity';
+import { CustomerAcceptanceEntity } from './entities/customer-acceptance.entity';
+import { ProjectProfitabilityEntity } from './entities/project-profitability.entity';
+import { LayoutBriefingEntity } from './entities/layout-briefing.entity';
+import { ProgressEntryEntity } from './entities/progress-entry.entity';
 import { ProjectAttachment } from '../project/entities/project-attachment.entity';
 import { BOQ } from '../project/entities/boq.entity';
 import { BOQItem } from '../project/entities/boq-item.entity';
@@ -75,6 +84,15 @@ import { PmAnalyticsService } from './services/pm-analytics.service';
 import { ChangeOrdersService } from './services/change-orders.service';
 import { DeliverablesService } from './services/deliverables.service';
 import { ProjectIssuesService } from './services/project-issues.service';
+import { SiteIssuesService } from './services/site-issues.service';
+import { MaterialConsumptionService } from './services/material-consumption.service';
+import { LaborTrackingService } from './services/labor-tracking.service';
+import { ProjectCostingService } from './services/project-costing.service';
+import { CommissioningService } from './services/commissioning.service';
+import { CustomerAcceptanceService } from './services/customer-acceptance.service';
+import { ProfitabilityService } from './services/profitability.service';
+import { BriefingsService } from './services/briefings.service';
+import { ProgressService } from './services/progress.service';
 
 import { ProjectStatusSeederService } from './services/project-status-seeder.service';
 import { ProjectTypeSeederService } from './services/project-type-seeder.service';
@@ -108,6 +126,15 @@ import { PmAnalyticsController } from './controllers/pm-analytics.controller';
 import { ChangeOrdersController } from './controllers/change-orders.controller';
 import { DeliverablesController } from './controllers/deliverables.controller';
 import { ProjectIssuesController } from './controllers/project-issues.controller';
+import { SiteIssuesController } from './controllers/site-issues.controller';
+import { MaterialConsumptionController } from './controllers/material-consumption.controller';
+import { LaborTrackingController } from './controllers/labor-tracking.controller';
+import { ProjectCostingController } from './controllers/project-costing.controller';
+import { CommissioningController } from './controllers/commissioning.controller';
+import { CustomerAcceptanceController } from './controllers/customer-acceptance.controller';
+import { ProfitabilityController } from './controllers/profitability.controller';
+import { BriefingsController } from './controllers/briefings.controller';
+import { ProgressController } from './controllers/progress.controller';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
@@ -126,6 +153,15 @@ import { ProjectIssuesController } from './controllers/project-issues.controller
         ChangeOrderEntity,
         DeliverableEntity,
         ProjectIssueEntity,
+        SiteIssueEntity,
+        MaterialConsumptionEntity,
+        LaborEntryEntity,
+        ProjectCostEntity,
+        CommissioningActivityEntity,
+        CustomerAcceptanceEntity,
+        ProjectProfitabilityEntity,
+        LayoutBriefingEntity,
+        ProgressEntryEntity,
         ProjectAttachment,
         BOQ,
         BOQItem,
@@ -181,7 +217,16 @@ import { ProjectIssuesController } from './controllers/project-issues.controller
         PmAnalyticsController,
         ChangeOrdersController,
         DeliverablesController,
-        ProjectIssuesController
+        ProjectIssuesController,
+        SiteIssuesController,
+        MaterialConsumptionController,
+        LaborTrackingController,
+        ProjectCostingController,
+        CommissioningController,
+        CustomerAcceptanceController,
+        ProfitabilityController,
+        BriefingsController,
+        ProgressController
     ],
     providers: [
         ProjectService,
@@ -216,7 +261,16 @@ import { ProjectIssuesController } from './controllers/project-issues.controller
         PmAnalyticsService,
         ChangeOrdersService,
         DeliverablesService,
-        ProjectIssuesService
+        ProjectIssuesService,
+        SiteIssuesService,
+        MaterialConsumptionService,
+        LaborTrackingService,
+        ProjectCostingService,
+        CommissioningService,
+        CustomerAcceptanceService,
+        ProfitabilityService,
+        BriefingsService,
+        ProgressService
     ],
     exports: [
         ProjectService,

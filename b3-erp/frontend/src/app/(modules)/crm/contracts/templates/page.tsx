@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Copy, Trash2, Star, FileText, Calendar, DollarSign, TrendingUp, Clock, CheckCircle, RefreshCw } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface ContractTemplate {
   id: string;
@@ -28,193 +29,58 @@ interface ContractTemplate {
   includesConfidentiality: boolean;
 }
 
-const mockTemplates: ContractTemplate[] = [
-  {
-    id: '1',
-    name: 'Enterprise Software License Agreement',
-    description: 'Comprehensive software licensing agreement for enterprise customers with multi-year terms',
-    category: 'license',
-    defaultDuration: 36,
-    defaultValue: 450000,
-    billingCycle: 'annually',
-    autoRenew: true,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 30',
-    clauses: ['License Grant', 'Usage Restrictions', 'Maintenance & Support', 'Warranty', 'Liability Limitations'],
-    usageCount: 34,
-    lastUsed: '2024-10-15',
-    createdDate: '2023-09-10',
-    isFavorite: true,
-    tags: ['Enterprise', 'Software', 'Multi-Year'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: true,
-    includesConfidentiality: true,
-  },
-  {
-    id: '2',
-    name: 'SaaS Subscription Agreement',
-    description: 'Standard monthly or annual SaaS subscription contract with auto-renewal',
-    category: 'subscription',
-    defaultDuration: 12,
-    defaultValue: 24000,
-    billingCycle: 'monthly',
-    autoRenew: true,
-    renewalNoticeDays: 30,
-    paymentTerms: 'Credit Card - Immediate',
-    clauses: ['Service Description', 'Subscription Terms', 'Data Processing', 'Uptime SLA', 'Cancellation Policy'],
-    usageCount: 56,
-    lastUsed: '2024-10-18',
-    createdDate: '2023-08-15',
-    isFavorite: true,
-    tags: ['SaaS', 'Subscription', 'Cloud'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: false,
-    includesConfidentiality: true,
-  },
-  {
-    id: '3',
-    name: 'Professional Services Agreement',
-    description: 'Consulting and professional services contract with milestone-based payments',
-    category: 'service',
-    defaultDuration: 12,
-    defaultValue: 180000,
-    billingCycle: 'one-time',
-    autoRenew: false,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30 - Milestone Based',
-    clauses: ['Scope of Work', 'Deliverables', 'Payment Schedule', 'Change Orders', 'Acceptance Criteria'],
-    usageCount: 42,
-    lastUsed: '2024-10-12',
-    createdDate: '2023-10-01',
-    isFavorite: true,
-    tags: ['Consulting', 'Professional Services', 'Project'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: true,
-    includesConfidentiality: true,
-  },
-  {
-    id: '4',
-    name: 'Premium Support Package',
-    description: 'Annual premium support and maintenance agreement with 24/7 coverage',
-    category: 'support',
-    defaultDuration: 12,
-    defaultValue: 85000,
-    billingCycle: 'annually',
-    autoRenew: true,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30',
-    clauses: ['Support Coverage', 'Response Times', 'Escalation Procedures', 'Remote Access', 'Reporting'],
-    usageCount: 28,
-    lastUsed: '2024-10-10',
-    createdDate: '2023-11-20',
-    isFavorite: false,
-    tags: ['Support', 'Maintenance', 'Premium'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: false,
-    includesConfidentiality: true,
-  },
-  {
-    id: '5',
-    name: 'Cloud Infrastructure Services',
-    description: 'Monthly cloud hosting and infrastructure management services',
-    category: 'service',
-    defaultDuration: 12,
-    defaultValue: 36000,
-    billingCycle: 'monthly',
-    autoRenew: true,
-    renewalNoticeDays: 30,
-    paymentTerms: 'Net 15',
-    clauses: ['Infrastructure Specifications', 'Uptime Guarantee', 'Backup & Recovery', 'Security Measures', 'Scalability'],
-    usageCount: 18,
-    lastUsed: '2024-10-08',
-    createdDate: '2024-01-10',
-    isFavorite: false,
-    tags: ['Cloud', 'Infrastructure', 'Hosting'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: false,
-    includesConfidentiality: true,
-  },
-  {
-    id: '6',
-    name: 'Custom Development Agreement',
-    description: 'Software development contract for custom applications and integrations',
-    category: 'custom',
-    defaultDuration: 6,
-    defaultValue: 120000,
-    billingCycle: 'one-time',
-    autoRenew: false,
-    renewalNoticeDays: 30,
-    paymentTerms: 'Net 30 - 40% Upfront',
-    clauses: ['Development Scope', 'Technical Specifications', 'Testing & QA', 'Source Code Ownership', 'Warranty Period'],
-    usageCount: 15,
-    lastUsed: '2024-09-28',
-    createdDate: '2024-02-05',
-    isFavorite: false,
-    tags: ['Development', 'Custom', 'Software'],
-    includesSLA: false,
-    includesTermination: true,
-    includesIPRights: true,
-    includesConfidentiality: true,
-  },
-  {
-    id: '7',
-    name: 'Maintenance & Support Agreement',
-    description: 'Standard annual maintenance contract with business hours support',
-    category: 'maintenance',
-    defaultDuration: 12,
-    defaultValue: 48000,
-    billingCycle: 'annually',
-    autoRenew: true,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30',
-    clauses: ['Maintenance Services', 'Update Schedule', 'Support Hours', 'Bug Fixes', 'Minor Enhancements'],
-    usageCount: 38,
-    lastUsed: '2024-10-14',
-    createdDate: '2023-07-15',
-    isFavorite: true,
-    tags: ['Maintenance', 'Support', 'Annual'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: false,
-    includesConfidentiality: false,
-  },
-  {
-    id: '8',
-    name: 'Managed Services Agreement',
-    description: 'Comprehensive managed IT services with proactive monitoring',
-    category: 'service',
-    defaultDuration: 24,
-    defaultValue: 96000,
-    billingCycle: 'monthly',
-    autoRenew: true,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 15',
-    clauses: ['Service Catalog', 'Monitoring & Alerting', 'Incident Management', 'Change Management', 'Performance Metrics'],
-    usageCount: 22,
-    lastUsed: '2024-10-05',
-    createdDate: '2023-12-01',
-    isFavorite: false,
-    tags: ['Managed Services', 'IT', 'Monitoring'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: false,
-    includesConfidentiality: true,
-  },
-];
-
 export default function ContractTemplatesPage() {
   const router = useRouter();
-  const [templates, setTemplates] = useState<ContractTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'service' | 'subscription' | 'license' | 'support' | 'maintenance' | 'custom'>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<ContractTemplate | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.contractTemplates.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setTemplates(rows.map((t: any): ContractTemplate => ({
+          id: String(t.id ?? ''),
+          name: t.name ?? '',
+          description: t.description ?? '',
+          category: t.category ?? 'service',
+          defaultDuration: t.defaultDuration ?? 0,
+          defaultValue: t.defaultValue ?? 0,
+          billingCycle: t.billingCycle ?? 'monthly',
+          autoRenew: t.autoRenew ?? false,
+          renewalNoticeDays: t.renewalNoticeDays ?? 0,
+          paymentTerms: t.paymentTerms ?? '',
+          clauses: Array.isArray(t.clauses) ? t.clauses : [],
+          usageCount: t.usageCount ?? 0,
+          lastUsed: t.lastUsed ?? undefined,
+          createdDate: t.createdAt ?? '',
+          isFavorite: t.isFavorite ?? false,
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          includesSLA: t.includesSLA ?? false,
+          includesTermination: t.includesTermination ?? false,
+          includesIPRights: t.includesIPRights ?? false,
+          includesConfidentiality: t.includesConfidentiality ?? false,
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load templates');
+        setTemplates([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -229,7 +95,7 @@ export default function ContractTemplatesPage() {
     totalTemplates: templates.length,
     favorites: templates.filter(t => t.isFavorite).length,
     totalUsage: templates.reduce((sum, t) => sum + t.usageCount, 0),
-    avgValue: Math.round(templates.reduce((sum, t) => sum + t.defaultValue, 0) / templates.length),
+    avgValue: templates.length > 0 ? Math.round(templates.reduce((sum, t) => sum + t.defaultValue, 0) / templates.length) : 0,
   };
 
   const getCategoryColor = (category: string) => {
@@ -285,6 +151,7 @@ export default function ContractTemplatesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

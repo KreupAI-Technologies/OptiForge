@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Shield, Clock, Lock, Globe, Database, Bell, CheckCircle, XCircle, Edit, Plus, AlertTriangle } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface Policy {
   id: string;
@@ -22,184 +23,43 @@ export default function RolePoliciesPage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const policies: Policy[] = [
-    {
-      id: '1',
-      name: 'Multi-Factor Authentication',
-      description: 'Require MFA for all user logins to enhance security',
-      type: 'security',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'it-support'],
-      severity: 'critical',
-      config: {
-        methods: ['TOTP', 'SMS', 'Email'],
-        gracePeriod: '7 days',
-        rememberDevice: true
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await ItAdminService.getSecurityPolicies();
+        const mapped: Policy[] = (Array.isArray(raw) ? raw : []).map((p) => ({
+          id: String(p.id),
+          name: p.name ?? '',
+          description: p.description ?? '',
+          type: (p.type ?? 'security') as Policy['type'],
+          enabled: p.enabled ?? true,
+          appliedRoles: Array.isArray(p.appliedRoles) ? p.appliedRoles : [],
+          severity: (p.severity ?? 'medium') as Policy['severity'],
+          config: p.config ?? {},
+        }));
+        if (!cancelled) setPolicies(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load security policies');
+          setPolicies([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    },
-    {
-      id: '2',
-      name: 'Session Timeout',
-      description: 'Automatically log out users after period of inactivity',
-      type: 'security',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'supervisor', 'operator', 'viewer'],
-      severity: 'high',
-      config: {
-        timeout: '30 minutes',
-        warning: '5 minutes before',
-        extendable: true
-      }
-    },
-    {
-      id: '3',
-      name: 'IP Whitelisting',
-      description: 'Restrict access to specific IP addresses or ranges',
-      type: 'access',
-      enabled: true,
-      appliedRoles: ['admin', 'it-support'],
-      severity: 'critical',
-      config: {
-        allowedIPs: ['192.168.1.0/24', '10.0.0.0/8'],
-        blockUnlisted: true,
-        exceptions: []
-      }
-    },
-    {
-      id: '4',
-      name: 'Time-Based Access',
-      description: 'Limit access to specific time windows and days',
-      type: 'access',
-      enabled: false,
-      appliedRoles: ['operator', 'viewer'],
-      severity: 'medium',
-      config: {
-        allowedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        startTime: '08:00',
-        endTime: '18:00',
-        timezone: 'UTC+05:30'
-      }
-    },
-    {
-      id: '5',
-      name: 'Data Encryption at Rest',
-      description: 'Encrypt sensitive data stored in the database',
-      type: 'data',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'supervisor', 'operator', 'viewer'],
-      severity: 'critical',
-      config: {
-        algorithm: 'AES-256',
-        keyRotation: '90 days',
-        fields: ['password', 'ssn', 'bankAccount']
-      }
-    },
-    {
-      id: '6',
-      name: 'Audit Logging',
-      description: 'Log all user actions and system events for compliance',
-      type: 'compliance',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'supervisor', 'operator'],
-      severity: 'high',
-      config: {
-        retention: '2 years',
-        events: ['login', 'logout', 'create', 'update', 'delete', 'export'],
-        realTime: true
-      }
-    },
-    {
-      id: '7',
-      name: 'Password Complexity',
-      description: 'Enforce strong password requirements for all users',
-      type: 'security',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'supervisor', 'operator', 'viewer'],
-      severity: 'high',
-      config: {
-        minLength: 12,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireNumbers: true,
-        requireSpecialChars: true,
-        expiryDays: 90,
-        preventReuse: 5
-      }
-    },
-    {
-      id: '8',
-      name: 'Failed Login Lockout',
-      description: 'Lock account after consecutive failed login attempts',
-      type: 'security',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'supervisor', 'operator', 'viewer'],
-      severity: 'high',
-      config: {
-        maxAttempts: 5,
-        lockoutDuration: '30 minutes',
-        resetOnSuccess: true,
-        notifyUser: true
-      }
-    },
-    {
-      id: '9',
-      name: 'Data Export Restrictions',
-      description: 'Control and monitor data export activities',
-      type: 'data',
-      enabled: true,
-      appliedRoles: ['manager', 'supervisor'],
-      severity: 'high',
-      config: {
-        requireApproval: true,
-        maxRecords: 10000,
-        watermark: true,
-        formats: ['CSV', 'Excel', 'PDF']
-      }
-    },
-    {
-      id: '10',
-      name: 'Email Notifications',
-      description: 'Send automated notifications for critical events',
-      type: 'notification',
-      enabled: true,
-      appliedRoles: ['admin', 'manager'],
-      severity: 'medium',
-      config: {
-        events: ['securityAlert', 'systemError', 'approvalRequest'],
-        frequency: 'immediate',
-        digest: false
-      }
-    },
-    {
-      id: '11',
-      name: 'Geographic Restrictions',
-      description: 'Restrict access based on geographic location',
-      type: 'access',
-      enabled: false,
-      appliedRoles: ['admin'],
-      severity: 'medium',
-      config: {
-        allowedCountries: ['India', 'USA', 'UK'],
-        blockVPN: true,
-        exceptions: []
-      }
-    },
-    {
-      id: '12',
-      name: 'GDPR Compliance',
-      description: 'Ensure compliance with GDPR data protection regulations',
-      type: 'compliance',
-      enabled: true,
-      appliedRoles: ['admin', 'manager', 'supervisor', 'operator', 'viewer'],
-      severity: 'critical',
-      config: {
-        rightToErasure: true,
-        dataPortability: true,
-        consentManagement: true,
-        privacyByDefault: true
-      }
-    }
-  ];
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const policyTypes = [
     { id: 'all', name: 'All Policies', icon: Shield, count: policies.length },
@@ -240,6 +100,16 @@ export default function RolePoliciesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700">
+          Loading policies...
+        </div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

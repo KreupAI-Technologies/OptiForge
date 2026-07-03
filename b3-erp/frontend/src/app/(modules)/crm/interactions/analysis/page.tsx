@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import { BarChart3, TrendingUp, TrendingDown, Activity, Phone, Mail, Users, MessageSquare, Calendar, Clock, Target, Award, AlertCircle, PieChart } from 'lucide-react';
 
 interface AnalyticsData {
@@ -30,49 +31,77 @@ interface InteractionMetrics {
   successRate: number;
 }
 
-const mockAnalyticsData: AnalyticsData[] = [
-  { period: 'Jan', calls: 42, emails: 156, meetings: 18, notes: 34, totalInteractions: 250, responseRate: 82, avgResponseTime: 4.2 },
-  { period: 'Feb', calls: 48, emails: 178, meetings: 22, notes: 41, totalInteractions: 289, responseRate: 85, avgResponseTime: 3.8 },
-  { period: 'Mar', calls: 55, emails: 192, meetings: 26, notes: 48, totalInteractions: 321, responseRate: 87, avgResponseTime: 3.5 },
-  { period: 'Apr', calls: 52, emails: 201, meetings: 24, notes: 52, totalInteractions: 329, responseRate: 89, avgResponseTime: 3.2 },
-  { period: 'May', calls: 61, emails: 215, meetings: 28, notes: 58, totalInteractions: 362, responseRate: 91, avgResponseTime: 2.9 },
-  { period: 'Jun', calls: 58, emails: 228, meetings: 31, notes: 62, totalInteractions: 379, responseRate: 88, avgResponseTime: 3.1 },
-  { period: 'Jul', calls: 64, emails: 242, meetings: 29, notes: 67, totalInteractions: 402, responseRate: 90, avgResponseTime: 2.8 },
-  { period: 'Aug', calls: 68, emails: 256, meetings: 33, notes: 71, totalInteractions: 428, responseRate: 92, avgResponseTime: 2.6 },
-  { period: 'Sep', calls: 72, emails: 268, meetings: 35, notes: 78, totalInteractions: 453, responseRate: 93, avgResponseTime: 2.4 },
-  { period: 'Oct', calls: 76, emails: 284, meetings: 38, notes: 82, totalInteractions: 480, responseRate: 94, avgResponseTime: 2.2 },
-];
-
-const mockTopPerformers: TopPerformer[] = [
-  { name: 'Sarah Johnson', interactions: 342, conversions: 48, avgResponseTime: 1.8, satisfactionScore: 9.2 },
-  { name: 'Michael Chen', interactions: 298, conversions: 42, avgResponseTime: 2.1, satisfactionScore: 8.9 },
-  { name: 'Emily Rodriguez', interactions: 276, conversions: 38, avgResponseTime: 2.3, satisfactionScore: 8.7 },
-  { name: 'David Martinez', interactions: 254, conversions: 34, avgResponseTime: 2.6, satisfactionScore: 8.5 },
-];
-
-const mockInteractionMetrics: InteractionMetrics[] = [
-  { type: 'Calls', count: 456, trend: 12.5, avgDuration: 28, successRate: 78.4 },
-  { type: 'Emails', count: 1284, trend: 8.3, successRate: 64.2 },
-  { type: 'Meetings', count: 127, trend: 15.2, avgDuration: 52, successRate: 89.6 },
-  { type: 'Notes', count: 342, trend: 5.7, successRate: 100 },
-];
-
 export default function InteractionsAnalysisPage() {
-  const [analyticsData] = useState<AnalyticsData[]>(mockAnalyticsData);
-  const [topPerformers] = useState<TopPerformer[]>(mockTopPerformers);
-  const [interactionMetrics] = useState<InteractionMetrics[]>(mockInteractionMetrics);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([]);
+  const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
+  const [interactionMetrics, setInteractionMetrics] = useState<InteractionMetrics[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await crmService.crmAnalytics.getInteractionAnalysis();
+        if (!mounted) return;
+        const byType = Array.isArray(data?.byType) ? data.byType : [];
+        const byOutcome = Array.isArray(data?.byOutcome) ? data.byOutcome : [];
+        const byPerformer = Array.isArray(data?.byPerformer) ? data.byPerformer : [];
+
+        const metrics: InteractionMetrics[] = byType.map((t: any) => ({
+          type: t?.type ?? '',
+          count: Number(t?.count ?? 0),
+          trend: 0,
+          successRate: 0,
+        }));
+
+        const performers: TopPerformer[] = byPerformer.map((p: any) => ({
+          name: p?.performer ?? '',
+          interactions: Number(p?.count ?? 0),
+          conversions: 0,
+          avgResponseTime: 0,
+          satisfactionScore: 0,
+        }));
+
+        const analytics: AnalyticsData[] = byOutcome.map((o: any) => ({
+          period: o?.outcome ?? '',
+          calls: 0,
+          emails: 0,
+          meetings: 0,
+          notes: 0,
+          totalInteractions: Number(o?.count ?? 0),
+          responseRate: 0,
+          avgResponseTime: 0,
+        }));
+
+        setError(null);
+        setInteractionMetrics(metrics);
+        setTopPerformers(performers);
+        setAnalyticsData(analytics);
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message ?? 'Failed to load interaction analysis data');
+        setInteractionMetrics([]);
+        setTopPerformers([]);
+        setAnalyticsData([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const currentPeriod = analyticsData[analyticsData.length - 1];
   const previousPeriod = analyticsData[analyticsData.length - 2];
 
   const calculateTrend = (current: number, previous: number) => {
+    if (!previous) return 0;
     return ((current - previous) / previous) * 100;
   };
 
-  const totalInteractionsTrend = calculateTrend(currentPeriod.totalInteractions, previousPeriod.totalInteractions);
-  const responseRateTrend = calculateTrend(currentPeriod.responseRate, previousPeriod.responseRate);
-  const avgResponseTimeTrend = calculateTrend(currentPeriod.avgResponseTime, previousPeriod.avgResponseTime);
+  const totalInteractionsTrend = calculateTrend(currentPeriod?.totalInteractions ?? 0, previousPeriod?.totalInteractions ?? 0);
+  const responseRateTrend = calculateTrend(currentPeriod?.responseRate ?? 0, previousPeriod?.responseRate ?? 0);
+  const avgResponseTimeTrend = calculateTrend(currentPeriod?.avgResponseTime ?? 0, previousPeriod?.avgResponseTime ?? 0);
 
   const interactionsByType = {
     calls: analyticsData.reduce((sum, d) => sum + d.calls, 0),
@@ -83,10 +112,11 @@ export default function InteractionsAnalysisPage() {
 
   const totalInteractions = Object.values(interactionsByType).reduce((sum, count) => sum + count, 0);
 
-  const getPercentage = (count: number) => ((count / totalInteractions) * 100).toFixed(1);
+  const getPercentage = (count: number) => (totalInteractions ? (count / totalInteractions) * 100 : 0).toFixed(1);
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">
@@ -100,7 +130,7 @@ export default function InteractionsAnalysisPage() {
                 {Math.abs(totalInteractionsTrend).toFixed(1)}%
               </div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">{currentPeriod.totalInteractions}</div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{currentPeriod?.totalInteractions ?? 0}</div>
             <div className="text-sm text-gray-600">Total Interactions</div>
           </div>
 
@@ -114,7 +144,7 @@ export default function InteractionsAnalysisPage() {
                 {Math.abs(responseRateTrend).toFixed(1)}%
               </div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">{currentPeriod.responseRate}%</div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{currentPeriod?.responseRate ?? 0}%</div>
             <div className="text-sm text-gray-600">Response Rate</div>
           </div>
 
@@ -128,7 +158,7 @@ export default function InteractionsAnalysisPage() {
                 {Math.abs(avgResponseTimeTrend).toFixed(1)}%
               </div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-1">{currentPeriod.avgResponseTime}h</div>
+            <div className="text-3xl font-bold text-gray-900 mb-1">{currentPeriod?.avgResponseTime ?? 0}h</div>
             <div className="text-sm text-gray-600">Avg Response Time</div>
           </div>
 
@@ -139,7 +169,7 @@ export default function InteractionsAnalysisPage() {
               </div>
             </div>
             <div className="text-3xl font-bold text-gray-900 mb-1">
-              {((interactionMetrics.reduce((sum, m) => sum + m.successRate, 0) / interactionMetrics.length)).toFixed(1)}%
+              {(interactionMetrics.length ? interactionMetrics.reduce((sum, m) => sum + m.successRate, 0) / interactionMetrics.length : 0).toFixed(1)}%
             </div>
             <div className="text-sm text-gray-600">Avg Success Rate</div>
           </div>
@@ -161,25 +191,25 @@ export default function InteractionsAnalysisPage() {
                     <div className="absolute inset-y-0 left-0 flex">
                       <div
                         className="bg-green-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(data.calls / data.totalInteractions) * 100}%` }}
+                        style={{ width: `${data.totalInteractions ? (data.calls / data.totalInteractions) * 100 : 0}%` }}
                       >
                         {data.calls > 0 && data.calls}
                       </div>
                       <div
                         className="bg-orange-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(data.emails / data.totalInteractions) * 100}%` }}
+                        style={{ width: `${data.totalInteractions ? (data.emails / data.totalInteractions) * 100 : 0}%` }}
                       >
                         {data.emails > 0 && data.emails}
                       </div>
                       <div
                         className="bg-purple-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(data.meetings / data.totalInteractions) * 100}%` }}
+                        style={{ width: `${data.totalInteractions ? (data.meetings / data.totalInteractions) * 100 : 0}%` }}
                       >
                         {data.meetings > 0 && data.meetings}
                       </div>
                       <div
                         className="bg-blue-500 flex items-center justify-center text-white text-xs font-medium"
-                        style={{ width: `${(data.notes / data.totalInteractions) * 100}%` }}
+                        style={{ width: `${data.totalInteractions ? (data.notes / data.totalInteractions) * 100 : 0}%` }}
                       >
                         {data.notes > 0 && data.notes}
                       </div>
@@ -361,7 +391,7 @@ export default function InteractionsAnalysisPage() {
                 <div className="text-right">
                   <div className="text-xs text-gray-600 mb-1">Conversion Rate</div>
                   <div className="text-lg font-bold text-green-600">
-                    {((performer.conversions / performer.interactions) * 100).toFixed(1)}%
+                    {(performer.interactions ? (performer.conversions / performer.interactions) * 100 : 0).toFixed(1)}%
                   </div>
                 </div>
               </div>

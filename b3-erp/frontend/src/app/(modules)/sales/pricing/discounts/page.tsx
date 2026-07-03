@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Search, Filter, Percent, Tag, TrendingDown, Calendar, Package, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService } from '@/services/sales-config.service'
 
 interface Discount {
   id: string
@@ -27,210 +28,44 @@ export default function DiscountsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
 
-  const [discounts] = useState<Discount[]>([
-    {
-      id: 'DISC-001',
-      code: 'SINK20',
-      name: 'Kitchen Sink Volume Discount',
-      type: 'percentage',
-      category: 'Kitchen Sinks',
-      value: 20,
-      minQuantity: 50,
-      minOrderValue: 500000,
-      maxDiscount: 100000,
-      applicableProducts: ['KIT-SS-001', 'KIT-SS-002'],
-      validFrom: '2025-10-01',
-      validTo: '2025-12-31',
-      status: 'active',
-      usageCount: 23,
-      usageLimit: 100
-    },
-    {
-      id: 'DISC-002',
-      code: 'FAUCET15',
-      name: 'Kitchen Faucet Bulk Order',
-      type: 'percentage',
-      category: 'Kitchen Faucets',
-      value: 15,
-      minQuantity: 30,
-      minOrderValue: 300000,
-      maxDiscount: 50000,
-      applicableProducts: ['KIT-FC-001', 'KIT-FC-002'],
-      validFrom: '2025-09-15',
-      validTo: '2025-11-30',
-      status: 'active',
-      usageCount: 18,
-      usageLimit: 75
-    },
-    {
-      id: 'DISC-003',
-      code: 'COOKWARE25',
-      name: 'Cookware Set Volume Discount',
-      type: 'percentage',
-      category: 'Cookware',
-      value: 25,
-      minQuantity: 100,
-      minOrderValue: 800000,
-      maxDiscount: 200000,
-      applicableProducts: ['KIT-CW-001', 'KIT-CW-002'],
-      validFrom: '2025-10-10',
-      validTo: '2026-01-31',
-      status: 'active',
-      usageCount: 12,
-      usageLimit: 50
-    },
-    {
-      id: 'DISC-004',
-      code: 'APPLIANCE10',
-      name: 'Kitchen Appliance Seasonal',
-      type: 'percentage',
-      category: 'Kitchen Appliances',
-      value: 10,
-      minQuantity: 20,
-      minOrderValue: 400000,
-      maxDiscount: 75000,
-      applicableProducts: ['KIT-AP-001', 'KIT-AP-002'],
-      validFrom: '2025-11-01',
-      validTo: '2025-12-15',
-      status: 'scheduled',
-      usageCount: 0,
-      usageLimit: 60
-    },
-    {
-      id: 'DISC-005',
-      code: 'CABINET30',
-      name: 'Modular Kitchen Cabinet Bulk',
-      type: 'percentage',
-      category: 'Kitchen Storage',
-      value: 30,
-      minQuantity: 25,
-      minOrderValue: 500000,
-      maxDiscount: 150000,
-      applicableProducts: ['KIT-CB-001', 'KIT-CB-002'],
-      validFrom: '2025-10-01',
-      validTo: '2025-12-31',
-      status: 'active',
-      usageCount: 8,
-      usageLimit: 40
-    },
-    {
-      id: 'DISC-006',
-      code: 'CHIMNEY12',
-      name: 'Kitchen Chimney Volume Deal',
-      type: 'percentage',
-      category: 'Kitchen Ventilation',
-      value: 12,
-      minQuantity: 15,
-      minOrderValue: 300000,
-      maxDiscount: 40000,
-      applicableProducts: ['KIT-CH-001'],
-      validFrom: '2025-09-01',
-      validTo: '2025-11-30',
-      status: 'active',
-      usageCount: 15,
-      usageLimit: 50
-    },
-    {
-      id: 'DISC-007',
-      code: 'COUNTER500',
-      name: 'Countertop Fixed Discount',
-      type: 'fixed',
-      category: 'Countertops',
-      value: 500,
-      minQuantity: 100,
-      minOrderValue: 50000,
-      applicableProducts: ['KIT-CT-001', 'KIT-CT-002'],
-      validFrom: '2025-10-15',
-      validTo: '2025-12-31',
-      status: 'active',
-      usageCount: 34,
-      usageLimit: 100
-    },
-    {
-      id: 'DISC-008',
-      code: 'ACCESSOR18',
-      name: 'Kitchen Accessories Combo',
-      type: 'percentage',
-      category: 'Kitchen Accessories',
-      value: 18,
-      minQuantity: 50,
-      minOrderValue: 25000,
-      maxDiscount: 15000,
-      applicableProducts: ['KIT-AC-001', 'KIT-AC-002'],
-      validFrom: '2025-08-01',
-      validTo: '2025-10-31',
-      status: 'active',
-      usageCount: 56,
-      usageLimit: 80
-    },
-    {
-      id: 'DISC-009',
-      code: 'FESTIVAL35',
-      name: 'Festival Kitchen Mega Discount',
-      type: 'percentage',
-      category: 'All Kitchen Products',
-      value: 35,
-      minQuantity: 10,
-      minOrderValue: 200000,
-      maxDiscount: 100000,
-      applicableProducts: ['ALL'],
-      validFrom: '2025-10-20',
-      validTo: '2025-11-05',
-      status: 'active',
-      usageCount: 67,
-      usageLimit: 200
-    },
-    {
-      id: 'DISC-010',
-      code: 'SINK2PLUS1',
-      name: 'Buy 2 Sinks Get 1 Faucet Free',
-      type: 'buyXgetY',
-      category: 'Kitchen Sinks',
-      value: 0,
-      minQuantity: 2,
-      minOrderValue: 25000,
-      applicableProducts: ['KIT-SS-001', 'KIT-SS-002', 'KIT-FC-001'],
-      validFrom: '2025-09-01',
-      validTo: '2025-11-30',
-      status: 'active',
-      usageCount: 41,
-      usageLimit: 100
-    },
-    {
-      id: 'DISC-011',
-      code: 'NEWUSER20',
-      name: 'First Kitchen Order Discount',
-      type: 'percentage',
-      category: 'All Kitchen Products',
-      value: 20,
-      minQuantity: 5,
-      minOrderValue: 50000,
-      maxDiscount: 25000,
-      applicableProducts: ['ALL'],
-      validFrom: '2025-07-01',
-      validTo: '2025-12-31',
-      status: 'active',
-      usageCount: 89,
-      usageLimit: 150
-    },
-    {
-      id: 'DISC-012',
-      code: 'SUMMER40',
-      name: 'Summer Kitchen Clearance',
-      type: 'percentage',
-      category: 'All Kitchen Products',
-      value: 40,
-      minQuantity: 20,
-      minOrderValue: 300000,
-      maxDiscount: 150000,
-      applicableProducts: ['ALL'],
-      validFrom: '2025-06-01',
-      validTo: '2025-08-31',
-      status: 'expired',
-      usageCount: 156,
-      usageLimit: 200
+  const [discounts, setDiscounts] = useState<Discount[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await salesConfigService.getDiscounts()
+        const mapped: Discount[] = (rows || []).map((r) => ({
+          id: r.id,
+          code: r.code || '',
+          name: r.name,
+          type: (r.type as Discount['type']) || 'percentage',
+          category: r.category || '',
+          value: Number(r.value) || 0,
+          minQuantity: Number(r.minQuantity) || 0,
+          minOrderValue: Number(r.minOrderValue) || 0,
+          maxDiscount: r.maxDiscount != null ? Number(r.maxDiscount) : undefined,
+          applicableProducts: r.applicableProducts || [],
+          validFrom: r.validFrom || '',
+          validTo: r.validTo || '',
+          status: (r.status as Discount['status']) || 'active',
+          usageCount: Number(r.usageCount) || 0,
+          usageLimit: r.usageLimit != null ? Number(r.usageLimit) : undefined,
+        }))
+        if (!cancelled) setDiscounts(mapped)
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load discounts')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const categories = ['all', 'Kitchen Sinks', 'Kitchen Faucets', 'Cookware', 'Kitchen Appliances', 'Kitchen Storage', 'Kitchen Ventilation', 'Countertops', 'Kitchen Accessories', 'All Kitchen Products']
 

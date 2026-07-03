@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Hash,
   FileText,
@@ -13,8 +13,10 @@ import {
   RefreshCw,
   Eye,
   Copy,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react'
+import { cpqCodeListService } from '@/services/cpq/cpq-orphans.service'
 
 export default function CPQSettingsNumberingPage() {
   const [hasChanges, setHasChanges] = useState(false)
@@ -97,20 +99,46 @@ export default function CPQSettingsNumberingPage() {
   })
 
   // Branch Codes (if enabled)
-  const [branchCodes, setBranchCodes] = useState([
-    { id: 1, name: 'Bangalore HQ', code: 'BLR', active: true },
-    { id: 2, name: 'Mumbai Branch', code: 'MUM', active: true },
-    { id: 3, name: 'Delhi Branch', code: 'DEL', active: true },
-    { id: 4, name: 'Chennai Branch', code: 'CHN', active: false }
-  ])
+  const [branchCodes, setBranchCodes] = useState<{ id: any; name: string; code: string; active: boolean }[]>([])
 
   // Category Codes (if enabled)
-  const [categoryCodes, setCategoryCodes] = useState([
-    { id: 1, name: 'Modular Kitchens', code: 'MK', active: true },
-    { id: 2, name: 'Wardrobes', code: 'WR', active: true },
-    { id: 3, name: 'Living Room', code: 'LR', active: true },
-    { id: 4, name: 'Office Furniture', code: 'OF', active: true }
-  ])
+  const [categoryCodes, setCategoryCodes] = useState<{ id: any; name: string; code: string; active: boolean }[]>([])
+
+  const [codesLoading, setCodesLoading] = useState(true)
+  const [codesError, setCodesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    setCodesLoading(true)
+    setCodesError(null)
+
+    cpqCodeListService
+      .findAll()
+      .then((rows) => {
+        if (!active) return
+        const branch = rows
+          .filter((r) => r.listType === 'branch')
+          .map((r) => ({ id: r.id, name: r.name ?? '', code: r.code ?? '', active: Boolean(r.active) }))
+        const category = rows
+          .filter((r) => r.listType === 'category')
+          .map((r) => ({ id: r.id, name: r.name ?? '', code: r.code ?? '', active: Boolean(r.active) }))
+        setBranchCodes(branch)
+        setCategoryCodes(category)
+      })
+      .catch((err: any) => {
+        if (!active) return
+        setCodesError(err?.message || 'Failed to load codes')
+      })
+      .finally(() => {
+        if (!active) return
+        setCodesLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const generateSample = (scheme: typeof numberingSchemes.quotes) => {
     let sample = scheme.prefix
@@ -529,6 +557,74 @@ export default function CPQSettingsNumberingPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Code Lists */}
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-3 mt-3">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <Hash className="h-6 w-6 text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Code Lists</h3>
+            <p className="text-sm text-gray-600">Branch and category codes used in numbering</p>
+          </div>
+        </div>
+
+        {codesLoading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-600 p-3">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading...
+          </div>
+        ) : codesError ? (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <p className="text-sm text-red-800 font-medium">{codesError}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Branch Codes</p>
+              {branchCodes.length === 0 ? (
+                <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">No codes configured</p>
+              ) : (
+                <div className="space-y-2">
+                  {branchCodes.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-700">{c.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono text-gray-900">{c.code}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${c.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                          {c.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Category Codes</p>
+              {categoryCodes.length === 0 ? (
+                <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-lg">No codes configured</p>
+              ) : (
+                <div className="space-y-2">
+                  {categoryCodes.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-700">{c.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono text-gray-900">{c.code}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${c.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                          {c.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info Banner */}

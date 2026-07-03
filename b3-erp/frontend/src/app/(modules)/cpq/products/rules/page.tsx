@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   GitBranch,
@@ -12,8 +12,10 @@ import {
   ToggleLeft,
   ToggleRight,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react'
+import { cpqConfigRuleService } from '@/services/cpq/cpq-orphans.service'
 import {
   RuleModal,
   ViewRuleModal,
@@ -34,88 +36,40 @@ interface ConfigurationRule {
 export default function CPQProductsRulesPage() {
   const router = useRouter()
 
-  const [rules, setRules] = useState<ConfigurationRule[]>([
-    {
-      id: 'RULE-001',
-      name: 'Premium Finish requires Premium Cabinets',
-      type: 'dependency',
-      condition: 'If Finish = Premium',
-      action: 'Require Cabinet Material = Premium',
-      priority: 1,
-      status: 'active',
-      affectedProducts: 12
-    },
-    {
-      id: 'RULE-002',
-      name: 'Modular Kitchen - Size Constraint',
-      type: 'constraint',
-      condition: 'If Kitchen Type = Modular',
-      action: 'Width must be between 8-20 ft',
-      priority: 2,
-      status: 'active',
-      affectedProducts: 8
-    },
-    {
-      id: 'RULE-003',
-      name: 'Stone Countertop incompatible with Basic Package',
-      type: 'compatibility',
-      condition: 'If Package = Basic',
-      action: 'Exclude Countertop = Stone/Granite',
-      priority: 1,
-      status: 'active',
-      affectedProducts: 15
-    },
-    {
-      id: 'RULE-004',
-      name: 'Volume Discount for Multiple Units',
-      type: 'pricing',
-      condition: 'If Quantity > 5',
-      action: 'Apply 15% discount',
-      priority: 3,
-      status: 'active',
-      affectedProducts: 25
-    },
-    {
-      id: 'RULE-005',
-      name: 'Island Kitchen requires minimum space',
-      type: 'constraint',
-      condition: 'If Kitchen Type = Island',
-      action: 'Minimum area = 150 sq ft',
-      priority: 1,
-      status: 'active',
-      affectedProducts: 6
-    },
-    {
-      id: 'RULE-006',
-      name: 'Smart Appliances require Electrical Upgrade',
-      type: 'dependency',
-      condition: 'If Appliances = Smart',
-      action: 'Add Electrical Upgrade Package',
-      priority: 2,
-      status: 'active',
-      affectedProducts: 10
-    },
-    {
-      id: 'RULE-007',
-      name: 'Custom Color upcharge',
-      type: 'pricing',
-      condition: 'If Color = Custom',
-      action: 'Add ₹25,000 upcharge',
-      priority: 3,
-      status: 'active',
-      affectedProducts: 18
-    },
-    {
-      id: 'RULE-008',
-      name: 'Warranty Extension Bundle',
-      type: 'dependency',
-      condition: 'If Warranty > 5 years',
-      action: 'Require Premium Maintenance Plan',
-      priority: 2,
-      status: 'inactive',
-      affectedProducts: 8
+  const [rules, setRules] = useState<ConfigurationRule[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError(null)
+    cpqConfigRuleService
+      .findAll()
+      .then((rows) => {
+        if (!active) return
+        const mapped: ConfigurationRule[] = (Array.isArray(rows) ? rows : []).map((r) => ({
+          id: r.id,
+          name: r.name ?? '',
+          type: (r.type ?? 'compatibility') as ConfigurationRule['type'],
+          condition: r.condition ?? '',
+          action: r.action ?? '',
+          priority: Number(r.priority) || 1,
+          status: (r.status ?? 'active') as ConfigurationRule['status'],
+          affectedProducts: Number(r.affectedProducts) || 0
+        }))
+        setRules(mapped)
+      })
+      .catch((err) => {
+        if (active) setError(err?.message || 'Failed to load configuration rules')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
     }
-  ])
+  }, [])
 
   // Modal states
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false)
@@ -169,6 +123,7 @@ export default function CPQProductsRulesPage() {
   }
 
   const handleExport = () => {
+    if (filteredRules.length === 0) return
     const data = filteredRules.map(r => ({
       ID: r.id,
       Name: r.name,
@@ -288,6 +243,17 @@ export default function CPQProductsRulesPage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 text-sm text-gray-600">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading configuration rules...
+        </div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-5 border border-blue-200">
@@ -332,7 +298,7 @@ export default function CPQProductsRulesPage() {
             <div>
               <p className="text-sm font-medium text-orange-600">Avg Products</p>
               <p className="text-2xl font-bold text-orange-900 mt-1">
-                {Math.round(rules.reduce((sum, r) => sum + r.affectedProducts, 0) / rules.length)}
+                {rules.length > 0 ? Math.round(rules.reduce((sum, r) => sum + r.affectedProducts, 0) / rules.length) : 0}
               </p>
               <p className="text-xs text-orange-700 mt-1">Per rule</p>
             </div>

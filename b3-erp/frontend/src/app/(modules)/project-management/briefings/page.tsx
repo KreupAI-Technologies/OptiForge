@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/projectManagementService';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -48,107 +49,14 @@ interface LayoutBriefing {
   duration: string;
 }
 
-const mockBriefings: LayoutBriefing[] = [
-  {
-    id: '1',
-    briefingNumber: 'BRF-2025-001',
-    projectId: 'PRJ-2025-001',
-    projectName: 'Taj Hotels - Commercial Kitchen Setup',
-    briefingDate: '2025-01-18',
-    briefingTime: '10:00 AM',
-    location: 'Conference Room A',
-    organizer: 'Project Manager - Rajesh Kumar',
-    status: 'Completed',
-    attendees: [
-      { name: 'Rajesh Kumar', role: 'Project Manager', attended: true },
-      { name: 'Technical Designer', role: 'Design Team Lead', attended: true },
-      { name: 'Production Supervisor', role: 'Manufacturing Lead', attended: true },
-      { name: 'Sales Representative', role: 'Client Liaison', attended: true },
-    ],
-    agenda: 'Review approved drawings, discuss BOQ details, finalize layout specifications, assign technical drawing tasks',
-    minutes: `
-Meeting commenced at 10:00 AM with all key stakeholders present.
-
-Key Discussion Points:
-1. Client approved drawings reviewed - Equipment Layout Rev 3.0 and Electrical SLD Rev 2.0
-2. BOQ details discussed with focus on premium kitchen equipment specifications
-3. Site measurements from MEP survey incorporated into layout
-4. Technical drawing requirements outlined for fabrication team
-5. Material selections confirmed - SS304 for all equipment, granite countertops
-6. Timeline discussed - target completion 45 days from today
-
-Decisions Made:
-- Technical drawings to be completed within 2 weeks
-- BOM to be generated for accessories (handles, hinges, fittings) by end of week
-- Weekly review meetings scheduled for progress tracking
-  `.trim(),
-    actionItems: `
-1. Technical team to create detailed fabrication drawings - Due: Jan 25, 2025
-2. BOM team to generate accessories and fittings list - Due: Jan 22, 2025
-3. Procurement to verify supplier availability for specialized components - Due: Jan 20, 2025
-4. Production to prepare workshop schedule based on timeline - Due: Jan 23, 2025
-  `.trim(),
-    attachments: [
-      { id: '1', name: 'Approved Equipment Layout Rev 3.pdf', type: 'Drawing' },
-      { id: '2', name: 'BOQ Document v2.xlsx', type: 'BOQ' },
-      { id: '3', name: 'Site Measurements Report.pdf', type: 'Report' },
-    ],
-    duration: '2 hours',
-  },
-  {
-    id: '2',
-    briefingNumber: 'BRF-2025-002',
-    projectId: 'PRJ-2025-002',
-    projectName: 'BigBasket Cold Storage Facility',
-    briefingDate: '2025-01-22',
-    briefingTime: '2:00 PM',
-    location: 'Virtual - Zoom',
-    organizer: 'Project Manager - Amit Singh',
-    status: 'Scheduled',
-    attendees: [
-      { name: 'Amit Singh', role: 'Project Manager', attended: false },
-      { name: 'Cold Chain Specialist', role: 'Technical Lead', attended: false },
-      { name: 'HVAC Engineer', role: 'MEP Design', attended: false },
-      { name: 'Client Representative', role: 'BigBasket', attended: false },
-    ],
-    agenda: 'Review refrigeration equipment specifications, discuss insulation requirements, plan cold storage layout, timeline discussion',
-    minutes: '',
-    actionItems: '',
-    attachments: [
-      { id: '1', name: 'Refrigeration Specs.pdf', type: 'Specification' },
-      { id: '2', name: 'Cold Room Layout.dwg', type: 'Drawing' },
-    ],
-    duration: '1.5 hours',
-  },
-  {
-    id: '3',
-    briefingNumber: 'BRF-2025-003',
-    projectId: 'PRJ-2025-003',
-    projectName: 'L&T Campus - Industrial Kitchen',
-    briefingDate: '2025-01-16',
-    briefingTime: '11:00 AM',
-    location: 'Site Office - L&T Campus',
-    organizer: 'Project Manager - Deepak Joshi',
-    status: 'Completed',
-    attendees: [
-      { name: 'Deepak Joshi', role: 'Project Manager', attended: true },
-      { name: 'Kitchen Designer', role: 'Design Team', attended: true },
-      { name: 'MEP Designer', role: 'Technical Team', attended: true },
-      { name: 'Site Engineer', role: 'L&T', attended: false },
-    ],
-    agenda: 'Site walkthrough review, layout optimization, MEP coordination, material finalization',
-    minutes: 'Detailed walkthrough completed. Client requested modifications to serving area layout. MEP coordination points identified. Material selections approved with client preference for durability over aesthetics.',
-    actionItems: '1. Revise serving area layout - Due: Jan 19\n2. Update MEP drawings with coordination points - Due: Jan 21\n3. Finalize material specifications document - Due: Jan 18',
-    attachments: [
-      { id: '1', name: 'Site Photos.zip', type: 'Photos' },
-      { id: '2', name: 'Layout Options.pdf', type: 'Drawing' },
-    ],
-    duration: '3 hours',
-  },
-];
 
 export default function LayoutBriefingsPage() {
-  const [briefings] = useState<LayoutBriefing[]>(mockBriefings);
+  const [briefings, setBriefings] = useState<LayoutBriefing[]>([]);
+  useEffect(() => {
+    projectManagementService.listBriefings().then((rows) => {
+      if (Array.isArray(rows)) setBriefings(rows as unknown as LayoutBriefing[]);
+    });
+  }, []);
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedBriefing, setSelectedBriefing] = useState<LayoutBriefing | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);

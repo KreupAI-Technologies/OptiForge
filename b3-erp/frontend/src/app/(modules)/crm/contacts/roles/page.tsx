@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, Briefcase, Crown, UserCheck, Target, TrendingUp, Mail, Phone, Building2, Award, Search, Filter, Plus, Edit, Trash2, Eye, CheckCircle, XCircle, Clock, BarChart3 } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface ContactRole {
   id: string;
@@ -36,189 +37,6 @@ interface RoleContact {
   dealsClosed: number;
   totalValue: number;
 }
-
-const mockRoles: ContactRole[] = [
-  {
-    id: '1',
-    roleName: 'Chief Technology Officer',
-    description: 'Technology strategy and technical decision maker',
-    department: 'Technology',
-    level: 'executive',
-    contactCount: 145,
-    avgDealSize: 850000,
-    conversionRate: 67.5,
-    avgResponseTime: 24,
-    influenceScore: 98,
-    color: 'purple',
-    isDecisionMaker: true,
-    isBudgetHolder: true,
-    isInfluencer: true,
-    createdDate: '2024-01-15',
-    status: 'active',
-  },
-  {
-    id: '2',
-    roleName: 'VP of Engineering',
-    description: 'Engineering operations and technical implementation lead',
-    department: 'Engineering',
-    level: 'executive',
-    contactCount: 203,
-    avgDealSize: 520000,
-    conversionRate: 58.3,
-    avgResponseTime: 36,
-    influenceScore: 92,
-    color: 'blue',
-    isDecisionMaker: true,
-    isBudgetHolder: true,
-    isInfluencer: true,
-    createdDate: '2024-01-20',
-    status: 'active',
-  },
-  {
-    id: '3',
-    roleName: 'Director of IT',
-    description: 'IT infrastructure and systems management',
-    department: 'Information Technology',
-    level: 'director',
-    contactCount: 312,
-    avgDealSize: 280000,
-    conversionRate: 45.2,
-    avgResponseTime: 48,
-    influenceScore: 78,
-    color: 'green',
-    isDecisionMaker: false,
-    isBudgetHolder: true,
-    isInfluencer: true,
-    createdDate: '2024-02-10',
-    status: 'active',
-  },
-  {
-    id: '4',
-    roleName: 'Engineering Manager',
-    description: 'Team lead for engineering projects and implementations',
-    department: 'Engineering',
-    level: 'manager',
-    contactCount: 487,
-    avgDealSize: 95000,
-    conversionRate: 38.7,
-    avgResponseTime: 72,
-    influenceScore: 65,
-    color: 'yellow',
-    isDecisionMaker: false,
-    isBudgetHolder: false,
-    isInfluencer: true,
-    createdDate: '2024-02-15',
-    status: 'active',
-  },
-  {
-    id: '5',
-    roleName: 'Chief Financial Officer',
-    description: 'Financial strategy and budget approval authority',
-    department: 'Finance',
-    level: 'executive',
-    contactCount: 98,
-    avgDealSize: 1200000,
-    conversionRate: 72.1,
-    avgResponseTime: 18,
-    influenceScore: 95,
-    color: 'orange',
-    isDecisionMaker: true,
-    isBudgetHolder: true,
-    isInfluencer: true,
-    createdDate: '2024-01-10',
-    status: 'active',
-  },
-  {
-    id: '6',
-    roleName: 'Procurement Manager',
-    description: 'Vendor evaluation and purchasing coordination',
-    department: 'Procurement',
-    level: 'manager',
-    contactCount: 624,
-    avgDealSize: 65000,
-    conversionRate: 42.5,
-    avgResponseTime: 96,
-    influenceScore: 58,
-    color: 'teal',
-    isDecisionMaker: false,
-    isBudgetHolder: false,
-    isInfluencer: true,
-    createdDate: '2024-03-05',
-    status: 'active',
-  },
-  {
-    id: '7',
-    roleName: 'IT Specialist',
-    description: 'Technical evaluation and hands-on implementation',
-    department: 'Information Technology',
-    level: 'specialist',
-    contactCount: 856,
-    avgDealSize: 35000,
-    conversionRate: 28.3,
-    avgResponseTime: 120,
-    influenceScore: 42,
-    color: 'gray',
-    isDecisionMaker: false,
-    isBudgetHolder: false,
-    isInfluencer: false,
-    createdDate: '2024-03-20',
-    status: 'active',
-  },
-  {
-    id: '8',
-    roleName: 'Chief Executive Officer',
-    description: 'Ultimate decision authority and strategic partnerships',
-    department: 'Executive',
-    level: 'executive',
-    contactCount: 67,
-    avgDealSize: 2500000,
-    conversionRate: 85.2,
-    avgResponseTime: 12,
-    influenceScore: 100,
-    color: 'red',
-    isDecisionMaker: true,
-    isBudgetHolder: true,
-    isInfluencer: true,
-    createdDate: '2024-01-05',
-    status: 'active',
-  },
-  {
-    id: '9',
-    roleName: 'Operations Director',
-    description: 'Operational efficiency and process optimization',
-    department: 'Operations',
-    level: 'director',
-    contactCount: 234,
-    avgDealSize: 320000,
-    conversionRate: 51.8,
-    avgResponseTime: 42,
-    influenceScore: 82,
-    color: 'indigo',
-    isDecisionMaker: false,
-    isBudgetHolder: true,
-    isInfluencer: true,
-    createdDate: '2024-02-01',
-    status: 'active',
-  },
-  {
-    id: '10',
-    roleName: 'Business Analyst',
-    description: 'Requirements gathering and solution evaluation',
-    department: 'Business Operations',
-    level: 'specialist',
-    contactCount: 445,
-    avgDealSize: 48000,
-    conversionRate: 32.4,
-    avgResponseTime: 108,
-    influenceScore: 48,
-    color: 'pink',
-    isDecisionMaker: false,
-    isBudgetHolder: false,
-    isInfluencer: false,
-    createdDate: '2024-03-15',
-    status: 'active',
-  },
-];
 
 const mockContacts: RoleContact[] = [
   {
@@ -266,8 +84,44 @@ const mockContacts: RoleContact[] = [
 ];
 
 export default function ContactRolesPage() {
-  const [roles] = useState<ContactRole[]>(mockRoles);
+  const [roles, setRoles] = useState<ContactRole[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [contacts] = useState<RoleContact[]>(mockContacts);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true); setError(null);
+        const data = await crmService.contactRoles.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setRoles(rows.map((r: any): ContactRole => ({
+          id: String(r.id ?? ''),
+          roleName: r.roleName ?? r.name ?? '',
+          description: r.description ?? '',
+          department: r.department ?? r.category ?? '',
+          level: (r.level ?? r.influenceLevel ?? 'specialist') as ContactRole['level'],
+          contactCount: r.contactCount ?? 0,
+          avgDealSize: r.avgDealSize ?? 0,
+          conversionRate: r.conversionRate ?? 0,
+          avgResponseTime: r.avgResponseTime ?? 0,
+          influenceScore: r.influenceScore ?? 0,
+          color: r.color ?? '',
+          isDecisionMaker: r.isDecisionMaker ?? false,
+          isBudgetHolder: r.isBudgetHolder ?? false,
+          isInfluencer: r.isInfluencer ?? false,
+          createdDate: r.createdDate ?? r.createdAt ?? '',
+          status: (r.status ?? 'active') as ContactRole['status'],
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load'); setRoles([]);
+      } finally { if (mounted) setLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState<'all' | 'executive' | 'director' | 'manager' | 'specialist' | 'coordinator'>('all');
   const [filterType, setFilterType] = useState<'all' | 'decision-maker' | 'budget-holder' | 'influencer'>('all');
@@ -304,10 +158,10 @@ export default function ContactRolesPage() {
   const stats = {
     totalRoles: roles.filter(r => r.status === 'active').length,
     totalContacts: roles.reduce((sum, r) => sum + r.contactCount, 0),
-    avgDealSize: roles.reduce((sum, r) => sum + r.avgDealSize, 0) / roles.length,
-    avgConversion: roles.reduce((sum, r) => sum + r.conversionRate, 0) / roles.length,
+    avgDealSize: roles.length ? roles.reduce((sum, r) => sum + r.avgDealSize, 0) / roles.length : 0,
+    avgConversion: roles.length ? roles.reduce((sum, r) => sum + r.conversionRate, 0) / roles.length : 0,
     decisionMakers: roles.filter(r => r.isDecisionMaker).length,
-    avgInfluence: roles.reduce((sum, r) => sum + r.influenceScore, 0) / roles.length,
+    avgInfluence: roles.length ? roles.reduce((sum, r) => sum + r.influenceScore, 0) / roles.length : 0,
   };
 
   const getLevelColor = (level: string) => {
@@ -345,6 +199,7 @@ export default function ContactRolesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

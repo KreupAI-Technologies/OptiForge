@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Webhook, CheckCircle, XCircle, AlertTriangle, Trash2, Edit, Activity, Clock, RefreshCw } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface WebhookConfig {
     id: string;
@@ -20,41 +21,48 @@ export default function WebhooksPage() {
     const router = useRouter();
     const [showAddModal, setShowAddModal] = useState(false);
 
-    const [webhooks, setWebhooks] = useState<WebhookConfig[]>([
-        {
-            id: '1',
-            name: 'Order Fulfillment Service',
-            url: 'https://fulfillment.partner.com/api/webhooks/orders',
-            events: ['order.created', 'order.updated'],
-            status: 'active',
-            secret: 'whsec_••••••••••••',
-            lastTriggered: '2024-01-20 14:30:00',
-            successRate: 99.8,
-            failureCount: 2
-        },
-        {
-            id: '2',
-            name: 'Accounting Sync',
-            url: 'https://accounting-app.com/hooks/transactions',
-            events: ['invoice.paid', 'payment.received'],
-            status: 'active',
-            secret: 'whsec_••••••••••••',
-            lastTriggered: '2024-01-20 15:15:00',
-            successRate: 100,
-            failureCount: 0
-        },
-        {
-            id: '3',
-            name: 'Slack Notifications',
-            url: 'https://hooks.slack.com/services/T000/B000/XXXX',
-            events: ['alert.critical', 'system.error'],
-            status: 'failed',
-            secret: 'whsec_••••••••••••',
-            lastTriggered: '2024-01-19 10:00:00',
-            successRate: 45.5,
-            failureCount: 12
-        }
-    ]);
+    const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await ItAdminService.getWebhookEndpoints();
+                const mapped: WebhookConfig[] = (Array.isArray(raw) ? raw : []).map((w) => {
+                    const success = Number(w.successCount ?? 0);
+                    const failure = Number(w.failureCount ?? 0);
+                    const total = success + failure;
+                    return {
+                        id: String(w.id),
+                        name: w.name ?? '',
+                        url: w.url ?? '',
+                        events: Array.isArray(w.events) ? w.events : [],
+                        status: (w.status ?? 'active') as WebhookConfig['status'],
+                        secret: w.secret ?? '',
+                        lastTriggered: w.lastTriggered ?? undefined,
+                        successRate: total > 0 ? Math.round((success / total) * 1000) / 10 : 100,
+                        failureCount: failure,
+                    };
+                });
+                if (!cancelled) setWebhooks(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load webhooks');
+                    setWebhooks([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const events = [
         'order.created', 'order.updated', 'order.cancelled',
@@ -89,6 +97,16 @@ export default function WebhooksPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 px-3 py-2 w-full max-w-full">
+            {loadError && (
+                <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+                    {loadError}
+                </div>
+            )}
+            {isLoading && (
+                <div className="mb-3 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700">
+                    Loading webhooks...
+                </div>
+            )}
             <div className="mb-3 flex items-center gap-2">
                 <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
                     <ArrowLeft className="w-5 h-5 text-gray-600" />

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Copy, Plus, Search, Eye, Edit, Trash2, Star, Download, Send, Image, FileText, Layout, Mail } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface EmailTemplate {
   id: string;
@@ -19,134 +20,48 @@ interface EmailTemplate {
   contentPreview: string;
 }
 
-const mockTemplates: EmailTemplate[] = [
-  {
-    id: '1',
-    name: 'Product Launch Announcement',
-    category: 'announcement',
-    description: 'Bold and engaging template for new product launches with hero image and CTA',
-    subject: 'Introducing [Product Name] - Revolutionary Innovation',
-    previewText: 'Be the first to experience our groundbreaking new solution...',
-    thumbnail: '🚀',
-    usageCount: 24,
-    lastUsed: '2024-10-15',
-    createdDate: '2024-01-10',
-    isFavorite: true,
-    tags: ['Product', 'Launch', 'Hero Image'],
-    contentPreview: 'Feature highlight sections with 3-column layout, testimonials, and early access CTA',
-  },
-  {
-    id: '2',
-    name: 'Monthly Newsletter',
-    category: 'newsletter',
-    description: 'Clean, organized template for regular company updates and news',
-    subject: '[Month] Newsletter - Updates, Tips & Resources',
-    previewText: 'This month\'s top stories, tips, and exclusive content...',
-    thumbnail: '📰',
-    usageCount: 48,
-    lastUsed: '2024-10-18',
-    createdDate: '2024-01-05',
-    isFavorite: true,
-    tags: ['Newsletter', 'Updates', 'Multi-section'],
-    contentPreview: 'Header with logo, featured article, 3 news items, resources section, social links',
-  },
-  {
-    id: '3',
-    name: 'Holiday Promotion',
-    category: 'promotional',
-    description: 'Festive template with countdown timer and special offer highlights',
-    subject: '🎄 Exclusive Holiday Offer - [Discount]% Off',
-    previewText: 'Limited time holiday savings on all premium plans...',
-    thumbnail: '🎁',
-    usageCount: 12,
-    lastUsed: '2024-10-10',
-    createdDate: '2024-09-15',
-    isFavorite: false,
-    tags: ['Promotion', 'Holiday', 'Countdown', 'Discount'],
-    contentPreview: 'Festive header, countdown timer, product grid, urgency messaging, coupon code',
-  },
-  {
-    id: '4',
-    name: 'Webinar Invitation',
-    category: 'event',
-    description: 'Professional event invitation with speaker profiles and registration CTA',
-    subject: 'Join Us: [Webinar Title] - [Date]',
-    previewText: 'Reserve your spot for this exclusive webinar with industry experts...',
-    thumbnail: '🎓',
-    usageCount: 36,
-    lastUsed: '2024-10-05',
-    createdDate: '2024-02-20',
-    isFavorite: true,
-    tags: ['Webinar', 'Event', 'Registration', 'Speakers'],
-    contentPreview: 'Event details, speaker bios with photos, agenda, registration button, calendar add',
-  },
-  {
-    id: '5',
-    name: 'Customer Success Story',
-    category: 'nurture',
-    description: 'Testimonial-focused template highlighting customer achievements',
-    subject: 'How [Company] Achieved [Result] with Our Solution',
-    previewText: 'Read the inspiring success story of our customer...',
-    thumbnail: '⭐',
-    usageCount: 18,
-    lastUsed: '2024-10-12',
-    createdDate: '2024-03-10',
-    isFavorite: false,
-    tags: ['Case Study', 'Testimonial', 'Success'],
-    contentPreview: 'Customer quote header, challenge/solution/results sections, metrics, CTA to similar stories',
-  },
-  {
-    id: '6',
-    name: 'Welcome Series - Day 1',
-    category: 'transactional',
-    description: 'Onboarding email with getting started guide and resources',
-    subject: 'Welcome to [Company] - Let\'s Get Started!',
-    previewText: 'We\'re excited to have you on board. Here\'s everything you need...',
-    thumbnail: '👋',
-    usageCount: 156,
-    lastUsed: '2024-10-19',
-    createdDate: '2024-01-15',
-    isFavorite: true,
-    tags: ['Onboarding', 'Welcome', 'Getting Started'],
-    contentPreview: 'Welcome message, quick start guide, video tutorial links, support contact, next steps',
-  },
-  {
-    id: '7',
-    name: 'Re-engagement Campaign',
-    category: 'nurture',
-    description: 'Win-back template for inactive users with incentive offer',
-    subject: 'We Miss You! Here\'s [Incentive] to Come Back',
-    previewText: 'It\'s been a while. Let us remind you what you\'re missing...',
-    thumbnail: '💝',
-    usageCount: 28,
-    lastUsed: '2024-10-08',
-    createdDate: '2024-04-20',
-    isFavorite: false,
-    tags: ['Re-engagement', 'Win-back', 'Incentive'],
-    contentPreview: 'Personal message, what\'s new highlights, special offer, easy return CTA',
-  },
-  {
-    id: '8',
-    name: 'Feature Update Announcement',
-    category: 'announcement',
-    description: 'Product update template with feature highlights and screenshots',
-    subject: 'New Feature Alert: [Feature Name] is Here!',
-    previewText: 'Check out our latest update designed to make your life easier...',
-    thumbnail: '✨',
-    usageCount: 32,
-    lastUsed: '2024-10-14',
-    createdDate: '2024-02-15',
-    isFavorite: false,
-    tags: ['Product Update', 'Features', 'Screenshots'],
-    contentPreview: 'Feature showcase with screenshots, benefits list, how-to video, feedback CTA',
-  },
-];
-
 export default function CampaignTemplatesPage() {
-  const [templates] = useState<EmailTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'promotional' | 'newsletter' | 'transactional' | 'event' | 'announcement' | 'nurture'>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.campaignTemplates.getAll();
+        const rows = Array.isArray(data) ? data : [];
+        if (!mounted) return;
+        setTemplates(rows.map((t: any): EmailTemplate => ({
+          id: String(t.id ?? ''),
+          name: t.name ?? '',
+          category: t.category ?? 'promotional',
+          description: t.description ?? '',
+          subject: t.subject ?? '',
+          previewText: t.previewText ?? '',
+          thumbnail: t.thumbnail ?? '',
+          usageCount: t.usageCount ?? 0,
+          lastUsed: t.lastUsed ?? undefined,
+          createdDate: t.createdAt ?? '',
+          isFavorite: t.isFavorite ?? false,
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          contentPreview: t.contentPreview ?? '',
+        })));
+      } catch (e: any) {
+        if (!mounted) return;
+        setError(e?.message || 'Failed to load templates');
+        setTemplates([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const filteredTemplates = templates.filter(template => {
     const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -161,7 +76,7 @@ export default function CampaignTemplatesPage() {
     totalTemplates: templates.length,
     favorites: templates.filter(t => t.isFavorite).length,
     totalUsage: templates.reduce((sum, t) => sum + t.usageCount, 0),
-    avgUsage: Math.round(templates.reduce((sum, t) => sum + t.usageCount, 0) / templates.length),
+    avgUsage: templates.length > 0 ? Math.round(templates.reduce((sum, t) => sum + t.usageCount, 0) / templates.length) : 0,
   };
 
   const getCategoryColor = (category: string) => {
@@ -178,6 +93,7 @@ export default function CampaignTemplatesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>)}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
