@@ -136,5 +136,5 @@ These are **not** blockers for the rest of the backend-improvement milestone —
 ## References
 
 - [`CLAUDE.md`](../../CLAUDE.md) and [`README.md`](../../README.md) — currently misleading; will be rewritten under backend-improvement issue #112.
-- Backend-improvement milestone: https://github.com/boscosabujohn/ManufacturingOS/milestone/2
+- Backend-improvement milestone: https://github.com/KreupAI-Technologies/OptiForge/milestone/2
 - Originating review: conversational A-Z review conducted 2026-04-24.

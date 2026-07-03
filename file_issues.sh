@@ -6,7 +6,7 @@
 #   REPO=owner/name zsh file_issues.sh    # override repo
 
 set -euo pipefail
-REPO="${REPO:-boscosabujohn/ManufacturingOS}"
+REPO="${REPO:-KreupAI-Technologies/OptiForge}"
 MILESTONE="${MILESTONE:-}"     # optional: export MILESTONE="OptiForge v1"
 ASSIGNEE="${ASSIGNEE:-}"       # optional: export ASSIGNEE="your-gh-handle"
 
