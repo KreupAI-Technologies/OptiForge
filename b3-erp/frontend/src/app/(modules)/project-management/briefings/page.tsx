@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import Link from 'next/link';
 import {
   ArrowLeft,

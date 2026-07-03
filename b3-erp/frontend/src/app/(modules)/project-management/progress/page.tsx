@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import {
  Calendar,

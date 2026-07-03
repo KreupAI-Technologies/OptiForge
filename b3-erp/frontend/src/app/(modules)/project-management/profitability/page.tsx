@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
 import {

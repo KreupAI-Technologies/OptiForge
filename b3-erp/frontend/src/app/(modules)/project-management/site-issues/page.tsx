@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { AlertTriangle, CheckCircle, Clock, XCircle, TrendingUp, Calendar, Users, Eye, Plus, Download, Edit, FileText, Upload, MessageSquare, Shield } from 'lucide-react';
 import {
  ReportIssueModal,

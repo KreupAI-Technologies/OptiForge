@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import { Package, TrendingUp, AlertTriangle, CheckCircle, Plus, Filter, Download, Calendar, Edit, Eye, BarChart2, CheckSquare, XCircle, Upload, FileDown, RotateCcw, Sliders, MessageSquare, FileBarChart } from 'lucide-react';
 import {

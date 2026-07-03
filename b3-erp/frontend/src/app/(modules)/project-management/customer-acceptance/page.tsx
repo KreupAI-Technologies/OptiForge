@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { FileCheck, CheckCircle, Clock, AlertTriangle, XCircle, Plus, Download, Eye, FileText, Edit, ListChecks, FileStack, Wrench, GraduationCap, Shield, PenTool, RefreshCw, Upload, FileOutput } from 'lucide-react';
 import { ScheduleAcceptanceModal, EditAcceptanceModal, UpdateCriteriaModal, UpdateDocumentationModal, AddPunchListItemsModal, UpdateTrainingStatusModal, UpdateWarrantyModal, SignAcceptanceModal, UpdateStatusModal, UploadAttachmentsModal, GenerateReportModal, ViewFullDetailsModal } from '@/components/project-management/CustomerAcceptanceModals';
 

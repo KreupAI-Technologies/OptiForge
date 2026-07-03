@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { projectManagementService } from '@/services/projectManagementService';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { exportToCsv } from '@/lib/export';
 import { PlayCircle, CheckCircle, Clock, AlertCircle, Calendar, FileText, Users, Eye, Plus, Edit, Settings, ClipboardList, MessageSquare, Upload, RefreshCw, Award, UserPlus, PlusCircle, Download, CalendarClock, Network } from 'lucide-react';
 import { ScheduleCommissioningModal, EditActivityModal, UpdateTestParametersModal, UpdateChecklistModal, AddObservationsModal, UploadDocumentsModal, UpdateStatusModal, IssueCertificateModal, AssignEngineerModal, AddTestParameterModal, GenerateReportModal, ExportDataModal, RescheduleModal, AddDependenciesModal, ViewFullDetailsModal } from '@/components/project-management/CommissioningModals';
