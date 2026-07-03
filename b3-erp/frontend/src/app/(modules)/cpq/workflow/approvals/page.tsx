@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqApprovalService } from '@/services/cpq'
 import {
   Clock,
   Search,
@@ -37,248 +38,63 @@ export default function CPQWorkflowApprovalsPage() {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<ApprovalRequest | null>(null)
 
-  const [approvals] = useState<ApprovalRequest[]>([
-    {
-      id: 'WF-001',
-      type: 'quote',
-      documentNumber: 'QT-2024-1234',
-      customerName: 'Prestige Properties Ltd',
-      value: 4500000,
-      requestedBy: 'Rahul Kumar',
-      requestDate: '2024-10-18 10:30 AM',
-      currentApprover: 'Sales Manager',
-      status: 'pending',
-      priority: 'high',
-      reason: 'High value quote requires approval',
-      dueDate: '2024-10-20 05:00 PM',
-      slaStatus: 'on-time',
-      timeRemaining: '1d 6h',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'pending'
-        },
-        {
-          level: 2,
-          approver: 'Sunita Reddy',
-          role: 'VP Sales',
-          status: 'pending'
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        setLoading(true)
+        setError(null)
+        const rows = await cpqApprovalService.findAll()
+        const allowedTypes = ['quote', 'discount', 'contract', 'pricing', 'proposal']
+        const mapped: ApprovalRequest[] = (rows || []).map((r) => {
+          const payload = (r.payload || {}) as Record<string, any>
+          const type = allowedTypes.includes(r.category)
+            ? (r.category as ApprovalRequest['type'])
+            : 'quote'
+          return {
+            id: r.id,
+            type,
+            documentNumber: r.reference ?? (payload.documentNumber as string) ?? '',
+            customerName: r.customerName ?? '',
+            value: Number(r.value ?? payload.value ?? 0),
+            requestedBy: r.requestedBy ?? '',
+            requestDate:
+              (payload.requestDate as string) ??
+              (r.createdAt ? new Date(r.createdAt).toLocaleString() : ''),
+            currentApprover: (payload.currentApprover as string) ?? 'None',
+            status: (r.status as ApprovalRequest['status']) ?? 'pending',
+            priority: (r.priority as ApprovalRequest['priority']) ?? 'medium',
+            reason: r.reason ?? '',
+            dueDate: r.dueDate
+              ? new Date(r.dueDate).toLocaleString()
+              : (payload.dueDate as string) ?? '',
+            approvalChain: Array.isArray(payload.approvalChain)
+              ? (payload.approvalChain as ApprovalStep[])
+              : [],
+            slaStatus:
+              (payload.slaStatus as ApprovalRequest['slaStatus']) ?? 'on-time',
+            timeRemaining: (payload.timeRemaining as string) ?? '',
+          }
+        })
+        if (!cancelled) setApprovals(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setError('Failed to load approval requests')
+          setApprovals([])
         }
-      ]
-    },
-    {
-      id: 'WF-002',
-      type: 'discount',
-      documentNumber: 'DISC-2024-567',
-      customerName: 'Urban Homes Pvt Ltd',
-      value: 2850000,
-      requestedBy: 'Neha Singh',
-      requestDate: '2024-10-18 09:15 AM',
-      currentApprover: 'Finance Head',
-      status: 'pending',
-      priority: 'urgent',
-      reason: '18% discount exceeds approval limit',
-      dueDate: '2024-10-19 12:00 PM',
-      slaStatus: 'at-risk',
-      timeRemaining: '4h',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-18 10:20 AM',
-          comments: 'Customer is repeat buyer, discount justified',
-          turnaroundTime: '1h 5m'
-        },
-        {
-          level: 2,
-          approver: 'Amit Patel',
-          role: 'Finance Head',
-          status: 'pending'
-        },
-        {
-          level: 3,
-          approver: 'Sunita Reddy',
-          role: 'VP Sales',
-          status: 'pending'
-        }
-      ]
-    },
-    {
-      id: 'WF-003',
-      type: 'contract',
-      documentNumber: 'CONT-2024-890',
-      customerName: 'Metro Builders Ltd',
-      value: 8200000,
-      requestedBy: 'Vikram Desai',
-      requestDate: '2024-10-17 02:15 PM',
-      currentApprover: 'Legal Department',
-      status: 'escalated',
-      priority: 'urgent',
-      reason: 'Custom clauses added, legal review required',
-      dueDate: '2024-10-19 10:00 AM',
-      slaStatus: 'breached',
-      timeRemaining: 'Overdue by 2h',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-17 03:00 PM',
-          comments: 'High value deal, strategic customer',
-          turnaroundTime: '45m'
-        },
-        {
-          level: 2,
-          approver: 'Amit Patel',
-          role: 'Finance Head',
-          status: 'approved',
-          actionDate: '2024-10-17 04:30 PM',
-          comments: 'Payment terms acceptable',
-          turnaroundTime: '1h 30m'
-        },
-        {
-          level: 3,
-          approver: 'Rajesh Khanna',
-          role: 'Legal Department',
-          status: 'pending'
-        }
-      ]
-    },
-    {
-      id: 'WF-004',
-      type: 'pricing',
-      documentNumber: 'PRICE-2024-445',
-      customerName: 'Royal Residences',
-      value: 3200000,
-      requestedBy: 'Anjali Mehta',
-      requestDate: '2024-10-16 11:20 AM',
-      currentApprover: 'None',
-      status: 'approved',
-      priority: 'medium',
-      reason: 'Special pricing for bulk order',
-      dueDate: '2024-10-18 05:00 PM',
-      slaStatus: 'on-time',
-      timeRemaining: 'Completed',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-16 02:45 PM',
-          comments: 'Approved for 50+ unit order',
-          turnaroundTime: '3h 25m'
-        },
-        {
-          level: 2,
-          approver: 'Amit Patel',
-          role: 'Finance Head',
-          status: 'approved',
-          actionDate: '2024-10-16 04:15 PM',
-          comments: 'Pricing maintains required margins',
-          turnaroundTime: '1h 30m'
-        }
-      ]
-    },
-    {
-      id: 'WF-005',
-      type: 'proposal',
-      documentNumber: 'PROP-2024-778',
-      customerName: 'Green Valley Apartments',
-      value: 5600000,
-      requestedBy: 'Karan Malhotra',
-      requestDate: '2024-10-15 03:30 PM',
-      currentApprover: 'None',
-      status: 'rejected',
-      priority: 'high',
-      reason: 'Terms and conditions require review',
-      dueDate: '2024-10-17 05:00 PM',
-      slaStatus: 'on-time',
-      timeRemaining: 'Rejected',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'rejected',
-          actionDate: '2024-10-15 05:15 PM',
-          comments: 'Payment terms too risky. Customer credit history weak.',
-          turnaroundTime: '1h 45m'
-        }
-      ]
-    },
-    {
-      id: 'WF-006',
-      type: 'quote',
-      documentNumber: 'QT-2024-1189',
-      customerName: 'Silver Oak Residency',
-      value: 1850000,
-      requestedBy: 'Pooja Deshmukh',
-      requestDate: '2024-10-18 01:45 PM',
-      currentApprover: 'Sales Manager',
-      status: 'pending',
-      priority: 'low',
-      reason: 'Standard quote approval',
-      dueDate: '2024-10-21 05:00 PM',
-      slaStatus: 'on-time',
-      timeRemaining: '3d 2h',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'pending'
-        }
-      ]
-    },
-    {
-      id: 'WF-007',
-      type: 'discount',
-      documentNumber: 'DISC-2024-589',
-      customerName: 'Coastal Builders',
-      value: 6400000,
-      requestedBy: 'Suresh Rao',
-      requestDate: '2024-10-17 10:00 AM',
-      currentApprover: 'VP Sales',
-      status: 'pending',
-      priority: 'high',
-      reason: '22% discount for project deal',
-      dueDate: '2024-10-19 05:00 PM',
-      slaStatus: 'on-time',
-      timeRemaining: '1d 4h',
-      approvalChain: [
-        {
-          level: 1,
-          approver: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          actionDate: '2024-10-17 11:30 AM',
-          comments: 'Large project with repeat customer',
-          turnaroundTime: '1h 30m'
-        },
-        {
-          level: 2,
-          approver: 'Amit Patel',
-          role: 'Finance Head',
-          status: 'approved',
-          actionDate: '2024-10-17 02:45 PM',
-          comments: 'Margins acceptable for project size',
-          turnaroundTime: '3h 15m'
-        },
-        {
-          level: 3,
-          approver: 'Sunita Reddy',
-          role: 'VP Sales',
-          status: 'pending'
-        }
-      ]
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getTypeColor = (type: string) => {
     const colors: any = {
@@ -496,6 +312,19 @@ export default function CPQWorkflowApprovalsPage() {
       </div>
 
       {/* Approval Requests */}
+      {loading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-500">
+          Loading approval requests...
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 rounded-lg border border-red-200 p-8 text-center text-sm text-red-600">
+          {error}
+        </div>
+      ) : approvals.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-500">
+          No approval requests found.
+        </div>
+      ) : (
       <div className="space-y-2">
         {approvals.map((approval) => (
           <div
@@ -633,6 +462,7 @@ export default function CPQWorkflowApprovalsPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Workflow Info */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService, PmMilestoneTemplate } from '@/services/ProjectManagementService';
 import {
  Flag,
  Plus,
@@ -66,6 +67,48 @@ export default function MilestoneTemplatesPage() {
  const [showCreateModal, setShowCreateModal] = useState(false);
  const [selectedTemplate, setSelectedTemplate] = useState<MilestoneTemplate | null>(null);
  const [showDetailModal, setShowDetailModal] = useState(false);
+ const [templates, setTemplates] = useState<MilestoneTemplate[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [loadError, setLoadError] = useState<string | null>(null);
+
+ const normalizeTemplate = (t: PmMilestoneTemplate): MilestoneTemplate => {
+  const milestones = Array.isArray(t.milestones) ? t.milestones : [];
+  return {
+   id: String(t.id),
+   templateName: t.templateName ?? '',
+   projectType: t.projectType ?? '',
+   description: t.description ?? '',
+   totalMilestones: Number(t.totalMilestones ?? milestones.length),
+   estimatedDuration: t.estimatedDuration ?? '',
+   milestones,
+   usageCount: Number(t.usageCount ?? 0),
+   lastUsed: t.lastUsed ?? '',
+   createdBy: t.createdBy ?? '',
+   createdDate: t.createdDate ?? '',
+   isActive: t.isActive ?? true,
+  };
+ };
+
+ useEffect(() => {
+  let mounted = true;
+  const load = async () => {
+   setIsLoading(true);
+   setLoadError(null);
+   try {
+    const rows = await projectManagementService.listMilestoneTemplates();
+    if (mounted) setTemplates(rows.map(normalizeTemplate));
+   } catch (err) {
+    console.error('Error loading milestone templates:', err);
+    if (mounted) setLoadError('Failed to load milestone templates');
+   } finally {
+    if (mounted) setIsLoading(false);
+   }
+  };
+  load();
+  return () => {
+   mounted = false;
+  };
+ }, []);
 
  // New modal states
  const [showEditModal, setShowEditModal] = useState(false);
@@ -147,8 +190,8 @@ export default function MilestoneTemplatesPage() {
   setShowImportModal(false);
  };
 
- // Mock data - 8 comprehensive milestone templates
- const mockTemplates: MilestoneTemplate[] = [
+ // Seed fallback data used only when the API returns no rows.
+ const seedTemplates: MilestoneTemplate[] = [
   {
    id: '1',
    templateName: 'Commercial Kitchen - Full Installation Milestones',
@@ -1202,7 +1245,9 @@ export default function MilestoneTemplatesPage() {
   },
  ];
 
- const filteredTemplates = mockTemplates.filter((template) => {
+ const effectiveTemplates: MilestoneTemplate[] = templates.length > 0 ? templates : seedTemplates;
+
+ const filteredTemplates = effectiveTemplates.filter((template) => {
   const matchesSearch =
    template.templateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
    template.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1239,8 +1284,8 @@ export default function MilestoneTemplatesPage() {
       <div className="flex items-center justify-between">
        <div>
         <p className="text-sm text-gray-600">Total Templates</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{mockTemplates.length}</p>
-        <p className="text-xs text-green-600 mt-1">{mockTemplates.filter(t => t.isActive).length} active</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{effectiveTemplates.length}</p>
+        <p className="text-xs text-green-600 mt-1">{effectiveTemplates.filter(t => t.isActive).length} active</p>
        </div>
        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
         <Flag className="w-6 h-6 text-blue-600" />
@@ -1253,7 +1298,7 @@ export default function MilestoneTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Total Milestones</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {mockTemplates.reduce((sum, t) => sum + t.totalMilestones, 0)}
+         {effectiveTemplates.reduce((sum, t) => sum + t.totalMilestones, 0)}
         </p>
         <p className="text-xs text-gray-500 mt-1">Across all templates</p>
        </div>
@@ -1268,10 +1313,10 @@ export default function MilestoneTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Most Used</p>
         <p className="text-lg font-bold text-gray-900 mt-1 truncate">
-         {mockTemplates.sort((a, b) => b.usageCount - a.usageCount)[0]?.templateName.split('-')[0]}
+         {[...effectiveTemplates].sort((a, b) => b.usageCount - a.usageCount)[0]?.templateName.split('-')[0]}
         </p>
         <p className="text-xs text-gray-500 mt-1">
-         {mockTemplates.sort((a, b) => b.usageCount - a.usageCount)[0]?.usageCount} times
+         {[...effectiveTemplates].sort((a, b) => b.usageCount - a.usageCount)[0]?.usageCount} times
         </p>
        </div>
        <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -1285,7 +1330,7 @@ export default function MilestoneTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Total Usage</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {mockTemplates.reduce((sum, t) => sum + t.usageCount, 0)}
+         {effectiveTemplates.reduce((sum, t) => sum + t.usageCount, 0)}
         </p>
         <p className="text-xs text-gray-500 mt-1">Projects created</p>
        </div>

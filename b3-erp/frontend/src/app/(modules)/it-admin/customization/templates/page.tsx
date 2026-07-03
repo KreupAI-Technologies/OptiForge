@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, FileText, Mail, Download, Copy, Edit, Trash2, Eye, Code } from 'lucide-react';
+import { AdminManagementService } from '@/services/admin-management.service';
 
 interface Template {
   id: string;
@@ -25,176 +26,44 @@ export default function TemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
-  const [templates, setTemplates] = useState<Template[]>([
-    {
-      id: '1',
-      name: 'Sales Order Confirmation',
-      description: 'Email sent to customers when order is confirmed',
-      type: 'email',
-      category: 'Sales',
-      content: '<h1>Order Confirmation</h1><p>Dear {customer_name},</p><p>Your order #{order_number} has been confirmed...</p>',
-      variables: ['customer_name', 'order_number', 'order_date', 'total_amount', 'items'],
-      format: 'html',
-      lastModified: '2024-01-18',
-      usageCount: 1247,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '2',
-      name: 'Invoice Template',
-      description: 'Standard invoice document for customer billing',
-      type: 'invoice',
-      category: 'Finance',
-      content: 'Invoice #: {invoice_number}\nDate: {invoice_date}\nBill To: {customer_name}...',
-      variables: ['invoice_number', 'invoice_date', 'customer_name', 'customer_address', 'line_items', 'subtotal', 'tax', 'total'],
-      format: 'pdf',
-      lastModified: '2024-01-15',
-      usageCount: 3456,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '3',
-      name: 'Quotation Document',
-      description: 'Professional quotation template for customers',
-      type: 'document',
-      category: 'Sales',
-      content: 'QUOTATION\n\nQuote #: {quote_number}\nValid Until: {valid_until}\nTo: {customer_name}...',
-      variables: ['quote_number', 'valid_until', 'customer_name', 'items', 'terms', 'total'],
-      format: 'pdf',
-      lastModified: '2024-01-12',
-      usageCount: 892,
-      isDefault: false,
-      active: true
-    },
-    {
-      id: '4',
-      name: 'Payment Receipt',
-      description: 'Email receipt sent after payment is received',
-      type: 'email',
-      category: 'Finance',
-      content: '<h2>Payment Receipt</h2><p>Thank you for your payment of {amount}...</p>',
-      variables: ['customer_name', 'amount', 'payment_date', 'payment_method', 'invoice_number'],
-      format: 'html',
-      lastModified: '2024-01-20',
-      usageCount: 2134,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '5',
-      name: 'Welcome Email',
-      description: 'Welcome email for new customers',
-      type: 'email',
-      category: 'Customer',
-      content: '<h1>Welcome to B3 Manufacturing!</h1><p>Dear {customer_name}, Thank you for choosing us...</p>',
-      variables: ['customer_name', 'company_name', 'account_number'],
-      format: 'html',
-      lastModified: '2024-01-10',
-      usageCount: 234,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '6',
-      name: 'Work Order Sheet',
-      description: 'Production work order document',
-      type: 'document',
-      category: 'Production',
-      content: 'WORK ORDER #{work_order_number}\nProduct: {product_name}\nQuantity: {quantity}...',
-      variables: ['work_order_number', 'product_name', 'quantity', 'start_date', 'due_date', 'bom_items'],
-      format: 'pdf',
-      lastModified: '2024-01-14',
-      usageCount: 2847,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '7',
-      name: 'Shipping Label',
-      description: 'Standard shipping label for packages',
-      type: 'label',
-      category: 'Logistics',
-      content: 'FROM:\n{company_name}\n{company_address}\n\nTO:\n{customer_name}\n{shipping_address}...',
-      variables: ['company_name', 'company_address', 'customer_name', 'shipping_address', 'tracking_number', 'weight'],
-      format: 'pdf',
-      lastModified: '2024-01-16',
-      usageCount: 5678,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '8',
-      name: 'Monthly Sales Report',
-      description: 'Automated monthly sales summary report',
-      type: 'report',
-      category: 'Sales',
-      content: 'SALES REPORT - {month} {year}\n\nTotal Orders: {total_orders}\nRevenue: {total_revenue}...',
-      variables: ['month', 'year', 'total_orders', 'total_revenue', 'top_products', 'top_customers'],
-      format: 'pdf',
-      lastModified: '2024-01-19',
-      usageCount: 24,
-      isDefault: false,
-      active: true
-    },
-    {
-      id: '9',
-      name: 'Password Reset Email',
-      description: 'Email sent for password reset requests',
-      type: 'email',
-      category: 'System',
-      content: '<h2>Password Reset Request</h2><p>Click the link below to reset your password: {reset_link}</p>',
-      variables: ['user_name', 'reset_link', 'expiry_time'],
-      format: 'html',
-      lastModified: '2024-01-08',
-      usageCount: 156,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '10',
-      name: 'Delivery Note',
-      description: 'Document accompanying shipments',
-      type: 'document',
-      category: 'Logistics',
-      content: 'DELIVERY NOTE\n\nDelivery #: {delivery_number}\nOrder #: {order_number}\nItems: {items}...',
-      variables: ['delivery_number', 'order_number', 'items', 'delivery_date', 'customer_name', 'signature'],
-      format: 'pdf',
-      lastModified: '2024-01-17',
-      usageCount: 4521,
-      isDefault: true,
-      active: true
-    },
-    {
-      id: '11',
-      name: 'Quality Check Report',
-      description: 'Quality inspection report template',
-      type: 'report',
-      category: 'Production',
-      content: 'QUALITY INSPECTION REPORT\n\nProduct: {product_name}\nInspector: {inspector_name}\nResult: {result}...',
-      variables: ['product_name', 'inspector_name', 'inspection_date', 'result', 'defects', 'notes'],
-      format: 'pdf',
-      lastModified: '2024-01-11',
-      usageCount: 1234,
-      isDefault: false,
-      active: true
-    },
-    {
-      id: '12',
-      name: 'Purchase Order',
-      description: 'Purchase order sent to suppliers',
-      type: 'document',
-      category: 'Purchasing',
-      content: 'PURCHASE ORDER #{po_number}\n\nSupplier: {supplier_name}\nDelivery Date: {delivery_date}...',
-      variables: ['po_number', 'supplier_name', 'delivery_date', 'items', 'total_amount', 'payment_terms'],
-      format: 'pdf',
-      lastModified: '2024-01-13',
-      usageCount: 1567,
-      isDefault: true,
-      active: true
-    }
-  ]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await AdminManagementService.fetchDocumentTemplates();
+        if (!mounted) return;
+        setTemplates(
+          (Array.isArray(data) ? data : []).map((t) => ({
+            id: String(t.id),
+            name: t.name ?? '',
+            description: t.description ?? '',
+            type: (t.type as Template['type']) ?? 'document',
+            category: t.category ?? '',
+            content: t.content ?? '',
+            variables: Array.isArray(t.variables) ? t.variables : [],
+            format: (t.format as Template['format']) ?? 'html',
+            lastModified: t.lastModified ?? '',
+            usageCount: t.usageCount ?? 0,
+            isDefault: !!t.isDefault,
+            active: t.active !== false,
+          })),
+        );
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load templates');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const templateTypes = [
     { id: 'all', name: 'All Templates', icon: FileText, count: templates.length },
@@ -265,6 +134,12 @@ export default function TemplatesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading templates...</div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

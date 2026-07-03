@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService, PmTemplate } from '@/services/ProjectManagementService';
 import {
  Layers,
  Plus,
@@ -86,6 +87,62 @@ export default function ProjectTemplatesPage() {
  const [showCreateModal, setShowCreateModal] = useState(false);
  const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null);
  const [showDetailModal, setShowDetailModal] = useState(false);
+ const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [loadError, setLoadError] = useState<string | null>(null);
+
+ // Defensive transform: coerce backend rows into the ProjectTemplate shape.
+ const normalizeTemplate = (t: PmTemplate): ProjectTemplate => ({
+  id: String(t.id),
+  templateName: t.templateName ?? '',
+  projectType: t.projectType ?? '',
+  description: t.description ?? '',
+  category: (t.category as ProjectTemplate['category']) ?? 'Standard',
+  complexity: (t.complexity as ProjectTemplate['complexity']) ?? 'Medium',
+  estimatedDuration: t.estimatedDuration ?? '',
+  estimatedBudget: t.estimatedBudget ?? '',
+  phases: Array.isArray(t.phases) ? t.phases : [],
+  milestones: Number(t.milestones ?? 0),
+  tasks: Number(t.tasks ?? 0),
+  resources: Array.isArray(t.resources) ? t.resources : [],
+  deliverables: Array.isArray(t.deliverables) ? t.deliverables : [],
+  defaultSettings: t.defaultSettings ?? {
+   defaultCurrency: 'INR',
+   budgetApprovalRequired: false,
+   qualityChecksRequired: false,
+   riskAssessmentRequired: false,
+   changeOrderApprovalLevels: 1,
+   documentationMandatory: false,
+  },
+  usageCount: Number(t.usageCount ?? 0),
+  lastUsed: t.lastUsed ?? '',
+  createdBy: t.createdBy ?? '',
+  createdDate: t.createdDate ?? '',
+  isActive: t.isActive ?? true,
+  isFavorite: t.isFavorite ?? false,
+  tags: Array.isArray(t.tags) ? t.tags : [],
+ });
+
+ useEffect(() => {
+  let mounted = true;
+  const load = async () => {
+   setIsLoading(true);
+   setLoadError(null);
+   try {
+    const rows = await projectManagementService.listPmTemplates();
+    if (mounted) setTemplates(rows.map(normalizeTemplate));
+   } catch (err) {
+    console.error('Error loading templates:', err);
+    if (mounted) setLoadError('Failed to load templates');
+   } finally {
+    if (mounted) setIsLoading(false);
+   }
+  };
+  load();
+  return () => {
+   mounted = false;
+  };
+ }, []);
 
  // Modal states for new modals
  const [showEditModal, setShowEditModal] = useState(false);
@@ -197,8 +254,9 @@ export default function ProjectTemplatesPage() {
   setSelectedTemplate(null);
  };
 
- // Mock data - 10 comprehensive templates
- const mockTemplates: ProjectTemplate[] = [
+ // Seed fallback data used only when the API returns no rows (keeps the
+ // page useful for demos before the templates table is populated).
+ const seedTemplates: ProjectTemplate[] = [
   {
    id: '1',
    templateName: 'Commercial Kitchen - Full Installation',
@@ -559,7 +617,10 @@ export default function ProjectTemplatesPage() {
   },
  ];
 
- const filteredTemplates = mockTemplates.filter((template) => {
+ // Use API data when available; fall back to seed data only when the table is empty.
+ const effectiveTemplates: ProjectTemplate[] = templates.length > 0 ? templates : seedTemplates;
+
+ const filteredTemplates = effectiveTemplates.filter((template) => {
   const matchesSearch =
    template.templateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
    template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -624,8 +685,8 @@ export default function ProjectTemplatesPage() {
       <div className="flex items-center justify-between">
        <div>
         <p className="text-sm text-gray-600">Total Templates</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{mockTemplates.length}</p>
-        <p className="text-xs text-green-600 mt-1">{mockTemplates.filter(t => t.isActive).length} active</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{effectiveTemplates.length}</p>
+        <p className="text-xs text-green-600 mt-1">{effectiveTemplates.filter(t => t.isActive).length} active</p>
        </div>
        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
         <Layers className="w-6 h-6 text-blue-600" />
@@ -638,10 +699,10 @@ export default function ProjectTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Most Used</p>
         <p className="text-lg font-bold text-gray-900 mt-1 truncate">
-         {mockTemplates.sort((a, b) => b.usageCount - a.usageCount)[0]?.templateName.split('-')[0]}
+         {[...effectiveTemplates].sort((a, b) => b.usageCount - a.usageCount)[0]?.templateName.split('-')[0]}
         </p>
         <p className="text-xs text-gray-500 mt-1">
-         {mockTemplates.sort((a, b) => b.usageCount - a.usageCount)[0]?.usageCount} times
+         {[...effectiveTemplates].sort((a, b) => b.usageCount - a.usageCount)[0]?.usageCount} times
         </p>
        </div>
        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -655,7 +716,7 @@ export default function ProjectTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Favorites</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {mockTemplates.filter(t => t.isFavorite).length}
+         {effectiveTemplates.filter(t => t.isFavorite).length}
         </p>
         <p className="text-xs text-yellow-600 mt-1">Marked as favorite</p>
        </div>
@@ -670,7 +731,7 @@ export default function ProjectTemplatesPage() {
        <div>
         <p className="text-sm text-gray-600">Total Usage</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {mockTemplates.reduce((sum, t) => sum + t.usageCount, 0)}
+         {effectiveTemplates.reduce((sum, t) => sum + t.usageCount, 0)}
         </p>
         <p className="text-xs text-gray-500 mt-1">Projects created</p>
        </div>

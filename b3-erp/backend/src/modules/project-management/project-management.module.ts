@@ -15,6 +15,9 @@ import { ResourceCapacity } from './entities/resource-capacity.entity';
 import { TimeLog } from './entities/time-log.entity';
 import { ProjectStatusEntity } from './entities/project-status.entity';
 import { ProjectTypeEntity } from './entities/project-type.entity';
+import { ProjectSettingsEntity } from './entities/project-settings.entity';
+import { ProjectTemplateEntity } from './entities/project-template.entity';
+import { MilestoneTemplateEntity } from './entities/milestone-template.entity';
 import { ProjectAttachment } from '../project/entities/project-attachment.entity';
 import { BOQ } from '../project/entities/boq.entity';
 import { BOQItem } from '../project/entities/boq-item.entity';
@@ -62,6 +65,10 @@ import { LogisticsInstallationService } from './services/logistics-installation.
 import { ProjectClosureService } from './services/project-closure.service';
 import { ProjectAttachmentService } from './services/project-attachment.service';
 import { ToolManagementService } from './services/tool-management.service';
+import { ProjectSettingsService } from './services/project-settings.service';
+import { ProjectTemplatesService } from './services/project-templates.service';
+import { MilestoneTemplatesService } from './services/milestone-templates.service';
+import { PmAnalyticsService } from './services/pm-analytics.service';
 
 import { ProjectStatusSeederService } from './services/project-status-seeder.service';
 import { ProjectTypeSeederService } from './services/project-type-seeder.service';
@@ -88,6 +95,10 @@ import { LogisticsInstallationController } from './controllers/logistics-install
 import { ProjectClosureController } from './controllers/project-closure.controller';
 import { ProjectAttachmentController } from './controllers/project-attachment.controller';
 import { ToolManagementController } from './controllers/tool-management.controller';
+import { ProjectSettingsController } from './controllers/project-settings.controller';
+import { ProjectTemplatesController } from './controllers/project-templates.controller';
+import { MilestoneTemplatesController } from './controllers/milestone-templates.controller';
+import { PmAnalyticsController } from './controllers/pm-analytics.controller';
 
 @Module({
     imports: [TypeOrmModule.forFeature([
@@ -100,6 +111,9 @@ import { ToolManagementController } from './controllers/tool-management.controll
         TimeLog,
         ProjectStatusEntity,
         ProjectTypeEntity,
+        ProjectSettingsEntity,
+        ProjectTemplateEntity,
+        MilestoneTemplateEntity,
         ProjectAttachment,
         BOQ,
         BOQItem,
@@ -148,7 +162,11 @@ import { ToolManagementController } from './controllers/tool-management.controll
         LogisticsInstallationController,
         ProjectClosureController,
         ProjectAttachmentController,
-        ToolManagementController
+        ToolManagementController,
+        ProjectSettingsController,
+        ProjectTemplatesController,
+        MilestoneTemplatesController,
+        PmAnalyticsController
     ],
     providers: [
         ProjectService,
@@ -176,7 +194,11 @@ import { ToolManagementController } from './controllers/tool-management.controll
         InvoiceSyncSubscriber,
         PurchaseOrderSyncSubscriber,
         TimeLogSyncSubscriber,
-        ProjectFinanceSeederService
+        ProjectFinanceSeederService,
+        ProjectSettingsService,
+        ProjectTemplatesService,
+        MilestoneTemplatesService,
+        PmAnalyticsService
     ],
     exports: [
         ProjectService,

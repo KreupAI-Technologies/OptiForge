@@ -4,6 +4,8 @@ import { WorkflowModule } from '../workflow/workflow.module';
 import {
   AuditTrailController,
   GoodsReceiptController,
+  ProcurementBudgetController,
+  ProcurementNotificationController,
   PurchaseInvoiceController,
   PurchaseOrderController,
   PurchaseRequisitionController,
@@ -13,12 +15,15 @@ import {
   VendorCollaborationController,
   VendorContractController,
   VendorEvaluationController,
+  VendorPerformanceAnalyticsController,
   VendorQuotationController,
 } from './controllers';
 import {
   AuditTrail,
   GoodsReceipt,
   GoodsReceiptItem,
+  ProcurementBudget,
+  ProcurementNotification,
   PurchaseInvoice,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -34,12 +39,15 @@ import {
 import {
   ApprovalThresholdSeederService,
   GoodsReceiptService,
+  ProcurementBudgetService,
+  ProcurementNotificationService,
   PurchaseInvoiceService,
   PurchaseOrderService,
   PurchaseRequisitionService,
   PurchaseReturnService,
   RFQService,
   VendorEvaluationService,
+  VendorPerformanceAnalyticsService,
   VendorQuotationService,
 } from './services';
 import { ApprovalMatrixService } from './services/approval-matrix.service';
@@ -57,6 +65,8 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
       AuditTrail,
       GoodsReceipt,
       GoodsReceiptItem,
+      ProcurementBudget,
+      ProcurementNotification,
       PurchaseInvoice,
       PurchaseOrder,
       PurchaseOrderItem,
@@ -74,6 +84,8 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
   controllers: [
     AuditTrailController,
     GoodsReceiptController,
+    ProcurementBudgetController,
+    ProcurementNotificationController,
     PurchaseInvoiceController,
     PurchaseOrderController,
     PurchaseRequisitionController,
@@ -83,6 +95,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorCollaborationController,
     VendorContractController,
     VendorEvaluationController,
+    VendorPerformanceAnalyticsController,
     VendorQuotationController,
   ],
   providers: [
@@ -91,6 +104,8 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     AuditTrailService,
     ContractService,
     GoodsReceiptService,
+    ProcurementBudgetService,
+    ProcurementNotificationService,
     PurchaseInvoiceService,
     PurchaseOrderService,
     PurchaseRequisitionService,
@@ -102,6 +117,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     ThreeWayMatchingService,
     VendorCollaborationService,
     VendorEvaluationService,
+    VendorPerformanceAnalyticsService,
     VendorQuotationService,
   ],
   exports: [
@@ -110,6 +126,8 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     AuditTrailService,
     ContractService,
     GoodsReceiptService,
+    ProcurementBudgetService,
+    ProcurementNotificationService,
     PurchaseInvoiceService,
     PurchaseOrderService,
     PurchaseRequisitionService,
@@ -121,6 +139,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     ThreeWayMatchingService,
     VendorCollaborationService,
     VendorEvaluationService,
+    VendorPerformanceAnalyticsService,
     VendorQuotationService,
   ],
 })

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Edit, Trash2, Type, Hash, Calendar, ToggleLeft, List, FileText, Link2, CheckSquare } from 'lucide-react';
+import { AdminManagementService } from '@/services/admin-management.service';
 
 interface CustomField {
   id: string;
@@ -25,169 +26,44 @@ export default function CustomFieldsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingField, setEditingField] = useState<CustomField | null>(null);
 
-  const [customFields, setCustomFields] = useState<CustomField[]>([
-    {
-      id: '1',
-      name: 'customer_industry',
-      label: 'Industry Type',
-      module: 'Customers',
-      fieldType: 'dropdown',
-      required: false,
-      options: ['Manufacturing', 'Retail', 'Healthcare', 'Technology', 'Other'],
-      helpText: 'Select the customer\'s primary industry',
-      createdAt: '2024-01-10',
-      active: true
-    },
-    {
-      id: '2',
-      name: 'customer_tax_exempt',
-      label: 'Tax Exempt',
-      module: 'Customers',
-      fieldType: 'boolean',
-      required: false,
-      defaultValue: 'false',
-      helpText: 'Is this customer exempt from sales tax?',
-      createdAt: '2024-01-10',
-      active: true
-    },
-    {
-      id: '3',
-      name: 'customer_credit_limit',
-      label: 'Credit Limit',
-      module: 'Customers',
-      fieldType: 'number',
-      required: false,
-      validation: 'min:0,max:1000000',
-      helpText: 'Maximum credit allowed for this customer',
-      createdAt: '2024-01-12',
-      active: true
-    },
-    {
-      id: '4',
-      name: 'order_special_instructions',
-      label: 'Special Instructions',
-      module: 'Sales Orders',
-      fieldType: 'textarea',
-      required: false,
-      helpText: 'Additional instructions for order processing',
-      createdAt: '2024-01-08',
-      active: true
-    },
-    {
-      id: '5',
-      name: 'order_shipping_date',
-      label: 'Preferred Shipping Date',
-      module: 'Sales Orders',
-      fieldType: 'date',
-      required: false,
-      helpText: 'Customer\'s preferred date for shipment',
-      createdAt: '2024-01-15',
-      active: true
-    },
-    {
-      id: '6',
-      name: 'product_warranty_period',
-      label: 'Warranty Period (Months)',
-      module: 'Products',
-      fieldType: 'number',
-      required: false,
-      defaultValue: '12',
-      validation: 'min:0,max:60',
-      createdAt: '2024-01-05',
-      active: true
-    },
-    {
-      id: '7',
-      name: 'product_eco_friendly',
-      label: 'Eco-Friendly Product',
-      module: 'Products',
-      fieldType: 'boolean',
-      required: false,
-      defaultValue: 'false',
-      helpText: 'Is this an environmentally friendly product?',
-      createdAt: '2024-01-18',
-      active: true
-    },
-    {
-      id: '8',
-      name: 'product_certifications',
-      label: 'Product Certifications',
-      module: 'Products',
-      fieldType: 'dropdown',
-      required: false,
-      options: ['ISO 9001', 'CE Mark', 'FDA Approved', 'UL Listed', 'None'],
-      createdAt: '2024-01-20',
-      active: true
-    },
-    {
-      id: '9',
-      name: 'work_order_priority_notes',
-      label: 'Priority Notes',
-      module: 'Work Orders',
-      fieldType: 'textarea',
-      required: false,
-      helpText: 'Notes explaining priority level',
-      createdAt: '2024-01-14',
-      active: true
-    },
-    {
-      id: '10',
-      name: 'work_order_machine_id',
-      label: 'Assigned Machine ID',
-      module: 'Work Orders',
-      fieldType: 'text',
-      required: false,
-      validation: 'pattern:^[A-Z]{2}-[0-9]{4}$',
-      helpText: 'Format: XX-9999',
-      createdAt: '2024-01-16',
-      active: true
-    },
-    {
-      id: '11',
-      name: 'supplier_website',
-      label: 'Supplier Website',
-      module: 'Suppliers',
-      fieldType: 'url',
-      required: false,
-      validation: 'url',
-      createdAt: '2024-01-11',
-      active: true
-    },
-    {
-      id: '12',
-      name: 'supplier_payment_terms',
-      label: 'Payment Terms',
-      module: 'Suppliers',
-      fieldType: 'dropdown',
-      required: false,
-      options: ['Net 15', 'Net 30', 'Net 45', 'Net 60', 'COD'],
-      defaultValue: 'Net 30',
-      createdAt: '2024-01-13',
-      active: true
-    },
-    {
-      id: '13',
-      name: 'invoice_po_number',
-      label: 'PO Number',
-      module: 'Invoices',
-      fieldType: 'text',
-      required: false,
-      helpText: 'Customer\'s purchase order number',
-      createdAt: '2024-01-09',
-      active: true
-    },
-    {
-      id: '14',
-      name: 'employee_emergency_contact',
-      label: 'Emergency Contact Email',
-      module: 'Employees',
-      fieldType: 'email',
-      required: true,
-      validation: 'email',
-      createdAt: '2024-01-07',
-      active: true
-    }
-  ]);
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await AdminManagementService.fetchCustomFields();
+        if (!mounted) return;
+        setCustomFields(
+          (Array.isArray(data) ? data : []).map((f) => ({
+            id: String(f.id),
+            name: f.name ?? '',
+            label: f.label ?? '',
+            module: f.module ?? '',
+            fieldType: (f.fieldType as CustomField['fieldType']) ?? 'text',
+            required: !!f.required,
+            defaultValue: f.defaultValue,
+            options: Array.isArray(f.options) ? f.options : undefined,
+            validation: f.validation,
+            helpText: f.helpText,
+            createdAt: f.createdAt ?? '',
+            active: f.active !== false,
+          })),
+        );
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load custom fields');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const modules = [
     'all',
@@ -264,6 +140,12 @@ export default function CustomFieldsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading custom fields...</div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

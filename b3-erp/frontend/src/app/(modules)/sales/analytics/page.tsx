@@ -1,70 +1,71 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Package, Users, ShoppingCart, BarChart3, PieChart, Target, Calendar } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Package, Users, ShoppingCart, BarChart3, PieChart, Target, Calendar, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { salesConfigService, SalesAnalyticsDashboardDto } from '@/services/sales-config.service'
+
+const EMPTY_STATS: SalesAnalyticsDashboardDto['currentStats'] = {
+  revenue: 0,
+  revenueGrowth: 0,
+  orders: 0,
+  ordersGrowth: 0,
+  avgOrderValue: 0,
+  avgOrderGrowth: 0,
+  customers: 0,
+  customersGrowth: 0,
+  conversionRate: 0,
+  conversionGrowth: 0,
+}
 
 export default function SalesAnalyticsPage() {
   const router = useRouter()
   const [timeframe, setTimeframe] = useState('month')
 
-  // Monthly sales data for kitchen products
-  const monthlySales = [
-    { month: 'Jan', revenue: 245, orders: 156, avgOrder: 157 },
-    { month: 'Feb', revenue: 289, orders: 178, avgOrder: 162 },
-    { month: 'Mar', revenue: 312, orders: 195, avgOrder: 160 },
-    { month: 'Apr', revenue: 278, orders: 167, avgOrder: 166 },
-    { month: 'May', revenue: 356, orders: 218, avgOrder: 163 },
-    { month: 'Jun', revenue: 398, orders: 245, avgOrder: 162 },
-    { month: 'Jul', revenue: 423, orders: 267, avgOrder: 158 },
-    { month: 'Aug', revenue: 445, orders: 289, avgOrder: 154 },
-    { month: 'Sep', revenue: 467, orders: 298, avgOrder: 157 },
-    { month: 'Oct', revenue: 512, orders: 325, avgOrder: 158 }
-  ]
+  const [monthlySales, setMonthlySales] = useState<SalesAnalyticsDashboardDto['monthlySales']>([])
+  const [categoryData, setCategoryData] = useState<SalesAnalyticsDashboardDto['categoryData']>([])
+  const [topProducts, setTopProducts] = useState<SalesAnalyticsDashboardDto['topProducts']>([])
+  const [regionalData, setRegionalData] = useState<SalesAnalyticsDashboardDto['regionalData']>([])
+  const [currentStats, setCurrentStats] = useState(EMPTY_STATS)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Category performance
-  const categoryData = [
-    { category: 'Kitchen Sinks', revenue: 1245000, orders: 234, growth: 12.5, color: 'blue' },
-    { category: 'Kitchen Faucets', revenue: 1567000, orders: 289, growth: 18.3, color: 'purple' },
-    { category: 'Cookware', revenue: 987000, orders: 456, growth: -5.2, color: 'red' },
-    { category: 'Kitchen Appliances', revenue: 2345000, orders: 567, growth: 23.7, color: 'green' },
-    { category: 'Kitchen Storage', revenue: 1876000, orders: 345, growth: 15.8, color: 'orange' },
-    { category: 'Kitchen Ventilation', revenue: 1234000, orders: 178, growth: 8.4, color: 'indigo' },
-    { category: 'Countertops', revenue: 3456000, orders: 234, growth: 31.2, color: 'pink' },
-    { category: 'Kitchen Accessories', revenue: 678000, orders: 789, growth: 6.7, color: 'yellow' }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const data = await salesConfigService.getAnalyticsDashboard()
+        if (cancelled) return
+        setCurrentStats(data.currentStats ?? EMPTY_STATS)
+        setMonthlySales(Array.isArray(data.monthlySales) ? data.monthlySales : [])
+        setCategoryData(Array.isArray(data.categoryData) ? data.categoryData : [])
+        setTopProducts(Array.isArray(data.topProducts) ? data.topProducts : [])
+        setRegionalData(Array.isArray(data.regionalData) ? data.regionalData : [])
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load analytics')
+          setCurrentStats(EMPTY_STATS)
+          setMonthlySales([])
+          setCategoryData([])
+          setTopProducts([])
+          setRegionalData([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  // Top performing products
-  const topProducts = [
-    { name: 'Premium Quartz Countertop', code: 'KIT-CT-002', revenue: 1245000, units: 2089, avgPrice: 596 },
-    { name: 'Modular Kitchen Base Cabinet 24"', code: 'KIT-CB-001', revenue: 1156000, units: 465, avgPrice: 2486 },
-    { name: '750W Mixer Grinder', code: 'KIT-AP-001', revenue: 987000, units: 1245, avgPrice: 793 },
-    { name: 'Brass Kitchen Faucet', code: 'KIT-FC-002', revenue: 876000, units: 589, avgPrice: 1487 },
-    { name: 'Chimney Hood 60cm', code: 'KIT-CH-001', revenue: 765000, units: 389, avgPrice: 1967 }
-  ]
-
-  // Regional performance
-  const regionalData = [
-    { region: 'North India', revenue: 3456000, growth: 15.2, orders: 567, color: 'blue' },
-    { region: 'South India', revenue: 4123000, growth: 22.8, orders: 678, color: 'green' },
-    { region: 'East India', revenue: 2345000, growth: -3.4, orders: 345, color: 'red' },
-    { region: 'West India', revenue: 3987000, growth: 18.5, orders: 589, color: 'purple' }
-  ]
-
-  // Current month stats
-  const currentStats = {
-    revenue: 51200000,
-    revenueGrowth: 18.5,
-    orders: 325,
-    ordersGrowth: 12.3,
-    avgOrderValue: 157538,
-    avgOrderGrowth: 5.5,
-    customers: 234,
-    customersGrowth: 8.7,
-    conversionRate: 23.5,
-    conversionGrowth: 2.3
-  }
+  const maxMonthlyRevenue = Math.max(1, ...monthlySales.map((m) => m.revenue))
+  const maxCategoryRevenue = Math.max(1, ...categoryData.map((c) => c.revenue))
+  const maxRegionalRevenue = Math.max(1, ...regionalData.map((r) => r.revenue))
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -95,6 +96,19 @@ export default function SalesAnalyticsPage() {
           </select>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading sales analytics…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2 mb-3">
@@ -241,7 +255,7 @@ export default function SalesAnalyticsPage() {
               <div className="relative w-full bg-gray-200 rounded-full h-3">
                 <div
                   className="absolute top-0 left-0 h-3 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"
-                  style={{ width: `${(data.revenue / 512) * 100}%` }}
+                  style={{ width: `${(data.revenue / maxMonthlyRevenue) * 100}%` }}
                 />
               </div>
             </div>
@@ -274,7 +288,7 @@ export default function SalesAnalyticsPage() {
                   <div className="flex-1 bg-gray-200 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full bg-${cat.color}-500`}
-                      style={{ width: `${(cat.revenue / 3456000) * 100}%` }}
+                      style={{ width: `${(cat.revenue / maxCategoryRevenue) * 100}%` }}
                     />
                   </div>
                   <span className="text-xs font-semibold text-gray-900 w-20 text-right">₹{(cat.revenue / 100000).toFixed(1)}L</span>
@@ -304,7 +318,7 @@ export default function SalesAnalyticsPage() {
                   <div className="flex-1 bg-gray-200 rounded-full h-3">
                     <div
                       className={`h-3 rounded-full bg-${region.color}-500`}
-                      style={{ width: `${(region.revenue / 4123000) * 100}%` }}
+                      style={{ width: `${(region.revenue / maxRegionalRevenue) * 100}%` }}
                     />
                   </div>
                 </div>

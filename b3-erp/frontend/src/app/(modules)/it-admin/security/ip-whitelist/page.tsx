@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, Plus, Trash2, CheckCircle2, XCircle, Globe, MapPin, Building, User, Clock, AlertTriangle, Download, Upload, Save } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { AdminManagementService } from '@/services/admin-management.service';
 
 interface IPWhitelistEntry {
   id: string;
@@ -37,105 +38,43 @@ const IPWhitelistPage = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [entries, setEntries] = useState<IPWhitelistEntry[]>([
-    {
-      id: '1',
-      ipAddress: '103.21.244.0/22',
-      type: 'Range',
-      description: 'Corporate Office Network',
-      category: 'Office',
-      addedBy: 'Rajesh Kumar',
-      addedDate: '2025-09-01',
-      lastAccess: '2025-10-21 09:15',
-      accessCount: 1543,
-      status: 'Active',
-    },
-    {
-      id: '2',
-      ipAddress: '49.207.198.156',
-      type: 'Single',
-      description: 'CEO Home Office',
-      category: 'VIP',
-      addedBy: 'IT Admin',
-      addedDate: '2025-08-15',
-      lastAccess: '2025-10-21 08:45',
-      accessCount: 287,
-      status: 'Active',
-    },
-    {
-      id: '3',
-      ipAddress: '103.50.161.0/24',
-      type: 'Range',
-      description: 'Branch Office - Mumbai',
-      category: 'Office',
-      addedBy: 'Priya Sharma',
-      addedDate: '2025-09-10',
-      lastAccess: '2025-10-21 10:30',
-      accessCount: 892,
-      status: 'Active',
-    },
-    {
-      id: '4',
-      ipAddress: '117.198.144.73',
-      type: 'Single',
-      description: 'Remote Developer - Amit',
-      category: 'Remote',
-      addedBy: 'Vikram Singh',
-      addedDate: '2025-09-20',
-      lastAccess: '2025-10-20 18:30',
-      accessCount: 156,
-      status: 'Active',
-    },
-    {
-      id: '5',
-      ipAddress: '182.68.200.0/21',
-      type: 'Range',
-      description: 'Data Center - AWS Mumbai',
-      category: 'Infrastructure',
-      addedBy: 'System',
-      addedDate: '2025-07-01',
-      lastAccess: '2025-10-21 10:45',
-      accessCount: 5432,
-      status: 'Active',
-    },
-    {
-      id: '6',
-      ipAddress: '157.48.123.45',
-      type: 'Single',
-      description: 'Partner API Integration',
-      category: 'Partner',
-      addedBy: 'Anjali Desai',
-      addedDate: '2025-09-15',
-      lastAccess: '2025-10-21 07:20',
-      accessCount: 2341,
-      status: 'Active',
-    },
-    {
-      id: '7',
-      ipAddress: '202.54.1.0/24',
-      type: 'Range',
-      description: 'Branch Office - Delhi',
-      category: 'Office',
-      addedBy: 'Rahul Mehta',
-      addedDate: '2025-08-01',
-      lastAccess: '2025-10-20 16:15',
-      accessCount: 1205,
-      status: 'Active',
-    },
-    {
-      id: '8',
-      ipAddress: '115.96.200.123',
-      type: 'Single',
-      description: 'Temporary Contractor Access',
-      category: 'Temporary',
-      addedBy: 'IT Admin',
-      addedDate: '2025-10-15',
-      lastAccess: '2025-10-19 14:30',
-      accessCount: 34,
-      status: 'Expiring',
-      expiresAt: '2025-10-25',
-    },
-  ]);
+  const [entries, setEntries] = useState<IPWhitelistEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await AdminManagementService.fetchIpWhitelist();
+        if (!mounted) return;
+        setEntries(
+          (Array.isArray(data) ? data : []).map((e) => ({
+            id: String(e.id),
+            ipAddress: e.ipAddress ?? '',
+            type: e.type ?? 'Single',
+            description: e.description ?? '',
+            category: e.category ?? '',
+            addedBy: e.addedBy ?? '',
+            addedDate: e.addedDate ?? '',
+            lastAccess: e.lastAccess ?? '',
+            accessCount: e.accessCount ?? 0,
+            status: e.status ?? 'Active',
+            expiresAt: e.expiresAt,
+          })),
+        );
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load IP whitelist');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [accessLogs] = useState<IPAccessLog[]>([
     {
@@ -310,6 +249,12 @@ const IPWhitelistPage = () => {
 
   return (
     <div className="p-6 max-w-[1600px]">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading IP whitelist...</div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">

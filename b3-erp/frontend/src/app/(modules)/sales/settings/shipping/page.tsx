@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft, Plus, Edit, Truck, Package, MapPin, Clock, DollarSign, CheckCircle, AlertTriangle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Plus, Edit, Truck, Package, MapPin, Clock, DollarSign, CheckCircle, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { salesConfigService, ShippingMethodDto } from '@/services/sales-config.service'
 
 interface ShippingMethod {
   id: string
@@ -27,7 +28,53 @@ export default function ShippingSettingsPage() {
   const router = useRouter()
   const [selectedZone, setSelectedZone] = useState('all')
 
-  const [shippingMethods] = useState<ShippingMethod[]>([
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await salesConfigService.getShippingMethods()
+        if (cancelled) return
+        const mapped: ShippingMethod[] = (Array.isArray(raw) ? raw : []).map((m: ShippingMethodDto) => ({
+          id: m.id,
+          name: m.name,
+          carrier: m.carrier ?? '',
+          type: (m.type as ShippingMethod['type']) ?? 'standard',
+          deliveryDays: m.deliveryDays ?? '',
+          baseRate: Number(m.baseRate ?? 0),
+          perKgRate: Number(m.perKgRate ?? 0),
+          minWeight: Number(m.minWeight ?? 0),
+          maxWeight: Number(m.maxWeight ?? 0),
+          freeShippingThreshold: m.freeShippingThreshold != null ? Number(m.freeShippingThreshold) : undefined,
+          zones: Array.isArray(m.zones) ? m.zones : [],
+          applicableProducts: Array.isArray(m.applicableProducts) ? m.applicableProducts : [],
+          insuranceIncluded: !!m.insuranceIncluded,
+          trackingAvailable: !!m.trackingAvailable,
+          status: (m.status as ShippingMethod['status']) ?? 'active',
+          usageCount: Number(m.usageCount ?? 0),
+        }))
+        setShippingMethods(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load shipping methods')
+          setShippingMethods([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const _seed: ShippingMethod[] = ([
     {
       id: 'SHIP-001',
       name: 'Standard Delivery - Kitchen Accessories',

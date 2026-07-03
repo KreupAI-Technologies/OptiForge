@@ -3,6 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CrmMastersController } from './crm-masters.controller';
 import { CrmMastersService } from './crm-masters.service';
+import { EmailTemplateController } from './email-template.controller';
+import { SalesAnalyticsController } from './sales-analytics.controller';
+import { SocialIntegrationController } from './social-integration.controller';
+import { EmailTemplate } from './entities/email-template.entity';
+import { SocialIntegration } from './entities/social-integration.entity';
+import { EmailTemplateService } from './services/email-template.service';
+import { SalesAnalyticsService } from './services/sales-analytics.service';
+import { SocialIntegrationService } from './services/social-integration.service';
 import { Interaction } from './entities/interaction.entity';
 import { LeadSource } from './entities/lead-source.entity';
 import { LeadStatusEntity } from './entities/lead-status.entity';
@@ -26,6 +34,8 @@ import { SalesTerritoryService } from './services/sales-territory.service';
       LeadSource,
       LeadStatusEntity,
       SalesTerritory,
+      EmailTemplate,
+      SocialIntegration,
     ]),
   ],
   controllers: [
@@ -33,6 +43,9 @@ import { SalesTerritoryService } from './services/sales-territory.service';
     LeadsController,
     SalesTerritoryController,
     CrmMastersController,
+    EmailTemplateController,
+    SalesAnalyticsController,
+    SocialIntegrationController,
   ],
   providers: [
     InteractionsService,
@@ -41,6 +54,9 @@ import { SalesTerritoryService } from './services/sales-territory.service';
     LeadSourceSeederService,
     LeadStatusSeederService,
     CrmMastersService,
+    EmailTemplateService,
+    SalesAnalyticsService,
+    SocialIntegrationService,
   ],
   exports: [
     InteractionsService,

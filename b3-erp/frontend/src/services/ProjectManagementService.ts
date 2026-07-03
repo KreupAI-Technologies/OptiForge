@@ -1,5 +1,102 @@
 import { apiClient } from './api/client';
 
+// NestJS domain backend base URL (port 3001). The new project-management
+// feature endpoints (settings/templates/milestone-templates/analytics) live here.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+export interface PmSettings {
+    id?: string;
+    companyId?: string;
+    defaultCurrency: string;
+    fiscalYearStart: string;
+    defaultProjectPrefix: string;
+    autoNumbering: boolean;
+    documentRetention: string;
+    projectApprovalRequired: boolean;
+    milestoneApprovalRequired: boolean;
+    documentApprovalRequired: boolean;
+    budgetApprovalThreshold: string;
+    changeOrderApprovalLevels: string;
+    projectStartNotification: boolean;
+    milestoneCompleteNotification: boolean;
+    budgetExceededNotification: boolean;
+    scheduleDelayNotification: boolean;
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+    projectManagerApproval: boolean;
+    departmentHeadApproval: boolean;
+    financeApproval: boolean;
+    ceoApprovalThreshold: string;
+}
+
+export interface PmTemplate {
+    id: string;
+    templateName: string;
+    projectType: string;
+    description: string;
+    category: string;
+    complexity: string;
+    estimatedDuration: string;
+    estimatedBudget: string;
+    phases: any[];
+    milestones: number;
+    tasks: number;
+    resources: string[];
+    deliverables: string[];
+    defaultSettings: any;
+    tags: string[];
+    usageCount: number;
+    lastUsed: string;
+    createdBy: string;
+    createdDate?: string;
+    isActive: boolean;
+    isFavorite: boolean;
+}
+
+export interface PmMilestoneTemplate {
+    id: string;
+    templateName: string;
+    projectType: string;
+    description: string;
+    totalMilestones: number;
+    estimatedDuration: string;
+    milestones: any[];
+    usageCount: number;
+    lastUsed: string;
+    createdBy: string;
+    createdDate?: string;
+    isActive: boolean;
+}
+
+export interface PmAnalyticsSummary {
+    metrics: {
+        totalProjects: number;
+        activeProjects: number;
+        completedProjects: number;
+        delayedProjects: number;
+        totalRevenue: number;
+        totalCost: number;
+        profitMargin: number;
+        onTimeDelivery: number;
+    };
+    projectTypeMetrics: Array<{
+        type: string;
+        count: number;
+        revenue: number;
+        cost: number;
+        avgDuration: number;
+        successRate: number;
+        color: string;
+    }>;
+    topProjects: Array<{
+        name: string;
+        revenue: number;
+        profit: number;
+        margin: number;
+        status: string;
+    }>;
+}
+
 export interface Project {
     id: string;
     name: string;
@@ -1440,6 +1537,117 @@ class ProjectManagementService {
 
     async getUploadUrl(fileName: string, contentType: string): Promise<{ url: string; key: string }> {
         return apiClient.post('/api/project-attachments/simulate-upload', { fileName, contentType });
+    }
+
+    // --- Project Management module settings (NestJS) ---
+    async getPmSettings(companyId = 'default'): Promise<PmSettings | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/settings?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return null;
+            return (await res.json()) as PmSettings;
+        } catch (error) {
+            console.error('Error fetching PM settings:', error);
+            return null;
+        }
+    }
+
+    async savePmSettings(data: Partial<PmSettings>, companyId = 'default'): Promise<PmSettings | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/settings?companyId=${encodeURIComponent(companyId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`PUT settings failed: ${res.status}`);
+            return (await res.json()) as PmSettings;
+        } catch (error) {
+            console.error('Error saving PM settings:', error);
+            return null;
+        }
+    }
+
+    // --- Project templates (NestJS) ---
+    async listPmTemplates(companyId = 'default'): Promise<PmTemplate[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/templates?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? (data as PmTemplate[]) : [];
+        } catch (error) {
+            console.error('Error fetching PM templates:', error);
+            return [];
+        }
+    }
+
+    async createPmTemplate(data: Partial<PmTemplate>): Promise<PmTemplate | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/templates`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`POST template failed: ${res.status}`);
+            return (await res.json()) as PmTemplate;
+        } catch (error) {
+            console.error('Error creating PM template:', error);
+            return null;
+        }
+    }
+
+    async deletePmTemplate(id: string): Promise<void> {
+        try {
+            await fetch(`${API_BASE_URL}/project-management/templates/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Error deleting PM template:', error);
+        }
+    }
+
+    // --- Milestone templates (NestJS) ---
+    async listMilestoneTemplates(companyId = 'default'): Promise<PmMilestoneTemplate[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? (data as PmMilestoneTemplate[]) : [];
+        } catch (error) {
+            console.error('Error fetching milestone templates:', error);
+            return [];
+        }
+    }
+
+    async createMilestoneTemplate(data: Partial<PmMilestoneTemplate>): Promise<PmMilestoneTemplate | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/milestone-templates`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!res.ok) throw new Error(`POST milestone template failed: ${res.status}`);
+            return (await res.json()) as PmMilestoneTemplate;
+        } catch (error) {
+            console.error('Error creating milestone template:', error);
+            return null;
+        }
+    }
+
+    async deleteMilestoneTemplate(id: string): Promise<void> {
+        try {
+            await fetch(`${API_BASE_URL}/project-management/milestone-templates/${id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Error deleting milestone template:', error);
+        }
+    }
+
+    // --- Analytics summary (NestJS, aggregated) ---
+    async getPmAnalyticsSummary(): Promise<PmAnalyticsSummary | null> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-management/analytics/summary`);
+            if (!res.ok) return null;
+            return (await res.json()) as PmAnalyticsSummary;
+        } catch (error) {
+            console.error('Error fetching PM analytics summary:', error);
+            return null;
+        }
     }
 }
 

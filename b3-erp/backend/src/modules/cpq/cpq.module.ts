@@ -51,6 +51,7 @@ import {
   CPQNotificationSetting,
   CPQIntegration,
 } from './entities';
+import { CPQApprovalItem } from './entities/cpq-approval-item.entity';
 
 // Services
 import {
@@ -62,6 +63,7 @@ import {
   CPQAnalyticsService,
   CPQSettingsService,
 } from './services';
+import { CPQApprovalItemService } from './services/cpq-approval-item.service';
 
 // Controllers
 import {
@@ -73,6 +75,7 @@ import {
   CPQAnalyticsController,
   CPQSettingsController,
 } from './controllers';
+import { CPQApprovalItemController } from './controllers/cpq-approval-item.controller';
 
 @Module({
   imports: [
@@ -124,6 +127,7 @@ import {
       CPQApprovalRequest,
       CPQNotificationSetting,
       CPQIntegration,
+      CPQApprovalItem,
     ]),
   ],
   controllers: [
@@ -134,6 +138,7 @@ import {
     ProposalContractController,
     CPQAnalyticsController,
     CPQSettingsController,
+    CPQApprovalItemController,
   ],
   providers: [
     ProductConfigurationService,
@@ -143,6 +148,7 @@ import {
     ProposalContractService,
     CPQAnalyticsService,
     CPQSettingsService,
+    CPQApprovalItemService,
   ],
   exports: [
     ProductConfigurationService,

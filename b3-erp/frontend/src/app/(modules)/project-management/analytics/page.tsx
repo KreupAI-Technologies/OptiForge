@@ -15,7 +15,7 @@ import {
  ShareAnalyticsModal,
  SavedViewsModal,
 } from '@/components/project-management/AnalyticsModals';
-import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { projectManagementService, Project, PmAnalyticsSummary } from '@/services/ProjectManagementService';
 
 interface ProjectMetrics {
  totalProjects: number;
@@ -60,6 +60,7 @@ export default function ProjectAnalyticsPage() {
  const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'profit' | 'projects'>('revenue');
  const [isLoading, setIsLoading] = useState(true);
  const [projects, setProjects] = useState<Project[]>([]);
+ const [summary, setSummary] = useState<PmAnalyticsSummary | null>(null);
 
  // Modal states
  const [isCustomDashboardModalOpen, setIsCustomDashboardModalOpen] = useState(false);
@@ -80,8 +81,12 @@ export default function ProjectAnalyticsPage() {
   const fetchProjects = async () => {
    setIsLoading(true);
    try {
-    const data = await projectManagementService.getProjects();
+    const [data, summaryData] = await Promise.all([
+     projectManagementService.getProjects(),
+     projectManagementService.getPmAnalyticsSummary(),
+    ]);
     setProjects(data);
+    setSummary(summaryData);
    } catch (error) {
     console.error('Error fetching projects for analytics:', error);
    } finally {
@@ -91,8 +96,20 @@ export default function ProjectAnalyticsPage() {
   fetchProjects();
  }, []);
 
- // Compute metrics from fetched projects or use defaults
- const computedMetrics: ProjectMetrics = projects.length > 0 ? {
+ // Compute metrics: prefer aggregated backend summary, then derive from
+ // fetched projects, then fall back to static defaults.
+ const computedMetrics: ProjectMetrics = summary ? {
+  totalProjects: summary.metrics.totalProjects,
+  activeProjects: summary.metrics.activeProjects,
+  completedProjects: summary.metrics.completedProjects,
+  delayedProjects: summary.metrics.delayedProjects,
+  totalRevenue: summary.metrics.totalRevenue,
+  totalCost: summary.metrics.totalCost,
+  profitMargin: summary.metrics.profitMargin,
+  avgProjectDuration: 92,
+  onTimeDelivery: summary.metrics.onTimeDelivery,
+  customerSatisfaction: 4.2,
+ } : projects.length > 0 ? {
   totalProjects: projects.length,
   activeProjects: projects.filter(p => p.status === 'In Progress').length,
   completedProjects: projects.filter(p => p.status === 'Completed').length,
@@ -133,13 +150,25 @@ export default function ProjectAnalyticsPage() {
   { month: 'Jan 25', revenue: 16800000, cost: 12100000, profit: 4700000, projectsCompleted: 4 },
  ];
 
- const projectTypeMetrics: ProjectTypeMetrics[] = [
+ const fallbackProjectTypeMetrics: ProjectTypeMetrics[] = [
   { type: 'Commercial Kitchen', count: 18, revenue: 52000000, avgDuration: 105, successRate: 83, color: 'bg-blue-500' },
   { type: 'Cold Room', count: 12, revenue: 38000000, avgDuration: 78, successRate: 92, color: 'bg-cyan-500' },
   { type: 'Industrial Kitchen', count: 8, revenue: 28000000, avgDuration: 120, successRate: 75, color: 'bg-green-500' },
   { type: 'Modular Kitchen', count: 5, revenue: 5500000, avgDuration: 42, successRate: 100, color: 'bg-purple-500' },
   { type: 'Switchgear', count: 2, revenue: 15000000, avgDuration: 150, successRate: 50, color: 'bg-orange-500' },
  ];
+
+ const projectTypeMetrics: ProjectTypeMetrics[] =
+  summary && summary.projectTypeMetrics.length > 0
+   ? summary.projectTypeMetrics.map((t) => ({
+      type: t.type,
+      count: t.count,
+      revenue: t.revenue,
+      avgDuration: t.avgDuration,
+      successRate: t.successRate,
+      color: t.color,
+     }))
+   : fallbackProjectTypeMetrics;
 
  const resourceUtilization: ResourceUtilization[] = [
   { department: 'Installation Team', allocated: 85, available: 15, utilization: 85, efficiency: 92 },
@@ -150,13 +179,16 @@ export default function ProjectAnalyticsPage() {
   { department: 'Service & Support', allocated: 48, available: 52, utilization: 48, efficiency: 87 },
  ];
 
- const topProjects = [
+ const fallbackTopProjects = [
   { name: 'Taj Hotels - Commercial Kitchen', revenue: 8500000, profit: 2550000, margin: 30, status: 'In Progress' },
   { name: 'L&T Campus - Industrial Kitchen', revenue: 12000000, profit: 3000000, margin: 25, status: 'In Progress' },
   { name: 'Siemens - Switchgear Unit', revenue: 15000000, profit: 3750000, margin: 25, status: 'In Progress' },
   { name: 'ITC Grand - Bakery Setup', revenue: 3500000, profit: 1050000, margin: 30, status: 'Completed' },
   { name: 'BigBasket - Cold Room', revenue: 4200000, profit: 1260000, margin: 30, status: 'Completed' },
  ];
+
+ const topProjects =
+  summary && summary.topProjects.length > 0 ? summary.topProjects : fallbackTopProjects;
 
  const getMaxValue = () => {
   return Math.max(...monthlyData.map(d => {

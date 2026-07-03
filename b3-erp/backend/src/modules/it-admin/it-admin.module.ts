@@ -15,6 +15,11 @@ import { SystemConfig } from './entities/system-config.entity';
 import { Notification } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
 import { UserPreference } from './entities/user-preference.entity';
+import { AccessPolicyDef } from './entities/access-policy.entity';
+import { CustomFieldDef } from './entities/custom-field.entity';
+import { DocumentTemplate } from './entities/document-template.entity';
+import { IntegrationConfig } from './entities/integration-config.entity';
+import { IpWhitelistEntry } from './entities/ip-whitelist-entry.entity';
 
 // Services
 import { UserService } from './services/user.service';
@@ -29,6 +34,11 @@ import { SystemConfigService } from './services/system-config.service';
 import { NotificationService } from './services/notification.service';
 import { NotificationPreferenceService } from './services/notification-preference.service';
 import { AdminManagementService } from './services/admin-management.service';
+import { AccessPolicyService } from './services/access-policy.service';
+import { CustomFieldService } from './services/custom-field.service';
+import { DocumentTemplateService } from './services/document-template.service';
+import { IntegrationConfigService } from './services/integration-config.service';
+import { IpWhitelistService } from './services/ip-whitelist.service';
 
 // Seeders
 import { RoleSeederService } from './services/role-seeder.service';
@@ -49,6 +59,11 @@ import { NotificationController } from './controllers/notification.controller';
 import { NotificationPreferenceController } from './controllers/notification-preference.controller';
 import { UserPreferenceController } from './controllers/user-preference.controller';
 import { UserPreferenceService } from './services/user-preference.service';
+import { AccessPolicyController } from './controllers/access-policy.controller';
+import { CustomFieldController } from './controllers/custom-field.controller';
+import { DocumentTemplateController } from './controllers/document-template.controller';
+import { IntegrationConfigController } from './controllers/integration-config.controller';
+import { IpWhitelistController } from './controllers/ip-whitelist.controller';
 
 @Module({
   imports: [
@@ -66,6 +81,11 @@ import { UserPreferenceService } from './services/user-preference.service';
       Notification,
       NotificationPreference,
       UserPreference,
+      AccessPolicyDef,
+      CustomFieldDef,
+      DocumentTemplate,
+      IntegrationConfig,
+      IpWhitelistEntry,
     ]),
   ],
   controllers: [
@@ -78,6 +98,11 @@ import { UserPreferenceService } from './services/user-preference.service';
     SystemConfigController,
     NotificationController,
     NotificationPreferenceController,
+    AccessPolicyController,
+    CustomFieldController,
+    DocumentTemplateController,
+    IntegrationConfigController,
+    IpWhitelistController,
   ],
   providers: [
     UserService,
@@ -93,6 +118,11 @@ import { UserPreferenceService } from './services/user-preference.service';
     NotificationPreferenceService,
     UserPreferenceService,
     AdminManagementService,
+    AccessPolicyService,
+    CustomFieldService,
+    DocumentTemplateService,
+    IntegrationConfigService,
+    IpWhitelistService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,

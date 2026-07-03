@@ -274,25 +274,10 @@ export class SupportController {
     }
 
     // ─── Automation ───────────────────────────────────────────────────────────
-
-    @Get('automation/rules')
-    @ApiOperation({ summary: 'List automation rules' })
-    getAutomationRules(@Query('companyId') companyId: string) {
-        return this.supportService.getAutomationRules(companyId);
-    }
-
-    @Post('automation/rules')
-    @ApiOperation({ summary: 'Create an automation rule' })
-    createAutomationRule(@Body() body: any) {
-        return this.supportService.createAutomationRule(body);
-    }
-
-    @Put('automation/rules/:id')
-    @ApiOperation({ summary: 'Update an automation rule' })
-    updateAutomationRule(@Param('id') id: string, @Body() body: any) {
-        const { companyId, ...data } = body;
-        return this.supportService.updateAutomationRule(id, companyId, data);
-    }
+    // NOTE: automation/rules list+get+create are served by the TypeORM-backed
+    // SupportAutomationRuleController (@Controller('support/automation/rules')).
+    // The old Prisma-based handlers here were removed (the Prisma model has no
+    // backing table and 500'd).
 
     @Get('automation/escalation-rules')
     @ApiOperation({ summary: 'List escalation rules' })

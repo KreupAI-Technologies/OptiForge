@@ -994,3 +994,49 @@ class ReportsManagementService {
 }
 
 export const reportsManagementService = new ReportsManagementService();
+
+// ============================================================================
+// REPORT DATASETS (generic pre-computed report payloads)
+// ============================================================================
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+const DEFAULT_COMPANY_ID =
+  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID || 'default';
+
+export interface ReportDataset<T = Record<string, unknown>> {
+  id: string;
+  companyId: string;
+  reportKey: string;
+  title?: string;
+  category?: string;
+  payload?: T;
+  isActive: boolean;
+}
+
+/**
+ * Fetch a stored report dataset by key from the reports backend.
+ * Returns the `payload` (the page's render data) or null when no dataset has
+ * been stored yet — callers should fall back to their built-in defaults.
+ */
+export async function fetchReportDataset<T = Record<string, unknown>>(
+  reportKey: string,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<T | null> {
+  const url = `${API_BASE_URL}/reports/datasets/${encodeURIComponent(
+    reportKey,
+  )}?companyId=${encodeURIComponent(companyId)}`;
+
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to load report dataset "${reportKey}" (${res.status})`);
+  }
+
+  const body = (await res.json()) as ReportDataset<T> | null;
+  if (!body || !body.payload) return null;
+  return body.payload;
+}

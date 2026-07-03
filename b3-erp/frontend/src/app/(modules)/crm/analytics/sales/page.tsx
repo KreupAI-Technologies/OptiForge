@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Target, Users, Activity, Calendar, BarChart3, ArrowUpRight, ArrowDownRight, Award, Percent } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface SalesMetric {
   value: number;
@@ -32,13 +33,35 @@ interface MonthlyData {
 export default function SalesAnalyticsPage() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
   const [selectedMetric, setSelectedMetric] = useState<'revenue' | 'deals' | 'customers'>('revenue');
+  const [summary, setSummary] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Key Sales Metrics
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setError(null);
+        const data = await crmService.salesAnalytics.getSummary();
+        if (active) setSummary(data ?? null);
+      } catch (e: any) {
+        if (active) {
+          setError(e?.message ?? 'Failed to load sales analytics');
+          setSummary(null);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Key Sales Metrics — revenue/deals/avgDealSize/winRate derived from live
+  // aggregate; change/trend and salesCycle/quotaAttainment remain indicative.
   const metrics: { [key: string]: SalesMetric } = {
-    revenue: { value: 2450000, change: 15.3, trend: 'up' },
-    deals: { value: 89, change: -8.2, trend: 'down' },
-    avgDealSize: { value: 27528, change: 12.7, trend: 'up' },
-    winRate: { value: 34.5, change: 4.8, trend: 'up' },
+    revenue: { value: Number(summary?.wonValue ?? 0), change: 15.3, trend: 'up' },
+    deals: { value: Number(summary?.wonCount ?? 0), change: -8.2, trend: 'down' },
+    avgDealSize: { value: Number(summary?.avgDealSize ?? 0), change: 12.7, trend: 'up' },
+    winRate: { value: Number(summary?.winRate ?? 0), change: 4.8, trend: 'up' },
     salesCycle: { value: 42, change: -5.2, trend: 'up' },
     quotaAttainment: { value: 94.5, change: 8.3, trend: 'up' },
   };
@@ -146,6 +169,11 @@ export default function SalesAnalyticsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {error && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex gap-2 mb-3">
           {(['week', 'month', 'quarter', 'year'] as const).map((range) => (

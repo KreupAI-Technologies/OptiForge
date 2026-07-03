@@ -1,5 +1,12 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SupportAutomationRule } from './entities/support-automation-rule.entity';
+import { SupportFaq } from './entities/support-faq.entity';
+import { SupportAutomationRuleController } from './controllers/support-automation-rule.controller';
+import { SupportFaqController } from './controllers/support-faq.controller';
+import { SupportAutomationRuleService } from './services/support-automation-rule.service';
+import { SupportFaqService } from './services/support-faq.service';
 import { AIResponsesService } from './services/ai-responses.service';
 import { BacklogService } from './services/backlog.service';
 import { ChannelRoutingService } from './services/channel-routing.service';
@@ -14,9 +21,18 @@ import { TicketManagementService } from './services/ticket-management.service';
 import { SupportController } from './support.controller';
 
 @Module({
-  imports: [PrismaModule],
-  controllers: [SupportController],
+  imports: [
+    PrismaModule,
+    TypeOrmModule.forFeature([SupportAutomationRule, SupportFaq]),
+  ],
+  controllers: [
+    SupportController,
+    SupportAutomationRuleController,
+    SupportFaqController,
+  ],
   providers: [
+    SupportAutomationRuleService,
+    SupportFaqService,
     AIResponsesService,
     BacklogService,
     ChannelRoutingService,
@@ -30,6 +46,8 @@ import { SupportController } from './support.controller';
     SupportManagementService,
   ],
   exports: [
+    SupportAutomationRuleService,
+    SupportFaqService,
     AIResponsesService,
     BacklogService,
     ChannelRoutingService,

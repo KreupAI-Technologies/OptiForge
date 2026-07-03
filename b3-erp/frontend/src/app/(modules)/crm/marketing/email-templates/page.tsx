@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { crmService } from '@/services/crm.service';
 import {
   Mail, Search, Plus, Eye, Edit, Copy, Trash2, Play, Pause,
   BarChart3, TrendingUp, Users, Target, Calendar, Clock,
@@ -39,207 +40,6 @@ interface AutomationSequence {
   completed: number;
   avgCompletionTime: string;
 }
-
-const mockTemplates: EmailTemplate[] = [
-  {
-    id: 'TPL-001',
-    name: 'Welcome Series - First Contact',
-    subject: 'Welcome to {{company_name}} - Let\'s Get Started!',
-    category: 'welcome',
-    description: 'Initial welcome email for new leads and customers',
-    previewText: 'Thanks for joining us. Here\'s what to expect next...',
-    content: 'Welcome email content with personalization...',
-    status: 'active',
-    tags: ['onboarding', 'new-customer', 'automated'],
-    usageCount: 1245,
-    lastUsed: '2025-10-27',
-    createdAt: '2025-01-15',
-    createdBy: 'Sarah Johnson',
-    openRate: 68.5,
-    clickRate: 24.3,
-    conversionRate: 12.8
-  },
-  {
-    id: 'TPL-002',
-    name: 'Product Demo Follow-up',
-    subject: 'Great meeting you, {{customer_name}}! Next steps for {{company}}',
-    category: 'follow-up',
-    description: 'Follow-up email after product demonstration',
-    previewText: 'Thank you for attending our demo. Here are the resources we discussed...',
-    content: 'Demo follow-up content...',
-    status: 'active',
-    tags: ['demo', 'follow-up', 'sales'],
-    usageCount: 867,
-    lastUsed: '2025-10-26',
-    createdAt: '2025-02-20',
-    createdBy: 'Michael Chen',
-    openRate: 72.1,
-    clickRate: 31.5,
-    conversionRate: 18.2
-  },
-  {
-    id: 'TPL-003',
-    name: 'Monthly Newsletter - Industry Insights',
-    subject: 'Manufacturing Trends: {{month}} Edition',
-    category: 'nurture',
-    description: 'Monthly newsletter with industry insights and updates',
-    previewText: 'This month\'s top trends and insights for manufacturing leaders...',
-    content: 'Newsletter content...',
-    status: 'active',
-    tags: ['newsletter', 'nurture', 'content'],
-    usageCount: 2134,
-    lastUsed: '2025-10-25',
-    createdAt: '2025-01-10',
-    createdBy: 'Emily Rodriguez',
-    openRate: 45.8,
-    clickRate: 15.2,
-    conversionRate: 5.4
-  },
-  {
-    id: 'TPL-004',
-    name: 'Limited Time Offer - Q4 Promotion',
-    subject: 'Exclusive Q4 Savings: {{discount_percentage}}% Off for {{company}}',
-    category: 'promotional',
-    description: 'Promotional email for quarterly sales campaign',
-    previewText: 'Special pricing just for you. Valid until {{expiry_date}}...',
-    content: 'Promotional content...',
-    status: 'active',
-    tags: ['promotion', 'discount', 'seasonal'],
-    usageCount: 543,
-    lastUsed: '2025-10-24',
-    createdAt: '2025-09-01',
-    createdBy: 'David Martinez',
-    openRate: 58.3,
-    clickRate: 22.7,
-    conversionRate: 15.9
-  },
-  {
-    id: 'TPL-005',
-    name: 'Order Confirmation',
-    subject: 'Order #{{order_id}} Confirmed - Thank you!',
-    category: 'transactional',
-    description: 'Automated order confirmation email',
-    previewText: 'Your order has been confirmed and is being processed...',
-    content: 'Order confirmation details...',
-    status: 'active',
-    tags: ['transactional', 'order', 'automated'],
-    usageCount: 3421,
-    lastUsed: '2025-10-28',
-    createdAt: '2024-12-05',
-    createdBy: 'System',
-    openRate: 89.2,
-    clickRate: 35.6,
-    conversionRate: 8.3
-  },
-  {
-    id: 'TPL-006',
-    name: 'Lead Nurture - Educational Series Day 3',
-    subject: 'Mastering {{topic}}: Advanced Strategies',
-    category: 'nurture',
-    description: 'Third email in educational nurture sequence',
-    previewText: 'Today we\'re diving deeper into best practices...',
-    content: 'Educational content...',
-    status: 'active',
-    tags: ['nurture', 'education', 'series'],
-    usageCount: 698,
-    lastUsed: '2025-10-27',
-    createdAt: '2025-03-12',
-    createdBy: 'Sarah Johnson',
-    openRate: 52.4,
-    clickRate: 19.8,
-    conversionRate: 9.2
-  },
-  {
-    id: 'TPL-007',
-    name: 'Abandoned Quote Follow-up',
-    subject: 'Your quote for {{product_name}} is waiting',
-    category: 'follow-up',
-    description: 'Re-engagement email for abandoned quotes',
-    previewText: 'We noticed you didn\'t complete your quote. Can we help?',
-    content: 'Abandoned quote content...',
-    status: 'active',
-    tags: ['follow-up', 'abandoned', 'recovery'],
-    usageCount: 421,
-    lastUsed: '2025-10-26',
-    createdAt: '2025-04-08',
-    createdBy: 'Michael Chen',
-    openRate: 61.7,
-    clickRate: 28.4,
-    conversionRate: 21.5
-  },
-  {
-    id: 'TPL-008',
-    name: 'Customer Feedback Request',
-    subject: 'How was your experience with {{company_name}}?',
-    category: 'transactional',
-    description: 'Post-purchase feedback and review request',
-    previewText: 'We\'d love to hear about your experience...',
-    content: 'Feedback request content...',
-    status: 'active',
-    tags: ['feedback', 'survey', 'post-purchase'],
-    usageCount: 1567,
-    lastUsed: '2025-10-27',
-    createdAt: '2025-02-28',
-    createdBy: 'Emily Rodriguez',
-    openRate: 42.1,
-    clickRate: 31.8,
-    conversionRate: 24.6
-  },
-  {
-    id: 'TPL-009',
-    name: 'Webinar Invitation',
-    subject: 'You\'re Invited: {{webinar_title}} on {{date}}',
-    category: 'promotional',
-    description: 'Invitation to upcoming webinar or event',
-    previewText: 'Join us for an exclusive webinar featuring industry experts...',
-    content: 'Webinar invitation content...',
-    status: 'active',
-    tags: ['webinar', 'event', 'invitation'],
-    usageCount: 892,
-    lastUsed: '2025-10-25',
-    createdAt: '2025-05-18',
-    createdBy: 'David Martinez',
-    openRate: 55.9,
-    clickRate: 42.3,
-    conversionRate: 18.7
-  },
-  {
-    id: 'TPL-010',
-    name: 'Re-engagement - We Miss You',
-    subject: 'We miss you, {{customer_name}}. Here\'s something special!',
-    category: 'nurture',
-    description: 'Win-back campaign for inactive customers',
-    previewText: 'It\'s been a while! Here\'s an exclusive offer to welcome you back...',
-    content: 'Re-engagement content...',
-    status: 'active',
-    tags: ['re-engagement', 'win-back', 'inactive'],
-    usageCount: 324,
-    lastUsed: '2025-10-23',
-    createdAt: '2025-06-22',
-    createdBy: 'Sarah Johnson',
-    openRate: 38.6,
-    clickRate: 16.9,
-    conversionRate: 11.3
-  },
-  {
-    id: 'TPL-011',
-    name: 'Case Study Spotlight',
-    subject: 'See how {{customer_company}} achieved {{result}}',
-    category: 'nurture',
-    description: 'Customer success story and case study',
-    previewText: 'Discover how companies like yours are succeeding...',
-    content: 'Case study content...',
-    status: 'draft',
-    tags: ['case-study', 'social-proof', 'nurture'],
-    usageCount: 0,
-    lastUsed: 'Never',
-    createdAt: '2025-10-15',
-    createdBy: 'Michael Chen',
-    openRate: 0,
-    clickRate: 0,
-    conversionRate: 0
-  }
-];
 
 const mockAutomationSequences: AutomationSequence[] = [
   {
@@ -286,8 +86,52 @@ const mockAutomationSequences: AutomationSequence[] = [
 
 export default function EmailTemplatesPage() {
   const { addToast } = useToast();
-  const [templates] = useState<EmailTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sequences] = useState<AutomationSequence[]>(mockAutomationSequences);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await crmService.emailTemplates.getAll();
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : [];
+        setTemplates(
+          rows.map((t: any) => ({
+            id: String(t?.id ?? ''),
+            name: t?.name ?? '',
+            subject: t?.subject ?? '',
+            category: (t?.category ?? 'follow-up') as EmailTemplate['category'],
+            description: t?.description ?? '',
+            previewText: t?.previewText ?? '',
+            content: t?.content ?? '',
+            status: (t?.status ?? 'draft') as EmailTemplate['status'],
+            tags: Array.isArray(t?.tags) ? t.tags : [],
+            usageCount: Number(t?.usageCount ?? 0),
+            lastUsed: t?.lastUsed ?? '',
+            createdAt: t?.createdAt ?? '',
+            createdBy: t?.createdBy ?? '',
+            openRate: Number(t?.openRate ?? 0),
+            clickRate: Number(t?.clickRate ?? 0),
+            conversionRate: Number(t?.conversionRate ?? 0),
+          })),
+        );
+      } catch (e: any) {
+        if (!active) return;
+        setError(e?.message ?? 'Failed to load email templates');
+        setTemplates([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | EmailTemplate['category']>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'draft'>('all');
@@ -305,9 +149,9 @@ export default function EmailTemplatesPage() {
     totalTemplates: templates.length,
     activeTemplates: templates.filter(t => t.status === 'active').length,
     totalSent: templates.reduce((sum, t) => sum + t.usageCount, 0),
-    avgOpenRate: templates.reduce((sum, t) => sum + t.openRate, 0) / templates.length,
-    avgClickRate: templates.reduce((sum, t) => sum + t.clickRate, 0) / templates.length,
-    avgConversionRate: templates.reduce((sum, t) => sum + t.conversionRate, 0) / templates.length
+    avgOpenRate: templates.length ? templates.reduce((sum, t) => sum + t.openRate, 0) / templates.length : 0,
+    avgClickRate: templates.length ? templates.reduce((sum, t) => sum + t.clickRate, 0) / templates.length : 0,
+    avgConversionRate: templates.length ? templates.reduce((sum, t) => sum + t.conversionRate, 0) / templates.length : 0
   };
 
   const getCategoryColor = (category: string) => {

@@ -10,3 +10,6 @@ export * from './vendor-contract.controller';
 export * from './audit-trail.controller';
 export * from './vendor-collaboration.controller';
 export * from './sourcing-integration.controller';
+export * from './procurement-notification.controller';
+export * from './procurement-budget.controller';
+export * from './vendor-performance-analytics.controller';

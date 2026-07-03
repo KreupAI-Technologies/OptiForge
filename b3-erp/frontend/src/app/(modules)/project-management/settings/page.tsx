@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
  Settings,
  Workflow,
@@ -73,6 +74,45 @@ export default function ProjectSettingsPage() {
  const [financeApproval, setFinanceApproval] = useState(true);
  const [ceoApprovalThreshold, setCeoApprovalThreshold] = useState('10000000');
 
+ const [isSaving, setIsSaving] = useState(false);
+
+ // Load persisted settings from the backend on mount.
+ useEffect(() => {
+  let mounted = true;
+  const load = async () => {
+   try {
+    const s = await projectManagementService.getPmSettings();
+    if (!s || !mounted) return;
+    setDefaultCurrency(s.defaultCurrency ?? 'INR');
+    setFiscalYearStart(s.fiscalYearStart ?? '04-01');
+    setDefaultProjectPrefix(s.defaultProjectPrefix ?? 'PRJ');
+    setAutoNumbering(s.autoNumbering ?? true);
+    setDocumentRetention(s.documentRetention ?? '7');
+    setProjectApprovalRequired(s.projectApprovalRequired ?? true);
+    setMilestoneApprovalRequired(s.milestoneApprovalRequired ?? true);
+    setBudgetApprovalThreshold(s.budgetApprovalThreshold ?? '5000000');
+    setChangeOrderApprovalLevels(s.changeOrderApprovalLevels ?? '2');
+    setDocumentApprovalRequired(s.documentApprovalRequired ?? true);
+    setProjectStartNotification(s.projectStartNotification ?? true);
+    setMilestoneCompleteNotification(s.milestoneCompleteNotification ?? true);
+    setBudgetExceededNotification(s.budgetExceededNotification ?? true);
+    setScheduleDelayNotification(s.scheduleDelayNotification ?? true);
+    setEmailNotifications(s.emailNotifications ?? true);
+    setSmsNotifications(s.smsNotifications ?? false);
+    setProjectManagerApproval(s.projectManagerApproval ?? true);
+    setDepartmentHeadApproval(s.departmentHeadApproval ?? true);
+    setFinanceApproval(s.financeApproval ?? true);
+    setCeoApprovalThreshold(s.ceoApprovalThreshold ?? '10000000');
+   } catch (err) {
+    console.error('Error loading project settings:', err);
+   }
+  };
+  load();
+  return () => {
+   mounted = false;
+  };
+ }, []);
+
  // Modal States
  const [showGeneralModal, setShowGeneralModal] = useState(false);
  const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -90,10 +130,43 @@ export default function ProjectSettingsPage() {
  const [showImportExportModal, setShowImportExportModal] = useState(false);
  const [showResetModal, setShowResetModal] = useState(false);
 
- const handleSave = () => {
-  // Simulate save
-  setHasChanges(false);
-  alert('Settings saved successfully!');
+ const handleSave = async () => {
+  setIsSaving(true);
+  try {
+   const saved = await projectManagementService.savePmSettings({
+    defaultCurrency,
+    fiscalYearStart,
+    defaultProjectPrefix,
+    autoNumbering,
+    documentRetention,
+    projectApprovalRequired,
+    milestoneApprovalRequired,
+    documentApprovalRequired,
+    budgetApprovalThreshold,
+    changeOrderApprovalLevels,
+    projectStartNotification,
+    milestoneCompleteNotification,
+    budgetExceededNotification,
+    scheduleDelayNotification,
+    emailNotifications,
+    smsNotifications,
+    projectManagerApproval,
+    departmentHeadApproval,
+    financeApproval,
+    ceoApprovalThreshold,
+   });
+   if (saved) {
+    setHasChanges(false);
+    alert('Settings saved successfully!');
+   } else {
+    alert('Failed to save settings. Please try again.');
+   }
+  } catch (err) {
+   console.error('Error saving settings:', err);
+   alert('Failed to save settings. Please try again.');
+  } finally {
+   setIsSaving(false);
+  }
  };
 
  const handleReset = () => {

@@ -9,3 +9,4 @@ export * from './cpq-proposal.service';
 export * from './cpq-contract.service';
 export * from './cpq-analytics.service';
 export * from './cpq-settings.service';
+export * from './cpq-approval.service';

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Bell, BellOff, Settings, Filter, Search, Check, X, Clock, AlertTriangle,
   CheckCircle, XCircle, Info, Package, ShoppingCart, FileText, DollarSign,
@@ -8,6 +8,66 @@ import {
   ChevronDown, ChevronRight, Eye, Star, Volume2, VolumeX, Smartphone,
   Monitor, Mail as MailIcon, RefreshCw, Download
 } from 'lucide-react'
+import {
+  procurementOperationsService,
+  ProcurementNotification,
+} from '@/services/procurement-operations.service'
+
+interface UINotification {
+  id: string
+  type: string
+  priority: string
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  icon: React.ComponentType<{ className?: string }>
+  color: string
+  action: string
+}
+
+const NOTIFICATION_TYPE_MAP: Record<
+  string,
+  { icon: React.ComponentType<{ className?: string }>; color: string }
+> = {
+  order: { icon: ShoppingCart, color: 'text-blue-600 bg-blue-100' },
+  delivery: { icon: Package, color: 'text-green-600 bg-green-100' },
+  alert: { icon: AlertTriangle, color: 'text-amber-600 bg-amber-100' },
+  approval: { icon: Clock, color: 'text-red-600 bg-red-100' },
+  vendor: { icon: Users, color: 'text-purple-600 bg-purple-100' },
+  contract: { icon: FileText, color: 'text-indigo-600 bg-indigo-100' },
+  info: { icon: Info, color: 'text-gray-600 bg-gray-100' },
+}
+
+function timeAgo(dateStr?: string): string {
+  if (!dateStr) return ''
+  const then = new Date(dateStr).getTime()
+  if (Number.isNaN(then)) return ''
+  const diff = Math.max(0, Date.now() - then)
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
+function transformNotification(n: ProcurementNotification): UINotification {
+  const meta = NOTIFICATION_TYPE_MAP[n.type] || NOTIFICATION_TYPE_MAP.info
+  return {
+    id: n.id,
+    type: n.type || 'info',
+    priority: n.priority || 'medium',
+    title: n.title || 'Notification',
+    message: n.message || '',
+    timestamp: timeAgo(n.createdAt),
+    read: !!n.read,
+    icon: meta.icon,
+    color: meta.color,
+    action: n.action || '',
+  }
+}
 
 export default function NotificationCenter() {
   const [activeTab, setActiveTab] = useState('all')
@@ -15,81 +75,37 @@ export default function NotificationCenter() {
   const [showSettings, setShowSettings] = useState(false)
   const [filter, setFilter] = useState('all')
 
-  // Notification Data
-  const notifications = [
-    {
-      id: '1',
-      type: 'order',
-      priority: 'high',
-      title: 'Purchase Order Approved',
-      message: 'PO-2024-045 has been approved by Finance Manager',
-      timestamp: '2 minutes ago',
-      read: false,
-      icon: ShoppingCart,
-      color: 'text-blue-600 bg-blue-100',
-      action: 'View Order',
-    },
-    {
-      id: '2',
-      type: 'delivery',
-      priority: 'medium',
-      title: 'Delivery Scheduled',
-      message: 'Expected delivery for PO-2024-043 on March 25, 2024',
-      timestamp: '1 hour ago',
-      read: false,
-      icon: Package,
-      color: 'text-green-600 bg-green-100',
-      action: 'Track Shipment',
-    },
-    {
-      id: '3',
-      type: 'alert',
-      priority: 'high',
-      title: 'Budget Alert',
-      message: 'Production department has exceeded 90% of monthly budget',
-      timestamp: '3 hours ago',
-      read: true,
-      icon: AlertTriangle,
-      color: 'text-amber-600 bg-amber-100',
-      action: 'View Budget',
-    },
-    {
-      id: '4',
-      type: 'approval',
-      priority: 'urgent',
-      title: 'Approval Required',
-      message: 'RFQ-2024-101 requires your immediate approval',
-      timestamp: '5 hours ago',
-      read: false,
-      icon: Clock,
-      color: 'text-red-600 bg-red-100',
-      action: 'Review & Approve',
-    },
-    {
-      id: '5',
-      type: 'vendor',
-      priority: 'low',
-      title: 'New Vendor Registered',
-      message: 'TechSupply Solutions has completed registration',
-      timestamp: '1 day ago',
-      read: true,
-      icon: Users,
-      color: 'text-purple-600 bg-purple-100',
-      action: 'View Profile',
-    },
-    {
-      id: '6',
-      type: 'contract',
-      priority: 'medium',
-      title: 'Contract Expiring Soon',
-      message: 'Contract with Global Manufacturing expires in 30 days',
-      timestamp: '2 days ago',
-      read: true,
-      icon: FileText,
-      color: 'text-indigo-600 bg-indigo-100',
-      action: 'Renew Contract',
-    },
-  ]
+  // Notification Data (loaded from backend)
+  const [notifications, setNotifications] = useState<UINotification[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const rows = await procurementOperationsService.getNotifications()
+        if (mounted) {
+          setNotifications(
+            (Array.isArray(rows) ? rows : []).map(transformNotification),
+          )
+        }
+      } catch (e) {
+        if (mounted) {
+          setError('Unable to load notifications.')
+          setNotifications([])
+        }
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   // Notification Preferences
   const [preferences, setPreferences] = useState({

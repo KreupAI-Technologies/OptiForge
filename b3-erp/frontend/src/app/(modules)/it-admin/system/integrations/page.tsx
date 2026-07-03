@@ -29,196 +29,42 @@ export default function IntegrationsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
 
-  const [integrations, setIntegrations] = useState<Integration[]>([
-    {
-      id: '1',
-      name: 'SAP ERP',
-      category: 'erp',
-      description: 'Enterprise resource planning integration for finance, HR, and operations',
-      status: 'active',
-      icon: 'database',
-      config: {
-        baseUrl: 'https://api.sap.com/v1',
-        apiKey: 'sap_live_••••••••••••',
-        syncFrequency: 'realtime'
-      },
-      lastSync: '2024-01-20 14:23:00',
-      syncFrequency: 'Real-time',
-      features: ['Financial Data Sync', 'Purchase Orders', 'Inventory Updates', 'HR Data']
-    },
-    {
-      id: '2',
-      name: 'Stripe',
-      category: 'payment',
-      description: 'Payment processing and subscription management',
-      status: 'active',
-      icon: 'credit-card',
-      config: {
-        apiKey: 'pk_live_••••••••••••',
-        apiSecret: 'sk_live_••••••••••••',
-        webhookUrl: 'https://erp.b3manufacturing.com/webhooks/stripe'
-      },
-      lastSync: '2024-01-20 14:45:00',
-      syncFrequency: 'Webhook-based',
-      features: ['Payment Processing', 'Refunds', 'Subscriptions', 'Invoicing']
-    },
-    {
-      id: '3',
-      name: 'Razorpay',
-      category: 'payment',
-      description: 'Indian payment gateway for domestic transactions',
-      status: 'active',
-      icon: 'credit-card',
-      config: {
-        apiKey: 'rzp_live_••••••••••••',
-        apiSecret: 'rzp_secret_••••••••••••',
-        webhookUrl: 'https://erp.b3manufacturing.com/webhooks/razorpay'
-      },
-      lastSync: '2024-01-20 14:50:00',
-      syncFrequency: 'Webhook-based',
-      features: ['UPI Payments', 'Net Banking', 'Cards', 'Wallets']
-    },
-    {
-      id: '4',
-      name: 'FedEx',
-      category: 'shipping',
-      description: 'International shipping and tracking integration',
-      status: 'configured',
-      icon: 'truck',
-      config: {
-        apiKey: 'fedex_••••••••••••',
-        accountNumber: 'FX123456789',
-        baseUrl: 'https://apis.fedex.com/ship/v1'
-      },
-      lastSync: '2024-01-20 12:00:00',
-      syncFrequency: 'On-demand',
-      features: ['Rate Calculation', 'Label Generation', 'Tracking', 'Pickup Scheduling']
-    },
-    {
-      id: '5',
-      name: 'DHL',
-      category: 'shipping',
-      description: 'Global shipping and logistics services',
-      status: 'active',
-      icon: 'truck',
-      config: {
-        apiKey: 'dhl_••••••••••••',
-        customerId: 'DHL987654321',
-        baseUrl: 'https://api.dhl.com/v1'
-      },
-      lastSync: '2024-01-20 13:30:00',
-      syncFrequency: 'Every 30 minutes',
-      features: ['Shipping Quotes', 'Customs Documentation', 'Track & Trace', 'Returns']
-    },
-    {
-      id: '6',
-      name: 'Twilio',
-      category: 'communication',
-      description: 'SMS, voice, and WhatsApp messaging platform',
-      status: 'active',
-      icon: 'message-square',
-      config: {
-        accountSid: 'AC••••••••••••',
-        authToken: 'auth_••••••••••••',
-        phoneNumber: '+1234567890'
-      },
-      lastSync: '2024-01-20 14:55:00',
-      syncFrequency: 'Real-time',
-      features: ['SMS Notifications', 'Voice Calls', 'WhatsApp', '2FA']
-    },
-    {
-      id: '7',
-      name: 'SendGrid',
-      category: 'communication',
-      description: 'Email delivery and marketing automation',
-      status: 'active',
-      icon: 'message-square',
-      config: {
-        apiKey: 'SG.••••••••••••',
-        fromEmail: 'noreply@b3manufacturing.com',
-        webhookUrl: 'https://erp.b3manufacturing.com/webhooks/sendgrid'
-      },
-      lastSync: '2024-01-20 14:58:00',
-      syncFrequency: 'Real-time',
-      features: ['Transactional Emails', 'Marketing Campaigns', 'Analytics', 'Templates']
-    },
-    {
-      id: '8',
-      name: 'AWS S3',
-      category: 'storage',
-      description: 'Cloud object storage for files and backups',
-      status: 'active',
-      icon: 'cloud',
-      config: {
-        accessKeyId: 'AKIA••••••••••••',
-        secretAccessKey: '••••••••••••',
-        region: 'ap-south-1',
-        bucket: 'b3-manufacturing-prod'
-      },
-      lastSync: '2024-01-20 15:00:00',
-      syncFrequency: 'Continuous',
-      features: ['File Storage', 'Backups', 'Document Management', 'CDN']
-    },
-    {
-      id: '9',
-      name: 'Google Analytics',
-      category: 'analytics',
-      description: 'Web analytics and user behavior tracking',
-      status: 'active',
-      icon: 'globe',
-      config: {
-        trackingId: 'G-••••••••••',
-        propertyId: 'UA-••••••••••'
-      },
-      lastSync: '2024-01-20 14:59:00',
-      syncFrequency: 'Real-time',
-      features: ['User Tracking', 'Event Analytics', 'Conversion Tracking', 'Reports']
-    },
-    {
-      id: '10',
-      name: 'Salesforce',
-      category: 'erp',
-      description: 'CRM integration for customer relationship management',
-      status: 'inactive',
-      icon: 'database',
-      config: {
-        instanceUrl: 'https://b3mfg.salesforce.com',
-        clientId: 'sf_••••••••••••',
-        clientSecret: '••••••••••••'
-      },
-      features: ['Lead Management', 'Contact Sync', 'Opportunity Tracking', 'Reports']
-    },
-    {
-      id: '11',
-      name: 'Slack',
-      category: 'communication',
-      description: 'Team collaboration and notifications',
-      status: 'configured',
-      icon: 'message-square',
-      config: {
-        webhookUrl: 'https://hooks.slack.com/services/T••••/B••••/••••',
-        botToken: 'xoxb-••••••••••••',
-        channel: '#erp-notifications'
-      },
-      features: ['Notifications', 'Approvals', 'Alerts', 'Bot Commands']
-    },
-    {
-      id: '12',
-      name: 'QuickBooks',
-      category: 'erp',
-      description: 'Accounting and bookkeeping integration',
-      status: 'error',
-      icon: 'database',
-      config: {
-        realmId: 'qb_••••••••••••',
-        clientId: '••••••••••••',
-        clientSecret: '••••••••••••'
-      },
-      lastSync: '2024-01-19 18:00:00',
-      syncFrequency: 'Daily',
-      features: ['Invoicing', 'Expense Tracking', 'Financial Reports', 'Tax Management']
-    }
-  ]);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await AdminManagementService.fetchIntegrations();
+        if (!mounted) return;
+        setIntegrations(
+          (Array.isArray(data) ? data : []).map((i) => ({
+            id: String(i.id),
+            name: i.name ?? '',
+            category: (i.category as Integration['category']) ?? 'erp',
+            description: i.description ?? '',
+            status: (i.status as Integration['status']) ?? 'inactive',
+            icon: i.icon ?? 'globe',
+            config: (i.config as Integration['config']) ?? {},
+            lastSync: i.lastSync,
+            syncFrequency: i.syncFrequency,
+            features: Array.isArray(i.features) ? i.features : [],
+          })),
+        );
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to load integrations');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const categories = [
     { id: 'all', name: 'All Integrations', icon: Package, count: integrations.length },
