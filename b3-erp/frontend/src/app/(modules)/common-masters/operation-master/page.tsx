@@ -26,7 +26,8 @@ export default function OperationMasterPage() {
     try {
       setIsLoading(true);
       const data = await manufacturingMastersService.getAllOperations('1');
-      const mapped: Operation[] = data.map((op: BackendOperation) => ({
+      // Backend returns a subset of the rich display Operation shape.
+      const mapped = data.map((op: BackendOperation) => ({
         id: op.id,
         operationCode: op.code,
         operationName: op.name,
@@ -44,15 +45,15 @@ export default function OperationMasterPage() {
         efficiencyFactor: 100,
         defectRate: 0,
         requiresInspection: false,
-        inspectionType: '',
+        inspectionType: undefined,
         safetyGear: [],
         riskLevel: 'low' as any,
         laborCostPerHour: 0,
         machineRatePerHour: 0,
-        materialUsagePercentage: 0,
+        materialWastagePercent: 0,
         isActive: true,
       }));
-      setOperations(mapped);
+      setOperations(mapped as unknown as Operation[]);
     } catch (error) {
       console.error('Error fetching operations:', error);
     } finally {

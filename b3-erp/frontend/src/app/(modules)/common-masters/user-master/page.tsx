@@ -135,7 +135,6 @@ export default function UserMasterPage() {
       render: (value, row) => (
         <div className="text-sm">
           <div className="text-gray-900">{value || 'No Email'}</div>
-          {/* @ts-expect-error row.employee may be loosely typed by the table renderer */}
           <div className="text-xs text-gray-500">{row.employee?.phone || 'No Phone'}</div>
         </div>
       )
@@ -151,7 +150,6 @@ export default function UserMasterPage() {
             <Briefcase className="w-3 h-3 text-gray-400" />
             <span className="font-medium">{row.employee?.department?.name || 'Unassigned'}</span>
           </div>
-          {/* @ts-expect-error row.employee may be loosely typed by the table renderer */}
           <div className="text-xs text-gray-500">{row.employee?.grade || '-'}</div>
         </div>
       )
@@ -279,7 +277,7 @@ export default function UserMasterPage() {
     total: users.length,
     active: users.filter(u => u.isActive).length,
     onProbation: users.filter(u => u.employee?.employmentStatus?.toLowerCase() === 'probation').length,
-    managers: users.filter(u => u.role?.toLowerCase().includes('manager')).length,
+    managers: users.filter(u => u.role?.roleName?.toLowerCase().includes('manager')).length,
     mfaEnabled: users.filter(u => u.mfaEnabled).length,
     contract: users.filter(u => u.employee?.employmentType?.toLowerCase() === 'contract').length
   }), [users]);

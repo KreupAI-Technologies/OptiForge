@@ -38,6 +38,11 @@ export interface User {
         lastName: string;
         designation?: { name: string };
         department?: { name: string };
+        branchId?: string;
+        grade?: string;
+        phone?: string;
+        employmentStatus?: string;
+        employmentType?: string;
     };
     roleId?: string;
     role?: Role;

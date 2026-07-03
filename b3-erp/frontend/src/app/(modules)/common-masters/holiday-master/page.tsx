@@ -25,7 +25,7 @@ export default function HolidayMasterPage() {
         setLoading(true);
         const data = await hrMastersService.getAllHolidays('1');
 
-        const transformedHolidays: Holiday[] = data.map(item => ({
+        const transformedHolidays: Holiday[] = data.map((item): Holiday => ({
           id: item.id,
           holidayCode: `HOL-${item.name.substring(0, 3).toUpperCase()}`,
           holidayName: item.name,
@@ -37,12 +37,8 @@ export default function HolidayMasterPage() {
           applicableFor: 'all',
           description: item.name,
           isActive: item.isActive,
-          metadata: {
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            createdBy: 'System',
-            updatedBy: 'System'
-          }
+          isRecurring: false,
+          year: new Date(item.date).getFullYear(),
         }));
 
         setHolidays(transformedHolidays);

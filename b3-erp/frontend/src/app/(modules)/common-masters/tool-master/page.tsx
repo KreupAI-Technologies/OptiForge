@@ -26,7 +26,8 @@ export default function ToolMasterPage() {
     try {
       setIsLoading(true);
       const data = await manufacturingMastersService.getAllTools('1');
-      const mapped: Tool[] = data.map((t: BackendTool) => ({
+      // Backend returns a subset of the rich display Tool shape.
+      const mapped = data.map((t: BackendTool) => ({
         id: t.id,
         toolCode: t.code,
         toolName: t.name,
@@ -34,8 +35,6 @@ export default function ToolMasterPage() {
         toolType: 'cutting' as any,
         category: 'durable' as any,
         manufacturer: 'Various',
-        modelNumber: '',
-        serialNumber: '',
         currentStock: 10,
         minimumStock: 2,
         reorderLevel: 5,
@@ -52,7 +51,7 @@ export default function ToolMasterPage() {
         storageLocation: 'Main Store',
         isActive: true,
       }));
-      setTools(mapped);
+      setTools(mapped as unknown as Tool[]);
     } catch (error) {
       console.error('Error fetching tools:', error);
     } finally {
