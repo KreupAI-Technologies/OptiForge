@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardCheck,
   Search,
@@ -22,33 +22,87 @@ import {
   ResponsiveContainer,
   Cell
 } from 'recharts';
+import { HrPagesService } from '@/services/hr-pages.service';
 
-// Mock Data
-const assessmentStats = [
-  { title: 'Total Assessments', value: '1,248', change: '+12%', icon: ClipboardCheck, color: 'text-blue-600', bg: 'bg-blue-100' },
-  { title: 'Pending Reviews', value: '24', change: '-5', icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-100' },
-  { title: 'Avg. Skill Score', value: '4.2', change: '+0.3', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-100' },
-  { title: 'Certified Pros', value: '856', change: '+8%', icon: CheckCircle2, color: 'text-purple-600', bg: 'bg-purple-100' },
-];
-
-const mockAssessments = [
-  { id: 1, employee: 'Sarah Johnson', role: 'Senior Developer', skill: 'React Development', score: 4.8, date: '2025-01-20', status: 'Completed', reviewer: 'Mike Chen' },
-  { id: 2, employee: 'David Smith', role: 'UX Designer', skill: 'Figma Prototyping', score: 4.5, date: '2025-01-19', status: 'Completed', reviewer: 'Emma Wilson' },
-  { id: 3, employee: 'Michael Brown', role: 'Project Manager', skill: 'Agile Methodology', score: 3.2, date: '2025-01-18', status: 'In Review', reviewer: 'Pending' },
-  { id: 4, employee: 'Emily Davis', role: 'Data Analyst', skill: 'Python/Pandas', score: 4.9, date: '2025-01-15', status: 'Completed', reviewer: 'Robert Taylor' },
-  { id: 5, employee: 'James Wilson', role: 'DevOps Engineer', skill: 'Kubernetes', score: 2.5, date: '2025-01-14', status: 'Needs Improvement', reviewer: 'Sarah Johnson' },
-];
-
-const skillDistribution = [
-  { name: 'Beginner', value: 15, color: '#94a3b8' },
-  { name: 'Intermediate', value: 35, color: '#60a5fa' },
-  { name: 'Advanced', value: 30, color: '#818cf8' },
-  { name: 'Expert', value: 20, color: '#a78bfa' },
-];
+interface Assessment {
+  id: number | string;
+  employee: string;
+  role: string;
+  skill: string;
+  score: number;
+  date: string;
+  status: string;
+  reviewer: string;
+}
 
 export default function AssessmentPage() {
   const [showNewAssessmentModal, setShowNewAssessmentModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState('All Roles');
+  const [mockAssessments, setMockAssessments] = useState<Assessment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.skillAssessments()) as any[];
+        const statusMap: Record<string, string> = {
+          completed: 'Completed',
+          in_review: 'In Review',
+          'in-review': 'In Review',
+          pending: 'In Review',
+          needs_improvement: 'Needs Improvement',
+          'needs-improvement': 'Needs Improvement',
+        };
+        const mapped: Assessment[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          employee: r.employeeName ?? '',
+          role: r.category ?? '',
+          skill: r.skillName ?? r.skillCode ?? '',
+          score: Number(r.score ?? 0),
+          date: r.assessmentDate ?? '',
+          status: statusMap[String(r.status ?? '').toLowerCase()] ?? (r.status ?? 'In Review'),
+          reviewer: r.assessor ?? 'Pending',
+        }));
+        if (!cancelled) setMockAssessments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load assessments');
+          setMockAssessments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const total = mockAssessments.length;
+  const pendingReviews = mockAssessments.filter((a) => a.status !== 'Completed').length;
+  const avgScore = total > 0
+    ? (mockAssessments.reduce((sum, a) => sum + a.score, 0) / total).toFixed(1)
+    : '0.0';
+  const certifiedPros = mockAssessments.filter((a) => a.status === 'Completed' && a.score >= 4).length;
+
+  const assessmentStats = [
+    { title: 'Total Assessments', value: String(total), change: '', icon: ClipboardCheck, color: 'text-blue-600', bg: 'bg-blue-100' },
+    { title: 'Pending Reviews', value: String(pendingReviews), change: '', icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-100' },
+    { title: 'Avg. Skill Score', value: avgScore, change: '', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-100' },
+    { title: 'Certified Pros', value: String(certifiedPros), change: '', icon: CheckCircle2, color: 'text-purple-600', bg: 'bg-purple-100' },
+  ];
+
+  const skillDistribution = [
+    { name: 'Beginner', value: mockAssessments.filter((a) => a.score < 2).length, color: '#94a3b8' },
+    { name: 'Intermediate', value: mockAssessments.filter((a) => a.score >= 2 && a.score < 3.5).length, color: '#60a5fa' },
+    { name: 'Advanced', value: mockAssessments.filter((a) => a.score >= 3.5 && a.score < 4.5).length, color: '#818cf8' },
+    { name: 'Expert', value: mockAssessments.filter((a) => a.score >= 4.5).length, color: '#a78bfa' },
+  ];
 
   const getScoreColor = (score: number) => {
     if (score >= 4.5) return 'text-green-600 bg-green-50';
@@ -92,6 +146,19 @@ export default function AssessmentPage() {
         </div>
       </div>
 
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading assessments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
         {assessmentStats.map((stat, index) => (
@@ -100,10 +167,12 @@ export default function AssessmentPage() {
               <div className={`p-2 rounded-lg ${stat.bg}`}>
                 <stat.icon className={`w-6 h-6 ${stat.color}`} />
               </div>
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${stat.change.startsWith('+') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>
-                {stat.change}
-              </span>
+              {stat.change && (
+                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${stat.change.startsWith('+') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                  {stat.change}
+                </span>
+              )}
             </div>
             <h3 className="text-gray-500 text-sm font-medium">{stat.title}</h3>
             <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>

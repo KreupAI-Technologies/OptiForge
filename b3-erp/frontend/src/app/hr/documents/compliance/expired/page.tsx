@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { XCircle, AlertTriangle, Upload, FileText } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface ExpiredDocument {
   id: string;
@@ -21,71 +22,65 @@ export default function ExpiredDocumentsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSeverity, setSelectedSeverity] = useState('all');
 
-  const mockExpiredDocs: ExpiredDocument[] = [
-    {
-      id: 'EXP001',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      department: 'Engineering',
-      documentType: 'Passport',
-      category: 'personal',
-      expiryDate: '2025-08-15',
-      daysExpired: 73,
-      lastReminderSent: '2025-10-20',
-      uploadedOn: '2024-01-10',
-      severity: 'high'
-    },
-    {
-      id: 'EXP002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      department: 'HR',
-      documentType: 'Medical Insurance',
-      category: 'statutory',
-      expiryDate: '2025-07-31',
-      daysExpired: 88,
-      lastReminderSent: '2025-10-15',
-      uploadedOn: '2024-07-31',
-      severity: 'critical'
-    },
-    {
-      id: 'EXP003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      department: 'Finance',
-      documentType: 'Driving License',
-      category: 'personal',
-      expiryDate: '2025-09-10',
-      daysExpired: 47,
-      uploadedOn: '2023-09-10',
-      severity: 'medium'
-    },
-    {
-      id: 'EXP004',
-      employeeId: 'EMP004',
-      employeeName: 'Sneha Reddy',
-      department: 'Marketing',
-      documentType: 'Police Verification',
-      category: 'statutory',
-      expiryDate: '2025-06-20',
-      daysExpired: 129,
-      lastReminderSent: '2025-10-18',
-      uploadedOn: '2024-06-20',
-      severity: 'critical'
-    },
-    {
-      id: 'EXP005',
-      employeeId: 'EMP005',
-      employeeName: 'Karthik Kumar',
-      department: 'Sales',
-      documentType: 'Professional Certification',
-      category: 'education',
-      expiryDate: '2025-09-30',
-      daysExpired: 27,
-      uploadedOn: '2022-09-30',
-      severity: 'medium'
-    }
-  ];
+  const [mockExpiredDocs, setMockExpiredDocs] = useState<ExpiredDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments();
+        const daysSince = (date: string) => {
+          const diff = new Date().getTime() - new Date(date).getTime();
+          return Math.floor(diff / (1000 * 60 * 60 * 24));
+        };
+        const categories = ['personal', 'education', 'statutory'];
+        const mapped: ExpiredDocument[] = rows
+          .filter((r) => r.expiryDate && daysSince(r.expiryDate as string) > 0)
+          .map((r) => {
+            const meta = (r.meta || {}) as Record<string, any>;
+            const daysExpired = daysSince(r.expiryDate as string);
+            const severity: ExpiredDocument['severity'] =
+              daysExpired > 90 ? 'critical' : daysExpired > 60 ? 'high' : 'medium';
+            const category = categories.includes(r.docCategory || '')
+              ? (r.docCategory as ExpiredDocument['category'])
+              : categories.includes(meta.category)
+                ? (meta.category as ExpiredDocument['category'])
+                : 'personal';
+            return {
+              id: String(r.id),
+              employeeId: meta.employeeId || '',
+              employeeName: meta.employeeName || '',
+              department: meta.department || '',
+              documentType: r.documentType || r.title || '',
+              category,
+              expiryDate: r.expiryDate as string,
+              daysExpired,
+              lastReminderSent: meta.lastReminderSent || undefined,
+              uploadedOn: r.uploadedOn || '',
+              severity,
+            };
+          });
+        if (!cancelled) setMockExpiredDocs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load expired documents',
+          );
+          setMockExpiredDocs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredDocs = useMemo(() => {
     return mockExpiredDocs.filter(doc => {
@@ -93,7 +88,7 @@ export default function ExpiredDocumentsPage() {
       const matchesSeverity = selectedSeverity === 'all' || doc.severity === selectedSeverity;
       return matchesCategory && matchesSeverity;
     });
-  }, [selectedCategory, selectedSeverity]);
+  }, [mockExpiredDocs, selectedCategory, selectedSeverity]);
 
   const stats = {
     total: mockExpiredDocs.length,
@@ -120,6 +115,19 @@ export default function ExpiredDocumentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Expired Documents</h1>
         <p className="text-sm text-gray-600 mt-1">Track and renew expired employee documents</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading expired documents…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">

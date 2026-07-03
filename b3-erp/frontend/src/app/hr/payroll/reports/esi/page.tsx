@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Heart, Search, Download, Users, DollarSign, FileText, Calendar } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface ESIRecord {
   id: string;
@@ -117,8 +118,48 @@ export default function ESIReportPage() {
     }
   ];
 
+  const [rows, setRows] = useState<ESIRecord[]>(mockESIRecords);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReports('esi');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            ipNumber: r.details?.ipNumber ?? r.ipNumber ?? '',
+            designation: r.details?.designation ?? r.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            grossWages: r.details?.grossWages ?? r.grossWages ?? r.amount ?? 0,
+            esiWages: r.details?.esiWages ?? r.esiWages ?? 0,
+            esiEmployeeContribution: r.details?.esiEmployeeContribution ?? r.esiEmployeeContribution ?? 0,
+            esiEmployerContribution: r.details?.esiEmployerContribution ?? r.esiEmployerContribution ?? 0,
+            totalESI: r.details?.totalESI ?? r.totalESI ?? r.amount ?? 0,
+            daysWorked: r.details?.daysWorked ?? r.daysWorked ?? 0,
+            monthYear: r.period ?? r.details?.monthYear ?? r.monthYear ?? '',
+          } as ESIRecord));
+          setRows(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockESIRecords.filter(record => {
+    return rows.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -126,7 +167,7 @@ export default function ESIReportPage() {
       const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [searchTerm, selectedDepartment, rows]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
 
@@ -150,6 +191,8 @@ export default function ESIReportPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">ESI Report</h1>
         <p className="text-sm text-gray-600 mt-1">Employee State Insurance contribution report</p>
+        {isLoading && <div className="text-sm text-gray-500 mt-1">Loading…</div>}
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-red-50 to-pink-50 rounded-lg shadow-sm border border-red-200 p-3 mb-3">

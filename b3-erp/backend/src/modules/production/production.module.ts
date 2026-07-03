@@ -48,16 +48,19 @@ import { BomVerification } from './entities/bom-verification.entity';
 import { GanttTask } from './entities/gantt-task.entity';
 import { MachineTimeline } from './entities/machine-timeline.entity';
 import { AndonLine } from './entities/andon-line.entity';
+import { ScheduleLine } from './entities/schedule-line.entity';
 import { FloorActivityController } from './controllers/floor-activity.controller';
 import { BomVerificationController } from './controllers/bom-verification.controller';
 import { GanttTaskController } from './controllers/gantt-task.controller';
 import { MachineTimelineController } from './controllers/machine-timeline.controller';
 import { AndonLineController } from './controllers/andon-line.controller';
+import { ScheduleLineController } from './controllers/schedule-line.controller';
 import { FloorActivityService } from './services/floor-activity.service';
 import { BomVerificationService } from './services/bom-verification.service';
 import { GanttTaskService } from './services/gantt-task.service';
 import { MachineTimelineService } from './services/machine-timeline.service';
 import { AndonLineService } from './services/andon-line.service';
+import { ScheduleLineService } from './services/schedule-line.service';
 
 // Entities
 import {
@@ -375,6 +378,7 @@ import {
       GanttTask,
       MachineTimeline,
       AndonLine,
+      ScheduleLine,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -387,7 +391,7 @@ import {
     NcrController, QualityPlanController,
     // Newly-built controllers
     FloorActivityController, BomVerificationController, GanttTaskController,
-    MachineTimelineController, AndonLineController,
+    MachineTimelineController, AndonLineController, ScheduleLineController,
     // Core Controllers
     BOMController,
     WorkOrderController,
@@ -468,7 +472,7 @@ import {
     NcrService, QualityPlanService,
     // Newly-built services
     FloorActivityService, BomVerificationService, GanttTaskService,
-    MachineTimelineService, AndonLineService,
+    MachineTimelineService, AndonLineService, ScheduleLineService,
     // Core Services
     BOMService,
     WorkOrderService,

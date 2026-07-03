@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Building, Users, TrendingUp, Calendar, Download, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface DepartmentLeaveData {
   departmentId: string;
@@ -17,16 +18,6 @@ interface DepartmentLeaveData {
   color: string;
 }
 
-const mockDepartmentData: DepartmentLeaveData[] = [
-  { departmentId: 'PROD', departmentName: 'Production', totalEmployees: 80, totalLeaveDays: 1680, avgLeavesPerEmployee: 21, utilizationRate: 70, pendingApplications: 12, topLeaveType: 'EL', teamAvailability: 88, color: 'bg-blue-500' },
-  { departmentId: 'QC', departmentName: 'Quality Control', totalEmployees: 25, totalLeaveDays: 525, avgLeavesPerEmployee: 21, utilizationRate: 70, pendingApplications: 3, topLeaveType: 'CL', teamAvailability: 92, color: 'bg-green-500' },
-  { departmentId: 'MAINT', departmentName: 'Maintenance', totalEmployees: 30, totalLeaveDays: 600, avgLeavesPerEmployee: 20, utilizationRate: 67, pendingApplications: 5, topLeaveType: 'EL', teamAvailability: 90, color: 'bg-orange-500' },
-  { departmentId: 'STORE', departmentName: 'Stores & Logistics', totalEmployees: 20, totalLeaveDays: 440, avgLeavesPerEmployee: 22, utilizationRate: 73, pendingApplications: 2, topLeaveType: 'CL', teamAvailability: 85, color: 'bg-purple-500' },
-  { departmentId: 'HR', departmentName: 'Human Resources', totalEmployees: 12, totalLeaveDays: 252, avgLeavesPerEmployee: 21, utilizationRate: 70, pendingApplications: 1, topLeaveType: 'EL', teamAvailability: 92, color: 'bg-pink-500' },
-  { departmentId: 'FIN', departmentName: 'Finance & Accounts', totalEmployees: 15, totalLeaveDays: 300, avgLeavesPerEmployee: 20, utilizationRate: 67, pendingApplications: 2, topLeaveType: 'CL', teamAvailability: 93, color: 'bg-yellow-500' },
-  { departmentId: 'IT', departmentName: 'IT & Admin', totalEmployees: 18, totalLeaveDays: 378, avgLeavesPerEmployee: 21, utilizationRate: 70, pendingApplications: 3, topLeaveType: 'WFH', teamAvailability: 94, color: 'bg-indigo-500' }
-];
-
 interface DepartmentLeaveType {
   department: string;
   EL: number;
@@ -37,19 +28,98 @@ interface DepartmentLeaveType {
   CO: number;
 }
 
-const mockLeaveTypeBreakdown: DepartmentLeaveType[] = [
-  { department: 'Production', EL: 672, CL: 336, SL: 252, PL: 210, ML: 126, CO: 84 },
-  { department: 'Quality Control', EL: 210, CL: 131, SL: 79, PL: 63, ML: 26, CO: 16 },
-  { department: 'Maintenance', EL: 240, CL: 150, SL: 90, PL: 60, ML: 36, CO: 24 },
-  { department: 'Stores & Logistics', EL: 176, CL: 110, SL: 66, PL: 44, ML: 22, CO: 22 },
-  { department: 'Human Resources', EL: 101, CL: 63, SL: 38, PL: 25, ML: 13, CO: 12 },
-  { department: 'Finance & Accounts', EL: 120, CL: 75, SL: 45, PL: 30, ML: 18, CO: 12 },
-  { department: 'IT & Admin', EL: 151, CL: 94, SL: 57, PL: 38, ML: 19, CO: 19 }
-];
+const DEPT_COLORS = ['bg-blue-500', 'bg-green-500', 'bg-orange-500', 'bg-purple-500', 'bg-pink-500', 'bg-yellow-500', 'bg-indigo-500'];
+
+/** Map a leave type name to one of the tracked breakdown buckets. */
+function leaveTypeBucket(name: string): keyof Omit<DepartmentLeaveType, 'department'> {
+  const n = (name || '').toLowerCase();
+  if (n.includes('casual')) return 'CL';
+  if (n.includes('sick')) return 'SL';
+  if (n.includes('privilege')) return 'PL';
+  if (n.includes('matern')) return 'ML';
+  if (n.includes('comp')) return 'CO';
+  return 'EL';
+}
 
 export default function DepartmentReportPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('current_fy');
   const [sortBy, setSortBy] = useState<'name' | 'employees' | 'leaves' | 'utilization'>('name');
+  const [departmentData, setDepartmentData] = useState<DepartmentLeaveData[]>([]);
+  const [leaveTypeBreakdown, setLeaveTypeBreakdown] = useState<DepartmentLeaveType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.leaveApplications()) as any[];
+        // Group applications by department.
+        const groups = new Map<string, any[]>();
+        (raw ?? []).forEach((r) => {
+          const dept = r.department ?? 'Unassigned';
+          if (!groups.has(dept)) groups.set(dept, []);
+          groups.get(dept)!.push(r);
+        });
+
+        const deptData: DepartmentLeaveData[] = [];
+        const breakdown: DepartmentLeaveType[] = [];
+        let colorIdx = 0;
+
+        groups.forEach((apps, deptName) => {
+          const employees = new Set(apps.map((a) => a.employeeId ?? a.employeeName)).size;
+          const totalLeaveDays = apps.reduce((s, a) => s + Number(a.numberOfDays ?? 0), 0);
+          const pending = apps.filter((a) => String(a.status ?? '').toLowerCase() === 'pending').length;
+
+          const buckets: DepartmentLeaveType = { department: deptName, EL: 0, CL: 0, SL: 0, PL: 0, ML: 0, CO: 0 };
+          apps.forEach((a) => {
+            const bucket = leaveTypeBucket(a.leaveTypeName ?? a.leaveType ?? '');
+            buckets[bucket] += Number(a.numberOfDays ?? 0);
+          });
+
+          // Determine the most-used leave-type code for this department.
+          const topLeaveType = (['EL', 'CL', 'SL', 'PL', 'ML', 'CO'] as const).reduce(
+            (top, code) => (buckets[code] > buckets[top] ? code : top),
+            'EL' as keyof Omit<DepartmentLeaveType, 'department'>,
+          );
+
+          deptData.push({
+            departmentId: deptName.slice(0, 5).toUpperCase(),
+            departmentName: deptName,
+            totalEmployees: employees,
+            totalLeaveDays,
+            avgLeavesPerEmployee: employees > 0 ? Math.round(totalLeaveDays / employees) : 0,
+            utilizationRate: employees > 0 ? Math.min(100, Math.round((totalLeaveDays / (employees * 24)) * 100)) : 0,
+            pendingApplications: pending,
+            topLeaveType,
+            teamAvailability: 100,
+            color: DEPT_COLORS[colorIdx % DEPT_COLORS.length],
+          });
+          breakdown.push(buckets);
+          colorIdx += 1;
+        });
+
+        if (!cancelled) {
+          setDepartmentData(deptData);
+          setLeaveTypeBreakdown(breakdown);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department report');
+          setDepartmentData([]);
+          setLeaveTypeBreakdown([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const columns: Column<DepartmentLeaveData>[] = [
     {
@@ -145,15 +215,29 @@ export default function DepartmentReportPage() {
   ];
 
   const overallStats = useMemo(() => {
-    const totalEmployees = mockDepartmentData.reduce((sum, d) => sum + d.totalEmployees, 0);
-    const totalLeaves = mockDepartmentData.reduce((sum, d) => sum + d.totalLeaveDays, 0);
-    const totalPending = mockDepartmentData.reduce((sum, d) => sum + d.pendingApplications, 0);
-    const avgUtilization = mockDepartmentData.reduce((sum, d) => sum + d.utilizationRate, 0) / mockDepartmentData.length;
+    const totalEmployees = departmentData.reduce((sum, d) => sum + d.totalEmployees, 0);
+    const totalLeaves = departmentData.reduce((sum, d) => sum + d.totalLeaveDays, 0);
+    const totalPending = departmentData.reduce((sum, d) => sum + d.pendingApplications, 0);
+    const avgUtilization = departmentData.length > 0
+      ? departmentData.reduce((sum, d) => sum + d.utilizationRate, 0) / departmentData.length
+      : 0;
     return { totalEmployees, totalLeaves, totalPending, avgUtilization };
-  }, []);
+  }, [departmentData]);
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading department report…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -182,7 +266,7 @@ export default function DepartmentReportPage() {
             <Users className="w-4 h-4" /> Total Employees
           </div>
           <div className="text-2xl font-bold text-gray-900">{overallStats.totalEmployees}</div>
-          <div className="text-xs text-gray-500 mt-1">across {mockDepartmentData.length} departments</div>
+          <div className="text-xs text-gray-500 mt-1">across {departmentData.length} departments</div>
         </div>
         <div className="bg-white rounded-lg border p-3">
           <div className="text-sm text-gray-600 mb-1 flex items-center gap-1">
@@ -209,7 +293,7 @@ export default function DepartmentReportPage() {
         <div className="p-4 border-b bg-gray-50">
           <h2 className="text-lg font-semibold text-gray-900">Department Summary</h2>
         </div>
-        <DataTable data={mockDepartmentData} columns={columns} pagination={{ enabled: false }} sorting={{ enabled: true, defaultSort: { column: 'department', direction: 'asc' } }} emptyMessage="No department data found" />
+        <DataTable data={departmentData} columns={columns} pagination={{ enabled: false }} sorting={{ enabled: true, defaultSort: { column: 'department', direction: 'asc' } }} emptyMessage="No department data found" />
       </div>
 
       <div className="bg-white rounded-lg border p-3">
@@ -229,7 +313,7 @@ export default function DepartmentReportPage() {
               </tr>
             </thead>
             <tbody>
-              {mockLeaveTypeBreakdown.map(dept => (
+              {leaveTypeBreakdown.map(dept => (
                 <tr key={dept.department} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-4 font-medium text-gray-900">{dept.department}</td>
                   <td className="text-right py-3 px-4 text-blue-600">{dept.EL}</td>
@@ -247,14 +331,14 @@ export default function DepartmentReportPage() {
             <tfoot>
               <tr className="bg-gray-50 font-semibold">
                 <td className="py-3 px-4 text-gray-900">Total</td>
-                <td className="text-right py-3 px-4 text-blue-600">{mockLeaveTypeBreakdown.reduce((s, d) => s + d.EL, 0)}</td>
-                <td className="text-right py-3 px-4 text-green-600">{mockLeaveTypeBreakdown.reduce((s, d) => s + d.CL, 0)}</td>
-                <td className="text-right py-3 px-4 text-red-600">{mockLeaveTypeBreakdown.reduce((s, d) => s + d.SL, 0)}</td>
-                <td className="text-right py-3 px-4 text-purple-600">{mockLeaveTypeBreakdown.reduce((s, d) => s + d.PL, 0)}</td>
-                <td className="text-right py-3 px-4 text-pink-600">{mockLeaveTypeBreakdown.reduce((s, d) => s + d.ML, 0)}</td>
-                <td className="text-right py-3 px-4 text-orange-600">{mockLeaveTypeBreakdown.reduce((s, d) => s + d.CO, 0)}</td>
+                <td className="text-right py-3 px-4 text-blue-600">{leaveTypeBreakdown.reduce((s, d) => s + d.EL, 0)}</td>
+                <td className="text-right py-3 px-4 text-green-600">{leaveTypeBreakdown.reduce((s, d) => s + d.CL, 0)}</td>
+                <td className="text-right py-3 px-4 text-red-600">{leaveTypeBreakdown.reduce((s, d) => s + d.SL, 0)}</td>
+                <td className="text-right py-3 px-4 text-purple-600">{leaveTypeBreakdown.reduce((s, d) => s + d.PL, 0)}</td>
+                <td className="text-right py-3 px-4 text-pink-600">{leaveTypeBreakdown.reduce((s, d) => s + d.ML, 0)}</td>
+                <td className="text-right py-3 px-4 text-orange-600">{leaveTypeBreakdown.reduce((s, d) => s + d.CO, 0)}</td>
                 <td className="text-right py-3 px-4 text-gray-900">
-                  {mockLeaveTypeBreakdown.reduce((s, d) => s + d.EL + d.CL + d.SL + d.PL + d.ML + d.CO, 0)}
+                  {leaveTypeBreakdown.reduce((s, d) => s + d.EL + d.CL + d.SL + d.PL + d.ML + d.CO, 0)}
                 </td>
               </tr>
             </tfoot>
@@ -266,7 +350,7 @@ export default function DepartmentReportPage() {
         <div className="bg-white rounded-lg border p-3">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">High Utilization Departments</h2>
           <div className="space-y-3">
-            {mockDepartmentData.filter(d => d.utilizationRate >= 70).sort((a, b) => b.utilizationRate - a.utilizationRate).map(dept => (
+            {departmentData.filter(d => d.utilizationRate >= 70).sort((a, b) => b.utilizationRate - a.utilizationRate).map(dept => (
               <div key={dept.departmentId} className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -286,7 +370,7 @@ export default function DepartmentReportPage() {
         <div className="bg-white rounded-lg border p-3">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Departments Requiring Attention</h2>
           <div className="space-y-3">
-            {mockDepartmentData.filter(d => d.pendingApplications > 3 || d.teamAvailability < 90).map(dept => (
+            {departmentData.filter(d => d.pendingApplications > 3 || d.teamAvailability < 90).map(dept => (
               <div key={dept.departmentId} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

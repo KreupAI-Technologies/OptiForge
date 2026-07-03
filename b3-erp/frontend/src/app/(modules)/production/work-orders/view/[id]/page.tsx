@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Edit,
@@ -598,10 +599,70 @@ export default function ViewWorkOrderPage() {
   const router = useRouter();
   const params = useParams();
   const workOrderId = params.id as string;
-  const workOrder = mockWorkOrder;
+  const [workOrder, setWorkOrder] = useState<WorkOrder>(mockWorkOrder);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'materials' | 'progress' | 'quality'>('overview');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    ProductionOrphanService.getWorkOrder(workOrderId)
+      .then((data) => {
+        if (cancelled) return;
+        const r = data || {};
+        setWorkOrder((prev) => ({
+          ...prev,
+          id: String(r.id ?? prev.id),
+          woNumber: r.woNumber ?? r.wo_number ?? r.orderNumber ?? r.order_number ?? prev.woNumber,
+          productCode: r.productCode ?? r.product_code ?? prev.productCode,
+          productName: r.productName ?? r.product_name ?? prev.productName,
+          productDescription: r.productDescription ?? r.product_description ?? prev.productDescription,
+          drawingNumber: r.drawingNumber ?? r.drawing_number ?? prev.drawingNumber,
+          revision: r.revision ?? prev.revision,
+          status: (r.status ?? prev.status) as WorkOrder['status'],
+          plannedQty: r.plannedQty ?? r.planned_qty ?? prev.plannedQty,
+          completedQty: r.completedQty ?? r.completed_qty ?? prev.completedQty,
+          rejectedQty: r.rejectedQty ?? r.rejected_qty ?? prev.rejectedQty,
+          reworkQty: r.reworkQty ?? r.rework_qty ?? prev.reworkQty,
+          uom: r.uom ?? prev.uom,
+          completionPercentage: r.completionPercentage ?? r.completion_percentage ?? prev.completionPercentage,
+          plannedStartDate: r.plannedStartDate ?? r.planned_start_date ?? prev.plannedStartDate,
+          plannedEndDate: r.plannedEndDate ?? r.planned_end_date ?? prev.plannedEndDate,
+          actualStartDate: r.actualStartDate ?? r.actual_start_date ?? prev.actualStartDate,
+          actualEndDate: r.actualEndDate ?? r.actual_end_date ?? prev.actualEndDate,
+          plannedDuration: r.plannedDuration ?? r.planned_duration ?? prev.plannedDuration,
+          actualDuration: r.actualDuration ?? r.actual_duration ?? prev.actualDuration,
+          salesOrderRef: r.salesOrderRef ?? r.sales_order_ref ?? prev.salesOrderRef,
+          customerName: r.customerName ?? r.customer_name ?? prev.customerName,
+          dueDate: r.dueDate ?? r.due_date ?? prev.dueDate,
+          priority: (r.priority ?? prev.priority) as WorkOrder['priority'],
+          workCenter: r.workCenter ?? r.work_center ?? prev.workCenter,
+          shift: r.shift ?? prev.shift,
+          supervisor: r.supervisor ?? prev.supervisor,
+          foreman: r.foreman ?? prev.foreman,
+          bomRef: r.bomRef ?? r.bom_ref ?? prev.bomRef,
+          routingRef: r.routingRef ?? r.routing_ref ?? prev.routingRef,
+          specialInstructions: r.specialInstructions ?? r.special_instructions ?? prev.specialInstructions,
+          materialCost: r.materialCost ?? r.material_cost ?? prev.materialCost,
+          laborCost: r.laborCost ?? r.labor_cost ?? prev.laborCost,
+          overheadCost: r.overheadCost ?? r.overhead_cost ?? prev.overheadCost,
+          totalCost: r.totalCost ?? r.total_cost ?? prev.totalCost,
+        }));
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || 'Failed to load work order');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workOrderId]);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: ClipboardList },
@@ -663,6 +724,16 @@ export default function ViewWorkOrderPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading work order…
+        </div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error} — showing sample data.
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

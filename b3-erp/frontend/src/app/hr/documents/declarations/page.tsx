@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileSignature, Plus, Eye, Edit, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface Declaration {
   id: string;
@@ -19,58 +20,47 @@ interface Declaration {
 export default function DeclarationsPage() {
   const [selectedFY, setSelectedFY] = useState('2025-26');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [mockDeclarations, setMockDeclarations] = useState<Declaration[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockDeclarations: Declaration[] = [
-    {
-      id: 'DEC001',
-      declarationType: 'HRA Declaration',
-      financialYear: '2025-26',
-      submittedOn: '2025-04-15',
-      status: 'approved',
-      amount: 180000,
-      proofStatus: 'verified',
-      approvedBy: 'Rajesh Kumar',
-      approvedOn: '2025-04-18'
-    },
-    {
-      id: 'DEC002',
-      declarationType: '80C Investment Declaration',
-      financialYear: '2025-26',
-      submittedOn: '2025-04-15',
-      status: 'approved',
-      amount: 150000,
-      proofStatus: 'verified',
-      approvedBy: 'Rajesh Kumar',
-      approvedOn: '2025-04-18'
-    },
-    {
-      id: 'DEC003',
-      declarationType: 'Home Loan Interest (24b)',
-      financialYear: '2025-26',
-      submittedOn: '2025-04-20',
-      status: 'submitted',
-      amount: 200000,
-      proofStatus: 'submitted'
-    },
-    {
-      id: 'DEC004',
-      declarationType: 'Medical Insurance Premium (80D)',
-      financialYear: '2025-26',
-      submittedOn: '2025-04-20',
-      status: 'submitted',
-      amount: 25000,
-      proofStatus: 'submitted'
-    },
-    {
-      id: 'DEC005',
-      declarationType: 'NPS Contribution (80CCD)',
-      financialYear: '2025-26',
-      submittedOn: '2025-10-15',
-      status: 'draft',
-      amount: 50000,
-      proofStatus: 'pending'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('declaration');
+        const mapped: Declaration[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            declarationType: row.documentType ?? '',
+            financialYear: meta.financialYear ?? '',
+            submittedOn: row.uploadedOn ?? '',
+            status: (row.status ?? 'draft') as Declaration['status'],
+            amount: Number(meta.amount ?? 0),
+            proofStatus: (meta.proofStatus ?? 'pending') as Declaration['proofStatus'],
+            approvedBy: row.verifiedBy ?? '',
+            approvedOn: row.verifiedOn ?? '',
+            remarks: row.remarks ?? '',
+          };
+        });
+        if (!cancelled) setMockDeclarations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load declarations');
+          setMockDeclarations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredDeclarations = useMemo(() => {
     return mockDeclarations.filter(dec => {
@@ -78,7 +68,7 @@ export default function DeclarationsPage() {
       const matchesStatus = selectedStatus === 'all' || dec.status === selectedStatus;
       return matchesFY && matchesStatus;
     });
-  }, [selectedFY, selectedStatus]);
+  }, [selectedFY, selectedStatus, mockDeclarations]);
 
   const stats = {
     total: mockDeclarations.filter(d => d.financialYear === selectedFY).length,
@@ -115,6 +105,19 @@ export default function DeclarationsPage() {
           New Declaration
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading declarations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

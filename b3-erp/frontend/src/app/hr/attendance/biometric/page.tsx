@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Fingerprint, Plus, Edit, Activity, MapPin, Wifi, WifiOff, RefreshCw, AlertTriangle, CheckCircle, Search, Filter } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import { HrAttendanceService } from '@/services/hr-payroll.service';
 
 interface BiometricDevice {
   id: string;
@@ -102,22 +103,57 @@ export default function BiometricDevicesPage() {
     }
   ];
 
+  const [rows, setRows] = useState<BiometricDevice[]>(mockDevices);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrAttendanceService.getBiometric();
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: String(r.id ?? r.details?.id ?? ''),
+            deviceId: r.details?.deviceId ?? r.employeeCode ?? '',
+            name: r.details?.name ?? r.employeeName ?? '',
+            model: r.details?.model ?? '',
+            location: r.details?.location ?? r.department ?? '',
+            ipAddress: r.details?.ipAddress ?? '',
+            port: r.details?.port ?? 4370,
+            status: (r.status ?? r.details?.status ?? 'online') as BiometricDevice['status'],
+            lastSyncTime: r.details?.lastSyncTime ?? r.date ?? '',
+            totalPunchesToday: r.details?.totalPunchesToday ?? 0,
+            enrolledUsers: r.details?.enrolledUsers ?? 0,
+            storageUsed: r.details?.storageUsed ?? 0,
+            batteryBackup: r.details?.batteryBackup ?? false,
+            installedDate: r.details?.installedDate ?? '',
+          } as BiometricDevice));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredData = useMemo(() => {
-    return mockDevices.filter(device => {
+    return rows.filter(device => {
       const matchesSearch = device.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           device.deviceId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           device.location.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = selectedStatus === 'all' || device.status === selectedStatus;
       return matchesSearch && matchesStatus;
     });
-  }, [searchTerm, selectedStatus]);
+  }, [searchTerm, selectedStatus, rows]);
 
   const stats = {
-    total: mockDevices.length,
-    online: mockDevices.filter(d => d.status === 'online').length,
-    offline: mockDevices.filter(d => d.status === 'offline').length,
-    error: mockDevices.filter(d => d.status === 'error').length,
-    totalPunches: mockDevices.reduce((sum, d) => sum + d.totalPunchesToday, 0)
+    total: rows.length,
+    online: rows.filter(d => d.status === 'online').length,
+    offline: rows.filter(d => d.status === 'offline').length,
+    error: rows.filter(d => d.status === 'error').length,
+    totalPunches: rows.reduce((sum, d) => sum + d.totalPunchesToday, 0)
   };
 
   const getStatusIcon = (status: string) => {
@@ -233,6 +269,7 @@ export default function BiometricDevicesPage() {
           Biometric Devices
         </h1>
         <p className="text-gray-600 mt-2">Manage and monitor biometric attendance devices</p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       {/* Stats */}

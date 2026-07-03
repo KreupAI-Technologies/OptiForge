@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { FileText, Search, Download, Save, Users, Target, Calendar, AlertCircle, CheckCircle, Clock, DollarSign } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface ProjectCharter {
   id: string;
@@ -504,23 +505,113 @@ const mockCharterData: ProjectCharter[] = [
   }
 ];
 
+const VALID_CHARTER_CATEGORIES: ProjectCharter['category'][] = ['construction', 'it', 'manufacturing', 'infrastructure', 'r&d'];
+const VALID_CHARTER_STATUSES: ProjectCharter['status'][] = ['draft', 'review', 'approved', 'rejected', 'active'];
+const VALID_CHARTER_PRIORITIES: ProjectCharter['priority'][] = ['critical', 'high', 'medium', 'low'];
+
+type CharterApproval = ProjectCharter['approvals'][number];
+const VALID_APPROVAL_STATUSES: CharterApproval['status'][] = ['pending', 'approved', 'rejected'];
+
 export default function ProjectCharterPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
+  const [rows, setRows] = useState<ProjectCharter[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listCharter();
+        const list = Array.isArray(data) ? data : [];
+        const mapped: ProjectCharter[] = list.map((r: any) => {
+          const rawScope = r.scope && typeof r.scope === 'object' ? r.scope : {};
+          const category = VALID_CHARTER_CATEGORIES.includes(r.category) ? r.category : 'it';
+          const status = VALID_CHARTER_STATUSES.includes(r.status) ? r.status : 'draft';
+          const priority = VALID_CHARTER_PRIORITIES.includes(r.priority) ? r.priority : 'medium';
+          const stakeholders = Array.isArray(r.stakeholders)
+            ? r.stakeholders.map((s: any) => ({
+                name: s?.name ?? '',
+                role: s?.role ?? '',
+                responsibility: s?.responsibility ?? '',
+              }))
+            : [];
+          const approvals = Array.isArray(r.approvals)
+            ? r.approvals.map((a: any) => ({
+                approver: a?.approver ?? '',
+                role: a?.role ?? '',
+                status: VALID_APPROVAL_STATUSES.includes(a?.status) ? a.status : 'pending',
+                date: a?.date ?? undefined,
+                comments: a?.comments ?? undefined,
+              }))
+            : [];
+          return {
+            id: String(r.id ?? ''),
+            projectCode: r.projectCode ?? '',
+            projectName: r.projectName ?? '',
+            charterNumber: r.charterNumber ?? '',
+            version: r.version ?? '',
+            projectManager: r.projectManager ?? '',
+            sponsor: r.sponsor ?? '',
+            client: r.client ?? '',
+            department: r.department ?? '',
+            category,
+            status,
+            priority,
+            objectives: Array.isArray(r.objectives) ? r.objectives.map((x: any) => String(x)) : [],
+            scope: {
+              included: Array.isArray(rawScope.included) ? rawScope.included.map((x: any) => String(x)) : [],
+              excluded: Array.isArray(rawScope.excluded) ? rawScope.excluded.map((x: any) => String(x)) : [],
+            },
+            deliverables: Array.isArray(r.deliverables) ? r.deliverables.map((x: any) => String(x)) : [],
+            stakeholders,
+            budget: Number(r.budget ?? 0),
+            startDate: r.startDate ?? '',
+            endDate: r.endDate ?? '',
+            duration: r.duration ?? '',
+            risks: Array.isArray(r.risks) ? r.risks.map((x: any) => String(x)) : [],
+            assumptions: Array.isArray(r.assumptions) ? r.assumptions.map((x: any) => String(x)) : [],
+            constraints: Array.isArray(r.constraints) ? r.constraints.map((x: any) => String(x)) : [],
+            successCriteria: Array.isArray(r.successCriteria) ? r.successCriteria.map((x: any) => String(x)) : [],
+            approvals,
+            createdBy: r.createdBy ?? '',
+            createdDate: r.createdDate ?? '',
+            lastModified: r.lastModified ?? '',
+            approvedDate: r.approvedDate ?? undefined,
+          };
+        });
+        if (!cancelled) {
+          setRows(mapped);
+          setLoadError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load charters');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Calculate statistics
   const stats = useMemo(() => {
-    const totalCharters = mockCharterData.length;
-    const draftCharters = mockCharterData.filter(c => c.status === 'draft').length;
-    const reviewCharters = mockCharterData.filter(c => c.status === 'review').length;
-    const approvedCharters = mockCharterData.filter(c => c.status === 'approved').length;
-    const activeCharters = mockCharterData.filter(c => c.status === 'active').length;
-    const rejectedCharters = mockCharterData.filter(c => c.status === 'rejected').length;
+    const totalCharters = rows.length;
+    const draftCharters = rows.filter(c => c.status === 'draft').length;
+    const reviewCharters = rows.filter(c => c.status === 'review').length;
+    const approvedCharters = rows.filter(c => c.status === 'approved').length;
+    const activeCharters = rows.filter(c => c.status === 'active').length;
+    const rejectedCharters = rows.filter(c => c.status === 'rejected').length;
 
-    const totalBudget = mockCharterData.reduce((sum, c) => sum + c.budget, 0);
-    const approvedBudget = mockCharterData
+    const totalBudget = rows.reduce((sum, c) => sum + c.budget, 0);
+    const approvedBudget = rows
       .filter(c => ['approved', 'active'].includes(c.status))
       .reduce((sum, c) => sum + c.budget, 0);
 
@@ -534,11 +625,11 @@ export default function ProjectCharterPage() {
       totalBudget,
       approvedBudget
     };
-  }, []);
+  }, [rows]);
 
   // Filter charters
   const filteredCharters = useMemo(() => {
-    return mockCharterData.filter(charter => {
+    return rows.filter(charter => {
       const matchesSearch =
         charter.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         charter.charterNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -551,7 +642,7 @@ export default function ProjectCharterPage() {
 
       return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
     });
-  }, [searchTerm, selectedCategory, selectedStatus, selectedPriority]);
+  }, [rows, searchTerm, selectedCategory, selectedStatus, selectedPriority]);
 
   const getCategoryBadge = (category: string) => {
     const badges = {
@@ -603,6 +694,18 @@ export default function ProjectCharterPage() {
         </h1>
         <p className="text-gray-600 mt-2">Project definition, authorization, and stakeholder alignment documents • FY 2025-26</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading charters…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards - 6 columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">

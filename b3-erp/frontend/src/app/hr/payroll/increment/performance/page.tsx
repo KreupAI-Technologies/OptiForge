@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Award, Search, Calendar, Users, DollarSign, TrendingUp, Star, CheckCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface PerformanceIncrement {
   id: string;
@@ -156,8 +157,53 @@ export default function PerformanceIncrementPage() {
     }
   ];
 
+  const [rows, setRows] = useState<PerformanceIncrement[]>(mockIncrements);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getSalaryRevisions('increment-performance');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.employeeCode ?? r.details?.employeeId ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            designation: r.designation ?? r.details?.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            currentCTC: r.currentSalary ?? r.details?.currentCTC ?? r.details?.currentSalary ?? 0,
+            currentBasic: r.currentBasic ?? r.details?.currentBasic ?? 0,
+            performanceRating: r.performanceRating ?? r.details?.performanceRating ?? 'good',
+            performanceScore: r.performanceScore ?? r.details?.performanceScore ?? 0,
+            incrementPercentage: r.incrementPercent ?? r.incrementPercentage ?? r.details?.incrementPercentage ?? 0,
+            incrementAmount: r.incrementAmount ?? r.details?.incrementAmount ?? 0,
+            revisedCTC: r.revisedSalary ?? r.details?.revisedCTC ?? r.details?.revisedSalary ?? 0,
+            revisedBasic: r.revisedBasic ?? r.details?.revisedBasic ?? 0,
+            effectiveDate: r.effectiveDate ?? r.details?.effectiveDate ?? '',
+            quarter: r.quarter ?? r.details?.quarter ?? '',
+            status: r.status ?? r.details?.status ?? 'draft',
+            approvedBy: r.approvedBy ?? r.details?.approvedBy ?? undefined,
+            approvedDate: r.approvedDate ?? r.details?.approvedDate ?? undefined,
+            implementedDate: r.implementedDate ?? r.details?.implementedDate ?? undefined,
+            remarks: r.remarks ?? r.details?.remarks ?? undefined,
+          } as PerformanceIncrement));
+          setRows(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredIncrements = useMemo(() => {
-    return mockIncrements.filter(inc => {
+    return rows.filter(inc => {
       const matchesSearch =
         inc.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         inc.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -166,7 +212,7 @@ export default function PerformanceIncrementPage() {
       const matchesRating = selectedRating === 'all' || inc.performanceRating === selectedRating;
       return matchesSearch && matchesDepartment && matchesStatus && matchesRating;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus, selectedRating]);
+  }, [rows, searchTerm, selectedDepartment, selectedStatus, selectedRating]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'calculated', 'approved', 'processed', 'implemented'];
@@ -214,6 +260,8 @@ export default function PerformanceIncrementPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Performance Increment</h1>
         <p className="text-sm text-gray-600 mt-1">Quarterly performance-based salary increment</p>
+        {isLoading && <div className="text-sm text-gray-500">Loading...</div>}
+        {loadError && <div className="text-sm text-red-600">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow-sm border border-purple-200 p-3 mb-3">

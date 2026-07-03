@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Clock, Search, Filter, AlertCircle, CheckCircle, XCircle, Calendar, TrendingUp, Users } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface ProbationEmployee {
   id: string;
@@ -32,6 +33,72 @@ export default function ProbationEmployeesPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [probationEmployees, setProbationEmployees] = useState<ProbationEmployee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.employees<any[]>();
+        const onProbation = (raw ?? []).filter((e) => {
+          const s = String(e.status ?? '').toLowerCase();
+          return Boolean(e.probationEndDate) || s.includes('probation');
+        });
+        const mapped: ProbationEmployee[] = onProbation.map((e) => {
+          const fullName = e.fullName || `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim();
+          const endDate = e.probationEndDate ?? '';
+          const daysRemaining = endDate
+            ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : 0;
+          const s = String(e.status ?? '').toLowerCase();
+          const status: ProbationEmployee['status'] = e.confirmationDate
+            ? 'confirmed'
+            : s.includes('review')
+              ? 'review_due'
+              : daysRemaining <= 0 && endDate
+                ? 'review_due'
+                : 'ongoing';
+          return {
+            id: String(e.id ?? ''),
+            employeeCode: e.employeeCode ?? '',
+            name: fullName || (e.employeeCode ?? ''),
+            designation: e.designationId ? String(e.designationId) : '',
+            department: e.departmentId ? String(e.departmentId) : '',
+            joiningDate: e.joiningDate ?? '',
+            probationPeriod: Number(e.probationPeriod ?? 6),
+            probationEndDate: endDate,
+            daysRemaining,
+            reviewScheduled: Boolean(e.reviewScheduled ?? false),
+            reviewDate: e.reviewDate ?? undefined,
+            supervisor: e.reportingManagerId ? String(e.reportingManagerId) : '',
+            performanceScore: Number(e.performanceScore ?? 0),
+            feedback: e.feedback ?? '',
+            recommendation: (e.recommendation as ProbationEmployee['recommendation']) ?? 'pending',
+            attendancePercentage: Number(e.attendancePercentage ?? 0),
+            completedTrainings: Number(e.completedTrainings ?? 0),
+            totalTrainings: Number(e.totalTrainings ?? 0),
+            status,
+          };
+        });
+        if (!cancelled) setProbationEmployees(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load probation employees');
+          setProbationEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockProbationEmployees: ProbationEmployee[] = [
     {
@@ -81,21 +148,21 @@ export default function ProbationEmployeesPage() {
   const departments = ['all', 'Production', 'Human Resources', 'Quality', 'Finance', 'IT', 'Marketing'];
 
   const filteredData = useMemo(() => {
-    return mockProbationEmployees.filter(emp => {
+    return probationEmployees.filter(emp => {
       const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = selectedDepartment === 'all' || emp.department === selectedDepartment;
       const matchesStatus = selectedStatus === 'all' || emp.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [probationEmployees, searchTerm, selectedDepartment, selectedStatus]);
 
   const stats = useMemo(() => {
-    const ongoing = mockProbationEmployees.filter(e => e.status === 'ongoing').length;
-    const reviewDue = mockProbationEmployees.filter(e => e.status === 'review_due').length;
-    const confirmed = mockProbationEmployees.filter(e => e.status === 'confirmed').length;
-    return { total: mockProbationEmployees.length, ongoing, reviewDue, confirmed };
-  }, []);
+    const ongoing = probationEmployees.filter(e => e.status === 'ongoing').length;
+    const reviewDue = probationEmployees.filter(e => e.status === 'review_due').length;
+    const confirmed = probationEmployees.filter(e => e.status === 'confirmed').length;
+    return { total: probationEmployees.length, ongoing, reviewDue, confirmed };
+  }, [probationEmployees]);
 
   const columns = [
     {
@@ -158,6 +225,18 @@ export default function ProbationEmployeesPage() {
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2"><Clock className="h-8 w-8 text-orange-600" />Employees on Probation</h1>
         <p className="text-gray-600 mt-2">Track and manage probation period employees</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading probation employees…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <div className="bg-white border-2 border-orange-200 rounded-lg p-3">

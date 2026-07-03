@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { FileText, Users, BookOpen, Award, TrendingUp, Clock, Calendar, BarChart3, IndianRupee } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Users, BookOpen, Award, TrendingUp, Clock, Calendar, BarChart3, IndianRupee, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface DepartmentTraining {
   department: string;
@@ -16,35 +17,102 @@ interface DepartmentTraining {
   budgetTotal: number;
 }
 
+interface TopTraining {
+  program: string;
+  enrollments: number;
+  completions: number;
+  completionRate: number;
+}
+
 export default function TrainingSummaryPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('2024-q3');
+  const [mockDepartmentData, setMockDepartmentData] = useState<DepartmentTraining[]>([]);
+  const [topTrainings, setTopTrainings] = useState<TopTraining[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockDepartmentData: DepartmentTraining[] = [
-    {
-      department: 'Manufacturing', employees: 120, programsCompleted: 145, programsInProgress: 38,
-      totalHours: 2340, certifications: 89, avgCompletion: 82, budgetSpent: 1850000, budgetTotal: 2500000
-    },
-    {
-      department: 'Quality Assurance', employees: 25, programsCompleted: 48, programsInProgress: 12,
-      totalHours: 780, certifications: 32, avgCompletion: 88, budgetSpent: 620000, budgetTotal: 800000
-    },
-    {
-      department: 'Maintenance', employees: 22, programsCompleted: 38, programsInProgress: 8,
-      totalHours: 520, certifications: 24, avgCompletion: 85, budgetSpent: 450000, budgetTotal: 600000
-    },
-    {
-      department: 'Safety & Compliance', employees: 15, programsCompleted: 52, programsInProgress: 5,
-      totalHours: 340, certifications: 28, avgCompletion: 92, budgetSpent: 280000, budgetTotal: 400000
-    },
-    {
-      department: 'Warehouse & Logistics', employees: 35, programsCompleted: 42, programsInProgress: 15,
-      totalHours: 680, certifications: 18, avgCompletion: 78, budgetSpent: 510000, budgetTotal: 700000
-    },
-    {
-      department: 'Human Resources', employees: 12, programsCompleted: 28, programsInProgress: 6,
-      totalHours: 420, certifications: 15, avgCompletion: 90, budgetSpent: 340000, budgetTotal: 450000
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingPrograms()) as any[];
+        const programs = Array.isArray(raw) ? raw : [];
+
+        // Aggregate programs into per-department summary rows.
+        const byDept = new Map<string, DepartmentTraining>();
+        for (const p of programs) {
+          const dept = p.department || 'Unassigned';
+          let row = byDept.get(dept);
+          if (!row) {
+            row = {
+              department: dept,
+              employees: 0,
+              programsCompleted: 0,
+              programsInProgress: 0,
+              totalHours: 0,
+              certifications: 0,
+              avgCompletion: 0,
+              budgetSpent: 0,
+              budgetTotal: 0,
+            };
+            byDept.set(dept, row);
+          }
+          const enrolled = Number(p.enrolled ?? 0);
+          const capacity = Number(p.capacity ?? 0);
+          const duration = Number(p.duration ?? 0);
+          const cost = Number(p.cost ?? 0);
+          const status = String(p.status ?? '').toLowerCase();
+          row.employees += enrolled;
+          if (status === 'completed') row.programsCompleted += 1;
+          else if (status === 'ongoing' || status === 'in_progress' || status === 'active') row.programsInProgress += 1;
+          row.totalHours += duration * enrolled;
+          if (p.certification) row.certifications += enrolled;
+          row.budgetTotal += cost * capacity;
+          row.budgetSpent += cost * enrolled;
+        }
+        const deptRows = Array.from(byDept.values()).map((r) => ({
+          ...r,
+          avgCompletion: r.employees > 0
+            ? Math.round((r.certifications / r.employees) * 100)
+            : 0,
+        }));
+
+        // Top programs by enrollment.
+        const top: TopTraining[] = programs
+          .map((p) => {
+            const enrollments = Number(p.enrolled ?? 0);
+            const completions = String(p.status ?? '').toLowerCase() === 'completed' ? enrollments : 0;
+            return {
+              program: p.title ?? p.code ?? '',
+              enrollments,
+              completions,
+              completionRate: enrollments > 0 ? Math.round((completions / enrollments) * 100) : 0,
+            };
+          })
+          .sort((a, b) => b.enrollments - a.enrollments)
+          .slice(0, 5);
+
+        if (!cancelled) {
+          setMockDepartmentData(deptRows);
+          setTopTrainings(top);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load training summary');
+          setMockDepartmentData([]);
+          setTopTrainings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const overallStats = {
     totalEmployees: mockDepartmentData.reduce((sum, d) => sum + d.employees, 0),
@@ -52,18 +120,22 @@ export default function TrainingSummaryPage() {
     totalProgramsInProgress: mockDepartmentData.reduce((sum, d) => sum + d.programsInProgress, 0),
     totalHours: mockDepartmentData.reduce((sum, d) => sum + d.totalHours, 0),
     totalCertifications: mockDepartmentData.reduce((sum, d) => sum + d.certifications, 0),
-    avgCompletion: Math.round(mockDepartmentData.reduce((sum, d) => sum + d.avgCompletion, 0) / mockDepartmentData.length),
+    avgCompletion: mockDepartmentData.length > 0
+      ? Math.round(mockDepartmentData.reduce((sum, d) => sum + d.avgCompletion, 0) / mockDepartmentData.length)
+      : 0,
     totalBudgetSpent: mockDepartmentData.reduce((sum, d) => sum + d.budgetSpent, 0),
     totalBudget: mockDepartmentData.reduce((sum, d) => sum + d.budgetTotal, 0)
   };
 
-  const topTrainings = [
-    { program: 'Workplace Safety & OSHA Compliance', enrollments: 156, completions: 142, completionRate: 91 },
-    { program: 'Quality Control Fundamentals', enrollments: 124, completions: 112, completionRate: 90 },
-    { program: 'Lean Manufacturing Fundamentals', enrollments: 98, completions: 86, completionRate: 88 },
-    { program: 'CNC Programming Advanced', enrollments: 89, completions: 72, completionRate: 81 },
-    { program: 'Leadership for Supervisors', enrollments: 78, completions: 65, completionRate: 83 }
-  ];
+  const avgHoursPerEmployee = overallStats.totalEmployees > 0
+    ? Math.round(overallStats.totalHours / overallStats.totalEmployees)
+    : 0;
+  const budgetUtilPct = overallStats.totalBudget > 0
+    ? Math.round((overallStats.totalBudgetSpent / overallStats.totalBudget) * 100)
+    : 0;
+  const costPerEmployee = overallStats.totalEmployees > 0
+    ? Math.round(overallStats.totalBudgetSpent / overallStats.totalEmployees)
+    : 0;
 
   const columns = [
     { key: 'department', label: 'Department', sortable: true,
@@ -116,6 +188,19 @@ export default function TrainingSummaryPage() {
         </h1>
         <p className="text-gray-600 mt-2">Comprehensive overview of organizational training activities</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading training summary…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Period Selector */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -210,7 +295,7 @@ export default function TrainingSummaryPage() {
             <div>
               <p className="text-sm text-gray-600">Avg Hours/Employee</p>
               <p className="text-2xl font-bold text-teal-600">
-                {Math.round(overallStats.totalHours / overallStats.totalEmployees)}h
+                {avgHoursPerEmployee}h
               </p>
             </div>
             <Calendar className="h-10 w-10 text-teal-400" />
@@ -279,11 +364,11 @@ export default function TrainingSummaryPage() {
               <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-500 h-2 rounded-full"
-                  style={{ width: `${(overallStats.totalBudgetSpent / overallStats.totalBudget) * 100}%` }}
+                  style={{ width: `${budgetUtilPct}%` }}
                 />
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                {Math.round((overallStats.totalBudgetSpent / overallStats.totalBudget) * 100)}% utilized
+                {budgetUtilPct}% utilized
               </p>
             </div>
             <div className="p-4 bg-orange-50 rounded-lg">
@@ -295,7 +380,7 @@ export default function TrainingSummaryPage() {
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-gray-600 mb-1">Cost per Employee</p>
               <p className="text-2xl font-bold text-blue-900">
-                ₹{Math.round(overallStats.totalBudgetSpent / overallStats.totalEmployees).toLocaleString('en-IN')}
+                ₹{costPerEmployee.toLocaleString('en-IN')}
               </p>
             </div>
           </div>
@@ -312,7 +397,7 @@ export default function TrainingSummaryPage() {
               <li>• Safety & Compliance dept has highest completion rate (92%)</li>
               <li>• Overall average completion rate is strong at {overallStats.avgCompletion}%</li>
               <li>• {overallStats.totalCertifications} certifications earned this quarter</li>
-              <li>• Budget utilization is on track at {Math.round((overallStats.totalBudgetSpent / overallStats.totalBudget) * 100)}%</li>
+              <li>• Budget utilization is on track at {budgetUtilPct}%</li>
             </ul>
           </div>
           <div className="bg-white rounded-lg p-3 border border-orange-200">

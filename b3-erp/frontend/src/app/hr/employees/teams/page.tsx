@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, Plus, UserPlus, Search, Filter, TrendingUp, TrendingDown, Target, Award, Mail, Phone, LayoutGrid, List } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
 import { CreateTeamModal } from '@/components/hr/CreateTeamModal';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface TeamMember {
   id: string;
@@ -44,6 +45,81 @@ export default function TeamsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const perfValues: TeamMember['performance'][] = ['excellent', 'good', 'average', 'needs_improvement'];
+    const statusValues: Team['status'][] = ['active', 'inactive', 'on_hold'];
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.teams<any[]>();
+        const mapped: Team[] = (raw ?? []).map((t) => {
+          const rawMembers: any[] = Array.isArray(t.members) ? t.members : [];
+          const members: TeamMember[] = rawMembers.map((m, idx) => {
+            const perf = String(m?.performance ?? '').toLowerCase();
+            const mName = m?.name ?? '';
+            return {
+              id: String(m?.id ?? `${t.id ?? 'T'}-M${idx}`),
+              name: mName,
+              designation: m?.designation ?? '',
+              joiningDate: m?.joiningDate ?? '',
+              performance: (perfValues.includes(perf as TeamMember['performance'])
+                ? (perf as TeamMember['performance'])
+                : 'good'),
+              avatar: m?.avatar
+                ?? String(mName)
+                  .split(' ')
+                  .map((n: string) => n[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase(),
+            };
+          });
+          const st = String(t.status ?? '').toLowerCase();
+          return {
+            id: String(t.id ?? ''),
+            name: t.name ?? '',
+            code: t.code ?? '',
+            department: t.department ?? '',
+            teamLead: t.teamLead ?? '',
+            teamLeadId: t.teamLeadId ? String(t.teamLeadId) : '',
+            teamLeadEmail: t.teamLeadEmail ?? '',
+            teamLeadPhone: t.teamLeadPhone ?? '',
+            memberCount: Number(t.memberCount ?? members.length),
+            activeProjects: Number(t.activeProjects ?? 0),
+            completedProjects: Number(t.completedProjects ?? 0),
+            avgPerformance: Number(t.avgPerformance ?? 0),
+            budgetUtilization: Number(t.budgetUtilization ?? 0),
+            establishedDate: t.establishedDate ?? '',
+            location: t.location ?? '',
+            shift: t.shift ?? '',
+            status: (statusValues.includes(st as Team['status'])
+              ? (st as Team['status'])
+              : 'active'),
+            members,
+          };
+        });
+        if (!cancelled) setTeams(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load teams');
+          setTeams([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data for teams
   const mockTeams: Team[] = [
@@ -271,7 +347,7 @@ export default function TeamsPage() {
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'Research', 'Safety', 'IT', 'Customer Service'];
 
   const filteredData = useMemo(() => {
-    return mockTeams.filter(team => {
+    return teams.filter(team => {
       const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           team.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           team.teamLead.toLowerCase().includes(searchTerm.toLowerCase());
@@ -279,19 +355,21 @@ export default function TeamsPage() {
       const matchesStatus = selectedStatus === 'all' || team.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [teams, searchTerm, selectedDepartment, selectedStatus]);
 
   const stats = useMemo(() => {
-    const totalMembers = mockTeams.reduce((sum, t) => sum + t.memberCount, 0);
-    const totalProjects = mockTeams.reduce((sum, t) => sum + t.activeProjects, 0);
-    const avgPerformance = mockTeams.reduce((sum, t) => sum + t.avgPerformance, 0) / mockTeams.length;
+    const totalMembers = teams.reduce((sum, t) => sum + t.memberCount, 0);
+    const totalProjects = teams.reduce((sum, t) => sum + t.activeProjects, 0);
+    const avgPerformance = teams.length
+      ? teams.reduce((sum, t) => sum + t.avgPerformance, 0) / teams.length
+      : 0;
     return {
-      totalTeams: mockTeams.length,
+      totalTeams: teams.length,
       totalMembers,
       activeProjects: totalProjects,
       avgPerformance: Math.round(avgPerformance)
     };
-  }, []);
+  }, [teams]);
 
   const activeFilterCount = [selectedDepartment !== 'all', selectedStatus !== 'all'].filter(Boolean).length;
 
@@ -412,6 +490,18 @@ export default function TeamsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Manage team structure, members, and performance</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading teams…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

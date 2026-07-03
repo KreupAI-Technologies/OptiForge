@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BookOpen, Calendar, IndianRupee, Tag } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetRegister {
   assetTag: string;
@@ -22,125 +23,47 @@ interface AssetRegister {
 export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [mockData, setMockData] = useState<AssetRegister[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockData: AssetRegister[] = [
-    {
-      assetTag: 'LAP-2024-001',
-      assetName: 'Dell Latitude 5420',
-      category: 'Laptop',
-      brand: 'Dell',
-      serialNumber: 'DL5420-2024-001',
-      purchaseDate: '2024-01-15',
-      purchaseCost: 65000,
-      assignedTo: 'Rajesh Kumar (EMP345)',
-      department: 'Sales',
-      location: 'Mumbai Office',
-      warranty: '2027-01-15',
-      status: 'active',
-      condition: 'excellent'
-    },
-    {
-      assetTag: 'DESK-2024-002',
-      assetName: 'HP Elite 800 G8',
-      category: 'Desktop',
-      brand: 'HP',
-      serialNumber: 'HP800-2024-002',
-      purchaseDate: '2024-02-10',
-      purchaseCost: 55000,
-      assignedTo: 'IT Team',
-      department: 'IT',
-      location: 'Hyderabad Office',
-      warranty: '2027-02-10',
-      status: 'active',
-      condition: 'excellent'
-    },
-    {
-      assetTag: 'MOB-2024-001',
-      assetName: 'Samsung Galaxy S21',
-      category: 'Mobile',
-      brand: 'Samsung',
-      serialNumber: 'SGS21-2024-001',
-      purchaseDate: '2024-01-20',
-      purchaseCost: 45000,
-      assignedTo: 'Arjun Kapoor (EMP890)',
-      department: 'Sales',
-      location: 'Delhi Office',
-      warranty: '2025-01-20',
-      status: 'active',
-      condition: 'good'
-    },
-    {
-      assetTag: 'MON-2024-015',
-      assetName: 'Dell P2422H 24"',
-      category: 'Monitor',
-      brand: 'Dell',
-      serialNumber: 'DLP24-2024-015',
-      purchaseDate: '2024-03-05',
-      purchaseCost: 18000,
-      assignedTo: 'Priya Sharma (EMP412)',
-      department: 'Marketing',
-      location: 'Delhi Office',
-      warranty: '2027-03-05',
-      status: 'active',
-      condition: 'excellent'
-    },
-    {
-      assetTag: 'PRN-2023-045',
-      assetName: 'Canon imageRUNNER 2525i',
-      category: 'Printer',
-      brand: 'Canon',
-      serialNumber: 'CIR2525-2023-045',
-      purchaseDate: '2023-06-15',
-      purchaseCost: 125000,
-      department: 'Operations',
-      location: 'Bangalore Office',
-      warranty: '2026-06-15',
-      status: 'maintenance',
-      condition: 'fair'
-    },
-    {
-      assetTag: 'FUR-DESK-001',
-      assetName: 'Executive Desk',
-      category: 'Furniture',
-      brand: 'Godrej Interio',
-      serialNumber: 'GI-DESK-001',
-      purchaseDate: '2024-01-20',
-      purchaseCost: 35000,
-      assignedTo: 'Rajesh Kumar (EMP345)',
-      department: 'Sales',
-      location: 'Mumbai Office - 3rd Floor',
-      warranty: 'N/A',
-      status: 'active',
-      condition: 'excellent'
-    },
-    {
-      assetTag: 'SRV-2023-012',
-      assetName: 'Lenovo ThinkSystem SR650',
-      category: 'Server',
-      brand: 'Lenovo',
-      serialNumber: 'LSR650-2023-012',
-      purchaseDate: '2023-01-15',
-      purchaseCost: 450000,
-      department: 'IT',
-      location: 'Mumbai Data Center',
-      warranty: '2028-01-15',
-      status: 'active',
-      condition: 'good'
-    },
-    {
-      assetTag: 'LAP-2020-089',
-      assetName: 'Dell Latitude 7400',
-      category: 'Laptop',
-      brand: 'Dell',
-      serialNumber: 'DL7400-2020-089',
-      purchaseDate: '2020-05-10',
-      purchaseCost: 85000,
-      location: 'Storage - Mumbai',
-      warranty: '2023-05-10',
-      status: 'retired',
-      condition: 'poor'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getReportRegister();
+        const mapped: AssetRegister[] = rows.map((r) => ({
+          assetTag: r.assetTag,
+          assetName: r.assetName,
+          category: r.category,
+          brand: r.brand,
+          serialNumber: r.serialNumber,
+          purchaseDate: r.purchaseDate,
+          purchaseCost: Number(r.purchaseCost),
+          assignedTo: r.assignedTo,
+          department: r.department,
+          location: r.location,
+          warranty: r.warranty,
+          status: r.status as AssetRegister['status'],
+          condition: r.condition as AssetRegister['condition'],
+        }));
+        if (!cancelled) setMockData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load asset register');
+          setMockData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = mockData.filter(asset => {
     if (selectedCategory !== 'all' && asset.category !== selectedCategory) return false;
@@ -175,6 +98,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Register</h1>
         <p className="text-sm text-gray-600 mt-1">Complete asset register with all details</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading asset register…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

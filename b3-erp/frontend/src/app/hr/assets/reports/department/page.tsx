@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Building, Laptop, Monitor, Smartphone } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface DepartmentAssets {
   department: string;
@@ -17,75 +18,43 @@ interface DepartmentAssets {
 
 export default function Page() {
   const [sortBy, setSortBy] = useState('department');
+  const [mockData, setMockData] = useState<DepartmentAssets[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockData: DepartmentAssets[] = [
-    {
-      department: 'Sales',
-      employees: 45,
-      laptops: 42,
-      desktops: 5,
-      mobiles: 45,
-      monitors: 47,
-      furniture: 90,
-      totalValue: 4850000,
-      assetsPerEmployee: 5.1
-    },
-    {
-      department: 'IT',
-      employees: 28,
-      laptops: 28,
-      desktops: 15,
-      mobiles: 28,
-      monitors: 56,
-      furniture: 56,
-      totalValue: 5200000,
-      assetsPerEmployee: 6.5
-    },
-    {
-      department: 'HR',
-      employees: 12,
-      laptops: 12,
-      desktops: 2,
-      mobiles: 12,
-      monitors: 14,
-      furniture: 24,
-      totalValue: 1450000,
-      assetsPerEmployee: 5.3
-    },
-    {
-      department: 'Marketing',
-      employees: 18,
-      laptops: 18,
-      desktops: 3,
-      mobiles: 18,
-      monitors: 21,
-      furniture: 36,
-      totalValue: 2150000,
-      assetsPerEmployee: 5.3
-    },
-    {
-      department: 'Finance',
-      employees: 15,
-      laptops: 15,
-      desktops: 8,
-      mobiles: 15,
-      monitors: 23,
-      furniture: 30,
-      totalValue: 1980000,
-      assetsPerEmployee: 6.1
-    },
-    {
-      department: 'Operations',
-      employees: 35,
-      laptops: 30,
-      desktops: 12,
-      mobiles: 35,
-      monitors: 42,
-      furniture: 70,
-      totalValue: 3650000,
-      assetsPerEmployee: 5.4
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getReportDepartment();
+        const mapped: DepartmentAssets[] = rows.map((r) => ({
+          department: r.department,
+          employees: Number(r.employees),
+          laptops: Number(r.laptops),
+          desktops: Number(r.desktops),
+          mobiles: Number(r.mobiles),
+          monitors: Number(r.monitors),
+          furniture: Number(r.furniture),
+          totalValue: Number(r.totalValue),
+          assetsPerEmployee: Number(r.assetsPerEmployee),
+        }));
+        if (!cancelled) setMockData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department assets report');
+          setMockData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const totals = mockData.reduce((acc, dept) => ({
@@ -111,6 +80,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Department-wise Assets Report</h1>
         <p className="text-sm text-gray-600 mt-1">Asset distribution across departments</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading department assets report…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

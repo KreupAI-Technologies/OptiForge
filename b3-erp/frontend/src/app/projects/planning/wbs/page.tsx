@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Network, Search, Filter, Expand, PlusCircle, ChevronRight, ChevronDown, CheckCircle2, Download, Users, DollarSign, Calendar, Minimize2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Network, Search, Filter, Expand, PlusCircle, ChevronRight, ChevronDown, CheckCircle2, Download, Users, DollarSign, Calendar, Minimize2, AlertCircle } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface WbsNode {
   id: string;
@@ -402,8 +403,14 @@ const mockWbsData: WbsNode[] = [
   }
 ];
 
+const VALID_WBS_TYPES: WbsNode['type'][] = ['project', 'phase', 'deliverable', 'work-package', 'activity'];
+const VALID_WBS_STATUSES: WbsNode['status'][] = ['not-started', 'in-progress', 'completed', 'on-hold', 'delayed'];
+
 export default function WorkBreakdownStructurePage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [rows, setRows] = useState<WbsNode[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     '1': true,
     '1.1': false,
@@ -416,6 +423,74 @@ export default function WorkBreakdownStructurePage() {
     '2.2': false,
     '2.3': true
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listWbs();
+        const list = Array.isArray(data) ? data : [];
+        const nodes: WbsNode[] = list.map((r: any) => {
+          const type = VALID_WBS_TYPES.includes(r.type) ? r.type : 'work-package';
+          const status = VALID_WBS_STATUSES.includes(r.status) ? r.status : 'not-started';
+          const node: WbsNode = {
+            id: String(r.id ?? ''),
+            wbsCode: r.code ?? '',
+            name: r.name ?? '',
+            description: r.description ?? '',
+            projectCode: r.projectCode ?? '',
+            projectName: r.projectName ?? '',
+            type,
+            owner: r.assignedTo ?? '',
+            startDate: r.startDate ?? '',
+            endDate: r.endDate ?? '',
+            progress: Number(r.progress ?? 0),
+            budgetAllocated: Number(r.budget ?? 0),
+            budgetSpent: Number(r.actualCost ?? 0),
+            effortPlanned: Number(r.estimatedHours ?? 0),
+            effortActual: Number(r.actualHours ?? 0),
+            status,
+            children: []
+          };
+          return node;
+        });
+
+        // Build a tree from the flat list using parentId.
+        const byId = new Map<string, WbsNode>();
+        nodes.forEach((n) => byId.set(n.id, n));
+        const roots: WbsNode[] = [];
+        list.forEach((r: any, idx: number) => {
+          const node = nodes[idx];
+          const parentId = r.parentId != null ? String(r.parentId) : null;
+          const parent = parentId ? byId.get(parentId) : undefined;
+          if (parent) {
+            parent.children!.push(node);
+          } else {
+            roots.push(node);
+          }
+        });
+        // Drop empty children arrays so hasChildren checks behave.
+        nodes.forEach((n) => {
+          if (n.children && n.children.length === 0) delete n.children;
+        });
+
+        if (!cancelled) {
+          setRows(roots);
+          setLoadError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load WBS');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -439,13 +514,13 @@ export default function WorkBreakdownStructurePage() {
       }, depth);
     };
 
-    const totalWorkPackages = countNodes(mockWbsData);
-    const completedPackages = countByStatus(mockWbsData, 'completed');
-    const inProgressPackages = countByStatus(mockWbsData, 'in-progress');
-    const notStartedPackages = countByStatus(mockWbsData, 'not-started');
-    const wbsLevels = maxDepth(mockWbsData);
+    const totalWorkPackages = countNodes(rows);
+    const completedPackages = countByStatus(rows, 'completed');
+    const inProgressPackages = countByStatus(rows, 'in-progress');
+    const notStartedPackages = countByStatus(rows, 'not-started');
+    const wbsLevels = rows.length > 0 ? maxDepth(rows) : 0;
 
-    const totalBudget = mockWbsData.reduce((sum, p) => sum + p.budgetAllocated, 0);
+    const totalBudget = rows.reduce((sum, p) => sum + p.budgetAllocated, 0);
 
     return {
       totalWorkPackages,
@@ -455,7 +530,7 @@ export default function WorkBreakdownStructurePage() {
       wbsLevels,
       totalBudget
     };
-  }, []);
+  }, [rows]);
 
   const expandAll = () => {
     const allExpanded: Record<string, boolean> = {};
@@ -465,7 +540,7 @@ export default function WorkBreakdownStructurePage() {
         if (node.children) expand(node.children);
       });
     };
-    expand(mockWbsData);
+    expand(rows);
     setExpanded(allExpanded);
   };
 
@@ -482,6 +557,18 @@ export default function WorkBreakdownStructurePage() {
         </h1>
         <p className="text-gray-600 mt-2">Hierarchical decomposition of project deliverables and work packages</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading WBS…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -588,7 +675,7 @@ export default function WorkBreakdownStructurePage() {
         </div>
 
         <div className="p-4">
-          <WbsTree nodes={mockWbsData} expanded={expanded} setExpanded={setExpanded} searchTerm={searchTerm} />
+          <WbsTree nodes={rows} expanded={expanded} setExpanded={setExpanded} searchTerm={searchTerm} />
         </div>
       </div>
 

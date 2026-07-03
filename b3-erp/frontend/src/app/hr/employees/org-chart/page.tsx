@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Network, ZoomIn, ZoomOut, Download, Maximize2, ChevronDown, ChevronRight, Users, Mail, Phone, Building } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface OrgNode {
   id: string;
@@ -313,8 +314,104 @@ function OrgTree({ node, level = 0 }: { node: OrgNode; level?: number }) {
   );
 }
 
+const emptyOrgNode: OrgNode = {
+  id: '',
+  name: 'No Data',
+  designation: '',
+  department: '',
+  email: '',
+  phone: '',
+  level: 0,
+  directReports: 0,
+};
+
 export default function OrgChartPage() {
   const [zoom, setZoom] = useState(100);
+  const [orgData, setOrgData] = useState<OrgNode>(emptyOrgNode);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.employees<any[]>();
+        const list = raw ?? [];
+        // Build a lookup of OrgNode by id and track children.
+        const nodeMap = new Map<string, OrgNode>();
+        list.forEach((e) => {
+          const id = String(e.id ?? '');
+          const fullName = e.fullName || `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim();
+          nodeMap.set(id, {
+            id,
+            name: fullName || (e.employeeCode ?? id),
+            designation: e.designationId ? String(e.designationId) : '',
+            department: e.departmentId ? String(e.departmentId) : '',
+            email: e.companyEmail ?? e.personalEmail ?? '',
+            phone: e.mobileNumber ?? '',
+            level: 0,
+            directReports: 0,
+            children: [],
+          });
+        });
+        const roots: OrgNode[] = [];
+        list.forEach((e) => {
+          const id = String(e.id ?? '');
+          const node = nodeMap.get(id);
+          if (!node) return;
+          const managerId = e.reportingManagerId ? String(e.reportingManagerId) : null;
+          const manager = managerId ? nodeMap.get(managerId) : undefined;
+          if (manager) {
+            manager.children = manager.children ?? [];
+            manager.children.push(node);
+          } else {
+            roots.push(node);
+          }
+        });
+        // Assign levels + directReports counts by walking from roots.
+        const assign = (node: OrgNode, level: number) => {
+          node.level = level;
+          node.directReports = node.children?.length ?? 0;
+          node.children?.forEach((c) => assign(c, level + 1));
+        };
+        let root: OrgNode;
+        if (roots.length === 0) {
+          root = emptyOrgNode;
+        } else if (roots.length === 1) {
+          root = roots[0];
+          assign(root, 0);
+        } else {
+          // Multiple roots: wrap them under a synthetic organisation root.
+          root = {
+            id: 'org-root',
+            name: 'Organization',
+            designation: '',
+            department: '',
+            email: '',
+            phone: '',
+            level: 0,
+            directReports: roots.length,
+            children: roots,
+          };
+          roots.forEach((r) => assign(r, 1));
+        }
+        if (!cancelled) setOrgData(root);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load organization chart');
+          setOrgData(emptyOrgNode);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 10, 150));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 10, 50));
@@ -340,10 +437,10 @@ export default function OrgChartPage() {
   };
 
   const stats = {
-    total: totalEmployees(mockOrgData),
-    executive: countByLevel(mockOrgData, 0) + countByLevel(mockOrgData, 1),
-    management: countByLevel(mockOrgData, 2),
-    supervisory: countByLevel(mockOrgData, 3),
+    total: totalEmployees(orgData),
+    executive: countByLevel(orgData, 0) + countByLevel(orgData, 1),
+    management: countByLevel(orgData, 2),
+    supervisory: countByLevel(orgData, 3),
     levels: 4
   };
 
@@ -358,6 +455,18 @@ export default function OrgChartPage() {
           <p className="text-gray-600 mt-1">Visual hierarchy of company structure</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading organization chart…
+        </div>
+      )}
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
         <div className="bg-white rounded-lg border p-3">
@@ -420,7 +529,7 @@ export default function OrgChartPage() {
             transition: 'transform 0.2s'
           }}
         >
-          <OrgTree node={mockOrgData} />
+          <OrgTree key={orgData.id} node={orgData} />
         </div>
       </div>
 

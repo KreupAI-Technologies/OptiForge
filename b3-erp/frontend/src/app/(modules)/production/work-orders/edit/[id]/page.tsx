@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Save,
@@ -310,6 +311,55 @@ export default function EditWorkOrderPage() {
   });
 
   const [selectedSecondaryWC, setSelectedSecondaryWC] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    ProductionOrphanService.getWorkOrder(workOrderId)
+      .then((data) => {
+        if (cancelled) return;
+        const r = data || {};
+        setFormData((prev) => ({
+          ...prev,
+          woNumber: r.woNumber ?? r.wo_number ?? r.orderNumber ?? r.order_number ?? prev.woNumber,
+          productCode: r.productCode ?? r.product_code ?? prev.productCode,
+          productName: r.productName ?? r.product_name ?? prev.productName,
+          productDescription: r.productDescription ?? r.product_description ?? prev.productDescription,
+          drawingNumber: r.drawingNumber ?? r.drawing_number ?? prev.drawingNumber,
+          revision: r.revision ?? prev.revision,
+          quantity: r.quantity != null ? String(r.quantity) : (r.plannedQty ?? r.planned_qty) != null ? String(r.plannedQty ?? r.planned_qty) : prev.quantity,
+          uom: r.uom ?? prev.uom,
+          salesOrderRef: r.salesOrderRef ?? r.sales_order_ref ?? prev.salesOrderRef,
+          customerName: r.customerName ?? r.customer_name ?? prev.customerName,
+          dueDate: r.dueDate ?? r.due_date ?? prev.dueDate,
+          priority: (r.priority ?? prev.priority) as WorkOrderFormData['priority'],
+          plannedStartDate: r.plannedStartDate ?? r.planned_start_date ?? prev.plannedStartDate,
+          plannedEndDate: r.plannedEndDate ?? r.planned_end_date ?? prev.plannedEndDate,
+          workCenter: r.workCenter ?? r.work_center ?? prev.workCenter,
+          shift: r.shift ?? prev.shift,
+          supervisor: r.supervisor ?? prev.supervisor,
+          foreman: r.foreman ?? prev.foreman,
+          bomRef: r.bomRef ?? r.bom_ref ?? prev.bomRef,
+          routingRef: r.routingRef ?? r.routing_ref ?? prev.routingRef,
+          specialInstructions: r.specialInstructions ?? r.special_instructions ?? prev.specialInstructions,
+          estimatedMaterialCost: (r.materialCost ?? r.material_cost ?? r.estimatedMaterialCost ?? r.estimated_material_cost) != null ? String(r.materialCost ?? r.material_cost ?? r.estimatedMaterialCost ?? r.estimated_material_cost) : prev.estimatedMaterialCost,
+          estimatedLaborCost: (r.laborCost ?? r.labor_cost ?? r.estimatedLaborCost ?? r.estimated_labor_cost) != null ? String(r.laborCost ?? r.labor_cost ?? r.estimatedLaborCost ?? r.estimated_labor_cost) : prev.estimatedLaborCost,
+          estimatedOverheadCost: (r.overheadCost ?? r.overhead_cost ?? r.estimatedOverheadCost ?? r.estimated_overhead_cost) != null ? String(r.overheadCost ?? r.overhead_cost ?? r.estimatedOverheadCost ?? r.estimated_overhead_cost) : prev.estimatedOverheadCost,
+        }));
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || 'Failed to load work order');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workOrderId]);
 
   const updateFormData = (field: keyof WorkOrderFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -459,6 +509,16 @@ export default function EditWorkOrderPage() {
     <div className="w-full h-screen flex flex-col bg-gray-50">
       <div className="flex-1 overflow-y-auto">
         <div className="px-3 py-2">
+          {loading && (
+            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+              Loading work order…
+            </div>
+          )}
+          {error && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+              {error} — showing sample data.
+            </div>
+          )}
           {/* Header */}
           <div className="mb-3">
             <button

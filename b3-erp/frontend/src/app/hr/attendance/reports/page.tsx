@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Download, Filter, Calendar, Users, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
+import { HrAttendanceService } from '@/services/hr-payroll.service';
 
 interface DepartmentReport {
   department: string;
@@ -93,12 +94,41 @@ export default function AttendanceReportsPage() {
     }
   ];
 
+  const [rows, setRows] = useState<DepartmentReport[]>(mockDepartmentReports);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrAttendanceService.getReports();
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            department: r.department ?? r.details?.department ?? '',
+            totalEmployees: r.details?.totalEmployees ?? 0,
+            presentDays: r.presentDays ?? r.details?.presentDays ?? 0,
+            absentDays: r.absentDays ?? r.details?.absentDays ?? 0,
+            leaveDays: r.details?.leaveDays ?? 0,
+            lateMarks: r.details?.lateMarks ?? 0,
+            attendanceRate: r.details?.attendanceRate ?? 0,
+            punctualityRate: r.details?.punctualityRate ?? 0,
+          } as DepartmentReport));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const overallStats = {
-    totalEmployees: mockDepartmentReports.reduce((sum, dept) => sum + dept.totalEmployees, 0),
-    avgAttendanceRate: mockDepartmentReports.reduce((sum, dept) => sum + dept.attendanceRate, 0) / mockDepartmentReports.length,
-    avgPunctualityRate: mockDepartmentReports.reduce((sum, dept) => sum + dept.punctualityRate, 0) / mockDepartmentReports.length,
-    totalLateMarks: mockDepartmentReports.reduce((sum, dept) => sum + dept.lateMarks, 0),
-    totalAbsences: mockDepartmentReports.reduce((sum, dept) => sum + dept.absentDays, 0)
+    totalEmployees: rows.reduce((sum, dept) => sum + dept.totalEmployees, 0),
+    avgAttendanceRate: rows.reduce((sum, dept) => sum + dept.attendanceRate, 0) / rows.length,
+    avgPunctualityRate: rows.reduce((sum, dept) => sum + dept.punctualityRate, 0) / rows.length,
+    totalLateMarks: rows.reduce((sum, dept) => sum + dept.lateMarks, 0),
+    totalAbsences: rows.reduce((sum, dept) => sum + dept.absentDays, 0)
   };
 
   const columns: Column<DepartmentReport>[] = [
@@ -178,6 +208,7 @@ export default function AttendanceReportsPage() {
           Attendance Reports & Analytics
         </h1>
         <p className="text-gray-600 mt-2">Comprehensive attendance analytics and insights</p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       {/* Filters */}
@@ -282,7 +313,7 @@ export default function AttendanceReportsPage() {
       {/* Department-wise Report */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">Department-wise Attendance Report</h2>
-        <DataTable data={mockDepartmentReports} columns={columns} />
+        <DataTable data={rows} columns={columns} />
       </div>
 
       {/* Additional Insights */}
@@ -294,7 +325,7 @@ export default function AttendanceReportsPage() {
             Top Performing Departments
           </h3>
           <div className="space-y-3">
-            {mockDepartmentReports
+            {[...rows]
               .sort((a, b) => b.attendanceRate - a.attendanceRate)
               .slice(0, 5)
               .map((dept, idx) => (
@@ -329,7 +360,7 @@ export default function AttendanceReportsPage() {
             Departments Needing Attention
           </h3>
           <div className="space-y-3">
-            {mockDepartmentReports
+            {[...rows]
               .sort((a, b) => b.lateMarks - a.lateMarks)
               .slice(0, 5)
               .map((dept) => (

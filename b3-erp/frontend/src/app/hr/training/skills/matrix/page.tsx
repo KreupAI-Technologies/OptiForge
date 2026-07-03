@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Grid, Users, TrendingUp, AlertCircle, CheckCircle, Target } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface SkillLevel {
   level: number;
@@ -10,20 +11,26 @@ interface SkillLevel {
   description: string;
 }
 
+interface SkillColumn {
+  id: string;
+  name: string;
+  key: string;
+}
+
 interface EmployeeSkill {
   employeeCode: string;
   employeeName: string;
   designation: string;
-  cncProgramming: number;
-  qualityInspection: number;
-  leanManufacturing: number;
-  safetyCompliance: number;
-  maintenance: number;
-  leadership: number;
+  // dynamic per-skill numeric levels keyed by skill id
+  [skillKey: string]: string | number;
 }
 
 export default function SkillsMatrixPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [skills, setSkills] = useState<SkillColumn[]>([]);
+  const [mockEmployees, setMockEmployees] = useState<EmployeeSkill[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const skillLevels: SkillLevel[] = [
     { level: 0, label: 'None', color: 'bg-gray-200', description: 'No knowledge or experience' },
@@ -33,57 +40,66 @@ export default function SkillsMatrixPage() {
     { level: 4, label: 'Expert', color: 'bg-green-200', description: 'Can train others' }
   ];
 
-  const skills = [
-    { id: 'cncProgramming', name: 'CNC Programming', key: 'cncProgramming' },
-    { id: 'qualityInspection', name: 'Quality Inspection', key: 'qualityInspection' },
-    { id: 'leanManufacturing', name: 'Lean Manufacturing', key: 'leanManufacturing' },
-    { id: 'safetyCompliance', name: 'Safety Compliance', key: 'safetyCompliance' },
-    { id: 'maintenance', name: 'Equipment Maintenance', key: 'maintenance' },
-    { id: 'leadership', name: 'Leadership', key: 'leadership' }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [rawSkills, rawUserSkills] = await Promise.all([
+          HrPagesService.skills() as Promise<any[]>,
+          HrPagesService.userSkills() as Promise<any[]>,
+        ]);
+        const skillList = Array.isArray(rawSkills) ? rawSkills : [];
+        const userSkillList = Array.isArray(rawUserSkills) ? rawUserSkills : [];
 
-  const mockEmployees: EmployeeSkill[] = [
-    {
-      employeeCode: 'KMF2451', employeeName: 'Rajesh Kumar', designation: 'Production Supervisor',
-      cncProgramming: 4, qualityInspection: 3, leanManufacturing: 4, safetyCompliance: 4,
-      maintenance: 2, leadership: 4
-    },
-    {
-      employeeCode: 'KMF2452', employeeName: 'Priya Patel', designation: 'Quality Inspector',
-      cncProgramming: 2, qualityInspection: 4, leanManufacturing: 3, safetyCompliance: 4,
-      maintenance: 1, leadership: 2
-    },
-    {
-      employeeCode: 'KMF2453', employeeName: 'Amit Kumar', designation: 'Machine Operator',
-      cncProgramming: 3, qualityInspection: 2, leanManufacturing: 2, safetyCompliance: 3,
-      maintenance: 2, leadership: 1
-    },
-    {
-      employeeCode: 'KMF2454', employeeName: 'Sneha Reddy', designation: 'Production Coordinator',
-      cncProgramming: 2, qualityInspection: 3, leanManufacturing: 4, safetyCompliance: 4,
-      maintenance: 1, leadership: 3
-    },
-    {
-      employeeCode: 'KMF2455', employeeName: 'Vikram Singh', designation: 'Maintenance Engineer',
-      cncProgramming: 2, qualityInspection: 2, leanManufacturing: 2, safetyCompliance: 4,
-      maintenance: 4, leadership: 3
-    },
-    {
-      employeeCode: 'KMF2456', employeeName: 'Anjali Nair', designation: 'QA Analyst',
-      cncProgramming: 1, qualityInspection: 4, leanManufacturing: 3, safetyCompliance: 4,
-      maintenance: 1, leadership: 2
-    },
-    {
-      employeeCode: 'KMF2457', employeeName: 'Deepa Gupta', designation: 'Assembly Technician',
-      cncProgramming: 1, qualityInspection: 2, leanManufacturing: 2, safetyCompliance: 3,
-      maintenance: 1, leadership: 1
-    },
-    {
-      employeeCode: 'KMF2458', employeeName: 'Sunil Verma', designation: 'Senior Technician',
-      cncProgramming: 3, qualityInspection: 3, leanManufacturing: 3, safetyCompliance: 4,
-      maintenance: 3, leadership: 3
-    }
-  ];
+        // Build skill columns from the skills catalogue.
+        const columns: SkillColumn[] = skillList.map((s) => {
+          const id = String(s.id ?? s.code ?? s.name ?? '');
+          return { id, name: s.name ?? s.code ?? id, key: id };
+        });
+
+        // Group userSkills by employee, then map skillId -> proficiencyLevel.
+        const byEmployee = new Map<string, EmployeeSkill>();
+        for (const us of userSkillList) {
+          const empId = String(us.employeeId ?? '');
+          if (!empId) continue;
+          let row = byEmployee.get(empId);
+          if (!row) {
+            row = {
+              employeeCode: empId,
+              employeeName: us.employeeName ?? empId,
+              designation: us.designation ?? '',
+            };
+            // initialise all skill columns to 0
+            columns.forEach((c) => { row![c.id] = 0; });
+            byEmployee.set(empId, row);
+          }
+          const skillId = String(us.skillId ?? '');
+          if (skillId) {
+            row[skillId] = Number(us.proficiencyLevel ?? 0);
+          }
+        }
+
+        if (!cancelled) {
+          setSkills(columns);
+          setMockEmployees(Array.from(byEmployee.values()));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load skills matrix');
+          setSkills([]);
+          setMockEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getSkillColor = (level: number) => {
     const colors = ['bg-gray-200', 'bg-red-200', 'bg-yellow-200', 'bg-blue-200', 'bg-green-200'];
@@ -96,11 +112,13 @@ export default function SkillsMatrixPage() {
 
   // Calculate statistics
   const calculateSkillStats = () => {
-    const stats: any = {};
+    const stats: Record<string, { avgLevel: string; expertCount: number; gapCount: number }> = {};
     skills.forEach(skill => {
       const skillKey = skill.key as keyof EmployeeSkill;
-      const levels = mockEmployees.map(emp => emp[skillKey] as number);
-      const avgLevel = levels.reduce((sum, level) => sum + level, 0) / levels.length;
+      const levels = mockEmployees.map(emp => Number(emp[skillKey] ?? 0));
+      const avgLevel = levels.length > 0
+        ? levels.reduce((sum, level) => sum + level, 0) / levels.length
+        : 0;
       const expertCount = levels.filter(level => level === 4).length;
       const gapCount = levels.filter(level => level <= 1).length;
 
@@ -119,12 +137,10 @@ export default function SkillsMatrixPage() {
     totalEmployees: mockEmployees.length,
     totalSkills: skills.length,
     expertCount: mockEmployees.filter(emp =>
-      [emp.cncProgramming, emp.qualityInspection, emp.leanManufacturing,
-       emp.safetyCompliance, emp.maintenance, emp.leadership].some(skill => skill === 4)
+      skills.some(skill => Number(emp[skill.key] ?? 0) === 4)
     ).length,
     skillGaps: mockEmployees.reduce((sum, emp) =>
-      sum + [emp.cncProgramming, emp.qualityInspection, emp.leanManufacturing,
-             emp.safetyCompliance, emp.maintenance, emp.leadership].filter(skill => skill <= 1).length, 0
+      sum + skills.filter(skill => Number(emp[skill.key] ?? 0) <= 1).length, 0
     )
   };
 
@@ -137,6 +153,24 @@ export default function SkillsMatrixPage() {
         </h1>
         <p className="text-gray-600 mt-2">Employee competency and skill level tracking</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading skills matrix…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && mockEmployees.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No employee skill data available yet.
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -228,7 +262,7 @@ export default function SkillsMatrixPage() {
                 </td>
                 {skills.map(skill => {
                   const skillKey = skill.key as keyof EmployeeSkill;
-                  const level = employee[skillKey] as number;
+                  const level = Number(employee[skillKey] ?? 0);
                   return (
                     <td key={skill.id} className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center">

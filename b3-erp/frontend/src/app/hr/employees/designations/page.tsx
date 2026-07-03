@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Briefcase, Plus, Search, Filter, TrendingUp, Users, Award, DollarSign, BarChart3 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
 import { AddDesignationModal } from '@/components/hr/AddDesignationModal';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Designation {
   id: string;
@@ -29,6 +30,62 @@ export default function DesignationsPage() {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const levelValues: Designation['level'][] = [
+      'entry', 'junior', 'mid', 'senior', 'lead', 'manager', 'director', 'executive',
+    ];
+    const statusValues: Designation['status'][] = ['active', 'inactive', 'deprecated'];
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.designations<any[]>();
+        const mapped: Designation[] = (raw ?? []).map((d) => {
+          const lvl = String(d.level ?? '').toLowerCase();
+          const st = String(d.status ?? '').toLowerCase();
+          const minSalary = Number(d.minSalary ?? 0);
+          const maxSalary = Number(d.maxSalary ?? 0);
+          return {
+            id: String(d.id ?? ''),
+            title: d.title ?? d.name ?? '',
+            code: d.code ?? '',
+            department: d.department ?? '',
+            level: (levelValues.includes(lvl as Designation['level'])
+              ? (lvl as Designation['level'])
+              : 'mid'),
+            grade: d.gradeLevel ?? d.grade ?? '',
+            employeeCount: Number(d.employeeCount ?? 0),
+            minSalary,
+            maxSalary,
+            avgSalary: Number(d.avgSalary ?? Math.round((minSalary + maxSalary) / 2)),
+            reportingTo: d.reportsTo ?? d.reportingTo ?? undefined,
+            responsibilities: Array.isArray(d.responsibilities) ? d.responsibilities : [],
+            requirements: Array.isArray(d.requirements) ? d.requirements : [],
+            status: (statusValues.includes(st as Designation['status'])
+              ? (st as Designation['status'])
+              : 'active'),
+          };
+        });
+        if (!cancelled) setDesignations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load designations');
+          setDesignations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockDesignations: Designation[] = [
     {
@@ -97,24 +154,26 @@ export default function DesignationsPage() {
   const levels = ['all', 'entry', 'junior', 'mid', 'senior', 'lead', 'manager', 'director', 'executive'];
 
   const filteredData = useMemo(() => {
-    return mockDesignations.filter(des => {
+    return designations.filter(des => {
       const matchesSearch = des.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           des.code.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = selectedDepartment === 'all' || des.department === selectedDepartment;
       const matchesLevel = selectedLevel === 'all' || des.level === selectedLevel;
       return matchesSearch && matchesDepartment && matchesLevel;
     });
-  }, [searchTerm, selectedDepartment, selectedLevel]);
+  }, [designations, searchTerm, selectedDepartment, selectedLevel]);
 
   const stats = useMemo(() => {
-    const totalEmployees = mockDesignations.reduce((sum, d) => sum + d.employeeCount, 0);
-    const avgSalaryOverall = mockDesignations.reduce((sum, d) => sum + d.avgSalary, 0) / mockDesignations.length;
+    const totalEmployees = designations.reduce((sum, d) => sum + d.employeeCount, 0);
+    const avgSalaryOverall = designations.length
+      ? designations.reduce((sum, d) => sum + d.avgSalary, 0) / designations.length
+      : 0;
     return {
-      total: mockDesignations.length,
+      total: designations.length,
       totalEmployees,
       avgSalaryOverall: Math.round(avgSalaryOverall)
     };
-  }, []);
+  }, [designations]);
 
   const getLevelBadge = (level: string) => {
     const badges = {
@@ -175,6 +234,18 @@ export default function DesignationsPage() {
         <p className="text-gray-600 mt-2">Manage job positions, roles, and hierarchy</p>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading designations…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <div className="bg-white border-2 border-purple-200 rounded-lg p-3">
           <div className="flex items-center justify-between"><div><p className="text-sm text-gray-600">Total Designations</p><p className="text-2xl font-bold text-purple-600">{stats.total}</p></div>
@@ -189,7 +260,7 @@ export default function DesignationsPage() {
           <DollarSign className="w-8 h-8 text-green-400" /></div>
         </div>
         <div className="bg-white border-2 border-blue-200 rounded-lg p-3">
-          <div className="flex items-center justify-between"><div><p className="text-sm text-gray-600">Active Roles</p><p className="text-2xl font-bold text-blue-600">{mockDesignations.filter(d => d.status === 'active').length}</p></div>
+          <div className="flex items-center justify-between"><div><p className="text-sm text-gray-600">Active Roles</p><p className="text-2xl font-bold text-blue-600">{designations.filter(d => d.status === 'active').length}</p></div>
           <Award className="w-8 h-8 text-blue-400" /></div>
         </div>
       </div>

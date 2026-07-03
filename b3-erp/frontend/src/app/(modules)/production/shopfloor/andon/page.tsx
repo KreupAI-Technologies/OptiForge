@@ -1,66 +1,57 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { AndonBoard, ProductionLine } from '@/components/production/AndonBoard';
-
-// Mock production lines data for the Andon board
-const mockProductionLines: ProductionLine[] = [
-  {
-    id: 'line-1',
-    name: 'Assembly Line A',
-    status: 'running',
-    currentProduct: 'Motor Assembly M-100',
-    workOrderNumber: 'WO-2024-0001',
-    target: 100,
-    actual: 85,
-    oee: 88.5,
-    cycleTime: 45,
-    operator: 'John Smith',
-    shift: 'Day Shift',
-    lastUpdate: new Date(),
-  },
-  {
-    id: 'line-2',
-    name: 'Assembly Line B',
-    status: 'stopped',
-    currentProduct: 'Pump Assembly P-200',
-    workOrderNumber: 'WO-2024-0002',
-    target: 80,
-    actual: 45,
-    oee: 72.3,
-    cycleTime: 60,
-    operator: 'Jane Doe',
-    shift: 'Day Shift',
-    alerts: [
-      {
-        id: 'alert-1',
-        type: 'maintenance',
-        severity: 'critical',
-        message: 'Conveyor motor failure - maintenance required',
-        timestamp: new Date(),
-      }
-    ],
-    lastUpdate: new Date(),
-  },
-  {
-    id: 'line-3',
-    name: 'Winding Station',
-    status: 'running',
-    currentProduct: 'Stator Winding SW-50',
-    workOrderNumber: 'WO-2024-0003',
-    target: 60,
-    actual: 58,
-    oee: 95.2,
-    cycleTime: 90,
-    operator: 'Mike Wilson',
-    shift: 'Day Shift',
-    lastUpdate: new Date(),
-  },
-];
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 export default function AndonBoardPage() {
   const router = useRouter();
+  const [lines, setLines] = useState<ProductionLine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const rows = await ProductionOrphanService.getAndonLines();
+        if (!active) return;
+        const mapped: ProductionLine[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          name: r.lineName ?? r.line_name ?? '',
+          status: (r.status ?? 'idle') as ProductionLine['status'],
+          currentProduct: r.currentProduct ?? r.current_product ?? undefined,
+          workOrderNumber: r.workOrderNumber ?? r.work_order_number ?? undefined,
+          target: Number(r.target ?? 0),
+          actual: Number(r.actual ?? 0),
+          oee: Number(r.oee ?? 0),
+          cycleTime: Number(r.cycleTime ?? r.cycle_time ?? 0),
+          operator: r.operator ?? undefined,
+          shift: r.shift ?? undefined,
+          alerts: Array.isArray(r.alerts)
+            ? r.alerts.map((a: any) => ({
+                ...a,
+                timestamp: a?.timestamp ? new Date(a.timestamp) : new Date(),
+              }))
+            : undefined,
+          lastUpdate: r.updatedAt ? new Date(r.updatedAt) : new Date(),
+        }));
+        setLines(mapped);
+      } catch (e: any) {
+        if (active) setError(e?.message || 'Failed to load andon lines');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-900">

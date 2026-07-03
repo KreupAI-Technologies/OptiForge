@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, BookOpen, Calendar, Clock, Award, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface MyTraining {
   id: string;
@@ -23,39 +24,49 @@ interface MyTraining {
 
 export default function MyTrainingsPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [mockTrainings, setMockTrainings] = useState<MyTraining[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockTrainings: MyTraining[] = [
-    {
-      id: '1', programCode: 'TRN-TECH-001', programTitle: 'Advanced CNC Programming', category: 'Technical',
-      startDate: '2024-11-15', endDate: '2024-12-15', duration: 40, progress: 0, attendance: 0,
-      status: 'upcoming', instructor: 'Rajesh Kumar', location: 'Training Center A', mode: 'Hybrid', certification: true
-    },
-    {
-      id: '2', programCode: 'TRN-SAFE-001', programTitle: 'Workplace Safety & OSHA Compliance', category: 'Safety',
-      startDate: '2024-10-01', endDate: '2024-10-20', duration: 16, progress: 75, attendance: 88,
-      status: 'ongoing', instructor: 'Suresh Patel', location: 'Training Center B', mode: 'Classroom', certification: true
-    },
-    {
-      id: '3', programCode: 'TRN-QUAL-001', programTitle: 'Quality Management Systems (ISO 9001)', category: 'Quality',
-      startDate: '2024-08-01', endDate: '2024-09-15', duration: 24, progress: 100, attendance: 95,
-      status: 'completed', instructor: 'Meena Rao', location: 'Training Center A', mode: 'Hybrid', certification: true
-    },
-    {
-      id: '4', programCode: 'TRN-TECH-002', programTitle: 'Lean Manufacturing Fundamentals', category: 'Technical',
-      startDate: '2024-09-10', endDate: '2024-10-05', duration: 20, progress: 100, attendance: 100,
-      status: 'completed', instructor: 'Vikram Mehta', mode: 'Online', certification: true
-    },
-    {
-      id: '5', programCode: 'TRN-SOFT-001', programTitle: 'Effective Communication Skills', category: 'Soft Skills',
-      startDate: '2024-10-15', endDate: '2024-11-10', duration: 12, progress: 60, attendance: 90,
-      status: 'ongoing', instructor: 'Anjali Nair', mode: 'Online', certification: false
-    },
-    {
-      id: '6', programCode: 'TRN-LEAD-001', programTitle: 'Leadership & Team Management', category: 'Leadership',
-      startDate: '2024-07-01', endDate: '2024-08-15', duration: 32, progress: 100, attendance: 92,
-      status: 'completed', instructor: 'Priya Sharma', location: 'Training Center C', mode: 'Classroom', certification: false
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingEnrollments()) as any[];
+        const validStatuses: MyTraining['status'][] = ['upcoming', 'ongoing', 'completed', 'cancelled'];
+        const mapped: MyTraining[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: String(r.id ?? ''),
+          programCode: r.programCode ?? '',
+          programTitle: r.programTitle ?? '',
+          category: r.category ?? '',
+          startDate: r.startDate ?? '',
+          endDate: r.endDate ?? '',
+          duration: Number(r.duration ?? 0),
+          progress: Number(r.progress ?? 0),
+          attendance: Number(r.attendance ?? 0),
+          status: validStatuses.includes(r.status) ? r.status : 'upcoming',
+          instructor: r.instructor ?? '',
+          location: r.location ?? undefined,
+          mode: r.mode ?? '',
+          certification: Boolean(r.certification),
+        }));
+        if (!cancelled) setMockTrainings(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load trainings');
+          setMockTrainings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredTrainings = mockTrainings.filter(training => {
     return selectedStatus === 'all' || training.status === selectedStatus;
@@ -150,6 +161,19 @@ export default function MyTrainingsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Track your enrolled training programs and progress</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading trainings…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">

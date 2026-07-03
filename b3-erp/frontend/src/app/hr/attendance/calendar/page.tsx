@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Users, Search, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { HrAttendanceService } from '@/services/hr-payroll.service';
 
 interface DayAttendance {
   date: number;
@@ -57,6 +58,31 @@ export default function AttendanceCalendarPage() {
     { date: 30, status: 'week_off' }
   ];
 
+  const [rows, setRows] = useState<DayAttendance[]>(mockAttendance);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrAttendanceService.getCalendar();
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            date: r.date ?? r.details?.date ?? 0,
+            status: (r.status ?? r.details?.status ?? 'present') as DayAttendance['status'],
+            checkIn: r.details?.checkIn,
+            checkOut: r.details?.checkOut,
+          } as DayAttendance));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const getStatusColor = (status: string) => {
     const colors = {
       present: 'bg-green-100 text-green-800 border-green-300',
@@ -103,10 +129,10 @@ export default function AttendanceCalendarPage() {
   const firstDayOfMonth = getFirstDayOfMonth(selectedMonth);
 
   const stats = {
-    present: mockAttendance.filter(d => d.status === 'present').length,
-    absent: mockAttendance.filter(d => d.status === 'absent').length,
-    leave: mockAttendance.filter(d => d.status === 'leave').length,
-    late: mockAttendance.filter(d => d.status === 'late').length
+    present: rows.filter(d => d.status === 'present').length,
+    absent: rows.filter(d => d.status === 'absent').length,
+    leave: rows.filter(d => d.status === 'leave').length,
+    late: rows.filter(d => d.status === 'late').length
   };
 
   return (
@@ -117,6 +143,7 @@ export default function AttendanceCalendarPage() {
           Attendance Calendar
         </h1>
         <p className="text-gray-600 mt-2">Visual calendar view of attendance records</p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       {/* Employee Selector */}
@@ -217,7 +244,7 @@ export default function AttendanceCalendarPage() {
           {/* Calendar days */}
           {[...Array(daysInMonth)].map((_, i) => {
             const day = i + 1;
-            const attendance = mockAttendance.find(a => a.date === day);
+            const attendance = rows.find(a => a.date === day);
             const status = attendance?.status || 'present';
 
             return (

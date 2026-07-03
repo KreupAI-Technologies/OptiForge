@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Download, Upload, CheckCircle, Clock, AlertCircle, Calendar, Heart } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import { toast } from '@/hooks/use-toast';
 import FileUploadModal from '@/components/payroll/FileUploadModal';
 import ConfirmationModal from '@/components/payroll/ConfirmationModal';
@@ -41,6 +42,8 @@ export default function ESIReturnsPage() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<ESIReturn | null>(null);
   const [returns, setReturns] = useState<ESIReturn[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const mockReturns: ESIReturn[] = [
     {
@@ -113,12 +116,56 @@ export default function ESIReturnsPage() {
     }
   ];
 
-  // Initialize returns state
-  useState(() => {
-    setReturns(mockReturns);
-  });
+  const [rows, setRows] = useState<ESIReturn[]>(mockReturns);
 
-  const filteredReturns = (returns.length > 0 ? returns : mockReturns).filter(ret =>
+  // Initialize returns state
+  useEffect(() => {
+    setReturns(mockReturns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch from backend; override mock only when a non-empty array is returned
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getStatutoryFilings('esi-returns');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            returnPeriod: r.returnPeriod ?? r.details?.returnPeriod ?? r.period ?? '',
+            periodType: (r.periodType ?? r.details?.periodType ?? 'half-yearly') as 'half-yearly',
+            fromMonth: r.fromMonth ?? r.details?.fromMonth ?? '',
+            toMonth: r.toMonth ?? r.details?.toMonth ?? '',
+            establishmentCode: r.establishmentCode ?? r.details?.establishmentCode ?? '',
+            employeeCount: r.employeeCount ?? r.details?.employeeCount ?? 0,
+            totalWages: r.totalWages ?? r.details?.totalWages ?? 0,
+            employeeContribution: r.employeeContribution ?? r.details?.employeeContribution ?? 0,
+            employerContribution: r.employerContribution ?? r.details?.employerContribution ?? 0,
+            totalDue: r.totalDue ?? r.amount ?? r.details?.totalDue ?? 0,
+            filedOn: r.filedOn ?? r.details?.filedOn ?? undefined,
+            filedBy: r.filedBy ?? r.details?.filedBy ?? undefined,
+            acknowledgeNumber: r.acknowledgeNumber ?? r.details?.acknowledgeNumber ?? undefined,
+            status: (r.status ?? r.details?.status ?? 'pending') as ESIReturn['status'],
+            dueDate: r.dueDate ?? r.details?.dueDate ?? r.effectiveDate ?? '',
+          } as ESIReturn));
+          setRows(mapped);
+          setReturns(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredReturns = (returns.length > 0 ? returns : rows).filter(ret =>
     ret.returnPeriod.includes(selectedYear)
   );
 
@@ -349,6 +396,7 @@ export default function ESIReturnsPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">ESI Returns</h1>
         <p className="text-sm text-gray-600 mt-1">Half-yearly ESI return filing and tracking</p>
+        {loadError && <div className="text-sm text-red-600">{loadError}</div>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

@@ -2,67 +2,56 @@
 
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { EnhancedGanttChart } from '@/components/production/EnhancedGanttChart';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 export default function EnhancedGanttPage() {
   const router = useRouter();
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const mockTasks = [
-    {
-      id: '1',
-      name: 'Production Planning',
-      startDate: new Date(2025, 0, 1),
-      endDate: new Date(2025, 0, 5),
-      progress: 100,
-      status: 'completed',
-      priority: 'high',
-      assignee: 'Alice Smith',
-      group: 'planning'
-    },
-    {
-      id: '2',
-      name: 'Material Procurement',
-      startDate: new Date(2025, 0, 6),
-      endDate: new Date(2025, 0, 10),
-      progress: 60,
-      status: 'in-progress',
-      priority: 'medium',
-      assignee: 'Bob Jones',
-      group: 'procurement',
-      dependencies: ['1']
-    },
-    {
-      id: '3',
-      name: 'Assembly Phase 1',
-      startDate: new Date(2025, 0, 11),
-      endDate: new Date(2025, 0, 20),
-      progress: 0,
-      status: 'not-started',
-      priority: 'urgent',
-      assignee: 'Charlie Brown',
-      group: 'assembly',
-      dependencies: ['2']
-    },
-    {
-      id: '4',
-      name: 'Quality Check',
-      startDate: new Date(2025, 0, 21),
-      endDate: new Date(2025, 0, 23),
-      progress: 0,
-      status: 'not-started',
-      priority: 'high',
-      assignee: 'Diana Prince',
-      group: 'quality',
-      dependencies: ['3']
-    }
-  ];
-
-  const mockGroups = [
-    { id: 'planning', name: 'Planning' },
-    { id: 'procurement', name: 'Procurement' },
-    { id: 'assembly', name: 'Assembly' },
-    { id: 'quality', name: 'Quality Control' }
-  ];
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const rows = await ProductionOrphanService.getGanttTasks();
+        if (!active) return;
+        const arr = Array.isArray(rows) ? rows : [];
+        const mappedTasks = arr.map((r: any) => ({
+          id: String(r.id ?? ''),
+          name: r.name ?? '',
+          startDate: r.startDate ?? r.start_date ? new Date(r.startDate ?? r.start_date) : new Date(),
+          endDate: r.endDate ?? r.end_date ? new Date(r.endDate ?? r.end_date) : new Date(),
+          progress: Number(r.progress ?? 0),
+          status: r.status ?? 'not-started',
+          priority: r.priority ?? 'medium',
+          assignee: r.assignee ?? '',
+          group: r.groupId ?? r.group_id ?? '',
+          dependencies: Array.isArray(r.dependencies) ? r.dependencies : undefined,
+        }));
+        const groupMap = new Map<string, string>();
+        arr.forEach((r: any) => {
+          const gid = r.groupId ?? r.group_id;
+          if (gid) groupMap.set(String(gid), r.groupName ?? r.group_name ?? String(gid));
+        });
+        setTasks(mappedTasks);
+        setGroups(Array.from(groupMap.entries()).map(([id, name]) => ({ id, name })));
+      } catch (e: any) {
+        if (active) setError(e?.message || 'Failed to load gantt tasks');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col h-screen">
@@ -84,11 +73,18 @@ export default function EnhancedGanttPage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="px-3 py-2 text-sm text-blue-700 flex-shrink-0">Loading gantt tasks…</div>
+      )}
+      {error && !loading && (
+        <div className="px-3 py-2 text-sm text-red-600 flex-shrink-0">{error}</div>
+      )}
+
       {/* Gantt Chart Component */}
       <div className="flex-1 p-3 overflow-hidden">
         <EnhancedGanttChart
-          tasks={mockTasks as any}
-          groups={mockGroups}
+          tasks={tasks as any}
+          groups={groups}
           className="h-full"
           onTaskUpdate={(task) => {
             console.log('Task updated:', task);

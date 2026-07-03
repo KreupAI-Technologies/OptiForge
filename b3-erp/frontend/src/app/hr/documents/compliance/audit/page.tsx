@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { History, Eye, Download, Upload, Edit, Trash2, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface AuditLog {
   id: string;
@@ -20,109 +21,45 @@ interface AuditLog {
 export default function AuditTrailPage() {
   const [selectedAction, setSelectedAction] = useState('all');
   const [selectedDate, setSelectedDate] = useState('7days');
+  const [mockAuditLogs, setMockAuditLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockAuditLogs: AuditLog[] = [
-    {
-      id: 'AUD001',
-      timestamp: '2025-10-27 14:32:15',
-      action: 'upload',
-      documentType: 'PAN Card',
-      documentId: 'DOC12345',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      performedBy: 'Rahul Sharma',
-      performedByRole: 'Employee',
-      ipAddress: '192.168.1.45'
-    },
-    {
-      id: 'AUD002',
-      timestamp: '2025-10-27 14:15:22',
-      action: 'verify',
-      documentType: 'Degree Certificate',
-      documentId: 'DOC12344',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      performedBy: 'Rajesh Kumar',
-      performedByRole: 'HR Manager',
-      ipAddress: '192.168.1.10',
-      remarks: 'Document verified and approved'
-    },
-    {
-      id: 'AUD003',
-      timestamp: '2025-10-27 13:45:10',
-      action: 'download',
-      documentType: 'Salary Slip',
-      documentId: 'DOC12343',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      performedBy: 'Amit Patel',
-      performedByRole: 'Employee',
-      ipAddress: '192.168.1.67'
-    },
-    {
-      id: 'AUD004',
-      timestamp: '2025-10-27 12:20:35',
-      action: 'view',
-      documentType: 'Employment Letter',
-      documentId: 'DOC12342',
-      employeeId: 'EMP004',
-      employeeName: 'Sneha Reddy',
-      performedBy: 'Rajesh Kumar',
-      performedByRole: 'HR Manager',
-      ipAddress: '192.168.1.10'
-    },
-    {
-      id: 'AUD005',
-      timestamp: '2025-10-27 11:55:48',
-      action: 'edit',
-      documentType: 'EPF Form 11',
-      documentId: 'DOC12341',
-      employeeId: 'EMP005',
-      employeeName: 'Karthik Kumar',
-      performedBy: 'Sneha Kulkarni',
-      performedByRole: 'HR Executive',
-      ipAddress: '192.168.1.12',
-      remarks: 'Updated UAN number'
-    },
-    {
-      id: 'AUD006',
-      timestamp: '2025-10-27 10:30:12',
-      action: 'reject',
-      documentType: 'Passport',
-      documentId: 'DOC12340',
-      employeeId: 'EMP006',
-      employeeName: 'Anjali Gupta',
-      performedBy: 'Rajesh Kumar',
-      performedByRole: 'HR Manager',
-      ipAddress: '192.168.1.10',
-      remarks: 'Document not clear, please reupload'
-    },
-    {
-      id: 'AUD007',
-      timestamp: '2025-10-26 16:45:33',
-      action: 'delete',
-      documentType: 'Duplicate Aadhaar',
-      documentId: 'DOC12339',
-      employeeId: 'EMP007',
-      employeeName: 'Vikram Singh',
-      performedBy: 'Rajesh Kumar',
-      performedByRole: 'HR Manager',
-      ipAddress: '192.168.1.10',
-      remarks: 'Duplicate document removed'
-    },
-    {
-      id: 'AUD008',
-      timestamp: '2025-10-26 15:20:18',
-      action: 'upload',
-      documentType: 'Medical Certificate',
-      documentId: 'DOC12338',
-      employeeId: 'EMP008',
-      employeeName: 'Meera Joshi',
-      performedBy: 'Meera Joshi',
-      performedByRole: 'Employee',
-      ipAddress: '192.168.1.89'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocumentAuditLogs();
+        const mapped: AuditLog[] = rows.map((row) => ({
+          id: String(row.id),
+          timestamp: row.timestamp ?? '',
+          action: (row.action ?? 'view') as AuditLog['action'],
+          documentType: row.documentType ?? '',
+          documentId: row.documentId ?? '',
+          employeeId: row.employeeId ?? '',
+          employeeName: row.employeeName ?? '',
+          performedBy: row.performedBy ?? '',
+          performedByRole: row.performedByRole ?? '',
+          ipAddress: row.ipAddress ?? '',
+          remarks: row.remarks ?? '',
+        }));
+        if (!cancelled) setMockAuditLogs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load audit logs');
+          setMockAuditLogs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredLogs = useMemo(() => {
     const now = new Date();
@@ -151,7 +88,7 @@ export default function AuditTrailPage() {
       const matchesDate = logDate >= filterDate;
       return matchesAction && matchesDate;
     });
-  }, [selectedAction, selectedDate]);
+  }, [selectedAction, selectedDate, mockAuditLogs]);
 
   const stats = {
     total: filteredLogs.length,
@@ -197,6 +134,19 @@ export default function AuditTrailPage() {
         <h1 className="text-2xl font-bold text-gray-900">Document Audit Trail</h1>
         <p className="text-sm text-gray-600 mt-1">Complete audit log of all document activities</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading audit logs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

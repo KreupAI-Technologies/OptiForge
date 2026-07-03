@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Briefcase, Plus, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface EmploymentCertificateRequest {
   id: string;
@@ -27,64 +28,71 @@ interface EmploymentCertificateRequest {
 
 export default function EmploymentCertificatePage() {
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [mockRequests, setMockRequests] = useState<EmploymentCertificateRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockRequests: EmploymentCertificateRequest[] = [
-    {
-      id: 'EMP001',
-      requestDate: '2025-10-12',
-      purpose: 'Rental Agreement',
-      addressedTo: 'Property Owner',
-      includeDetails: {
-        designation: true,
-        department: true,
-        joiningDate: true,
-        salary: false,
-        reportingManager: false
-      },
-      deliveryMode: 'email',
-      status: 'delivered',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-13',
-      generatedOn: '2025-10-13',
-      deliveredOn: '2025-10-13'
-    },
-    {
-      id: 'EMP002',
-      requestDate: '2025-10-19',
-      purpose: 'Background Verification',
-      addressedTo: 'XYZ Corporation',
-      includeDetails: {
-        designation: true,
-        department: true,
-        joiningDate: true,
-        salary: true,
-        reportingManager: true
-      },
-      deliveryMode: 'physical',
-      status: 'generated',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-20',
-      generatedOn: '2025-10-20'
-    },
-    {
-      id: 'EMP003',
-      requestDate: '2025-10-26',
-      purpose: 'Bank Account Opening',
-      addressedTo: 'HDFC Bank',
-      includeDetails: {
-        designation: true,
+  useEffect(() => {
+    let cancelled = false;
+    const parseIncludeDetails = (
+      raw?: string,
+    ): EmploymentCertificateRequest['includeDetails'] => {
+      const fallback = {
+        designation: false,
         department: false,
-        joiningDate: true,
-        salary: true,
-        reportingManager: false
-      },
-      deliveryMode: 'both',
-      status: 'pending',
-      requestedBy: 'Rahul Sharma'
-    }
-  ];
+        joiningDate: false,
+        salary: false,
+        reportingManager: false,
+      };
+      if (!raw) return fallback;
+      try {
+        const parsed = JSON.parse(raw);
+        return {
+          designation: Boolean(parsed?.designation),
+          department: Boolean(parsed?.department),
+          joiningDate: Boolean(parsed?.joiningDate),
+          salary: Boolean(parsed?.salary),
+          reportingManager: Boolean(parsed?.reportingManager),
+        };
+      } catch {
+        return fallback;
+      }
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getCertificateRequests('employment');
+        const mapped: EmploymentCertificateRequest[] = rows.map((row) => ({
+          id: String(row.id),
+          requestDate: row.requestDate ?? '',
+          purpose: row.purpose ?? '',
+          addressedTo: row.addressedTo ?? '',
+          includeDetails: parseIncludeDetails(row.includeDetails),
+          deliveryMode: (row.deliveryMode ?? 'email') as EmploymentCertificateRequest['deliveryMode'],
+          status: (row.status ?? 'pending') as EmploymentCertificateRequest['status'],
+          requestedBy: row.requestedBy ?? '',
+          approvedBy: row.approvedBy ?? '',
+          approvedOn: row.approvedOn ?? '',
+          generatedOn: row.generatedOn ?? '',
+          deliveredOn: row.deliveredOn ?? '',
+          remarks: row.remarks ?? '',
+        }));
+        if (!cancelled) setMockRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
+          setMockRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = {
     total: mockRequests.length,
@@ -115,6 +123,19 @@ export default function EmploymentCertificatePage() {
           New Request
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading certificate requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

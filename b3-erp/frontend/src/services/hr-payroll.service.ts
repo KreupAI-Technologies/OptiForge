@@ -97,6 +97,41 @@ export const HrPayrollService = {
       await request(`/hr/payroll-reports${withCompany({ category })}`),
     );
   },
+
+  // ---- Attendance summary orphan endpoints --------------------------------
+  // Backs the aggregate attendance pages under /hr/attendance/*. The raw
+  // per-day /hr/attendances endpoint is left alone; these summary/rollup pages
+  // read the additive discriminator table via /hr/attendance-records.
+  async getAttendanceRecords(
+    category?: string,
+    extra: Record<string, string | undefined> = {},
+  ): Promise<any[]> {
+    return toArray(
+      await request(
+        `/hr/attendance-records${withCompany({ category, ...extra })}`,
+      ),
+    );
+  },
+};
+
+/**
+ * Attendance orphan-endpoint wiring. Thin wrapper over the shared discriminator
+ * endpoint /hr/attendance-records for the summary attendance pages
+ * (monthly / calendar / biometric / reports).
+ */
+export const HrAttendanceService = {
+  async getMonthly(extra?: Record<string, string | undefined>): Promise<any[]> {
+    return HrPayrollService.getAttendanceRecords('monthly', extra);
+  },
+  async getCalendar(extra?: Record<string, string | undefined>): Promise<any[]> {
+    return HrPayrollService.getAttendanceRecords('calendar', extra);
+  },
+  async getBiometric(extra?: Record<string, string | undefined>): Promise<any[]> {
+    return HrPayrollService.getAttendanceRecords('biometric', extra);
+  },
+  async getReports(extra?: Record<string, string | undefined>): Promise<any[]> {
+    return HrPayrollService.getAttendanceRecords('reports', extra);
+  },
 };
 
 export default HrPayrollService;

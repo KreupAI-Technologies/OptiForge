@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart3, TrendingUp, Package } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AllocationSummary {
   category: string;
@@ -14,57 +15,40 @@ interface AllocationSummary {
 
 export default function Page() {
   const [selectedLocation, setSelectedLocation] = useState('all');
+  const [mockData, setMockData] = useState<AllocationSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockData: AllocationSummary[] = [
-    {
-      category: 'Laptops',
-      total: 250,
-      allocated: 198,
-      available: 42,
-      maintenance: 10,
-      utilization: 79.2
-    },
-    {
-      category: 'Desktops',
-      total: 180,
-      allocated: 152,
-      available: 22,
-      maintenance: 6,
-      utilization: 84.4
-    },
-    {
-      category: 'Mobiles',
-      total: 120,
-      allocated: 98,
-      available: 18,
-      maintenance: 4,
-      utilization: 81.7
-    },
-    {
-      category: 'Monitors',
-      total: 300,
-      allocated: 245,
-      available: 48,
-      maintenance: 7,
-      utilization: 81.7
-    },
-    {
-      category: 'Furniture',
-      total: 450,
-      allocated: 389,
-      available: 55,
-      maintenance: 6,
-      utilization: 86.4
-    },
-    {
-      category: 'Printers',
-      total: 85,
-      allocated: 72,
-      available: 10,
-      maintenance: 3,
-      utilization: 84.7
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getReportAllocation();
+        const mapped: AllocationSummary[] = rows.map((r) => ({
+          category: r.category,
+          total: Number(r.total),
+          allocated: Number(r.allocated),
+          available: Number(r.available),
+          maintenance: Number(r.maintenance),
+          utilization: Number(r.utilization),
+        }));
+        if (!cancelled) setMockData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load asset allocation report');
+          setMockData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const totals = mockData.reduce((acc, item) => ({
@@ -86,6 +70,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Allocation Report</h1>
         <p className="text-sm text-gray-600 mt-1">Overview of asset allocation across categories</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading asset allocation report…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

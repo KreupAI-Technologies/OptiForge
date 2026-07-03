@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Receipt, Search, Download, Users, DollarSign, FileText, Calendar, TrendingUp } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface TDSRecord {
   id: string;
@@ -139,8 +140,51 @@ export default function TDSReportPage() {
     }
   ];
 
+  const [rows, setRows] = useState<TDSRecord[]>(mockTDSRecords);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReports('tds');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            panNumber: r.details?.panNumber ?? r.panNumber ?? '',
+            designation: r.details?.designation ?? r.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            grossSalary: r.details?.grossSalary ?? r.grossSalary ?? r.amount ?? 0,
+            standardDeduction: r.details?.standardDeduction ?? r.standardDeduction ?? 0,
+            professionalTax: r.details?.professionalTax ?? r.professionalTax ?? 0,
+            pfEmployee: r.details?.pfEmployee ?? r.pfEmployee ?? 0,
+            taxableIncome: r.details?.taxableIncome ?? r.taxableIncome ?? 0,
+            monthlyTDS: r.details?.monthlyTDS ?? r.monthlyTDS ?? r.amount ?? 0,
+            tdsDeductedTillDate: r.details?.tdsDeductedTillDate ?? r.tdsDeductedTillDate ?? 0,
+            projectedAnnualIncome: r.details?.projectedAnnualIncome ?? r.projectedAnnualIncome ?? 0,
+            taxRegime: r.details?.taxRegime ?? r.taxRegime ?? 'new',
+            monthYear: r.period ?? r.details?.monthYear ?? r.monthYear ?? '',
+          } as TDSRecord));
+          setRows(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockTDSRecords.filter(record => {
+    return rows.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -149,7 +193,7 @@ export default function TDSReportPage() {
       const matchesRegime = selectedRegime === 'all' || record.taxRegime === selectedRegime;
       return matchesSearch && matchesDepartment && matchesRegime;
     });
-  }, [searchTerm, selectedDepartment, selectedRegime]);
+  }, [searchTerm, selectedDepartment, selectedRegime, rows]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const regimes = ['all', 'old', 'new'];
@@ -183,6 +227,8 @@ export default function TDSReportPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">TDS Report</h1>
         <p className="text-sm text-gray-600 mt-1">Tax Deducted at Source monthly report</p>
+        {isLoading && <div className="text-sm text-gray-500 mt-1">Loading…</div>}
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg shadow-sm border border-orange-200 p-3 mb-3">

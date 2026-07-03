@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Edit,
@@ -586,6 +587,59 @@ export default function BOMViewPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'tree' | 'cost' | 'where_used'>('overview');
   const [bom, setBom] = useState<BOM>(mockBOM);
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set(['C1', 'C2', 'C2-1']));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const bomId = params.id as string;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    ProductionOrphanService.getBom(bomId)
+      .then((data) => {
+        if (cancelled) return;
+        const r = data || {};
+        setBom((prev) => ({
+          ...prev,
+          id: String(r.id ?? prev.id),
+          bomNumber: r.bomNumber ?? r.bom_number ?? prev.bomNumber,
+          productCode: r.productCode ?? r.product_code ?? prev.productCode,
+          productName: r.productName ?? r.product_name ?? prev.productName,
+          productDescription: r.productDescription ?? r.product_description ?? prev.productDescription,
+          drawingNumber: r.drawingNumber ?? r.drawing_number ?? prev.drawingNumber,
+          version: r.version ?? prev.version,
+          revision: r.revision ?? prev.revision,
+          status: (r.status ?? prev.status) as BOM['status'],
+          bomType: (r.bomType ?? r.bom_type ?? prev.bomType) as BOM['bomType'],
+          productCategory: (r.productCategory ?? r.product_category ?? prev.productCategory) as BOM['productCategory'],
+          effectiveDate: r.effectiveDate ?? r.effective_date ?? prev.effectiveDate,
+          expiryDate: r.expiryDate ?? r.expiry_date ?? prev.expiryDate,
+          batchSize: r.batchSize ?? r.batch_size ?? prev.batchSize,
+          leadTime: r.leadTime ?? r.lead_time ?? prev.leadTime,
+          scrapPercentage: r.scrapPercentage ?? r.scrap_percentage ?? prev.scrapPercentage,
+          uom: r.uom ?? prev.uom,
+          totalComponents: r.totalComponents ?? r.total_components ?? prev.totalComponents,
+          totalLevels: r.totalLevels ?? r.total_levels ?? prev.totalLevels,
+          totalCost: r.totalCost ?? r.total_cost ?? prev.totalCost,
+          createdBy: r.createdBy ?? r.created_by ?? prev.createdBy,
+          createdDate: r.createdDate ?? r.created_date ?? prev.createdDate,
+          approvedBy: r.approvedBy ?? r.approved_by ?? prev.approvedBy,
+          approvedDate: r.approvedDate ?? r.approved_date ?? prev.approvedDate,
+          notes: r.notes ?? prev.notes,
+          specifications: r.specifications ?? prev.specifications,
+        }));
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || 'Failed to load BOM');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bomId]);
 
   const toggleComponent = (id: string) => {
     const newExpanded = new Set(expandedComponents);
@@ -714,6 +768,16 @@ export default function BOMViewPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading BOM…
+        </div>
+      )}
+      {error && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {error} — showing sample data.
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

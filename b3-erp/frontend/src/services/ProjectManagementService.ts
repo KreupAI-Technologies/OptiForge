@@ -2659,6 +2659,11 @@ class ProjectManagementService {
     updateScheduleTask(id: string, data: Partial<PmScheduleTask>) { return this.pmUpdate<PmScheduleTask>('schedule', id, data); }
     deleteScheduleTask(id: string) { return this.pmDelete('schedule', id); }
 
+    // Convenience list aliases used by the projects/planning pages.
+    listWbs(companyId = 'default') { return this.pmList<any>('wbs', companyId); }
+    listSchedule(companyId = 'default') { return this.pmList<any>('schedule', companyId); }
+    listCharter(companyId = 'default') { return this.pmList<any>('charter', companyId); }
+
     // Document approvals (documents/approvals)
     listDocumentApprovals(companyId = 'default') { return this.pmList<PmDocumentApproval>('document-approvals', companyId); }
     createDocumentApproval(data: Partial<PmDocumentApproval>) { return this.pmCreate<PmDocumentApproval>('document-approvals', data); }

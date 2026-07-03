@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Headphones, Package } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Headphones, Package, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AccessoryAsset {
   id: string;
@@ -20,81 +21,59 @@ interface AccessoryAsset {
 
 export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [accessories, setAccessories] = useState<AccessoryAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockAccessories: AccessoryAsset[] = [
-    {
-      id: '1',
-      assetCode: 'ACC-KB-001',
-      name: 'Wireless Keyboard',
-      category: 'keyboard',
-      brand: 'Logitech',
-      model: 'MX Keys',
-      quantity: 50,
-      allocated: 35,
-      available: 15,
-      unitCost: 8500,
-      location: 'IT Store',
-      status: 'in_stock'
-    },
-    {
-      id: '2',
-      assetCode: 'ACC-MS-001',
-      name: 'Wireless Mouse',
-      category: 'mouse',
-      brand: 'Logitech',
-      model: 'MX Master 3',
-      quantity: 60,
-      allocated: 45,
-      available: 15,
-      unitCost: 6500,
-      location: 'IT Store',
-      status: 'in_stock'
-    },
-    {
-      id: '3',
-      assetCode: 'ACC-HS-001',
-      name: 'USB Headset',
-      category: 'headset',
-      brand: 'Jabra',
-      model: 'Evolve 40',
-      quantity: 30,
-      allocated: 25,
-      available: 5,
-      unitCost: 4500,
-      location: 'IT Store',
-      status: 'low_stock'
-    },
-    {
-      id: '4',
-      assetCode: 'ACC-WC-001',
-      name: 'HD Webcam',
-      category: 'webcam',
-      brand: 'Logitech',
-      model: 'C920',
-      quantity: 20,
-      allocated: 18,
-      available: 2,
-      unitCost: 5500,
-      location: 'IT Store',
-      status: 'low_stock'
-    },
-    {
-      id: '5',
-      assetCode: 'ACC-DS-001',
-      name: 'USB-C Docking Station',
-      category: 'docking_station',
-      brand: 'Dell',
-      model: 'WD19',
-      quantity: 15,
-      allocated: 15,
-      available: 0,
-      unitCost: 15000,
-      location: 'IT Store',
-      status: 'out_of_stock'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getAssetInventory();
+        const categories: AccessoryAsset['category'][] = ['keyboard', 'mouse', 'headset', 'webcam', 'docking_station', 'other'];
+        const mapped: AccessoryAsset[] = raw.map((r, idx) => {
+          const rawCategory = (r.category ?? '').toLowerCase();
+          const category = categories.includes(rawCategory as AccessoryAsset['category'])
+            ? (rawCategory as AccessoryAsset['category'])
+            : 'other';
+          const available = Number(r.available ?? 0);
+          const minStockLevel = Number(r.minStockLevel ?? 0) || 5;
+          const status: AccessoryAsset['status'] =
+            available === 0 ? 'out_of_stock' : available <= minStockLevel ? 'low_stock' : 'in_stock';
+          return {
+            id: String(r.id ?? idx),
+            assetCode: r.assetCode ?? '',
+            name: r.assetName ?? '',
+            category,
+            brand: r.brand ?? '',
+            model: r.model ?? '',
+            quantity: Number(r.totalQuantity ?? 0),
+            allocated: Number(r.allocated ?? 0),
+            available,
+            unitCost: Number(r.unitCost ?? 0),
+            location: r.location ?? '',
+            status,
+          };
+        });
+        if (!cancelled) setAccessories(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load accessories');
+          setAccessories([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredAccessories = mockAccessories.filter(a => selectedCategory === 'all' || a.category === selectedCategory);
+  const filteredAccessories = accessories.filter(a => selectedCategory === 'all' || a.category === selectedCategory);
 
   const stats = useMemo(() => ({
     totalItems: filteredAccessories.reduce((sum, a) => sum + a.quantity, 0),
@@ -124,6 +103,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">IT Accessories</h1>
         <p className="text-sm text-gray-600 mt-1">Manage and track IT accessories inventory</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading accessories…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

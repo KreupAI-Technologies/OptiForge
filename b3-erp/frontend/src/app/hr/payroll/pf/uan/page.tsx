@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Hash, Search, Edit, CheckCircle, AlertTriangle, UserPlus, Download, X, Save, FileText, ExternalLink, Upload, Mail, User, CreditCard, Users } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeeUAN {
   id: string;
@@ -814,8 +815,44 @@ export default function UANManagementPage() {
     }
   ];
 
+  const [rows, setRows] = useState<EmployeeUAN[]>(mockEmployees);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getStatutoryFilings('pf-uan');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.details?.employeeId ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            designation: r.designation ?? r.details?.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            dateOfJoining: r.dateOfJoining ?? r.details?.dateOfJoining ?? '',
+            uan: r.details?.uan ?? r.uan ?? '',
+            uanStatus: r.details?.uanStatus ?? r.status ?? 'pending',
+            pfAccountNumber: r.details?.pfAccountNumber ?? r.pfAccountNumber ?? '',
+            previousUAN: r.details?.previousUAN ?? r.previousUAN,
+            aadharLinked: r.details?.aadharLinked ?? r.aadharLinked ?? false,
+            bankLinked: r.details?.bankLinked ?? r.bankLinked ?? false,
+            nomineeAdded: r.details?.nomineeAdded ?? r.nomineeAdded ?? false,
+            kycCompleted: r.details?.kycCompleted ?? r.kycCompleted ?? false,
+            lastUpdated: r.details?.lastUpdated ?? r.effectiveDate ?? r.period ?? '',
+          } as EmployeeUAN));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredEmployees = useMemo(() => {
-    return mockEmployees.filter(emp => {
+    return rows.filter(emp => {
       const matchesSearch =
         emp.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -824,13 +861,13 @@ export default function UANManagementPage() {
       const matchesStatus = selectedStatus === 'all' || emp.uanStatus === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [searchTerm, selectedDepartment, selectedStatus, rows]);
 
   const stats = {
-    total: mockEmployees.length,
-    active: mockEmployees.filter(e => e.uanStatus === 'active').length,
-    pending: mockEmployees.filter(e => e.uanStatus === 'pending').length,
-    kycComplete: mockEmployees.filter(e => e.kycCompleted).length
+    total: rows.length,
+    active: rows.filter(e => e.uanStatus === 'active').length,
+    pending: rows.filter(e => e.uanStatus === 'pending').length,
+    kycComplete: rows.filter(e => e.kycCompleted).length
   };
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
@@ -852,6 +889,7 @@ export default function UANManagementPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">UAN Management</h1>
         <p className="text-sm text-gray-600 mt-1">Universal Account Number management and KYC tracking</p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

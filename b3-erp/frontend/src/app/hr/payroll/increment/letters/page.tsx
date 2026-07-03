@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { HrPayrollService } from '@/services/hr-payroll.service'
 import {
   Users,
   FileText,
@@ -278,6 +279,59 @@ export default function IncrementLettersPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [selectedLetter, setSelectedLetter] = useState<IncrementLetter | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await HrPayrollService.getSalaryRevisions('increment-letters')
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: String(r.id ?? r.details?.id ?? ''),
+            employeeId: String(r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? ''),
+            employeeName: String(r.employeeName ?? r.details?.employeeName ?? ''),
+            designation: String(r.designation ?? r.details?.designation ?? ''),
+            department: String(r.department ?? r.details?.department ?? ''),
+            incrementType: (r.incrementType ?? r.details?.incrementType ?? 'annual') as IncrementLetter['incrementType'],
+            effectiveDate: String(r.effectiveDate ?? r.details?.effectiveDate ?? ''),
+            oldBasic: Number(r.currentSalary ?? r.details?.oldBasic ?? 0),
+            newBasic: Number(r.revisedSalary ?? r.details?.newBasic ?? 0),
+            incrementAmount: Number(
+              r.incrementAmount ??
+                r.details?.incrementAmount ??
+                (Number(r.revisedSalary ?? 0) - Number(r.currentSalary ?? 0))
+            ),
+            incrementPercentage: Number(r.incrementPercent ?? r.details?.incrementPercentage ?? 0),
+            letterDate: String(r.letterDate ?? r.details?.letterDate ?? r.effectiveDate ?? ''),
+            letterNumber: String(r.letterNumber ?? r.details?.letterNumber ?? ''),
+            status: (r.status ?? r.details?.status ?? 'draft') as IncrementLetter['status'],
+            approvedBy: r.approvedBy ?? r.details?.approvedBy ?? undefined,
+            approvedDate: r.approvedDate ?? r.details?.approvedDate ?? undefined,
+            sentDate: r.sentDate ?? r.details?.sentDate ?? undefined,
+            sentVia: (r.sentVia ?? r.details?.sentVia ?? undefined) as IncrementLetter['sentVia'],
+            acknowledgedDate: r.acknowledgedDate ?? r.details?.acknowledgedDate ?? undefined,
+            downloadedDate: r.downloadedDate ?? r.details?.downloadedDate ?? undefined,
+            remarks: r.remarks ?? r.details?.remarks ?? undefined,
+            performanceRating: (r.performanceRating ?? r.details?.performanceRating ?? undefined) as IncrementLetter['performanceRating'],
+            emailAddress: r.emailAddress ?? r.details?.emailAddress ?? undefined,
+            templateUsed: String(r.templateUsed ?? r.details?.templateUsed ?? 'Annual Increment Letter Template'),
+          } as IncrementLetter))
+          setLetters(mapped)
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filteredLetters = useMemo(() => {
     return letters.filter(letter => {
@@ -378,6 +432,8 @@ export default function IncrementLettersPage() {
       <div className="mb-3">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Increment Letters</h1>
         <p className="text-gray-600">Generate, approve, and distribute increment letters to employees</p>
+        {isLoading && <div className="text-sm text-gray-500 mt-1">Loading…</div>}
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       {/* Stats Cards */}

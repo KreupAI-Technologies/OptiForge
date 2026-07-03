@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Clock, Check, X, Eye, AlertCircle, Search, Filter, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface TimesheetSubmission {
   id: string;
@@ -25,66 +26,64 @@ export default function TimesheetApprovalPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTimesheet, setSelectedTimesheet] = useState<TimesheetSubmission | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [submissions, setSubmissions] = useState<TimesheetSubmission[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockSubmissions: TimesheetSubmission[] = [
-    {
-      id: '1', employeeCode: 'KMF2020001', employeeName: 'Rajesh Kumar',
-      department: 'IT', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 42, regularHours: 40, overtimeHours: 2, projectCount: 2,
-      submittedDate: '2024-11-22', status: 'pending'
-    },
-    {
-      id: '2', employeeCode: 'KMF2019002', employeeName: 'Meera Nair',
-      department: 'Production', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 40, regularHours: 40, overtimeHours: 0, projectCount: 1,
-      submittedDate: '2024-11-21', status: 'pending'
-    },
-    {
-      id: '3', employeeCode: 'KMF2021003', employeeName: 'Arun Patel',
-      department: 'Quality', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 44, regularHours: 40, overtimeHours: 4, projectCount: 3,
-      submittedDate: '2024-11-22', status: 'pending'
-    },
-    {
-      id: '4', employeeCode: 'KMF2022004', employeeName: 'Vikram Singh',
-      department: 'Production', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 38, regularHours: 38, overtimeHours: 0, projectCount: 2,
-      submittedDate: '2024-11-20', status: 'pending'
-    },
-    {
-      id: '5', employeeCode: 'KMF2020005', employeeName: 'Priya Menon',
-      department: 'Finance', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 40, regularHours: 40, overtimeHours: 0, projectCount: 1,
-      submittedDate: '2024-11-21', status: 'pending'
-    },
-    {
-      id: '6', employeeCode: 'KMF2018006', employeeName: 'Suresh Babu',
-      department: 'Logistics', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 45, regularHours: 40, overtimeHours: 5, projectCount: 2,
-      submittedDate: '2024-11-22', status: 'pending'
-    },
-    {
-      id: '7', employeeCode: 'KMF2019007', employeeName: 'Anjali Reddy',
-      department: 'Marketing', week: 'Week 42', weekPeriod: 'Nov 18 - Nov 24',
-      totalHours: 40, regularHours: 40, overtimeHours: 0, projectCount: 3,
-      submittedDate: '2024-11-21', status: 'pending'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.timesheets()) as any[];
+        const mapped: TimesheetSubmission[] = (raw ?? []).map((r, i) => {
+          const s = String(r.status ?? '').toLowerCase();
+          return {
+            id: String(r.id ?? `${i}`),
+            employeeCode: r.employeeCode ?? String(r.employeeId ?? ''),
+            employeeName: r.employeeName ?? 'Unknown',
+            department: r.department ?? 'Unassigned',
+            week: r.week ?? '',
+            weekPeriod: r.weekPeriod ?? '',
+            totalHours: Number(r.totalHours ?? 0),
+            regularHours: Number(r.regularHours ?? 0),
+            overtimeHours: Number(r.overtimeHours ?? 0),
+            projectCount: Number(r.projectCount ?? 0),
+            submittedDate: r.submittedDate ?? '',
+            status: s === 'approved' ? 'approved' : s === 'rejected' ? 'rejected' : 'pending',
+          };
+        });
+        if (!cancelled) setSubmissions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load timesheets');
+          setSubmissions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
-    return mockSubmissions.filter(submission => {
+    return submissions.filter(submission => {
       const matchesSearch = submission.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            submission.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = selectedDepartment === 'all' || submission.department === selectedDepartment;
       return matchesSearch && matchesDepartment && submission.status === 'pending';
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [submissions, searchTerm, selectedDepartment]);
 
   const stats = {
-    pending: mockSubmissions.filter(s => s.status === 'pending').length,
-    approvedThisWeek: 45,
-    totalHours: mockSubmissions.reduce((sum, s) => sum + s.totalHours, 0),
-    totalOvertimeHours: mockSubmissions.reduce((sum, s) => sum + s.overtimeHours, 0)
+    pending: submissions.filter(s => s.status === 'pending').length,
+    approvedThisWeek: submissions.filter(s => s.status === 'approved').length,
+    totalHours: submissions.reduce((sum, s) => sum + s.totalHours, 0),
+    totalOvertimeHours: submissions.reduce((sum, s) => sum + s.overtimeHours, 0)
   };
 
   const handleView = (submission: TimesheetSubmission) => {
@@ -184,6 +183,18 @@ export default function TimesheetApprovalPage() {
 
   return (
     <div className="p-6">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading timesheets…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="mb-3">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
           <CheckCircle className="h-8 w-8 text-blue-600" />

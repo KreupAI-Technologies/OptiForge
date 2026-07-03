@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart3, Search, Download, Users, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface DepartmentCost {
   department: string;
@@ -102,8 +103,48 @@ export default function DepartmentCostReportPage() {
     }
   ];
 
+  const [rows, setRows] = useState<DepartmentCost[]>(mockDepartmentCosts);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReports('dept-cost');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            department: r.department ?? r.details?.department ?? '',
+            employeeCount: r.details?.employeeCount ?? r.employeeCount ?? 0,
+            totalGross: r.details?.totalGross ?? r.totalGross ?? r.amount ?? 0,
+            totalNet: r.details?.totalNet ?? r.totalNet ?? 0,
+            totalPF: r.details?.totalPF ?? r.totalPF ?? 0,
+            totalESI: r.details?.totalESI ?? r.totalESI ?? 0,
+            totalPT: r.details?.totalPT ?? r.totalPT ?? 0,
+            totalTDS: r.details?.totalTDS ?? r.totalTDS ?? 0,
+            employerPF: r.details?.employerPF ?? r.employerPF ?? 0,
+            employerESI: r.details?.employerESI ?? r.employerESI ?? 0,
+            totalCost: r.details?.totalCost ?? r.totalCost ?? r.amount ?? 0,
+            avgCostPerEmployee: r.details?.avgCostPerEmployee ?? r.avgCostPerEmployee ?? 0,
+            percentageOfTotal: r.details?.percentageOfTotal ?? r.percentageOfTotal ?? 0,
+          } as DepartmentCost));
+          setRows(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredCosts = useMemo(() => {
-    let filtered = mockDepartmentCosts.filter(cost =>
+    let filtered = rows.filter(cost =>
       cost.department.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -116,7 +157,7 @@ export default function DepartmentCostReportPage() {
     });
 
     return filtered;
-  }, [searchTerm, sortBy]);
+  }, [searchTerm, sortBy, rows]);
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString('en-IN')}`;
@@ -146,6 +187,8 @@ export default function DepartmentCostReportPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Department Cost Report</h1>
         <p className="text-sm text-gray-600 mt-1">Department-wise payroll cost analysis</p>
+        {isLoading && <div className="text-sm text-gray-500 mt-1">Loading…</div>}
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg shadow-sm border border-indigo-200 p-3 mb-3">

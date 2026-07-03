@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CreditCard, User, Calendar, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface IDCard {
   id: string;
@@ -25,128 +26,70 @@ interface IDCard {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [idCards, setIdCards] = useState<IDCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockIDCards: IDCard[] = [
-    {
-      id: '1',
-      cardNumber: 'ID-EMP-345',
-      cardType: 'employee',
-      issuedTo: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      designation: 'Senior Sales Manager',
-      issueDate: '2024-01-15',
-      expiryDate: '2026-01-15',
-      status: 'active',
-      bloodGroup: 'O+',
-      emergencyContact: '+91-98765-43210',
-      photo: true,
-      location: 'Mumbai Office',
-      issuedBy: 'HR Department'
-    },
-    {
-      id: '2',
-      cardNumber: 'ID-EMP-198',
-      cardType: 'employee',
-      issuedTo: 'Vikram Singh',
-      employeeCode: 'EMP198',
-      department: 'IT',
-      designation: 'IT Manager',
-      issueDate: '2023-08-10',
-      expiryDate: '2025-08-10',
-      status: 'active',
-      bloodGroup: 'A+',
-      emergencyContact: '+91-99887-65432',
-      photo: true,
-      location: 'Pune Office',
-      issuedBy: 'HR Department'
-    },
-    {
-      id: '3',
-      cardNumber: 'ID-CNT-1245',
-      cardType: 'contractor',
-      issuedTo: 'Amit Patel',
-      employeeCode: 'CNT-1245',
-      department: 'Facilities',
-      designation: 'HVAC Technician',
-      issueDate: '2024-09-01',
-      expiryDate: '2024-12-31',
-      status: 'active',
-      bloodGroup: 'B+',
-      emergencyContact: '+91-97654-32109',
-      photo: true,
-      location: 'Mumbai Office',
-      issuedBy: 'Facilities Manager',
-      remarks: 'Contractor ID for HVAC maintenance project'
-    },
-    {
-      id: '4',
-      cardNumber: 'ID-EMP-412',
-      cardType: 'employee',
-      issuedTo: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      designation: 'Marketing Executive',
-      issueDate: '2023-05-20',
-      expiryDate: '2025-05-20',
-      status: 'lost',
-      bloodGroup: 'AB+',
-      emergencyContact: '+91-96543-21098',
-      photo: true,
-      location: 'Delhi Office',
-      issuedBy: 'HR Department',
-      remarks: 'Card reported lost on 2024-10-20. Replacement being processed.'
-    },
-    {
-      id: '5',
-      cardNumber: 'ID-EMP-523',
-      cardType: 'employee',
-      issuedTo: 'Sneha Reddy',
-      employeeCode: 'EMP523',
-      department: 'HR',
-      designation: 'HR Executive',
-      issueDate: '2023-11-15',
-      expiryDate: '2025-11-15',
-      status: 'damaged',
-      bloodGroup: 'O-',
-      emergencyContact: '+91-95432-10987',
-      photo: true,
-      location: 'Hyderabad Office',
-      issuedBy: 'HR Department',
-      remarks: 'Card damaged - lamination peeling off. Replacement requested.'
-    },
-    {
-      id: '6',
-      cardNumber: 'ID-TMP-089',
-      cardType: 'temp',
-      issuedTo: 'Karthik Menon',
-      employeeCode: 'TMP-089',
-      department: 'Operations',
-      designation: 'Temporary Staff',
-      issueDate: '2024-08-01',
-      expiryDate: '2024-10-20',
-      status: 'expired',
-      emergencyContact: '+91-94321-09876',
-      photo: true,
-      location: 'Bangalore Office',
-      issuedBy: 'Operations Manager',
-      remarks: 'Temporary ID for 3-month project. Expired.'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getIdCards();
+        const cardTypes: IDCard['cardType'][] = ['employee', 'contractor', 'temp'];
+        const statuses: IDCard['status'][] = ['active', 'inactive', 'lost', 'expired', 'damaged'];
+        const mapped: IDCard[] = raw.map((r, idx) => ({
+          id: String(r.id ?? idx),
+          cardNumber: r.cardNumber ?? '',
+          cardType: cardTypes.includes(r.cardType as IDCard['cardType'])
+            ? (r.cardType as IDCard['cardType'])
+            : 'employee',
+          issuedTo: r.issuedTo ?? '',
+          employeeCode: r.employeeCode ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          issueDate: r.issueDate ?? '',
+          expiryDate: r.expiryDate ?? undefined,
+          status: statuses.includes(r.status as IDCard['status'])
+            ? (r.status as IDCard['status'])
+            : 'active',
+          bloodGroup: r.bloodGroup ?? undefined,
+          emergencyContact: r.emergencyContact ?? '',
+          photo: Boolean(r.photo),
+          location: r.location ?? '',
+          issuedBy: r.issuedBy ?? '',
+          remarks: r.remarks ?? undefined,
+        }));
+        if (!cancelled) setIdCards(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load ID cards');
+          setIdCards([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredCards = mockIDCards.filter(c => {
+  const filteredCards = idCards.filter(c => {
     if (selectedStatus !== 'all' && c.status !== selectedStatus) return false;
     if (selectedType !== 'all' && c.cardType !== selectedType) return false;
     return true;
   });
 
   const stats = useMemo(() => ({
-    total: mockIDCards.length,
-    active: mockIDCards.filter(c => c.status === 'active').length,
-    lost: mockIDCards.filter(c => c.status === 'lost').length,
-    damaged: mockIDCards.filter(c => c.status === 'damaged').length,
-    expired: mockIDCards.filter(c => c.status === 'expired').length
-  }), [mockIDCards]);
+    total: idCards.length,
+    active: idCards.filter(c => c.status === 'active').length,
+    lost: idCards.filter(c => c.status === 'lost').length,
+    damaged: idCards.filter(c => c.status === 'damaged').length,
+    expired: idCards.filter(c => c.status === 'expired').length
+  }), [idCards]);
 
   const statusColors = {
     active: 'bg-green-100 text-green-700',
@@ -176,6 +119,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">ID Cards Management</h1>
         <p className="text-sm text-gray-600 mt-1">Manage employee identification cards</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading ID cards…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

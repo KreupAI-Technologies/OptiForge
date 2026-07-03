@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AlertCircle, Upload, FileText, User } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface MissingDocument {
   id: string;
@@ -19,63 +20,57 @@ interface MissingDocument {
 export default function MissingDocumentsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
+  const [mockMissingDocs, setMockMissingDocs] = useState<MissingDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockMissingDocs: MissingDocument[] = [
-    {
-      id: 'MISS001',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      department: 'Engineering',
-      documentType: 'PAN Card',
-      category: 'personal',
-      priority: 'high',
-      requestedOn: '2025-10-01',
-      lastReminder: '2025-10-20'
-    },
-    {
-      id: 'MISS002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      department: 'HR',
-      documentType: 'Degree Certificate',
-      category: 'education',
-      priority: 'high',
-      requestedOn: '2025-09-15',
-      lastReminder: '2025-10-15'
-    },
-    {
-      id: 'MISS003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      department: 'Finance',
-      documentType: 'EPF Form 11',
-      category: 'statutory',
-      priority: 'high',
-      requestedOn: '2025-10-10',
-      lastReminder: '2025-10-22'
-    },
-    {
-      id: 'MISS004',
-      employeeId: 'EMP004',
-      employeeName: 'Sneha Reddy',
-      department: 'Marketing',
-      documentType: 'Previous Employment Letter',
-      category: 'employment',
-      priority: 'medium',
-      requestedOn: '2025-10-05',
-      lastReminder: '2025-10-18'
-    },
-    {
-      id: 'MISS005',
-      employeeId: 'EMP005',
-      employeeName: 'Karthik Kumar',
-      department: 'Sales',
-      documentType: 'Passport',
-      category: 'personal',
-      priority: 'low',
-      requestedOn: '2025-09-20'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('missing');
+        const categories = ['personal', 'education', 'employment', 'statutory'];
+        const priorities = ['high', 'medium', 'low'];
+        const mapped: MissingDocument[] = rows.map((r) => {
+          const meta = (r.meta || {}) as Record<string, any>;
+          const category = categories.includes(meta.category)
+            ? meta.category
+            : 'personal';
+          const priority = priorities.includes(meta.priority)
+            ? meta.priority
+            : 'medium';
+          return {
+            id: String(r.id),
+            employeeId: meta.employeeId || '',
+            employeeName: meta.employeeName || '',
+            department: meta.department || '',
+            documentType: r.documentType || r.title || '',
+            category: category as MissingDocument['category'],
+            priority: priority as MissingDocument['priority'],
+            requestedOn: r.uploadedOn || meta.requestedOn || '',
+            lastReminder: meta.lastReminder || undefined,
+            remarks: r.remarks || undefined,
+          };
+        });
+        if (!cancelled) setMockMissingDocs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load missing documents',
+          );
+          setMockMissingDocs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredDocs = useMemo(() => {
     return mockMissingDocs.filter(doc => {
@@ -83,7 +78,7 @@ export default function MissingDocumentsPage() {
       const matchesPriority = selectedPriority === 'all' || doc.priority === selectedPriority;
       return matchesCategory && matchesPriority;
     });
-  }, [selectedCategory, selectedPriority]);
+  }, [mockMissingDocs, selectedCategory, selectedPriority]);
 
   const stats = {
     total: mockMissingDocs.length,
@@ -111,6 +106,19 @@ export default function MissingDocumentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Missing Documents</h1>
         <p className="text-sm text-gray-600 mt-1">Track and follow up on pending document submissions</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading missing documents…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border border-red-200">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Receipt, Upload, X, Plus, Trash2, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Receipt, Upload, X, Plus, Trash2, Calendar, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface ExpenseItem {
   id: string;
@@ -11,6 +12,17 @@ interface ExpenseItem {
   amount: number;
   date: string;
   receipt?: File;
+}
+
+interface RecentClaim {
+  id: string;
+  claimNumber: string;
+  category: string;
+  amount: number;
+  currency: string;
+  description: string;
+  status: string;
+  submittedDate: string;
 }
 
 const expenseCategories = [
@@ -36,6 +48,43 @@ export default function SubmitExpensePage() {
     date: new Date().toISOString().split('T')[0]
   }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [recentClaims, setRecentClaims] = useState<RecentClaim[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.expenseClaims()) as any[];
+        const mapped: RecentClaim[] = (raw ?? []).map((c, idx) => ({
+          id: String(c.id ?? idx),
+          claimNumber: c.claimNumber ?? '',
+          category: c.category ?? '',
+          amount: Number(c.amount ?? 0),
+          currency: c.currency ?? 'INR',
+          description: c.description ?? '',
+          status: c.status ?? '',
+          submittedDate: c.submittedDate ?? c.expenseDate ?? '',
+        }));
+        if (!cancelled) setRecentClaims(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load recent claims');
+          setRecentClaims([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const addExpenseItem = () => {
     const newItem: ExpenseItem = {
@@ -369,6 +418,56 @@ export default function SubmitExpensePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Recent Claims */}
+      <div className="mt-3 bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">Recent Claims</h2>
+
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading recent claims…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && recentClaims.length === 0 && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            No recent claims found.
+          </div>
+        )}
+        {!isLoading && !loadError && recentClaims.length > 0 && (
+          <div className="divide-y divide-gray-100">
+            {recentClaims.map((claim) => (
+              <div key={claim.id} className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {claim.claimNumber || claim.description || 'Expense Claim'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {claim.category}
+                    {claim.submittedDate ? ` • ${claim.submittedDate}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-gray-900">
+                    {claim.currency} {claim.amount.toLocaleString('en-IN')}
+                  </span>
+                  {claim.status && (
+                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
+                      {claim.status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

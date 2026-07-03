@@ -2,80 +2,64 @@
 
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, Download } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MachineTimeline, Machine, MachineEvent } from '@/components/production/MachineTimeline';
-
-// Mock machines data
-const mockMachines: Machine[] = [
-  { id: 'machine-1', name: 'CNC Machine 01', code: 'CNC-001', type: 'CNC', status: 'running', currentShift: 'Day', utilization: 85 },
-  { id: 'machine-2', name: 'CNC Machine 02', code: 'CNC-002', type: 'CNC', status: 'idle', currentShift: 'Day', utilization: 60 },
-  { id: 'machine-3', name: 'Assembly Line A', code: 'ASSY-001', type: 'Assembly', status: 'running', currentShift: 'Day', utilization: 92 },
-  { id: 'machine-4', name: 'Welding Station', code: 'WELD-001', type: 'Welding', status: 'maintenance', currentShift: 'Day', utilization: 0 },
-];
-
-// Generate mock events for today
-function generateMockEvents(date: Date): MachineEvent[] {
-  const events: MachineEvent[] = [];
-  const dayStart = new Date(date);
-  dayStart.setHours(6, 0, 0, 0);
-
-  mockMachines.forEach(machine => {
-    // Add production event
-    const prodStart = new Date(dayStart);
-    prodStart.setHours(8, 0, 0, 0);
-    const prodEnd = new Date(dayStart);
-    prodEnd.setHours(12, 0, 0, 0);
-    events.push({
-      id: `${machine.id}-prod-1`,
-      machineId: machine.id,
-      type: 'production',
-      startTime: prodStart,
-      endTime: prodEnd,
-      workOrderNumber: 'WO-2024-001',
-      product: 'Motor Assembly',
-      output: 45,
-      plannedOutput: 50,
-    });
-
-    // Add break
-    const breakStart = new Date(dayStart);
-    breakStart.setHours(12, 0, 0, 0);
-    const breakEnd = new Date(dayStart);
-    breakEnd.setHours(13, 0, 0, 0);
-    events.push({
-      id: `${machine.id}-break`,
-      machineId: machine.id,
-      type: 'break',
-      startTime: breakStart,
-      endTime: breakEnd,
-    });
-
-    // Add afternoon production
-    const prodStart2 = new Date(dayStart);
-    prodStart2.setHours(13, 0, 0, 0);
-    const prodEnd2 = new Date(dayStart);
-    prodEnd2.setHours(17, 0, 0, 0);
-    events.push({
-      id: `${machine.id}-prod-2`,
-      machineId: machine.id,
-      type: 'production',
-      startTime: prodStart2,
-      endTime: prodEnd2,
-      workOrderNumber: 'WO-2024-002',
-      product: 'Pump Assembly',
-      output: 38,
-      plannedOutput: 40,
-    });
-  });
-
-  return events;
-}
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 export default function MachineTimelinePage() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [events, setEvents] = useState<MachineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const events = generateMockEvents(new Date(selectedDate));
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const rows = await ProductionOrphanService.getMachineTimelines();
+        if (!active) return;
+        const mappedMachines: Machine[] = [];
+        const mappedEvents: MachineEvent[] = [];
+        (Array.isArray(rows) ? rows : []).forEach((r: any) => {
+          const machineId = String(r.id ?? '');
+          mappedMachines.push({
+            id: machineId,
+            name: r.machineName ?? r.machine_name ?? '',
+            code: r.machineCode ?? r.machine_code ?? '',
+            type: r.machineType ?? r.machine_type ?? '',
+            status: (r.status ?? 'idle') as Machine['status'],
+            currentShift: r.currentShift ?? r.current_shift ?? undefined,
+            utilization: Number(r.utilization ?? 0),
+          });
+          const rawEvents = Array.isArray(r.events) ? r.events : [];
+          rawEvents.forEach((e: any, idx: number) => {
+            mappedEvents.push({
+              ...e,
+              id: String(e?.id ?? `${machineId}-evt-${idx}`),
+              machineId,
+              type: e?.type ?? 'production',
+              startTime: e?.startTime ? new Date(e.startTime) : new Date(),
+              endTime: e?.endTime ? new Date(e.endTime) : new Date(),
+            });
+          });
+        });
+        setMachines(mappedMachines);
+        setEvents(mappedEvents);
+      } catch (err: any) {
+        if (active) setError(err?.message || 'Failed to load machine timelines');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -118,10 +102,17 @@ export default function MachineTimelinePage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="px-6 py-3 text-sm text-blue-700">Loading machine timelines…</div>
+      )}
+      {error && !loading && (
+        <div className="px-6 py-3 text-sm text-red-600">{error}</div>
+      )}
+
       {/* Machine Timeline Component */}
       <div className="p-6">
         <MachineTimeline
-          machines={mockMachines}
+          machines={machines}
           events={events}
           date={new Date(selectedDate)}
           onEventClick={(event: MachineEvent) => {

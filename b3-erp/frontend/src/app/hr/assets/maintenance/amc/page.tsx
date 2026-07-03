@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, Calendar, AlertCircle, CheckCircle, Building } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AMCContract {
   id: string;
@@ -24,119 +25,82 @@ interface AMCContract {
   remarks?: string;
 }
 
+function parseCoverage(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [contracts, setContracts] = useState<AMCContract[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockContracts: AMCContract[] = [
-    {
-      id: '1',
-      contractId: 'AMC-2024-001',
-      assetCategory: 'laptop',
-      vendor: 'Dell India Support Services',
-      vendorContact: '+91-80-2678-9999',
-      startDate: '2024-01-01',
-      endDate: '2025-12-31',
-      duration: 24,
-      numberOfAssets: 150,
-      contractValue: 450000,
-      paymentTerms: 'quarterly',
-      coverage: ['Hardware Repair', 'Preventive Maintenance', 'On-site Support'],
-      responseTime: '4 hours',
-      status: 'active',
-      location: 'All India',
-      contactPerson: 'Ramesh Kumar',
-      remarks: 'Comprehensive support for all Dell laptops'
-    },
-    {
-      id: '2',
-      contractId: 'AMC-2024-002',
-      assetCategory: 'desktop',
-      vendor: 'HP India Service Center',
-      vendorContact: '+91-124-460-8888',
-      startDate: '2024-03-01',
-      endDate: '2025-02-28',
-      duration: 12,
-      numberOfAssets: 80,
-      contractValue: 192000,
-      paymentTerms: 'quarterly',
-      coverage: ['Hardware Repair', 'Parts Replacement', 'Remote Support'],
-      responseTime: '8 hours',
-      status: 'active',
-      location: 'Mumbai, Pune, Delhi',
-      contactPerson: 'Sneha Reddy'
-    },
-    {
-      id: '3',
-      contractId: 'AMC-2023-045',
-      assetCategory: 'printer',
-      vendor: 'Canon India Services',
-      vendorContact: '+91-124-488-5000',
-      startDate: '2023-06-01',
-      endDate: '2025-05-31',
-      duration: 24,
-      numberOfAssets: 45,
-      contractValue: 270000,
-      paymentTerms: 'half_yearly',
-      coverage: ['Maintenance', 'Parts Replacement', 'Toner Support', 'On-site'],
-      responseTime: '24 hours',
-      status: 'expiring_soon',
-      renewalDate: '2025-04-01',
-      location: 'Bangalore, Hyderabad',
-      contactPerson: 'Vikram Singh'
-    },
-    {
-      id: '4',
-      contractId: 'AMC-2023-012',
-      assetCategory: 'server',
-      vendor: 'Lenovo Data Center Services',
-      vendorContact: '+91-80-4933-5000',
-      startDate: '2023-01-15',
-      endDate: '2024-01-14',
-      duration: 12,
-      numberOfAssets: 12,
-      contractValue: 600000,
-      paymentTerms: 'annual',
-      coverage: ['24x7 Support', 'Critical Hardware Replacement', 'Preventive Maintenance'],
-      responseTime: '2 hours',
-      status: 'expired',
-      location: 'Mumbai Data Center',
-      contactPerson: 'Arjun Kapoor',
-      remarks: 'Renewal pending approval'
-    },
-    {
-      id: '5',
-      contractId: 'AMC-2024-003',
-      assetCategory: 'network',
-      vendor: 'Cisco India Support',
-      vendorContact: '+91-80-6773-0000',
-      startDate: '2024-02-01',
-      endDate: '2027-01-31',
-      duration: 36,
-      numberOfAssets: 200,
-      contractValue: 1800000,
-      paymentTerms: 'annual',
-      coverage: ['24x7 Network Support', 'Firmware Updates', 'Hardware Replacement', 'TAC Support'],
-      responseTime: '1 hour',
-      status: 'active',
-      location: 'All Offices',
-      contactPerson: 'Priya Sharma'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getAmcContracts();
+        const mapped: AMCContract[] = raw.map((c) => ({
+          id: String(c.id),
+          contractId: c.contractId ?? '',
+          assetCategory: (c.assetCategory ?? 'other') as AMCContract['assetCategory'],
+          vendor: c.vendor ?? '',
+          vendorContact: c.vendorContact ?? '',
+          startDate: c.startDate ?? '',
+          endDate: c.endDate ?? '',
+          duration: Number(c.duration ?? 0),
+          numberOfAssets: Number(c.numberOfAssets ?? 0),
+          contractValue: Number(c.contractValue ?? 0),
+          paymentTerms: (c.paymentTerms ?? 'annual') as AMCContract['paymentTerms'],
+          coverage: parseCoverage(c.coverage),
+          responseTime: c.responseTime ?? '',
+          status: (c.status ?? 'active') as AMCContract['status'],
+          renewalDate: c.renewalDate ?? undefined,
+          location: c.location ?? '',
+          contactPerson: c.contactPerson ?? '',
+          remarks: c.remarks ?? undefined,
+        }));
+        if (!cancelled) setContracts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load AMC contracts');
+          setContracts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredContracts = mockContracts.filter(c => {
+  const filteredContracts = contracts.filter(c => {
     if (selectedStatus !== 'all' && c.status !== selectedStatus) return false;
     if (selectedCategory !== 'all' && c.assetCategory !== selectedCategory) return false;
     return true;
   });
 
   const stats = useMemo(() => ({
-    total: mockContracts.length,
-    active: mockContracts.filter(c => c.status === 'active').length,
-    expiring: mockContracts.filter(c => c.status === 'expiring_soon').length,
-    expired: mockContracts.filter(c => c.status === 'expired').length,
-    totalValue: mockContracts.filter(c => c.status === 'active' || c.status === 'expiring_soon').reduce((sum, c) => sum + c.contractValue, 0)
-  }), [mockContracts]);
+    total: contracts.length,
+    active: contracts.filter(c => c.status === 'active').length,
+    expiring: contracts.filter(c => c.status === 'expiring_soon').length,
+    expired: contracts.filter(c => c.status === 'expired').length,
+    totalValue: contracts.filter(c => c.status === 'active' || c.status === 'expiring_soon').reduce((sum, c) => sum + c.contractValue, 0)
+  }), [contracts]);
 
   const statusColors = {
     active: 'bg-green-100 text-green-700',
@@ -176,6 +140,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">AMC Management</h1>
         <p className="text-sm text-gray-600 mt-1">Manage Annual Maintenance Contracts for assets</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading AMC contracts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

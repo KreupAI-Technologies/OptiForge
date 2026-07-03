@@ -232,6 +232,20 @@ export interface VehicleFuel {
   remarks?: string;
 }
 
+
+export interface IdCard { id: string; companyId: string; cardNumber?: string; cardType?: string; issuedTo?: string; employeeCode?: string; department?: string; designation?: string; issueDate?: string; expiryDate?: string; status?: string; bloodGroup?: string; emergencyContact?: string; photo?: boolean; location?: string; issuedBy?: string; remarks?: string; }
+export interface AccessCard { id: string; companyId: string; cardNumber?: string; cardType?: string; issuedTo?: string; employeeCode?: string; department?: string; designation?: string; issueDate?: string; expiryDate?: string; status?: string; accessLevel?: string; accessZones?: string; location?: string; issuedBy?: string; lastUsed?: string; remarks?: string; }
+export interface Stationery { id: string; companyId: string; itemCode?: string; itemName?: string; category?: string; brand?: string; unit?: string; totalQuantity?: number; issued?: number; available?: number; minStockLevel?: number; reorderLevel?: number; unitCost?: number | string; totalValue?: number | string; location?: string; supplier?: string; lastPurchaseDate?: string; status?: string; }
+export interface AssetAudit { id: string; companyId: string; auditId?: string; auditDate?: string; auditType?: string; location?: string; auditor?: string; totalAssets?: number; verified?: number; missing?: number; damaged?: number; status?: string; completionDate?: string; remarks?: string; }
+export interface VehicleAssignment { id: string; companyId: string; assignmentId?: string; vehicleNumber?: string; vehicleName?: string; registrationNumber?: string; assignedTo?: string; employeeCode?: string; department?: string; designation?: string; assignmentDate?: string; returnDate?: string; purpose?: string; status?: string; odometerReadingStart?: number; odometerReadingEnd?: number; location?: string; remarks?: string; }
+export interface AmcContract { id: string; companyId: string; contractId?: string; assetCategory?: string; vendor?: string; vendorContact?: string; startDate?: string; endDate?: string; duration?: number; numberOfAssets?: number; contractValue?: number | string; paymentTerms?: string; coverage?: string; responseTime?: string; status?: string; renewalDate?: string; location?: string; contactPerson?: string; remarks?: string; }
+export interface PreventiveMaintenance { id: string; companyId: string; scheduleId?: string; assetTag?: string; assetName?: string; assetCategory?: string; maintenanceType?: string; frequency?: string; lastMaintenanceDate?: string; nextMaintenanceDate?: string; assignedTo?: string; estimatedDuration?: number; status?: string; location?: string; checklist?: string; priority?: string; remarks?: string; }
+export interface AssetRegisterReport { assetTag: string; assetName: string; category: string; brand: string; serialNumber: string; purchaseDate: string; purchaseCost: number; assignedTo?: string; department?: string; location: string; warranty: string; status: string; condition: string; }
+export interface EmployeeAssetReport { employeeName: string; employeeCode: string; department: string; designation: string; laptop?: string; desktop?: string; mobile?: string; monitor?: string; furniture: string[]; totalAssets: number; totalValue: number; location: string; }
+export interface DepartmentAssetReport { department: string; employees: number; laptops: number; desktops: number; mobiles: number; monitors: number; furniture: number; totalValue: number; assetsPerEmployee: number; }
+export interface CostSummaryReport { category: string; purchaseCost: number; maintenanceCost: number; totalCost: number; monthlyAvg: number; trend: string; }
+export interface AllocationSummaryReport { category: string; total: number; allocated: number; available: number; maintenance: number; utilization: number; }
+
 const cid = (companyId: string) =>
   `companyId=${encodeURIComponent(companyId)}`;
 
@@ -290,6 +304,69 @@ export class HrAssetsService {
 
   static async getVehicleFuel(companyId = 'company-1'): Promise<VehicleFuel[]> {
     const data = await getJson<VehicleFuel[]>(`/hr/vehicle-fuel?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getIdCards(cardType?: string, companyId = 'company-1'): Promise<IdCard[]> {
+    const q = cardType ? `${cid(companyId)}&cardType=${encodeURIComponent(cardType)}` : cid(companyId);
+    const data = await getJson<IdCard[]>(`/hr/id-cards?${q}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getAccessCards(cardType?: string, companyId = 'company-1'): Promise<AccessCard[]> {
+    const q = cardType ? `${cid(companyId)}&cardType=${encodeURIComponent(cardType)}` : cid(companyId);
+    const data = await getJson<AccessCard[]>(`/hr/access-cards?${q}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getStationery(category?: string, companyId = 'company-1'): Promise<Stationery[]> {
+    const q = category ? `${cid(companyId)}&category=${encodeURIComponent(category)}` : cid(companyId);
+    const data = await getJson<Stationery[]>(`/hr/stationery?${q}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getAssetAudits(companyId = 'company-1'): Promise<AssetAudit[]> {
+    const data = await getJson<AssetAudit[]>(`/hr/asset-audits?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getVehicleAssignments(companyId = 'company-1'): Promise<VehicleAssignment[]> {
+    const data = await getJson<VehicleAssignment[]>(`/hr/vehicle-assignments?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getAmcContracts(companyId = 'company-1'): Promise<AmcContract[]> {
+    const data = await getJson<AmcContract[]>(`/hr/amc-contracts?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getPreventiveMaintenance(companyId = 'company-1'): Promise<PreventiveMaintenance[]> {
+    const data = await getJson<PreventiveMaintenance[]>(`/hr/preventive-maintenance?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getReportRegister(companyId = 'company-1'): Promise<AssetRegisterReport[]> {
+    const data = await getJson<AssetRegisterReport[]>(`/hr/asset-reports/register?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getReportEmployee(companyId = 'company-1'): Promise<EmployeeAssetReport[]> {
+    const data = await getJson<EmployeeAssetReport[]>(`/hr/asset-reports/employee?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getReportDepartment(companyId = 'company-1'): Promise<DepartmentAssetReport[]> {
+    const data = await getJson<DepartmentAssetReport[]>(`/hr/asset-reports/department?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getReportCosts(companyId = 'company-1'): Promise<CostSummaryReport[]> {
+    const data = await getJson<CostSummaryReport[]>(`/hr/asset-reports/costs?${cid(companyId)}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getReportAllocation(companyId = 'company-1'): Promise<AllocationSummaryReport[]> {
+    const data = await getJson<AllocationSummaryReport[]>(`/hr/asset-reports/allocation?${cid(companyId)}`);
     return Array.isArray(data) ? data : [];
   }
 }

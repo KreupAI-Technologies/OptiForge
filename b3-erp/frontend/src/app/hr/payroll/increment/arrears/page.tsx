@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calculator, Search, Calendar, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface IncrementArrears {
   id: string;
@@ -163,8 +164,54 @@ export default function IncrementArrearsPage() {
     }
   ];
 
+  const [rows, setRows] = useState<IncrementArrears[]>(mockArrears);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getSalaryRevisions('increment-arrears');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.employeeCode ?? r.details?.employeeId ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            designation: r.designation ?? r.details?.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            effectiveDate: r.effectiveDate ?? r.details?.effectiveDate ?? '',
+            implementationDate: r.implementationDate ?? r.details?.implementationDate ?? '',
+            arrearMonths: r.arrearMonths ?? r.details?.arrearMonths ?? 0,
+            oldBasic: r.currentSalary ?? r.oldBasic ?? r.details?.oldBasic ?? 0,
+            newBasic: r.revisedSalary ?? r.newBasic ?? r.details?.newBasic ?? 0,
+            incrementAmount: r.incrementAmount ?? r.details?.incrementAmount ?? 0,
+            monthlyDifference: r.monthlyDifference ?? r.details?.monthlyDifference ?? 0,
+            totalArrears: r.totalArrears ?? r.details?.totalArrears ?? 0,
+            pfArrears: r.pfArrears ?? r.details?.pfArrears ?? 0,
+            esiArrears: r.esiArrears ?? r.details?.esiArrears ?? 0,
+            netArrears: r.netArrears ?? r.details?.netArrears ?? 0,
+            status: (r.status ?? r.details?.status ?? 'calculated') as IncrementArrears['status'],
+            approvedBy: r.approvedBy ?? r.details?.approvedBy ?? undefined,
+            approvedDate: r.approvedDate ?? r.details?.approvedDate ?? undefined,
+            paymentDate: r.paymentDate ?? r.details?.paymentDate ?? undefined,
+            remarks: r.remarks ?? r.details?.remarks ?? undefined,
+          } as IncrementArrears));
+          setRows(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredArrears = useMemo(() => {
-    return mockArrears.filter(arr => {
+    return rows.filter(arr => {
       const matchesSearch =
         arr.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         arr.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -172,7 +219,7 @@ export default function IncrementArrearsPage() {
       const matchesStatus = selectedStatus === 'all' || arr.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [rows, searchTerm, selectedDepartment, selectedStatus]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'calculated', 'approved', 'processed', 'paid'];
@@ -205,6 +252,7 @@ export default function IncrementArrearsPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Increment Arrears</h1>
         <p className="text-sm text-gray-600 mt-1">Backpay calculation for delayed increment implementation</p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg shadow-sm border border-orange-200 p-3 mb-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { UserCheck, Car, Calendar, MapPin } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { UserCheck, Car, Calendar, MapPin, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface VehicleAssignment {
   id: string;
@@ -26,105 +27,65 @@ interface VehicleAssignment {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [assignments, setAssignments] = useState<VehicleAssignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockAssignments: VehicleAssignment[] = [
-    {
-      id: '1',
-      assignmentId: 'VA-2024-001',
-      vehicleNumber: 'VEH-2024-001',
-      vehicleName: 'Maruti Suzuki Dzire',
-      registrationNumber: 'MH-02-BX-1234',
-      assignedTo: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      designation: 'Senior Sales Manager',
-      assignmentDate: '2024-01-20',
-      purpose: 'Official travel - Client meetings',
-      status: 'active',
-      odometerReadingStart: 10500,
-      location: 'Mumbai Office'
-    },
-    {
-      id: '2',
-      assignmentId: 'VA-2024-002',
-      vehicleNumber: 'VEH-2024-002',
-      vehicleName: 'Mahindra XUV700',
-      registrationNumber: 'DL-3C-AB-5678',
-      assignedTo: 'Sales Team',
-      employeeCode: 'TEAM-SALES',
-      department: 'Sales',
-      designation: 'Team Vehicle',
-      assignmentDate: '2024-02-25',
-      purpose: 'Sales team official use',
-      status: 'active',
-      odometerReadingStart: 5200,
-      location: 'Delhi Office'
-    },
-    {
-      id: '3',
-      assignmentId: 'VA-2024-003',
-      vehicleNumber: 'VEH-2024-003',
-      vehicleName: 'Tata Winger',
-      registrationNumber: 'MH-12-DE-3456',
-      assignedTo: 'Operations Team',
-      employeeCode: 'TEAM-OPS',
-      department: 'Operations',
-      designation: 'Team Vehicle',
-      assignmentDate: '2024-03-20',
-      purpose: 'Material transport and logistics',
-      status: 'active',
-      odometerReadingStart: 4800,
-      location: 'Pune Office'
-    },
-    {
-      id: '4',
-      assignmentId: 'VA-2023-089',
-      vehicleNumber: 'VEH-2023-015',
-      vehicleName: 'Hyundai i20',
-      registrationNumber: 'KA-03-MN-9012',
-      assignedTo: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      designation: 'Marketing Executive',
-      assignmentDate: '2024-09-15',
-      returnDate: '2024-09-20',
-      purpose: 'Event coordination',
-      status: 'returned',
-      odometerReadingStart: 22400,
-      odometerReadingEnd: 23150,
-      location: 'Bangalore Office',
-      remarks: 'Vehicle returned in good condition'
-    },
-    {
-      id: '5',
-      assignmentId: 'VA-2024-004',
-      vehicleNumber: 'VEH-2022-008',
-      vehicleName: 'Honda City',
-      registrationNumber: 'TS-09-FG-7890',
-      assignedTo: 'Arjun Kapoor',
-      employeeCode: 'EMP890',
-      department: 'Sales',
-      designation: 'Sales Executive',
-      assignmentDate: '2024-10-01',
-      purpose: 'Client visits - South region',
-      status: 'active',
-      odometerReadingStart: 42600,
-      location: 'Hyderabad Office'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getVehicleAssignments();
+        const mapped: VehicleAssignment[] = raw.map((a) => ({
+          id: String(a.id),
+          assignmentId: a.assignmentId ?? '',
+          vehicleNumber: a.vehicleNumber ?? '',
+          vehicleName: a.vehicleName ?? '',
+          registrationNumber: a.registrationNumber ?? '',
+          assignedTo: a.assignedTo ?? '',
+          employeeCode: a.employeeCode ?? '',
+          department: a.department ?? '',
+          designation: a.designation ?? '',
+          assignmentDate: a.assignmentDate ?? '',
+          returnDate: a.returnDate ?? undefined,
+          purpose: a.purpose ?? '',
+          status: (a.status ?? 'active') as VehicleAssignment['status'],
+          odometerReadingStart: Number(a.odometerReadingStart ?? 0),
+          odometerReadingEnd:
+            a.odometerReadingEnd != null ? Number(a.odometerReadingEnd) : undefined,
+          location: a.location ?? '',
+          remarks: a.remarks ?? undefined,
+        }));
+        if (!cancelled) setAssignments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load vehicle assignments');
+          setAssignments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredAssignments = mockAssignments.filter(a => {
+  const filteredAssignments = assignments.filter(a => {
     if (selectedStatus !== 'all' && a.status !== selectedStatus) return false;
     if (selectedDepartment !== 'all' && a.department !== selectedDepartment) return false;
     return true;
   });
 
   const stats = useMemo(() => ({
-    total: mockAssignments.length,
-    active: mockAssignments.filter(a => a.status === 'active').length,
-    returned: mockAssignments.filter(a => a.status === 'returned').length,
-    overdue: mockAssignments.filter(a => a.status === 'overdue').length
-  }), [mockAssignments]);
+    total: assignments.length,
+    active: assignments.filter(a => a.status === 'active').length,
+    returned: assignments.filter(a => a.status === 'returned').length,
+    overdue: assignments.filter(a => a.status === 'overdue').length
+  }), [assignments]);
 
   const statusColors = {
     active: 'bg-green-100 text-green-700',
@@ -138,6 +99,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Vehicle Assignments</h1>
         <p className="text-sm text-gray-600 mt-1">Track vehicle assignments to employees</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading vehicle assignments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

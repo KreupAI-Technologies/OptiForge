@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle, Filter } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface ComplianceDeadline {
   id: string;
@@ -21,104 +22,58 @@ export default function Page() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedPriority, setSelectedPriority] = useState('all');
 
-  const mockDeadlines: ComplianceDeadline[] = [
-    {
-      id: '1',
-      title: 'PF ECR Filing',
-      act: 'Provident Fund Act, 1952',
-      dueDate: '2025-11-15',
-      frequency: 'monthly',
-      responsibility: 'Payroll Team',
-      priority: 'high',
-      status: 'upcoming',
-      reminderDays: 5,
-      description: 'Monthly ECR filing with PF challan payment'
-    },
-    {
-      id: '2',
-      title: 'ESI Return Filing',
-      act: 'ESI Act, 1948',
-      dueDate: '2025-11-21',
-      frequency: 'monthly',
-      responsibility: 'Payroll Team',
-      priority: 'high',
-      status: 'upcoming',
-      reminderDays: 5,
-      description: 'Monthly ESI contribution return and payment'
-    },
-    {
-      id: '3',
-      title: 'Professional Tax Payment',
-      act: 'Professional Tax Act',
-      dueDate: '2025-11-20',
-      frequency: 'monthly',
-      responsibility: 'Payroll Team',
-      priority: 'high',
-      status: 'upcoming',
-      reminderDays: 5,
-      description: 'Monthly PT deduction payment to state govt'
-    },
-    {
-      id: '4',
-      title: 'TDS Return (24Q)',
-      act: 'Income Tax Act, 1961',
-      dueDate: '2025-11-30',
-      frequency: 'quarterly',
-      responsibility: 'Finance Team',
-      priority: 'high',
-      status: 'upcoming',
-      reminderDays: 7,
-      description: 'Quarterly TDS return for salary payments'
-    },
-    {
-      id: '5',
-      title: 'Contract Labour Return',
-      act: 'Contract Labour Act, 1970',
-      dueDate: '2025-10-31',
-      frequency: 'half_yearly',
-      responsibility: 'Contract Manager',
-      priority: 'medium',
-      status: 'overdue',
-      reminderDays: 10,
-      description: 'Half-yearly return in Form XXIV'
-    },
-    {
-      id: '6',
-      title: 'Wage Register Update',
-      act: 'Payment of Wages Act, 1936',
-      dueDate: '2025-11-25',
-      frequency: 'monthly',
-      responsibility: 'Payroll Team',
-      priority: 'medium',
-      status: 'upcoming',
-      reminderDays: 3,
-      description: 'Monthly wage register maintenance'
-    },
-    {
-      id: '7',
-      title: 'LWF Contribution',
-      act: 'Labour Welfare Fund Act',
-      dueDate: '2025-11-15',
-      frequency: 'monthly',
-      responsibility: 'Payroll Team',
-      priority: 'medium',
-      status: 'upcoming',
-      reminderDays: 5,
-      description: 'Monthly LWF contribution payment'
-    },
-    {
-      id: '8',
-      title: 'Factory Annual Return (Form 25)',
-      act: 'Factories Act, 1948',
-      dueDate: '2026-01-31',
-      frequency: 'annual',
-      responsibility: 'Factory Manager',
-      priority: 'high',
-      status: 'upcoming',
-      reminderDays: 30,
-      description: 'Annual return to Chief Inspector of Factories'
-    }
-  ];
+  const [mockDeadlines, setMockDeadlines] = useState<ComplianceDeadline[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const validFrequency: ComplianceDeadline['frequency'][] = [
+      'monthly', 'quarterly', 'half_yearly', 'annual',
+    ];
+    const validStatus: ComplianceDeadline['status'][] = [
+      'upcoming', 'due_today', 'overdue', 'completed',
+    ];
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.complianceReturns()) as any[];
+        // Feed compliance returns into the calendar keyed by their due date.
+        const mapped: ComplianceDeadline[] = (raw ?? []).map((r, idx) => {
+          const status: ComplianceDeadline['status'] = validStatus.includes(r.status)
+            ? r.status
+            : r.filingDate
+              ? 'completed'
+              : 'upcoming';
+          return {
+            id: String(r.id ?? idx),
+            title: r.returnName ?? r.name ?? 'Compliance Return',
+            act: r.regulator ?? r.act ?? '',
+            dueDate: r.dueDate ?? '',
+            frequency: validFrequency.includes(r.frequency) ? r.frequency : 'monthly',
+            responsibility: r.responsibility ?? r.regulator ?? '',
+            priority: r.priority === 'low' || r.priority === 'medium' ? r.priority : 'high',
+            status,
+            reminderDays: Number(r.reminderDays ?? 0),
+            description: r.description ?? '',
+          };
+        });
+        if (!cancelled) setMockDeadlines(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load compliance calendar');
+          setMockDeadlines([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredDeadlines = useMemo(() => {
     return mockDeadlines.filter(deadline => {
@@ -166,6 +121,19 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Track compliance deadlines and due dates</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading compliance calendar…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

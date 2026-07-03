@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DollarSign, Plus, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface SalaryCertificateRequest {
   id: string;
@@ -21,48 +22,47 @@ interface SalaryCertificateRequest {
 
 export default function SalaryCertificatePage() {
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [mockRequests, setMockRequests] = useState<SalaryCertificateRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockRequests: SalaryCertificateRequest[] = [
-    {
-      id: 'SAL001',
-      requestDate: '2025-10-10',
-      purpose: 'Home Loan Application',
-      period: 'Current Month',
-      includeBreakup: true,
-      deliveryMode: 'email',
-      status: 'delivered',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-11',
-      generatedOn: '2025-10-11',
-      deliveredOn: '2025-10-11'
-    },
-    {
-      id: 'SAL002',
-      requestDate: '2025-10-18',
-      purpose: 'Credit Card Application',
-      period: 'Last 3 Months',
-      includeBreakup: false,
-      deliveryMode: 'physical',
-      status: 'generated',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-19',
-      generatedOn: '2025-10-19'
-    },
-    {
-      id: 'SAL003',
-      requestDate: '2025-10-24',
-      purpose: 'Visa Application',
-      period: 'Last 6 Months',
-      includeBreakup: true,
-      deliveryMode: 'both',
-      status: 'approved',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-25'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getCertificateRequests('salary');
+        const mapped: SalaryCertificateRequest[] = rows.map((row) => ({
+          id: String(row.id),
+          requestDate: row.requestDate ?? '',
+          purpose: row.purpose ?? '',
+          period: row.period ?? '',
+          includeBreakup: Boolean(row.includeBreakup),
+          deliveryMode: (row.deliveryMode ?? 'email') as SalaryCertificateRequest['deliveryMode'],
+          status: (row.status ?? 'pending') as SalaryCertificateRequest['status'],
+          requestedBy: row.requestedBy ?? '',
+          approvedBy: row.approvedBy ?? '',
+          approvedOn: row.approvedOn ?? '',
+          generatedOn: row.generatedOn ?? '',
+          deliveredOn: row.deliveredOn ?? '',
+          remarks: row.remarks ?? '',
+        }));
+        if (!cancelled) setMockRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
+          setMockRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = {
     total: mockRequests.length,
@@ -93,6 +93,19 @@ export default function SalaryCertificatePage() {
           New Request
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading certificate requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

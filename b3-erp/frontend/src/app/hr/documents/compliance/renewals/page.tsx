@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Bell, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface RenewalReminder {
   id: string;
@@ -29,76 +30,61 @@ export default function RenewalRemindersPage() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const mockRenewals: RenewalReminder[] = [
-    {
-      id: 'REN001',
-      employeeId: 'EMP001',
-      employeeName: 'Rahul Sharma',
-      department: 'Engineering',
-      documentType: 'Passport',
-      category: 'personal',
-      expiryDate: '2025-11-15',
-      daysUntilExpiry: 19,
-      uploadedOn: '2020-11-15',
-      urgency: 'urgent',
-      remindersSent: 2,
-      lastReminderDate: '2025-10-20'
-    },
-    {
-      id: 'REN002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Singh',
-      department: 'HR',
-      documentType: 'Medical Insurance',
-      category: 'statutory',
-      expiryDate: '2025-11-30',
-      daysUntilExpiry: 34,
-      uploadedOn: '2024-11-30',
-      urgency: 'soon',
-      remindersSent: 1,
-      lastReminderDate: '2025-10-15'
-    },
-    {
-      id: 'REN003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      department: 'Finance',
-      documentType: 'Driving License',
-      category: 'personal',
-      expiryDate: '2025-12-20',
-      daysUntilExpiry: 54,
-      uploadedOn: '2020-12-20',
-      urgency: 'soon',
-      remindersSent: 0
-    },
-    {
-      id: 'REN004',
-      employeeId: 'EMP004',
-      employeeName: 'Sneha Reddy',
-      department: 'Marketing',
-      documentType: 'Police Verification',
-      category: 'statutory',
-      expiryDate: '2026-01-15',
-      daysUntilExpiry: 80,
-      uploadedOn: '2025-01-15',
-      urgency: 'upcoming',
-      remindersSent: 0
-    },
-    {
-      id: 'REN005',
-      employeeId: 'EMP005',
-      employeeName: 'Karthik Kumar',
-      department: 'Sales',
-      documentType: 'Professional Certification',
-      category: 'personal',
-      expiryDate: '2025-11-10',
-      daysUntilExpiry: 14,
-      uploadedOn: '2022-11-10',
-      urgency: 'urgent',
-      remindersSent: 3,
-      lastReminderDate: '2025-10-24'
-    }
-  ];
+  const [mockRenewals, setMockRenewals] = useState<RenewalReminder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments();
+        const mapped: RenewalReminder[] = rows
+          .filter((r) => r.expiryDate)
+          .map((r) => {
+            const meta = (r.meta || {}) as Record<string, any>;
+            const days = calculateDaysUntilExpiry(r.expiryDate as string);
+            const urgency: RenewalReminder['urgency'] =
+              days <= 30 ? 'urgent' : days <= 60 ? 'soon' : 'upcoming';
+            const category: RenewalReminder['category'] =
+              (r.docCategory === 'statutory' || meta.category === 'statutory')
+                ? 'statutory'
+                : 'personal';
+            return {
+              id: String(r.id),
+              employeeId: meta.employeeId || '',
+              employeeName: meta.employeeName || '',
+              department: meta.department || '',
+              documentType: r.documentType || r.title || '',
+              category,
+              expiryDate: r.expiryDate as string,
+              daysUntilExpiry: days,
+              uploadedOn: r.uploadedOn || '',
+              urgency,
+              remindersSent: Number(meta.remindersSent) || 0,
+              lastReminderDate: meta.lastReminderDate || undefined,
+            };
+          })
+          .filter((r) => r.daysUntilExpiry >= 0);
+        if (!cancelled) setMockRenewals(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load renewal reminders',
+          );
+          setMockRenewals([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRenewals = useMemo(() => {
     return mockRenewals.filter(renewal => {
@@ -106,7 +92,7 @@ export default function RenewalRemindersPage() {
       const matchesUrgency = selectedUrgency === 'all' || renewal.urgency === selectedUrgency;
       return matchesCategory && matchesUrgency;
     });
-  }, [selectedCategory, selectedUrgency]);
+  }, [mockRenewals, selectedCategory, selectedUrgency]);
 
   const stats = {
     total: mockRenewals.length,
@@ -132,6 +118,19 @@ export default function RenewalRemindersPage() {
         <h1 className="text-2xl font-bold text-gray-900">Document Renewal Reminders</h1>
         <p className="text-sm text-gray-600 mt-1">Proactive reminders for upcoming document expirations</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading renewal reminders…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">

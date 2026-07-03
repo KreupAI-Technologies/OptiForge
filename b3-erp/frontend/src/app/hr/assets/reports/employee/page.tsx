@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Laptop, Monitor, Smartphone, Package } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface EmployeeAsset {
   employeeName: string;
@@ -21,89 +22,46 @@ interface EmployeeAsset {
 export default function Page() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [mockData, setMockData] = useState<EmployeeAsset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockData: EmployeeAsset[] = [
-    {
-      employeeName: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      designation: 'Senior Sales Manager',
-      laptop: 'LAP-2024-001 (Dell Latitude 5420)',
-      mobile: 'MOB-2024-001 (Samsung Galaxy S21)',
-      monitor: 'MON-2024-015 (Dell P2422H 24")',
-      furniture: ['Desk', 'Chair'],
-      totalAssets: 5,
-      totalValue: 145000,
-      location: 'Mumbai Office'
-    },
-    {
-      employeeName: 'Vikram Singh',
-      employeeCode: 'EMP198',
-      department: 'IT',
-      designation: 'IT Manager',
-      laptop: 'LAP-2023-045 (Lenovo ThinkPad X1)',
-      desktop: 'DESK-2024-002 (HP Elite 800 G8)',
-      mobile: 'MOB-2024-012 (iPhone 13)',
-      monitor: 'MON-2024-028 (LG 27" 4K)',
-      furniture: ['Executive Desk', 'Ergonomic Chair', 'Cabinet'],
-      totalAssets: 8,
-      totalValue: 285000,
-      location: 'Pune Office'
-    },
-    {
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      designation: 'Marketing Executive',
-      laptop: 'LAP-2024-023 (Dell Latitude 5420)',
-      mobile: 'MOB-2024-018 (Samsung Galaxy S21)',
-      monitor: 'MON-2024-032 (HP E24 24")',
-      furniture: ['Desk', 'Chair'],
-      totalAssets: 5,
-      totalValue: 135000,
-      location: 'Delhi Office'
-    },
-    {
-      employeeName: 'Sneha Reddy',
-      employeeCode: 'EMP523',
-      department: 'HR',
-      designation: 'HR Executive',
-      laptop: 'LAP-2024-012 (HP EliteBook 840)',
-      mobile: 'MOB-2024-005 (iPhone 12)',
-      monitor: 'MON-2024-019 (Dell P2422H 24")',
-      furniture: ['Desk', 'Chair', 'Cabinet'],
-      totalAssets: 6,
-      totalValue: 155000,
-      location: 'Hyderabad Office'
-    },
-    {
-      employeeName: 'Arjun Kapoor',
-      employeeCode: 'EMP890',
-      department: 'Sales',
-      designation: 'Sales Executive',
-      laptop: 'LAP-2024-035 (Lenovo ThinkPad E14)',
-      mobile: 'MOB-2024-025 (OnePlus 11)',
-      monitor: 'MON-2024-042 (HP E24 24")',
-      furniture: ['Desk', 'Chair'],
-      totalAssets: 5,
-      totalValue: 125000,
-      location: 'Delhi Office'
-    },
-    {
-      employeeName: 'Ramesh Iyer',
-      employeeCode: 'EMP001',
-      department: 'Management',
-      designation: 'CTO',
-      laptop: 'LAP-2024-001 (MacBook Pro 16")',
-      desktop: 'DESK-2024-001 (iMac 27")',
-      mobile: 'MOB-2024-001 (iPhone 14 Pro)',
-      monitor: 'MON-2024-001 (Dell UltraSharp 32")',
-      furniture: ['Executive Desk', 'Executive Chair', 'Meeting Table', 'Cabinet'],
-      totalAssets: 9,
-      totalValue: 485000,
-      location: 'Mumbai Office'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getReportEmployee();
+        const mapped: EmployeeAsset[] = rows.map((r) => ({
+          employeeName: r.employeeName,
+          employeeCode: r.employeeCode,
+          department: r.department,
+          designation: r.designation,
+          laptop: r.laptop,
+          desktop: r.desktop,
+          mobile: r.mobile,
+          monitor: r.monitor,
+          furniture: Array.isArray(r.furniture) ? r.furniture : [],
+          totalAssets: Number(r.totalAssets),
+          totalValue: Number(r.totalValue),
+          location: r.location,
+        }));
+        if (!cancelled) setMockData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load employee assets report');
+          setMockData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = mockData.filter(emp => {
     if (selectedDepartment !== 'all' && emp.department !== selectedDepartment) return false;
@@ -124,6 +82,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Employee-wise Assets Report</h1>
         <p className="text-sm text-gray-600 mt-1">Individual employee asset allocation details</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading employee assets report…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

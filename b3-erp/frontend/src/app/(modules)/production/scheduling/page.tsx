@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Filter, Download, Eye, Edit2, Play, Calendar, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { exportToCsv } from '@/lib/export'
+import { ProductionOrphanService } from '@/services/production/production-orphan.service'
 
 interface ProductionSchedule {
   id: string
@@ -23,111 +24,6 @@ interface ProductionSchedule {
   assigned_to: string
 }
 
-const mockSchedules: ProductionSchedule[] = [
-  {
-    id: '1',
-    schedule_id: 'SCH-2024-001',
-    work_order_id: 'WO-2024-045',
-    product_name: 'Steel Frame Assembly',
-    product_code: 'SFA-5000',
-    work_center: 'Assembly Line 1',
-    planned_start: '2024-01-15 08:00',
-    planned_end: '2024-01-15 16:00',
-    actual_start: '2024-01-15 08:15',
-    actual_end: null,
-    quantity: 150,
-    unit: 'units',
-    status: 'in_progress',
-    priority: 'high',
-    assigned_to: 'John Smith'
-  },
-  {
-    id: '2',
-    schedule_id: 'SCH-2024-002',
-    work_order_id: 'WO-2024-046',
-    product_name: 'Precision Gear Box',
-    product_code: 'PGB-3200',
-    work_center: 'Machining Center',
-    planned_start: '2024-01-15 09:00',
-    planned_end: '2024-01-15 17:00',
-    actual_start: null,
-    actual_end: null,
-    quantity: 80,
-    unit: 'units',
-    status: 'scheduled',
-    priority: 'medium',
-    assigned_to: 'Mike Johnson'
-  },
-  {
-    id: '3',
-    schedule_id: 'SCH-2024-003',
-    work_order_id: 'WO-2024-047',
-    product_name: 'Hydraulic Cylinder',
-    product_code: 'HC-1800',
-    work_center: 'Welding Shop',
-    planned_start: '2024-01-15 07:00',
-    planned_end: '2024-01-15 15:00',
-    actual_start: '2024-01-15 07:00',
-    actual_end: '2024-01-15 14:45',
-    quantity: 200,
-    unit: 'units',
-    status: 'completed',
-    priority: 'high',
-    assigned_to: 'Sarah Williams'
-  },
-  {
-    id: '4',
-    schedule_id: 'SCH-2024-004',
-    work_order_id: 'WO-2024-048',
-    product_name: 'Electric Motor Housing',
-    product_code: 'EMH-2400',
-    work_center: 'Paint Shop',
-    planned_start: '2024-01-15 10:00',
-    planned_end: '2024-01-15 14:00',
-    actual_start: '2024-01-15 10:30',
-    actual_end: null,
-    quantity: 120,
-    unit: 'units',
-    status: 'delayed',
-    priority: 'urgent',
-    assigned_to: 'David Brown'
-  },
-  {
-    id: '5',
-    schedule_id: 'SCH-2024-005',
-    work_order_id: 'WO-2024-049',
-    product_name: 'Conveyor Belt System',
-    product_code: 'CBS-7500',
-    work_center: 'Assembly Line 2',
-    planned_start: '2024-01-15 13:00',
-    planned_end: '2024-01-15 21:00',
-    actual_start: null,
-    actual_end: null,
-    quantity: 50,
-    unit: 'units',
-    status: 'on_hold',
-    priority: 'low',
-    assigned_to: 'Emily Davis'
-  },
-  {
-    id: '6',
-    schedule_id: 'SCH-2024-006',
-    work_order_id: 'WO-2024-050',
-    product_name: 'Quality Control Jig',
-    product_code: 'QCJ-1100',
-    work_center: 'Quality Station',
-    planned_start: '2024-01-15 11:00',
-    planned_end: '2024-01-15 15:00',
-    actual_start: null,
-    actual_end: null,
-    quantity: 30,
-    unit: 'units',
-    status: 'scheduled',
-    priority: 'medium',
-    assigned_to: 'Robert Wilson'
-  }
-]
-
 const ProductionSchedulingPage = () => {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
@@ -135,6 +31,48 @@ const ProductionSchedulingPage = () => {
   const [workCenterFilter, setWorkCenterFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  const [schedules, setSchedules] = useState<ProductionSchedule[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const rows = await ProductionOrphanService.getScheduleLines()
+        if (!active) return
+        const mapped: ProductionSchedule[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          schedule_id: r.scheduleCode ?? r.schedule_code ?? '',
+          work_order_id: r.workOrderId ?? r.work_order_id ?? '',
+          product_name: r.productName ?? r.product_name ?? '',
+          product_code: r.productCode ?? r.product_code ?? '',
+          work_center: r.workCenter ?? r.work_center ?? '',
+          planned_start: r.plannedStart ?? r.planned_start ?? '',
+          planned_end: r.plannedEnd ?? r.planned_end ?? '',
+          actual_start: r.actualStart ?? r.actual_start ?? null,
+          actual_end: r.actualEnd ?? r.actual_end ?? null,
+          quantity: Number(r.quantity ?? 0),
+          unit: r.unit ?? 'units',
+          status: (r.status ?? 'scheduled') as ProductionSchedule['status'],
+          priority: (r.priority ?? 'medium') as ProductionSchedule['priority'],
+          assigned_to: r.assignedTo ?? r.assigned_to ?? '',
+        }))
+        setSchedules(mapped)
+      } catch (e: any) {
+        if (active) setError(e?.message || 'Failed to load production schedules')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -168,7 +106,7 @@ const ProductionSchedulingPage = () => {
     }
   }
 
-  const filteredSchedules = mockSchedules.filter(schedule => {
+  const filteredSchedules = schedules.filter(schedule => {
     const matchesSearch =
       schedule.schedule_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       schedule.work_order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -185,10 +123,10 @@ const ProductionSchedulingPage = () => {
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedSchedules = filteredSchedules.slice(startIndex, startIndex + itemsPerPage)
 
-  const scheduledToday = mockSchedules.filter(s => s.status === 'scheduled').length
-  const inProgress = mockSchedules.filter(s => s.status === 'in_progress').length
-  const completed = mockSchedules.filter(s => s.status === 'completed').length
-  const delayed = mockSchedules.filter(s => s.status === 'delayed').length
+  const scheduledToday = schedules.filter(s => s.status === 'scheduled').length
+  const inProgress = schedules.filter(s => s.status === 'in_progress').length
+  const completed = schedules.filter(s => s.status === 'completed').length
+  const delayed = schedules.filter(s => s.status === 'delayed').length
 
   const handleExport = () => {
     exportToCsv('production-schedule', filteredSchedules as unknown as Record<string, unknown>[])
@@ -203,7 +141,7 @@ const ProductionSchedulingPage = () => {
   }
 
   const handleStart = (id: string) => {
-    const schedule = mockSchedules.find(s => s.id === id)
+    const schedule = schedules.find(s => s.id === id)
     if (schedule && confirm(`Start production for Schedule ${schedule.schedule_id}?\n\nWork Order: ${schedule.work_order_id}\nProduct: ${schedule.product_name}\nQuantity: ${schedule.quantity} ${schedule.unit}`)) {
       console.log('Starting production for:', schedule)
       alert(`Production started for ${schedule.schedule_id}!`)
@@ -213,6 +151,16 @@ const ProductionSchedulingPage = () => {
 
   return (
     <div className="w-full min-h-screen px-3 py-2">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading production schedules…
+        </div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       {/* Stats Cards */}
       <div className="mb-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

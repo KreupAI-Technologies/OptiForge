@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Award, Plus, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface ExperienceCertificateRequest {
   id: string;
@@ -20,43 +21,46 @@ interface ExperienceCertificateRequest {
 
 export default function ExperienceCertificatePage() {
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [mockRequests, setMockRequests] = useState<ExperienceCertificateRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockRequests: ExperienceCertificateRequest[] = [
-    {
-      id: 'EXP001',
-      requestDate: '2025-10-15',
-      purpose: 'Higher Education - MBA Application',
-      addressedTo: 'To Whom It May Concern',
-      deliveryMode: 'email',
-      status: 'delivered',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-16',
-      generatedOn: '2025-10-16',
-      deliveredOn: '2025-10-16'
-    },
-    {
-      id: 'EXP002',
-      requestDate: '2025-10-20',
-      purpose: 'Visa Application - Work Permit',
-      addressedTo: 'Embassy of Canada',
-      deliveryMode: 'both',
-      status: 'generated',
-      requestedBy: 'Rahul Sharma',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-21',
-      generatedOn: '2025-10-21'
-    },
-    {
-      id: 'EXP003',
-      requestDate: '2025-10-25',
-      purpose: 'Job Application',
-      addressedTo: 'To Whom It May Concern',
-      deliveryMode: 'email',
-      status: 'pending',
-      requestedBy: 'Rahul Sharma'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getCertificateRequests('experience');
+        const mapped: ExperienceCertificateRequest[] = rows.map((row) => ({
+          id: String(row.id),
+          requestDate: row.requestDate ?? '',
+          purpose: row.purpose ?? '',
+          addressedTo: row.addressedTo ?? '',
+          deliveryMode: (row.deliveryMode ?? 'email') as ExperienceCertificateRequest['deliveryMode'],
+          status: (row.status ?? 'pending') as ExperienceCertificateRequest['status'],
+          requestedBy: row.requestedBy ?? '',
+          approvedBy: row.approvedBy ?? '',
+          approvedOn: row.approvedOn ?? '',
+          generatedOn: row.generatedOn ?? '',
+          deliveredOn: row.deliveredOn ?? '',
+          remarks: row.remarks ?? '',
+        }));
+        if (!cancelled) setMockRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
+          setMockRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = {
     total: mockRequests.length,
@@ -87,6 +91,19 @@ export default function ExperienceCertificatePage() {
           New Request
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading certificate requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

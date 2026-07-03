@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, Filter, Download, Eye, Edit2, Pause, Users, Activity, Package, TrendingUp } from 'lucide-react'
 import { exportToCsv } from '@/lib/export'
+import { ProductionOrphanService } from '@/services/production/production-orphan.service'
 
 interface FloorActivity {
   id: string
@@ -23,123 +24,55 @@ interface FloorActivity {
   shift: 'Morning' | 'Afternoon' | 'Night'
 }
 
-const mockActivities: FloorActivity[] = [
-  {
-    id: '1',
-    activity_id: 'FA-2024-001',
-    work_center: 'Assembly Line 1',
-    operator_name: 'John Smith',
-    employee_id: 'EMP-001',
-    work_order_id: 'WO-2024-045',
-    product_name: 'Steel Frame Assembly',
-    product_code: 'SFA-5000',
-    operation: 'Frame Welding',
-    start_time: '2024-01-15 08:15',
-    duration_minutes: 180,
-    output_qty: 140,
-    target_qty: 150,
-    efficiency_percent: 93.3,
-    status: 'active',
-    shift: 'Morning'
-  },
-  {
-    id: '2',
-    activity_id: 'FA-2024-002',
-    work_center: 'Machining Center',
-    operator_name: 'Mike Johnson',
-    employee_id: 'EMP-002',
-    work_order_id: 'WO-2024-046',
-    product_name: 'Precision Gear Box',
-    product_code: 'PGB-3200',
-    operation: 'CNC Machining',
-    start_time: '2024-01-15 09:00',
-    duration_minutes: 150,
-    output_qty: 55,
-    target_qty: 80,
-    efficiency_percent: 68.8,
-    status: 'paused',
-    shift: 'Morning'
-  },
-  {
-    id: '3',
-    activity_id: 'FA-2024-003',
-    work_center: 'Welding Shop',
-    operator_name: 'Sarah Williams',
-    employee_id: 'EMP-003',
-    work_order_id: 'WO-2024-047',
-    product_name: 'Hydraulic Cylinder',
-    product_code: 'HC-1800',
-    operation: 'TIG Welding',
-    start_time: '2024-01-15 07:00',
-    duration_minutes: 465,
-    output_qty: 200,
-    target_qty: 200,
-    efficiency_percent: 100.0,
-    status: 'completed',
-    shift: 'Morning'
-  },
-  {
-    id: '4',
-    activity_id: 'FA-2024-004',
-    work_center: 'Paint Shop',
-    operator_name: 'David Brown',
-    employee_id: 'EMP-004',
-    work_order_id: 'WO-2024-048',
-    product_name: 'Electric Motor Housing',
-    product_code: 'EMH-2400',
-    operation: 'Powder Coating',
-    start_time: '2024-01-15 14:30',
-    duration_minutes: 120,
-    output_qty: 75,
-    target_qty: 120,
-    efficiency_percent: 62.5,
-    status: 'active',
-    shift: 'Afternoon'
-  },
-  {
-    id: '5',
-    activity_id: 'FA-2024-005',
-    work_center: 'Assembly Line 2',
-    operator_name: 'Emily Davis',
-    employee_id: 'EMP-005',
-    work_order_id: 'WO-2024-049',
-    product_name: 'Conveyor Belt System',
-    product_code: 'CBS-7500',
-    operation: 'Final Assembly',
-    start_time: '2024-01-15 14:00',
-    duration_minutes: 90,
-    output_qty: 38,
-    target_qty: 50,
-    efficiency_percent: 76.0,
-    status: 'active',
-    shift: 'Afternoon'
-  },
-  {
-    id: '6',
-    activity_id: 'FA-2024-006',
-    work_center: 'Quality Station',
-    operator_name: 'Robert Wilson',
-    employee_id: 'EMP-006',
-    work_order_id: 'WO-2024-050',
-    product_name: 'Quality Control Jig',
-    product_code: 'QCJ-1100',
-    operation: 'Precision Inspection',
-    start_time: '2024-01-15 15:00',
-    duration_minutes: 60,
-    output_qty: 28,
-    target_qty: 30,
-    efficiency_percent: 93.3,
-    status: 'active',
-    shift: 'Afternoon'
-  }
-]
-
 const ProductionFloorPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [workCenterFilter, setWorkCenterFilter] = useState('all')
   const [shiftFilter, setShiftFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  const [activities, setActivities] = useState<FloorActivity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const rows = await ProductionOrphanService.getFloorActivities()
+        if (!active) return
+        const mapped: FloorActivity[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          activity_id: r.activityId ?? r.activity_id ?? '',
+          work_center: r.workCenter ?? r.work_center ?? '',
+          operator_name: r.operatorName ?? r.operator_name ?? '',
+          employee_id: r.employeeId ?? r.employee_id ?? '',
+          work_order_id: r.workOrderId ?? r.work_order_id ?? '',
+          product_name: r.productName ?? r.product_name ?? '',
+          product_code: r.productCode ?? r.product_code ?? '',
+          operation: r.operation ?? '',
+          start_time: r.startTime ?? r.start_time ?? '',
+          duration_minutes: Number(r.durationMinutes ?? r.duration_minutes ?? 0),
+          output_qty: Number(r.outputQty ?? r.output_qty ?? 0),
+          target_qty: Number(r.targetQty ?? r.target_qty ?? 0),
+          efficiency_percent: Number(r.efficiencyPercent ?? r.efficiency_percent ?? 0),
+          status: (r.status ?? 'active') as FloorActivity['status'],
+          shift: (r.shift ?? 'Morning') as FloorActivity['shift'],
+        }))
+        setActivities(mapped)
+      } catch (e: any) {
+        if (active) setError(e?.message || 'Failed to load floor activities')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -166,7 +99,7 @@ const ProductionFloorPage = () => {
     return 'bg-red-100'
   }
 
-  const filteredActivities = mockActivities.filter(activity => {
+  const filteredActivities = activities.filter(activity => {
     const matchesSearch =
       activity.activity_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       activity.work_order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -185,10 +118,10 @@ const ProductionFloorPage = () => {
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedActivities = filteredActivities.slice(startIndex, startIndex + itemsPerPage)
 
-  const activeWorkCenters = new Set(mockActivities.filter(a => a.status === 'active').map(a => a.work_center)).size
-  const workersPresent = new Set(mockActivities.map(a => a.employee_id)).size
-  const currentOutput = mockActivities.filter(a => a.status === 'active').reduce((sum, a) => sum + a.output_qty, 0)
-  const totalTarget = mockActivities.filter(a => a.status === 'active').reduce((sum, a) => sum + a.target_qty, 0)
+  const activeWorkCenters = new Set(activities.filter(a => a.status === 'active').map(a => a.work_center)).size
+  const workersPresent = new Set(activities.map(a => a.employee_id)).size
+  const currentOutput = activities.filter(a => a.status === 'active').reduce((sum, a) => sum + a.output_qty, 0)
+  const totalTarget = activities.filter(a => a.status === 'active').reduce((sum, a) => sum + a.target_qty, 0)
   const overallEfficiency = totalTarget > 0 ? ((currentOutput / totalTarget) * 100).toFixed(1) : '0.0'
 
   const handleExport = () => {
@@ -215,6 +148,16 @@ const ProductionFloorPage = () => {
 
   return (
     <div className="w-full min-h-screen px-3 py-2">
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading floor activities…
+        </div>
+      )}
+      {error && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       {/* Stats Cards */}
       <div className="mb-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

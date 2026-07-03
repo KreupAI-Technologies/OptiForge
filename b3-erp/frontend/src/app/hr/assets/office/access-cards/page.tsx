@@ -1,7 +1,21 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Key, User, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
+
+function parseAccessZones(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((z) => String(z));
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map((z) => String(z)) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 interface AccessCard {
   id: string;
@@ -26,115 +40,61 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedAccessLevel, setSelectedAccessLevel] = useState('all');
+  const [accessCards, setAccessCards] = useState<AccessCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockAccessCards: AccessCard[] = [
-    {
-      id: '1',
-      cardNumber: 'AC-2024-0345',
-      cardType: 'employee',
-      issuedTo: 'Rajesh Kumar',
-      employeeCode: 'EMP345',
-      department: 'Sales',
-      designation: 'Senior Sales Manager',
-      issueDate: '2024-01-15',
-      expiryDate: '2026-01-15',
-      status: 'active',
-      accessLevel: 'standard',
-      accessZones: ['Main Building', 'Parking', 'Cafeteria', 'Sales Office'],
-      location: 'Mumbai Office',
-      issuedBy: 'Security Team',
-      lastUsed: '2024-10-26 09:15'
-    },
-    {
-      id: '2',
-      cardNumber: 'AC-2024-0198',
-      cardType: 'employee',
-      issuedTo: 'Vikram Singh',
-      employeeCode: 'EMP198',
-      department: 'IT',
-      designation: 'IT Manager',
-      issueDate: '2023-08-10',
-      expiryDate: '2025-08-10',
-      status: 'active',
-      accessLevel: 'elevated',
-      accessZones: ['Main Building', 'Parking', 'Cafeteria', 'IT Office', 'Server Room', 'Network Closet'],
-      location: 'Pune Office',
-      issuedBy: 'Security Team',
-      lastUsed: '2024-10-26 08:45'
-    },
-    {
-      id: '3',
-      cardNumber: 'AC-2024-1245',
-      cardType: 'contractor',
-      issuedTo: 'Amit Patel',
-      employeeCode: 'CNT-1245',
-      department: 'Facilities',
-      designation: 'HVAC Technician',
-      issueDate: '2024-09-01',
-      expiryDate: '2024-12-31',
-      status: 'active',
-      accessLevel: 'basic',
-      accessZones: ['Main Building', 'Mechanical Room'],
-      location: 'Mumbai Office',
-      issuedBy: 'Facilities Manager',
-      lastUsed: '2024-10-25 14:30',
-      remarks: 'Contractor for HVAC maintenance project'
-    },
-    {
-      id: '4',
-      cardNumber: 'AC-2023-0567',
-      cardType: 'employee',
-      issuedTo: 'Priya Sharma',
-      employeeCode: 'EMP412',
-      department: 'Marketing',
-      designation: 'Marketing Executive',
-      issueDate: '2023-05-20',
-      expiryDate: '2025-05-20',
-      status: 'lost',
-      accessLevel: 'standard',
-      accessZones: ['Main Building', 'Parking', 'Cafeteria', 'Marketing Office'],
-      location: 'Delhi Office',
-      issuedBy: 'Security Team',
-      remarks: 'Card reported lost on 2024-10-20. Replacement issued.'
-    },
-    {
-      id: '5',
-      cardNumber: 'AC-2024-0001',
-      cardType: 'employee',
-      issuedTo: 'Ramesh Iyer',
-      employeeCode: 'EMP001',
-      department: 'Management',
-      designation: 'CTO',
-      issueDate: '2024-01-01',
-      expiryDate: '2027-01-01',
-      status: 'active',
-      accessLevel: 'admin',
-      accessZones: ['All Areas', 'Executive Suite', 'Server Room', 'Data Center', 'Conference Rooms'],
-      location: 'All Offices',
-      issuedBy: 'Security Team',
-      lastUsed: '2024-10-26 10:30'
-    },
-    {
-      id: '6',
-      cardNumber: 'AC-2024-VIS-089',
-      cardType: 'visitor',
-      issuedTo: 'Suresh Reddy',
-      employeeCode: 'VIS-089',
-      department: 'External',
-      designation: 'Client Representative',
-      issueDate: '2024-10-26',
-      expiryDate: '2024-10-26',
-      status: 'expired',
-      accessLevel: 'basic',
-      accessZones: ['Reception', 'Conference Room A'],
-      location: 'Bangalore Office',
-      issuedBy: 'Reception Desk',
-      lastUsed: '2024-10-26 16:30',
-      remarks: 'Visitor pass for client meeting'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getAccessCards();
+        const cardTypes: AccessCard['cardType'][] = ['employee', 'contractor', 'visitor', 'temp'];
+        const statuses: AccessCard['status'][] = ['active', 'inactive', 'lost', 'expired', 'blocked'];
+        const levels: AccessCard['accessLevel'][] = ['basic', 'standard', 'elevated', 'admin'];
+        const mapped: AccessCard[] = raw.map((r, idx) => ({
+          id: String(r.id ?? idx),
+          cardNumber: r.cardNumber ?? '',
+          cardType: cardTypes.includes(r.cardType as AccessCard['cardType'])
+            ? (r.cardType as AccessCard['cardType'])
+            : 'employee',
+          issuedTo: r.issuedTo ?? '',
+          employeeCode: r.employeeCode ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          issueDate: r.issueDate ?? '',
+          expiryDate: r.expiryDate ?? undefined,
+          status: statuses.includes(r.status as AccessCard['status'])
+            ? (r.status as AccessCard['status'])
+            : 'active',
+          accessLevel: levels.includes(r.accessLevel as AccessCard['accessLevel'])
+            ? (r.accessLevel as AccessCard['accessLevel'])
+            : 'basic',
+          accessZones: parseAccessZones(r.accessZones),
+          location: r.location ?? '',
+          issuedBy: r.issuedBy ?? '',
+          lastUsed: r.lastUsed ?? undefined,
+          remarks: r.remarks ?? undefined,
+        }));
+        if (!cancelled) setAccessCards(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load access cards');
+          setAccessCards([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredCards = mockAccessCards.filter(c => {
+  const filteredCards = accessCards.filter(c => {
     if (selectedStatus !== 'all' && c.status !== selectedStatus) return false;
     if (selectedType !== 'all' && c.cardType !== selectedType) return false;
     if (selectedAccessLevel !== 'all' && c.accessLevel !== selectedAccessLevel) return false;
@@ -142,12 +102,12 @@ export default function Page() {
   });
 
   const stats = useMemo(() => ({
-    total: mockAccessCards.length,
-    active: mockAccessCards.filter(c => c.status === 'active').length,
-    inactive: mockAccessCards.filter(c => c.status === 'inactive').length,
-    lost: mockAccessCards.filter(c => c.status === 'lost').length,
-    expired: mockAccessCards.filter(c => c.status === 'expired').length
-  }), [mockAccessCards]);
+    total: accessCards.length,
+    active: accessCards.filter(c => c.status === 'active').length,
+    inactive: accessCards.filter(c => c.status === 'inactive').length,
+    lost: accessCards.filter(c => c.status === 'lost').length,
+    expired: accessCards.filter(c => c.status === 'expired').length
+  }), [accessCards]);
 
   const statusColors = {
     active: 'bg-green-100 text-green-700',
@@ -185,6 +145,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Access Cards Management</h1>
         <p className="text-sm text-gray-600 mt-1">Manage and track access control cards</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading access cards…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

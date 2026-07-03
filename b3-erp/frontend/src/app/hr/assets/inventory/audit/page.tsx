@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ClipboardCheck, Calendar, CheckCircle, AlertCircle, XCircle, Package, User } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AuditRecord {
   id: string;
@@ -22,78 +23,60 @@ interface AuditRecord {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [audits, setAudits] = useState<AuditRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockAudits: AuditRecord[] = [
-    {
-      id: '1',
-      auditId: 'AUD-2025-Q4-001',
-      auditDate: '2025-10-01',
-      auditType: 'scheduled',
-      location: 'Mumbai Office',
-      auditor: 'Rajesh Kumar',
-      totalAssets: 245,
-      verified: 245,
-      missing: 0,
-      damaged: 0,
-      status: 'completed',
-      completionDate: '2025-10-05',
-      remarks: 'All assets accounted for'
-    },
-    {
-      id: '2',
-      auditId: 'AUD-2025-Q4-002',
-      auditDate: '2025-10-15',
-      auditType: 'annual',
-      location: 'Delhi Office',
-      auditor: 'Priya Sharma',
-      totalAssets: 189,
-      verified: 185,
-      missing: 2,
-      damaged: 2,
-      status: 'in_progress'
-    },
-    {
-      id: '3',
-      auditId: 'AUD-2025-Q4-003',
-      auditDate: '2025-10-20',
-      auditType: 'surprise',
-      location: 'Bangalore Office',
-      auditor: 'Amit Patel',
-      totalAssets: 312,
-      verified: 0,
-      missing: 0,
-      damaged: 0,
-      status: 'pending'
-    },
-    {
-      id: '4',
-      auditId: 'AUD-2025-Q3-045',
-      auditDate: '2025-09-10',
-      auditType: 'scheduled',
-      location: 'Pune Office',
-      auditor: 'Sneha Reddy',
-      totalAssets: 156,
-      verified: 150,
-      missing: 4,
-      damaged: 2,
-      status: 'approved',
-      completionDate: '2025-09-15',
-      remarks: '4 laptops missing - FIR filed'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getAssetAudits();
+        const mapped: AuditRecord[] = raw.map((a) => ({
+          id: String(a.id),
+          auditId: a.auditId ?? '',
+          auditDate: a.auditDate ?? '',
+          auditType: (a.auditType ?? 'scheduled') as AuditRecord['auditType'],
+          location: a.location ?? '',
+          auditor: a.auditor ?? '',
+          totalAssets: Number(a.totalAssets ?? 0),
+          verified: Number(a.verified ?? 0),
+          missing: Number(a.missing ?? 0),
+          damaged: Number(a.damaged ?? 0),
+          status: (a.status ?? 'pending') as AuditRecord['status'],
+          completionDate: a.completionDate ?? undefined,
+          remarks: a.remarks ?? undefined,
+        }));
+        if (!cancelled) setAudits(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load asset audits');
+          setAudits([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredAudits = mockAudits.filter(a => {
+  const filteredAudits = audits.filter(a => {
     const statusMatch = selectedStatus === 'all' || a.status === selectedStatus;
     const typeMatch = selectedType === 'all' || a.auditType === selectedType;
     return statusMatch && typeMatch;
   });
 
   const stats = useMemo(() => ({
-    total: mockAudits.length,
-    completed: mockAudits.filter(a => a.status === 'completed').length,
-    inProgress: mockAudits.filter(a => a.status === 'in_progress').length,
-    pending: mockAudits.filter(a => a.status === 'pending').length
-  }), [mockAudits]);
+    total: audits.length,
+    completed: audits.filter(a => a.status === 'completed').length,
+    inProgress: audits.filter(a => a.status === 'in_progress').length,
+    pending: audits.filter(a => a.status === 'pending').length
+  }), [audits]);
 
   const statusColors = {
     completed: 'bg-green-100 text-green-700',
@@ -115,6 +98,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Inventory Audit</h1>
         <p className="text-sm text-gray-600 mt-1">Track and manage asset audits</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading asset audits…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Calendar, Clock, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Calendar, Clock, CheckCircle, AlertTriangle, RefreshCw, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface PreventiveMaintenance {
   id: string;
@@ -25,157 +26,69 @@ interface PreventiveMaintenance {
   remarks?: string;
 }
 
+function parseChecklist(value: unknown): { item: string; completed: boolean }[] {
+  if (Array.isArray(value)) return value as { item: string; completed: boolean }[];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedFrequency, setSelectedFrequency] = useState('all');
+  const [schedules, setSchedules] = useState<PreventiveMaintenance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockSchedules: PreventiveMaintenance[] = [
-    {
-      id: '1',
-      scheduleId: 'PM-2024-001',
-      assetTag: 'LAP-2024-001',
-      assetName: 'Dell Latitude 5420',
-      assetCategory: 'laptop',
-      maintenanceType: 'comprehensive',
-      frequency: 'quarterly',
-      lastMaintenanceDate: '2024-07-15',
-      nextMaintenanceDate: '2024-10-28',
-      assignedTo: 'IT Team - Vikram Singh',
-      estimatedDuration: 2,
-      status: 'due',
-      location: 'Mumbai Office',
-      priority: 'medium',
-      checklist: [
-        { item: 'Clean keyboard and screen', completed: false },
-        { item: 'Check battery health', completed: false },
-        { item: 'Update BIOS and drivers', completed: false },
-        { item: 'Run disk cleanup', completed: false },
-        { item: 'Check thermal performance', completed: false }
-      ]
-    },
-    {
-      id: '2',
-      scheduleId: 'PM-2024-002',
-      assetTag: 'SRV-2023-012',
-      assetName: 'Lenovo ThinkSystem SR650',
-      assetCategory: 'server',
-      maintenanceType: 'inspection',
-      frequency: 'monthly',
-      lastMaintenanceDate: '2024-09-25',
-      nextMaintenanceDate: '2024-10-25',
-      assignedTo: 'Lenovo Data Center Services',
-      estimatedDuration: 4,
-      status: 'completed',
-      location: 'Mumbai Data Center',
-      priority: 'high',
-      checklist: [
-        { item: 'Check RAID status', completed: true },
-        { item: 'Verify backup systems', completed: true },
-        { item: 'Monitor temperature and fan speeds', completed: true },
-        { item: 'Update firmware', completed: true },
-        { item: 'Review system logs', completed: true },
-        { item: 'Test redundant power supplies', completed: true }
-      ],
-      remarks: 'All systems operating within normal parameters'
-    },
-    {
-      id: '3',
-      scheduleId: 'PM-2024-003',
-      assetTag: 'PRN-2023-045',
-      assetName: 'Canon imageRUNNER 2525i',
-      assetCategory: 'printer',
-      maintenanceType: 'cleaning',
-      frequency: 'monthly',
-      lastMaintenanceDate: '2024-08-30',
-      nextMaintenanceDate: '2024-10-20',
-      assignedTo: 'Canon Service Engineer',
-      estimatedDuration: 1,
-      status: 'overdue',
-      location: 'Bangalore Office',
-      priority: 'high',
-      checklist: [
-        { item: 'Clean pickup rollers', completed: false },
-        { item: 'Clean fuser unit', completed: false },
-        { item: 'Check toner levels', completed: false },
-        { item: 'Clean scanner glass', completed: false }
-      ],
-      remarks: 'Overdue by 6 days - priority scheduling required'
-    },
-    {
-      id: '4',
-      scheduleId: 'PM-2024-004',
-      assetTag: 'NET-2024-015',
-      assetName: 'Cisco Catalyst 9300 Switch',
-      assetCategory: 'network',
-      maintenanceType: 'software_update',
-      frequency: 'quarterly',
-      lastMaintenanceDate: '2024-07-01',
-      nextMaintenanceDate: '2024-11-05',
-      assignedTo: 'Network Team - Priya Sharma',
-      estimatedDuration: 3,
-      status: 'upcoming',
-      location: 'All Offices',
-      priority: 'medium',
-      checklist: [
-        { item: 'Backup current configuration', completed: false },
-        { item: 'Download latest IOS update', completed: false },
-        { item: 'Schedule maintenance window', completed: false },
-        { item: 'Update firmware', completed: false },
-        { item: 'Verify network connectivity', completed: false },
-        { item: 'Test redundancy failover', completed: false }
-      ]
-    },
-    {
-      id: '5',
-      scheduleId: 'PM-2024-005',
-      assetTag: 'DESK-2024-002',
-      assetName: 'HP Elite 800 G8',
-      assetCategory: 'desktop',
-      maintenanceType: 'cleaning',
-      frequency: 'quarterly',
-      lastMaintenanceDate: '2024-10-01',
-      nextMaintenanceDate: '2025-01-01',
-      assignedTo: 'IT Team - Sneha Reddy',
-      estimatedDuration: 1,
-      status: 'upcoming',
-      location: 'Hyderabad Office',
-      priority: 'low',
-      checklist: [
-        { item: 'Clean system internals', completed: false },
-        { item: 'Check cable connections', completed: false },
-        { item: 'Update Windows and drivers', completed: false },
-        { item: 'Run antivirus scan', completed: false }
-      ]
-    },
-    {
-      id: '6',
-      scheduleId: 'PM-2024-006',
-      assetTag: 'HVAC-2022-001',
-      assetName: 'Daikin VRV Server Room AC',
-      assetCategory: 'hvac',
-      maintenanceType: 'comprehensive',
-      frequency: 'quarterly',
-      lastMaintenanceDate: '2024-07-20',
-      nextMaintenanceDate: '2024-10-27',
-      assignedTo: 'Daikin Service Team',
-      estimatedDuration: 4,
-      status: 'due',
-      location: 'Mumbai Data Center',
-      priority: 'high',
-      checklist: [
-        { item: 'Clean air filters', completed: false },
-        { item: 'Check refrigerant levels', completed: false },
-        { item: 'Inspect electrical connections', completed: false },
-        { item: 'Check condensate drain', completed: false },
-        { item: 'Verify temperature controls', completed: false },
-        { item: 'Test emergency backup system', completed: false }
-      ],
-      remarks: 'Critical for server room operations'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getPreventiveMaintenance();
+        const mapped: PreventiveMaintenance[] = raw.map((s) => ({
+          id: String(s.id),
+          scheduleId: s.scheduleId ?? '',
+          assetTag: s.assetTag ?? '',
+          assetName: s.assetName ?? '',
+          assetCategory: (s.assetCategory ?? 'other') as PreventiveMaintenance['assetCategory'],
+          maintenanceType: (s.maintenanceType ?? 'inspection') as PreventiveMaintenance['maintenanceType'],
+          frequency: (s.frequency ?? 'monthly') as PreventiveMaintenance['frequency'],
+          lastMaintenanceDate: s.lastMaintenanceDate ?? '',
+          nextMaintenanceDate: s.nextMaintenanceDate ?? '',
+          assignedTo: s.assignedTo ?? '',
+          estimatedDuration: Number(s.estimatedDuration ?? 0),
+          status: (s.status ?? 'upcoming') as PreventiveMaintenance['status'],
+          location: s.location ?? '',
+          checklist: parseChecklist(s.checklist),
+          priority: (s.priority ?? 'low') as PreventiveMaintenance['priority'],
+          remarks: s.remarks ?? undefined,
+        }));
+        if (!cancelled) setSchedules(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load preventive maintenance schedules');
+          setSchedules([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredSchedules = mockSchedules.filter(s => {
+  const filteredSchedules = schedules.filter(s => {
     if (selectedStatus !== 'all' && s.status !== selectedStatus) return false;
     if (selectedCategory !== 'all' && s.assetCategory !== selectedCategory) return false;
     if (selectedFrequency !== 'all' && s.frequency !== selectedFrequency) return false;
@@ -183,12 +96,12 @@ export default function Page() {
   });
 
   const stats = useMemo(() => ({
-    total: mockSchedules.length,
-    due: mockSchedules.filter(s => s.status === 'due').length,
-    overdue: mockSchedules.filter(s => s.status === 'overdue').length,
-    upcoming: mockSchedules.filter(s => s.status === 'upcoming').length,
-    completed: mockSchedules.filter(s => s.status === 'completed').length
-  }), [mockSchedules]);
+    total: schedules.length,
+    due: schedules.filter(s => s.status === 'due').length,
+    overdue: schedules.filter(s => s.status === 'overdue').length,
+    upcoming: schedules.filter(s => s.status === 'upcoming').length,
+    completed: schedules.filter(s => s.status === 'completed').length
+  }), [schedules]);
 
   const statusColors = {
     upcoming: 'bg-blue-100 text-blue-700',
@@ -226,6 +139,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Preventive Maintenance</h1>
         <p className="text-sm text-gray-600 mt-1">Scheduled maintenance activities for assets</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading preventive maintenance schedules…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

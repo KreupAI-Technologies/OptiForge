@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Pen, Package, AlertTriangle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pen, Package, AlertTriangle, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface StationeryItem {
   id: string;
@@ -26,137 +27,74 @@ interface StationeryItem {
 export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [stationery, setStationery] = useState<StationeryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockStationery: StationeryItem[] = [
-    {
-      id: '1',
-      itemCode: 'ST-PEN-001',
-      itemName: 'Ball Point Pen - Blue',
-      category: 'writing',
-      brand: 'Cello',
-      unit: 'box',
-      totalQuantity: 50,
-      issued: 32,
-      available: 18,
-      minStockLevel: 10,
-      reorderLevel: 15,
-      unitCost: 120,
-      totalValue: 6000,
-      location: 'Mumbai Office - Storage Room',
-      supplier: 'Office Mart India',
-      lastPurchaseDate: '2024-09-15',
-      status: 'in_stock'
-    },
-    {
-      id: '2',
-      itemCode: 'ST-PAP-001',
-      itemName: 'A4 Copier Paper',
-      category: 'paper',
-      brand: 'JK Paper',
-      unit: 'ream',
-      totalQuantity: 100,
-      issued: 78,
-      available: 22,
-      minStockLevel: 20,
-      reorderLevel: 30,
-      unitCost: 250,
-      totalValue: 25000,
-      location: 'Mumbai Office - Storage Room',
-      supplier: 'JK Paper Distributors',
-      lastPurchaseDate: '2024-10-01',
-      status: 'low_stock'
-    },
-    {
-      id: '3',
-      itemCode: 'ST-FIL-012',
-      itemName: 'Ring Binder File',
-      category: 'filing',
-      brand: 'Faber-Castell',
-      unit: 'pcs',
-      totalQuantity: 25,
-      issued: 25,
-      available: 0,
-      minStockLevel: 10,
-      reorderLevel: 15,
-      unitCost: 85,
-      totalValue: 2125,
-      location: 'Delhi Office - Storage',
-      supplier: 'Office Mart India',
-      lastPurchaseDate: '2024-08-20',
-      status: 'out_of_stock'
-    },
-    {
-      id: '4',
-      itemCode: 'ST-DSK-005',
-      itemName: 'Stapler - Heavy Duty',
-      category: 'desk',
-      brand: 'Kangaro',
-      unit: 'pcs',
-      totalQuantity: 30,
-      issued: 18,
-      available: 12,
-      minStockLevel: 8,
-      reorderLevel: 10,
-      unitCost: 450,
-      totalValue: 13500,
-      location: 'Bangalore Office - Storage',
-      supplier: 'Stationary World',
-      lastPurchaseDate: '2024-07-10',
-      status: 'reorder'
-    },
-    {
-      id: '5',
-      itemCode: 'ST-WRT-015',
-      itemName: 'Whiteboard Marker',
-      category: 'writing',
-      brand: 'Camlin',
-      unit: 'box',
-      totalQuantity: 40,
-      issued: 25,
-      available: 15,
-      minStockLevel: 10,
-      reorderLevel: 15,
-      unitCost: 180,
-      totalValue: 7200,
-      location: 'Pune Office - Storage',
-      supplier: 'Office Mart India',
-      lastPurchaseDate: '2024-09-25',
-      status: 'in_stock'
-    },
-    {
-      id: '6',
-      itemCode: 'ST-BND-008',
-      itemName: 'Spiral Binding Coils',
-      category: 'binding',
-      brand: 'Fellowes',
-      unit: 'pack',
-      totalQuantity: 15,
-      issued: 12,
-      available: 3,
-      minStockLevel: 5,
-      reorderLevel: 8,
-      unitCost: 650,
-      totalValue: 9750,
-      location: 'Hyderabad Office - Storage',
-      supplier: 'Binding Solutions India',
-      lastPurchaseDate: '2024-08-05',
-      status: 'low_stock'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrAssetsService.getStationery();
+        const categories: StationeryItem['category'][] = ['writing', 'paper', 'filing', 'desk', 'binding', 'other'];
+        const units: StationeryItem['unit'][] = ['pcs', 'box', 'pack', 'ream', 'set'];
+        const statuses: StationeryItem['status'][] = ['in_stock', 'low_stock', 'out_of_stock', 'reorder'];
+        const mapped: StationeryItem[] = raw.map((r, idx) => ({
+          id: String(r.id ?? idx),
+          itemCode: r.itemCode ?? '',
+          itemName: r.itemName ?? '',
+          category: categories.includes(r.category as StationeryItem['category'])
+            ? (r.category as StationeryItem['category'])
+            : 'other',
+          brand: r.brand ?? '',
+          unit: units.includes(r.unit as StationeryItem['unit'])
+            ? (r.unit as StationeryItem['unit'])
+            : 'pcs',
+          totalQuantity: Number(r.totalQuantity ?? 0),
+          issued: Number(r.issued ?? 0),
+          available: Number(r.available ?? 0),
+          minStockLevel: Number(r.minStockLevel ?? 0),
+          reorderLevel: Number(r.reorderLevel ?? 0),
+          unitCost: Number(r.unitCost ?? 0),
+          totalValue: Number(r.totalValue ?? 0),
+          location: r.location ?? '',
+          supplier: r.supplier ?? '',
+          lastPurchaseDate: r.lastPurchaseDate ?? '',
+          status: statuses.includes(r.status as StationeryItem['status'])
+            ? (r.status as StationeryItem['status'])
+            : 'in_stock',
+        }));
+        if (!cancelled) setStationery(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stationery');
+          setStationery([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const filteredStationery = mockStationery.filter(s => {
+  const filteredStationery = stationery.filter(s => {
     if (selectedCategory !== 'all' && s.category !== selectedCategory) return false;
     if (selectedStatus !== 'all' && s.status !== selectedStatus) return false;
     return true;
   });
 
   const stats = useMemo(() => ({
-    totalItems: mockStationery.reduce((sum, s) => sum + s.totalQuantity, 0),
-    available: mockStationery.reduce((sum, s) => sum + s.available, 0),
-    lowStock: mockStationery.filter(s => s.status === 'low_stock' || s.status === 'reorder').length,
-    outOfStock: mockStationery.filter(s => s.status === 'out_of_stock').length,
-    totalValue: mockStationery.reduce((sum, s) => sum + s.totalValue, 0)
-  }), [mockStationery]);
+    totalItems: stationery.reduce((sum, s) => sum + s.totalQuantity, 0),
+    available: stationery.reduce((sum, s) => sum + s.available, 0),
+    lowStock: stationery.filter(s => s.status === 'low_stock' || s.status === 'reorder').length,
+    outOfStock: stationery.filter(s => s.status === 'out_of_stock').length,
+    totalValue: stationery.reduce((sum, s) => sum + s.totalValue, 0)
+  }), [stationery]);
 
   const statusColors = {
     in_stock: 'bg-green-100 text-green-700',
@@ -189,6 +127,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Stationery Management</h1>
         <p className="text-sm text-gray-600 mt-1">Manage office stationery inventory and stock levels</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading stationery…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

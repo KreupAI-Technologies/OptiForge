@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { User, Search, Plus, Edit, Eye, Mail, Phone, MapPin, Calendar, Briefcase, Filter, Download, Upload, Building2, Users, Award, Clock, X } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
 import { AddEmployeeProfileModal } from '@/components/hr/AddEmployeeProfileModal';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface EmployeeProfile {
   id: string;
@@ -67,6 +68,93 @@ export default function EmployeeProfilesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<EmployeeProfile | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [profiles, setProfiles] = useState<EmployeeProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.employees<any[]>();
+        const genderMap: Record<string, EmployeeProfile['gender']> = {
+          male: 'male', female: 'female', other: 'other', m: 'male', f: 'female',
+        };
+        const typeMap: Record<string, EmployeeProfile['employeeType']> = {
+          permanent: 'permanent', contract: 'contract', intern: 'intern',
+          'full-time': 'permanent', fulltime: 'permanent', contractual: 'contract',
+        };
+        const statusMap: Record<string, EmployeeProfile['status']> = {
+          active: 'active', inactive: 'inactive', on_leave: 'on_leave', onleave: 'on_leave',
+        };
+        const mapped: EmployeeProfile[] = (raw ?? []).map((e) => {
+          const fullName = e.fullName || `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim();
+          const g = String(e.gender ?? '').toLowerCase();
+          const t = String(e.employmentType ?? '').toLowerCase();
+          const s = String(e.status ?? '').toLowerCase();
+          return {
+            id: String(e.id ?? ''),
+            employeeCode: e.employeeCode ?? '',
+            name: fullName || (e.employeeCode ?? ''),
+            designation: e.designationId ? String(e.designationId) : '',
+            department: e.departmentId ? String(e.departmentId) : '',
+            email: e.companyEmail ?? e.personalEmail ?? '',
+            phone: e.mobileNumber ?? '',
+            location: [e.city, e.state].filter(Boolean).join(', '),
+            joiningDate: e.joiningDate ?? '',
+            dateOfBirth: e.dateOfBirth ?? '',
+            gender: genderMap[g] ?? 'other',
+            maritalStatus: (e.maritalStatus as EmployeeProfile['maritalStatus']) ?? 'single',
+            bloodGroup: e.bloodGroup ?? '',
+            address: e.address ?? '',
+            city: e.city ?? '',
+            state: e.state ?? '',
+            pincode: e.pincode ?? '',
+            emergencyContact: {
+              name: e.emergencyContactName ?? '',
+              relationship: e.emergencyContactRelationship ?? '',
+              phone: e.emergencyContactPhone ?? '',
+            },
+            education: Array.isArray(e.education) ? e.education : [],
+            experience: Array.isArray(e.experience) ? e.experience : [],
+            skills: Array.isArray(e.skills) ? e.skills : [],
+            certifications: Array.isArray(e.certifications) ? e.certifications : [],
+            reportingTo: e.reportingManagerId ? String(e.reportingManagerId) : '',
+            employeeType: typeMap[t] ?? 'permanent',
+            workMode: (e.workMode as EmployeeProfile['workMode']) ?? 'onsite',
+            shift: e.shift ?? '',
+            probationStatus: e.confirmationDate
+              ? 'completed'
+              : e.probationEndDate
+                ? 'ongoing'
+                : 'not_applicable',
+            status: statusMap[s] ?? (e.isActive === false ? 'inactive' : 'active'),
+            avatar: (fullName || (e.employeeCode ?? '?'))
+              .split(' ')
+              .map((n: string) => n[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join('')
+              .toUpperCase(),
+          };
+        });
+        if (!cancelled) setProfiles(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load employee profiles');
+          setProfiles([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data for employee profiles
   const mockProfiles: EmployeeProfile[] = [
@@ -328,7 +416,7 @@ export default function EmployeeProfilesPage() {
   const designations = ['all', 'Production Manager', 'Quality Control Head', 'Senior Software Engineer', 'HR Executive', 'Production Supervisor', 'Accounts Assistant'];
 
   const filteredData = useMemo(() => {
-    return mockProfiles.filter(profile => {
+    return profiles.filter(profile => {
       const matchesSearch = profile.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           profile.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           profile.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -338,19 +426,19 @@ export default function EmployeeProfilesPage() {
       const matchesStatus = selectedStatus === 'all' || profile.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesDesignation && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedDesignation, selectedStatus]);
+  }, [profiles, searchTerm, selectedDepartment, selectedDesignation, selectedStatus]);
 
   const stats = useMemo(() => {
-    const active = mockProfiles.filter(p => p.status === 'active').length;
-    const onProbation = mockProfiles.filter(p => p.probationStatus === 'ongoing').length;
-    const remote = mockProfiles.filter(p => p.workMode === 'remote').length;
+    const active = profiles.filter(p => p.status === 'active').length;
+    const onProbation = profiles.filter(p => p.probationStatus === 'ongoing').length;
+    const remote = profiles.filter(p => p.workMode === 'remote').length;
     return {
-      total: mockProfiles.length,
+      total: profiles.length,
       active,
       onProbation,
       remote
     };
-  }, []);
+  }, [profiles]);
 
   const activeFilterCount = [
     selectedDepartment !== 'all',
@@ -455,6 +543,18 @@ export default function EmployeeProfilesPage() {
         </h1>
         <p className="text-gray-600 mt-2">Comprehensive employee information and profiles</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading employee profiles…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

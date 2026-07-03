@@ -94,4 +94,38 @@ export const ProductionOrphanService = {
   // GET/POST production/quality-plans
   getQualityPlans: () => request<any[]>('/production/quality-plans'),
   createQualityPlan: (body: any) => post<any>('/production/quality-plans', body),
+
+  // --- Newly-built shopfloor / scheduling / bom-verification endpoints ---
+
+  // GET/POST production/floor-activities (backs /production/floor)
+  getFloorActivities: () => request<any[]>('/production/floor-activities'),
+  createFloorActivity: (body: any) => post<any>('/production/floor-activities', body),
+
+  // GET/POST production/bom-verifications (backs /production/bom/verification)
+  getBomVerifications: () => request<any[]>('/production/bom-verifications'),
+  createBomVerification: (body: any) => post<any>('/production/bom-verifications', body),
+
+  // GET/POST production/gantt-tasks (backs /production/scheduling/enhanced-gantt)
+  getGanttTasks: () => request<any[]>('/production/gantt-tasks'),
+  createGanttTask: (body: any) => post<any>('/production/gantt-tasks', body),
+
+  // GET/POST production/machine-timelines (backs /production/shopfloor/machine-timeline)
+  getMachineTimelines: () => request<any[]>('/production/machine-timelines'),
+  createMachineTimeline: (body: any) => post<any>('/production/machine-timelines', body),
+
+  // GET/POST production/andon-lines (backs /production/shopfloor/andon)
+  getAndonLines: () => request<any[]>('/production/andon-lines'),
+  createAndonLine: (body: any) => post<any>('/production/andon-lines', body),
+
+  // GET/POST production/schedule-lines (backs /production/scheduling)
+  getScheduleLines: () => request<any[]>('/production/schedule-lines'),
+  createScheduleLine: (body: any) => post<any>('/production/schedule-lines', body),
+
+  // --- Core single-record fetches for detail (view/edit) pages ---
+
+  // GET production/work-order/:id (backs /production/work-orders/view|edit/[id])
+  getWorkOrder: (id: string) => request<any>(`/production/work-order/${id}`),
+
+  // GET production/bom/:id (backs /production/bom/view|edit/[id])
+  getBom: (id: string) => request<any>(`/production/bom/${id}`),
 };

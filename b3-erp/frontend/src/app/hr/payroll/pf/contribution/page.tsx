@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Wallet, Search, Download, FileText, Users, DollarSign, TrendingUp, Calendar, X, CheckCircle, AlertCircle, Building2, Mail } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeePFContribution {
   id: string;
@@ -548,8 +549,46 @@ export default function PFContributionPage() {
     ]
   };
 
+  const [records, setRows] = useState<EmployeePFContribution[]>(mockPFMonth.records);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getStatutoryFilings('pf-contribution');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            designation: r.designation ?? r.details?.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            uan: r.uan ?? r.details?.uan ?? '',
+            basicSalary: r.details?.basicSalary ?? r.basicSalary ?? 0,
+            pfBasic: r.details?.pfBasic ?? r.pfBasic ?? 0,
+            employeeContribution: r.amount ?? r.details?.employeeContribution ?? 0,
+            employerContribution: r.details?.employerContribution ?? r.employerContribution ?? 0,
+            pensionFund: r.details?.pensionFund ?? r.pensionFund ?? 0,
+            epf: r.details?.epf ?? r.epf ?? 0,
+            edli: r.details?.edli ?? r.edli ?? 0,
+            adminCharges: r.details?.adminCharges ?? r.adminCharges ?? 0,
+            totalEmployer: r.details?.totalEmployer ?? r.totalEmployer ?? 0,
+            totalContribution: r.details?.totalContribution ?? r.totalContribution ?? 0,
+            pfAccountNumber: r.pfAccountNumber ?? r.details?.pfAccountNumber ?? '',
+          } as EmployeePFContribution));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockPFMonth.records.filter(record => {
+    return records.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -557,7 +596,7 @@ export default function PFContributionPage() {
       const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [records, searchTerm, selectedDepartment]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
 
@@ -576,6 +615,7 @@ export default function PFContributionPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">PF Contribution</h1>
         <p className="text-sm text-gray-600 mt-1">Monthly Provident Fund contribution calculations</p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-3">

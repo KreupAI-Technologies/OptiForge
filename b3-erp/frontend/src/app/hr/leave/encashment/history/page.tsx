@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { History, Search, Filter, X, Download, DollarSign, Calendar, TrendingUp } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { History, Search, Filter, X, Download, DollarSign, Calendar, TrendingUp, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface EncashmentHistory {
   id: string;
@@ -27,22 +28,68 @@ interface EncashmentHistory {
   remarks?: string;
 }
 
-const mockEncashmentHistory: EncashmentHistory[] = [
-  { id: 'ECH001', financialYear: '2025-26', requestDate: '2025-08-10', leaveType: 'Earned Leave', leaveTypeCode: 'EL', encashedDays: 8, perDayRate: 1200, grossAmount: 9600, tdsDeducted: 960, netAmount: 8640, status: 'processed', submittedOn: '2025-08-10', approvedBy: 'Rajesh Kumar', approvedOn: '2025-08-12', processedOn: '2025-08-31', paymentMode: 'bank_transfer', paymentReference: 'TXN789456', paymentMonth: 'August 2025' },
-  { id: 'ECH002', financialYear: '2025-26', requestDate: '2025-06-20', leaveType: 'Comp Off', leaveTypeCode: 'CO', encashedDays: 2, perDayRate: 1200, grossAmount: 2400, tdsDeducted: 240, netAmount: 2160, status: 'processed', submittedOn: '2025-06-20', approvedBy: 'Rajesh Kumar', approvedOn: '2025-06-21', processedOn: '2025-06-30', paymentMode: 'salary', paymentMonth: 'June 2025' },
-  { id: 'ECH003', financialYear: '2024-25', requestDate: '2025-03-15', leaveType: 'Earned Leave', leaveTypeCode: 'EL', encashedDays: 10, perDayRate: 1150, grossAmount: 11500, tdsDeducted: 1150, netAmount: 10350, status: 'processed', submittedOn: '2025-03-15', approvedBy: 'Priya Singh', approvedOn: '2025-03-17', processedOn: '2025-03-31', paymentMode: 'salary', paymentMonth: 'March 2025' },
-  { id: 'ECH004', financialYear: '2024-25', requestDate: '2024-12-10', leaveType: 'Privilege Leave', leaveTypeCode: 'PL', encashedDays: 5, perDayRate: 1150, grossAmount: 5750, tdsDeducted: 575, netAmount: 5175, status: 'processed', submittedOn: '2024-12-10', approvedBy: 'Priya Singh', approvedOn: '2024-12-12', processedOn: '2024-12-31', paymentMode: 'bank_transfer', paymentReference: 'TXN654321', paymentMonth: 'December 2024' },
-  { id: 'ECH005', financialYear: '2024-25', requestDate: '2024-09-05', leaveType: 'Earned Leave', leaveTypeCode: 'EL', encashedDays: 7, perDayRate: 1100, grossAmount: 7700, tdsDeducted: 770, netAmount: 6930, status: 'processed', submittedOn: '2024-09-05', approvedBy: 'Priya Singh', approvedOn: '2024-09-07', processedOn: '2024-09-30', paymentMode: 'salary', paymentMonth: 'September 2024' },
-  { id: 'ECH006', financialYear: '2023-24', requestDate: '2024-03-20', leaveType: 'Earned Leave', leaveTypeCode: 'EL', encashedDays: 12, perDayRate: 1050, grossAmount: 12600, tdsDeducted: 1260, netAmount: 11340, status: 'processed', submittedOn: '2024-03-20', approvedBy: 'Amit Verma', approvedOn: '2024-03-22', processedOn: '2024-03-31', paymentMode: 'cheque', paymentReference: 'CHQ123456', paymentMonth: 'March 2024' },
-  { id: 'ECH007', financialYear: '2023-24', requestDate: '2023-11-15', leaveType: 'Comp Off', leaveTypeCode: 'CO', encashedDays: 3, perDayRate: 1050, grossAmount: 3150, tdsDeducted: 315, netAmount: 2835, status: 'processed', submittedOn: '2023-11-15', approvedBy: 'Amit Verma', approvedOn: '2023-11-17', processedOn: '2023-11-30', paymentMode: 'salary', paymentMonth: 'November 2023' }
-];
-
 export default function EncashmentHistoryPage() {
-  const [history, setHistory] = useState<EncashmentHistory[]>(mockEncashmentHistory);
+  const [history, setHistory] = useState<EncashmentHistory[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFY, setFilterFY] = useState<string>('all');
   const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.leaveEncashments()) as any[];
+        const paymentModes = ['salary', 'cheque', 'bank_transfer'];
+        const mapped: EncashmentHistory[] = (raw ?? [])
+          // History view: only settled records (processed / cancelled).
+          .filter((r) => {
+            const s = String(r.status ?? '').toLowerCase();
+            return s === 'processed' || s === 'cancelled';
+          })
+          .map((r, i) => {
+            const mode = String(r.paymentMode ?? '').toLowerCase();
+            return {
+              id: String(r.id ?? `ECH${i}`),
+              financialYear: r.financialYear ?? '',
+              requestDate: r.requestDate ?? r.submittedOn ?? '',
+              leaveType: r.leaveType ?? 'Leave',
+              leaveTypeCode: r.leaveTypeCode ?? '',
+              encashedDays: Number(r.encashedDays ?? 0),
+              perDayRate: Number(r.perDayRate ?? 0),
+              grossAmount: Number(r.grossAmount ?? 0),
+              tdsDeducted: Number(r.tdsDeducted ?? 0),
+              netAmount: Number(r.netAmount ?? 0),
+              status: String(r.status ?? '').toLowerCase() === 'cancelled' ? 'cancelled' : 'processed',
+              submittedOn: r.submittedOn ?? r.requestDate ?? '',
+              approvedBy: r.approvedBy ?? '',
+              approvedOn: r.approvedOn ?? '',
+              processedOn: r.processedOn ?? '',
+              paymentMode: (paymentModes.includes(mode) ? mode : 'salary') as EncashmentHistory['paymentMode'],
+              paymentReference: r.paymentReference ?? undefined,
+              paymentMonth: r.paymentMonth ?? undefined,
+              remarks: r.remarks ?? undefined,
+            };
+          });
+        if (!cancelled) setHistory(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load encashment history');
+          setHistory([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return history.filter(rec => {
@@ -151,6 +198,18 @@ export default function EncashmentHistoryPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading encashment history…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

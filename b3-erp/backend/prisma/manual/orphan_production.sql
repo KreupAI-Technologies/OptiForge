@@ -259,3 +259,115 @@ CREATE TABLE IF NOT EXISTS "production_quality_plans" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================
+-- Newly-built shopfloor / scheduling / bom-verification tables.
+-- ADDITIVE ONLY — CREATE TABLE IF NOT EXISTS. Do NOT run automatically.
+-- ============================================================
+
+-- Floor activities (backs /production/floor)
+CREATE TABLE IF NOT EXISTS "production_floor_activities" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "activity_id" varchar NULL,
+  "work_center" varchar NULL,
+  "operator_name" varchar NULL,
+  "employee_id" varchar NULL,
+  "work_order_id" varchar NULL,
+  "product_name" varchar NULL,
+  "product_code" varchar NULL,
+  "operation" varchar NULL,
+  "start_time" varchar NULL,
+  "duration_minutes" integer NOT NULL DEFAULT 0,
+  "output_qty" integer NOT NULL DEFAULT 0,
+  "target_qty" integer NOT NULL DEFAULT 0,
+  "efficiency_percent" numeric(6,2) NOT NULL DEFAULT 0,
+  "status" varchar(20) NOT NULL DEFAULT 'active',
+  "shift" varchar(20) NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- BOM verifications (backs /production/bom/verification)
+CREATE TABLE IF NOT EXISTS "production_bom_verifications" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "bom_code" varchar NULL,
+  "product_name" varchar NULL,
+  "verification_date" varchar NULL,
+  "verified_by" varchar NULL,
+  "status" varchar(30) NOT NULL DEFAULT 'Pending',
+  "completeness" integer NOT NULL DEFAULT 0,
+  "submitted_to_procurement" boolean NOT NULL DEFAULT false,
+  "checks" jsonb NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Gantt tasks (backs /production/scheduling/enhanced-gantt)
+CREATE TABLE IF NOT EXISTS "production_gantt_tasks" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" varchar NULL,
+  "start_date" varchar NULL,
+  "end_date" varchar NULL,
+  "progress" integer NOT NULL DEFAULT 0,
+  "status" varchar(30) NOT NULL DEFAULT 'not-started',
+  "priority" varchar(20) NOT NULL DEFAULT 'medium',
+  "assignee" varchar NULL,
+  "group_id" varchar NULL,
+  "group_name" varchar NULL,
+  "dependencies" jsonb NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Machine timelines (backs /production/shopfloor/machine-timeline)
+CREATE TABLE IF NOT EXISTS "production_machine_timelines" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "machine_code" varchar NULL,
+  "machine_name" varchar NULL,
+  "machine_type" varchar NULL,
+  "status" varchar(20) NOT NULL DEFAULT 'idle',
+  "current_shift" varchar(30) NULL,
+  "utilization" integer NOT NULL DEFAULT 0,
+  "events" jsonb NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Andon lines (backs /production/shopfloor/andon)
+CREATE TABLE IF NOT EXISTS "production_andon_lines" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "line_name" varchar NULL,
+  "status" varchar(20) NOT NULL DEFAULT 'running',
+  "current_product" varchar NULL,
+  "work_order_number" varchar NULL,
+  "target" integer NOT NULL DEFAULT 0,
+  "actual" integer NOT NULL DEFAULT 0,
+  "oee" numeric(6,2) NOT NULL DEFAULT 0,
+  "cycle_time" integer NOT NULL DEFAULT 0,
+  "operator" varchar NULL,
+  "shift" varchar(40) NULL,
+  "alerts" jsonb NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);
+
+-- Schedule lines (backs /production/scheduling)
+CREATE TABLE IF NOT EXISTS "production_schedule_lines" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "schedule_code" varchar NULL,
+  "work_order_id" varchar NULL,
+  "product_name" varchar NULL,
+  "product_code" varchar NULL,
+  "work_center" varchar NULL,
+  "planned_start" varchar NULL,
+  "planned_end" varchar NULL,
+  "actual_start" varchar NULL,
+  "actual_end" varchar NULL,
+  "quantity" integer NOT NULL DEFAULT 0,
+  "unit" varchar(20) NULL,
+  "status" varchar(20) NOT NULL DEFAULT 'scheduled',
+  "priority" varchar(20) NOT NULL DEFAULT 'medium',
+  "assigned_to" varchar NULL,
+  "created_at" timestamptz NOT NULL DEFAULT now(),
+  "updated_at" timestamptz NOT NULL DEFAULT now()
+);

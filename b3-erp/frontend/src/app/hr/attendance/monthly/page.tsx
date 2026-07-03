@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, Users, CheckCircle, XCircle, Clock, Search, Filter, Download, TrendingUp, TrendingDown } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
+import { HrAttendanceService } from '@/services/hr-payroll.service';
 
 interface MonthlyAttendance {
   id: string;
@@ -85,23 +86,63 @@ export default function MonthlyAttendancePage() {
 
   const departments = ['all', 'Production', 'Quality', 'IT', 'HR', 'Finance', 'Logistics', 'Marketing'];
 
+  const [rows, setRows] = useState<MonthlyAttendance[]>(mockMonthlyAttendance);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrAttendanceService.getMonthly();
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: String(r.id ?? r.employeeId ?? ''),
+            employeeCode: r.employeeCode ?? r.details?.employeeCode ?? '',
+            name: r.employeeName ?? r.name ?? r.details?.name ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            designation: r.details?.designation ?? '',
+            totalDays: r.details?.totalDays ?? 30,
+            workingDays: r.details?.workingDays ?? 22,
+            presentDays: r.presentDays ?? r.details?.presentDays ?? 0,
+            absentDays: r.absentDays ?? r.details?.absentDays ?? 0,
+            lateMarks: r.details?.lateMarks ?? 0,
+            halfDays: r.details?.halfDays ?? 0,
+            paidLeaves: r.details?.paidLeaves ?? 0,
+            unpaidLeaves: r.details?.unpaidLeaves ?? 0,
+            weekOffs: r.details?.weekOffs ?? 0,
+            holidays: r.details?.holidays ?? 0,
+            workHours: r.totalHours ?? r.details?.workHours ?? 0,
+            expectedHours: r.details?.expectedHours ?? 198,
+            attendancePercentage: r.details?.attendancePercentage ?? 0,
+            punctualityScore: r.details?.punctualityScore ?? 0,
+          } as MonthlyAttendance));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredData = useMemo(() => {
-    return mockMonthlyAttendance.filter(att => {
+    return rows.filter(att => {
       const matchesSearch = att.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           att.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = selectedDepartment === 'all' || att.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [searchTerm, selectedDepartment, rows]);
 
   const stats = useMemo(() => {
-    const totalEmployees = mockMonthlyAttendance.length;
-    const avgAttendance = mockMonthlyAttendance.reduce((sum, a) => sum + a.attendancePercentage, 0) / totalEmployees;
-    const avgPunctuality = mockMonthlyAttendance.reduce((sum, a) => sum + a.punctualityScore, 0) / totalEmployees;
-    const perfectAttendance = mockMonthlyAttendance.filter(a => a.attendancePercentage === 100 && a.lateMarks === 0).length;
-    const poorAttendance = mockMonthlyAttendance.filter(a => a.attendancePercentage < 90).length;
+    const totalEmployees = rows.length;
+    const avgAttendance = rows.reduce((sum, a) => sum + a.attendancePercentage, 0) / totalEmployees;
+    const avgPunctuality = rows.reduce((sum, a) => sum + a.punctualityScore, 0) / totalEmployees;
+    const perfectAttendance = rows.filter(a => a.attendancePercentage === 100 && a.lateMarks === 0).length;
+    const poorAttendance = rows.filter(a => a.attendancePercentage < 90).length;
     return { totalEmployees, avgAttendance, avgPunctuality, perfectAttendance, poorAttendance };
-  }, []);
+  }, [rows]);
 
   const getAttendanceBadge = (percentage: number) => {
     if (percentage >= 95) return 'text-green-600 bg-green-50';
@@ -206,6 +247,7 @@ export default function MonthlyAttendancePage() {
         <p className="text-gray-600 mt-2">
           Comprehensive monthly attendance summary and analytics
         </p>
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       {/* Stats Cards */}

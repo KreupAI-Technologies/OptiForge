@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Search, Filter, X, AlertCircle, DollarSign, Clock, User, ArrowRight } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface EncashmentApproval {
   id: string;
@@ -35,56 +36,81 @@ interface EncashmentApproval {
   };
 }
 
-const mockApprovalQueue: EncashmentApproval[] = [
-  {
-    id: 'ECR007', employeeId: 'EMP105', employeeName: 'Arjun Mehta', employeeCode: 'E105', department: 'Production', designation: 'Supervisor',
-    requestDate: '2025-10-23', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 18, requestedDays: 10,
-    perDayRate: 1350, totalAmount: 13500, status: 'pending_approval', submittedOn: '2025-10-23', financialYear: '2025-26',
-    eligibility: { isEligible: true, maxAllowed: 9, minRetention: 5 }
-  },
-  {
-    id: 'ECR008', employeeId: 'EMP112', employeeName: 'Neha Kapoor', employeeCode: 'E112', department: 'Quality', designation: 'QC Inspector',
-    requestDate: '2025-10-22', leaveType: 'Privilege Leave', leaveTypeCode: 'PL', availableBalance: 12, requestedDays: 6,
-    perDayRate: 1200, totalAmount: 7200, status: 'pending_approval', submittedOn: '2025-10-22', financialYear: '2025-26',
-    eligibility: { isEligible: true, maxAllowed: 6, minRetention: 5 }
-  },
-  {
-    id: 'ECR009', employeeId: 'EMP089', employeeName: 'Rahul Singh', employeeCode: 'E089', department: 'Maintenance', designation: 'Technician',
-    requestDate: '2025-10-21', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 8, requestedDays: 7,
-    perDayRate: 1100, totalAmount: 7700, status: 'pending_approval', submittedOn: '2025-10-21', financialYear: '2025-26',
-    eligibility: { isEligible: false, maxAllowed: 4, minRetention: 5, issues: ['Requested days exceed maximum allowed (50% of balance)', 'Minimum 5 days must be retained'] }
-  },
-  {
-    id: 'ECR010', employeeId: 'EMP134', employeeName: 'Divya Reddy', employeeCode: 'E134', department: 'HR', designation: 'HR Executive',
-    requestDate: '2025-10-20', leaveType: 'Comp Off', leaveTypeCode: 'CO', availableBalance: 4, requestedDays: 2,
-    perDayRate: 1250, totalAmount: 2500, status: 'pending_approval', submittedOn: '2025-10-20', financialYear: '2025-26',
-    eligibility: { isEligible: true, maxAllowed: 2, minRetention: 0 }
-  },
-  {
-    id: 'ECR011', employeeId: 'EMP076', employeeName: 'Manoj Kumar', employeeCode: 'E076', department: 'Production', designation: 'Operator',
-    requestDate: '2025-10-19', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 20, requestedDays: 8,
-    perDayRate: 1050, totalAmount: 8400, status: 'approved', submittedOn: '2025-10-19', approvedBy: 'Rajesh Kumar', approvedOn: '2025-10-24', paymentMode: 'salary', financialYear: '2025-26',
-    eligibility: { isEligible: true, maxAllowed: 10, minRetention: 5 }
-  },
-  {
-    id: 'ECR012', employeeId: 'EMP098', employeeName: 'Pooja Sharma', employeeCode: 'E098', department: 'Stores', designation: 'Storekeeper',
-    requestDate: '2025-10-18', leaveType: 'Earned Leave', leaveTypeCode: 'EL', availableBalance: 6, requestedDays: 5,
-    perDayRate: 1150, totalAmount: 5750, status: 'rejected', submittedOn: '2025-10-18', approvedBy: 'Rajesh Kumar', approvedOn: '2025-10-24',
-    rejectionReason: 'Insufficient balance - minimum retention not met', financialYear: '2025-26',
-    eligibility: { isEligible: false, maxAllowed: 3, minRetention: 5, issues: ['Available balance below minimum retention requirement'] }
-  }
-];
-
 const departments = ['All Departments', 'Production', 'Quality', 'Maintenance', 'HR', 'Stores'];
 
 export default function EncashmentApprovalPage() {
-  const [approvalQueue, setApprovalQueue] = useState<EncashmentApproval[]>(mockApprovalQueue);
+  const [approvalQueue, setApprovalQueue] = useState<EncashmentApproval[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState<string>('All Departments');
   const [filterStatus, setFilterStatus] = useState<string>('pending_approval');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<EncashmentApproval | null>(null);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.leaveEncashments()) as any[];
+        const statusMap: Record<string, EncashmentApproval['status']> = {
+          pending: 'pending_approval',
+          processed: 'approved',
+          approved: 'approved',
+          cancelled: 'rejected',
+          rejected: 'rejected',
+        };
+        const mapped: EncashmentApproval[] = (raw ?? []).map((r, i) => {
+          const requestedDays = Number(r.encashedDays ?? r.requestedDays ?? 0);
+          const perDayRate = Number(r.perDayRate ?? 0);
+          const status = statusMap[String(r.status ?? '').toLowerCase()] ?? 'pending_approval';
+          return {
+            id: String(r.id ?? `ECR${i}`),
+            employeeId: String(r.employeeId ?? ''),
+            employeeName: r.employeeName ?? 'Unknown',
+            employeeCode: r.employeeCode ?? String(r.employeeId ?? ''),
+            department: r.department ?? 'Unassigned',
+            designation: r.designation ?? '',
+            requestDate: r.requestDate ?? r.submittedOn ?? '',
+            leaveType: r.leaveType ?? 'Leave',
+            leaveTypeCode: r.leaveTypeCode ?? '',
+            availableBalance: Number(r.availableBalance ?? 0),
+            requestedDays,
+            perDayRate,
+            totalAmount: Number(r.grossAmount ?? r.totalAmount ?? requestedDays * perDayRate),
+            status,
+            submittedOn: r.submittedOn ?? r.requestDate ?? '',
+            approvedBy: r.approvedBy ?? undefined,
+            approvedOn: r.approvedOn ?? undefined,
+            rejectionReason: r.rejectionReason ?? r.remarks ?? undefined,
+            paymentMode: r.paymentMode ?? undefined,
+            financialYear: r.financialYear ?? '',
+            remarks: r.remarks ?? undefined,
+            eligibility: {
+              isEligible: true,
+              maxAllowed: Number(r.availableBalance ?? 0),
+              minRetention: 0,
+            },
+          };
+        });
+        if (!cancelled) setApprovalQueue(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load encashment requests');
+          setApprovalQueue([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return approvalQueue.filter(req => {
@@ -245,6 +271,18 @@ export default function EncashmentApprovalPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading encashment requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

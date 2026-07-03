@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, Search, Filter, Calendar, AlertCircle, CheckCircle, Clock, Mail, Phone, Building2, Users, RefreshCw, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface ContractEmployee {
   id: string;
@@ -37,6 +38,74 @@ export default function ContractEmployeesPage() {
   const [selectedContractType, setSelectedContractType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [contractEmployees, setContractEmployees] = useState<ContractEmployee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.employees<any[]>();
+        const contractOnly = (raw ?? []).filter((e) =>
+          String(e.employmentType ?? '').toLowerCase().includes('contract'),
+        );
+        const mapped: ContractEmployee[] = contractOnly.map((e) => {
+          const fullName = e.fullName || `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim();
+          const endDate = e.contractEndDate ?? e.probationEndDate ?? '';
+          const startDate = e.contractStartDate ?? e.joiningDate ?? '';
+          const daysToExpiry = endDate
+            ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            : undefined;
+          const s = String(e.status ?? '').toLowerCase();
+          let status: ContractEmployee['status'] = 'active';
+          if (s.includes('terminat')) status = 'terminated';
+          else if (s.includes('renew')) status = 'renewed';
+          else if (e.isActive === false || (daysToExpiry !== undefined && daysToExpiry < 0)) status = 'expired';
+          else if (daysToExpiry !== undefined && daysToExpiry <= 60) status = 'expiring_soon';
+          return {
+            id: String(e.id ?? ''),
+            employeeCode: e.employeeCode ?? '',
+            name: fullName || (e.employeeCode ?? ''),
+            designation: e.designationId ? String(e.designationId) : '',
+            department: e.departmentId ? String(e.departmentId) : '',
+            email: e.companyEmail ?? e.personalEmail ?? '',
+            phone: e.mobileNumber ?? '',
+            contractType: (e.contractType as ContractEmployee['contractType']) ?? 'fixed_term',
+            startDate,
+            endDate,
+            duration: e.duration ?? '',
+            vendor: e.vendor ?? '',
+            vendorContact: e.vendorContact ?? '',
+            location: [e.city, e.state].filter(Boolean).join(', '),
+            supervisor: e.reportingManagerId ? String(e.reportingManagerId) : '',
+            contractValue: Number(e.contractValue ?? 0),
+            paymentTerm: (e.paymentTerm as ContractEmployee['paymentTerm']) ?? 'monthly',
+            renewalEligible: Boolean(e.renewalEligible ?? false),
+            renewalCount: Number(e.renewalCount ?? 0),
+            status,
+            performanceRating: Number(e.performanceRating ?? 0),
+            skills: Array.isArray(e.skills) ? e.skills : [],
+            daysToExpiry,
+          };
+        });
+        if (!cancelled) setContractEmployees(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contract employees');
+          setContractEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data for contract employees
   const mockContractEmployees: ContractEmployee[] = [
@@ -246,7 +315,7 @@ export default function ContractEmployeesPage() {
   const contractTypes = ['all', 'fixed_term', 'project_based', 'seasonal', 'consultant'];
 
   const filteredData = useMemo(() => {
-    return mockContractEmployees.filter(emp => {
+    return contractEmployees.filter(emp => {
       const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           emp.vendor.toLowerCase().includes(searchTerm.toLowerCase());
@@ -255,21 +324,21 @@ export default function ContractEmployeesPage() {
       const matchesStatus = selectedStatus === 'all' || emp.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesContractType && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedContractType, selectedStatus]);
+  }, [contractEmployees, searchTerm, selectedDepartment, selectedContractType, selectedStatus]);
 
   const stats = useMemo(() => {
-    const active = mockContractEmployees.filter(e => e.status === 'active').length;
-    const expiringSoon = mockContractEmployees.filter(e => e.status === 'expiring_soon').length;
-    const expired = mockContractEmployees.filter(e => e.status === 'expired').length;
-    const totalValue = mockContractEmployees.reduce((sum, e) => sum + e.contractValue, 0);
+    const active = contractEmployees.filter(e => e.status === 'active').length;
+    const expiringSoon = contractEmployees.filter(e => e.status === 'expiring_soon').length;
+    const expired = contractEmployees.filter(e => e.status === 'expired').length;
+    const totalValue = contractEmployees.reduce((sum, e) => sum + e.contractValue, 0);
     return {
-      total: mockContractEmployees.length,
+      total: contractEmployees.length,
       active,
       expiringSoon,
       expired,
       totalValue
     };
-  }, []);
+  }, [contractEmployees]);
 
   const activeFilterCount = [
     selectedDepartment !== 'all',
@@ -424,6 +493,18 @@ export default function ContractEmployeesPage() {
         </h1>
         <p className="text-gray-600 mt-2">Manage contract workers and temporary staff</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading contract employees…
+        </div>
+      )}
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">

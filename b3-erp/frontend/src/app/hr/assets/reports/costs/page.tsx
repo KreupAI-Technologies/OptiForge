@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { IndianRupee, TrendingDown, TrendingUp } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface CostSummary {
   category: string;
@@ -14,49 +15,40 @@ interface CostSummary {
 
 export default function Page() {
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
+  const [mockData, setMockData] = useState<CostSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockData: CostSummary[] = [
-    {
-      category: 'IT Assets',
-      purchaseCost: 4500000,
-      maintenanceCost: 185000,
-      totalCost: 4685000,
-      monthlyAvg: 15417,
-      trend: 'down'
-    },
-    {
-      category: 'Office Furniture',
-      purchaseCost: 1250000,
-      maintenanceCost: 45000,
-      totalCost: 1295000,
-      monthlyAvg: 3750,
-      trend: 'up'
-    },
-    {
-      category: 'Vehicles',
-      purchaseCost: 3200000,
-      maintenanceCost: 280000,
-      totalCost: 3480000,
-      monthlyAvg: 23333,
-      trend: 'up'
-    },
-    {
-      category: 'Network Equipment',
-      purchaseCost: 2100000,
-      maintenanceCost: 95000,
-      totalCost: 2195000,
-      monthlyAvg: 7917,
-      trend: 'down'
-    },
-    {
-      category: 'HVAC Systems',
-      purchaseCost: 850000,
-      maintenanceCost: 125000,
-      totalCost: 975000,
-      monthlyAvg: 10417,
-      trend: 'down'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getReportCosts();
+        const mapped: CostSummary[] = rows.map((r) => ({
+          category: r.category,
+          purchaseCost: Number(r.purchaseCost),
+          maintenanceCost: Number(r.maintenanceCost),
+          totalCost: Number(r.totalCost),
+          monthlyAvg: Number(r.monthlyAvg),
+          trend: r.trend as CostSummary['trend'],
+        }));
+        if (!cancelled) setMockData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load asset cost report');
+          setMockData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const totals = mockData.reduce((acc, item) => ({
@@ -77,6 +69,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Cost Report</h1>
         <p className="text-sm text-gray-600 mt-1">Comprehensive overview of asset-related costs</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading asset cost report…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

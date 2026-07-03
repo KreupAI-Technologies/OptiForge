@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Library, Search, Filter, Clock, Play, BookOpen, Award, Star, Users } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Library, Search, Filter, Clock, Play, BookOpen, Award, Star, Users, AlertCircle } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Course {
   id: string;
@@ -27,69 +28,52 @@ export default function ELearningLibraryPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [mockCourses, setMockCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockCourses: Course[] = [
-    {
-      id: '1', code: 'ELN-TECH-001', title: 'Introduction to CNC Machining', description: 'Learn the basics of CNC programming and operations',
-      category: 'technical', level: 'beginner', duration: 8, modules: 12, enrolled: 145, rating: 4.7, reviews: 89,
-      instructor: 'Rajesh Kumar', thumbnail: '🔧', certification: true, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '2', code: 'ELN-SAFE-001', title: 'Workplace Safety Essentials', description: 'Comprehensive safety training for manufacturing environments',
-      category: 'safety', level: 'beginner', duration: 6, modules: 10, enrolled: 320, rating: 4.9, reviews: 156,
-      instructor: 'Suresh Patel', thumbnail: '🦺', certification: true, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '3', code: 'ELN-QUAL-001', title: 'Quality Control Fundamentals', description: 'Introduction to quality management and inspection techniques',
-      category: 'quality', level: 'beginner', duration: 10, modules: 15, enrolled: 210, rating: 4.6, reviews: 124,
-      instructor: 'Meena Rao', thumbnail: '✓', certification: true, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '4', code: 'ELN-TECH-002', title: 'Advanced Lean Manufacturing', description: 'Deep dive into lean principles and implementation',
-      category: 'technical', level: 'advanced', duration: 16, modules: 20, enrolled: 98, rating: 4.8, reviews: 67,
-      instructor: 'Vikram Mehta', thumbnail: '📊', certification: true, language: 'English', status: 'active'
-    },
-    {
-      id: '5', code: 'ELN-SOFT-001', title: 'Effective Communication in Teams', description: 'Improve team collaboration and communication skills',
-      category: 'soft_skills', level: 'beginner', duration: 5, modules: 8, enrolled: 280, rating: 4.5, reviews: 142,
-      instructor: 'Anjali Nair', thumbnail: '💬', certification: false, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '6', code: 'ELN-COMP-001', title: 'Indian Labor Laws & Compliance', description: 'Essential labor law knowledge for manufacturing',
-      category: 'compliance', level: 'intermediate', duration: 12, modules: 18, enrolled: 156, rating: 4.7, reviews: 92,
-      instructor: 'Anil Gupta', thumbnail: '⚖️', certification: true, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '7', code: 'ELN-LEAD-001', title: 'Leadership for Supervisors', description: 'Essential leadership skills for production supervisors',
-      category: 'leadership', level: 'intermediate', duration: 14, modules: 16, enrolled: 134, rating: 4.8, reviews: 78,
-      instructor: 'Priya Sharma', thumbnail: '👔', certification: true, language: 'English', status: 'active'
-    },
-    {
-      id: '8', code: 'ELN-QUAL-002', title: 'Six Sigma Yellow Belt', description: 'Introduction to Six Sigma methodology',
-      category: 'quality', level: 'intermediate', duration: 18, modules: 22, enrolled: 112, rating: 4.9, reviews: 85,
-      instructor: 'Ramesh Iyer', thumbnail: '⭐', certification: true, language: 'English', status: 'active'
-    },
-    {
-      id: '9', code: 'ELN-TECH-003', title: 'Industrial IoT Basics', description: 'Introduction to IoT in manufacturing',
-      category: 'technical', level: 'intermediate', duration: 12, modules: 14, enrolled: 89, rating: 4.6, reviews: 54,
-      instructor: 'Karthik Reddy', thumbnail: '🌐', certification: true, language: 'English', status: 'active'
-    },
-    {
-      id: '10', code: 'ELN-SAFE-002', title: 'Emergency Response Training', description: 'Fire safety and emergency procedures',
-      category: 'safety', level: 'beginner', duration: 4, modules: 6, enrolled: 245, rating: 4.7, reviews: 132,
-      instructor: 'Deepa Singh', thumbnail: '🚨', certification: true, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '11', code: 'ELN-SOFT-002', title: 'Problem Solving & Critical Thinking', description: 'Develop analytical and problem-solving skills',
-      category: 'soft_skills', level: 'intermediate', duration: 8, modules: 12, enrolled: 167, rating: 4.5, reviews: 98,
-      instructor: 'Kavita Desai', thumbnail: '🧩', certification: false, language: 'English/Hindi', status: 'active'
-    },
-    {
-      id: '12', code: 'ELN-TECH-004', title: 'AI in Manufacturing', description: 'Artificial Intelligence applications in production',
-      category: 'technical', level: 'advanced', duration: 20, modules: 25, enrolled: 45, rating: 4.9, reviews: 28,
-      instructor: 'Dr. Sunil Kumar', thumbnail: '🤖', certification: true, language: 'English', status: 'coming_soon'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.elearningCourses()) as any[];
+        const validCategories: Course['category'][] = ['technical', 'safety', 'quality', 'soft_skills', 'compliance', 'leadership'];
+        const validLevels: Course['level'][] = ['beginner', 'intermediate', 'advanced'];
+        const mapped: Course[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: String(r.id ?? ''),
+          code: r.code ?? '',
+          title: r.title ?? '',
+          description: r.description ?? '',
+          category: validCategories.includes(r.category) ? r.category : 'technical',
+          level: validLevels.includes(r.level) ? r.level : 'beginner',
+          duration: Number(r.duration ?? 0),
+          modules: Number(r.modules ?? 0),
+          enrolled: Number(r.enrolled ?? 0),
+          rating: Number(r.rating ?? 0),
+          reviews: Number(r.reviews ?? 0),
+          instructor: r.instructor ?? '',
+          thumbnail: r.thumbnail ?? '📘',
+          certification: Boolean(r.certification),
+          language: r.language ?? '',
+          status: r.status === 'coming_soon' ? 'coming_soon' : 'active',
+        }));
+        if (!cancelled) setMockCourses(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load courses');
+          setMockCourses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredCourses = useMemo(() => {
     return mockCourses.filter(course => {
@@ -99,7 +83,7 @@ export default function ELearningLibraryPage() {
       const matchesLevel = selectedLevel === 'all' || course.level === selectedLevel;
       return matchesSearch && matchesCategory && matchesLevel;
     });
-  }, [searchTerm, selectedCategory, selectedLevel]);
+  }, [mockCourses, searchTerm, selectedCategory, selectedLevel]);
 
   const stats = {
     total: mockCourses.filter(c => c.status === 'active').length,
@@ -139,6 +123,19 @@ export default function ELearningLibraryPage() {
         </h1>
         <p className="text-gray-600 mt-2">Browse and enroll in self-paced online courses</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading courses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

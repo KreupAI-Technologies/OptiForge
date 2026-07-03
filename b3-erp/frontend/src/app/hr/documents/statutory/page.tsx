@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileCheck, Upload, Download, Eye, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface StatutoryDocument {
   id: string;
@@ -22,70 +23,50 @@ interface StatutoryDocument {
 export default function StatutoryDocumentsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [mockDocuments, setMockDocuments] = useState<StatutoryDocument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockDocuments: StatutoryDocument[] = [
-    {
-      id: 'STAT001',
-      documentType: 'PF Documents',
-      formNumber: 'Form 11',
-      documentName: 'EPF Member Declaration Form',
-      uanNumber: 'UAN123456789012',
-      uploadedOn: '2024-01-10',
-      status: 'verified',
-      fileSize: '234 KB',
-      fileName: 'epf_form11.pdf',
-      verifiedBy: 'Kavita Sharma',
-      verifiedOn: '2024-01-11'
-    },
-    {
-      id: 'STAT002',
-      documentType: 'PF Documents',
-      formNumber: 'Form 2',
-      documentName: 'EPF Nomination Form',
-      uanNumber: 'UAN123456789012',
-      uploadedOn: '2024-01-10',
-      status: 'verified',
-      fileSize: '189 KB',
-      fileName: 'epf_form2_nomination.pdf',
-      verifiedBy: 'Kavita Sharma',
-      verifiedOn: '2024-01-11'
-    },
-    {
-      id: 'STAT003',
-      documentType: 'ESI Documents',
-      formNumber: 'ESIC Form',
-      documentName: 'ESI Registration & Nomination',
-      esicNumber: '1234567890123456',
-      uploadedOn: '2024-01-10',
-      status: 'verified',
-      fileSize: '212 KB',
-      fileName: 'esic_registration.pdf',
-      verifiedBy: 'Kavita Sharma',
-      verifiedOn: '2024-01-11'
-    },
-    {
-      id: 'STAT004',
-      documentType: 'Bank Documents',
-      formNumber: 'Salary Account',
-      documentName: 'Bank Account Details & Cancelled Cheque',
-      uploadedOn: '2024-01-10',
-      status: 'verified',
-      fileSize: '156 KB',
-      fileName: 'bank_cancelled_cheque.pdf',
-      verifiedBy: 'Kavita Sharma',
-      verifiedOn: '2024-01-11'
-    },
-    {
-      id: 'STAT005',
-      documentType: 'Professional Tax',
-      formNumber: 'PT Enrollment',
-      documentName: 'Professional Tax Registration',
-      uploadedOn: '2024-01-15',
-      status: 'pending',
-      fileSize: '178 KB',
-      fileName: 'pt_registration.pdf'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('statutory');
+        const mapped: StatutoryDocument[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            documentType: row.documentType ?? '',
+            formNumber: row.documentNumber ?? '',
+            documentName: row.title ?? '',
+            uanNumber: meta.uanNumber ?? '',
+            esicNumber: meta.esicNumber ?? '',
+            uploadedOn: row.uploadedOn ?? '',
+            status: (row.status ?? 'pending') as StatutoryDocument['status'],
+            fileSize: row.fileSize ?? '',
+            fileName: row.fileName ?? '',
+            verifiedBy: row.verifiedBy ?? '',
+            verifiedOn: row.verifiedOn ?? '',
+            remarks: row.remarks ?? '',
+          };
+        });
+        if (!cancelled) setMockDocuments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load statutory documents');
+          setMockDocuments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredDocuments = useMemo(() => {
     return mockDocuments.filter(doc => {
@@ -93,7 +74,7 @@ export default function StatutoryDocumentsPage() {
       const matchesStatus = selectedStatus === 'all' || doc.status === selectedStatus;
       return matchesType && matchesStatus;
     });
-  }, [selectedType, selectedStatus]);
+  }, [selectedType, selectedStatus, mockDocuments]);
 
   const documentTypes = ['all', ...Array.from(new Set(mockDocuments.map(d => d.documentType)))];
 
@@ -122,6 +103,19 @@ export default function StatutoryDocumentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Statutory Documents</h1>
         <p className="text-sm text-gray-600 mt-1">Manage PF, ESI, and other statutory compliance documents</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading statutory documents…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-lg p-3 border border-teal-200">

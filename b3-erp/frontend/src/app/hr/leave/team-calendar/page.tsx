@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Users, Filter, X, Clock, Calendar } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Users, Filter, X, Clock, Calendar, AlertCircle } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface TeamLeave {
   id: string;
@@ -20,20 +21,19 @@ interface TeamLeave {
   session?: 'morning' | 'afternoon';
 }
 
-const mockTeamLeaves: TeamLeave[] = [
-  { id: 'TL001', employeeId: 'EMP001', employeeName: 'Rajesh Kumar', department: 'Production', leaveType: 'Earned Leave', leaveTypeCode: 'EL', leaveColor: 'bg-blue-500', fromDate: '2025-10-27', toDate: '2025-10-29', days: 3, status: 'approved', isHalfDay: false },
-  { id: 'TL002', employeeId: 'EMP002', employeeName: 'Priya Sharma', department: 'Quality', leaveType: 'Casual Leave', leaveTypeCode: 'CL', leaveColor: 'bg-green-500', fromDate: '2025-10-28', toDate: '2025-10-28', days: 1, status: 'approved', isHalfDay: false },
-  { id: 'TL003', employeeId: 'EMP003', employeeName: 'Amit Patel', department: 'Maintenance', leaveType: 'Sick Leave', leaveTypeCode: 'SL', leaveColor: 'bg-red-500', fromDate: '2025-10-25', toDate: '2025-10-25', days: 0.5, status: 'approved', isHalfDay: true, session: 'morning' },
-  { id: 'TL004', employeeId: 'EMP004', employeeName: 'Sneha Reddy', department: 'HR', leaveType: 'Privilege Leave', leaveTypeCode: 'PL', leaveColor: 'bg-purple-500', fromDate: '2025-10-30', toDate: '2025-10-31', days: 2, status: 'approved', isHalfDay: false },
-  { id: 'TL005', employeeId: 'EMP005', employeeName: 'Vikram Singh', department: 'Production', leaveType: 'Comp Off', leaveTypeCode: 'CO', leaveColor: 'bg-orange-500', fromDate: '2025-11-01', toDate: '2025-11-01', days: 1, status: 'approved', isHalfDay: false },
-  { id: 'TL006', employeeId: 'EMP006', employeeName: 'Anita Desai', department: 'Quality', leaveType: 'Earned Leave', leaveTypeCode: 'EL', leaveColor: 'bg-blue-500', fromDate: '2025-11-04', toDate: '2025-11-06', days: 3, status: 'approved', isHalfDay: false },
-  { id: 'TL007', employeeId: 'EMP007', employeeName: 'Karthik Iyer', department: 'Stores', leaveType: 'Casual Leave', leaveTypeCode: 'CL', leaveColor: 'bg-green-500', fromDate: '2025-11-05', toDate: '2025-11-05', days: 1, status: 'pending', isHalfDay: false },
-  { id: 'TL008', employeeId: 'EMP008', employeeName: 'Meera Nair', department: 'HR', leaveType: 'Maternity Leave', leaveTypeCode: 'ML', leaveColor: 'bg-pink-500', fromDate: '2025-10-20', toDate: '2025-12-31', days: 73, status: 'approved', isHalfDay: false },
-  { id: 'TL009', employeeId: 'EMP009', employeeName: 'Suresh Babu', department: 'Maintenance', leaveType: 'Sick Leave', leaveTypeCode: 'SL', leaveColor: 'bg-red-500', fromDate: '2025-11-03', toDate: '2025-11-03', days: 1, status: 'approved', isHalfDay: false },
-  { id: 'TL010', employeeId: 'EMP010', employeeName: 'Lakshmi Menon', department: 'Production', leaveType: 'Earned Leave', leaveTypeCode: 'EL', leaveColor: 'bg-blue-500', fromDate: '2025-11-07', toDate: '2025-11-08', days: 2, status: 'approved', isHalfDay: false }
-];
-
 const departments = ['All Departments', 'Production', 'Quality', 'Maintenance', 'HR', 'Stores'];
+
+/** Derive a stable calendar colour + short code from a leave type name. */
+function leaveTypeMeta(name: string): { code: string; color: string } {
+  const n = (name || '').toLowerCase();
+  if (n.includes('casual')) return { code: 'CL', color: 'bg-green-500' };
+  if (n.includes('sick')) return { code: 'SL', color: 'bg-red-500' };
+  if (n.includes('matern')) return { code: 'ML', color: 'bg-pink-500' };
+  if (n.includes('comp')) return { code: 'CO', color: 'bg-orange-500' };
+  if (n.includes('privilege')) return { code: 'PL', color: 'bg-purple-500' };
+  if (n.includes('earn') || n.includes('annual')) return { code: 'EL', color: 'bg-blue-500' };
+  return { code: (name || '?').slice(0, 2).toUpperCase(), color: 'bg-gray-500' };
+}
 const leaveTypes = [
   { code: 'ALL', name: 'All Types', color: 'bg-gray-500' },
   { code: 'EL', name: 'Earned Leave', color: 'bg-blue-500' },
@@ -49,14 +49,59 @@ export default function TeamCalendarPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('All Departments');
   const [selectedLeaveType, setSelectedLeaveType] = useState('ALL');
   const [showFilters, setShowFilters] = useState(false);
+  const [teamLeaves, setTeamLeaves] = useState<TeamLeave[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.leaveApplications()) as any[];
+        const mapped: TeamLeave[] = (raw ?? []).map((r, i) => {
+          const meta = leaveTypeMeta(r.leaveTypeName ?? r.leaveType ?? '');
+          const rawStatus = String(r.status ?? '').toLowerCase();
+          return {
+            id: String(r.id ?? `TL${i}`),
+            employeeId: String(r.employeeId ?? ''),
+            employeeName: r.employeeName ?? 'Unknown',
+            department: r.department ?? 'Unassigned',
+            leaveType: r.leaveTypeName ?? r.leaveType ?? 'Leave',
+            leaveTypeCode: meta.code,
+            leaveColor: meta.color,
+            fromDate: r.startDate ?? r.fromDate ?? '',
+            toDate: r.endDate ?? r.toDate ?? r.startDate ?? '',
+            days: Number(r.numberOfDays ?? r.days ?? 0),
+            status: rawStatus === 'approved' ? 'approved' : 'pending',
+            isHalfDay: Boolean(r.isHalfDay) || Number(r.numberOfDays ?? 0) === 0.5,
+            session: r.session,
+          };
+        });
+        if (!cancelled) setTeamLeaves(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load team leaves');
+          setTeamLeaves([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredLeaves = useMemo(() => {
-    return mockTeamLeaves.filter(leave => {
+    return teamLeaves.filter(leave => {
       const matchesDept = selectedDepartment === 'All Departments' || leave.department === selectedDepartment;
       const matchesType = selectedLeaveType === 'ALL' || leave.leaveTypeCode === selectedLeaveType;
       return matchesDept && matchesType;
     });
-  }, [selectedDepartment, selectedLeaveType]);
+  }, [teamLeaves, selectedDepartment, selectedLeaveType]);
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -161,6 +206,18 @@ export default function TeamCalendarPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading team leaves…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

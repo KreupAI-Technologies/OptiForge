@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Heart, Search, Download, FileText, Users, DollarSign, TrendingUp } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
   generateESIContributionReturn,
   generateESIChallan,
@@ -141,8 +142,41 @@ export default function ESIContributionPage() {
     ]
   };
 
+  const [records, setRows] = useState<EmployeeESIContribution[]>(mockESIMonth.records);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getStatutoryFilings('esi-contribution');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            designation: r.designation ?? r.details?.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            esiNumber: r.esiNumber ?? r.details?.esiNumber ?? '',
+            grossSalary: r.grossSalary ?? r.details?.grossSalary ?? r.amount ?? 0,
+            esiWages: r.esiWages ?? r.details?.esiWages ?? 0,
+            employeeContribution: r.employeeContribution ?? r.details?.employeeContribution ?? 0,
+            employerContribution: r.employerContribution ?? r.details?.employerContribution ?? 0,
+            totalContribution: r.totalContribution ?? r.details?.totalContribution ?? r.amount ?? 0,
+            eligible: r.eligible ?? r.details?.eligible ?? true,
+          } as EmployeeESIContribution));
+          setRows(mapped);
+        }
+      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockESIMonth.records.filter(record => {
+    return records.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -150,7 +184,7 @@ export default function ESIContributionPage() {
       const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [searchTerm, selectedDepartment, records]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
 
@@ -203,6 +237,8 @@ export default function ESIContributionPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">ESI Contribution</h1>
         <p className="text-sm text-gray-600 mt-1">Monthly Employee State Insurance contribution calculations</p>
+        {isLoading && <div className="text-sm text-gray-500">Loading…</div>}
+        {loadError && <div className="text-sm text-red-600">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-pink-50 to-rose-50 rounded-lg shadow-sm border border-pink-200 p-3 mb-3">

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Building2, Plus, Users, TrendingUp, Search, Filter, X, MapPin, Phone, Mail, Edit, Trash2 } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { AddDepartmentModal } from '@/components/hr/AddDepartmentModal';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Department {
   id: string;
@@ -73,12 +74,54 @@ const mockDepartments: Department[] = [
 ];
 
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.departments<any[]>();
+        const mapped: Department[] = (raw ?? []).map((d) => ({
+          id: String(d.id ?? ''),
+          code: d.code ?? '',
+          name: d.name ?? '',
+          headOfDepartment: d.headOfDepartmentName ?? '',
+          headEmail: d.email ?? '',
+          headPhone: d.phone ?? '',
+          location: d.location ?? '',
+          employeeCount: Number(d.employeeCount ?? 0),
+          activeEmployees: Number(d.activeEmployees ?? 0),
+          contractEmployees: Number(d.contractEmployees ?? 0),
+          avgSalary: Number(d.avgSalary ?? 0),
+          budgetUtilization: Number(d.budgetUtilization ?? 0),
+          status: String(d.status ?? '').toLowerCase() === 'inactive' ? 'inactive' : 'active',
+          costCenter: d.costCenter ?? '',
+          establishedDate: d.establishedDate ?? '',
+        }));
+        if (!cancelled) setDepartments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load departments');
+          setDepartments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return departments.filter(dept => {
@@ -231,6 +274,18 @@ export default function DepartmentsPage() {
           Add Department
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading departments…
+        </div>
+      )}
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
         <div className="bg-white rounded-lg border p-3">

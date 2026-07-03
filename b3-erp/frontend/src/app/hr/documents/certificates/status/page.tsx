@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Clock, Download, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface CertificateRequest {
   id: string;
@@ -20,96 +21,45 @@ interface CertificateRequest {
 export default function CertificateStatusPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [mockRequests, setMockRequests] = useState<CertificateRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockRequests: CertificateRequest[] = [
-    {
-      id: 'EXP001',
-      type: 'experience',
-      purpose: 'Higher Education - MBA Application',
-      requestDate: '2025-10-15',
-      status: 'delivered',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-16',
-      generatedOn: '2025-10-16',
-      deliveredOn: '2025-10-16',
-      deliveryMode: 'email'
-    },
-    {
-      id: 'SAL001',
-      type: 'salary',
-      purpose: 'Home Loan Application',
-      requestDate: '2025-10-10',
-      status: 'delivered',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-11',
-      generatedOn: '2025-10-11',
-      deliveredOn: '2025-10-11',
-      deliveryMode: 'email'
-    },
-    {
-      id: 'EMP001',
-      type: 'employment',
-      purpose: 'Rental Agreement',
-      requestDate: '2025-10-12',
-      status: 'delivered',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-13',
-      generatedOn: '2025-10-13',
-      deliveredOn: '2025-10-13',
-      deliveryMode: 'email'
-    },
-    {
-      id: 'EXP002',
-      type: 'experience',
-      purpose: 'Visa Application - Work Permit',
-      requestDate: '2025-10-20',
-      status: 'generated',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-21',
-      generatedOn: '2025-10-21',
-      deliveryMode: 'both'
-    },
-    {
-      id: 'SAL002',
-      type: 'salary',
-      purpose: 'Credit Card Application',
-      requestDate: '2025-10-18',
-      status: 'generated',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-19',
-      generatedOn: '2025-10-19',
-      deliveryMode: 'physical'
-    },
-    {
-      id: 'SAL003',
-      type: 'salary',
-      purpose: 'Visa Application',
-      requestDate: '2025-10-24',
-      status: 'approved',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-25',
-      deliveryMode: 'both'
-    },
-    {
-      id: 'EXP003',
-      type: 'experience',
-      purpose: 'Job Application',
-      requestDate: '2025-10-25',
-      status: 'pending',
-      deliveryMode: 'email'
-    },
-    {
-      id: 'EMP002',
-      type: 'employment',
-      purpose: 'Background Verification',
-      requestDate: '2025-10-19',
-      status: 'generated',
-      approvedBy: 'HR Manager',
-      approvedOn: '2025-10-20',
-      generatedOn: '2025-10-20',
-      deliveryMode: 'physical'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getCertificateRequests();
+        const mapped: CertificateRequest[] = rows.map((row) => ({
+          id: String(row.id),
+          type: (row.recordType ?? 'experience') as CertificateRequest['type'],
+          purpose: row.purpose ?? '',
+          requestDate: row.requestDate ?? '',
+          status: (row.status ?? 'pending') as CertificateRequest['status'],
+          approvedBy: row.approvedBy ?? '',
+          approvedOn: row.approvedOn ?? '',
+          generatedOn: row.generatedOn ?? '',
+          deliveredOn: row.deliveredOn ?? '',
+          rejectedReason: row.rejectedReason ?? '',
+          deliveryMode: (row.deliveryMode ?? 'email') as CertificateRequest['deliveryMode'],
+        }));
+        if (!cancelled) setMockRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load certificate requests');
+          setMockRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRequests = useMemo(() => {
     return mockRequests.filter(req => {
@@ -117,7 +67,7 @@ export default function CertificateStatusPage() {
       const matchesStatus = selectedStatus === 'all' || req.status === selectedStatus;
       return matchesType && matchesStatus;
     });
-  }, [selectedType, selectedStatus]);
+  }, [selectedType, selectedStatus, mockRequests]);
 
   const stats = {
     total: mockRequests.length,
@@ -147,6 +97,19 @@ export default function CertificateStatusPage() {
         <h1 className="text-2xl font-bold text-gray-900">Certificate Request Status</h1>
         <p className="text-sm text-gray-600 mt-1">Track all your certificate requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading certificate requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

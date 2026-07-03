@@ -242,6 +242,9 @@ export interface HrDocument {
   meta?: any;
 }
 
+export interface CertificateRequest { id: string; companyId: string; recordType?: string; requestDate?: string; purpose?: string; addressedTo?: string; period?: string; includeBreakup?: boolean; includeDetails?: string; deliveryMode?: string; status?: string; requestedBy?: string; approvedBy?: string; approvedOn?: string; generatedOn?: string; deliveredOn?: string; rejectedReason?: string; remarks?: string; }
+export interface DocumentAuditLog { id: string; companyId: string; timestamp?: string; action?: string; documentType?: string; documentId?: string; employeeId?: string; employeeName?: string; performedBy?: string; performedByRole?: string; ipAddress?: string; remarks?: string; }
+
 export class HrComplianceDocsService {
   static async getLicenses(
     recordType?: string,
@@ -315,6 +318,16 @@ export class HrComplianceDocsService {
     const data = await getJson<HrDocument[]>(
       `/hr/documents?${qs(companyId, { docCategory })}`,
     );
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getCertificateRequests(recordType?: string, companyId = 'company-1'): Promise<CertificateRequest[]> {
+    const data = await getJson<CertificateRequest[]>(`/hr/certificate-requests?${qs(companyId, { recordType })}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  static async getDocumentAuditLogs(action?: string, companyId = 'company-1'): Promise<DocumentAuditLog[]> {
+    const data = await getJson<DocumentAuditLog[]>(`/hr/document-audit-logs?${qs(companyId, { action })}`);
     return Array.isArray(data) ? data : [];
   }
 }

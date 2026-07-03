@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Calendar, Search, Filter, Download, Clock, AlertTriangle, CheckCircle, Circle } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Calendar, Search, Filter, Download, Clock, AlertTriangle, CheckCircle, Circle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 interface ScheduleActivity {
   id: string;
@@ -375,27 +376,85 @@ const mockScheduleData: ScheduleActivity[] = [
   }
 ];
 
+const VALID_SCHEDULE_STATUSES: ScheduleActivity['status'][] = ['not-started', 'in-progress', 'completed', 'delayed', 'on-hold'];
+
+function normalizeScheduleStatus(raw: unknown): ScheduleActivity['status'] {
+  const s = String(raw ?? '').toLowerCase().replace(/\s+/g, '-');
+  return (VALID_SCHEDULE_STATUSES as string[]).includes(s) ? (s as ScheduleActivity['status']) : 'not-started';
+}
+
 export default function ProjectSchedulePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [phaseFilter, setPhaseFilter] = useState('all');
   const [criticalPathFilter, setCriticalPathFilter] = useState('all');
+  const [rows, setRows] = useState<ScheduleActivity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await projectManagementService.listSchedule();
+        const list = Array.isArray(data) ? data : [];
+        const mapped: ScheduleActivity[] = list.map((r: any) => ({
+          id: String(r.id ?? ''),
+          activityCode: r.activityCode ?? r.code ?? '',
+          activityName: r.name ?? '',
+          projectCode: r.projectCode ?? '',
+          projectName: r.projectName ?? '',
+          phase: r.phase ?? '',
+          wbsCode: r.wbsCode ?? '',
+          duration: Number(r.duration ?? 0),
+          startDate: r.startDate ?? '',
+          endDate: r.endDate ?? '',
+          actualStart: r.actualStart ?? undefined,
+          actualEnd: r.actualEnd ?? undefined,
+          progressPercent: Number(r.progress ?? 0),
+          status: normalizeScheduleStatus(r.status),
+          isCriticalPath: Boolean(r.isCriticalPath ?? false),
+          totalFloat: Number(r.totalFloat ?? 0),
+          predecessors: Array.isArray(r.dependencies) ? r.dependencies.map((d: any) => String(d)) : [],
+          successors: Array.isArray(r.successors) ? r.successors.map((s: any) => String(s)) : [],
+          responsiblePerson: r.assignee ?? '',
+          plannedHours: Number(r.plannedHours ?? 0),
+          actualHours: Number(r.actualHours ?? 0),
+          resourcesRequired: Array.isArray(r.resourcesRequired) ? r.resourcesRequired.map((x: any) => String(x)) : [],
+        }));
+        if (!cancelled) {
+          setRows(mapped);
+          setLoadError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load schedule');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Get unique values for filters
   const projects = useMemo(() =>
-    ['all', ...Array.from(new Set(mockScheduleData.map(a => a.projectName)))],
-    []
+    ['all', ...Array.from(new Set(rows.map(a => a.projectName)))],
+    [rows]
   );
 
   const phases = useMemo(() =>
-    ['all', ...Array.from(new Set(mockScheduleData.map(a => a.phase)))],
-    []
+    ['all', ...Array.from(new Set(rows.map(a => a.phase)))],
+    [rows]
   );
 
   // Filter activities
   const filteredActivities = useMemo(() => {
-    return mockScheduleData.filter(activity => {
+    return rows.filter(activity => {
       const matchesSearch = searchTerm === '' ||
         activity.activityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         activity.activityCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -410,15 +469,15 @@ export default function ProjectSchedulePage() {
 
       return matchesSearch && matchesProject && matchesStatus && matchesPhase && matchesCriticalPath;
     });
-  }, [searchTerm, projectFilter, statusFilter, phaseFilter, criticalPathFilter]);
+  }, [rows, searchTerm, projectFilter, statusFilter, phaseFilter, criticalPathFilter]);
 
   // Calculate stats
   const stats = useMemo(() => {
-    const totalActivities = mockScheduleData.length;
-    const completedActivities = mockScheduleData.filter(a => a.status === 'completed').length;
-    const inProgressActivities = mockScheduleData.filter(a => a.status === 'in-progress').length;
-    const criticalPathActivities = mockScheduleData.filter(a => a.isCriticalPath).length;
-    const delayedActivities = mockScheduleData.filter(a => {
+    const totalActivities = rows.length;
+    const completedActivities = rows.filter(a => a.status === 'completed').length;
+    const inProgressActivities = rows.filter(a => a.status === 'in-progress').length;
+    const criticalPathActivities = rows.filter(a => a.isCriticalPath).length;
+    const delayedActivities = rows.filter(a => {
       if (a.status === 'completed' && a.actualEnd) {
         return new Date(a.actualEnd) > new Date(a.endDate);
       }
@@ -428,7 +487,7 @@ export default function ProjectSchedulePage() {
       return false;
     }).length;
 
-    const totalDuration = mockScheduleData
+    const totalDuration = rows
       .filter(a => a.isCriticalPath)
       .reduce((sum, a) => sum + a.duration, 0);
 
@@ -440,7 +499,7 @@ export default function ProjectSchedulePage() {
       delayedActivities,
       totalDuration
     };
-  }, []);
+  }, [rows]);
 
   const getStatusColor = (status: ScheduleActivity['status']) => {
     switch (status) {
@@ -482,6 +541,18 @@ export default function ProjectSchedulePage() {
         </h1>
         <p className="text-gray-600 mt-2">Timeline planning, scheduling, and critical path management</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading schedule…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -621,7 +692,7 @@ export default function ProjectSchedulePage() {
           </select>
 
           <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredActivities.length} of {mockScheduleData.length} activities
+            Showing {filteredActivities.length} of {rows.length} activities
           </div>
         </div>
       </div>

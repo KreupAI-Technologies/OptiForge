@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, Plus, Edit, CheckCircle, Clock, AlertCircle, Eye } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface Nomination {
   id: string;
@@ -22,81 +23,50 @@ interface Nomination {
 export default function NominationsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [mockNominations, setMockNominations] = useState<Nomination[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockNominations: Nomination[] = [
-    {
-      id: 'NOM001',
-      nominationType: 'EPF Nomination',
-      nomineeName: 'Priya Sharma',
-      relationship: 'Spouse',
-      dateOfBirth: '1992-05-15',
-      sharePercentage: 50,
-      address: 'Flat 302, Sunrise Apartments, Andheri West, Mumbai - 400053',
-      contactNumber: '+91 98765 43210',
-      aadharNumber: 'XXXX-XXXX-9876',
-      submittedOn: '2024-01-10',
-      status: 'approved',
-      approvedBy: 'Kavita Sharma',
-      approvedOn: '2024-01-11'
-    },
-    {
-      id: 'NOM002',
-      nominationType: 'EPF Nomination',
-      nomineeName: 'Rajesh Sharma',
-      relationship: 'Father',
-      dateOfBirth: '1965-08-20',
-      sharePercentage: 50,
-      address: 'House No. 45, Sector 12, Vashi, Navi Mumbai - 400703',
-      contactNumber: '+91 98765 43211',
-      aadharNumber: 'XXXX-XXXX-1234',
-      submittedOn: '2024-01-10',
-      status: 'approved',
-      approvedBy: 'Kavita Sharma',
-      approvedOn: '2024-01-11'
-    },
-    {
-      id: 'NOM003',
-      nominationType: 'EPS Nomination',
-      nomineeName: 'Priya Sharma',
-      relationship: 'Spouse',
-      dateOfBirth: '1992-05-15',
-      sharePercentage: 100,
-      address: 'Flat 302, Sunrise Apartments, Andheri West, Mumbai - 400053',
-      contactNumber: '+91 98765 43210',
-      aadharNumber: 'XXXX-XXXX-9876',
-      submittedOn: '2024-01-10',
-      status: 'approved',
-      approvedBy: 'Kavita Sharma',
-      approvedOn: '2024-01-11'
-    },
-    {
-      id: 'NOM004',
-      nominationType: 'Gratuity Nomination',
-      nomineeName: 'Priya Sharma',
-      relationship: 'Spouse',
-      dateOfBirth: '1992-05-15',
-      sharePercentage: 100,
-      address: 'Flat 302, Sunrise Apartments, Andheri West, Mumbai - 400053',
-      contactNumber: '+91 98765 43210',
-      aadharNumber: 'XXXX-XXXX-9876',
-      submittedOn: '2024-01-10',
-      status: 'approved',
-      approvedBy: 'Kavita Sharma',
-      approvedOn: '2024-01-11'
-    },
-    {
-      id: 'NOM005',
-      nominationType: 'Group Life Insurance',
-      nomineeName: 'Priya Sharma',
-      relationship: 'Spouse',
-      dateOfBirth: '1992-05-15',
-      sharePercentage: 100,
-      address: 'Flat 302, Sunrise Apartments, Andheri West, Mumbai - 400053',
-      contactNumber: '+91 98765 43210',
-      submittedOn: '2024-10-20',
-      status: 'submitted'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('nomination');
+        const mapped: Nomination[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            nominationType: row.documentType ?? '',
+            nomineeName: row.title ?? '',
+            relationship: meta.relationship ?? '',
+            dateOfBirth: meta.dateOfBirth ?? '',
+            sharePercentage: Number(meta.sharePercentage ?? 0),
+            address: meta.address ?? '',
+            contactNumber: meta.contactNumber ?? '',
+            aadharNumber: meta.aadharNumber ?? '',
+            submittedOn: row.uploadedOn ?? '',
+            status: (row.status ?? 'draft') as Nomination['status'],
+            approvedBy: row.verifiedBy ?? '',
+            approvedOn: row.verifiedOn ?? '',
+          };
+        });
+        if (!cancelled) setMockNominations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load nominations');
+          setMockNominations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredNominations = useMemo(() => {
     return mockNominations.filter(nom => {
@@ -104,7 +74,7 @@ export default function NominationsPage() {
       const matchesStatus = selectedStatus === 'all' || nom.status === selectedStatus;
       return matchesType && matchesStatus;
     });
-  }, [selectedType, selectedStatus]);
+  }, [selectedType, selectedStatus, mockNominations]);
 
   const nominationTypes = ['all', ...Array.from(new Set(mockNominations.map(n => n.nominationType)))];
 
@@ -150,6 +120,19 @@ export default function NominationsPage() {
           Add Nomination
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading nominations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { UserX, Search, Filter, X, Download, Calendar, Mail, Phone, Building, Briefcase } from 'lucide-react';
 import DataTable, { Column } from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface InactiveEmployee {
   id: string;
@@ -80,11 +81,77 @@ const mockInactiveEmployees: InactiveEmployee[] = [
 const departments = ['All Departments', 'Production', 'Quality', 'Maintenance', 'HR', 'Stores', 'IT', 'Finance'];
 
 export default function InactiveEmployeesPage() {
-  const [employees, setEmployees] = useState<InactiveEmployee[]>(mockInactiveEmployees);
+  const [employees, setEmployees] = useState<InactiveEmployee[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState<string>('All Departments');
   const [filterSeparationType, setFilterSeparationType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const sepTypes: InactiveEmployee['separationType'][] = [
+      'resignation', 'termination', 'retirement', 'absconding', 'death', 'contract_end',
+    ];
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.employees<any[]>();
+        const inactiveOnly = (raw ?? []).filter((e) => {
+          const s = String(e.status ?? '').toLowerCase();
+          return e.isActive === false || (s !== '' && s !== 'active');
+        });
+        const mapped: InactiveEmployee[] = inactiveOnly.map((e) => {
+          const fullName = e.fullName || `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim();
+          const joiningDate = e.joiningDate ?? '';
+          const separationDate = e.separationDate ?? e.lastWorkingDay ?? '';
+          const yearsOfService = joiningDate && separationDate
+            ? Math.round(
+                ((new Date(separationDate).getTime() - new Date(joiningDate).getTime()) /
+                  (1000 * 60 * 60 * 24 * 365)) * 10,
+              ) / 10
+            : 0;
+          const sep = String(e.separationType ?? '').toLowerCase();
+          return {
+            id: String(e.id ?? ''),
+            employeeCode: e.employeeCode ?? '',
+            name: fullName || (e.employeeCode ?? ''),
+            email: e.companyEmail ?? e.personalEmail ?? '',
+            phone: e.mobileNumber ?? '',
+            department: e.departmentId ? String(e.departmentId) : '',
+            designation: e.designationId ? String(e.designationId) : '',
+            joiningDate,
+            separationDate,
+            separationType: (sepTypes.includes(sep as InactiveEmployee['separationType'])
+              ? (sep as InactiveEmployee['separationType'])
+              : 'resignation'),
+            separationReason: e.separationReason ?? '',
+            lastWorkingDay: e.lastWorkingDay ?? separationDate,
+            exitInterviewDone: Boolean(e.exitInterviewDone ?? false),
+            fnfSettled: Boolean(e.fnfSettled ?? false),
+            documentsCollected: Boolean(e.documentsCollected ?? false),
+            assetsReturned: Boolean(e.assetsReturned ?? false),
+            rehireEligible: Boolean(e.rehireEligible ?? false),
+            yearsOfService,
+          };
+        });
+        if (!cancelled) setEmployees(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load inactive employees');
+          setEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return employees.filter(emp => {
@@ -251,6 +318,18 @@ export default function InactiveEmployeesPage() {
           Export
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Loading inactive employees…
+        </div>
+      )}
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
         <div className="bg-white rounded-lg border p-3">

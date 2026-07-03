@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, Search, Download, Mail, Users, Calendar, DollarSign, Send, Eye, Printer } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface PayslipRecord {
   id: string;
@@ -193,8 +194,61 @@ export default function PayslipsReportPage() {
     }
   ];
 
+  const [rows, setRows] = useState<PayslipRecord[]>(mockPayslips);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReports('payslips');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? r.details?.employeeName ?? '',
+            designation: r.details?.designation ?? r.designation ?? '',
+            department: r.department ?? r.details?.department ?? '',
+            monthYear: r.period ?? r.details?.monthYear ?? r.monthYear ?? '',
+            payPeriod: r.details?.payPeriod ?? r.payPeriod ?? '',
+            grossSalary: r.details?.grossSalary ?? r.grossSalary ?? r.amount ?? 0,
+            totalDeductions: r.details?.totalDeductions ?? r.totalDeductions ?? 0,
+            netSalary: r.details?.netSalary ?? r.netSalary ?? 0,
+            paymentDate: r.details?.paymentDate ?? r.paymentDate ?? '',
+            paymentMode: r.details?.paymentMode ?? r.paymentMode ?? 'bank',
+            status: r.status ?? r.details?.status ?? 'generated',
+            emailSent: r.details?.emailSent ?? r.emailSent ?? false,
+            emailDate: r.details?.emailDate ?? r.emailDate,
+            acknowledgedDate: r.details?.acknowledgedDate ?? r.acknowledgedDate,
+            basic: r.details?.basic ?? r.basic ?? 0,
+            hra: r.details?.hra ?? r.hra ?? 0,
+            conveyance: r.details?.conveyance ?? r.conveyance ?? 0,
+            specialAllowance: r.details?.specialAllowance ?? r.specialAllowance ?? 0,
+            pfEmployee: r.details?.pfEmployee ?? r.pfEmployee ?? 0,
+            esi: r.details?.esi ?? r.esi ?? 0,
+            pt: r.details?.pt ?? r.pt ?? 0,
+            tds: r.details?.tds ?? r.tds ?? 0,
+            loanEMI: r.details?.loanEMI ?? r.loanEMI,
+            advanceRecovery: r.details?.advanceRecovery ?? r.advanceRecovery,
+          } as PayslipRecord));
+          setRows(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredPayslips = useMemo(() => {
-    return mockPayslips.filter(payslip => {
+    return rows.filter(payslip => {
       const matchesSearch =
         payslip.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payslip.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -202,7 +256,7 @@ export default function PayslipsReportPage() {
       const matchesStatus = selectedStatus === 'all' || payslip.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [searchTerm, selectedDepartment, selectedStatus, rows]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'generated', 'sent', 'downloaded', 'acknowledged'];
@@ -235,6 +289,8 @@ export default function PayslipsReportPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Payslips Report</h1>
         <p className="text-sm text-gray-600 mt-1">Generate, view and distribute employee payslips</p>
+        {isLoading && <div className="text-sm text-gray-500 mt-1">Loading…</div>}
+        {loadError && <div className="text-sm text-red-600 mt-1">{loadError}</div>}
       </div>
 
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-3">
