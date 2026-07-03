@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { FileText, Search, Download, Users, DollarSign, Calendar } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { FileText, Search, Download, Users, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface PayrollRegisterRecord {
   id: string;
@@ -31,6 +32,56 @@ export default function PayrollRegisterPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
+
+  const [registerRecords, setRegisterRecords] = useState<PayrollRegisterRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReports('register');
+        const mapped: PayrollRegisterRecord[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.recordNumber ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          daysWorked: Number(r.daysWorked ?? r.details?.daysWorked ?? 0),
+          daysPresent: Number(r.daysPresent ?? r.details?.daysPresent ?? 0),
+          basic: Number(r.basic ?? r.details?.basic ?? 0),
+          hra: Number(r.hra ?? r.details?.hra ?? 0),
+          conveyance: Number(r.conveyance ?? r.details?.conveyance ?? 0),
+          specialAllowance: Number(r.specialAllowance ?? r.details?.specialAllowance ?? 0),
+          grossSalary: Number(r.grossSalary ?? r.details?.grossSalary ?? 0),
+          pfEmployee: Number(r.pfEmployee ?? r.details?.pfEmployee ?? 0),
+          pfEmployer: Number(r.pfEmployer ?? r.details?.pfEmployer ?? 0),
+          esi: Number(r.esi ?? r.details?.esi ?? 0),
+          pt: Number(r.pt ?? r.details?.pt ?? 0),
+          tds: Number(r.tds ?? r.details?.tds ?? 0),
+          otherDeductions: Number(r.otherDeductions ?? r.details?.otherDeductions ?? 0),
+          totalDeductions: Number(r.totalDeductions ?? r.details?.totalDeductions ?? 0),
+          netSalary: Number(r.netSalary ?? r.details?.netSalary ?? 0),
+          monthYear: r.monthYear ?? r.details?.monthYear ?? '',
+        }));
+        if (!cancelled) setRegisterRecords(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load payroll register');
+          setRegisterRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockRegisterRecords: PayrollRegisterRecord[] = [
     {
@@ -173,15 +224,16 @@ export default function PayrollRegisterPage() {
     }
   ];
 
+  void mockRegisterRecords;
   const filteredRecords = useMemo(() => {
-    return mockRegisterRecords.filter(record => {
+    return registerRecords.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [registerRecords, searchTerm, selectedDepartment]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
 
@@ -219,6 +271,24 @@ export default function PayrollRegisterPage() {
         <h1 className="text-2xl font-bold text-gray-900">Payroll Register</h1>
         <p className="text-sm text-gray-600 mt-1">Comprehensive monthly salary register</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading payroll register…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && registerRecords.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No payroll register records found.
+        </div>
+      )}
 
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border border-purple-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">

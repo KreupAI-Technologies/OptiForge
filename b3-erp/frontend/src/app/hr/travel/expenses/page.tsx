@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Receipt, Plus, Eye, CheckCircle, XCircle, Clock, User, Wallet, Calendar } from 'lucide-react';
+import { Receipt, Plus, Eye, CheckCircle, XCircle, Clock, User, Wallet, Calendar, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface TravelExpense {
   id: string;
@@ -31,8 +32,53 @@ export default function Page() {
   const router = useRouter();
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [rows, setRows] = useState<TravelExpense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockExpenses: TravelExpense[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getExpenseClaims({ kind: 'travel' });
+        const mapped: TravelExpense[] = raw.map((r) => ({
+          id: r.id,
+          expenseNumber: r.claimNumber ?? '',
+          employeeName: r.employeeName ?? '',
+          employeeCode: r.employeeCode ?? '',
+          department: r.department ?? '',
+          travelRequestId: r.travelRequestId ?? '',
+          destination: r.destination ?? '',
+          travelDates: r.travelDates ?? '',
+          submittedDate: r.submittedDate ?? r.submissionDate ?? '',
+          totalExpenses: Number(r.amount ?? 0),
+          advanceAmount: Number(r.advanceAmount ?? 0),
+          cardExpenses: Number(r.cardExpenses ?? 0),
+          netPayable: Number(r.netPayable ?? 0),
+          status: (r.status as TravelExpense['status']) ?? 'pending',
+          itemsCount: Number(r.itemsCount ?? 0),
+          approver: r.approver ?? undefined,
+          approvedDate: r.approvedDate ?? undefined,
+          paidDate: r.paidDate ?? undefined,
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load travel expenses');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockExpenses: TravelExpense[] = rows.length ? rows : [
     {
       id: '1',
       expenseNumber: 'EXP-2025-089',
@@ -302,6 +348,19 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Manage travel expense submissions and approvals</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading travel expenses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Activity, Search, Filter, X, Download, CheckCircle, Clock, AlertCircle, XCircle, Calendar, FileText, Eye, Upload } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface MedicalCheckup {
   id: string;
@@ -32,8 +33,41 @@ export default function MedicalCheckupPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [mockCheckups, setMockCheckups] = useState<MedicalCheckup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const mockCheckups: MedicalCheckup[] = [
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('medical');
+        if (!active) return;
+        const mapped: MedicalCheckup[] = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as MedicalCheckup['status']) || 'pending',
+          ...(r.data || {}),
+        })) as MedicalCheckup[];
+        setMockCheckups(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const _unusedMockCheckups: MedicalCheckup[] = [
     {
       id: '1',
       employeeCode: 'EMP2025001',

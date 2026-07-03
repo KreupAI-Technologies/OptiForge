@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MessageSquare, Search, Clock, CheckCircle, AlertCircle, Eye } from 'lucide-react';
+import { HrComplianceDocsService, HrGrievance as HrGrievanceDto } from '@/services/hr-compliance-docs.service';
 
 interface Grievance {
   id: string;
@@ -31,6 +32,49 @@ export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
+  const [items, setItems] = useState<Grievance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getGrievances('grievance');
+        if (!active) return;
+        const mapped: Grievance[] = rows.map((r: HrGrievanceDto) => ({
+          id: r.id,
+          grievanceNumber: r.caseNumber || '',
+          employeeId: r.employeeId || '',
+          employeeName: r.employeeName || '',
+          department: r.department || '',
+          category: (r.category as Grievance['category']) || 'other',
+          subcategory: r.subcategory || '',
+          filedDate: r.filedDate || '',
+          description: r.description || '',
+          priority: (r.priority as Grievance['priority']) || 'medium',
+          status: (r.status as Grievance['status']) || 'filed',
+          assignedTo: r.assignedTo,
+          targetResolutionDate: r.targetResolutionDate,
+          actualResolutionDate: r.actualResolutionDate,
+          resolutionDetails: r.resolutionDetails,
+          employeeSatisfaction: (r.employeeSatisfaction as Grievance['employeeSatisfaction']),
+          isAnonymous: r.isAnonymous ?? false,
+          witnesses: r.witnesses || [],
+          evidenceProvided: r.evidenceProvided ?? false,
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load grievances');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockGrievances: Grievance[] = [
     {
@@ -154,8 +198,10 @@ export default function Page() {
     }
   ];
 
+  const sourceGrievances = items.length > 0 ? items : mockGrievances;
+
   const filteredGrievances = useMemo(() => {
-    return mockGrievances.filter(grievance => {
+    return sourceGrievances.filter(grievance => {
       const matchesSearch = grievance.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            grievance.grievanceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            grievance.department.toLowerCase().includes(searchTerm.toLowerCase());
@@ -164,13 +210,13 @@ export default function Page() {
       const matchesPriority = selectedPriority === 'all' || grievance.priority === selectedPriority;
       return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
     });
-  }, [searchTerm, selectedCategory, selectedStatus, selectedPriority, mockGrievances]);
+  }, [searchTerm, selectedCategory, selectedStatus, selectedPriority, sourceGrievances]);
 
   const stats = {
-    total: mockGrievances.length,
-    pending: mockGrievances.filter(g => g.status === 'filed' || g.status === 'under_review' || g.status === 'investigating').length,
-    resolved: mockGrievances.filter(g => g.status === 'resolved' || g.status === 'closed').length,
-    urgent: mockGrievances.filter(g => g.priority === 'urgent').length
+    total: sourceGrievances.length,
+    pending: sourceGrievances.filter(g => g.status === 'filed' || g.status === 'under_review' || g.status === 'investigating').length,
+    resolved: sourceGrievances.filter(g => g.status === 'resolved' || g.status === 'closed').length,
+    urgent: sourceGrievances.filter(g => g.priority === 'urgent').length
   };
 
   const categoryColors = {
@@ -214,6 +260,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Employee grievance tracking and resolution management</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading grievances…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

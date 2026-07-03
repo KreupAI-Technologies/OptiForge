@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Play, CheckCircle, Clock, AlertCircle, Download, Users, IndianRupee, Calendar as CalendarIcon } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface PayrollRun {
   id: string;
@@ -23,6 +24,50 @@ interface PayrollRun {
 
 export default function PayrollRunPage() {
   const [selectedTab, setSelectedTab] = useState<'draft' | 'processing' | 'verified' | 'approved' | 'disbursed'>('draft');
+
+  const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getPayrollRuns();
+        const mapped: PayrollRun[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.payrollNumber ?? r.id ?? r.details?.payrollNumber ?? '',
+          monthYear: r.monthYear ?? r.period ?? r.details?.monthYear ?? '',
+          payPeriodStart: r.payPeriodStart ?? r.periodStart ?? r.details?.payPeriodStart ?? '',
+          payPeriodEnd: r.payPeriodEnd ?? r.periodEnd ?? r.details?.payPeriodEnd ?? '',
+          paymentDate: r.paymentDate ?? r.details?.paymentDate ?? '',
+          employeeCount: Number(r.employeeCount ?? r.details?.employeeCount ?? 0),
+          totalGross: Number(r.totalGross ?? r.details?.totalGross ?? 0),
+          totalDeductions: Number(r.totalDeductions ?? r.details?.totalDeductions ?? 0),
+          totalNet: Number(r.totalNet ?? r.details?.totalNet ?? 0),
+          status: (r.status ?? 'draft') as PayrollRun['status'],
+          processedBy: r.processedBy ?? r.details?.processedBy ?? undefined,
+          processedOn: r.processedOn ?? r.details?.processedOn ?? undefined,
+          verifiedBy: r.verifiedBy ?? r.details?.verifiedBy ?? undefined,
+          approvedBy: r.approvedBy ?? r.details?.approvedBy ?? undefined,
+          disbursedOn: r.disbursedOn ?? r.details?.disbursedOn ?? undefined,
+        }));
+        if (!cancelled) setPayrollRuns(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load payroll runs');
+          setPayrollRuns([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockPayrollRuns: PayrollRun[] = [
     {
@@ -72,15 +117,15 @@ export default function PayrollRunPage() {
   ];
 
   const filteredPayrollRuns = useMemo(() => {
-    return mockPayrollRuns.filter(run => run.status === selectedTab);
-  }, [selectedTab]);
+    return payrollRuns.filter(run => run.status === selectedTab);
+  }, [payrollRuns, selectedTab]);
 
   const stats = {
-    draft: mockPayrollRuns.filter(r => r.status === 'draft').length,
-    processing: mockPayrollRuns.filter(r => r.status === 'processing').length,
-    verified: mockPayrollRuns.filter(r => r.status === 'verified').length,
-    approved: mockPayrollRuns.filter(r => r.status === 'approved').length,
-    disbursed: mockPayrollRuns.filter(r => r.status === 'disbursed').length,
+    draft: payrollRuns.filter(r => r.status === 'draft').length,
+    processing: payrollRuns.filter(r => r.status === 'processing').length,
+    verified: payrollRuns.filter(r => r.status === 'verified').length,
+    approved: payrollRuns.filter(r => r.status === 'approved').length,
+    disbursed: payrollRuns.filter(r => r.status === 'disbursed').length,
     currentEmployees: 145,
     nextPaymentDate: '2025-12-30'
   };
@@ -111,6 +156,24 @@ export default function PayrollRunPage() {
         <h1 className="text-2xl font-bold text-gray-900">Run Payroll</h1>
         <p className="text-sm text-gray-600 mt-1">Process and manage monthly payroll runs</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading payroll runs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && payrollRuns.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No payroll runs found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileCheck, Search, Filter, X, Download, CheckCircle, Clock, AlertCircle, Eye, FileText, Shield, Heart, Briefcase, Users } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface PolicyAcknowledgment {
   id: string;
@@ -47,7 +48,39 @@ export default function PolicyAcknowledgmentPage() {
     { id: '10', policyName: 'Travel & Expense Reimbursement', category: 'general', description: 'Business travel and expense claim procedures', mandatory: false, icon: Briefcase }
   ];
 
-  const mockAcknowledgments: PolicyAcknowledgment[] = [
+  const [mockAcknowledgments, setMockAcknowledgments] = useState<PolicyAcknowledgment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('policies');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as PolicyAcknowledgment[];
+        setMockAcknowledgments(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockAcknowledgments: PolicyAcknowledgment[] = [
     {
       id: '1',
       employeeCode: 'EMP2025001',

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Star, Briefcase, GraduationCap, Award, TrendingUp } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface TalentProfile {
   id: string;
@@ -80,7 +81,25 @@ export default function Page() {
     }
   ];
 
-  const selectedProfile = mockProfiles.find(p => p.id === selectedEmployee) || mockProfiles[0];
+  const [rows, setRows] = useState<TalentProfile[]>(mockProfiles);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<TalentProfile>('talent-profile');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectedProfile = rows.find(p => p.id === selectedEmployee) || rows[0];
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -92,10 +111,22 @@ export default function Page() {
         <p className="text-sm text-gray-600 mt-1">Detailed successor candidate profiles</p>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <label className="block text-sm font-medium text-gray-700 mb-1">Select Talent</label>
         <select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)} className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
-          {mockProfiles.map(profile => (
+          {rows.map(profile => (
             <option key={profile.id} value={profile.id}>{profile.name} - {profile.currentRole}</option>
           ))}
         </select>

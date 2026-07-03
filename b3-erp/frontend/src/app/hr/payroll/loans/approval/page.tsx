@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   DollarSign,
   CheckCircle,
@@ -15,6 +15,7 @@ import {
   Calendar,
   Briefcase
 } from 'lucide-react'
+import { HrPayrollService } from '@/services/hr-payroll.service'
 
 interface LoanApplication {
   id: string
@@ -126,10 +127,53 @@ const mockLoans: LoanApplication[] = [
 ]
 
 export default function LoanApprovalPage() {
-  const [loans, setLoans] = useState<LoanApplication[]>(mockLoans)
+  const [loans, setLoans] = useState<LoanApplication[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedLoan, setSelectedLoan] = useState<LoanApplication | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await HrPayrollService.getLoans()
+        const mapped: LoanApplication[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.loanNumber ?? r.id ?? r.details?.loanNumber ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          designation: r.designation ?? r.details?.designation ?? '',
+          loanType: (r.loanType ?? r.details?.loanType ?? 'personal') as LoanApplication['loanType'],
+          amount: Number(r.loanAmount ?? r.principalAmount ?? r.amount ?? r.details?.amount ?? 0),
+          tenureMonths: Number(r.tenure ?? r.tenureMonths ?? r.details?.tenureMonths ?? 0),
+          interestRate: Number(r.interestRate ?? r.details?.interestRate ?? 0),
+          emiAmount: Number(r.emiAmount ?? r.emi ?? r.details?.emiAmount ?? 0),
+          reason: r.reason ?? r.purpose ?? r.details?.reason ?? '',
+          appliedDate: r.appliedDate ?? r.requestDate ?? r.createdAt ?? r.details?.appliedDate ?? '',
+          status: (r.status ?? 'pending') as LoanApplication['status'],
+          riskScore: (r.riskScore ?? r.details?.riskScore ?? 'low') as LoanApplication['riskScore'],
+          documentsVerified: Boolean(r.documentsVerified ?? r.details?.documentsVerified ?? false),
+          remarks: r.remarks ?? r.details?.remarks ?? undefined,
+        }))
+        if (!cancelled) setLoans(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load loan applications')
+          setLoans([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filteredLoans = useMemo(() => {
     return loans.filter(loan => {
@@ -199,6 +243,24 @@ export default function LoanApprovalPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading loan applications…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && loans.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No loan applications found.
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

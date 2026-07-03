@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FastForward, Plus, AlertCircle } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface EarlyReleaseRequest {
   id: string;
@@ -25,7 +26,38 @@ interface EarlyReleaseRequest {
 export default function EarlyReleasePage() {
   const [showRequestForm, setShowRequestForm] = useState(false);
 
-  const mockRequests: EarlyReleaseRequest[] = [
+  const [mockRequests, setMockRequests] = useState<EarlyReleaseRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('early-release');
+        if (!active) return;
+        const mapped = records.map((r: OffboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as EarlyReleaseRequest[];
+        setMockRequests(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockRequests: EarlyReleaseRequest[] = [
     {
       id: 'ER001',
       employeeId: 'EMP001',

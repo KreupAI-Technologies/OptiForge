@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Gift, Search, Filter, X, Download, CheckCircle, Clock, AlertCircle, Package, Briefcase, BookOpen, Shirt, Key, Phone, Eye, Users, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface WelcomeKit {
   id: string;
@@ -51,7 +52,40 @@ export default function WelcomeKitPage() {
     { id: '12', itemName: 'Bag/Backpack', category: 'misc', description: 'Company branded laptop bag', mandatory: false, quantity: 1, icon: Briefcase }
   ];
 
-  const mockKits: WelcomeKit[] = [
+  const [mockKits, setMockKits] = useState<WelcomeKit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('welcome-kit');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+          ...(r.items ? { kitItems: r.items } : {}),
+        })) as WelcomeKit[];
+        setMockKits(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockKits: WelcomeKit[] = [
     {
       id: '1',
       employeeCode: 'EMP2025001',

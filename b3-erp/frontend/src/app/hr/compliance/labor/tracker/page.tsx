@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckSquare, AlertCircle, CheckCircle, Clock, FileText, Calendar, Users } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceRegister } from '@/services/hr-compliance-docs.service';
 
 interface ComplianceItem {
   id: string;
@@ -20,6 +21,40 @@ interface ComplianceItem {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedFrequency, setSelectedFrequency] = useState('all');
+  const [items, setItems] = useState<ComplianceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getRegisters('tracker');
+        if (!active) return;
+        const mapped: ComplianceItem[] = rows.map((r: ComplianceRegister) => ({
+          id: r.id,
+          act: r.act || '',
+          requirement: r.requirement || '',
+          frequency: (r.frequency as ComplianceItem['frequency']) || 'monthly',
+          applicability: r.applicability || '',
+          responsibility: r.responsibility || '',
+          lastCompleted: r.lastCompleted,
+          nextDue: r.nextDue || '',
+          status: (r.status as ComplianceItem['status']) || 'compliant',
+          documents: r.documents || [],
+          penalties: r.penalties,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load compliance tracker');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockCompliance: ComplianceItem[] = [
     {
@@ -128,17 +163,19 @@ export default function Page() {
     }
   ];
 
-  const filteredCompliance = mockCompliance.filter(item => {
+  const sourceCompliance = items.length > 0 ? items : mockCompliance;
+
+  const filteredCompliance = sourceCompliance.filter(item => {
     const matchesStatus = selectedStatus === 'all' || item.status === selectedStatus;
     const matchesFrequency = selectedFrequency === 'all' || item.frequency === selectedFrequency;
     return matchesStatus && matchesFrequency;
   });
 
   const stats = {
-    total: mockCompliance.length,
-    compliant: mockCompliance.filter(i => i.status === 'compliant').length,
-    dueSoon: mockCompliance.filter(i => i.status === 'due_soon').length,
-    overdue: mockCompliance.filter(i => i.status === 'overdue').length
+    total: sourceCompliance.length,
+    compliant: sourceCompliance.filter(i => i.status === 'compliant').length,
+    dueSoon: sourceCompliance.filter(i => i.status === 'due_soon').length,
+    overdue: sourceCompliance.filter(i => i.status === 'overdue').length
   };
 
   const statusColors = {
@@ -164,6 +201,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Track Indian labor law compliance requirements and deadlines</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading compliance tracker…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

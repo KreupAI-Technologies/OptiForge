@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BookOpen, Download, FileText, Users, Calendar, CheckCircle } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceRegister } from '@/services/hr-compliance-docs.service';
 
 interface StatutoryRegister {
   id: string;
@@ -21,6 +22,41 @@ interface StatutoryRegister {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedFormat, setSelectedFormat] = useState('all');
+  const [items, setItems] = useState<StatutoryRegister[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getRegisters('register');
+        if (!active) return;
+        const mapped: StatutoryRegister[] = rows.map((r: ComplianceRegister) => ({
+          id: r.id,
+          registerName: r.registerName || '',
+          act: r.act || '',
+          formNumber: r.formNumber || '',
+          applicability: r.applicability || '',
+          frequency: (r.frequency as StatutoryRegister['frequency']) || 'monthly',
+          responsibility: r.responsibility || '',
+          lastUpdated: r.lastUpdated || '',
+          status: (r.status as StatutoryRegister['status']) || 'up_to_date',
+          totalEntries: r.totalEntries || 0,
+          format: (r.format as StatutoryRegister['format']) || 'both',
+          retentionPeriod: r.retentionPeriod || '',
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load registers');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockRegisters: StatutoryRegister[] = [
     {
@@ -165,17 +201,19 @@ export default function Page() {
     }
   ];
 
-  const filteredRegisters = mockRegisters.filter(register => {
+  const sourceRegisters = items.length > 0 ? items : mockRegisters;
+
+  const filteredRegisters = sourceRegisters.filter(register => {
     const matchesStatus = selectedStatus === 'all' || register.status === selectedStatus;
     const matchesFormat = selectedFormat === 'all' || register.format === selectedFormat;
     return matchesStatus && matchesFormat;
   });
 
   const stats = {
-    total: mockRegisters.length,
-    upToDate: mockRegisters.filter(r => r.status === 'up_to_date').length,
-    needsUpdate: mockRegisters.filter(r => r.status === 'needs_update').length,
-    overdue: mockRegisters.filter(r => r.status === 'overdue').length
+    total: sourceRegisters.length,
+    upToDate: sourceRegisters.filter(r => r.status === 'up_to_date').length,
+    needsUpdate: sourceRegisters.filter(r => r.status === 'needs_update').length,
+    overdue: sourceRegisters.filter(r => r.status === 'overdue').length
   };
 
   const statusColors = {
@@ -199,6 +237,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Maintain mandatory registers as per Indian labor laws</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading registers…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

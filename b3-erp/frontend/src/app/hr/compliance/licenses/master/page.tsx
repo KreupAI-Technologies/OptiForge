@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Award, Search, CheckCircle, AlertCircle, Clock, FileText, Download } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceLicense } from '@/services/hr-compliance-docs.service';
 
 interface License {
   id: string;
@@ -24,6 +25,43 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [licenses, setLicenses] = useState<License[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getLicenses('license');
+        if (!active) return;
+        const mapped: License[] = rows.map((r: ComplianceLicense) => ({
+          id: r.id,
+          licenseName: r.name || '',
+          licenseNumber: r.number || '',
+          authority: r.authority || '',
+          category: (r.category as License['category']) || 'other',
+          issueDate: r.issueDate || '',
+          expiryDate: r.expiryDate || '',
+          status: (r.status as License['status']) || 'active',
+          location: r.location || '',
+          applicableTo: r.applicableTo || '',
+          renewalFrequency: (r.renewalFrequency as License['renewalFrequency']) || 'annual',
+          lastRenewalDate: r.lastRenewalDate,
+          contactPerson: r.contactPerson || '',
+          remarks: r.remarks,
+        }));
+        setLicenses(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load licenses');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockLicenses: License[] = [
     {
@@ -153,8 +191,10 @@ export default function Page() {
     }
   ];
 
+  const sourceLicenses = licenses.length > 0 ? licenses : mockLicenses;
+
   const filteredLicenses = useMemo(() => {
-    return mockLicenses.filter(license => {
+    return sourceLicenses.filter(license => {
       const matchesSearch = license.licenseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            license.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            license.authority.toLowerCase().includes(searchTerm.toLowerCase());
@@ -162,13 +202,13 @@ export default function Page() {
       const matchesStatus = selectedStatus === 'all' || license.status === selectedStatus;
       return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [searchTerm, selectedCategory, selectedStatus, mockLicenses]);
+  }, [searchTerm, selectedCategory, selectedStatus, sourceLicenses]);
 
   const stats = {
-    total: mockLicenses.length,
-    active: mockLicenses.filter(l => l.status === 'active').length,
-    expiringSoon: mockLicenses.filter(l => l.status === 'expiring_soon').length,
-    expired: mockLicenses.filter(l => l.status === 'expired').length
+    total: sourceLicenses.length,
+    active: sourceLicenses.filter(l => l.status === 'active').length,
+    expiringSoon: sourceLicenses.filter(l => l.status === 'expiring_soon').length,
+    expired: sourceLicenses.filter(l => l.status === 'expired').length
   };
 
   const statusColors = {
@@ -207,6 +247,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Centralized repository of all compliance licenses and registrations</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading licenses…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Target, TrendingUp, Award, Users, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface ReadinessAssessment {
   id: string;
@@ -190,7 +191,25 @@ export default function Page() {
     }
   ];
 
-  const filteredAssessments = mockAssessments.filter(assessment => {
+  const [rows, setRows] = useState<ReadinessAssessment[]>(mockAssessments);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<ReadinessAssessment>('talent-readiness');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredAssessments = rows.filter(assessment => {
     const matchesReadiness = selectedReadiness === 'all' || assessment.readinessLevel === selectedReadiness;
     const matchesDepartment = selectedDepartment === 'all' || assessment.department === selectedDepartment;
     return matchesReadiness && matchesDepartment;
@@ -235,10 +254,10 @@ export default function Page() {
     }
   };
 
-  const totalAssessments = mockAssessments.length;
-  const readyNow = mockAssessments.filter(a => a.readinessLevel === 'ready_now').length;
-  const readySoon = mockAssessments.filter(a => ['6_months', '1_year'].includes(a.readinessLevel)).length;
-  const avgScore = Math.round(mockAssessments.reduce((sum, a) => sum + a.overallScore, 0) / totalAssessments);
+  const totalAssessments = rows.length;
+  const readyNow = rows.filter(a => a.readinessLevel === 'ready_now').length;
+  const readySoon = rows.filter(a => ['6_months', '1_year'].includes(a.readinessLevel)).length;
+  const avgScore = Math.round(rows.reduce((sum, a) => sum + a.overallScore, 0) / totalAssessments);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -249,6 +268,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Successor readiness evaluation and gap analysis</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-sm border border-purple-200 p-3">

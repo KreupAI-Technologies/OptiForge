@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Calculator, Search, Download, TrendingUp, DollarSign, Users, FileText, Calendar } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Calculator, Search, Download, TrendingUp, DollarSign, Users, FileText, Calendar, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface MonthlyTDS {
   id: string;
@@ -28,6 +29,53 @@ export default function TDSCalculationPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('Nov-2025');
+
+  const [tdsData, setTdsData] = useState<MonthlyTDS[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getTaxRecords('tds');
+        const mapped: MonthlyTDS[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.details?.id ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          month: r.month ?? r.details?.month ?? '',
+          grossSalary: Number(r.grossSalary ?? r.details?.grossSalary ?? 0),
+          standardDeduction: Number(r.standardDeduction ?? r.details?.standardDeduction ?? 0),
+          professionalTax: Number(r.professionalTax ?? r.details?.professionalTax ?? 0),
+          pfEmployee: Number(r.pfEmployee ?? r.details?.pfEmployee ?? 0),
+          otherDeductions: Number(r.otherDeductions ?? r.details?.otherDeductions ?? 0),
+          taxableIncome: Number(r.taxableIncome ?? r.details?.taxableIncome ?? 0),
+          estimatedAnnualIncome: Number(r.estimatedAnnualIncome ?? r.details?.estimatedAnnualIncome ?? 0),
+          estimatedDeductions: Number(r.estimatedDeductions ?? r.details?.estimatedDeductions ?? 0),
+          estimatedTaxableIncome: Number(r.estimatedTaxableIncome ?? r.details?.estimatedTaxableIncome ?? 0),
+          taxRate: Number(r.taxRate ?? r.details?.taxRate ?? 0),
+          monthlyTDS: Number(r.monthlyTDS ?? r.amount ?? r.details?.monthlyTDS ?? 0),
+          tdsDeductedTillDate: Number(r.tdsDeductedTillDate ?? r.details?.tdsDeductedTillDate ?? 0),
+        }));
+        if (!cancelled) setTdsData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load TDS records');
+          setTdsData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockTDSData: MonthlyTDS[] = [
     {
@@ -153,7 +201,7 @@ export default function TDSCalculationPage() {
   ];
 
   const filteredData = useMemo(() => {
-    return mockTDSData.filter(record => {
+    return tdsData.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -161,7 +209,7 @@ export default function TDSCalculationPage() {
       const matchesMonth = record.month === selectedMonth;
       return matchesSearch && matchesDepartment && matchesMonth;
     });
-  }, [searchTerm, selectedDepartment, selectedMonth]);
+  }, [tdsData, searchTerm, selectedDepartment, selectedMonth]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const months = ['Nov-2025', 'Oct-2025', 'Sep-2025', 'Aug-2025'];
@@ -184,6 +232,24 @@ export default function TDSCalculationPage() {
         <h1 className="text-2xl font-bold text-gray-900">TDS Calculation & Deduction</h1>
         <p className="text-sm text-gray-600 mt-1">Monthly Tax Deducted at Source (TDS) computation for {selectedMonth}</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading TDS records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && tdsData.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No TDS records found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

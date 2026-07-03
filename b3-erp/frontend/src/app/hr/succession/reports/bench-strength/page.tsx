@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, Users, TrendingUp, Award, AlertTriangle } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface BenchStrength {
   position: string;
@@ -138,7 +139,25 @@ export default function Page() {
     }
   ];
 
-  const filteredData = mockBenchData.filter(item => {
+  const [rows, setRows] = useState<BenchStrength[]>(mockBenchData);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<BenchStrength>('bench-strength');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredData = rows.filter(item => {
     const matchesLevel = selectedLevel === 'all' || item.level === selectedLevel;
     const matchesDepth = selectedDepth === 'all' || item.benchDepth === selectedDepth;
     return matchesLevel && matchesDepth;
@@ -162,11 +181,11 @@ export default function Page() {
     return 'text-red-600';
   };
 
-  const strongBench = mockBenchData.filter(b => b.benchDepth === 'strong').length;
-  const adequateBench = mockBenchData.filter(b => b.benchDepth === 'adequate').length;
-  const weakBench = mockBenchData.filter(b => b.benchDepth === 'weak').length;
-  const criticalBench = mockBenchData.filter(b => b.benchDepth === 'critical').length;
-  const avgQuality = Math.round(mockBenchData.reduce((sum, b) => sum + b.avgQuality, 0) / mockBenchData.length);
+  const strongBench = rows.filter(b => b.benchDepth === 'strong').length;
+  const adequateBench = rows.filter(b => b.benchDepth === 'adequate').length;
+  const weakBench = rows.filter(b => b.benchDepth === 'weak').length;
+  const criticalBench = rows.filter(b => b.benchDepth === 'critical').length;
+  const avgQuality = rows.length ? Math.round(rows.reduce((sum, b) => sum + b.avgQuality, 0) / rows.length) : 0;
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -177,6 +196,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Talent depth and successor pipeline analysis</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-sm border border-green-200 p-3">

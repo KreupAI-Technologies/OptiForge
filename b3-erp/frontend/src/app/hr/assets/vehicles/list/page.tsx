@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Car, Calendar, Gauge } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface Vehicle {
   id: string;
@@ -27,7 +28,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
 
-  const mockVehicles: Vehicle[] = [
+  const fallbackVehicles: Vehicle[] = [
     {
       id: '1',
       vehicleNumber: 'VEH-2024-001',
@@ -123,6 +124,53 @@ export default function Page() {
     }
   ];
 
+  const [mockVehicles, setMockVehicles] = useState<Vehicle[]>(fallbackVehicles);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getVehicles();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockVehicles(
+            rows.map((r) => ({
+              id: r.id,
+              vehicleNumber: r.vehicleNumber || '',
+              vehicleType: (r.vehicleType as Vehicle['vehicleType']) || 'sedan',
+              make: r.make || '',
+              model: r.model || '',
+              year: Number(r.year ?? 0),
+              purchaseDate: r.purchaseDate || '',
+              purchaseCost: Number(r.purchaseCost ?? 0),
+              registrationNumber: r.registrationNumber || '',
+              insuranceExpiry: r.insuranceExpiry || '',
+              pucExpiry: r.pucExpiry || '',
+              fitnessExpiry: r.fitnessExpiry || '',
+              currentOdometer: Number(r.currentOdometer ?? 0),
+              fuelType: (r.fuelType as Vehicle['fuelType']) || 'petrol',
+              status: (r.status as Vehicle['status']) || 'available',
+              assignedTo: r.assignedTo || undefined,
+              location: r.location || '',
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load vehicles');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredVehicles = mockVehicles.filter(v => {
     if (selectedStatus !== 'all' && v.status !== selectedStatus) return false;
     if (selectedType !== 'all' && v.vehicleType !== selectedType) return false;
@@ -166,6 +214,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Company Vehicles</h1>
         <p className="text-sm text-gray-600 mt-1">Manage company vehicle inventory</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading vehicles…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

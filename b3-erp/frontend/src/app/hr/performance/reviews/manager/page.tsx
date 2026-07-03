@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserCheck, Users, TrendingUp, Search, Eye, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface PendingReview {
   id: string;
@@ -67,7 +68,25 @@ export default function ManagerReviewPage() {
     }
   ];
 
-  const filteredReviews = mockReviews.filter(review => {
+  const [rows, setRows] = useState<PendingReview[]>(mockReviews);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getPerformance<PendingReview>('manager-review');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredReviews = rows.filter(review => {
     const matchesSearch = review.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          review.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || review.status === selectedStatus;
@@ -75,11 +94,11 @@ export default function ManagerReviewPage() {
   });
 
   const stats = {
-    total: mockReviews.length,
-    pending: mockReviews.filter(r => r.status === 'pending').length,
-    inProgress: mockReviews.filter(r => r.status === 'in_progress').length,
-    completed: mockReviews.filter(r => r.status === 'completed').length,
-    avgSelfRating: (mockReviews.reduce((sum, r) => sum + r.selfRatingAvg, 0) / mockReviews.length).toFixed(1)
+    total: rows.length,
+    pending: rows.filter(r => r.status === 'pending').length,
+    inProgress: rows.filter(r => r.status === 'in_progress').length,
+    completed: rows.filter(r => r.status === 'completed').length,
+    avgSelfRating: rows.length ? (rows.reduce((sum, r) => sum + r.selfRatingAvg, 0) / rows.length).toFixed(1) : '0.0'
   };
 
   const getStatusColor = (status: string) => {
@@ -169,6 +188,18 @@ export default function ManagerReviewPage() {
         </h1>
         <p className="text-gray-600 mt-2">Review and assess team member performance</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

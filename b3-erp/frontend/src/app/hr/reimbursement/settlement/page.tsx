@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { DollarSign, User, Wallet, Calculator, TrendingDown, AlertCircle, Eye, Download, CheckCircle, XCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface SettlementReimbursement {
   id: string;
@@ -32,8 +33,58 @@ export default function Page() {
   const [selectedSettlementType, setSelectedSettlementType] = useState('all');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<SettlementReimbursement | null>(null);
+  const [rows, setRows] = useState<SettlementReimbursement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockReimbursements: SettlementReimbursement[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getExpenseClaims({ kind: 'reimbursement' });
+        const mapped: SettlementReimbursement[] = raw.map((r) => {
+          const originalAmount = Number(r.amount ?? 0);
+          const approvedAmount = r.netPayable != null ? Number(r.netPayable) : originalAmount;
+          return {
+            id: r.id,
+            employeeCode: r.employeeCode ?? '',
+            employeeName: r.employeeName ?? '',
+            department: r.department ?? '',
+            designation: r.designation ?? '',
+            claimNumber: r.claimNumber ?? '',
+            claimType: (r.claimType as SettlementReimbursement['claimType']) ?? 'Other',
+            originalAmount,
+            approvedAmount,
+            rejectedAmount: Math.max(0, originalAmount - approvedAmount),
+            rejectionReason: r.rejectionReason ?? undefined,
+            submittedDate: r.submittedDate ?? r.submissionDate ?? '',
+            reviewedDate: r.approvedDate ?? '',
+            reviewedBy: r.approver ?? '',
+            description: r.description ?? '',
+            documentsCount: Number(r.documentsCount ?? 0),
+            settlementType: 'full_settlement',
+            advanceAmount: r.advanceAmount != null ? Number(r.advanceAmount) : undefined,
+            netPayable: r.netPayable != null ? Number(r.netPayable) : originalAmount,
+          };
+        });
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load settlement reimbursements');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockReimbursements: SettlementReimbursement[] = rows.length ? rows : [
     {
       id: '1', employeeCode: 'KMF-2024-101', employeeName: 'Rajesh Kumar', department: 'Manufacturing',
       designation: 'Production Manager', claimNumber: 'REIMB-2024-401', claimType: 'Medical',
@@ -286,6 +337,19 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Review and finalize claim settlements with adjustments</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading settlement reimbursements…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-3">

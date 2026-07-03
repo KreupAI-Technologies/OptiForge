@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { AlertTriangle, CheckCircle, Clock, XCircle, Eye, TrendingDown, Users, MapPin, Calendar } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { AlertTriangle, AlertCircle, CheckCircle, Clock, XCircle, Eye, TrendingDown, Users, MapPin, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface SafetyIncident {
   id: string;
@@ -29,8 +30,53 @@ export default function Page() {
   const [selectedSeverity, setSelectedSeverity] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [rows, setRows] = useState<SafetyIncident[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockIncidents: SafetyIncident[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getSafetyIncidents();
+        const mapped: SafetyIncident[] = raw.map((r) => ({
+          id: r.id,
+          incidentNumber: r.incidentNumber ?? '',
+          reportedDate: r.reportedDate ?? '',
+          incidentDate: r.incidentDate ?? '',
+          incidentTime: r.incidentTime ?? '',
+          location: r.location ?? '',
+          department: r.department ?? '',
+          severity: (r.severity as SafetyIncident['severity']) ?? 'minor',
+          type: (r.type as SafetyIncident['type']) ?? 'injury',
+          description: r.description ?? '',
+          reportedBy: r.reportedBy ?? '',
+          employeeInvolved: r.employeeInvolved ?? '',
+          witnessCount: Number(r.witnessCount ?? 0),
+          status: (r.status as SafetyIncident['status']) ?? 'reported',
+          investigator: r.investigator ?? undefined,
+          rootCause: r.rootCause ?? undefined,
+          daysLost: Number(r.daysLost ?? 0),
+          medicalAttention: Boolean(r.medicalAttention ?? false),
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load safety incidents');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockIncidents: SafetyIncident[] = rows.length ? rows : [
     {
       id: '1', incidentNumber: 'INC-2024-101', reportedDate: '2024-10-20', incidentDate: '2024-10-20',
       incidentTime: '10:30 AM', location: 'Production Floor - Section A', department: 'Manufacturing',
@@ -102,7 +148,7 @@ export default function Page() {
       const matchesDept = selectedDepartment === 'all' || incident.department === selectedDepartment;
       return matchesSeverity && matchesStatus && matchesDept;
     });
-  }, [selectedSeverity, selectedStatus, selectedDepartment]);
+  }, [selectedSeverity, selectedStatus, selectedDepartment, rows]);
 
   const stats = {
     total: mockIncidents.length,
@@ -219,6 +265,19 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Monitor and manage workplace safety incidents</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading safety incidents…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-8 gap-2 mb-3">

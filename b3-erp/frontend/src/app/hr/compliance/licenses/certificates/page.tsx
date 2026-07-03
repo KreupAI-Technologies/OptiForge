@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileCheck, Search, CheckCircle, Download, Eye, Upload } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceLicense } from '@/services/hr-compliance-docs.service';
 
 interface Certificate {
   id: string;
@@ -24,6 +25,43 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getLicenses('certificate');
+        if (!active) return;
+        const mapped: Certificate[] = rows.map((r: ComplianceLicense) => ({
+          id: r.id,
+          certificateName: r.name || '',
+          certificateNumber: r.number || '',
+          issuingAuthority: r.authority || '',
+          category: (r.category as Certificate['category']) || 'other',
+          issueDate: r.issueDate || '',
+          validUntil: r.validUntil,
+          status: (r.status as Certificate['status']) || 'valid',
+          location: r.location || '',
+          relatedLicense: r.relatedLicense,
+          documentUrl: r.documentUrl,
+          verifiedBy: r.verifiedBy,
+          verificationDate: r.verificationDate,
+          remarks: r.remarks,
+        }));
+        setCertificates(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load certificates');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockCertificates: Certificate[] = [
     {
@@ -143,8 +181,10 @@ export default function Page() {
     }
   ];
 
+  const sourceCertificates = certificates.length > 0 ? certificates : mockCertificates;
+
   const filteredCertificates = useMemo(() => {
-    return mockCertificates.filter(cert => {
+    return sourceCertificates.filter(cert => {
       const matchesSearch = cert.certificateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            cert.certificateNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            cert.issuingAuthority.toLowerCase().includes(searchTerm.toLowerCase());
@@ -152,13 +192,13 @@ export default function Page() {
       const matchesStatus = selectedStatus === 'all' || cert.status === selectedStatus;
       return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [searchTerm, selectedCategory, selectedStatus, mockCertificates]);
+  }, [searchTerm, selectedCategory, selectedStatus, sourceCertificates]);
 
   const stats = {
-    total: mockCertificates.length,
-    valid: mockCertificates.filter(c => c.status === 'valid').length,
-    expired: mockCertificates.filter(c => c.status === 'expired').length,
-    pending: mockCertificates.filter(c => c.status === 'pending_verification').length
+    total: sourceCertificates.length,
+    valid: sourceCertificates.filter(c => c.status === 'valid').length,
+    expired: sourceCertificates.filter(c => c.status === 'expired').length,
+    pending: sourceCertificates.filter(c => c.status === 'pending_verification').length
   };
 
   const statusColors = {
@@ -184,6 +224,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Repository of compliance, inspection, and certification documents</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading certificates…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

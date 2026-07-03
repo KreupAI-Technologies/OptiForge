@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, CheckCircle, AlertCircle, Clock, FileText, Upload, RefreshCw } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceLicense } from '@/services/hr-compliance-docs.service';
 
 interface LicenseRenewal {
   id: string;
@@ -25,6 +26,44 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [renewals, setRenewals] = useState<LicenseRenewal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getLicenses('renewal');
+        if (!active) return;
+        const mapped: LicenseRenewal[] = rows.map((r: ComplianceLicense) => ({
+          id: r.id,
+          licenseName: r.name || '',
+          licenseNumber: r.number || '',
+          currentExpiryDate: r.expiryDate || '',
+          renewalDueDate: r.renewalDueDate || '',
+          renewalStatus: (r.status as LicenseRenewal['renewalStatus']) || 'upcoming',
+          priority: (r.priority as LicenseRenewal['priority']) || 'medium',
+          authority: r.authority || '',
+          assignedTo: r.assignedTo || '',
+          renewalCost: r.renewalCost,
+          documentsRequired: r.documentsRequired || [],
+          submissionDeadline: r.submissionDeadline || '',
+          applicationNumber: r.applicationNumber,
+          newExpiryDate: r.newExpiryDate,
+          remarks: r.remarks,
+        }));
+        setRenewals(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load renewals');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockRenewals: LicenseRenewal[] = [
     {
@@ -104,21 +143,23 @@ export default function Page() {
     }
   ];
 
+  const sourceRenewals = renewals.length > 0 ? renewals : mockRenewals;
+
   const filteredRenewals = useMemo(() => {
-    return mockRenewals.filter(renewal => {
+    return sourceRenewals.filter(renewal => {
       const matchesStatus = selectedStatus === 'all' || renewal.renewalStatus === selectedStatus;
       const matchesPriority = selectedPriority === 'all' || renewal.priority === selectedPriority;
       const renewalMonth = new Date(renewal.renewalDueDate).getMonth();
       const matchesMonth = selectedMonth === -1 || renewalMonth === selectedMonth;
       return matchesStatus && matchesPriority && matchesMonth;
     });
-  }, [selectedStatus, selectedPriority, selectedMonth, mockRenewals]);
+  }, [selectedStatus, selectedPriority, selectedMonth, sourceRenewals]);
 
   const stats = {
-    upcoming: mockRenewals.filter(r => r.renewalStatus === 'upcoming').length,
-    inProgress: mockRenewals.filter(r => r.renewalStatus === 'in_progress').length,
-    submitted: mockRenewals.filter(r => r.renewalStatus === 'submitted').length,
-    overdue: mockRenewals.filter(r => r.renewalStatus === 'overdue').length
+    upcoming: sourceRenewals.filter(r => r.renewalStatus === 'upcoming').length,
+    inProgress: sourceRenewals.filter(r => r.renewalStatus === 'in_progress').length,
+    submitted: sourceRenewals.filter(r => r.renewalStatus === 'submitted').length,
+    overdue: sourceRenewals.filter(r => r.renewalStatus === 'overdue').length
   };
 
   const statusColors = {
@@ -170,6 +211,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Track and manage license renewal timelines and submissions</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading renewals…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

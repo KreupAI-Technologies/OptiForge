@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ShoppingBag, User, Calendar, Package, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetRequest {
   id: string;
@@ -27,7 +28,7 @@ export default function Page() {
   const [selectedPriority, setSelectedPriority] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockRequests: AssetRequest[] = [
+  const fallbackRequests: AssetRequest[] = [
     {
       id: '1',
       requestId: 'REQ-2025-001',
@@ -108,6 +109,52 @@ export default function Page() {
     }
   ];
 
+  const [mockRequests, setMockRequests] = useState<AssetRequest[]>(fallbackRequests);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetRequests();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockRequests(
+            rows.map((r) => ({
+              id: r.id,
+              requestId: r.requestId || '',
+              requestDate: r.requestDate || '',
+              requester: r.requester || '',
+              employeeCode: r.employeeCode || '',
+              department: r.department || '',
+              assetType: (r.assetCategory as AssetRequest['assetType']) || 'other',
+              assetName: r.assetName || '',
+              quantity: Number(r.quantity ?? 0),
+              priority: (r.priority as AssetRequest['priority']) || 'medium',
+              purpose: r.purpose || '',
+              status: (r.status as AssetRequest['status']) || 'pending',
+              approver: r.approver || undefined,
+              approvalDate: r.approvalDate || undefined,
+              fulfillmentDate: r.fulfillmentDate || undefined,
+              remarks: r.remarks || undefined,
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load requests');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRequests = mockRequests.filter(r => {
     const statusMatch = selectedStatus === 'all' || r.status === selectedStatus;
     const priorityMatch = selectedPriority === 'all' || r.priority === selectedPriority;
@@ -142,6 +189,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Requests</h1>
         <p className="text-sm text-gray-600 mt-1">Manage employee asset requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

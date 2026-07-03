@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CornerUpLeft, User, Calendar, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetReturn {
   id: string;
@@ -32,7 +33,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCondition, setSelectedCondition] = useState('all');
 
-  const mockReturns: AssetReturn[] = [
+  const fallbackReturns: AssetReturn[] = [
     {
       id: '1',
       returnId: 'RET-2024-001',
@@ -168,6 +169,62 @@ export default function Page() {
     }
   ];
 
+  const [mockReturns, setMockReturns] = useState<AssetReturn[]>(fallbackReturns);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetReturns();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockReturns(
+            rows.map((r) => {
+              let accessories: AssetReturn['accessories'] = [];
+              try {
+                accessories = r.accessories ? JSON.parse(r.accessories) : [];
+              } catch {
+                accessories = [];
+              }
+              return {
+                id: r.id,
+                returnId: r.returnId || '',
+                assetTag: r.assetTag || '',
+                assetType: r.assetType || '',
+                assetCategory: (r.assetCategory as AssetReturn['assetCategory']) || 'other',
+                returnedBy: r.returnedBy || '',
+                employeeCode: r.employeeCode || '',
+                department: r.department || '',
+                assignedDate: r.assignedDate || '',
+                returnDate: r.returnDate || '',
+                returnReason: (r.returnReason as AssetReturn['returnReason']) || 'other',
+                condition: (r.condition as AssetReturn['condition']) || 'good',
+                status: (r.status as AssetReturn['status']) || 'pending_inspection',
+                inspectedBy: r.inspectedBy || undefined,
+                inspectionDate: r.inspectionDate || undefined,
+                inspectionNotes: r.inspectionNotes || undefined,
+                damageCharges: r.damageCharges != null ? Number(r.damageCharges) : undefined,
+                accessories,
+              };
+            }),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load returns');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredReturns = mockReturns.filter(r => {
     if (selectedStatus !== 'all' && r.status !== selectedStatus) return false;
     if (selectedCondition !== 'all' && r.condition !== selectedCondition) return false;
@@ -213,6 +270,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Returns</h1>
         <p className="text-sm text-gray-600 mt-1">Manage asset returns and inspections</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading returns…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { BookOpen, Search, Filter, Clock, Users, Award, Calendar, MapPin, IndianRupee } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { BookOpen, Search, Filter, Clock, Users, Award, Calendar, MapPin, IndianRupee, AlertCircle } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface TrainingProgram {
   id: string;
@@ -30,8 +31,52 @@ export default function ProgramCatalogPage() {
   const [selectedMode, setSelectedMode] = useState('all');
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [rows, setRows] = useState<TrainingProgram[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockPrograms: TrainingProgram[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getTrainingPrograms();
+        const mapped: TrainingProgram[] = raw.map((r) => ({
+          id: r.id,
+          code: r.code ?? '',
+          title: r.title ?? '',
+          description: r.description ?? '',
+          category: (r.category as TrainingProgram['category']) ?? 'technical',
+          level: (r.level as TrainingProgram['level']) ?? 'beginner',
+          duration: Number(r.duration ?? 0),
+          mode: (r.mode as TrainingProgram['mode']) ?? 'classroom',
+          instructor: r.instructor ?? '',
+          department: r.department ?? '',
+          capacity: Number(r.capacity ?? 0),
+          enrolled: Number(r.enrolled ?? 0),
+          cost: Number(r.cost ?? 0),
+          nextBatch: r.nextBatch ?? '',
+          location: r.location ?? undefined,
+          certification: Boolean(r.certification ?? false),
+          status: (r.status as TrainingProgram['status']) ?? 'active',
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load training programs');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockPrograms: TrainingProgram[] = rows.length ? rows : [
     {
       id: '1', code: 'TRN-TECH-001', title: 'Advanced CNC Programming', description: 'Master advanced CNC machining techniques',
       category: 'technical', level: 'advanced', duration: 40, mode: 'hybrid', instructor: 'Rajesh Kumar',
@@ -115,7 +160,7 @@ export default function ProgramCatalogPage() {
       const matchesLevel = selectedLevel === 'all' || program.level === selectedLevel;
       return matchesSearch && matchesCategory && matchesMode && matchesLevel;
     });
-  }, [searchTerm, selectedCategory, selectedMode, selectedLevel]);
+  }, [searchTerm, selectedCategory, selectedMode, selectedLevel, rows]);
 
   const stats = {
     total: mockPrograms.length,
@@ -165,6 +210,19 @@ export default function ProgramCatalogPage() {
         </h1>
         <p className="text-gray-600 mt-2">Browse and enroll in available training programs</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading training programs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

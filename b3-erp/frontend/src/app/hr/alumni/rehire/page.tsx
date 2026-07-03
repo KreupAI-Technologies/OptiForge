@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserPlus, Users, CheckCircle, Clock, XCircle, Calendar, Briefcase, Mail, Phone, TrendingUp, AlertCircle, X, Eye, ThumbsUp, ThumbsDown, Pause } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface RehireCandidate {
   id: string;
@@ -49,8 +50,55 @@ export default function Page() {
     expectedResolutionDate: '',
     remarks: ''
   });
+  const [rows, setRows] = useState<RehireCandidate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockCandidates: RehireCandidate[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getAlumni({ kind: 'rehire' });
+        const mapped: RehireCandidate[] = raw.map((r) => ({
+          id: r.id,
+          employeeCode: r.employeeCode ?? '',
+          name: r.name ?? '',
+          previousDesignation: r.previousDesignation ?? '',
+          department: r.department ?? '',
+          exitDate: r.exitDate ?? '',
+          exitReason: r.reasonForLeaving ?? '',
+          tenure: r.tenure ?? '',
+          proposedDesignation: r.proposedDesignation ?? '',
+          proposedDepartment: r.proposedDepartment ?? '',
+          proposedCTC: Number(r.proposedCTC ?? 0),
+          requestedBy: r.requestedBy ?? '',
+          requestDate: r.requestDate ?? '',
+          status: (r.status as RehireCandidate['status']) ?? 'pending',
+          eligibilityScore: Number(r.eligibilityScore ?? 0),
+          performanceRating: r.performanceRating ?? '',
+          noticePeriodServed: false,
+          pendingDues: false,
+          backgroundCheckStatus: (r.backgroundCheckStatus as RehireCandidate['backgroundCheckStatus']) ?? 'pending',
+          comments: r.comments ?? undefined,
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load rehire candidates');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockCandidates: RehireCandidate[] = rows.length ? rows : [
     {
       id: '1',
       employeeCode: 'EMP001',
@@ -234,6 +282,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Alumni Rehire Process</h1>
         <p className="text-sm text-gray-600 mt-1">Manage rehiring requests for former employees</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading rehire candidates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ShoppingCart, Clock, CheckCircle, XCircle, AlertCircle, X, Eye, Package, User, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetRequest {
   id: string;
@@ -50,7 +51,7 @@ export default function Page() {
     notes: ''
   });
 
-  const mockRequests: AssetRequest[] = [
+  const fallbackRequests: AssetRequest[] = [
     {
       id: '1',
       requestId: 'REQ-2024-001',
@@ -168,6 +169,56 @@ export default function Page() {
     }
   ];
 
+  const [mockRequests, setMockRequests] = useState<AssetRequest[]>(fallbackRequests);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetRequests();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockRequests(
+            rows.map((r) => ({
+              id: r.id,
+              requestId: r.requestId || '',
+              requestedBy: r.requester || '',
+              employeeCode: r.employeeCode || '',
+              department: r.department || '',
+              designation: r.designation || '',
+              assetCategory: (r.assetCategory as AssetRequest['assetCategory']) || 'other',
+              assetType: r.assetName || '',
+              quantity: Number(r.quantity ?? 0),
+              priority: (r.priority as AssetRequest['priority']) || 'medium',
+              status: (r.status as AssetRequest['status']) || 'pending',
+              requestDate: r.requestDate || '',
+              requiredBy: r.fulfillmentDate || r.requestDate || '',
+              businessJustification: r.purpose || '',
+              estimatedCost: undefined,
+              approvedBy: r.approver || undefined,
+              approvalDate: r.approvalDate || undefined,
+              rejectionReason: r.remarks || undefined,
+              fulfilledDate: r.fulfillmentDate || undefined,
+              assignedAssets: undefined,
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load requests');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRequests = mockRequests.filter(r => {
     if (selectedStatus !== 'all' && r.status !== selectedStatus) return false;
     if (selectedDepartment !== 'all' && r.department !== selectedDepartment) return false;
@@ -269,6 +320,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Requests</h1>
         <p className="text-sm text-gray-600 mt-1">Manage and track asset requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Coins as HandCoins, Search, CheckCircle, Clock, XCircle, AlertCircle, Calendar, DollarSign, TrendingUp, FileText, Percent } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface LoanRequest {
   id: string;
@@ -35,6 +36,60 @@ export default function LoanRequestsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedLoanType, setSelectedLoanType] = useState('all');
+
+  const [loanRequests, setLoanRequests] = useState<LoanRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getLoans();
+        // Backend loan shape is flexible; map defensively onto LoanRequest.
+        const mapped: LoanRequest[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.loanNumber ?? r.id ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? '—',
+          designation: r.designation ?? '',
+          department: r.department ?? '',
+          requestDate: r.requestDate ?? r.applicationDate ?? r.createdAt ?? '',
+          loanType: (r.loanType ?? 'personal') as LoanRequest['loanType'],
+          loanAmount: Number(r.loanAmount ?? r.principalAmount ?? r.amount ?? 0),
+          purpose: r.purpose ?? r.reason ?? '',
+          requestedTenure: Number(r.tenure ?? r.requestedTenure ?? r.tenureMonths ?? 0),
+          interestRate: Number(r.interestRate ?? 0),
+          emiAmount: Number(r.emiAmount ?? r.emi ?? 0),
+          totalRepayment: Number(r.totalRepayment ?? r.totalAmount ?? 0),
+          basicSalary: Number(r.basicSalary ?? 0),
+          eligibleAmount: Number(r.eligibleAmount ?? 0),
+          status: (r.status ?? 'pending') as LoanRequest['status'],
+          approvedBy: r.approvedBy ?? undefined,
+          approvedDate: r.approvedDate ?? undefined,
+          disbursedDate: r.disbursedDate ?? undefined,
+          paidEMIs: r.paidEMIs ?? r.paidInstallments ?? undefined,
+          remainingEMIs: r.remainingEMIs ?? undefined,
+          principalPaid: r.principalPaid ?? undefined,
+          interestPaid: r.interestPaid ?? undefined,
+          outstandingBalance: r.outstandingBalance ?? r.outstandingAmount ?? undefined,
+        }));
+        if (!cancelled) setLoanRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load loan requests');
+          setLoanRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockLoanRequests: LoanRequest[] = [
     {
@@ -178,7 +233,7 @@ export default function LoanRequestsPage() {
   ];
 
   const filteredRequests = useMemo(() => {
-    return mockLoanRequests.filter(request => {
+    return loanRequests.filter(request => {
       const matchesSearch =
         request.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         request.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -187,7 +242,7 @@ export default function LoanRequestsPage() {
       const matchesLoanType = selectedLoanType === 'all' || request.loanType === selectedLoanType;
       return matchesSearch && matchesDepartment && matchesStatus && matchesLoanType;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus, selectedLoanType]);
+  }, [loanRequests, searchTerm, selectedDepartment, selectedStatus, selectedLoanType]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'pending', 'approved', 'rejected', 'disbursed', 'active', 'closed'];
@@ -247,6 +302,24 @@ export default function LoanRequestsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Loan Requests</h1>
         <p className="text-sm text-gray-600 mt-1">Employee loan requests and EMI management</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading loan requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && loanRequests.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No loan requests found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

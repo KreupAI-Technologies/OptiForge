@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { CreditCard, Calendar, MapPin, TrendingUp, TrendingDown, Filter, Download, Receipt } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CreditCard, Calendar, MapPin, TrendingUp, TrendingDown, Filter, Download, Receipt, AlertCircle } from 'lucide-react';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface Transaction {
   id: string;
@@ -27,8 +28,52 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCardType, setSelectedCardType] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [rows, setRows] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockTransactions: Transaction[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getCardTransactions();
+        const mapped: Transaction[] = raw.map((r) => ({
+          id: r.id,
+          transactionId: r.transactionId ?? '',
+          cardNumber: r.cardNumber ?? '',
+          cardType: (r.cardType as Transaction['cardType']) ?? 'credit',
+          cardHolder: r.cardHolder ?? '',
+          employeeCode: r.employeeCode ?? '',
+          department: r.department ?? '',
+          merchantName: r.merchantName ?? '',
+          category: (r.category as Transaction['category']) ?? 'other',
+          amount: Number(r.amount ?? 0),
+          currency: r.currency ?? 'INR',
+          transactionDate: r.transactionDate ?? '',
+          transactionTime: r.transactionTime ?? '',
+          location: r.location ?? '',
+          status: (r.status as Transaction['status']) ?? 'pending',
+          receiptUploaded: Boolean(r.receiptUploaded ?? false),
+          notes: r.notes ?? undefined,
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load card transactions');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockTransactions: Transaction[] = rows.length ? rows : [
     {
       id: '1',
       transactionId: 'TXN001234',
@@ -223,6 +268,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Card Transactions</h1>
         <p className="text-sm text-gray-600 mt-1">View and manage corporate card transactions</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading card transactions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

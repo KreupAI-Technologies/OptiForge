@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, Check, X, AlertCircle, Search, Filter, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface OvertimeApproval {
   id: string;
@@ -28,8 +29,49 @@ export default function OTApprovalPage() {
   const [selectedRequest, setSelectedRequest] = useState<OvertimeApproval | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve');
+  const [rows, setRows] = useState<OvertimeApproval[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockApprovals: OvertimeApproval[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getOvertimeRequests('pending');
+        const mapped: OvertimeApproval[] = raw.map((r) => ({
+          id: r.id,
+          requestId: r.requestId ?? '',
+          employeeCode: r.employeeCode ?? '',
+          employeeName: r.employeeName ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          date: r.date ?? '',
+          shiftType: r.shiftType ?? '',
+          regularHours: Number(r.regularHours ?? 0),
+          overtimeHours: Number(r.overtimeHours ?? 0),
+          reason: r.reason ?? '',
+          requestDate: r.requestDate ?? '',
+          calculatedAmount: Number(r.calculatedAmount ?? 0),
+          status: (r.status as OvertimeApproval['status']) ?? 'pending',
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load overtime approvals');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockApprovals: OvertimeApproval[] = rows.length ? rows : [
     {
       id: '1', requestId: 'OT001', employeeCode: 'KMF2020001', employeeName: 'Rajesh Kumar',
       department: 'Production', designation: 'Manager', date: '2024-11-20',
@@ -89,7 +131,7 @@ export default function OTApprovalPage() {
       const matchesDepartment = selectedDepartment === 'all' || request.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
-  }, [searchTerm, selectedDepartment]);
+  }, [searchTerm, selectedDepartment, rows]);
 
   const stats = {
     pending: mockApprovals.filter(r => r.status === 'pending').length,
@@ -196,6 +238,19 @@ export default function OTApprovalPage() {
         </h1>
         <p className="text-gray-600 mt-2">Review and approve overtime requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading overtime approvals…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Gift, Search, Download, CheckCircle, Clock, XCircle, Calendar, DollarSign, Users, TrendingUp, Percent } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Gift, Search, Download, CheckCircle, Clock, XCircle, Calendar, DollarSign, Users, TrendingUp, Percent, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface AnnualBonus {
   id: string;
@@ -30,6 +31,54 @@ export default function AnnualBonusPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedYear, setSelectedYear] = useState('2024');
+
+  const [annualBonus, setAnnualBonus] = useState<AnnualBonus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getBonusRecords('annual');
+        const mapped: AnnualBonus[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.bonusNumber ?? r.id ?? r.details?.bonusNumber ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          financialYear: r.financialYear ?? r.details?.financialYear ?? '',
+          bonusYear: String(r.bonusYear ?? r.details?.bonusYear ?? ''),
+          basicSalary: Number(r.basicSalary ?? r.details?.basicSalary ?? 0),
+          totalCTC: Number(r.totalCTC ?? r.details?.totalCTC ?? 0),
+          bonusPercentage: Number(r.bonusPercentage ?? r.details?.bonusPercentage ?? 0),
+          bonusAmount: Number(r.bonusAmount ?? r.amount ?? r.details?.bonusAmount ?? 0),
+          eligibleMonths: Number(r.eligibleMonths ?? r.details?.eligibleMonths ?? 0),
+          attendance: Number(r.attendance ?? r.details?.attendance ?? 0),
+          performanceRating: (r.performanceRating ?? r.details?.performanceRating ?? 'good') as AnnualBonus['performanceRating'],
+          status: (r.status ?? 'draft') as AnnualBonus['status'],
+          calculatedDate: r.calculatedDate ?? r.details?.calculatedDate ?? undefined,
+          approvedDate: r.approvedDate ?? r.details?.approvedDate ?? undefined,
+          paidDate: r.paidDate ?? r.details?.paidDate ?? undefined,
+          paymentMode: (r.paymentMode ?? r.details?.paymentMode ?? 'salary') as AnnualBonus['paymentMode'],
+        }));
+        if (!cancelled) setAnnualBonus(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load annual bonus records');
+          setAnnualBonus([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockAnnualBonus: AnnualBonus[] = [
     {
@@ -155,7 +204,7 @@ export default function AnnualBonusPage() {
   ];
 
   const filteredBonus = useMemo(() => {
-    return mockAnnualBonus.filter(bonus => {
+    return annualBonus.filter(bonus => {
       const matchesSearch =
         bonus.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         bonus.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -164,7 +213,7 @@ export default function AnnualBonusPage() {
       const matchesYear = bonus.bonusYear === selectedYear;
       return matchesSearch && matchesDepartment && matchesStatus && matchesYear;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus, selectedYear]);
+  }, [annualBonus, searchTerm, selectedDepartment, selectedStatus, selectedYear]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'calculated', 'approved', 'processed', 'paid'];
@@ -213,6 +262,24 @@ export default function AnnualBonusPage() {
         <h1 className="text-2xl font-bold text-gray-900">Annual Bonus</h1>
         <p className="text-sm text-gray-600 mt-1">Yearly bonus calculation and processing for {selectedYear}</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading annual bonus records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && annualBonus.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No annual bonus records found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Target, AlertCircle, TrendingUp, Users } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface CriticalPosition {
   id: string;
@@ -125,19 +126,37 @@ export default function Page() {
     }
   ];
 
-  const filteredPositions = mockPositions.filter(pos => {
+  const [rows, setRows] = useState<CriticalPosition[]>(mockPositions);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<CriticalPosition>('critical-position');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredPositions = rows.filter(pos => {
     if (selectedCriticality !== 'all' && pos.criticality !== selectedCriticality) return false;
     if (selectedDepartment !== 'all' && pos.department !== selectedDepartment) return false;
     return true;
   });
 
   const stats = useMemo(() => ({
-    total: mockPositions.length,
-    critical: mockPositions.filter(p => p.criticality === 'critical').length,
-    high: mockPositions.filter(p => p.criticality === 'high').length,
-    retirementRisk: mockPositions.filter(p => p.retirementRisk).length,
-    noPipeline: mockPositions.filter(p => p.successorsPipeline === 0).length
-  }), [mockPositions]);
+    total: rows.length,
+    critical: rows.filter(p => p.criticality === 'critical').length,
+    high: rows.filter(p => p.criticality === 'high').length,
+    retirementRisk: rows.filter(p => p.retirementRisk).length,
+    noPipeline: rows.filter(p => p.successorsPipeline === 0).length
+  }), [rows]);
 
   const criticalityColors = {
     low: 'bg-gray-100 text-gray-700 border-gray-300',
@@ -162,6 +181,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Identify and assess succession-critical roles</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

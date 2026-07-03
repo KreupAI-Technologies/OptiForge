@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { File, Search, Download, CheckCircle, Clock, AlertCircle, FileText, User, Calendar, X, Mail, Printer, Eye, Send } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface Form16Record {
   id: string;
@@ -36,6 +37,53 @@ export default function Form16Page() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<Form16Record | null>(null);
+
+  const [form16Records, setForm16Records] = useState<Form16Record[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getTaxRecords('form16');
+        const mapped: Form16Record[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.details?.id ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          financialYear: r.financialYear ?? r.details?.financialYear ?? '',
+          pan: r.pan ?? r.details?.pan ?? '',
+          tanNumber: r.tanNumber ?? r.details?.tanNumber ?? '',
+          totalIncome: Number(r.totalIncome ?? r.details?.totalIncome ?? 0),
+          totalDeductions: Number(r.totalDeductions ?? r.details?.totalDeductions ?? 0),
+          taxableIncome: Number(r.taxableIncome ?? r.details?.taxableIncome ?? 0),
+          totalTDS: Number(r.totalTDS ?? r.amount ?? r.details?.totalTDS ?? 0),
+          taxRelief: Number(r.taxRelief ?? r.details?.taxRelief ?? 0),
+          netTaxPayable: Number(r.netTaxPayable ?? r.details?.netTaxPayable ?? 0),
+          status: (r.status ?? r.details?.status ?? 'draft') as Form16Record['status'],
+          generatedDate: r.generatedDate ?? r.details?.generatedDate ?? undefined,
+          issuedDate: r.issuedDate ?? r.details?.issuedDate ?? undefined,
+          form16Number: r.form16Number ?? r.details?.form16Number ?? undefined,
+        }));
+        if (!cancelled) setForm16Records(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load Form 16 records');
+          setForm16Records([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockForm16Records: Form16Record[] = [
     {
@@ -157,7 +205,7 @@ export default function Form16Page() {
   ];
 
   const filteredRecords = useMemo(() => {
-    return mockForm16Records.filter(record => {
+    return form16Records.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -167,7 +215,7 @@ export default function Form16Page() {
       const matchesFY = record.financialYear === selectedFinancialYear;
       return matchesSearch && matchesDepartment && matchesStatus && matchesFY;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus, selectedFinancialYear]);
+  }, [form16Records, searchTerm, selectedDepartment, selectedStatus, selectedFinancialYear]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'generated', 'issued', 'downloaded'];
@@ -234,6 +282,24 @@ export default function Form16Page() {
         <h1 className="text-2xl font-bold text-gray-900">Form 16 (Part A & B)</h1>
         <p className="text-sm text-gray-600 mt-1">TDS Certificate for salary income - Financial Year {selectedFinancialYear}</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading Form 16 records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && form16Records.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No Form 16 records found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

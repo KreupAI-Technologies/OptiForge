@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ClipboardCheck, Calendar, Search, Users, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceAudit as ComplianceAuditDto } from '@/services/hr-compliance-docs.service';
 
 interface ComplianceAudit {
   id: string;
@@ -23,6 +24,42 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [items, setItems] = useState<ComplianceAudit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getAudits();
+        if (!active) return;
+        const mapped: ComplianceAudit[] = rows.map((r: ComplianceAuditDto) => ({
+          id: r.id,
+          auditId: r.auditId || '',
+          title: r.title || '',
+          auditType: (r.auditType as ComplianceAudit['auditType']) || 'internal',
+          scope: r.scope || [],
+          auditor: r.auditor || '',
+          scheduledDate: r.scheduledDate || '',
+          completedDate: r.completedDate,
+          status: (r.status as ComplianceAudit['status']) || 'scheduled',
+          findings: r.findings || 0,
+          criticalFindings: r.criticalFindings || 0,
+          complianceScore: r.complianceScore,
+          nextAuditDue: r.nextAuditDue,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load audits');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockAudits: ComplianceAudit[] = [
     {
@@ -98,21 +135,23 @@ export default function Page() {
     }
   ];
 
+  const sourceAudits = items.length > 0 ? items : mockAudits;
+
   const filteredAudits = useMemo(() => {
-    return mockAudits.filter(audit => {
+    return sourceAudits.filter(audit => {
       const matchesSearch = audit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            audit.auditId.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = selectedType === 'all' || audit.auditType === selectedType;
       const matchesStatus = selectedStatus === 'all' || audit.status === selectedStatus;
       return matchesSearch && matchesType && matchesStatus;
     });
-  }, [searchTerm, selectedType, selectedStatus, mockAudits]);
+  }, [searchTerm, selectedType, selectedStatus, sourceAudits]);
 
   const stats = {
-    total: mockAudits.length,
-    scheduled: mockAudits.filter(a => a.status === 'scheduled').length,
-    completed: mockAudits.filter(a => a.status === 'completed').length,
-    avgCompliance: Math.round(mockAudits.filter(a => a.complianceScore).reduce((sum, a) => sum + (a.complianceScore || 0), 0) / mockAudits.filter(a => a.complianceScore).length)
+    total: sourceAudits.length,
+    scheduled: sourceAudits.filter(a => a.status === 'scheduled').length,
+    completed: sourceAudits.filter(a => a.status === 'completed').length,
+    avgCompliance: Math.round(sourceAudits.filter(a => a.complianceScore).reduce((sum, a) => sum + (a.complianceScore || 0), 0) / sourceAudits.filter(a => a.complianceScore).length)
   };
 
   const typeColors = {
@@ -138,6 +177,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Schedule, track, and manage compliance audits</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading audits…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

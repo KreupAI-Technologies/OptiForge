@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { CheckCircle, User, Wallet, Calendar, TrendingUp, Download, Eye, Search, XCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { CheckCircle, User, Wallet, Calendar, TrendingUp, Download, Eye, Search, XCircle, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface PaidReimbursement {
   id: string;
@@ -30,8 +31,51 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<PaidReimbursement | null>(null);
+  const [rows, setRows] = useState<PaidReimbursement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockReimbursements: PaidReimbursement[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getExpenseClaims({ kind: 'reimbursement', status: 'paid' });
+        const mapped: PaidReimbursement[] = raw.map((r) => ({
+          id: r.id,
+          employeeCode: r.employeeCode ?? '',
+          employeeName: r.employeeName ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          claimNumber: r.claimNumber ?? '',
+          claimType: (r.claimType as PaidReimbursement['claimType']) ?? 'Other',
+          amount: Number(r.amount ?? 0),
+          submittedDate: r.submittedDate ?? r.submissionDate ?? '',
+          approvedDate: r.approvedDate ?? '',
+          paidDate: r.paidDate ?? '',
+          paymentMode: (r.paymentMethod as PaidReimbursement['paymentMode']) ?? 'bank_transfer',
+          transactionReference: r.paymentReference ?? '',
+          description: r.description ?? '',
+          fiscalYear: '',
+          quarter: '',
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load paid reimbursements');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockReimbursements: PaidReimbursement[] = rows.length ? rows : [
     {
       id: '1', employeeCode: 'KMF-2024-101', employeeName: 'Rajesh Kumar', department: 'Manufacturing',
       designation: 'Production Manager', claimNumber: 'REIMB-2024-101', claimType: 'Medical',
@@ -275,6 +319,19 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">View completed reimbursement payments</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading paid reimbursements…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AlertCircle, Search, Eye, FileText } from 'lucide-react';
+import { HrComplianceDocsService, PolicyViolation as PolicyViolationDto } from '@/services/hr-compliance-docs.service';
 
 interface PolicyViolation {
   id: string;
@@ -25,6 +26,44 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeverity, setSelectedSeverity] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [items, setItems] = useState<PolicyViolation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getPolicyViolations();
+        if (!active) return;
+        const mapped: PolicyViolation[] = rows.map((r: PolicyViolationDto) => ({
+          id: r.id,
+          employeeId: r.employeeId || '',
+          employeeName: r.employeeName || '',
+          department: r.department || '',
+          violationType: (r.violationType as PolicyViolation['violationType']) || 'other',
+          policyViolated: r.policyName || '',
+          reportedDate: r.reportedDate || '',
+          incidentDate: r.violationDate || '',
+          reportedBy: r.reportedBy || '',
+          severity: (r.severity as PolicyViolation['severity']) || 'minor',
+          status: (r.status as PolicyViolation['status']) || 'reported',
+          investigationAssignedTo: r.meta?.investigationAssignedTo,
+          description: r.description || '',
+          actionTaken: r.actionTaken,
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load policy violations');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockViolations: PolicyViolation[] = [
     {
@@ -93,21 +132,23 @@ export default function Page() {
     }
   ];
 
+  const sourceViolations = items.length > 0 ? items : mockViolations;
+
   const filteredViolations = useMemo(() => {
-    return mockViolations.filter(violation => {
+    return sourceViolations.filter(violation => {
       const matchesSearch = violation.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            violation.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSeverity = selectedSeverity === 'all' || violation.severity === selectedSeverity;
       const matchesStatus = selectedStatus === 'all' || violation.status === selectedStatus;
       return matchesSearch && matchesSeverity && matchesStatus;
     });
-  }, [searchTerm, selectedSeverity, selectedStatus, mockViolations]);
+  }, [searchTerm, selectedSeverity, selectedStatus, sourceViolations]);
 
   const stats = {
-    total: mockViolations.length,
-    critical: mockViolations.filter(v => v.severity === 'critical').length,
-    underInvestigation: mockViolations.filter(v => v.status === 'under_investigation').length,
-    resolved: mockViolations.filter(v => v.status === 'resolved').length
+    total: sourceViolations.length,
+    critical: sourceViolations.filter(v => v.severity === 'critical').length,
+    underInvestigation: sourceViolations.filter(v => v.status === 'under_investigation').length,
+    resolved: sourceViolations.filter(v => v.status === 'resolved').length
   };
 
   const severityColors = {
@@ -133,6 +174,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Monitor and manage policy violations and misconduct</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading policy violations…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

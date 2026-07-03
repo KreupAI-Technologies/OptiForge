@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Building, Search, Download, Calendar, Users, DollarSign, FileText, CheckCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Building, Search, Download, Calendar, Users, DollarSign, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface BankTransfer {
   id: string;
@@ -24,6 +25,48 @@ export default function BankReportPage() {
   const [selectedBank, setSelectedBank] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  const [bankTransfers, setBankTransfers] = useState<BankTransfer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReports('bank');
+        const mapped: BankTransfer[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.transferNumber ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? '—',
+          bankName: r.bankName ?? r.details?.bankName ?? '',
+          accountNumber: r.accountNumber ?? r.details?.accountNumber ?? '',
+          ifscCode: r.ifscCode ?? r.details?.ifscCode ?? '',
+          branch: r.branch ?? r.details?.branch ?? '',
+          netSalary: Number(r.netSalary ?? r.details?.netSalary ?? r.amount ?? 0),
+          paymentDate: r.paymentDate ?? r.details?.paymentDate ?? '',
+          monthYear: r.monthYear ?? r.details?.monthYear ?? '',
+          status: (r.status ?? 'pending') as BankTransfer['status'],
+          transactionId: r.transactionId ?? r.details?.transactionId ?? undefined,
+          remarks: r.remarks ?? r.details?.remarks ?? undefined,
+        }));
+        if (!cancelled) setBankTransfers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load bank transfers');
+          setBankTransfers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockBankTransfers: BankTransfer[] = [
     {
@@ -112,8 +155,9 @@ export default function BankReportPage() {
     }
   ];
 
+  void mockBankTransfers;
   const filteredTransfers = useMemo(() => {
-    return mockBankTransfers.filter(transfer => {
+    return bankTransfers.filter(transfer => {
       const matchesSearch =
         transfer.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         transfer.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -122,7 +166,7 @@ export default function BankReportPage() {
       const matchesStatus = selectedStatus === 'all' || transfer.status === selectedStatus;
       return matchesSearch && matchesBank && matchesStatus;
     });
-  }, [searchTerm, selectedBank, selectedStatus]);
+  }, [bankTransfers, searchTerm, selectedBank, selectedStatus]);
 
   const banks = ['all', 'State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Axis Bank'];
   const statuses = ['all', 'pending', 'processed', 'completed', 'failed'];
@@ -164,6 +208,24 @@ export default function BankReportPage() {
         <h1 className="text-2xl font-bold text-gray-900">Bank Transfer Report</h1>
         <p className="text-sm text-gray-600 mt-1">Generate bank file for salary transfer</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading bank transfers…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && bankTransfers.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No bank transfers found.
+        </div>
+      )}
 
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">

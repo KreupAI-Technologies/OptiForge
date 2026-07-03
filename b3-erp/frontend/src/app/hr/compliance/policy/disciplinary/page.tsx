@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Scale, Search, FileText, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { HrComplianceDocsService, DisciplinaryAction as DisciplinaryActionDto } from '@/services/hr-compliance-docs.service';
 
 interface DisciplinaryAction {
   id: string;
@@ -39,6 +40,57 @@ export default function Page() {
   const [selectedActionType, setSelectedActionType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedSeverity, setSelectedSeverity] = useState('all');
+  const [items, setItems] = useState<DisciplinaryAction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getDisciplinaryActions();
+        if (!active) return;
+        const mapped: DisciplinaryAction[] = rows.map((r: DisciplinaryActionDto) => ({
+          id: r.id,
+          employeeId: r.employeeId || '',
+          employeeName: r.employeeName || '',
+          department: r.department || '',
+          designation: r.designation || '',
+          actionType: (r.actionType as DisciplinaryAction['actionType']) || 'verbal_warning',
+          violationCategory: (r.violationCategory as DisciplinaryAction['violationCategory']) || 'other',
+          incidentDate: r.incidentDate || '',
+          actionDate: r.actionDate || '',
+          issuedBy: r.issuedBy || '',
+          severity: (r.severity as DisciplinaryAction['severity']) || 'minor',
+          description: r.description || '',
+          justification: r.justification || '',
+          witnessList: r.witnessList || [],
+          evidenceDocuments: r.evidenceDocuments || [],
+          employeeStatement: r.employeeStatement,
+          suspensionDuration: r.suspensionDuration,
+          suspensionStartDate: r.suspensionStartDate,
+          suspensionEndDate: r.suspensionEndDate,
+          isPaid: r.isPaid,
+          appealStatus: (r.appealStatus as DisciplinaryAction['appealStatus']) || 'not_filed',
+          appealDeadline: r.appealDeadline,
+          appealFiledDate: r.appealFiledDate,
+          appealReviewedBy: r.appealReviewedBy,
+          appealOutcome: r.appealOutcome,
+          status: (r.status as DisciplinaryAction['status']) || 'active',
+          effectiveUntil: r.effectiveUntil,
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load disciplinary actions');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockDisciplinaryActions: DisciplinaryAction[] = [
     {
@@ -185,8 +237,10 @@ export default function Page() {
     }
   ];
 
+  const sourceDisciplinaryActions = items.length > 0 ? items : mockDisciplinaryActions;
+
   const filteredActions = useMemo(() => {
-    return mockDisciplinaryActions.filter(action => {
+    return sourceDisciplinaryActions.filter(action => {
       const matchesSearch = action.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            action.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            action.department.toLowerCase().includes(searchTerm.toLowerCase());
@@ -195,13 +249,13 @@ export default function Page() {
       const matchesSeverity = selectedSeverity === 'all' || action.severity === selectedSeverity;
       return matchesSearch && matchesActionType && matchesStatus && matchesSeverity;
     });
-  }, [searchTerm, selectedActionType, selectedStatus, selectedSeverity, mockDisciplinaryActions]);
+  }, [searchTerm, selectedActionType, selectedStatus, selectedSeverity, sourceDisciplinaryActions]);
 
   const stats = {
-    total: mockDisciplinaryActions.length,
-    active: mockDisciplinaryActions.filter(a => a.status === 'active').length,
-    suspended: mockDisciplinaryActions.filter(a => a.actionType === 'suspension').length,
-    appealed: mockDisciplinaryActions.filter(a => a.appealStatus === 'filed' || a.appealStatus === 'under_review').length
+    total: sourceDisciplinaryActions.length,
+    active: sourceDisciplinaryActions.filter(a => a.status === 'active').length,
+    suspended: sourceDisciplinaryActions.filter(a => a.actionType === 'suspension').length,
+    appealed: sourceDisciplinaryActions.filter(a => a.appealStatus === 'filed' || a.appealStatus === 'under_review').length
   };
 
   const actionTypeColors = {
@@ -245,6 +299,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Track and manage disciplinary actions, warnings, and appeals</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading disciplinary actions…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

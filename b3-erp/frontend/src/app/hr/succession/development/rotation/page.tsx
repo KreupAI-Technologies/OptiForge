@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RefreshCw, TrendingUp, Calendar, Target, Users, Building2 } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface JobRotation {
   id: string;
@@ -245,7 +246,25 @@ export default function Page() {
     }
   ];
 
-  const filteredRotations = mockRotations.filter(rotation => {
+  const [rows, setRows] = useState<JobRotation[]>(mockRotations);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<JobRotation>('rotation');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredRotations = rows.filter(rotation => {
     const matchesType = selectedType === 'all' || rotation.rotationType === selectedType;
     const matchesStatus = selectedStatus === 'all' || rotation.status === selectedStatus;
     return matchesType && matchesStatus;
@@ -272,10 +291,10 @@ export default function Page() {
     }
   };
 
-  const totalRotations = mockRotations.length;
-  const ongoingRotations = mockRotations.filter(r => r.status === 'ongoing').length;
-  const completedRotations = mockRotations.filter(r => r.status === 'completed').length;
-  const avgProgress = Math.round(mockRotations.filter(r => r.status !== 'completed').reduce((sum, r) => sum + r.progress, 0) / mockRotations.filter(r => r.status !== 'completed').length) || 0;
+  const totalRotations = rows.length;
+  const ongoingRotations = rows.filter(r => r.status === 'ongoing').length;
+  const completedRotations = rows.filter(r => r.status === 'completed').length;
+  const avgProgress = Math.round(rows.filter(r => r.status !== 'completed').reduce((sum, r) => sum + r.progress, 0) / rows.filter(r => r.status !== 'completed').length) || 0;
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -286,6 +305,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Cross-functional job rotations and developmental assignments</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-sm border border-purple-200 p-3">

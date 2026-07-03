@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Calendar, CreditCard, TrendingUp, FileText, Check, X } from 'lucide-react';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface ReconciliationItem {
   id: string;
@@ -26,8 +27,58 @@ interface ReconciliationItem {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
+  const [rows, setRows] = useState<ReconciliationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockReconciliation: ReconciliationItem[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getCardTransactions();
+        const mapped: ReconciliationItem[] = raw.map((r) => {
+          const txnDate = r.transactionDate ? new Date(r.transactionDate) : null;
+          const statementAmount = Number(r.amount ?? 0);
+          return {
+            id: r.id,
+            month: txnDate
+              ? txnDate.toLocaleDateString('en-US', { month: 'long' })
+              : '',
+            year: txnDate ? txnDate.getFullYear() : new Date().getFullYear(),
+            cardNumber: r.cardNumber ?? '',
+            cardHolder: r.cardHolder ?? '',
+            employeeCode: r.employeeCode ?? '',
+            department: r.department ?? '',
+            statementAmount,
+            recordedAmount: statementAmount,
+            difference: 0,
+            transactions: 1,
+            reconciled: 1,
+            pending: 0,
+            discrepancies: 0,
+            status: 'completed',
+            lastReconciledDate: r.transactionDate ?? undefined,
+            reconciledBy: undefined,
+          };
+        });
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load reconciliation data');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockReconciliation: ReconciliationItem[] = rows.length ? rows : [
     {
       id: '1',
       month: 'October',
@@ -173,6 +224,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Card Reconciliation</h1>
         <p className="text-sm text-gray-600 mt-1">Reconcile card statements with recorded transactions</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading reconciliation data…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

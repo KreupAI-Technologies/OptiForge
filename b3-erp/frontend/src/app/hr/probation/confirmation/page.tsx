@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, Users, Clock, XCircle, FileText, Calendar, X, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface ConfirmationRequest {
   id: string;
@@ -83,15 +84,33 @@ export default function Page() {
     }
   ];
 
-  const filteredRequests = mockRequests.filter(r =>
+  const [rows, setRows] = useState<ConfirmationRequest[]>(mockRequests);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getProbation<ConfirmationRequest>('confirmation');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredRequests = rows.filter(r =>
     selectedStatus === 'all' || r.status === selectedStatus
   );
 
   const stats = {
-    total: mockRequests.length,
-    pending: mockRequests.filter(r => r.status === 'pending').length,
-    approved: mockRequests.filter(r => r.status === 'approved').length,
-    rejected: mockRequests.filter(r => r.status === 'rejected').length
+    total: rows.length,
+    pending: rows.filter(r => r.status === 'pending').length,
+    approved: rows.filter(r => r.status === 'approved').length,
+    rejected: rows.filter(r => r.status === 'rejected').length
   };
 
   const statusColors = {
@@ -150,6 +169,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Confirmation Process</h1>
         <p className="text-sm text-gray-600 mt-1">Process probation confirmation requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

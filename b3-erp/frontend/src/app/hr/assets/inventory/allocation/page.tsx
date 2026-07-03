@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Package, User, Calendar, MapPin, CheckCircle, Clock, Send, Filter } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetAllocation {
   id: string;
@@ -28,7 +29,7 @@ export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockAllocations: AssetAllocation[] = [
+  const fallbackAllocations: AssetAllocation[] = [
     {
       id: '1',
       allocationId: 'ALLOC-2025-001',
@@ -168,6 +169,53 @@ export default function Page() {
     }
   ];
 
+  const [mockAllocations, setMockAllocations] = useState<AssetAllocation[]>(fallbackAllocations);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetAllocations();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockAllocations(
+            rows.map((r) => ({
+              id: r.id,
+              allocationId: r.allocationId || '',
+              assetTag: r.assetTag || '',
+              assetName: r.assetName || '',
+              category: (r.category as AssetAllocation['category']) || 'other',
+              employeeName: r.employeeName || '',
+              employeeCode: r.employeeCode || '',
+              department: r.department || '',
+              designation: r.designation || '',
+              location: r.location || '',
+              allocationDate: r.allocationDate || '',
+              expectedReturnDate: r.expectedReturnDate || undefined,
+              actualReturnDate: r.actualReturnDate || undefined,
+              status: (r.status as AssetAllocation['status']) || 'allocated',
+              condition: (r.condition as AssetAllocation['condition']) || 'good',
+              allocatedBy: r.allocatedBy || '',
+              remarks: r.remarks || undefined,
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load allocations');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredAllocations = mockAllocations.filter(a => {
     const statusMatch = selectedStatus === 'all' || a.status === selectedStatus;
     const categoryMatch = selectedCategory === 'all' || a.category === selectedCategory;
@@ -211,6 +259,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Allocation</h1>
         <p className="text-sm text-gray-600 mt-1">Manage asset allocations to employees</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading allocations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

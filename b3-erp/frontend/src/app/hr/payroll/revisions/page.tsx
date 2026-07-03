@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { History, TrendingUp, Search, Eye, FileText, DollarSign, Calendar, CheckCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { History, TrendingUp, Search, Eye, FileText, DollarSign, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface SalaryRevision {
   id: string;
@@ -29,6 +30,53 @@ export default function PayrollRevisionsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  const [revisions, setRevisions] = useState<SalaryRevision[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getSalaryRevisions('revision');
+        const mapped: SalaryRevision[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.details?.id ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          grade: r.grade ?? r.details?.grade ?? '',
+          revisionType: (r.revisionType ?? r.details?.revisionType ?? 'annual') as SalaryRevision['revisionType'],
+          previousCTC: Number(r.previousCTC ?? r.details?.previousCTC ?? 0),
+          revisedCTC: Number(r.revisedCTC ?? r.details?.revisedCTC ?? 0),
+          increaseAmount: Number(r.increaseAmount ?? r.amount ?? r.details?.increaseAmount ?? 0),
+          increasePercentage: Number(r.increasePercentage ?? r.details?.increasePercentage ?? 0),
+          effectiveFrom: r.effectiveFrom ?? r.effectiveDate ?? r.details?.effectiveFrom ?? '',
+          reason: r.reason ?? r.details?.reason ?? '',
+          approvedBy: r.approvedBy ?? r.details?.approvedBy ?? '',
+          approvedOn: r.approvedOn ?? r.approvedDate ?? r.details?.approvedOn ?? '',
+          processedBy: r.processedBy ?? r.details?.processedBy ?? undefined,
+          processedOn: r.processedOn ?? r.details?.processedOn ?? undefined,
+          status: (r.status ?? r.details?.status ?? 'pending') as SalaryRevision['status'],
+        }));
+        if (!cancelled) setRevisions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load salary revisions');
+          setRevisions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockRevisions: SalaryRevision[] = [
     {
@@ -148,7 +196,7 @@ export default function PayrollRevisionsPage() {
   ];
 
   const filteredRevisions = useMemo(() => {
-    return mockRevisions.filter(revision => {
+    return revisions.filter(revision => {
       const matchesSearch =
         revision.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         revision.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -158,14 +206,14 @@ export default function PayrollRevisionsPage() {
       const matchesStatus = selectedStatus === 'all' || revision.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesType && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedType, selectedStatus]);
+  }, [revisions, searchTerm, selectedDepartment, selectedType, selectedStatus]);
 
   const stats = {
-    total: mockRevisions.length,
-    pending: mockRevisions.filter(r => r.status === 'pending').length,
-    approved: mockRevisions.filter(r => r.status === 'approved').length,
-    processed: mockRevisions.filter(r => r.status === 'processed').length,
-    totalIncrease: mockRevisions.reduce((sum, r) => sum + r.increaseAmount, 0)
+    total: revisions.length,
+    pending: revisions.filter(r => r.status === 'pending').length,
+    approved: revisions.filter(r => r.status === 'approved').length,
+    processed: revisions.filter(r => r.status === 'processed').length,
+    totalIncrease: revisions.reduce((sum, r) => sum + r.increaseAmount, 0)
   };
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
@@ -202,6 +250,24 @@ export default function PayrollRevisionsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Salary Revisions</h1>
         <p className="text-sm text-gray-600 mt-1">Track salary increment and revision history</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading salary revisions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && revisions.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No salary revisions found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

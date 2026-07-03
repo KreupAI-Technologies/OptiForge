@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, Users, CheckCircle, AlertTriangle, Calendar, TrendingUp, User, Briefcase, X, Eye, FileText, MessageSquare } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface ProbationEmployee {
   id: string;
@@ -133,23 +134,41 @@ export default function Page() {
     }
   ];
 
-  const filteredEmployees = mockEmployees.filter(emp => {
+  const [rows, setRows] = useState<ProbationEmployee[]>(mockEmployees);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getProbation<ProbationEmployee>('tracking');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredEmployees = rows.filter(emp => {
     const matchesStatus = selectedStatus === 'all' || emp.status === selectedStatus;
     const matchesDept = selectedDepartment === 'all' || emp.department === selectedDepartment;
     return matchesStatus && matchesDept;
   });
 
   const stats = {
-    total: mockEmployees.length,
-    ongoing: mockEmployees.filter(e => e.status === 'ongoing').length,
-    dueSoon: mockEmployees.filter(e => e.status === 'due_soon').length,
-    overdue: mockEmployees.filter(e => e.status === 'overdue').length,
+    total: rows.length,
+    ongoing: rows.filter(e => e.status === 'ongoing').length,
+    dueSoon: rows.filter(e => e.status === 'due_soon').length,
+    overdue: rows.filter(e => e.status === 'overdue').length,
     avgPerformance: Math.round(
-      mockEmployees.reduce((sum, e) => sum + e.performanceScore, 0) / mockEmployees.length
+      rows.reduce((sum, e) => sum + e.performanceScore, 0) / rows.length
     )
   };
 
-  const departments = ['all', ...Array.from(new Set(mockEmployees.map(e => e.department)))];
+  const departments = ['all', ...Array.from(new Set(rows.map(e => e.department)))];
 
   const statusColors = {
     ongoing: 'bg-blue-100 text-blue-700',
@@ -201,6 +220,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Probation Tracking</h1>
         <p className="text-sm text-gray-600 mt-1">Monitor and manage employee probation periods</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

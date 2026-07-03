@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GraduationCap, Upload, Download, Eye, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService, HrDocument } from '@/services/hr-compliance-docs.service';
 
 interface EducationDocument {
   id: string;
@@ -25,6 +26,45 @@ interface EducationDocument {
 export default function EducationDocumentsPage() {
   const [selectedLevel, setSelectedLevel] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [items, setItems] = useState<EducationDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getDocuments('education');
+        if (!active) return;
+        const mapped: EducationDocument[] = rows.map((r: HrDocument) => ({
+          id: r.id,
+          educationLevel: r.meta?.educationLevel || '',
+          degree: r.meta?.degree || '',
+          specialization: r.meta?.specialization || '',
+          institution: r.meta?.institution || '',
+          university: r.meta?.university || '',
+          yearOfPassing: r.meta?.yearOfPassing || 0,
+          percentage: r.meta?.percentage || 0,
+          certificateNumber: r.documentNumber || '',
+          uploadedOn: r.uploadedOn || '',
+          status: (r.status as EducationDocument['status']) || 'pending',
+          fileSize: r.fileSize || '',
+          fileName: r.fileName || '',
+          verifiedBy: r.verifiedBy,
+          verifiedOn: r.verifiedOn,
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockDocuments: EducationDocument[] = [
     {
@@ -112,21 +152,23 @@ export default function EducationDocumentsPage() {
     }
   ];
 
+  const sourceDocuments = items.length > 0 ? items : mockDocuments;
+
   const filteredDocuments = useMemo(() => {
-    return mockDocuments.filter(doc => {
+    return sourceDocuments.filter(doc => {
       const matchesLevel = selectedLevel === 'all' || doc.educationLevel === selectedLevel;
       const matchesStatus = selectedStatus === 'all' || doc.status === selectedStatus;
       return matchesLevel && matchesStatus;
     });
-  }, [selectedLevel, selectedStatus]);
+  }, [selectedLevel, selectedStatus, sourceDocuments]);
 
-  const educationLevels = ['all', ...Array.from(new Set(mockDocuments.map(d => d.educationLevel)))];
+  const educationLevels = ['all', ...Array.from(new Set(sourceDocuments.map(d => d.educationLevel)))];
 
   const stats = {
-    total: mockDocuments.length,
-    verified: mockDocuments.filter(d => d.status === 'verified').length,
-    pending: mockDocuments.filter(d => d.status === 'pending').length,
-    rejected: mockDocuments.filter(d => d.status === 'rejected').length
+    total: sourceDocuments.length,
+    verified: sourceDocuments.filter(d => d.status === 'verified').length,
+    pending: sourceDocuments.filter(d => d.status === 'pending').length,
+    rejected: sourceDocuments.filter(d => d.status === 'rejected').length
   };
 
   const statusColors = {
@@ -153,6 +195,15 @@ export default function EducationDocumentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Education Documents</h1>
         <p className="text-sm text-gray-600 mt-1">Manage your educational qualifications and certificates</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading documents…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">

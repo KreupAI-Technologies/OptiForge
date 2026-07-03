@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, AlertCircle, User } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface NoticePeriodTracker {
   id: string;
@@ -19,7 +20,38 @@ interface NoticePeriodTracker {
 }
 
 export default function NoticePeriodPage() {
-  const mockNoticePeriods: NoticePeriodTracker[] = [
+  const [mockNoticePeriods, setMockNoticePeriods] = useState<NoticePeriodTracker[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('notice-period');
+        if (!active) return;
+        const mapped = records.map((r: OffboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as NoticePeriodTracker[];
+        setMockNoticePeriods(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockNoticePeriods: NoticePeriodTracker[] = [
     {
       id: 'NP001',
       employeeId: 'EMP001',

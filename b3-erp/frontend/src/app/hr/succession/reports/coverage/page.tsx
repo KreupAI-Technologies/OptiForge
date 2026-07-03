@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PieChart, Target, Users, AlertCircle, CheckCircle, TrendingUp } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface CoverageData {
   department: string;
@@ -98,9 +99,27 @@ export default function Page() {
     }
   ];
 
+  const [rows, setRows] = useState<CoverageData[]>(mockCoverageData);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<CoverageData>('coverage');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredData = selectedDepartment === 'all'
-    ? mockCoverageData
-    : mockCoverageData.filter(d => d.department === selectedDepartment);
+    ? rows
+    : rows.filter(d => d.department === selectedDepartment);
 
   const getCoverageColor = (ratio: number) => {
     if (ratio >= 90) return 'text-green-600';
@@ -116,12 +135,12 @@ export default function Page() {
     return 'bg-red-500';
   };
 
-  const totalCritical = mockCoverageData.reduce((sum, d) => sum + d.criticalPositions, 0);
-  const totalCovered = mockCoverageData.reduce((sum, d) => sum + d.coveredPositions, 0);
-  const totalUncovered = mockCoverageData.reduce((sum, d) => sum + d.uncoveredPositions, 0);
-  const overallCoverage = Math.round((totalCovered / totalCritical) * 100);
-  const avgSuccessors = (mockCoverageData.reduce((sum, d) => sum + d.avgSuccessorsPerPosition, 0) / mockCoverageData.length).toFixed(1);
-  const totalReadyNow = mockCoverageData.reduce((sum, d) => sum + d.readyNow, 0);
+  const totalCritical = rows.reduce((sum, d) => sum + d.criticalPositions, 0);
+  const totalCovered = rows.reduce((sum, d) => sum + d.coveredPositions, 0);
+  const totalUncovered = rows.reduce((sum, d) => sum + d.uncoveredPositions, 0);
+  const overallCoverage = totalCritical ? Math.round((totalCovered / totalCritical) * 100) : 0;
+  const avgSuccessors = (rows.length ? rows.reduce((sum, d) => sum + d.avgSuccessorsPerPosition, 0) / rows.length : 0).toFixed(1);
+  const totalReadyNow = rows.reduce((sum, d) => sum + d.readyNow, 0);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -132,6 +151,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Succession planning coverage and readiness metrics</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-sm border border-purple-200 p-3">
@@ -228,7 +259,7 @@ export default function Page() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
           <h3 className="text-sm font-bold text-gray-900 mb-2">Coverage by Department</h3>
           <div className="space-y-3">
-            {mockCoverageData.map((dept, idx) => (
+            {rows.map((dept, idx) => (
               <div key={idx}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-gray-700">{dept.department}</span>
@@ -247,7 +278,7 @@ export default function Page() {
         <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Department</label>
         <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)} className="w-full md:w-96 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500">
           <option value="all">All Departments</option>
-          {mockCoverageData.map(dept => (
+          {rows.map(dept => (
             <option key={dept.department} value={dept.department}>{dept.department}</option>
           ))}
         </select>

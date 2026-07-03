@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Shield, Upload, Download, Eye, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService, HrDocument } from '@/services/hr-compliance-docs.service';
 
 interface InsuranceDocument {
   id: string;
@@ -22,6 +23,42 @@ interface InsuranceDocument {
 export default function InsuranceDocumentsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [items, setItems] = useState<InsuranceDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getDocuments('insurance');
+        if (!active) return;
+        const mapped: InsuranceDocument[] = rows.map((r: HrDocument) => ({
+          id: r.id,
+          insuranceType: r.documentType || '',
+          policyNumber: r.documentNumber || '',
+          insuranceProvider: r.issuingAuthority || '',
+          coverageAmount: r.meta?.coverageAmount || 0,
+          policyStartDate: r.issueDate || '',
+          policyEndDate: r.expiryDate || '',
+          premiumAmount: r.meta?.premiumAmount,
+          uploadedOn: r.uploadedOn || '',
+          status: (r.status as InsuranceDocument['status']) || 'pending',
+          fileSize: r.fileSize || '',
+          fileName: r.fileName || '',
+          nominees: r.meta?.nominees,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockDocuments: InsuranceDocument[] = [
     {
@@ -84,21 +121,23 @@ export default function InsuranceDocumentsPage() {
     }
   ];
 
+  const sourceDocuments = items.length > 0 ? items : mockDocuments;
+
   const filteredDocuments = useMemo(() => {
-    return mockDocuments.filter(doc => {
+    return sourceDocuments.filter(doc => {
       const matchesType = selectedType === 'all' || doc.insuranceType === selectedType;
       const matchesStatus = selectedStatus === 'all' || doc.status === selectedStatus;
       return matchesType && matchesStatus;
     });
-  }, [selectedType, selectedStatus]);
+  }, [selectedType, selectedStatus, sourceDocuments]);
 
-  const insuranceTypes = ['all', ...Array.from(new Set(mockDocuments.map(d => d.insuranceType)))];
+  const insuranceTypes = ['all', ...Array.from(new Set(sourceDocuments.map(d => d.insuranceType)))];
 
   const stats = {
-    total: mockDocuments.length,
-    active: mockDocuments.filter(d => d.status === 'active').length,
-    pending: mockDocuments.filter(d => d.status === 'pending').length,
-    totalCoverage: mockDocuments.filter(d => d.status === 'active').reduce((sum, d) => sum + d.coverageAmount, 0)
+    total: sourceDocuments.length,
+    active: sourceDocuments.filter(d => d.status === 'active').length,
+    pending: sourceDocuments.filter(d => d.status === 'pending').length,
+    totalCoverage: sourceDocuments.filter(d => d.status === 'active').reduce((sum, d) => sum + d.coverageAmount, 0)
   };
 
   const statusColors = {
@@ -120,6 +159,15 @@ export default function InsuranceDocumentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Insurance Documents</h1>
         <p className="text-sm text-gray-600 mt-1">Manage your company-provided insurance policies and documents</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading documents…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">

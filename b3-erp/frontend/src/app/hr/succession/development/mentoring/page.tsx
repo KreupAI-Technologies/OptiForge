@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, TrendingUp, Calendar, Target, MessageCircle, CheckCircle } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface MentoringPair {
   id: string;
@@ -251,7 +252,25 @@ export default function Page() {
     }
   ];
 
-  const filteredPairs = mockPairs.filter(pair => {
+  const [rows, setRows] = useState<MentoringPair[]>(mockPairs);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<MentoringPair>('mentoring');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredPairs = rows.filter(pair => {
     const matchesType = selectedType === 'all' || pair.programType === selectedType;
     const matchesStatus = selectedStatus === 'all' || pair.status === selectedStatus;
     return matchesType && matchesStatus;
@@ -277,10 +296,10 @@ export default function Page() {
     }
   };
 
-  const totalPairs = mockPairs.length;
-  const activePairs = mockPairs.filter(p => p.status === 'active').length;
-  const avgProgress = Math.round(mockPairs.reduce((sum, p) => sum + p.progress, 0) / totalPairs);
-  const totalMeetings = mockPairs.reduce((sum, p) => sum + p.totalMeetings, 0);
+  const totalPairs = rows.length;
+  const activePairs = rows.filter(p => p.status === 'active').length;
+  const avgProgress = Math.round(rows.reduce((sum, p) => sum + p.progress, 0) / totalPairs);
+  const totalMeetings = rows.reduce((sum, p) => sum + p.totalMeetings, 0);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -291,6 +310,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Mentor-mentee relationships and progress tracking</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-sm border border-purple-200 p-3">

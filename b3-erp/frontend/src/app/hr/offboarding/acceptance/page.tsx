@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, FileText, Calendar } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface ResignationAcceptance {
   id: string;
@@ -21,7 +22,38 @@ interface ResignationAcceptance {
 }
 
 export default function AcceptancePage() {
-  const mockAcceptances: ResignationAcceptance[] = [
+  const [mockAcceptances, setMockAcceptances] = useState<ResignationAcceptance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('acceptance');
+        if (!active) return;
+        const mapped = records.map((r: OffboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as ResignationAcceptance[];
+        setMockAcceptances(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockAcceptances: ResignationAcceptance[] = [
     {
       id: 'ACC001',
       employeeId: 'EMP001',

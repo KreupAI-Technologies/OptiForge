@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Target, Plus, Search, Filter, Edit, Trash2, TrendingUp } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface KPI {
   id: string;
@@ -99,25 +100,43 @@ export default function KPIMasterPage() {
     }
   ];
 
-  const departments = ['all', ...Array.from(new Set(mockKPIs.map(k => k.department)))];
+  const [rows, setRows] = useState<KPI[]>(mockKPIs);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getPerformance<KPI>('kpi');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const departments = ['all', ...Array.from(new Set(rows.map(k => k.department)))];
 
   const filteredKPIs = useMemo(() => {
-    return mockKPIs.filter(kpi => {
+    return rows.filter(kpi => {
       const matchesSearch = kpi.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            kpi.code.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || kpi.category === selectedCategory;
       const matchesDepartment = selectedDepartment === 'all' || kpi.department === selectedDepartment;
       return matchesSearch && matchesCategory && matchesDepartment;
     });
-  }, [searchTerm, selectedCategory, selectedDepartment]);
+  }, [searchTerm, selectedCategory, selectedDepartment, rows]);
 
   const stats = {
-    total: mockKPIs.length,
-    production: mockKPIs.filter(k => k.category === 'production').length,
-    quality: mockKPIs.filter(k => k.category === 'quality').length,
-    safety: mockKPIs.filter(k => k.category === 'safety').length,
-    efficiency: mockKPIs.filter(k => k.category === 'efficiency').length,
-    active: mockKPIs.filter(k => k.status === 'active').length
+    total: rows.length,
+    production: rows.filter(k => k.category === 'production').length,
+    quality: rows.filter(k => k.category === 'quality').length,
+    safety: rows.filter(k => k.category === 'safety').length,
+    efficiency: rows.filter(k => k.category === 'efficiency').length,
+    active: rows.filter(k => k.status === 'active').length
   };
 
   const getCategoryColor = (category: string) => {
@@ -203,6 +222,18 @@ export default function KPIMasterPage() {
         </h1>
         <p className="text-gray-600 mt-2">Define and manage key performance indicators</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { User, Target, TrendingUp, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface MyGoal {
   id: string;
@@ -49,17 +50,35 @@ export default function MyGoalsPage() {
     }
   ];
 
+  const [rows, setRows] = useState<MyGoal[]>(mockGoals);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getPerformance<MyGoal>('my-goal');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredGoals = useMemo(() => {
-    if (selectedStatus === 'all') return mockGoals;
-    return mockGoals.filter(goal => goal.status === selectedStatus);
-  }, [selectedStatus]);
+    if (selectedStatus === 'all') return rows;
+    return rows.filter(goal => goal.status === selectedStatus);
+  }, [selectedStatus, rows]);
 
   const stats = {
-    total: mockGoals.length,
-    onTrack: mockGoals.filter(g => g.status === 'on_track').length,
-    atRisk: mockGoals.filter(g => g.status === 'at_risk').length,
-    completed: mockGoals.filter(g => g.status === 'completed').length,
-    avgProgress: Math.round(mockGoals.reduce((sum, g) => sum + g.progress, 0) / mockGoals.length)
+    total: rows.length,
+    onTrack: rows.filter(g => g.status === 'on_track').length,
+    atRisk: rows.filter(g => g.status === 'at_risk').length,
+    completed: rows.filter(g => g.status === 'completed').length,
+    avgProgress: rows.length ? Math.round(rows.reduce((sum, g) => sum + g.progress, 0) / rows.length) : 0
   };
 
   const getStatusColor = (status: string) => {
@@ -144,6 +163,18 @@ export default function MyGoalsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Track your personal performance objectives</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

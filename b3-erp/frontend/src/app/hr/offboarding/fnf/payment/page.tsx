@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Send, CheckCircle, Clock, IndianRupee, Download, AlertCircle, X, Eye, CreditCard, Building2, Calendar } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface FNFPayment {
   id: string;
@@ -67,7 +68,38 @@ export default function FNFPaymentPage() {
     confirmationRemarks: ''
   });
 
-  const mockPayments: FNFPayment[] = [
+  const [mockPayments, setMockPayments] = useState<FNFPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('fnf-payment');
+        if (!active) return;
+        const mapped = records.map((r: OffboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as FNFPayment[];
+        setMockPayments(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockPayments: FNFPayment[] = [
     {
       id: 'FNF-PAY-001', employeeId: 'EMP001', employeeName: 'Rahul Sharma', designation: 'Senior Software Engineer', department: 'Engineering',
       lastWorkingDay: '2025-12-14',

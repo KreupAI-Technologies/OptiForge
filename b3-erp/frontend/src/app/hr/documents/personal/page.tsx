@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, Upload, Download, Eye, CheckCircle, XCircle, Clock, AlertCircle, Calendar } from 'lucide-react';
+import { HrComplianceDocsService, HrDocument } from '@/services/hr-compliance-docs.service';
 
 interface PersonalDocument {
   id: string;
@@ -23,6 +24,43 @@ interface PersonalDocument {
 export default function PersonalDocumentsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [items, setItems] = useState<PersonalDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getDocuments('personal');
+        if (!active) return;
+        const mapped: PersonalDocument[] = rows.map((r: HrDocument) => ({
+          id: r.id,
+          documentType: r.documentType || '',
+          documentNumber: r.documentNumber || '',
+          issueDate: r.issueDate || '',
+          expiryDate: r.expiryDate,
+          issuingAuthority: r.issuingAuthority || '',
+          uploadedOn: r.uploadedOn || '',
+          uploadedBy: r.uploadedBy || '',
+          status: (r.status as PersonalDocument['status']) || 'pending',
+          fileSize: r.fileSize || '',
+          fileName: r.fileName || '',
+          verifiedBy: r.verifiedBy,
+          verifiedOn: r.verifiedOn,
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockDocuments: PersonalDocument[] = [
     {
@@ -111,21 +149,23 @@ export default function PersonalDocumentsPage() {
     }
   ];
 
+  const sourceDocuments = items.length > 0 ? items : mockDocuments;
+
   const filteredDocuments = useMemo(() => {
-    return mockDocuments.filter(doc => {
+    return sourceDocuments.filter(doc => {
       const matchesType = selectedType === 'all' || doc.documentType === selectedType;
       const matchesStatus = selectedStatus === 'all' || doc.status === selectedStatus;
       return matchesType && matchesStatus;
     });
-  }, [selectedType, selectedStatus]);
+  }, [selectedType, selectedStatus, sourceDocuments]);
 
-  const documentTypes = ['all', ...Array.from(new Set(mockDocuments.map(d => d.documentType)))];
+  const documentTypes = ['all', ...Array.from(new Set(sourceDocuments.map(d => d.documentType)))];
 
   const stats = {
-    total: mockDocuments.length,
-    verified: mockDocuments.filter(d => d.status === 'verified').length,
-    pending: mockDocuments.filter(d => d.status === 'pending').length,
-    expired: mockDocuments.filter(d => d.status === 'expired').length
+    total: sourceDocuments.length,
+    verified: sourceDocuments.filter(d => d.status === 'verified').length,
+    pending: sourceDocuments.filter(d => d.status === 'pending').length,
+    expired: sourceDocuments.filter(d => d.status === 'expired').length
   };
 
   const statusColors = {
@@ -156,6 +196,15 @@ export default function PersonalDocumentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Personal Documents</h1>
         <p className="text-sm text-gray-600 mt-1">Manage your identity and address proof documents</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading documents…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

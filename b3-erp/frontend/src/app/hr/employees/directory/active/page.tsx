@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Users, Search, Filter, Download, CheckCircle, Mail, Phone, Calendar, Building2, Award } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Users, Search, Filter, Download, CheckCircle, Mail, Phone, Calendar, Building2, Award, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
+import { EmployeeService } from '@/services/employee.service';
 
 interface ActiveEmployee {
   id: string;
@@ -29,8 +30,65 @@ export default function ActiveEmployeesPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedWorkMode, setSelectedWorkMode] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [rows, setRows] = useState<ActiveEmployee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockActiveEmployees: ActiveEmployee[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await EmployeeService.getAllEmployees()) as any[];
+        const typeMap: Record<string, ActiveEmployee['employeeType']> = {
+          'Full Time': 'permanent', 'Permanent': 'permanent',
+          'Contract': 'contract', 'Contractor': 'contract',
+          'Intern': 'intern', 'Internship': 'intern',
+        };
+        const yearsSince = (d?: string) => {
+          if (!d) return 0;
+          const diff = Date.now() - new Date(d).getTime();
+          return Math.max(0, Math.floor(diff / (365.25 * 24 * 3600 * 1000)));
+        };
+        const mapped: ActiveEmployee[] = raw
+          .filter((e) => {
+            const s = String(e.status ?? e.employmentStatus ?? 'Active').toLowerCase();
+            return !['inactive', 'terminated', 'resigned', 'exited'].includes(s);
+          })
+          .map((e) => ({
+            id: e.id,
+            employeeCode: e.employeeCode ?? '',
+            name: e.fullName ?? [e.firstName, e.lastName].filter(Boolean).join(' '),
+            designation: e.designation ?? e.designationName ?? '',
+            department: e.departmentName ?? e.department ?? '',
+            email: e.companyEmail ?? e.email ?? e.personalEmail ?? '',
+            phone: e.mobileNumber ?? e.phone ?? '',
+            joiningDate: e.joiningDate ?? e.dateOfJoining ?? '',
+            employeeType: typeMap[e.employmentType] ?? 'permanent',
+            workMode: (e.workMode as ActiveEmployee['workMode']) ?? 'onsite',
+            location: e.city ?? e.location ?? '',
+            supervisor: e.reportingManagerName ?? '',
+            yearsOfService: yearsSince(e.joiningDate ?? e.dateOfJoining),
+            performanceRating: Number(e.performanceRating ?? 0),
+            lastAppraisal: e.lastAppraisal ?? '',
+          }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load employees');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockActiveEmployees: ActiveEmployee[] = rows.length ? rows : [
     { id: 'AE001', employeeCode: 'KMF2020001', name: 'Rajesh Kumar Sharma', designation: 'Production Manager', department: 'Production',
       email: 'rajesh.sharma@company.com', phone: '+91 98765 43210', joiningDate: '2020-01-15', employeeType: 'permanent',
       workMode: 'onsite', location: 'Plant A', supervisor: 'VP Operations', yearsOfService: 4, performanceRating: 4.5, lastAppraisal: '2024-01-15' },
@@ -71,7 +129,7 @@ export default function ActiveEmployeesPage() {
       const matchesWorkMode = selectedWorkMode === 'all' || emp.workMode === selectedWorkMode;
       return matchesSearch && matchesDepartment && matchesType && matchesWorkMode;
     });
-  }, [searchTerm, selectedDepartment, selectedType, selectedWorkMode]);
+  }, [searchTerm, selectedDepartment, selectedType, selectedWorkMode, rows]);
 
   const stats = useMemo(() => {
     const permanent = mockActiveEmployees.filter(e => e.employeeType === 'permanent').length;
@@ -126,6 +184,19 @@ export default function ActiveEmployeesPage() {
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2"><CheckCircle className="h-8 w-8 text-green-600" />Active Employees</h1>
         <p className="text-gray-600 mt-2">Currently working employees directory</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading employees…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
         <div className="bg-white border-2 border-green-200 rounded-lg p-3">

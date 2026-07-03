@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Key, Search, Filter, X, Download, CheckCircle, Clock, AlertCircle, User, Shield, Mail, Database, Wifi, Lock, Eye } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface SystemAccess {
   id: string;
@@ -30,7 +31,39 @@ export default function AccessSetupPage() {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const mockAccessRequests: SystemAccess[] = [
+  const [mockAccessRequests, setMockAccessRequests] = useState<SystemAccess[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('access');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as SystemAccess[];
+        setMockAccessRequests(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockAccessRequests: SystemAccess[] = [
     {
       id: '1',
       employeeCode: 'EMP2025001',

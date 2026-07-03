@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageSquare, Send, Users, Search, ThumbsUp, AlertCircle, Lightbulb } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface Employee {
   id: string;
@@ -31,7 +32,25 @@ export default function GiveFeedbackPage() {
     { id: '8', code: 'KMF2458', name: 'Deepa Gupta', designation: 'Assembly Technician', department: 'Manufacturing' }
   ];
 
-  const filteredEmployees = mockEmployees.filter(emp =>
+  const [rows, setRows] = useState<Employee[]>(mockEmployees);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getPerformance<Employee>('feedback-target');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredEmployees = rows.filter(emp =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -92,6 +111,18 @@ export default function GiveFeedbackPage() {
         </h1>
         <p className="text-gray-600 mt-2">Provide constructive feedback to colleagues</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Info Banner */}
       <div className="bg-teal-50 border-l-4 border-teal-500 rounded-lg p-3 mb-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Monitor, User, Calendar, CheckCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface DesktopAsset {
   id: string;
@@ -26,7 +27,7 @@ interface DesktopAsset {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockDesktops: DesktopAsset[] = [
+  const fallbackDesktops: DesktopAsset[] = [
     {
       id: '1',
       assetTag: 'DESK-2024-001',
@@ -83,6 +84,53 @@ export default function Page() {
     }
   ];
 
+  const [mockDesktops, setMockDesktops] = useState<DesktopAsset[]>(fallbackDesktops);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetItems('desktop');
+        if (cancelled) return;
+        if (rows.length) {
+          setMockDesktops(
+            rows.map((r) => ({
+              id: r.id,
+              assetTag: r.assetTag || '',
+              brand: r.brand || '',
+              model: r.model || '',
+              serialNumber: r.serialNumber || '',
+              processor: r.processor || '',
+              ram: r.ram || '',
+              storage: r.storage || '',
+              purchaseDate: r.purchaseDate || '',
+              warranty: r.warranty || '',
+              cost: Number(r.cost ?? 0),
+              status: (r.status as DesktopAsset['status']) || 'available',
+              condition: (r.condition as DesktopAsset['condition']) || 'good',
+              assignedTo: r.assignedTo || undefined,
+              employeeCode: r.employeeCode || undefined,
+              department: r.department || undefined,
+              location: r.location || '',
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load desktops');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredDesktops = mockDesktops.filter(d => selectedStatus === 'all' || d.status === selectedStatus);
 
   const stats = useMemo(() => ({
@@ -105,6 +153,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Desktop Assets</h1>
         <p className="text-sm text-gray-600 mt-1">Manage and track desktop inventory</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading desktops…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

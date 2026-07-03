@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, CheckCircle, Clock, Download, Send } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface RelievingLetter {
   id: string;
@@ -26,7 +27,38 @@ interface RelievingLetter {
 export default function RelievingLetterPage() {
   const [selectedTab, setSelectedTab] = useState<'pending' | 'generated' | 'approved' | 'issued'>('pending');
 
-  const mockLetters: RelievingLetter[] = [
+  const [mockLetters, setMockLetters] = useState<RelievingLetter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('docs-relieving');
+        if (!active) return;
+        const mapped = records.map((r: OffboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as RelievingLetter[];
+        setMockLetters(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockLetters: RelievingLetter[] = [
 
     {
       id: 'REL-001', employeeId: 'EMP001', employeeName: 'Rahul Sharma', designation: 'Senior Software Engineer', department: 'Engineering',

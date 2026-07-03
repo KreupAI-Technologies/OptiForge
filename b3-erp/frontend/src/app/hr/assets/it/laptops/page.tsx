@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Laptop, User, Calendar, Package, IndianRupee, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface LaptopAsset {
   id: string;
@@ -27,7 +28,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedBrand, setSelectedBrand] = useState('all');
 
-  const mockLaptops: LaptopAsset[] = [
+  const fallbackLaptops: LaptopAsset[] = [
     {
       id: '1',
       assetTag: 'LAP-2024-001',
@@ -116,6 +117,53 @@ export default function Page() {
     }
   ];
 
+  const [mockLaptops, setMockLaptops] = useState<LaptopAsset[]>(fallbackLaptops);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetItems('laptop');
+        if (cancelled) return;
+        if (rows.length) {
+          setMockLaptops(
+            rows.map((r) => ({
+              id: r.id,
+              assetTag: r.assetTag || '',
+              brand: r.brand || '',
+              model: r.model || '',
+              serialNumber: r.serialNumber || '',
+              processor: r.processor || '',
+              ram: r.ram || '',
+              storage: r.storage || '',
+              purchaseDate: r.purchaseDate || '',
+              warranty: r.warranty || '',
+              cost: Number(r.cost ?? 0),
+              status: (r.status as LaptopAsset['status']) || 'available',
+              condition: (r.condition as LaptopAsset['condition']) || 'good',
+              assignedTo: r.assignedTo || undefined,
+              employeeCode: r.employeeCode || undefined,
+              department: r.department || undefined,
+              location: r.location || '',
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load laptops');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredLaptops = mockLaptops.filter(l => {
     const statusMatch = selectedStatus === 'all' || l.status === selectedStatus;
     const brandMatch = selectedBrand === 'all' || l.brand === selectedBrand;
@@ -149,6 +197,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Laptop Assets</h1>
         <p className="text-sm text-gray-600 mt-1">Manage and track laptop inventory</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading laptops…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

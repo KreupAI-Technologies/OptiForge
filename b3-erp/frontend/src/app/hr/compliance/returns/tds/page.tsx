@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Receipt, Download, Upload, CheckCircle, AlertCircle, Clock, FileText, Calendar } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceReturn } from '@/services/hr-compliance-docs.service';
 
 interface TDSReturn {
   id: string;
@@ -30,6 +31,45 @@ export default function Page() {
   const [selectedQuarter, setSelectedQuarter] = useState('Q3');
   const [selectedYear, setSelectedYear] = useState('2025-26');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [items, setItems] = useState<TDSReturn[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getReturns('tds');
+        if (!active) return;
+        const mapped: TDSReturn[] = rows.map((r: ComplianceReturn) => ({
+          id: r.id,
+          quarter: r.quarter || '',
+          financialYear: r.financialYear || '',
+          formType: (r.formType as TDSReturn['formType']) || '24Q',
+          establishment: r.establishment || '',
+          tanNumber: r.registrationNumber || '',
+          dueDate: r.dueDate || '',
+          filingDate: r.filingDate,
+          status: (r.status as TDSReturn['status']) || 'draft',
+          totalDeductees: r.totalDeductees || 0,
+          grossSalary: r.grossSalary || 0,
+          totalTDSDeducted: r.totalDeducted || 0,
+          totalTDSDeposited: r.totalPaid || 0,
+          acknowledgmentNumber: r.acknowledgmentNumber,
+          challanDetails: r.challanDetails || [],
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load returns');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockTDSReturns: TDSReturn[] = [
     {
@@ -118,7 +158,9 @@ export default function Page() {
     }
   ];
 
-  const filteredReturns = mockTDSReturns.filter(ret => {
+  const sourceTDSReturns = items.length > 0 ? items : mockTDSReturns;
+
+  const filteredReturns = sourceTDSReturns.filter(ret => {
     const matchesQuarter = selectedQuarter === 'all' || ret.quarter === selectedQuarter;
     const matchesYear = selectedYear === 'all' || ret.financialYear === selectedYear;
     const matchesStatus = selectedStatus === 'all' || ret.status === selectedStatus;
@@ -126,10 +168,10 @@ export default function Page() {
   });
 
   const stats = {
-    totalReturns: mockTDSReturns.length,
-    filed: mockTDSReturns.filter(r => r.status === 'filed').length,
-    pending: mockTDSReturns.filter(r => r.status === 'pending_approval' || r.status === 'draft').length,
-    overdue: mockTDSReturns.filter(r => r.status === 'overdue').length
+    totalReturns: sourceTDSReturns.length,
+    filed: sourceTDSReturns.filter(r => r.status === 'filed').length,
+    pending: sourceTDSReturns.filter(r => r.status === 'pending_approval' || r.status === 'draft').length,
+    overdue: sourceTDSReturns.filter(r => r.status === 'overdue').length
   };
 
   const statusColors = {
@@ -163,6 +205,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Quarterly TDS return for salary payments</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading returns…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg shadow-sm border border-indigo-200 p-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, CheckCircle, Clock, User, MapPin, Shield, Laptop, Key, Coffee, Users } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface FirstDayTask {
   id: string;
@@ -32,7 +33,40 @@ export default function Page() {
   const [selectedDate, setSelectedDate] = useState('2024-12-01');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockJoiners: NewJoiner[] = [
+  const [mockJoiners, setMockJoiners] = useState<NewJoiner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('first-day');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+          ...(r.items ? { firstDayTasks: r.items } : {}),
+        })) as NewJoiner[];
+        setMockJoiners(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockJoiners: NewJoiner[] = [
     {
       id: '1', employeeCode: 'KMF-2024-145', employeeName: 'Arun Verma', designation: 'CNC Operator',
       department: 'Manufacturing', joiningDate: '2024-12-01', reportingManager: 'Rajesh Kumar',

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, Clock, CheckCircle, AlertCircle, FileText, ClipboardCheck, DollarSign, LogOut, TrendingDown, Calendar, User, Briefcase, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface OffboardingEmployee {
   id: string;
@@ -30,7 +31,41 @@ export default function OffboardingDashboard() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<OffboardingEmployee | null>(null);
 
-  const mockEmployees: OffboardingEmployee[] = [
+  const [mockEmployees, setMockEmployees] = useState<OffboardingEmployee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('overview');
+        if (!active) return;
+        setMockEmployees(
+          records.map((r: OffboardingTaskRecord) => ({
+            id: r.id,
+            employeeCode: r.employeeCode || '',
+            employeeName: r.employeeName || '',
+            designation: r.designation || '',
+            department: r.department || '',
+            offboardingStatus: (r.status as any) || 'initiated',
+            ...(r.data || {}),
+          })) as unknown as OffboardingEmployee[],
+        );
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const _unusedMockEmployees: OffboardingEmployee[] = [
     {
       id: '1',
       employeeCode: 'EMP234',

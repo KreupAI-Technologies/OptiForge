@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Gift, CheckCircle, Clock, IndianRupee, Info } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface FNFGratuity {
   id: string;
@@ -32,7 +33,38 @@ interface FNFGratuity {
 export default function FNFGratuityPage() {
   const [selectedTab, setSelectedTab] = useState<'pending' | 'calculated' | 'approved' | 'processed'>('pending');
 
-  const mockGratuities: FNFGratuity[] = [
+  const [mockGratuities, setMockGratuities] = useState<FNFGratuity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('fnf-gratuity');
+        if (!active) return;
+        const mapped = records.map((r: OffboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as FNFGratuity[];
+        setMockGratuities(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockGratuities: FNFGratuity[] = [
     {
       id: 'FNF-GRT-001', employeeId: 'EMP001', employeeName: 'Rahul Sharma', designation: 'Senior Software Engineer', department: 'Engineering',
       lastWorkingDay: '2025-12-14', joiningDate: '2020-01-15', yearsOfService: 5, monthsOfService: 10, daysOfService: 29,

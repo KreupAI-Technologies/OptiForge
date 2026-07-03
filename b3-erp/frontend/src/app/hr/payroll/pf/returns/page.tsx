@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Download, Upload, CheckCircle, Clock, AlertCircle, Calendar, X, Building2, Mail, Info, ExternalLink } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface PFReturn {
   id: string;
@@ -699,6 +700,56 @@ export default function PFReturnsPage() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<PFReturn | null>(null);
 
+  const [returns, setReturns] = useState<PFReturn[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getStatutoryFilings('pf-returns');
+        const mapped: PFReturn[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.ecrId ?? r.returnNumber ?? '',
+          monthYear: r.monthYear ?? r.details?.monthYear ?? '',
+          returnMonth: String(r.returnMonth ?? r.details?.returnMonth ?? ''),
+          returnYear: String(r.returnYear ?? r.details?.returnYear ?? ''),
+          establishmentCode: r.establishmentCode ?? r.details?.establishmentCode ?? '',
+          employeeCount: Number(r.employeeCount ?? r.details?.employeeCount ?? 0),
+          totalWages: Number(r.totalWages ?? r.details?.totalWages ?? 0),
+          epfWages: Number(r.epfWages ?? r.details?.epfWages ?? 0),
+          epsWages: Number(r.epsWages ?? r.details?.epsWages ?? 0),
+          edliWages: Number(r.edliWages ?? r.details?.edliWages ?? 0),
+          epfContribution: Number(r.epfContribution ?? r.details?.epfContribution ?? 0),
+          epsContribution: Number(r.epsContribution ?? r.details?.epsContribution ?? 0),
+          epfDiff: Number(r.epfDiff ?? r.details?.epfDiff ?? 0),
+          ncp: Number(r.ncp ?? r.details?.ncp ?? 0),
+          refund: Number(r.refund ?? r.details?.refund ?? 0),
+          totalDue: Number(r.totalDue ?? r.details?.totalDue ?? r.amount ?? 0),
+          filedOn: r.filedOn ?? r.details?.filedOn ?? undefined,
+          filedBy: r.filedBy ?? r.details?.filedBy ?? undefined,
+          acknowledgeNumber: r.acknowledgeNumber ?? r.details?.acknowledgeNumber ?? undefined,
+          status: (r.status ?? 'pending') as PFReturn['status'],
+          dueDate: r.dueDate ?? r.details?.dueDate ?? '',
+        }));
+        if (!cancelled) setReturns(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load PF returns');
+          setReturns([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const mockReturns: PFReturn[] = [
     {
       id: 'ECR-2025-11',
@@ -790,7 +841,8 @@ export default function PFReturnsPage() {
     }
   ];
 
-  const filteredReturns = mockReturns.filter(ret => ret.returnYear === selectedYear);
+  void mockReturns;
+  const filteredReturns = returns.filter(ret => ret.returnYear === selectedYear);
 
   const stats = {
     total: filteredReturns.length,
@@ -823,6 +875,24 @@ export default function PFReturnsPage() {
         <h1 className="text-2xl font-bold text-gray-900">PF Returns (ECR)</h1>
         <p className="text-sm text-gray-600 mt-1">Electronic Challan cum Return filing and tracking</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading PF returns…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && returns.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No PF returns found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

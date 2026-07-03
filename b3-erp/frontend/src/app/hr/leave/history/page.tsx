@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { History, Search, Filter, Download, X } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { History, Search, Filter, Download, X, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LeaveService } from '@/services/leave.service';
 
 interface LeaveRecord {
   id: string;
@@ -32,11 +33,54 @@ const mockLeaveHistory: LeaveRecord[] = [
 ];
 
 export default function LeaveHistoryPage() {
-  const [leaveHistory] = useState<LeaveRecord[]>(mockLeaveHistory);
+  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>(mockLeaveHistory);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // History = decided (non-pending) applications.
+        const raw = (await LeaveService.getLeaveApplications()) as any[];
+        const mapped: LeaveRecord[] = raw
+          .filter((a) => {
+            const s = String(a.status ?? '').toLowerCase();
+            return s !== 'pending' && s !== 'draft';
+          })
+          .map((a) => ({
+            id: a.id,
+            leaveType: a.leaveTypeName ?? a.leaveType?.name ?? a.leaveType ?? '',
+            leaveTypeCode: a.leaveTypeCode ?? a.leaveType?.code ?? '',
+            fromDate: a.startDate ?? a.fromDate ?? '',
+            toDate: a.endDate ?? a.toDate ?? '',
+            days: Number(a.numberOfDays ?? a.days ?? a.totalDays ?? 0),
+            reason: a.reason ?? '',
+            status: (String(a.status ?? '').toLowerCase() as LeaveRecord['status']) || 'approved',
+            appliedOn: a.appliedDate ?? a.appliedOn ?? a.createdAt ?? '',
+            approvedBy: a.approvedByName ?? a.approvedBy ?? undefined,
+            approvedOn: a.approvedDate ?? a.approvedOn ?? undefined,
+            rejectionReason: a.rejectionReason ?? undefined,
+          }));
+        if (!cancelled && mapped.length) setLeaveHistory(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave history');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return leaveHistory.filter(leave => {
@@ -137,6 +181,18 @@ export default function LeaveHistoryPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading leave history…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

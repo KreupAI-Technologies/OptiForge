@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CreditCard, Search, Filter, X, Download, CheckCircle, Clock, AlertCircle, User, Calendar, Printer, Eye } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface IDCardRequest {
   id: string;
@@ -29,7 +30,39 @@ export default function IDCardGenerationPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCard, setSelectedCard] = useState<IDCardRequest | null>(null);
 
-  const mockIDCards: IDCardRequest[] = [
+  const [mockIDCards, setMockIDCards] = useState<IDCardRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('id-card');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as IDCardRequest[];
+        setMockIDCards(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockIDCards: IDCardRequest[] = [
     {
       id: '1',
       employeeCode: 'EMP2025001',

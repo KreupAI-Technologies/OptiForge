@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeftRight, User, Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface AssetTransfer {
   id: string;
@@ -32,7 +33,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockTransfers: AssetTransfer[] = [
+  const fallbackTransfers: AssetTransfer[] = [
     {
       id: '1',
       transferId: 'TRF-2024-001',
@@ -167,6 +168,58 @@ export default function Page() {
     }
   ];
 
+  const [mockTransfers, setMockTransfers] = useState<AssetTransfer[]>(fallbackTransfers);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetTransfers();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockTransfers(
+            rows.map((r) => ({
+              id: r.id,
+              transferId: r.transferId || '',
+              assetTag: r.assetTag || '',
+              assetType: r.assetType || '',
+              assetCategory: (r.assetCategory as AssetTransfer['assetCategory']) || 'other',
+              fromEmployee: r.fromEmployee || '',
+              fromEmployeeCode: r.fromEmployeeCode || '',
+              fromDepartment: r.fromDepartment || '',
+              fromLocation: r.fromLocation || '',
+              toEmployee: r.toEmployee || '',
+              toEmployeeCode: r.toEmployeeCode || '',
+              toDepartment: r.toDepartment || '',
+              toLocation: r.toLocation || '',
+              initiatedBy: r.initiatedBy || '',
+              initiatedDate: r.initiatedDate || '',
+              transferReason: (r.transferReason as AssetTransfer['transferReason']) || 'other',
+              status: (r.status as AssetTransfer['status']) || 'pending',
+              approvedBy: r.approvedBy || undefined,
+              approvalDate: r.approvalDate || undefined,
+              completionDate: r.completionDate || undefined,
+              handoverNotes: r.handoverNotes || undefined,
+              condition: (r.condition as AssetTransfer['condition']) || 'good',
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load transfers');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredTransfers = mockTransfers.filter(t => {
     if (selectedStatus !== 'all' && t.status !== selectedStatus) return false;
     if (selectedDepartment !== 'all' && t.fromDepartment !== selectedDepartment && t.toDepartment !== selectedDepartment) return false;
@@ -204,6 +257,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Asset Transfers</h1>
         <p className="text-sm text-gray-600 mt-1">Manage asset transfers between employees</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading transfers…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Network, Users, Calendar, MessageCircle, Heart, Share2, Eye, TrendingUp, Award, Briefcase, MapPin, X, UserPlus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Network, Users, Calendar, MessageCircle, Heart, Share2, Eye, TrendingUp, Award, Briefcase, MapPin, X, UserPlus, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface AlumniEvent {
   id: string;
@@ -49,8 +50,52 @@ export default function Page() {
     skills: '',
     applyLink: ''
   });
+  const [eventRows, setEventRows] = useState<AlumniEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockEvents: AlumniEvent[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getAlumni({ kind: 'event' });
+        const mapped: AlumniEvent[] = raw.map((r) => {
+          const d = (r.details ?? {}) as Record<string, unknown>;
+          const str = (v: unknown, fallback = ''): string =>
+            v != null ? String(v) : fallback;
+          return {
+            id: r.id,
+            title: str(d.title ?? r.name),
+            type: (str(d.type) as AlumniEvent['type']) || 'meetup',
+            date: str(d.date ?? r.exitDate),
+            time: str(d.time),
+            location: str(d.location ?? r.location),
+            mode: (str(d.mode) as AlumniEvent['mode']) || 'offline',
+            registrations: Number(d.registrations ?? 0),
+            capacity: Number(d.capacity ?? 0),
+            organizer: str(d.organizer ?? r.name),
+            description: str(d.description ?? r.comments),
+            status: (str(d.status ?? r.status) as AlumniEvent['status']) || 'upcoming',
+          };
+        });
+        if (!cancelled) setEventRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load alumni events');
+          setEventRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const seedEvents: AlumniEvent[] = [
     {
       id: '1',
       title: 'Manufacturing Excellence Summit 2025',
@@ -94,6 +139,8 @@ export default function Page() {
       status: 'upcoming'
     }
   ];
+
+  const mockEvents: AlumniEvent[] = eventRows.length ? eventRows : seedEvents;
 
   const mockPosts: AlumniPost[] = [
     {
@@ -243,6 +290,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Alumni Network</h1>
         <p className="text-sm text-gray-600 mt-1">Stay connected, share experiences, and grow together</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading alumni events…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

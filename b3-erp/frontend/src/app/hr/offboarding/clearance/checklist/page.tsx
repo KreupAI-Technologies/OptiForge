@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckSquare, Check, X, Clock, Eye, Send, User, Calendar } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface ClearanceItem {
   id: string;
@@ -28,7 +29,40 @@ export default function ClearanceChecklistPage() {
   const [selectedClearance, setSelectedClearance] = useState<ClearanceItem | null>(null);
   const [reminderDepartments, setReminderDepartments] = useState<string[]>([]);
 
-  const mockClearances: ClearanceItem[] = [
+  const [mockClearances, setMockClearances] = useState<ClearanceItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('clearance-checklist');
+        if (!active) return;
+        setMockClearances(
+          records.map((r: OffboardingTaskRecord) => ({
+            id: r.id,
+            employeeName: r.employeeName || '',
+            designation: r.designation || '',
+            department: r.department || '',
+            overallStatus: (r.status as any) || 'pending',
+            ...(r.data || {}),
+          })) as unknown as ClearanceItem[],
+        );
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const _unusedMockClearances: ClearanceItem[] = [
     {
       id: 'CLR001',
       employeeId: 'EMP001',

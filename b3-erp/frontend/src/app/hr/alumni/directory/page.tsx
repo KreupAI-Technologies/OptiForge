@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, MapPin, Briefcase, Calendar, Mail, Phone, Linkedin, Award, Building2, Users, TrendingUp, Download, Filter, X, Eye, MessageCircle, UserCheck } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, MapPin, Briefcase, Calendar, Mail, Phone, Linkedin, Award, Building2, Users, TrendingUp, Download, Filter, X, Eye, MessageCircle, UserCheck, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { exportToCsv } from '@/lib/export';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface AlumniMember {
   id: string;
@@ -37,8 +38,56 @@ export default function Page() {
   const [showFilters, setShowFilters] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<AlumniMember | null>(null);
+  const [rows, setRows] = useState<AlumniMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockAlumni: AlumniMember[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getAlumni({ kind: 'member' });
+        const mapped: AlumniMember[] = raw.map((r) => ({
+          id: r.id,
+          employeeCode: r.employeeCode ?? '',
+          name: r.name ?? '',
+          designation: r.designation ?? '',
+          department: r.department ?? '',
+          joinDate: r.joinDate ?? '',
+          exitDate: r.exitDate ?? '',
+          tenure: r.tenure ?? '',
+          currentCompany: r.currentCompany ?? '',
+          currentDesignation: r.currentDesignation ?? '',
+          location: r.location ?? '',
+          email: r.email ?? '',
+          phone: r.phone ?? '',
+          linkedinUrl: r.linkedinUrl ?? undefined,
+          achievements: r.achievements ?? [],
+          industryExpertise: r.industryExpertise ?? [],
+          willingToMentor: r.willingToMentor ?? false,
+          availableForRehire: r.availableForRehire ?? false,
+          status: (r.status as AlumniMember['status']) ?? 'active',
+          lastContactDate: r.lastContactDate ?? undefined,
+          reasonForLeaving: (r.reasonForLeaving as AlumniMember['reasonForLeaving']) ?? 'other',
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load alumni directory');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockAlumni: AlumniMember[] = rows.length ? rows : [
     {
       id: '1',
       employeeCode: 'EMP001',
@@ -189,7 +238,7 @@ export default function Page() {
   };
 
   const handleExport = () => {
-    exportToCsv('alumni-directory', filteredAlumni);
+    exportToCsv('alumni-directory', filteredAlumni as unknown as Record<string, unknown>[]);
     toast({
       title: "Exporting Alumni Directory",
       description: `Exporting ${filteredAlumni.length} alumni records to Excel...`
@@ -217,6 +266,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Alumni Directory</h1>
         <p className="text-sm text-gray-600 mt-1">Connect with our former employees and industry experts</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading alumni directory…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

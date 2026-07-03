@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, CheckCircle, Clock, XCircle, Send, Eye, Download, Plus, Edit, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface OfferLetter {
   id: string;
@@ -33,7 +34,39 @@ export default function Page() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<OfferLetter | null>(null);
 
-  const mockOffers: OfferLetter[] = [
+  const [mockOffers, setMockOffers] = useState<OfferLetter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('offers');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as OfferLetter[];
+        setMockOffers(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockOffers: OfferLetter[] = [
     {
       id: '1', offerNumber: 'OL-2024-001', candidateName: 'Arun Verma', designation: 'CNC Operator',
       department: 'Manufacturing', employmentType: 'permanent', ctc: 420000, joiningDate: '2024-12-01',

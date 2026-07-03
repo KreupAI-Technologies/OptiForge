@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CreditCard, User, DollarSign, Calendar, AlertCircle, Lock, Unlock, Plus, Eye, Download } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface CorporateCard {
   id: string;
@@ -31,8 +32,52 @@ export default function Page() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CorporateCard | null>(null);
+  const [rows, setRows] = useState<CorporateCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockCards: CorporateCard[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getCorporateCards();
+        const mapped: CorporateCard[] = raw.map((r) => ({
+          id: r.id,
+          cardNumber: r.cardNumber ?? '',
+          cardholderName: r.cardholderName ?? '',
+          employeeCode: r.employeeCode ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          cardType: (r.cardType as CorporateCard['cardType']) ?? 'visa',
+          cardLevel: 'silver',
+          creditLimit: Number(r.creditLimit ?? 0),
+          availableLimit: Number(r.availableLimit ?? 0),
+          currentBalance: Number(r.currentBalance ?? 0),
+          issueDate: r.issueDate ?? '',
+          expiryDate: r.expiryDate ?? '',
+          status: (r.status as CorporateCard['status']) ?? 'active',
+          lastTransactionDate: r.lastTransactionDate ?? undefined,
+          monthlySpend: Number(r.monthlySpend ?? 0),
+          billingCycle: r.billingCycle ?? '',
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load corporate cards');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockCards: CorporateCard[] = rows.length ? rows : [
     {
       id: '1',
       cardNumber: '****4523',
@@ -329,6 +374,19 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Manage company-issued credit cards for employees</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading corporate cards…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-3">

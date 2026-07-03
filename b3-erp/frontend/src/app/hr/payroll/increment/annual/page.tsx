@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { TrendingUp, Search, Download, CheckCircle, Clock, Calendar, DollarSign, Users, ArrowUp, Percent } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { TrendingUp, Search, Download, CheckCircle, Clock, Calendar, DollarSign, Users, ArrowUp, Percent, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface AnnualIncrement {
   id: string;
@@ -29,6 +30,53 @@ export default function AnnualIncrementPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedYear, setSelectedYear] = useState('2025-26');
+
+  const [increments, setIncrements] = useState<AnnualIncrement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getSalaryRevisions('increment-annual');
+        const mapped: AnnualIncrement[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.details?.id ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          effectiveDate: r.effectiveDate ?? r.effectiveFrom ?? r.details?.effectiveDate ?? '',
+          financialYear: r.financialYear ?? r.details?.financialYear ?? '',
+          currentCTC: Number(r.currentCTC ?? r.previousCTC ?? r.details?.currentCTC ?? 0),
+          currentBasic: Number(r.currentBasic ?? r.details?.currentBasic ?? 0),
+          incrementPercentage: Number(r.incrementPercentage ?? r.increasePercentage ?? r.details?.incrementPercentage ?? 0),
+          incrementAmount: Number(r.incrementAmount ?? r.increaseAmount ?? r.amount ?? r.details?.incrementAmount ?? 0),
+          revisedCTC: Number(r.revisedCTC ?? r.details?.revisedCTC ?? 0),
+          revisedBasic: Number(r.revisedBasic ?? r.details?.revisedBasic ?? 0),
+          performanceRating: (r.performanceRating ?? r.details?.performanceRating ?? 'good') as AnnualIncrement['performanceRating'],
+          status: (r.status ?? r.details?.status ?? 'draft') as AnnualIncrement['status'],
+          calculatedDate: r.calculatedDate ?? r.details?.calculatedDate ?? undefined,
+          approvedDate: r.approvedDate ?? r.details?.approvedDate ?? undefined,
+          implementedDate: r.implementedDate ?? r.details?.implementedDate ?? undefined,
+        }));
+        if (!cancelled) setIncrements(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load increment records');
+          setIncrements([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockIncrements: AnnualIncrement[] = [
     {
@@ -147,7 +195,7 @@ export default function AnnualIncrementPage() {
   ];
 
   const filteredIncrements = useMemo(() => {
-    return mockIncrements.filter(inc => {
+    return increments.filter(inc => {
       const matchesSearch =
         inc.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         inc.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -156,7 +204,7 @@ export default function AnnualIncrementPage() {
       const matchesYear = inc.financialYear === selectedYear;
       return matchesSearch && matchesDepartment && matchesStatus && matchesYear;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus, selectedYear]);
+  }, [increments, searchTerm, selectedDepartment, selectedStatus, selectedYear]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'calculated', 'approved', 'processed', 'implemented'];
@@ -205,6 +253,24 @@ export default function AnnualIncrementPage() {
         <h1 className="text-2xl font-bold text-gray-900">Annual Increment</h1>
         <p className="text-sm text-gray-600 mt-1">Yearly salary increment processing for FY {selectedYear}</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading increment records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && increments.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No increment records found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Shield, CheckCircle, Clock, XCircle, AlertTriangle, FileText, Eye, Upload } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface DocumentVerification {
   id: string;
@@ -32,7 +33,39 @@ export default function Page() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<DocumentVerification | null>(null);
 
-  const mockVerifications: DocumentVerification[] = [
+  const [mockVerifications, setMockVerifications] = useState<DocumentVerification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('verification');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as unknown as DocumentVerification[];
+        setMockVerifications(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockVerifications: DocumentVerification[] = [
     {
       id: '1', candidateCode: 'CND-2024-001', candidateName: 'Arun Verma', designation: 'CNC Operator',
       department: 'Manufacturing', joiningDate: '2024-12-01',

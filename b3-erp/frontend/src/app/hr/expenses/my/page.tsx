@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Plus, CheckCircle, Clock, XCircle, AlertTriangle, Receipt, Eye, Download, X, Calendar, User, Building2 } from 'lucide-react';
+import { Wallet, Plus, CheckCircle, Clock, XCircle, AlertTriangle, AlertCircle, Receipt, Eye, Download, X, Calendar, User, Building2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface ExpenseClaim {
   id: string;
@@ -27,8 +28,48 @@ export default function MyExpensesPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseClaim | null>(null);
+  const [rows, setRows] = useState<ExpenseClaim[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockExpenses: ExpenseClaim[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getExpenseClaims({ kind: 'expense' });
+        const mapped: ExpenseClaim[] = raw.map((r) => ({
+          id: r.id,
+          claimNumber: r.claimNumber ?? '',
+          submissionDate: r.submissionDate ?? r.submittedDate ?? '',
+          category: (r.category as ExpenseClaim['category']) ?? 'other',
+          description: r.description ?? '',
+          amount: Number(r.amount ?? 0),
+          billDate: r.billDate ?? '',
+          status: (r.status as ExpenseClaim['status']) ?? 'submitted',
+          approver: r.approver ?? '',
+          approvedDate: r.approvedDate ?? undefined,
+          paidDate: r.paidDate ?? undefined,
+          rejectionReason: r.rejectionReason ?? undefined,
+          receiptAttached: r.receiptAttached ?? false,
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load expense claims');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockExpenses: ExpenseClaim[] = rows.length ? rows : [
     {
       id: '1', claimNumber: 'EXP-2024-1201', submissionDate: '2024-10-20', category: 'travel',
       description: 'Client visit - Mumbai', amount: 4500, billDate: '2024-10-18',
@@ -212,6 +253,19 @@ export default function MyExpensesPage() {
           New Claim
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading expense claims…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-3">

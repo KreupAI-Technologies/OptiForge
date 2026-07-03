@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Package, AlertTriangle, TrendingUp, TrendingDown, IndianRupee } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface StockItem {
   id: string;
@@ -26,7 +27,7 @@ export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockStock: StockItem[] = [
+  const fallbackStock: StockItem[] = [
     {
       id: '1',
       assetCode: 'LAP-DEL-5420',
@@ -137,6 +138,52 @@ export default function Page() {
     }
   ];
 
+  const [mockStock, setMockStock] = useState<StockItem[]>(fallbackStock);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetInventory();
+        if (cancelled) return;
+        if (rows.length) {
+          setMockStock(
+            rows.map((r) => ({
+              id: r.id,
+              assetCode: r.assetCode || '',
+              assetName: r.assetName || '',
+              category: (r.category as StockItem['category']) || 'other',
+              brand: r.brand || '',
+              model: r.model || '',
+              totalQuantity: Number(r.totalQuantity ?? 0),
+              allocated: Number(r.allocated ?? 0),
+              available: Number(r.available ?? 0),
+              minStockLevel: Number(r.minStockLevel ?? 0),
+              reorderLevel: Number(r.reorderLevel ?? 0),
+              unitCost: Number(r.unitCost ?? 0),
+              totalValue: Number(r.totalValue ?? 0),
+              location: r.location || '',
+              supplier: r.supplier || '',
+              status: (r.status as StockItem['status']) || 'in_stock',
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stock');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredStock = mockStock.filter(s => {
     const categoryMatch = selectedCategory === 'all' || s.category === selectedCategory;
     const statusMatch = selectedStatus === 'all' || s.status === selectedStatus;
@@ -173,6 +220,18 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Stock Management</h1>
         <p className="text-sm text-gray-600 mt-1">Monitor and manage asset inventory stock levels</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading stock…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

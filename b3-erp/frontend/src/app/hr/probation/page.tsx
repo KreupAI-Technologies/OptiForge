@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { UserCheck, Clock, CheckCircle, AlertCircle, Calendar, TrendingUp, Users, FileText, MessageSquare, Award, XCircle, Eye, Play } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface ProbationEmployee {
   id: string;
@@ -87,22 +88,40 @@ export default function Page() {
     }
   ];
 
+  const [rows, setRows] = useState<ProbationEmployee[]>(mockEmployees);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getProbation<ProbationEmployee>('tracking');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const filteredEmployees = useMemo(() => {
-    return mockEmployees.filter(emp => {
+    return rows.filter(emp => {
       const matchesStatus = selectedStatus === 'all' || emp.probationStatus === selectedStatus;
       const matchesDepartment = selectedDepartment === 'all' || emp.department === selectedDepartment;
       return matchesStatus && matchesDepartment;
     });
-  }, [selectedStatus, selectedDepartment]);
+  }, [selectedStatus, selectedDepartment, rows]);
 
   const stats = {
-    totalOnProbation: mockEmployees.filter(e => ['ongoing', 'due_soon', 'extended'].includes(e.probationStatus)).length,
-    ongoing: mockEmployees.filter(e => e.probationStatus === 'ongoing').length,
-    dueSoon: mockEmployees.filter(e => e.probationStatus === 'due_soon').length,
-    extended: mockEmployees.filter(e => e.probationStatus === 'extended').length,
-    confirmed: mockEmployees.filter(e => e.probationStatus === 'confirmed').length,
-    avgRating: (mockEmployees.reduce((sum, e) => sum + e.overallRating, 0) / mockEmployees.length).toFixed(1),
-    pendingReviews: mockEmployees.reduce((sum, e) => sum + (e.reviewsRequired - e.reviewsCompleted), 0)
+    totalOnProbation: rows.filter(e => ['ongoing', 'due_soon', 'extended'].includes(e.probationStatus)).length,
+    ongoing: rows.filter(e => e.probationStatus === 'ongoing').length,
+    dueSoon: rows.filter(e => e.probationStatus === 'due_soon').length,
+    extended: rows.filter(e => e.probationStatus === 'extended').length,
+    confirmed: rows.filter(e => e.probationStatus === 'confirmed').length,
+    avgRating: (rows.reduce((sum, e) => sum + e.overallRating, 0) / rows.length).toFixed(1),
+    pendingReviews: rows.reduce((sum, e) => sum + (e.reviewsRequired - e.reviewsCompleted), 0)
   };
 
   // Probation modules
@@ -261,6 +280,18 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Track and manage employee probation periods</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-3">

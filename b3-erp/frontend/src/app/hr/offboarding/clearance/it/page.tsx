@@ -1,23 +1,43 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Laptop, CheckCircle } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 export default function ITClearancePage() {
-  const mockClearances = [
-    {
-      id: 'IT001',
-      employeeName: 'Rahul Sharma',
-      items: [
-        { name: 'Laptop', status: 'returned', serialNo: 'LT-12345' },
-        { name: 'Mobile Phone', status: 'returned', serialNo: 'PH-67890' },
-        { name: 'Access Card', status: 'returned', serialNo: 'AC-11223' },
-        { name: 'Email Access Revoked', status: 'completed', serialNo: '-' },
-        { name: 'VPN Access Revoked', status: 'completed', serialNo: '-' },
-        { name: 'System Access Revoked', status: 'pending', serialNo: '-' }
-      ],
-      status: 'in-progress'
-    }
-  ];
+  const [mockClearances, setMockClearances] = useState<
+    Array<{ id: string; employeeName: string; status: string; items: any[]; [k: string]: any }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('clearance-it');
+        if (!active) return;
+        setMockClearances(
+          records.map((r: OffboardingTaskRecord) => ({
+            id: r.id,
+            employeeName: r.employeeName || '',
+            status: r.status || 'pending',
+            items: r.items || [],
+            ...(r.data || {}),
+          })),
+        );
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="w-full h-full px-3 py-2">

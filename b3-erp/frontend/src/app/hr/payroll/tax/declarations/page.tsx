@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, Search, Download, Upload, CheckCircle, Clock, AlertCircle, DollarSign, Shield, Home, Heart, BookOpen } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface TaxDeclaration {
   id: string;
@@ -38,6 +39,54 @@ export default function TaxDeclarationsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+
+  const [declarations, setDeclarations] = useState<TaxDeclaration[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getTaxRecords('declarations');
+        const mapped: TaxDeclaration[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.declarationNumber ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          financialYear: r.financialYear ?? r.details?.financialYear ?? '',
+          status: (r.status ?? 'draft') as TaxDeclaration['status'],
+          submittedDate: r.submittedDate ?? r.details?.submittedDate ?? undefined,
+          verifiedDate: r.verifiedDate ?? r.details?.verifiedDate ?? undefined,
+          totalDeductions: Number(r.totalDeductions ?? r.details?.totalDeductions ?? 0),
+          section80C: Number(r.section80C ?? r.details?.section80C ?? 0),
+          section80D: Number(r.section80D ?? r.details?.section80D ?? 0),
+          section80E: Number(r.section80E ?? r.details?.section80E ?? 0),
+          section80G: Number(r.section80G ?? r.details?.section80G ?? 0),
+          section24B: Number(r.section24B ?? r.details?.section24B ?? 0),
+          otherDeductions: Number(r.otherDeductions ?? r.details?.otherDeductions ?? 0),
+          proofStatus: (r.proofStatus ?? r.details?.proofStatus ?? 'pending') as TaxDeclaration['proofStatus'],
+          proofCount: Number(r.proofCount ?? r.details?.proofCount ?? 0),
+          requiredProofCount: Number(r.requiredProofCount ?? r.details?.requiredProofCount ?? 0),
+        }));
+        if (!cancelled) setDeclarations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load tax declarations');
+          setDeclarations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockDeclarations: TaxDeclaration[] = [
     {
@@ -164,8 +213,9 @@ export default function TaxDeclarationsPage() {
     }
   ];
 
+  void mockDeclarations;
   const filteredDeclarations = useMemo(() => {
-    return mockDeclarations.filter(decl => {
+    return declarations.filter(decl => {
       const matchesSearch =
         decl.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         decl.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -173,7 +223,7 @@ export default function TaxDeclarationsPage() {
       const matchesStatus = selectedStatus === 'all' || decl.status === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [declarations, searchTerm, selectedDepartment, selectedStatus]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'submitted', 'verified', 'approved', 'rejected'];
@@ -205,11 +255,11 @@ export default function TaxDeclarationsPage() {
   };
 
   const stats = {
-    totalEmployees: mockDeclarations.length,
-    submitted: mockDeclarations.filter(d => ['submitted', 'verified', 'approved'].includes(d.status)).length,
-    approved: mockDeclarations.filter(d => d.status === 'approved').length,
-    pending: mockDeclarations.filter(d => d.status === 'draft').length,
-    totalDeductions: mockDeclarations.reduce((sum, d) => sum + d.totalDeductions, 0)
+    totalEmployees: declarations.length,
+    submitted: declarations.filter(d => ['submitted', 'verified', 'approved'].includes(d.status)).length,
+    approved: declarations.filter(d => d.status === 'approved').length,
+    pending: declarations.filter(d => d.status === 'draft').length,
+    totalDeductions: declarations.reduce((sum, d) => sum + d.totalDeductions, 0)
   };
 
   return (
@@ -218,6 +268,24 @@ export default function TaxDeclarationsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Tax Declarations</h1>
         <p className="text-sm text-gray-600 mt-1">Employee income tax investment declarations (FY 2025-26)</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading tax declarations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && declarations.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No tax declarations found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Building, Target, TrendingUp, CheckCircle, AlertCircle, Award, Users } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface DepartmentGoal {
   id: string;
@@ -89,24 +90,42 @@ export default function DepartmentGoalsPage() {
     }
   ];
 
-  const departments = ['all', ...Array.from(new Set(mockGoals.map(g => g.department)))];
+  const [rows, setRows] = useState<DepartmentGoal[]>(mockGoals);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getPerformance<DepartmentGoal>('department-goal');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const departments = ['all', ...Array.from(new Set(rows.map(g => g.department)))];
 
   const filteredGoals = useMemo(() => {
-    return mockGoals.filter(goal => {
+    return rows.filter(goal => {
       const matchesStatus = selectedStatus === 'all' || goal.status === selectedStatus;
       const matchesDepartment = selectedDepartment === 'all' || goal.department === selectedDepartment;
       return matchesStatus && matchesDepartment;
     });
-  }, [selectedStatus, selectedDepartment]);
+  }, [selectedStatus, selectedDepartment, rows]);
 
   const stats = {
-    total: mockGoals.length,
-    onTrack: mockGoals.filter(g => g.status === 'on_track').length,
-    atRisk: mockGoals.filter(g => g.status === 'at_risk').length,
-    completed: mockGoals.filter(g => g.status === 'completed').length,
-    departmentsCount: new Set(mockGoals.map(g => g.department)).size,
-    avgProgress: Math.round(mockGoals.reduce((sum, g) => sum + g.progress, 0) / mockGoals.length),
-    totalBudget: mockGoals.reduce((sum, g) => sum + (g.budget || 0), 0)
+    total: rows.length,
+    onTrack: rows.filter(g => g.status === 'on_track').length,
+    atRisk: rows.filter(g => g.status === 'at_risk').length,
+    completed: rows.filter(g => g.status === 'completed').length,
+    departmentsCount: new Set(rows.map(g => g.department)).size,
+    avgProgress: rows.length ? Math.round(rows.reduce((sum, g) => sum + g.progress, 0) / rows.length) : 0,
+    totalBudget: rows.reduce((sum, g) => sum + (g.budget || 0), 0)
   };
 
   const getStatusColor = (status: string) => {
@@ -204,6 +223,18 @@ export default function DepartmentGoalsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Track strategic departmental objectives and initiatives</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-3">

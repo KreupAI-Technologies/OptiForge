@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Clock, Plus, Search, Filter, Calendar, AlertCircle, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
 import { NewOvertimeRequestModal } from '@/components/hr/NewOvertimeRequestModal';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface OvertimeRequest {
   id: string;
@@ -31,8 +32,51 @@ export default function OvertimeRequestsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [rows, setRows] = useState<OvertimeRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockRequests: OvertimeRequest[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getOvertimeRequests();
+        const mapped: OvertimeRequest[] = raw.map((r) => ({
+          id: r.id,
+          requestId: r.requestId ?? '',
+          employeeCode: r.employeeCode ?? '',
+          employeeName: r.employeeName ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          date: r.date ?? '',
+          shiftType: r.shiftType ?? '',
+          regularHours: Number(r.regularHours ?? 0),
+          overtimeHours: Number(r.overtimeHours ?? 0),
+          reason: r.reason ?? '',
+          requestDate: r.requestDate ?? '',
+          status: (r.status as OvertimeRequest['status']) ?? 'pending',
+          approvedBy: r.approvedBy ?? undefined,
+          approvedDate: r.approvedDate ?? undefined,
+          calculatedAmount: r.calculatedAmount != null ? Number(r.calculatedAmount) : undefined,
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load overtime requests');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockRequests: OvertimeRequest[] = rows.length ? rows : [
     {
       id: '1', requestId: 'OT001', employeeCode: 'KMF2020001', employeeName: 'Rajesh Kumar',
       department: 'Production', designation: 'Manager', date: '2024-11-20',
@@ -100,7 +144,7 @@ export default function OvertimeRequestsPage() {
       const matchesDepartment = selectedDepartment === 'all' || request.department === selectedDepartment;
       return matchesSearch && matchesStatus && matchesDepartment;
     });
-  }, [searchTerm, selectedStatus, selectedDepartment]);
+  }, [searchTerm, selectedStatus, selectedDepartment, rows]);
 
   const stats = {
     total: mockRequests.length,
@@ -192,6 +236,19 @@ export default function OvertimeRequestsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Manage and track overtime work requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading overtime requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">

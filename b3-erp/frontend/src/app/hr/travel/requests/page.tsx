@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plane, MapPin, Calendar, IndianRupee, Users, Clock, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface TravelRequest {
   id: string;
@@ -33,8 +34,58 @@ interface TravelRequest {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [requests, setRequests] = useState<TravelRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockRequests: TravelRequest[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getTravelRequests();
+        const mapped: TravelRequest[] = raw.map((r) => ({
+          id: r.id,
+          requestNumber: r.requestNumber ?? '',
+          employeeCode: r.employeeCode ?? '',
+          employeeName: r.employeeName ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          travelType: (r.travelType as TravelRequest['travelType']) ?? 'domestic',
+          purpose: r.purpose ?? '',
+          fromLocation: r.fromLocation ?? '',
+          toLocation: r.toLocation ?? '',
+          startDate: r.startDate ?? '',
+          endDate: r.endDate ?? '',
+          duration: Number(r.duration ?? 0),
+          estimatedCost: Number(r.estimatedCost ?? 0),
+          transportMode: 'flight',
+          accommodation: false,
+          advanceRequired: Number(r.advanceAmount ?? 0) > 0,
+          advanceAmount: r.advanceAmount != null ? Number(r.advanceAmount) : undefined,
+          status: (r.status as TravelRequest['status']) ?? 'pending',
+          submittedDate: r.submittedDate ?? undefined,
+          approver: r.approver ?? undefined,
+          approvedDate: r.approvedDate ?? undefined,
+          rejectionReason: r.rejectionReason ?? undefined,
+        }));
+        if (!cancelled) setRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load travel requests');
+          setRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockRequests: TravelRequest[] = requests.length ? requests : [
     {
       id: '1',
       requestNumber: 'TR-2025-001',
@@ -157,6 +208,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Travel Requests</h1>
         <p className="text-sm text-gray-600 mt-1">Submit and track business travel requests</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading travel requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

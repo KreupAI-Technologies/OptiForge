@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { History, Wrench, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrAssetsService } from '@/services/hr-assets.service';
 
 interface MaintenanceRecord {
   id: string;
@@ -32,7 +33,7 @@ export default function Page() {
   const [selectedIssueType, setSelectedIssueType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockHistory: MaintenanceRecord[] = [
+  const fallbackHistory: MaintenanceRecord[] = [
     {
       id: '1',
       ticketId: 'MT-2024-1234',
@@ -146,6 +147,65 @@ export default function Page() {
     }
   ];
 
+  const [mockHistory, setMockHistory] = useState<MaintenanceRecord[]>(fallbackHistory);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrAssetsService.getAssetMaintenance('history');
+        if (cancelled) return;
+        if (rows.length) {
+          setMockHistory(
+            rows.map((r) => {
+              let parts: string[] = [];
+              try {
+                parts = r.partsReplaced ? JSON.parse(r.partsReplaced) : [];
+              } catch {
+                parts = [];
+              }
+              return {
+                id: r.id,
+                ticketId: r.ticketId || '',
+                assetTag: r.assetTag || '',
+                assetName: r.assetName || '',
+                assetCategory: (r.assetCategory as MaintenanceRecord['assetCategory']) || 'other',
+                issueType: (r.issueType as MaintenanceRecord['issueType']) || 'other',
+                issueDescription: r.issueDescription || '',
+                reportedBy: r.reportedBy || '',
+                reportedDate: r.reportedDate || '',
+                assignedTo: r.assignedTo || '',
+                vendor: r.vendor || undefined,
+                priority: (r.priority as MaintenanceRecord['priority']) || 'medium',
+                status: (r.status as MaintenanceRecord['status']) || 'completed',
+                startDate: r.startDate || '',
+                completionDate: r.completionDate || '',
+                resolutionTime: Number(r.resolutionTime ?? 0),
+                cost: Number(r.cost ?? 0),
+                workDone: r.workDone || '',
+                partsReplaced: parts,
+                location: r.location || '',
+                remarks: r.remarks || undefined,
+              };
+            }),
+          );
+        }
+      } catch (err) {
+        if (!cancelled)
+          setLoadError(err instanceof Error ? err.message : 'Failed to load history');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredHistory = mockHistory.filter(h => {
     if (selectedCategory !== 'all' && h.assetCategory !== selectedCategory) return false;
     if (selectedIssueType !== 'all' && h.issueType !== selectedIssueType) return false;
@@ -199,6 +259,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Maintenance History</h1>
         <p className="text-sm text-gray-600 mt-1">View past maintenance and repair records</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading history…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

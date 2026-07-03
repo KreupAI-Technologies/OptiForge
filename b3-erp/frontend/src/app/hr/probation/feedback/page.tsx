@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageSquare, Star, ThumbsUp, AlertCircle, TrendingUp, Users, Plus, X, Send } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface Feedback {
   id: string;
@@ -104,15 +105,33 @@ export default function Page() {
     }
   ];
 
-  const filteredFeedback = mockFeedback.filter(f =>
+  const [rows, setRows] = useState<Feedback[]>(mockFeedback);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getProbation<Feedback>('feedback');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredFeedback = rows.filter(f =>
     selectedType === 'all' || f.feedbackType === selectedType
   );
 
   const stats = {
-    total: mockFeedback.length,
-    avgRating: (mockFeedback.reduce((sum, f) => sum + f.overallRating, 0) / mockFeedback.length).toFixed(1),
-    confirmRecommendations: mockFeedback.filter(f => f.recommendation === 'confirm').length,
-    extendRecommendations: mockFeedback.filter(f => f.recommendation === 'extend').length
+    total: rows.length,
+    avgRating: (rows.reduce((sum, f) => sum + f.overallRating, 0) / rows.length).toFixed(1),
+    confirmRecommendations: rows.filter(f => f.recommendation === 'confirm').length,
+    extendRecommendations: rows.filter(f => f.recommendation === 'extend').length
   };
 
   const getRatingColor = (rating: number) => {
@@ -158,6 +177,18 @@ export default function Page() {
           Request Feedback
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

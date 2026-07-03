@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, CheckCircle, Clock, Calendar, BookOpen, FileText, Video, Award } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface InductionSession {
   id: string;
@@ -35,7 +36,52 @@ export default function Page() {
   const [selectedView, setSelectedView] = useState<'sessions' | 'attendees'>('sessions');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockSessions: InductionSession[] = [
+  const [mockSessions, setMockSessions] = useState<InductionSession[]>([]);
+  const [mockAttendees, setMockAttendees] = useState<InductionAttendee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const [sessions, attendees] = await Promise.all([
+          OnboardingTasksService.list('induction-sessions'),
+          OnboardingTasksService.list('induction-attendees'),
+        ]);
+        if (!active) return;
+        setMockSessions(
+          sessions.map((r: OnboardingTaskRecord) => ({
+            id: r.id,
+            status: (r.status as any) || 'scheduled',
+            ...(r.data || {}),
+          })) as unknown as InductionSession[],
+        );
+        setMockAttendees(
+          attendees.map((r: OnboardingTaskRecord) => ({
+            id: r.id,
+            employeeCode: r.employeeCode || '',
+            employeeName: r.employeeName || '',
+            designation: r.designation || '',
+            department: r.department || '',
+            joiningDate: r.joiningDate || '',
+            ...(r.data || {}),
+          })) as unknown as InductionAttendee[],
+        );
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const _unusedMockSessions: InductionSession[] = [
     {
       id: '1', sessionDate: '2024-11-25', sessionTime: '09:00 AM - 01:00 PM', batchNumber: 'HR-IND-NOV-01',
       venue: 'Training Hall A', conductor: 'Priya Sharma', capacity: 20, enrolled: 18, status: 'completed',
@@ -58,7 +104,7 @@ export default function Page() {
     }
   ];
 
-  const mockAttendees: InductionAttendee[] = [
+  const _unusedMockAttendees: InductionAttendee[] = [
     {
       id: '1', employeeCode: 'KMF-2024-145', employeeName: 'Arun Verma', designation: 'CNC Operator',
       department: 'Manufacturing', joiningDate: '2024-12-01', sessionId: '2', attendance: 'pending',

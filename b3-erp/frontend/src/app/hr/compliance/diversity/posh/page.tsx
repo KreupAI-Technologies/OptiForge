@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Shield, Users, Clock, CheckCircle, AlertCircle, FileText, Calendar } from 'lucide-react';
+import { HrComplianceDocsService, HrGrievance } from '@/services/hr-compliance-docs.service';
 
 interface POSHComplaint {
   id: string;
@@ -44,6 +45,47 @@ interface TrainingSession {
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedYear, setSelectedYear] = useState('2025');
+  const [items, setItems] = useState<POSHComplaint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getGrievances('posh');
+        if (!active) return;
+        const mapped: POSHComplaint[] = rows.map((r: HrGrievance) => ({
+          id: r.id,
+          complaintNumber: r.caseNumber || '',
+          filedDate: r.filedDate || '',
+          complainantDetails: r.complainantDetails || '',
+          respondentName: r.respondentName || '',
+          respondentDesignation: r.respondentDesignation || '',
+          respondentDepartment: r.respondentDepartment || '',
+          incidentDate: r.incidentDate || '',
+          incidentLocation: r.incidentLocation || '',
+          category: (r.category as POSHComplaint['category']) || 'verbal',
+          severity: (r.severity as POSHComplaint['severity']) || 'moderate',
+          status: (r.status as POSHComplaint['status']) || 'filed',
+          icAssigned: r.icAssigned || '',
+          targetCompletionDate: r.targetCompletionDate || '',
+          actualCompletionDate: r.actualCompletionDate,
+          actionTaken: r.actionTaken,
+          confidential: r.confidential ?? true,
+          remarks: r.remarks,
+        }));
+        setItems(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load complaints');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockComplaints: POSHComplaint[] = [
     {
@@ -120,17 +162,19 @@ export default function Page() {
     { id: '4', date: '2024-10-05', topic: 'Creating Respectful Workplaces', attendees: 200, trainer: 'External Consultant', department: 'All Departments' }
   ];
 
+  const sourceComplaints = items.length > 0 ? items : mockComplaints;
+
   const filteredComplaints = useMemo(() => {
-    return mockComplaints.filter(complaint => {
+    return sourceComplaints.filter(complaint => {
       const matchesStatus = selectedStatus === 'all' || complaint.status === selectedStatus;
       return matchesStatus;
     });
-  }, [selectedStatus, mockComplaints]);
+  }, [selectedStatus, sourceComplaints]);
 
   const stats = {
-    totalComplaints: mockComplaints.length,
-    pending: mockComplaints.filter(c => c.status === 'filed' || c.status === 'preliminary_inquiry' || c.status === 'formal_inquiry').length,
-    resolved: mockComplaints.filter(c => c.status === 'resolved' || c.status === 'closed').length,
+    totalComplaints: sourceComplaints.length,
+    pending: sourceComplaints.filter(c => c.status === 'filed' || c.status === 'preliminary_inquiry' || c.status === 'formal_inquiry').length,
+    resolved: sourceComplaints.filter(c => c.status === 'resolved' || c.status === 'closed').length,
     icMembers: icMembers.length,
     trainingAttendees2025: trainingData.filter(t => t.date.startsWith('2025')).reduce((sum, t) => sum + t.attendees, 0),
     complianceRate: 100
@@ -160,6 +204,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Prevention of Sexual Harassment at Workplace - Internal Complaints Committee</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading complaints…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg shadow-sm border border-red-200 p-3">

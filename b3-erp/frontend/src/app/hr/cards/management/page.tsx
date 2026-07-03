@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { CreditCard, Users, CheckCircle, AlertTriangle, XCircle, Calendar, IndianRupee } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CreditCard, Users, CheckCircle, AlertTriangle, XCircle, Calendar, IndianRupee, AlertCircle } from 'lucide-react';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface Card {
   id: string;
@@ -24,8 +25,50 @@ interface Card {
 export default function Page() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [rows, setRows] = useState<Card[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockCards: Card[] = [
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrSelfServiceService.getCorporateCards();
+        const mapped: Card[] = raw.map((r) => ({
+          id: r.id,
+          cardNumber: r.cardNumber ?? '',
+          cardType: (r.cardType as Card['cardType']) ?? 'credit',
+          assignedTo: r.cardholderName ?? '',
+          employeeCode: r.employeeCode ?? '',
+          department: r.department ?? '',
+          designation: r.designation ?? '',
+          issueDate: r.issueDate ?? '',
+          expiryDate: r.expiryDate ?? '',
+          limit: Number(r.creditLimit ?? 0),
+          spent: Number(r.monthlySpend ?? 0),
+          available: Number(r.availableLimit ?? 0),
+          status: (r.status as Card['status']) ?? 'active',
+          cardProvider: r.cardProvider ?? '',
+          lastUsedDate: r.lastTransactionDate ?? undefined,
+        }));
+        if (!cancelled) setRows(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cards');
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mockCards: Card[] = rows.length ? rows : [
     {
       id: '1',
       cardNumber: '**** **** **** 5678',
@@ -133,6 +176,19 @@ export default function Page() {
         <h1 className="text-2xl font-bold text-gray-900">Corporate Card Management</h1>
         <p className="text-sm text-gray-600 mt-1">Manage and monitor corporate cards</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading cards…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

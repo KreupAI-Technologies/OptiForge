@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Heart, Download, Upload, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
+import { HrComplianceDocsService, ComplianceReturn } from '@/services/hr-compliance-docs.service';
 
 interface ESIReturn {
   id: string;
@@ -28,6 +29,47 @@ export default function Page() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [esiReturns, setEsiReturns] = useState<ESIReturn[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await HrComplianceDocsService.getReturns('esi');
+        if (!active) return;
+        const mapped: ESIReturn[] = rows.map((r: ComplianceReturn) => ({
+          id: r.id,
+          returnMonth: r.returnMonth || '',
+          returnPeriod: r.returnPeriod || '',
+          establishment: r.establishment || '',
+          esiCode: r.registrationNumber || '',
+          dueDate: r.dueDate || '',
+          filingDate: r.filingDate,
+          status: (r.status as ESIReturn['status']) || 'draft',
+          totalEmployees: r.totalEmployees ?? 0,
+          coveredEmployees: r.coveredEmployees ?? 0,
+          grossWages: r.grossWages ?? 0,
+          employeeContribution: r.employeeContribution ?? 0,
+          employerContribution: r.employerContribution ?? 0,
+          totalContribution: r.totalContribution ?? 0,
+          challanNumber: r.challanNumber,
+          challanDate: r.challanDate,
+          branch: r.branch || '',
+          remarks: r.remarks,
+        }));
+        setEsiReturns(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load ESI returns');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const mockESIReturns: ESIReturn[] = [
     {
@@ -126,7 +168,9 @@ export default function Page() {
     }
   ];
 
-  const filteredReturns = mockESIReturns.filter(ret => {
+  const sourceESIReturns = esiReturns.length > 0 ? esiReturns : mockESIReturns;
+
+  const filteredReturns = sourceESIReturns.filter(ret => {
     const returnDate = new Date(ret.returnMonth);
     const matchesMonth = returnDate.getMonth() === selectedMonth;
     const matchesYear = returnDate.getFullYear() === selectedYear;
@@ -135,10 +179,10 @@ export default function Page() {
   });
 
   const stats = {
-    totalReturns: mockESIReturns.length,
-    filed: mockESIReturns.filter(r => r.status === 'filed').length,
-    pending: mockESIReturns.filter(r => r.status === 'pending_approval' || r.status === 'draft').length,
-    overdue: mockESIReturns.filter(r => r.status === 'overdue').length
+    totalReturns: sourceESIReturns.length,
+    filed: sourceESIReturns.filter(r => r.status === 'filed').length,
+    pending: sourceESIReturns.filter(r => r.status === 'pending_approval' || r.status === 'draft').length,
+    overdue: sourceESIReturns.filter(r => r.status === 'overdue').length
   };
 
   const statusColors = {
@@ -179,6 +223,15 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Employee State Insurance monthly contribution returns</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 text-sm text-gray-500">Loading ESI returns…</div>
+      )}
+      {error && (
+        <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error} — showing sample data.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg shadow-sm border border-pink-200 p-3">

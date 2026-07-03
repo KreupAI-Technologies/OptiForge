@@ -1,9 +1,45 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { DollarSign, CheckCircle } from 'lucide-react';
+import { OffboardingTasksService, OffboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 export default function FinanceClearancePage() {
-  const mockClearances = [
+  const [mockClearances, setMockClearances] = useState<
+    Array<{ id: string; employeeName: string; status: string; items: any[]; [k: string]: any }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OffboardingTasksService.list('clearance-finance');
+        if (!active) return;
+        setMockClearances(
+          records.map((r: OffboardingTaskRecord) => ({
+            id: r.id,
+            employeeName: r.employeeName || '',
+            status: r.status || 'pending',
+            items: r.items || [],
+            ...(r.data || {}),
+          })),
+        );
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const _unusedMockClearances = [
     {
       id: 'FIN001',
       employeeName: 'Rahul Sharma',

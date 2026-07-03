@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Award, Search, Download, CheckCircle, Clock, Target, Calendar, DollarSign, Users, TrendingUp, Star } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Award, Search, Download, CheckCircle, Clock, Target, Calendar, DollarSign, Users, TrendingUp, Star, AlertCircle } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface PerformanceBonus {
   id: string;
@@ -36,6 +37,60 @@ export default function PerformanceBonusPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedQuarter, setSelectedQuarter] = useState('Q3-2024-25');
+
+  const [performanceBonus, setPerformanceBonus] = useState<PerformanceBonus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getBonusRecords('performance');
+        const mapped: PerformanceBonus[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.details?.id ?? '',
+          employeeId: r.employeeCode ?? r.employeeId ?? r.details?.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.details?.employeeName ?? '—',
+          designation: r.designation ?? r.details?.designation ?? '',
+          department: r.department ?? r.details?.department ?? '',
+          quarter: r.quarter ?? r.details?.quarter ?? '',
+          financialYear: r.financialYear ?? r.details?.financialYear ?? '',
+          kpiTarget: Number(r.kpiTarget ?? r.details?.kpiTarget ?? 0),
+          kpiAchieved: Number(r.kpiAchieved ?? r.details?.kpiAchieved ?? 0),
+          achievementPercent: Number(r.achievementPercent ?? r.details?.achievementPercent ?? 0),
+          bonusEligibility: Boolean(r.bonusEligibility ?? r.details?.bonusEligibility ?? false),
+          bonusPercentage: Number(r.bonusPercentage ?? r.details?.bonusPercentage ?? 0),
+          bonusAmount: Number(r.bonusAmount ?? r.amount ?? r.details?.bonusAmount ?? 0),
+          basicSalary: Number(r.basicSalary ?? r.details?.basicSalary ?? 0),
+          performanceCategory: (r.performanceCategory ?? r.details?.performanceCategory ?? 'meets') as PerformanceBonus['performanceCategory'],
+          status: (r.status ?? r.details?.status ?? 'draft') as PerformanceBonus['status'],
+          calculatedDate: r.calculatedDate ?? r.details?.calculatedDate ?? undefined,
+          approvedDate: r.approvedDate ?? r.details?.approvedDate ?? undefined,
+          paidDate: r.paidDate ?? r.details?.paidDate ?? undefined,
+          kpiMetrics: {
+            production: Number(r.kpiMetrics?.production ?? r.details?.kpiMetrics?.production ?? 0),
+            quality: Number(r.kpiMetrics?.quality ?? r.details?.kpiMetrics?.quality ?? 0),
+            safety: Number(r.kpiMetrics?.safety ?? r.details?.kpiMetrics?.safety ?? 0),
+            efficiency: Number(r.kpiMetrics?.efficiency ?? r.details?.kpiMetrics?.efficiency ?? 0),
+          },
+        }));
+        if (!cancelled) setPerformanceBonus(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load performance bonus records');
+          setPerformanceBonus([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockPerformanceBonus: PerformanceBonus[] = [
     {
@@ -197,7 +252,7 @@ export default function PerformanceBonusPage() {
   ];
 
   const filteredBonus = useMemo(() => {
-    return mockPerformanceBonus.filter(bonus => {
+    return performanceBonus.filter(bonus => {
       const matchesSearch =
         bonus.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         bonus.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -206,7 +261,7 @@ export default function PerformanceBonusPage() {
       const matchesQuarter = bonus.quarter === selectedQuarter;
       return matchesSearch && matchesDepartment && matchesStatus && matchesQuarter;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus, selectedQuarter]);
+  }, [performanceBonus, searchTerm, selectedDepartment, selectedStatus, selectedQuarter]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const statuses = ['all', 'draft', 'calculated', 'approved', 'processed', 'paid'];
@@ -255,6 +310,24 @@ export default function PerformanceBonusPage() {
         <h1 className="text-2xl font-bold text-gray-900">Performance Bonus</h1>
         <p className="text-sm text-gray-600 mt-1">Quarterly KPI-based performance bonus for {selectedQuarter}</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading performance bonus records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && performanceBonus.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No performance bonus records found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm border border-blue-200 p-3">

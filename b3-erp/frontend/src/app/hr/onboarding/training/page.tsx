@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GraduationCap, Search, Filter, X, Download, CheckCircle, Clock, AlertCircle, Calendar, BookOpen, Video, FileText, Eye, Users } from 'lucide-react';
 import DataTable from '@/components/DataTable';
+import { OnboardingTasksService, OnboardingTaskRecord } from '@/services/onboarding-tasks.service';
 
 interface TrainingSchedule {
   id: string;
@@ -49,7 +50,39 @@ export default function TrainingSchedulePage() {
     { id: '10', trainingName: 'Environmental Awareness', category: 'compliance', duration: '1 hour', mode: 'online', mandatory: true, icon: FileText }
   ];
 
-  const mockSchedules: TrainingSchedule[] = [
+  const [mockSchedules, setMockSchedules] = useState<TrainingSchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await OnboardingTasksService.list('training');
+        if (!active) return;
+        const mapped = records.map((r: OnboardingTaskRecord) => ({
+          id: r.id,
+          employeeCode: r.employeeCode || '',
+          employeeName: r.employeeName || '',
+          designation: r.designation || '',
+          department: r.department || '',
+          joiningDate: r.joiningDate || '',
+          status: (r.status as any) || 'pending',
+          ...(r.data || {}),
+        })) as TrainingSchedule[];
+        setMockSchedules(mapped);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const _unusedMockSchedules: TrainingSchedule[] = [
     {
       id: '1',
       employeeCode: 'EMP2025001',

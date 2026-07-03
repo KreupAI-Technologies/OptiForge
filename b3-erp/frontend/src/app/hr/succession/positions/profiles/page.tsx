@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Briefcase, GraduationCap, Award } from 'lucide-react';
+import { HrTalentService } from '@/services/hr-talent.service';
 
 interface PositionProfile {
   id: string;
@@ -80,7 +81,25 @@ export default function Page() {
     }
   ];
 
-  const filteredProfiles = mockProfiles.filter(profile =>
+  const [rows, setRows] = useState<PositionProfile[]>(mockProfiles);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await HrTalentService.getSuccession<PositionProfile>('position-profile');
+        if (!cancelled && data.length > 0) setRows(data);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredProfiles = rows.filter(profile =>
     selectedDepartment === 'all' || profile.department === selectedDepartment
   );
 
@@ -100,6 +119,18 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Detailed role requirements and competencies</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <div className="flex items-center gap-2">
