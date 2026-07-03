@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft, Save, X, Plus, Trash2, Calendar, FileText, Hash,
   AlertCircle, CheckCircle, DollarSign, BookOpen, Search, Info,
   TrendingUp, ArrowUpCircle, ArrowDownCircle, Edit2, Copy, Loader
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 // TypeScript Interfaces
 interface JournalLine {
@@ -106,9 +107,71 @@ export default function GLEntryEditPage() {
 
   const [entry, setEntry] = useState<GLEntry>(mockGLEntry);
   const [journalLines, setJournalLines] = useState<JournalLine[]>(entry.journalLines);
+  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
   const [showAccountSearch, setShowAccountSearch] = useState<number | null>(null);
   const [accountSearchQuery, setAccountSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Hydrate account lookup list from the backend chart of accounts.
+        try {
+          const coa = await FinanceService.getChartOfAccounts();
+          if (!cancelled && Array.isArray(coa) && coa.length) {
+            const typeMap: Record<string, Account['type']> = {
+              ASSET: 'Asset',
+              LIABILITY: 'Liability',
+              EQUITY: 'Equity',
+              REVENUE: 'Income',
+              EXPENSE: 'Expense',
+            };
+            setAccounts(
+              coa.map((a: any) => ({
+                code: String(a.code ?? ''),
+                name: String(a.name ?? ''),
+                type: typeMap[String(a.type)] ?? 'Asset',
+                balance: Number(a.balance ?? 0),
+              })),
+            );
+          }
+        } catch {
+          /* keep seed accounts */
+        }
+
+        if (entryId) {
+          const raw = await FinanceService.getJournalEntry(entryId);
+          if (cancelled) return;
+          const m: any = raw || {};
+          setEntry((prev) => ({
+            ...prev,
+            ...(m.id != null ? { id: String(m.id) } : {}),
+            ...(m.entryNumber != null ? { entryNumber: String(m.entryNumber) } : {}),
+            ...(m.entryDate != null ? { entryDate: String(m.entryDate) } : {}),
+            ...(m.description != null ? { description: String(m.description) } : {}),
+            ...(m.referenceNumber != null ? { referenceNumber: String(m.referenceNumber) } : {}),
+            ...(m.sourceDocument != null ? { sourceDocument: String(m.sourceDocument) } : {}),
+            ...(m.status != null ? { status: m.status } : {}),
+            ...(m.notes != null ? { notes: String(m.notes) } : {}),
+            ...(Array.isArray(m.journalLines) ? { journalLines: m.journalLines } : {}),
+          }));
+          if (Array.isArray(m.journalLines)) {
+            setJournalLines(m.journalLines);
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load journal entry');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [entryId]);
 
   // Calculate totals
   const totalDebit = journalLines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
@@ -117,7 +180,7 @@ export default function GLEntryEditPage() {
   const isBalanced = Math.abs(difference) < 0.01;
 
   // Filter accounts based on search
-  const filteredAccounts = mockAccounts.filter(
+  const filteredAccounts = accounts.filter(
     (account) =>
       account.code.toLowerCase().includes(accountSearchQuery.toLowerCase()) ||
       account.name.toLowerCase().includes(accountSearchQuery.toLowerCase())
@@ -246,6 +309,17 @@ export default function GLEntryEditPage() {
 
   return (
     <div className="w-full h-full px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <div className="flex items-start justify-between mb-2">

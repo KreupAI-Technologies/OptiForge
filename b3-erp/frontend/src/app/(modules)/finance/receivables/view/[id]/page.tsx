@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Edit,
@@ -433,7 +434,44 @@ export default function ViewReceivablePage() {
   const router = useRouter();
   const params = useParams();
   const receivableId = params.id as string;
-  const receivable = mockReceivable;
+  const [receivable, setReceivable] = useState<Receivable>(mockReceivable);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!receivableId) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const raw = await FinanceService.getReceivable(receivableId);
+        if (cancelled) return;
+        const m: any = raw || {};
+        setReceivable((prev) => ({
+          ...prev,
+          ...(m.id != null ? { id: String(m.id) } : {}),
+          ...(m.customerId != null ? { customerId: String(m.customerId) } : {}),
+          ...(m.customerName != null ? { customerName: String(m.customerName) } : {}),
+          ...(m.customerCode != null ? { customerCode: String(m.customerCode) } : {}),
+          ...(m.totalOutstanding != null ? { totalOutstanding: Number(m.totalOutstanding) } : {}),
+          ...(m.overdueAmount != null ? { overdueAmount: Number(m.overdueAmount) } : {}),
+          ...(m.creditLimit != null ? { creditLimit: Number(m.creditLimit) } : {}),
+          ...(m.paymentTerms != null ? { paymentTerms: String(m.paymentTerms) } : {}),
+          ...(m.lastCollectionDate != null ? { lastCollectionDate: String(m.lastCollectionDate) } : {}),
+          ...(Array.isArray(m.invoices) ? { invoices: m.invoices } : {}),
+        }));
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load receivable');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [receivableId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'collection_activities'>('overview');
 
@@ -470,6 +508,17 @@ export default function ViewReceivablePage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

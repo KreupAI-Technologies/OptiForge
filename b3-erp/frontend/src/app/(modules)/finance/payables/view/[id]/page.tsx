@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Edit,
@@ -377,7 +378,44 @@ export default function ViewPayablePage() {
   const router = useRouter();
   const params = useParams();
   const payableId = params.id as string;
-  const payable = mockPayable;
+  const [payable, setPayable] = useState<Payable>(mockPayable);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!payableId) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const raw = await FinanceService.getPayable(payableId);
+        if (cancelled) return;
+        const m: any = raw || {};
+        setPayable((prev) => ({
+          ...prev,
+          ...(m.id != null ? { id: String(m.id) } : {}),
+          ...(m.vendorId != null ? { vendorId: String(m.vendorId) } : {}),
+          ...(m.vendorName != null ? { vendorName: String(m.vendorName) } : {}),
+          ...(m.vendorCode != null ? { vendorCode: String(m.vendorCode) } : {}),
+          ...(m.totalOutstanding != null ? { totalOutstanding: Number(m.totalOutstanding) } : {}),
+          ...(m.overdueAmount != null ? { overdueAmount: Number(m.overdueAmount) } : {}),
+          ...(m.creditLimit != null ? { creditLimit: Number(m.creditLimit) } : {}),
+          ...(m.paymentTerms != null ? { paymentTerms: String(m.paymentTerms) } : {}),
+          ...(m.lastPaymentDate != null ? { lastPaymentDate: String(m.lastPaymentDate) } : {}),
+          ...(Array.isArray(m.bills) ? { bills: m.bills } : {}),
+        }));
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load payable');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [payableId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'bills' | 'payment_schedule'>('overview');
 
@@ -414,6 +452,17 @@ export default function ViewPayablePage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

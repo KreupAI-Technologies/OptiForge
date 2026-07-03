@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Save, Plus, Trash2, Calendar, FileText, Search,
@@ -8,6 +8,7 @@ import {
   TrendingUp, Edit2, File, List, Info, ArrowUpCircle, ArrowDownCircle,
   Zap, Clock, FileCheck
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 // TypeScript Interfaces
 interface JournalLine {
@@ -211,6 +212,43 @@ export default function AddJournalEntryPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingAsDraft, setSavingAsDraft] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const coa = await FinanceService.getChartOfAccounts();
+        if (cancelled) return;
+        if (Array.isArray(coa) && coa.length) {
+          const typeMap: Record<string, Account['type']> = {
+            ASSET: 'Asset',
+            LIABILITY: 'Liability',
+            EQUITY: 'Equity',
+            REVENUE: 'Income',
+            EXPENSE: 'Expense',
+          };
+          setAccounts(
+            coa.map((a: any) => ({
+              code: String(a.code ?? ''),
+              name: String(a.name ?? ''),
+              type: typeMap[String(a.type)] ?? 'Asset',
+              balance: Number(a.balance ?? 0),
+            })),
+          );
+        }
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load accounts');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Calculate totals
   const totalDebit = journalLines.reduce((sum, line) => sum + (line.debitAmount || 0), 0);
@@ -219,7 +257,7 @@ export default function AddJournalEntryPage() {
   const isBalanced = Math.abs(difference) < 0.01;
 
   // Filter accounts based on search
-  const filteredAccounts = mockAccounts.filter(
+  const filteredAccounts = accounts.filter(
     (account) =>
       account.code.toLowerCase().includes(accountSearchQuery.toLowerCase()) ||
       account.name.toLowerCase().includes(accountSearchQuery.toLowerCase())
@@ -417,6 +455,17 @@ export default function AddJournalEntryPage() {
 
   return (
     <div className="w-full h-full px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <div className="flex items-start justify-between mb-2">

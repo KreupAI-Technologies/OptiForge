@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Edit,
@@ -193,7 +194,47 @@ export default function ViewInvoicePage() {
   const router = useRouter();
   const params = useParams();
   const invoiceId = params.id as string;
-  const invoice = mockInvoice;
+  const [invoice, setInvoice] = useState<Invoice>(mockInvoice);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!invoiceId) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const raw = await FinanceService.getInvoice(invoiceId);
+        if (cancelled) return;
+        const m: any = raw || {};
+        const validStatuses = ['draft', 'sent', 'partially_paid', 'paid', 'overdue', 'cancelled'];
+        setInvoice((prev) => ({
+          ...prev,
+          ...(m.id != null ? { id: String(m.id) } : {}),
+          ...(m.invoiceNumber != null ? { invoiceNumber: String(m.invoiceNumber) } : {}),
+          ...(validStatuses.includes(m.status) ? { status: m.status } : {}),
+          ...(m.customer != null ? { customer: String(m.customer) } : {}),
+          ...(m.invoiceDate != null ? { invoiceDate: String(m.invoiceDate) } : {}),
+          ...(m.dueDate != null ? { dueDate: String(m.dueDate) } : {}),
+          ...(m.subtotal != null ? { subtotal: Number(m.subtotal) } : {}),
+          ...(m.total != null ? { total: Number(m.total) } : {}),
+          ...(m.paidAmount != null ? { paidAmount: Number(m.paidAmount) } : {}),
+          ...(m.balanceDue != null ? { balanceDue: Number(m.balanceDue) } : {}),
+          ...(m.poReference != null ? { poReference: String(m.poReference) } : {}),
+          ...(m.notes != null ? { notes: String(m.notes) } : {}),
+        }));
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load invoice');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [invoiceId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'line_items' | 'payment_history'>('overview');
 
@@ -209,6 +250,17 @@ export default function ViewInvoicePage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

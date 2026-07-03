@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Save,
@@ -146,6 +147,43 @@ export default function EditPayablePage() {
 
   const [formData, setFormData] = useState<PayableFormData>(mockPayable);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!payableId) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const raw = await FinanceService.getPayable(payableId);
+        if (cancelled) return;
+        const m: any = raw || {};
+        setFormData((prev) => ({
+          ...prev,
+          ...(m.vendorId != null ? { vendorId: String(m.vendorId) } : {}),
+          ...(m.vendorName != null ? { vendorName: String(m.vendorName) } : {}),
+          ...(m.billNumber != null ? { billNumber: String(m.billNumber) } : {}),
+          ...(m.billDate != null ? { billDate: String(m.billDate) } : {}),
+          ...(m.dueDate != null ? { dueDate: String(m.dueDate) } : {}),
+          ...(m.poReference != null ? { poReference: String(m.poReference) } : {}),
+          ...(m.grandTotal != null ? { grandTotal: Number(m.grandTotal) } : {}),
+          ...(m.paymentTerms != null ? { paymentTerms: String(m.paymentTerms) } : {}),
+          ...(m.notes != null ? { notes: String(m.notes) } : {}),
+          ...(Array.isArray(m.lineItems) ? { lineItems: m.lineItems } : {}),
+        }));
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load payable');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [payableId]);
 
   const calculateLineItemTotals = (item: Partial<BillLineItem>): BillLineItem => {
     const quantity = item.quantity || 0;
@@ -287,6 +325,16 @@ export default function EditPayablePage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

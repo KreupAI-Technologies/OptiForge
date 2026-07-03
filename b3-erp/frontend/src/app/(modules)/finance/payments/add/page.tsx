@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Save,
@@ -223,6 +224,39 @@ export default function PaymentAddPage() {
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [partySearchQuery, setPartySearchQuery] = useState('');
   const [outstandingInvoices, setOutstandingInvoices] = useState<OutstandingInvoice[]>([]);
+  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>(bankAccounts);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const coa = await FinanceService.getChartOfAccounts();
+        if (cancelled) return;
+        if (Array.isArray(coa)) {
+          const banks = coa
+            .filter((a: any) => a.isBankAccount)
+            .map((a: any, i: number) => ({
+              id: String(a.id ?? i + 1),
+              bankName: String(a.name ?? ''),
+              accountNumber: String(a.code ?? ''),
+              ifscCode: '',
+              branch: '',
+              balance: Number(a.balance ?? 0),
+            }));
+          if (banks.length) setBankAccountsList(banks);
+        }
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load bank accounts');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [formData, setFormData] = useState<PaymentFormData>({
     paymentType: 'received',
@@ -327,7 +361,7 @@ export default function PaymentAddPage() {
   };
 
   const handleBankAccountSelect = (accountId: string) => {
-    const account = bankAccounts.find((acc) => acc.id === accountId);
+    const account = bankAccountsList.find((acc) => acc.id === accountId);
     if (account) {
       setFormData((prev) => ({
         ...prev,
@@ -463,10 +497,21 @@ export default function PaymentAddPage() {
   const requiresCheckDetails = formData.paymentMethod === 'check';
 
   const selectedParty = parties.find((p) => p.id === formData.partyId);
-  const selectedBankAccount = bankAccounts.find((acc) => acc.id === formData.bankAccountId);
+  const selectedBankAccount = bankAccountsList.find((acc) => acc.id === formData.bankAccountId);
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button onClick={handleCancel} className="flex items-center text-gray-600 hover:text-gray-900 mb-2">
@@ -761,7 +806,7 @@ export default function PaymentAddPage() {
                         } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
                       >
                         <option value="">Select a bank account</option>
-                        {bankAccounts.map((account) => (
+                        {bankAccountsList.map((account) => (
                           <option key={account.id} value={account.id}>
                             {account.bankName} - {account.accountNumber} (Balance: INR{' '}
                             {account.balance.toLocaleString('en-IN')})

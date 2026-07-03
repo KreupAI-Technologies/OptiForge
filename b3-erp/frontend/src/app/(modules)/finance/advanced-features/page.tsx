@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BookOpen,
   Globe,
@@ -11,8 +11,10 @@ import {
   Lock,
   Calculator,
   BarChart3,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 // Import all Finance advanced components
 import GeneralLedgerAdvanced from '@/components/finance/GeneralLedgerAdvanced';
@@ -36,6 +38,28 @@ export default function FinanceAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<
     'general-ledger' | 'consolidation' | 'audit-trail' | 'compliance' | 'treasury' | 'cash-forecast' | 'controls'
   >('general-ledger');
+
+  const [featureToggles, setFeatureToggles] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await FinanceService.getAdvancedFeatures();
+        if (cancelled) return;
+        setFeatureToggles(Array.isArray(raw) ? raw : []);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load advanced features');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data for General Ledger
   const mockGeneralLedgerData: any = {
@@ -203,7 +227,7 @@ export default function FinanceAdvancedFeaturesPage() {
     horizon: 'monthly' as const
   };
 
-  const features = [
+  const allFeatures = [
     { id: 'general-ledger', name: 'General Ledger & Journals', icon: BookOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
     { id: 'consolidation', name: 'Multi-Entity Consolidation', icon: Globe, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { id: 'audit-trail', name: 'Advanced Audit Trail', icon: Shield, color: 'text-purple-600', bg: 'bg-purple-50' },
@@ -212,6 +236,16 @@ export default function FinanceAdvancedFeaturesPage() {
     { id: 'cash-forecast', name: 'Predictive Cash Forecasting', icon: TrendingUp, color: 'text-cyan-600', bg: 'bg-cyan-50' },
     { id: 'controls', name: 'Financial Controls', icon: Lock, color: 'text-red-600', bg: 'bg-red-50' }
   ];
+
+  // When backend feature toggles are present, only show the features enabled there;
+  // otherwise show all features unchanged.
+  const features = featureToggles.length
+    ? allFeatures.filter((feature) =>
+        featureToggles.some(
+          (t: any) => t.featureKey === feature.id && t.isEnabled !== false,
+        ),
+      )
+    : allFeatures;
 
   const getFeatureDescription = (id: string) => {
     const descriptions = {
@@ -235,6 +269,17 @@ export default function FinanceAdvancedFeaturesPage() {
           <p className="text-sm text-gray-600">
             Enterprise-grade financial management tools for comprehensive accounting, compliance, and treasury operations
           </p>
+          {isLoading && (
+            <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+              Loading…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {loadError}
+            </div>
+          )}
         </div>
 
         {/* Feature Tabs */}

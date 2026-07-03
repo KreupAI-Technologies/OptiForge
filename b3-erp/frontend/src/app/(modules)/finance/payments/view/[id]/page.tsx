@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   ArrowLeft,
   Edit,
@@ -254,8 +255,49 @@ export default function PaymentViewPage() {
   const router = useRouter();
   const params = useParams();
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'activity'>('overview');
-  const [payment] = useState<Payment>(mockPayment);
+  const [payment, setPayment] = useState<Payment>(mockPayment);
   const [activityLogs] = useState<ActivityLog[]>(mockActivityLogs);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const paymentId = params.id as string;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!paymentId) {
+      setIsLoading(false);
+      return;
+    }
+    (async () => {
+      try {
+        const raw = await FinanceService.getPayment(paymentId);
+        if (cancelled) return;
+        const m: any = raw || {};
+        setPayment((prev) => ({
+          ...prev,
+          ...(m.id != null ? { id: String(m.id) } : {}),
+          ...(m.paymentNumber != null ? { paymentNumber: String(m.paymentNumber) } : {}),
+          ...(m.status != null ? { status: m.status } : {}),
+          ...(m.paymentDate != null ? { paymentDate: String(m.paymentDate) } : {}),
+          ...(m.transactionDate != null ? { transactionDate: String(m.transactionDate) } : {}),
+          ...(m.dueDate != null ? { dueDate: String(m.dueDate) } : {}),
+          ...(m.paymentAmount != null ? { paymentAmount: Number(m.paymentAmount) } : {}),
+          ...(m.netAmount != null ? { netAmount: Number(m.netAmount) } : {}),
+          ...(m.transactionFee != null ? { transactionFee: Number(m.transactionFee) } : {}),
+          ...(m.partyName != null ? { partyName: String(m.partyName) } : {}),
+          ...(m.referenceNumber != null ? { referenceNumber: String(m.referenceNumber) } : {}),
+          ...(m.notes != null ? { notes: String(m.notes) } : {}),
+        }));
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message || 'Failed to load payment');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentId]);
 
   const StatusIcon = statusConfig[payment.status].icon;
   const MethodIcon = methodConfig[payment.paymentMethod].icon;
@@ -283,6 +325,17 @@ export default function PaymentViewPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button
