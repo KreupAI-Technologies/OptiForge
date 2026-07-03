@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   FileText,
@@ -17,71 +17,113 @@ import {
   Eye
 } from 'lucide-react';
 import Link from 'next/link';
+import { InvoiceService } from '@/services/invoice.service';
 
 interface InvoiceSummary {
   total: number;
   count: number;
 }
 
+interface RecentInvoice {
+  id: string;
+  invoiceNumber: string;
+  customerName: string;
+  date: string;
+  dueDate: string;
+  amount: number;
+  status: string;
+  paymentDate?: string;
+}
+
+// Map backend InvoiceStatus enum values to the page's simplified status buckets.
+const normalizeStatus = (raw: string): string => {
+  const s = (raw ?? '').toString().toUpperCase();
+  if (s === 'PAID') return 'paid';
+  if (s === 'OVERDUE') return 'overdue';
+  if (s === 'PARTIALLY_PAID' || s === 'POSTED' || s === 'APPROVED' || s === 'PENDING_APPROVAL' || s === 'DRAFT') {
+    return 'pending';
+  }
+  return 'pending';
+};
+
 export default function InvoicesPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
+  const [summaryData, setSummaryData] = useState({
+    pending: { total: 0, count: 0 },
+    paid: { total: 0, count: 0 },
+    overdue: { total: 0, count: 0 },
+    creditNotes: { total: 0, count: 0 },
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const summaryData = {
-    pending: { total: 4567000, count: 12 },
-    paid: { total: 18450000, count: 45 },
-    overdue: { total: 2340000, count: 8 },
-    creditNotes: { total: 456000, count: 3 }
-  };
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = (await InvoiceService.getAllInvoices({ limit: 100 })) as any;
+        const raw: any[] = Array.isArray(response) ? response : (response?.data ?? []);
 
-  const recentInvoices = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2025-1234',
-      customerName: 'Tata Motors Limited',
-      date: '2025-10-18',
-      dueDate: '2025-11-18',
-      amount: 1245000,
-      status: 'paid',
-      paymentDate: '2025-11-15'
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2025-1235',
-      customerName: 'Reliance Industries',
-      date: '2025-10-19',
-      dueDate: '2025-11-19',
-      amount: 2340000,
-      status: 'pending'
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-2025-1236',
-      customerName: 'L&T Heavy Engineering',
-      date: '2025-10-15',
-      dueDate: '2025-11-15',
-      amount: 856000,
-      status: 'overdue'
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-2025-1237',
-      customerName: 'Mahindra & Mahindra',
-      date: '2025-10-20',
-      dueDate: '2025-11-20',
-      amount: 445000,
-      status: 'pending'
-    },
-    {
-      id: '5',
-      invoiceNumber: 'INV-2025-1238',
-      customerName: 'Adani Ports',
-      date: '2025-10-17',
-      dueDate: '2025-11-17',
-      amount: 675000,
-      status: 'paid',
-      paymentDate: '2025-11-16'
-    }
-  ];
+        const mapped: RecentInvoice[] = raw.map((inv) => ({
+          id: String(inv.id ?? ''),
+          invoiceNumber: inv.invoiceNumber ?? inv.number ?? '',
+          customerName: inv.customerName ?? inv.customer?.name ?? '',
+          date: inv.invoiceDate ?? inv.date ?? '',
+          dueDate: inv.dueDate ?? '',
+          amount: Number(inv.totalAmount ?? inv.amount ?? 0),
+          status: normalizeStatus(inv.status),
+          paymentDate: inv.paidAt ?? inv.paymentDate ?? undefined,
+        }));
+
+        // Derive summary buckets defensively from the fetched invoices.
+        const summary = {
+          pending: { total: 0, count: 0 },
+          paid: { total: 0, count: 0 },
+          overdue: { total: 0, count: 0 },
+          creditNotes: { total: 0, count: 0 },
+        };
+        raw.forEach((inv) => {
+          const amount = Number(inv.totalAmount ?? inv.amount ?? 0);
+          const type = (inv.type ?? '').toString().toUpperCase();
+          if (type === 'CREDIT_NOTE') {
+            summary.creditNotes.total += amount;
+            summary.creditNotes.count += 1;
+            return;
+          }
+          const bucket = normalizeStatus(inv.status);
+          if (bucket === 'paid') {
+            summary.paid.total += amount;
+            summary.paid.count += 1;
+          } else if (bucket === 'overdue') {
+            summary.overdue.total += amount;
+            summary.overdue.count += 1;
+          } else {
+            summary.pending.total += amount;
+            summary.pending.count += 1;
+          }
+        });
+
+        if (!cancelled) {
+          setRecentInvoices(mapped.slice(0, 5));
+          setSummaryData(summary);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load invoices');
+          setRecentInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -104,6 +146,18 @@ export default function InvoicesPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading invoices…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button
@@ -249,6 +303,11 @@ export default function InvoicesPage() {
               </div>
             </div>
             <div className="space-y-3">
+              {!isLoading && !loadError && recentInvoices.length === 0 && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+                  No invoices found.
+                </div>
+              )}
               {recentInvoices.map((invoice) => (
                 <div key={invoice.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100">
                   <div className="flex items-center gap-3">

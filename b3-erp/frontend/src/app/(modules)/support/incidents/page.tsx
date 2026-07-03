@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, AlertTriangle, Activity, Users, Clock, TrendingUp, Shield, Filter, Download, ArrowUpDown, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
+import { ITILService } from '@/services/support.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
 interface Incident {
   id: string;
@@ -25,152 +28,6 @@ interface Incident {
   estimatedResolution?: string;
 }
 
-const mockIncidents: Incident[] = [
-  {
-    id: '1',
-    incidentNumber: 'INC-2025-001',
-    title: 'ERP System Slow Performance',
-    description: 'Multiple users reporting significant slowdown in ERP application response times',
-    reportedBy: 'Rajesh Kumar',
-    assignedTo: 'IT Operations Team',
-    affectedUsers: 45,
-    severity: 'high',
-    status: 'investigating',
-    category: 'performance',
-    impact: 'high',
-    reportedDate: '2025-10-17 09:30',
-    downtime: 0,
-    affectedSystems: ['ERP Core', 'Database Server'],
-    estimatedResolution: '2025-10-17 14:00',
-  },
-  {
-    id: '2',
-    incidentNumber: 'INC-2025-002',
-    title: 'Production Module Unavailable',
-    description: 'Production planning module not loading, preventing work order creation',
-    reportedBy: 'Priya Patel',
-    assignedTo: 'Application Support',
-    affectedUsers: 12,
-    severity: 'critical',
-    status: 'identified',
-    category: 'system_outage',
-    impact: 'critical',
-    reportedDate: '2025-10-17 08:15',
-    downtime: 120,
-    affectedSystems: ['Production Module', 'Work Order System'],
-    rootCause: 'Database connection pool exhausted',
-    estimatedResolution: '2025-10-17 12:00',
-  },
-  {
-    id: '3',
-    incidentNumber: 'INC-2025-003',
-    title: 'Email Integration Failure',
-    description: 'Automated emails for quotations and invoices not being sent',
-    reportedBy: 'Amit Singh',
-    assignedTo: 'Integration Team',
-    affectedUsers: 8,
-    severity: 'medium',
-    status: 'monitoring',
-    category: 'integration',
-    impact: 'medium',
-    reportedDate: '2025-10-16 16:45',
-    downtime: 0,
-    affectedSystems: ['Email Gateway', 'SMTP Service'],
-    rootCause: 'SMTP server credentials expired',
-    resolution: 'Updated SMTP credentials and restarted email service',
-    estimatedResolution: '2025-10-16 18:00',
-  },
-  {
-    id: '4',
-    incidentNumber: 'INC-2025-004',
-    title: 'Inventory Data Sync Issue',
-    description: 'Stock levels not syncing between warehouse and main system',
-    reportedBy: 'Sanjay Gupta',
-    assignedTo: 'Database Team',
-    affectedUsers: 6,
-    severity: 'high',
-    status: 'resolved',
-    category: 'data_loss',
-    impact: 'high',
-    reportedDate: '2025-10-15 11:20',
-    resolvedDate: '2025-10-15 15:30',
-    downtime: 0,
-    affectedSystems: ['Inventory Module', 'Warehouse System'],
-    rootCause: 'Replication lag due to network latency',
-    resolution: 'Optimized database replication and cleared backlog',
-  },
-  {
-    id: '5',
-    incidentNumber: 'INC-2025-005',
-    title: 'Report Generation Server Down',
-    description: 'Custom report generation service not responding',
-    reportedBy: 'Neha Sharma',
-    assignedTo: 'Infrastructure Team',
-    affectedUsers: 25,
-    severity: 'medium',
-    status: 'closed',
-    category: 'system_outage',
-    impact: 'medium',
-    reportedDate: '2025-10-14 14:00',
-    resolvedDate: '2025-10-14 16:30',
-    downtime: 150,
-    affectedSystems: ['Reporting Server', 'Analytics Engine'],
-    rootCause: 'Memory leak causing server crash',
-    resolution: 'Restarted service and deployed memory leak fix',
-  },
-  {
-    id: '6',
-    incidentNumber: 'INC-2025-006',
-    title: 'Security Alert - Unusual Login Activity',
-    description: 'Multiple failed login attempts detected from unknown IP addresses',
-    reportedBy: 'Security System',
-    assignedTo: 'Security Team',
-    affectedUsers: 0,
-    severity: 'critical',
-    status: 'investigating',
-    category: 'security',
-    impact: 'high',
-    reportedDate: '2025-10-17 07:00',
-    downtime: 0,
-    affectedSystems: ['Authentication Service', 'Firewall'],
-    estimatedResolution: '2025-10-17 11:00',
-  },
-  {
-    id: '7',
-    incidentNumber: 'INC-2025-007',
-    title: 'Backup Storage Capacity Alert',
-    description: 'Backup storage server reaching 95% capacity',
-    reportedBy: 'Monitoring System',
-    assignedTo: 'Storage Team',
-    affectedUsers: 0,
-    severity: 'low',
-    status: 'new',
-    category: 'hardware',
-    impact: 'low',
-    reportedDate: '2025-10-17 06:00',
-    downtime: 0,
-    affectedSystems: ['Backup Server', 'Storage Array'],
-    estimatedResolution: '2025-10-18 12:00',
-  },
-  {
-    id: '8',
-    incidentNumber: 'INC-2025-008',
-    title: 'Payment Gateway Integration Error',
-    description: 'Online payment processing returning errors for customer transactions',
-    reportedBy: 'Vikram Reddy',
-    assignedTo: 'Payment Integration Team',
-    affectedUsers: 15,
-    severity: 'critical',
-    status: 'identified',
-    category: 'integration',
-    impact: 'critical',
-    reportedDate: '2025-10-16 10:30',
-    downtime: 60,
-    affectedSystems: ['Payment Gateway', 'Customer Portal'],
-    rootCause: 'API version mismatch after gateway provider update',
-    estimatedResolution: '2025-10-16 13:00',
-  },
-];
 
 const severityColors = {
   low: 'bg-gray-100 text-gray-700',
@@ -197,7 +54,9 @@ const impactColors = {
 
 export default function IncidentsPage() {
   const router = useRouter();
-  const [incidents, setIncidents] = useState<Incident[]>(mockIncidents);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -207,6 +66,65 @@ export default function IncidentsPage() {
   const [sortField, setSortField] = useState<keyof Incident | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // ITILService returns { data: ITILIncident[] }; map defensively to
+        // this page's richer Incident model with sensible defaults.
+        const res = (await ITILService.getIncidents(COMPANY_ID, { limit: 500 })) as any;
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.incidents ?? []);
+        const statusMap: Record<string, Incident['status']> = {
+          open: 'new', new: 'new', investigating: 'investigating',
+          in_progress: 'investigating', identified: 'identified',
+          pending: 'monitoring', monitoring: 'monitoring',
+          resolved: 'resolved', closed: 'closed',
+        };
+        const catMap: Record<string, Incident['category']> = {
+          system_outage: 'system_outage', performance: 'performance',
+          security: 'security', data_loss: 'data_loss',
+          integration: 'integration', hardware: 'hardware',
+          infrastructure: 'system_outage',
+        };
+        const toDateTime = (d: any) => (d ? String(new Date(d).toISOString()).slice(0, 16).replace('T', ' ') : '');
+        const mapped: Incident[] = raw.map((i) => ({
+          id: String(i.id ?? ''),
+          incidentNumber: i.incidentNumber ?? '',
+          title: i.title ?? '',
+          description: i.description ?? '',
+          reportedBy: i.reportedBy ?? '',
+          assignedTo: i.assignedTeam ?? i.assignedTo ?? '',
+          affectedUsers: Number(i.affectedUsers ?? 0),
+          severity: i.priority ?? i.impact ?? 'medium',
+          status: statusMap[i.status] ?? 'new',
+          category: catMap[(i.category ?? '').toString().toLowerCase()] ?? 'system_outage',
+          impact: i.impact ?? 'medium',
+          reportedDate: toDateTime(i.createdAt),
+          resolvedDate: i.resolvedAt ? toDateTime(i.resolvedAt) : undefined,
+          downtime: Number(i.downtime ?? 0),
+          affectedSystems: Array.isArray(i.affectedSystems) ? i.affectedSystems : [],
+          rootCause: i.rootCause ?? undefined,
+          resolution: i.resolutionNotes ?? i.resolution ?? undefined,
+          estimatedResolution: i.estimatedResolution ?? undefined,
+        }));
+        if (!cancelled) setIncidents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load incidents');
+          setIncidents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSort = (field: keyof Incident) => {
     if (sortField === field) {
@@ -264,6 +182,23 @@ export default function IncidentsPage() {
 
   return (
     <div className="w-full min-h-screen px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading incidents…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && incidents.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No incidents found.
+        </div>
+      )}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2 flex-1">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

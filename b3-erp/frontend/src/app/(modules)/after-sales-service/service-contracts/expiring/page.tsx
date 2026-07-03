@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Eye, Edit, FileText, Phone, AlertTriangle, Clock, RefreshCw, DollarSign, TrendingUp, Users, Calendar, Shield, Bell, Download, Filter, MoreVertical, Wrench, MapPin, Star, CheckCircle } from 'lucide-react';
+import { Search, Eye, Edit, FileText, Phone, AlertTriangle, Clock, RefreshCw, DollarSign, TrendingUp, Users, Calendar, Shield, Bell, Download, Filter, MoreVertical, Wrench, MapPin, Star, CheckCircle, AlertCircle } from 'lucide-react';
+import { ServiceContractService } from '@/services/service-contract.service';
 
 interface ExpiringServiceContract {
   id: string;
@@ -45,212 +46,87 @@ interface ExpiringServiceContract {
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
-const mockExpiringContracts: ExpiringServiceContract[] = [
-  {
-    id: '1',
-    contractNumber: 'AMC-2024-0045',
-    contractType: 'AMC',
-    customerId: 'CUST001',
-    customerName: 'Royal Kitchen Designs',
-    startDate: '2024-11-01',
-    endDate: '2025-10-31',
-    duration: 12,
-    pricingTier: 'Premium',
-    contractValue: 580000,
-    responseTimeSLA: 4,
-    resolutionTimeSLA: 24,
-    renewalCount: 3,
-    totalBilled: 580000,
-    totalPaid: 580000,
-    outstandingAmount: 0,
-    equipmentCount: 58,
-    accountManager: 'Rajesh Kumar',
-    billingFrequency: 'quarterly',
-    autoRenewal: false,
-    healthScore: 94,
-    serviceVisits: 12,
-    lastServiceDate: '2025-10-15',
-    customerSatisfaction: 4.9,
-    technicianAssigned: 'Suresh Patel',
-    location: 'Mumbai, Maharashtra',
-    priority: 'high',
-    utilizationRate: 88,
-    complianceScore: 97,
-    remainingDays: 8,
-    renewalStatus: 'proposal_sent',
-    renewalProbability: 85,
-    renewalValueProposed: 620000,
-    lastContactDate: '2025-10-20',
-    nextFollowUpDate: '2025-10-25',
-    renewalNotes: 'Customer satisfied with service quality. Proposed 7% increase with enhanced coverage.',
-    competitorThreat: 'low',
-    riskLevel: 'low'
-  },
-  {
-    id: '2',
-    contractNumber: 'CMC-2024-0078',
-    contractType: 'CMC',
-    customerId: 'CUST002',
-    customerName: 'Metro Kitchen Solutions',
-    startDate: '2024-12-01',
-    endDate: '2025-11-30',
-    duration: 12,
-    pricingTier: 'Enterprise',
-    contractValue: 890000,
-    responseTimeSLA: 2,
-    resolutionTimeSLA: 12,
-    renewalCount: 1,
-    totalBilled: 890000,
-    totalPaid: 820000,
-    outstandingAmount: 70000,
-    equipmentCount: 95,
-    accountManager: 'Priya Sharma',
-    billingFrequency: 'monthly',
-    autoRenewal: false,
-    healthScore: 76,
-    serviceVisits: 18,
-    lastServiceDate: '2025-10-18',
-    customerSatisfaction: 3.8,
-    technicianAssigned: 'Amit Singh',
-    location: 'Delhi, NCR',
-    priority: 'critical',
-    utilizationRate: 82,
-    complianceScore: 88,
-    remainingDays: 37,
-    renewalStatus: 'discussion',
-    renewalProbability: 45,
-    renewalValueProposed: 0,
-    lastContactDate: '2025-10-15',
-    nextFollowUpDate: '2025-10-24',
-    renewalNotes: 'Customer concerned about recent service delays. Outstanding payment affecting relationship.',
-    competitorThreat: 'high',
-    riskLevel: 'critical'
-  },
-  {
-    id: '3',
-    contractNumber: 'AMC-2024-0089',
-    contractType: 'Parts & Labor',
-    customerId: 'CUST003',
-    customerName: 'Designer Kitchen Hub',
-    startDate: '2025-01-01',
-    endDate: '2025-12-31',
-    duration: 12,
-    pricingTier: 'Standard',
-    contractValue: 420000,
-    responseTimeSLA: 8,
-    resolutionTimeSLA: 48,
-    renewalCount: 2,
-    totalBilled: 315000,
-    totalPaid: 315000,
-    outstandingAmount: 0,
-    equipmentCount: 42,
-    accountManager: 'Neha Gupta',
-    billingFrequency: 'quarterly',
-    autoRenewal: true,
-    healthScore: 89,
-    serviceVisits: 7,
-    lastServiceDate: '2025-10-10',
-    customerSatisfaction: 4.5,
-    technicianAssigned: 'Ravi Kumar',
-    location: 'Bangalore, Karnataka',
-    priority: 'medium',
-    utilizationRate: 75,
-    complianceScore: 92,
-    remainingDays: 69,
-    renewalStatus: 'agreement',
-    renewalProbability: 95,
-    renewalValueProposed: 450000,
-    lastContactDate: '2025-10-18',
-    nextFollowUpDate: '2025-11-01',
-    renewalNotes: 'Auto-renewal clause active. Customer agreed to 7% increase. Documentation in progress.',
-    competitorThreat: 'none',
-    riskLevel: 'low'
-  },
-  {
-    id: '4',
-    contractNumber: 'AMC-2024-0102',
-    contractType: 'Extended Warranty',
-    customerId: 'CUST004',
-    customerName: 'Elite Modular Systems',
-    startDate: '2025-02-01',
-    endDate: '2026-01-31',
-    duration: 12,
-    pricingTier: 'Premium',
-    contractValue: 750000,
-    responseTimeSLA: 4,
-    resolutionTimeSLA: 24,
-    renewalCount: 0,
-    totalBilled: 500000,
-    totalPaid: 500000,
-    outstandingAmount: 0,
-    equipmentCount: 75,
-    accountManager: 'Vikram Rao',
-    billingFrequency: 'half_yearly',
-    autoRenewal: false,
-    healthScore: 82,
-    serviceVisits: 9,
-    lastServiceDate: '2025-10-12',
-    customerSatisfaction: 4.3,
-    technicianAssigned: 'Deepak Sharma',
-    location: 'Chennai, Tamil Nadu',
-    priority: 'high',
-    utilizationRate: 79,
-    complianceScore: 90,
-    remainingDays: 100,
-    renewalStatus: 'not_initiated',
-    renewalProbability: 70,
-    renewalValueProposed: 0,
-    lastContactDate: '2025-09-15',
-    nextFollowUpDate: '2025-10-25',
-    renewalNotes: 'Contract renewal discussion pending. Customer evaluation ongoing.',
-    competitorThreat: 'medium',
-    riskLevel: 'medium'
-  },
-  {
-    id: '5',
-    contractNumber: 'CMC-2024-0067',
-    contractType: 'Pay Per Visit',
-    customerId: 'CUST005',
-    customerName: 'Premium Kitchen Works',
-    startDate: '2024-11-15',
-    endDate: '2025-11-14',
-    duration: 12,
-    pricingTier: 'Basic',
-    contractValue: 280000,
-    responseTimeSLA: 12,
-    resolutionTimeSLA: 72,
-    renewalCount: 1,
-    totalBilled: 280000,
-    totalPaid: 245000,
-    outstandingAmount: 35000,
-    equipmentCount: 28,
-    accountManager: 'Anita Joshi',
-    billingFrequency: 'quarterly',
-    autoRenewal: false,
-    healthScore: 71,
-    serviceVisits: 6,
-    lastServiceDate: '2025-09-20',
-    customerSatisfaction: 3.9,
-    technicianAssigned: 'Manoj Kumar',
-    location: 'Pune, Maharashtra',
-    priority: 'medium',
-    utilizationRate: 58,
-    complianceScore: 85,
-    remainingDays: 22,
-    renewalStatus: 'negotiation',
-    renewalProbability: 55,
-    renewalValueProposed: 300000,
-    lastContactDate: '2025-10-19',
-    nextFollowUpDate: '2025-10-26',
-    renewalNotes: 'Price negotiation ongoing. Customer comparing with competitor quotes.',
-    competitorThreat: 'medium',
-    riskLevel: 'high'
-  }
-];
-
 export default function ExpiringServiceContractsPage() {
   const router = useRouter();
-  const [contracts, setContracts] = useState<ExpiringServiceContract[]>(mockExpiringContracts);
+  const [contracts, setContracts] = useState<ExpiringServiceContract[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the ServiceContract DTO. This page shows contracts
+        // expiring within 90 days. Renewal-CRM fields are not provided by the
+        // API and are defaulted; remainingDays is derived from endDate.
+        const raw = (await ServiceContractService.getAllServiceContracts()) as any[];
+        const mapped: ExpiringServiceContract[] = (raw ?? [])
+          .map((c) => {
+            const endDate = c.endDate ?? '';
+            const remainingDays = endDate
+              ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+              : 0;
+            return {
+              id: String(c.id ?? ''),
+              contractNumber: c.contractNumber ?? '',
+              contractType: c.contractType ?? 'AMC',
+              customerId: c.customerId ?? '',
+              customerName: c.customerName ?? '',
+              startDate: c.startDate ?? '',
+              endDate,
+              duration: Number(c.duration ?? 0),
+              pricingTier: c.pricingTier ?? 'Basic',
+              contractValue: Number(c.contractValue ?? 0),
+              responseTimeSLA: Number(c.responseTimeSLA ?? 0),
+              resolutionTimeSLA: Number(c.resolutionTimeSLA ?? 0),
+              renewalCount: Number(c.renewalCount ?? 0),
+              totalBilled: Number(c.totalBilled ?? 0),
+              totalPaid: Number(c.totalPaid ?? 0),
+              outstandingAmount: Number(c.outstandingAmount ?? 0),
+              equipmentCount: Number(c.equipmentCount ?? 0),
+              accountManager: c.accountManager ?? '',
+              billingFrequency: c.billingFrequency ?? 'monthly',
+              autoRenewal: Boolean(c.autoRenewal ?? false),
+              healthScore: Number(c.healthScore ?? 0),
+              serviceVisits: Number(c.serviceVisits ?? 0),
+              lastServiceDate: c.lastServiceDate ?? '',
+              customerSatisfaction: Number(c.customerSatisfaction ?? 0),
+              technicianAssigned: c.technicianAssigned ?? '',
+              location: c.location ?? '',
+              priority: c.priority ?? 'medium',
+              utilizationRate: Number(c.utilizationRate ?? 0),
+              complianceScore: Number(c.complianceScore ?? 0),
+              remainingDays,
+              // Renewal-CRM fields not provided by the contracts API.
+              renewalStatus: c.renewalStatus ?? 'not_initiated',
+              renewalProbability: Number(c.renewalProbability ?? 0),
+              renewalValueProposed: Number(c.renewalValueProposed ?? 0),
+              lastContactDate: c.lastContactDate ?? '',
+              nextFollowUpDate: c.nextFollowUpDate ?? '',
+              renewalNotes: c.renewalNotes ?? '',
+              competitorThreat: c.competitorThreat ?? 'none',
+              riskLevel: c.riskLevel ?? 'low',
+            };
+          })
+          // Expiring soon: not yet expired but within 90 days.
+          .filter((c) => c.remainingDays >= 0 && c.remainingDays <= 90);
+        if (!cancelled) setContracts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load expiring contracts');
+          setContracts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedRisk, setSelectedRisk] = useState<string>('all');
@@ -348,7 +224,9 @@ export default function ExpiringServiceContractsPage() {
     const criticalExpiry = contracts.filter(c => c.remainingDays <= 30).length;
     const totalValue = contracts.reduce((sum, contract) => sum + contract.contractValue, 0);
     const totalRenewalValue = contracts.reduce((sum, contract) => sum + contract.renewalValueProposed, 0);
-    const avgProbability = contracts.reduce((sum, contract) => sum + contract.renewalProbability, 0) / contracts.length;
+    const avgProbability = contracts.length
+      ? contracts.reduce((sum, contract) => sum + contract.renewalProbability, 0) / contracts.length
+      : 0;
     const highRiskContracts = contracts.filter(c => c.riskLevel === 'critical' || c.riskLevel === 'high').length;
     const confirmedRenewals = contracts.filter(c => c.renewalStatus === 'renewal_confirmed' || c.renewalStatus === 'agreement').length;
 
@@ -366,6 +244,23 @@ export default function ExpiringServiceContractsPage() {
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/20 p-3 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading expiring contracts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && contracts.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No expiring contracts found.
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

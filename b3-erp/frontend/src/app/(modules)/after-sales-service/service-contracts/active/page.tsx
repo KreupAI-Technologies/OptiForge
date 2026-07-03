@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Eye, Edit, FileText, Phone, AlertCircle, CheckCircle, Clock, DollarSign, TrendingUp, Users, Calendar, Shield, Bell, Download, Filter, MoreVertical, Wrench, MapPin, Star } from 'lucide-react';
+import { ServiceContractService } from '@/services/service-contract.service';
 
 interface ActiveServiceContract {
   id: string;
@@ -38,177 +39,82 @@ interface ActiveServiceContract {
   remainingDays: number;
 }
 
-const mockActiveContracts: ActiveServiceContract[] = [
-  {
-    id: '1',
-    contractNumber: 'AMC-2025-0001',
-    contractType: 'AMC',
-    customerId: 'CUST001',
-    customerName: 'Sharma Modular Kitchens Pvt Ltd',
-    startDate: '2025-01-01',
-    endDate: '2025-12-31',
-    duration: 12,
-    pricingTier: 'Premium',
-    contractValue: 450000,
-    responseTimeSLA: 4,
-    resolutionTimeSLA: 24,
-    renewalCount: 2,
-    totalBilled: 225000,
-    totalPaid: 225000,
-    outstandingAmount: 0,
-    equipmentCount: 45,
-    accountManager: 'Rajesh Kumar',
-    billingFrequency: 'quarterly',
-    autoRenewal: true,
-    healthScore: 92,
-    serviceVisits: 8,
-    lastServiceDate: '2025-10-15',
-    nextServiceDue: '2025-11-15',
-    customerSatisfaction: 4.8,
-    technicianAssigned: 'Suresh Patel',
-    location: 'Mumbai, Maharashtra',
-    priority: 'high',
-    utilizationRate: 85,
-    complianceScore: 96,
-    remainingDays: 69
-  },
-  {
-    id: '2',
-    contractNumber: 'CMC-2025-0012',
-    contractType: 'CMC',
-    customerId: 'CUST002',
-    customerName: 'Elite Kitchen Solutions',
-    startDate: '2025-03-01',
-    endDate: '2026-02-29',
-    duration: 12,
-    pricingTier: 'Enterprise',
-    contractValue: 750000,
-    responseTimeSLA: 2,
-    resolutionTimeSLA: 12,
-    renewalCount: 0,
-    totalBilled: 187500,
-    totalPaid: 187500,
-    outstandingAmount: 0,
-    equipmentCount: 78,
-    accountManager: 'Priya Sharma',
-    billingFrequency: 'monthly',
-    autoRenewal: false,
-    healthScore: 88,
-    serviceVisits: 12,
-    lastServiceDate: '2025-10-18',
-    nextServiceDue: '2025-11-01',
-    customerSatisfaction: 4.6,
-    technicianAssigned: 'Amit Singh',
-    location: 'Delhi, NCR',
-    priority: 'critical',
-    utilizationRate: 78,
-    complianceScore: 94,
-    remainingDays: 127
-  },
-  {
-    id: '3',
-    contractNumber: 'AMC-2025-0025',
-    contractType: 'Parts & Labor',
-    customerId: 'CUST003',
-    customerName: 'Modern Home Interiors',
-    startDate: '2025-06-01',
-    endDate: '2026-05-31',
-    duration: 12,
-    pricingTier: 'Standard',
-    contractValue: 320000,
-    responseTimeSLA: 8,
-    resolutionTimeSLA: 48,
-    renewalCount: 1,
-    totalBilled: 106667,
-    totalPaid: 106667,
-    outstandingAmount: 0,
-    equipmentCount: 32,
-    accountManager: 'Neha Gupta',
-    billingFrequency: 'quarterly',
-    autoRenewal: true,
-    healthScore: 91,
-    serviceVisits: 5,
-    lastServiceDate: '2025-10-10',
-    nextServiceDue: '2025-12-10',
-    customerSatisfaction: 4.7,
-    technicianAssigned: 'Ravi Kumar',
-    location: 'Bangalore, Karnataka',
-    priority: 'medium',
-    utilizationRate: 72,
-    complianceScore: 89,
-    remainingDays: 219
-  },
-  {
-    id: '4',
-    contractNumber: 'AMC-2025-0033',
-    contractType: 'Extended Warranty',
-    customerId: 'CUST004',
-    customerName: 'Luxury Kitchen Designs',
-    startDate: '2025-04-01',
-    endDate: '2026-03-31',
-    duration: 12,
-    pricingTier: 'Premium',
-    contractValue: 560000,
-    responseTimeSLA: 4,
-    resolutionTimeSLA: 24,
-    renewalCount: 3,
-    totalBilled: 373333,
-    totalPaid: 360000,
-    outstandingAmount: 13333,
-    equipmentCount: 56,
-    accountManager: 'Vikram Rao',
-    billingFrequency: 'half_yearly',
-    autoRenewal: true,
-    healthScore: 85,
-    serviceVisits: 9,
-    lastServiceDate: '2025-10-12',
-    nextServiceDue: '2025-11-12',
-    customerSatisfaction: 4.5,
-    technicianAssigned: 'Deepak Sharma',
-    location: 'Chennai, Tamil Nadu',
-    priority: 'high',
-    utilizationRate: 91,
-    complianceScore: 92,
-    remainingDays: 158
-  },
-  {
-    id: '5',
-    contractNumber: 'CMC-2025-0019',
-    contractType: 'Pay Per Visit',
-    customerId: 'CUST005',
-    customerName: 'Smart Kitchen Technologies',
-    startDate: '2025-07-01',
-    endDate: '2026-06-30',
-    duration: 12,
-    pricingTier: 'Basic',
-    contractValue: 180000,
-    responseTimeSLA: 12,
-    resolutionTimeSLA: 72,
-    renewalCount: 0,
-    totalBilled: 60000,
-    totalPaid: 60000,
-    outstandingAmount: 0,
-    equipmentCount: 18,
-    accountManager: 'Anita Joshi',
-    billingFrequency: 'quarterly',
-    autoRenewal: false,
-    healthScore: 76,
-    serviceVisits: 3,
-    lastServiceDate: '2025-09-20',
-    nextServiceDue: '2025-12-20',
-    customerSatisfaction: 4.2,
-    technicianAssigned: 'Manoj Kumar',
-    location: 'Pune, Maharashtra',
-    priority: 'low',
-    utilizationRate: 45,
-    complianceScore: 87,
-    remainingDays: 250
-  }
-];
-
 export default function ActiveServiceContractsPage() {
   const router = useRouter();
-  const [contracts, setContracts] = useState<ActiveServiceContract[]>(mockActiveContracts);
+  const [contracts, setContracts] = useState<ActiveServiceContract[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the ServiceContract DTO; map it to the page's
+        // ActiveServiceContract model and default enrichment fields the API
+        // does not provide. Only active contracts are shown here.
+        const raw = (await ServiceContractService.getAllServiceContracts({ status: 'active' })) as any[];
+        const mapped: ActiveServiceContract[] = (raw ?? [])
+          .filter((c) => (c.status ?? 'active') === 'active')
+          .map((c) => {
+            const endDate = c.endDate ?? '';
+            const remainingDays = endDate
+              ? Math.max(
+                  0,
+                  Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+                )
+              : 0;
+            return {
+              id: String(c.id ?? ''),
+              contractNumber: c.contractNumber ?? '',
+              contractType: c.contractType ?? 'AMC',
+              customerId: c.customerId ?? '',
+              customerName: c.customerName ?? '',
+              startDate: c.startDate ?? '',
+              endDate,
+              duration: Number(c.duration ?? 0),
+              pricingTier: c.pricingTier ?? 'Basic',
+              contractValue: Number(c.contractValue ?? 0),
+              responseTimeSLA: Number(c.responseTimeSLA ?? 0),
+              resolutionTimeSLA: Number(c.resolutionTimeSLA ?? 0),
+              renewalCount: Number(c.renewalCount ?? 0),
+              totalBilled: Number(c.totalBilled ?? 0),
+              totalPaid: Number(c.totalPaid ?? 0),
+              outstandingAmount: Number(c.outstandingAmount ?? 0),
+              equipmentCount: Number(c.equipmentCount ?? 0),
+              accountManager: c.accountManager ?? '',
+              billingFrequency: c.billingFrequency ?? 'monthly',
+              autoRenewal: Boolean(c.autoRenewal ?? false),
+              // Enrichment fields not provided by the contracts API.
+              healthScore: Number(c.healthScore ?? 0),
+              serviceVisits: Number(c.serviceVisits ?? 0),
+              lastServiceDate: c.lastServiceDate ?? '',
+              nextServiceDue: c.nextServiceDue ?? '',
+              customerSatisfaction: Number(c.customerSatisfaction ?? 0),
+              technicianAssigned: c.technicianAssigned ?? '',
+              location: c.location ?? '',
+              priority: c.priority ?? 'medium',
+              utilizationRate: Number(c.utilizationRate ?? 0),
+              complianceScore: Number(c.complianceScore ?? 0),
+              remainingDays,
+            };
+          });
+        if (!cancelled) setContracts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load active contracts');
+          setContracts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedTier, setSelectedTier] = useState<string>('all');
@@ -287,7 +193,9 @@ export default function ActiveServiceContractsPage() {
     const totalValue = contracts.reduce((sum, contract) => sum + contract.contractValue, 0);
     const totalBilled = contracts.reduce((sum, contract) => sum + contract.totalBilled, 0);
     const totalOutstanding = contracts.reduce((sum, contract) => sum + contract.outstandingAmount, 0);
-    const avgHealthScore = contracts.reduce((sum, contract) => sum + contract.healthScore, 0) / contracts.length;
+    const avgHealthScore = contracts.length
+      ? contracts.reduce((sum, contract) => sum + contract.healthScore, 0) / contracts.length
+      : 0;
     const criticalContracts = contracts.filter(c => c.priority === 'critical').length;
     const expiringIn30Days = contracts.filter(c => c.remainingDays <= 30).length;
 
@@ -305,6 +213,23 @@ export default function ActiveServiceContractsPage() {
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/20 p-3 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading active contracts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && contracts.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No active contracts found.
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

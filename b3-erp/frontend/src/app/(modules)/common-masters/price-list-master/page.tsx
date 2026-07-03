@@ -4,10 +4,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, DollarSign, Calendar, Tag, TrendingUp, Copy, CheckCircle, XCircle, AlertCircle, Eye, BarChart3, Users, Package } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockPriceLists, PriceList, getPriceListStats } from '@/data/common-masters/price-lists';
+import { PriceList, getPriceListStats } from '@/data/common-masters/price-lists';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function PriceListMasterPage() {
-  const [priceLists, setPriceLists] = useState<PriceList[]>(mockPriceLists);
+  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCurrency, setFilterCurrency] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -16,6 +21,62 @@ export default function PriceListMasterPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [selectedPriceList, setSelectedPriceList] = useState<PriceList | null>(null);
+
+  // Fetch price lists from the live backend, mapping the raw API shape into the page's model.
+  useEffect(() => {
+    let cancelled = false;
+    const pricingMethodMap: Record<string, PriceList['pricingMethod']> = {
+      fixed: 'fixed', markup: 'markup',
+      discount_from_mrp: 'discount_from_mrp', discount: 'discount_from_mrp',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllPriceLists(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: PriceList[] = raw.map((p) => ({
+          id: String(p.id ?? ''),
+          priceListCode: p.priceListCode ?? '',
+          priceListName: p.priceListName ?? '',
+          description: p.description ?? '',
+          pricingMethod: pricingMethodMap[p.pricingMethod] ?? 'fixed',
+          basePrice: (p.basePrice ?? 'cost') as PriceList['basePrice'],
+          markupPercentage: p.markupPercentage !== null && p.markupPercentage !== undefined ? Number(p.markupPercentage) : undefined,
+          discountPercentage: p.discountPercentage !== null && p.discountPercentage !== undefined ? Number(p.discountPercentage) : undefined,
+          applicableFor: (p.applicableFor === 'purchase' ? 'purchase' : 'sales') as PriceList['applicableFor'],
+          customerCategory: p.customerCategory ?? undefined,
+          currency: p.currency ?? 'INR',
+          effectiveFrom: p.effectiveFrom ?? '',
+          effectiveTo: p.effectiveTo ?? null,
+          autoUpdate: p.autoUpdate ?? false,
+          itemsCount: Number(p.itemsCount ?? (Array.isArray(p.items) ? p.items.length : 0)),
+          minPrice: Number(p.minPrice ?? 0),
+          maxPrice: Number(p.maxPrice ?? 0),
+          avgPrice: Number(p.avgPrice ?? 0),
+          customersUsing: Number(p.customersUsing ?? 0),
+          transactionsCount: Number(p.transactionsCount ?? 0),
+          totalAmount: Number(p.totalAmount ?? 0),
+          lastUsedDate: p.lastUsedDate ?? '',
+          isDefault: p.isDefault ?? false,
+          isActive: p.isActive ?? (p.status ? p.status === 'active' : true),
+          createdBy: p.createdBy ?? '',
+          createdDate: p.createdDate ?? p.createdAt ?? '',
+        }));
+        if (!cancelled) setPriceLists(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load price lists');
+          setPriceLists([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -504,6 +565,24 @@ export default function PriceListMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading price lists…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && priceLists.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No price lists found.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <DataTable

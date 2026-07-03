@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Users,
     Plus,
@@ -14,8 +14,11 @@ import {
     Briefcase,
     Calendar,
     UserCheck,
-    UserX
+    UserX,
+    AlertCircle,
+    Loader2
 } from 'lucide-react';
+import { hrMastersService } from '@/services/hr-masters.service';
 
 interface Employee {
     id: string;
@@ -35,70 +38,60 @@ export default function EmployeeDirectoryPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Mock Data
-    const employees: Employee[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            name: 'Sarah Johnson',
-            designation: 'Senior HR Manager',
-            department: 'Human Resources',
-            email: 'sarah.j@manufacturingos.com',
-            phone: '+1 (555) 123-4567',
-            location: 'New York, NY',
-            joiningDate: '2020-03-15',
-            status: 'Active'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            name: 'Michael Chen',
-            designation: 'Production Supervisor',
-            department: 'Production',
-            email: 'michael.c@manufacturingos.com',
-            phone: '+1 (555) 234-5678',
-            location: 'Austin, TX',
-            joiningDate: '2021-06-10',
-            status: 'Active'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            name: 'Emily Davis',
-            designation: 'Quality Analyst',
-            department: 'Quality Assurance',
-            email: 'emily.d@manufacturingos.com',
-            phone: '+1 (555) 345-6789',
-            location: 'Austin, TX',
-            joiningDate: '2022-01-20',
-            status: 'On Leave'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            name: 'David Wilson',
-            designation: 'Machine Operator',
-            department: 'Production',
-            email: 'david.w@manufacturingos.com',
-            phone: '+1 (555) 456-7890',
-            location: 'Austin, TX',
-            joiningDate: '2023-11-05',
-            status: 'Probation'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            name: 'Jessica Brown',
-            designation: 'Procurement Specialist',
-            department: 'Procurement',
-            email: 'jessica.b@manufacturingos.com',
-            phone: '+1 (555) 567-8901',
-            location: 'New York, NY',
-            joiningDate: '2019-08-01',
-            status: 'Inactive'
-        }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                // Backend returns the common-masters Employee shape (firstName/
+                // lastName/employeeCode/designation{name}/department{name}/branch/
+                // status/createdAt). Map it defensively to this page's model.
+                // companyId '1' is the seeded main company (see seed.ts).
+                const raw = (await hrMastersService.getAllEmployees('1')) as any[];
+                const statusMap: Record<string, Employee['status']> = {
+                    active: 'Active',
+                    inactive: 'Inactive',
+                    on_leave: 'On Leave',
+                    onleave: 'On Leave',
+                    probation: 'Probation',
+                };
+                const mapped: Employee[] = (raw ?? []).map((e) => {
+                    const first = e.firstName ?? '';
+                    const last = e.lastName ?? '';
+                    const rawStatus = String(e.status ?? '').toLowerCase();
+                    return {
+                        id: String(e.id ?? ''),
+                        employeeId: e.employeeCode ?? '',
+                        name: e.fullName ?? (`${first} ${last}`.trim() || 'Unknown'),
+                        designation: e.designation?.name ?? 'Unassigned',
+                        department: e.department?.name ?? 'Unassigned',
+                        email: e.email ?? '',
+                        phone: e.phone ?? '',
+                        location: e.branch?.name ?? '',
+                        joiningDate: e.createdAt ? String(e.createdAt).split('T')[0] : '',
+                        status: statusMap[rawStatus] ?? 'Active',
+                    };
+                });
+                if (!cancelled) setEmployees(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : 'Failed to load employees');
+                    setEmployees([]);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredEmployees = employees.filter(emp => {
         const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -183,6 +176,19 @@ export default function EmployeeDirectoryPage() {
                     </div>
                 </div>
 
+                {loading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading employees…
+                    </div>
+                )}
+                {error && !loading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        <AlertCircle className="w-4 h-4" />
+                        {error}
+                    </div>
+                )}
+
                 {/* Employee Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {filteredEmployees.map((employee) => (
@@ -239,7 +245,7 @@ export default function EmployeeDirectoryPage() {
                     ))}
                 </div>
 
-                {filteredEmployees.length === 0 && (
+                {!loading && !error && filteredEmployees.length === 0 && (
                     <div className="text-center py-12">
                         <UserX className="w-16 h-16 text-gray-600 mb-2" />
                         <p className="text-gray-400 text-lg">No employees found</p>

@@ -4,7 +4,7 @@
  * skill development, e-learning, budget, and training reports
  */
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================================================
 // Enums

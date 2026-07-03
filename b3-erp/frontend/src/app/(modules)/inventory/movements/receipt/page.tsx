@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PackageCheck,
   Truck,
@@ -16,6 +16,7 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
+import { stockEntryService, StockEntryType } from '@/services/stock-entry.service';
 
 interface Receipt {
   id: number;
@@ -39,78 +40,72 @@ export default function InventoryReceiptPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
 
-  const [receipts, setReceipts] = useState<Receipt[]>([
-    {
-      id: 1,
-      receiptNumber: 'REC-2025-001',
-      receiptDate: '2025-01-20',
-      receiptType: 'purchase',
-      sourceDocument: 'PO-2025-045',
-      warehouse: 'Main Warehouse',
-      supplier: 'ABC Suppliers Ltd',
-      receivedBy: 'John Smith',
-      itemCount: 8,
-      totalQuantity: 245,
-      status: 'completed',
-      qcStatus: 'passed'
-    },
-    {
-      id: 2,
-      receiptNumber: 'REC-2025-002',
-      receiptDate: '2025-01-21',
-      receiptType: 'transfer',
-      sourceDocument: 'TR-2025-010',
-      warehouse: 'Assembly Plant',
-      receivedBy: 'Sarah Johnson',
-      itemCount: 5,
-      totalQuantity: 120,
-      status: 'partially-received',
-      qcStatus: 'pending',
-      expectedDate: '2025-01-22'
-    },
-    {
-      id: 3,
-      receiptNumber: 'REC-2025-003',
-      receiptDate: '2025-01-21',
-      receiptType: 'production',
-      sourceDocument: 'WO-2025-078',
-      warehouse: 'FG Store',
-      receivedBy: 'Mike Davis',
-      itemCount: 12,
-      totalQuantity: 85,
-      status: 'quality-hold',
-      qcStatus: 'failed'
-    },
-    {
-      id: 4,
-      receiptNumber: 'REC-2025-004',
-      receiptDate: '2025-01-22',
-      receiptType: 'return',
-      sourceDocument: 'RET-2025-008',
-      warehouse: 'Main Warehouse',
-      supplier: 'XYZ Manufacturing',
-      receivedBy: 'Emily Chen',
-      itemCount: 3,
-      totalQuantity: 45,
-      status: 'pending',
-      qcStatus: 'pending',
-      expectedDate: '2025-01-22'
-    },
-    {
-      id: 5,
-      receiptNumber: 'REC-2025-005',
-      receiptDate: '2025-01-22',
-      receiptType: 'purchase',
-      sourceDocument: 'PO-2025-052',
-      warehouse: 'RM Store',
-      supplier: 'Steel Corp Inc',
-      receivedBy: 'Robert Lee',
-      itemCount: 15,
-      totalQuantity: 380,
-      status: 'completed',
-      qcStatus: 'passed'
-    }
-  ]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Receipts on this page are inbound stock entries. Fetch the raw
+        // StockEntry ORM shape (RECEIPT + RETURN types) and map onto Receipt.
+        const [receiptEntries, returnEntries] = await Promise.all([
+          stockEntryService.getAllStockEntries({ entryType: StockEntryType.RECEIPT }),
+          stockEntryService.getAllStockEntries({ entryType: StockEntryType.RETURN }),
+        ]);
+        const raw = [...(receiptEntries || []), ...(returnEntries || [])] as any[];
+        const dateOnly = (v: any) => (v ? String(v).slice(0, 10) : '');
+        const refToType: Record<string, Receipt['receiptType']> = {
+          PURCHASE_ORDER: 'purchase',
+          STOCK_TRANSFER: 'transfer',
+          WORK_ORDER: 'production',
+        };
+        const statusMap: Record<string, Receipt['status']> = {
+          DRAFT: 'pending',
+          SUBMITTED: 'pending',
+          PENDING_POST: 'partially-received',
+          POSTED: 'completed',
+          CANCELLED: 'quality-hold',
+        };
+        const mapped: Receipt[] = raw.map((e, index) => {
+          const entryType = String(e.entryType ?? '').toUpperCase();
+          const refType = String(e.referenceType ?? '').toUpperCase();
+          const receiptType: Receipt['receiptType'] =
+            entryType === 'RETURN' ? 'return' : refToType[refType] ?? 'purchase';
+          return {
+            id: e.id ?? index + 1,
+            receiptNumber: e.entryNumber ?? '',
+            receiptDate: dateOnly(e.entryDate),
+            receiptType,
+            sourceDocument: e.referenceNumber ?? '',
+            warehouse: e.warehouseName ?? e.warehouseId ?? '',
+            supplier: e.supplierName ?? undefined,
+            receivedBy: e.createdByName ?? e.createdBy ?? '',
+            itemCount: Number(e.totalItems ?? (Array.isArray(e.items) ? e.items.length : 0)),
+            totalQuantity: Number(e.totalQuantity ?? 0),
+            status: statusMap[String(e.status ?? '').toUpperCase()] ?? 'pending',
+            qcStatus: undefined,
+            expectedDate: e.postingDate ? dateOnly(e.postingDate) : undefined,
+          };
+        });
+        if (!cancelled) setReceipts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load receipts');
+          setReceipts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -189,6 +184,19 @@ export default function InventoryReceiptPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading receipts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, Edit, Download, Calendar, DollarSign,
@@ -9,6 +9,7 @@ import {
   Activity, Archive, FileCheck, AlertCircle, BookOpen, Hash,
   User, XCircle, Check, Loader
 } from 'lucide-react';
+import { JournalService } from '@/services/journal.service';
 
 // TypeScript Interfaces
 interface GLEntry {
@@ -27,127 +28,69 @@ interface GLEntry {
   linesCount: number;
 }
 
-// Mock Data
-const mockJournalEntries: GLEntry[] = [
-  {
-    id: 'JE-001',
-    entryNumber: 'JE-2025-001',
-    entryDate: '2025-10-01',
-    postingDate: '2025-10-01',
-    entryType: 'Manual',
-    description: 'Customer payment received from Hotel Paradise Ltd',
-    referenceNumber: 'INV-2025-001',
-    totalDebit: 172500,
-    totalCredit: 172500,
-    status: 'Posted',
-    createdBy: 'John Accountant',
-    postedBy: 'Finance Manager',
-    linesCount: 2,
-  },
-  {
-    id: 'JE-002',
-    entryNumber: 'JE-2025-002',
-    entryDate: '2025-10-03',
-    entryType: 'Manual',
-    description: 'Purchase of raw materials from supplier',
-    referenceNumber: 'PO-2025-101',
-    totalDebit: 125000,
-    totalCredit: 125000,
-    status: 'Draft',
-    createdBy: 'John Accountant',
-    linesCount: 3,
-  },
-  {
-    id: 'JE-003',
-    entryNumber: 'JE-2025-003',
-    entryDate: '2025-10-05',
-    postingDate: '2025-10-05',
-    entryType: 'System',
-    description: 'Automatic inventory valuation adjustment',
-    referenceNumber: 'SYS-INV-001',
-    totalDebit: 15000,
-    totalCredit: 15000,
-    status: 'Posted',
-    createdBy: 'System',
-    postedBy: 'System',
-    linesCount: 2,
-  },
-  {
-    id: 'JE-004',
-    entryNumber: 'JE-2025-004',
-    entryDate: '2025-10-08',
-    postingDate: '2025-10-08',
-    entryType: 'Adjustment',
-    description: 'Monthly depreciation expense',
-    referenceNumber: 'DEP-2025-10',
-    totalDebit: 12500,
-    totalCredit: 12500,
-    status: 'Posted',
-    createdBy: 'Finance Manager',
-    postedBy: 'Finance Manager',
-    linesCount: 2,
-  },
-  {
-    id: 'JE-005',
-    entryNumber: 'JE-2025-005',
-    entryDate: '2025-10-10',
-    entryType: 'Manual',
-    description: 'Salary payment for September 2025',
-    referenceNumber: 'SAL-2025-09',
-    totalDebit: 180000,
-    totalCredit: 180000,
-    status: 'Draft',
-    createdBy: 'HR Manager',
-    linesCount: 5,
-  },
-  {
-    id: 'JE-006',
-    entryNumber: 'JE-2025-006',
-    entryDate: '2025-10-12',
-    postingDate: '2025-10-12',
-    entryType: 'Manual',
-    description: 'Rent payment for October 2025',
-    referenceNumber: 'RENT-2025-10',
-    totalDebit: 60000,
-    totalCredit: 60000,
-    status: 'Posted',
-    createdBy: 'John Accountant',
-    postedBy: 'Finance Manager',
-    linesCount: 2,
-  },
-  {
-    id: 'JE-007',
-    entryNumber: 'JE-2025-007',
-    entryDate: '2025-10-14',
-    postingDate: '2025-10-15',
-    entryType: 'Reversal',
-    description: 'Reversal of incorrect accrual entry',
-    referenceNumber: 'REV-JE-2025-002',
-    totalDebit: 25000,
-    totalCredit: 25000,
-    status: 'Posted',
-    createdBy: 'Finance Manager',
-    postedBy: 'Finance Manager',
-    linesCount: 2,
-  },
-  {
-    id: 'JE-008',
-    entryNumber: 'JE-2025-008',
-    entryDate: '2025-10-16',
-    entryType: 'Adjustment',
-    description: 'Accrued utilities for October',
-    referenceNumber: 'ACC-UTIL-2025-10',
-    totalDebit: 8500,
-    totalCredit: 8500,
-    status: 'Draft',
-    createdBy: 'John Accountant',
-    linesCount: 2,
-  },
-];
-
 export default function JournalEntriesPage() {
   const router = useRouter();
-  const [entries, setEntries] = useState<GLEntry[]>(mockJournalEntries);
+  const [entries, setEntries] = useState<GLEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns { data, total, ... } with JournalEntry ORM shape
+        // (type/status/source enums, entryDate as Date, lines[]); map to GLEntry.
+        const res = (await JournalService.getAllJournalEntries({ limit: 100 })) as any;
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? []);
+        const typeMap: Record<string, GLEntry['entryType']> = {
+          STANDARD: 'Manual', MANUAL: 'Manual',
+          ADJUSTING: 'Adjustment', ADJUSTMENT: 'Adjustment',
+          CLOSING: 'Closing', OPENING: 'Opening',
+          REVERSING: 'Reversal', REVERSAL: 'Reversal',
+          SYSTEM: 'System', RECURRING: 'System',
+        };
+        const statusMap: Record<string, GLEntry['status']> = {
+          DRAFT: 'Draft', PENDING_APPROVAL: 'Draft', APPROVED: 'Draft',
+          POSTED: 'Posted', REVERSED: 'Reversed', CANCELLED: 'Draft',
+        };
+        const mapped: GLEntry[] = raw.map((e) => {
+          const dateVal = e.entryDate ? String(e.entryDate).split('T')[0] : '';
+          const postVal = e.postedAt ?? e.postingDate;
+          return {
+            id: String(e.id ?? e.entryNumber ?? ''),
+            entryNumber: e.entryNumber ?? '',
+            entryDate: dateVal,
+            postingDate: postVal ? String(postVal).split('T')[0] : undefined,
+            entryType: typeMap[String(e.source ?? e.type ?? '').toUpperCase()]
+              ?? typeMap[String(e.type ?? '').toUpperCase()]
+              ?? 'Manual',
+            description: e.description ?? '',
+            referenceNumber: e.reference ?? e.referenceNumber ?? '',
+            totalDebit: Number(e.totalDebit ?? 0),
+            totalCredit: Number(e.totalCredit ?? 0),
+            status: statusMap[String(e.status ?? '').toUpperCase()] ?? 'Draft',
+            createdBy: e.submittedBy ?? e.createdBy ?? '',
+            postedBy: e.postedBy ?? undefined,
+            linesCount: Array.isArray(e.lines) ? e.lines.length : Number(e.linesCount ?? 0),
+          };
+        });
+        if (!cancelled) setEntries(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load journal entries');
+          setEntries([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -408,6 +351,23 @@ export default function JournalEntriesPage() {
             </div>
           </div>
 
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <Loader className="h-4 w-4 animate-spin" />
+              Loading journal entries…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
+          {!isLoading && !loadError && entries.length === 0 && (
+            <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              No journal entries found.
+            </div>
+          )}
           {/* Table */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">

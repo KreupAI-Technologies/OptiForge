@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Edit, Clock, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Target, Activity } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface SLAPolicy {
   id: string;
@@ -34,79 +35,6 @@ interface SLAPerformance {
   resolutionCompliance: number; // percentage
   trend: 'improving' | 'declining' | 'stable';
 }
-
-const mockPolicies: SLAPolicy[] = [
-  {
-    id: '1',
-    name: 'Critical Issues - Enterprise',
-    description: 'SLA for critical priority issues from enterprise customers',
-    priority: 'critical',
-    category: 'all',
-    firstResponseTime: 15,
-    resolutionTime: 4,
-    businessHoursOnly: false,
-    isActive: true,
-    appliesTo: ['Enterprise Plan', 'Premium Support'],
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-09-15',
-  },
-  {
-    id: '2',
-    name: 'High Priority - All Customers',
-    description: 'Standard SLA for high priority support requests',
-    priority: 'high',
-    category: 'all',
-    firstResponseTime: 60,
-    resolutionTime: 8,
-    businessHoursOnly: false,
-    isActive: true,
-    appliesTo: ['All Plans'],
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-08-20',
-  },
-  {
-    id: '3',
-    name: 'Technical Issues - Standard',
-    description: 'SLA for technical support issues at medium priority',
-    priority: 'medium',
-    category: 'technical',
-    firstResponseTime: 120,
-    resolutionTime: 24,
-    businessHoursOnly: true,
-    isActive: true,
-    appliesTo: ['Business Plan', 'Professional Plan'],
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-10-01',
-  },
-  {
-    id: '4',
-    name: 'Billing Inquiries',
-    description: 'SLA for billing and account-related questions',
-    priority: 'medium',
-    category: 'billing',
-    firstResponseTime: 240,
-    resolutionTime: 48,
-    businessHoursOnly: true,
-    isActive: true,
-    appliesTo: ['All Plans'],
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-07-12',
-  },
-  {
-    id: '5',
-    name: 'General Support - Low Priority',
-    description: 'SLA for general questions and low priority requests',
-    priority: 'low',
-    category: 'general',
-    firstResponseTime: 480,
-    resolutionTime: 72,
-    businessHoursOnly: true,
-    isActive: true,
-    appliesTo: ['All Plans'],
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-06-05',
-  },
-];
 
 const mockPerformance: SLAPerformance[] = [
   {
@@ -188,8 +116,51 @@ const mockPerformance: SLAPerformance[] = [
 
 export default function SLAManagementPage() {
   const router = useRouter();
-  const [policies] = useState<SLAPolicy[]>(mockPolicies);
+  const [policies, setPolicies] = useState<SLAPolicy[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Performance metrics have no matching backend endpoint yet; kept as static sample.
   const [performance] = useState<SLAPerformance[]>(mockPerformance);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (NestJS CrmSla) uses different field names than the page's
+        // SLAPolicy model; map defensively. responseTimeHours is in hours, the
+        // page expects firstResponseTime in minutes.
+        const raw = (await crmService.slas.getAll()) as any[];
+        const mapped: SLAPolicy[] = (raw || []).map((s) => ({
+          id: String(s.id),
+          name: s.name ?? '',
+          description: s.description ?? '',
+          priority: (s.priority ?? 'medium') as SLAPolicy['priority'],
+          category: (s.category ?? (Array.isArray(s.ticketCategories) && s.ticketCategories.length === 1 ? s.ticketCategories[0] : 'all')) as SLAPolicy['category'],
+          firstResponseTime: Number(s.responseTimeHours ?? 0) * 60,
+          resolutionTime: Number(s.resolutionTimeHours ?? 0),
+          businessHoursOnly: Boolean(s.businessHoursOnly),
+          isActive: s.isActive ?? (s.status ? s.status === 'active' : true),
+          appliesTo: Array.isArray(s.customerCategories) ? s.customerCategories : [],
+          createdDate: s.createdAt ?? s.createdDate ?? '',
+          lastUpdated: s.updatedAt ?? s.lastUpdated ?? '',
+        }));
+        if (!cancelled) setPolicies(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load SLA policies');
+          setPolicies([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
   const [filterCategory, setFilterCategory] = useState<'all' | 'technical' | 'billing' | 'general'>('all');
@@ -267,6 +238,23 @@ export default function SLAManagementPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading SLA policies…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && policies.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No SLA policies found.
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

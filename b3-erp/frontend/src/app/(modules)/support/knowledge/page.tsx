@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Eye, Edit, Trash2, BookOpen, FileText, Video, Download, ThumbsUp, MessageCircle, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Tag, User, Calendar, Star } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, BookOpen, FileText, Video, Download, ThumbsUp, MessageCircle, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Tag, User, Calendar, Star, AlertCircle } from 'lucide-react';
+import { KnowledgeBaseService } from '@/services/support.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
 interface KnowledgeArticle {
   id: string;
@@ -29,198 +32,6 @@ interface KnowledgeArticle {
   relatedArticles: number;
 }
 
-const mockArticles: KnowledgeArticle[] = [
-  {
-    id: '1',
-    articleId: 'KB-2025-001',
-    title: 'How to Create a Sales Quotation in ERP System',
-    summary: 'Step-by-step guide for creating and managing sales quotations',
-    content: 'Complete guide with screenshots and best practices...',
-    category: 'how_to',
-    subcategory: 'Sales',
-    author: 'Priya Patel',
-    status: 'published',
-    views: 1250,
-    likes: 85,
-    comments: 12,
-    helpful: 92,
-    notHelpful: 8,
-    tags: ['sales', 'quotation', 'crm', 'getting-started'],
-    createdDate: '2025-09-15',
-    updatedDate: '2025-10-10',
-    publishedDate: '2025-09-20',
-    difficulty: 'beginner',
-    estimatedReadTime: 8,
-    attachments: 5,
-    relatedArticles: 3,
-  },
-  {
-    id: '2',
-    articleId: 'KB-2025-002',
-    title: 'Troubleshooting Slow Report Generation',
-    summary: 'Common causes and solutions for slow custom report generation',
-    content: 'Detailed troubleshooting steps and performance optimization tips...',
-    category: 'troubleshooting',
-    subcategory: 'Reporting',
-    author: 'Rahul Kumar',
-    status: 'published',
-    views: 890,
-    likes: 67,
-    comments: 8,
-    helpful: 75,
-    notHelpful: 15,
-    tags: ['performance', 'reports', 'optimization', 'troubleshooting'],
-    createdDate: '2025-09-20',
-    updatedDate: '2025-10-12',
-    publishedDate: '2025-09-25',
-    difficulty: 'intermediate',
-    estimatedReadTime: 12,
-    attachments: 3,
-    relatedArticles: 5,
-  },
-  {
-    id: '3',
-    articleId: 'KB-2025-003',
-    title: 'Production Planning - Best Practices',
-    summary: 'Industry best practices for effective production planning and scheduling',
-    content: 'Comprehensive guide covering planning strategies and tips...',
-    category: 'best_practices',
-    subcategory: 'Production',
-    author: 'Amit Singh',
-    status: 'published',
-    views: 2100,
-    likes: 145,
-    comments: 24,
-    helpful: 156,
-    notHelpful: 12,
-    tags: ['production', 'planning', 'best-practices', 'manufacturing'],
-    createdDate: '2025-08-10',
-    updatedDate: '2025-10-05',
-    publishedDate: '2025-08-15',
-    difficulty: 'advanced',
-    estimatedReadTime: 20,
-    attachments: 8,
-    relatedArticles: 7,
-  },
-  {
-    id: '4',
-    articleId: 'KB-2025-004',
-    title: 'Frequently Asked Questions - Inventory Management',
-    summary: 'Common questions and answers about inventory tracking and management',
-    content: 'Q&A format covering most common inventory scenarios...',
-    category: 'faq',
-    subcategory: 'Inventory',
-    author: 'Sanjay Gupta',
-    status: 'published',
-    views: 1680,
-    likes: 98,
-    comments: 15,
-    helpful: 132,
-    notHelpful: 18,
-    tags: ['faq', 'inventory', 'warehouse', 'stock'],
-    createdDate: '2025-09-01',
-    updatedDate: '2025-10-14',
-    publishedDate: '2025-09-05',
-    difficulty: 'beginner',
-    estimatedReadTime: 15,
-    attachments: 2,
-    relatedArticles: 6,
-  },
-  {
-    id: '5',
-    articleId: 'KB-2025-005',
-    title: 'Video Tutorial: Bill of Quantities (BOQ) Creation',
-    summary: 'Video walkthrough demonstrating BOQ creation for estimation projects',
-    content: 'Complete video guide with practical examples and templates...',
-    category: 'video_tutorial',
-    subcategory: 'Estimation',
-    author: 'Neha Sharma',
-    status: 'published',
-    views: 3450,
-    likes: 234,
-    comments: 45,
-    helpful: 298,
-    notHelpful: 22,
-    tags: ['video', 'boq', 'estimation', 'tutorial'],
-    createdDate: '2025-09-10',
-    updatedDate: '2025-09-28',
-    publishedDate: '2025-09-15',
-    difficulty: 'intermediate',
-    estimatedReadTime: 25,
-    attachments: 1,
-    relatedArticles: 4,
-  },
-  {
-    id: '6',
-    articleId: 'KB-2025-006',
-    title: 'API Integration Documentation',
-    summary: 'Technical documentation for integrating third-party systems with ERP',
-    content: 'Complete API reference with code samples and authentication guide...',
-    category: 'documentation',
-    subcategory: 'Technical',
-    author: 'Vikram Reddy',
-    status: 'published',
-    views: 567,
-    likes: 42,
-    comments: 18,
-    helpful: 48,
-    notHelpful: 6,
-    tags: ['api', 'integration', 'technical', 'development'],
-    createdDate: '2025-10-01',
-    updatedDate: '2025-10-15',
-    publishedDate: '2025-10-05',
-    difficulty: 'advanced',
-    estimatedReadTime: 30,
-    attachments: 10,
-    relatedArticles: 8,
-  },
-  {
-    id: '7',
-    articleId: 'KB-2025-007',
-    title: 'How to Configure Email Notifications',
-    summary: 'Guide for setting up and customizing email notifications in the system',
-    content: 'Step-by-step instructions for configuring various notification types...',
-    category: 'how_to',
-    subcategory: 'System Configuration',
-    author: 'Priya Patel',
-    status: 'under_review',
-    views: 234,
-    likes: 18,
-    comments: 3,
-    helpful: 22,
-    notHelpful: 2,
-    tags: ['email', 'notifications', 'configuration', 'setup'],
-    createdDate: '2025-10-12',
-    updatedDate: '2025-10-16',
-    difficulty: 'beginner',
-    estimatedReadTime: 10,
-    attachments: 4,
-    relatedArticles: 2,
-  },
-  {
-    id: '8',
-    articleId: 'KB-2025-008',
-    title: 'Troubleshooting Payment Gateway Issues',
-    summary: 'Common payment processing errors and their resolutions',
-    content: 'Troubleshooting guide for payment integration problems...',
-    category: 'troubleshooting',
-    subcategory: 'Finance',
-    author: 'Rahul Kumar',
-    status: 'draft',
-    views: 0,
-    likes: 0,
-    comments: 0,
-    helpful: 0,
-    notHelpful: 0,
-    tags: ['payment', 'gateway', 'troubleshooting', 'finance'],
-    createdDate: '2025-10-16',
-    updatedDate: '2025-10-17',
-    difficulty: 'intermediate',
-    estimatedReadTime: 15,
-    attachments: 2,
-    relatedArticles: 3,
-  },
-];
 
 const categoryColors = {
   how_to: 'bg-blue-100 text-blue-700',
@@ -246,7 +57,9 @@ const difficultyColors = {
 
 export default function KnowledgePage() {
   const router = useRouter();
-  const [articles, setArticles] = useState<KnowledgeArticle[]>(mockArticles);
+  const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -256,6 +69,72 @@ export default function KnowledgePage() {
   const [sortField, setSortField] = useState<keyof KnowledgeArticle | null>('views');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // KnowledgeBaseService returns { data: KnowledgeArticle[] } in the
+        // service's own shape; map defensively to this page's model.
+        const res = (await KnowledgeBaseService.getArticles(COMPANY_ID, { limit: 500 })) as any;
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.articles ?? []);
+        const catMap: Record<string, KnowledgeArticle['category']> = {
+          how_to: 'how_to', troubleshooting: 'troubleshooting', faq: 'faq',
+          best_practices: 'best_practices', documentation: 'documentation',
+          video_tutorial: 'video_tutorial',
+        };
+        const statusMap: Record<string, KnowledgeArticle['status']> = {
+          draft: 'draft', published: 'published', archived: 'archived',
+          under_review: 'under_review',
+        };
+        const toDate = (d: any) => (d ? String(d).slice(0, 10) : '');
+        const mapped: KnowledgeArticle[] = raw.map((a) => ({
+          id: String(a.id ?? ''),
+          articleId: a.articleNumber ?? a.articleId ?? '',
+          title: a.title ?? '',
+          summary: a.summary ?? '',
+          content: a.content ?? '',
+          category: catMap[(a.category ?? '').toString().toLowerCase()] ?? 'documentation',
+          subcategory: a.subcategory ?? '',
+          author: a.authorName ?? a.author ?? '',
+          status: statusMap[a.status] ?? 'draft',
+          views: Number(a.viewCount ?? a.views ?? 0),
+          likes: Number(a.likes ?? 0),
+          comments: Number(Array.isArray(a.comments) ? a.comments.length : a.comments ?? 0),
+          helpful: Number(a.helpfulCount ?? a.helpful ?? 0),
+          notHelpful: Number(a.notHelpfulCount ?? a.notHelpful ?? 0),
+          tags: Array.isArray(a.tags) ? a.tags : [],
+          createdDate: toDate(a.createdAt ?? a.createdDate),
+          updatedDate: toDate(a.updatedAt ?? a.updatedDate),
+          publishedDate: a.publishedDate ? toDate(a.publishedDate) : undefined,
+          difficulty: a.difficulty ?? 'beginner',
+          estimatedReadTime: Number(a.estimatedReadTime ?? 0),
+          attachments: Number(
+            a.attachments && typeof a.attachments === 'object'
+              ? Object.keys(a.attachments).length
+              : a.attachments ?? 0,
+          ),
+          relatedArticles: Number(
+            Array.isArray(a.relatedArticles) ? a.relatedArticles.length : a.relatedArticles ?? 0,
+          ),
+        }));
+        if (!cancelled) setArticles(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load knowledge articles');
+          setArticles([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSort = (field: keyof KnowledgeArticle) => {
     if (sortField === field) {
@@ -296,7 +175,9 @@ export default function KnowledgePage() {
     total: articles.length,
     published: articles.filter((a) => a.status === 'published').length,
     totalViews: articles.reduce((sum, a) => sum + a.views, 0),
-    avgHelpful: Math.round(articles.reduce((sum, a) => sum + (a.helpful / (a.helpful + a.notHelpful || 1) * 100), 0) / articles.length),
+    avgHelpful: articles.length
+      ? Math.round(articles.reduce((sum, a) => sum + (a.helpful / (a.helpful + a.notHelpful || 1) * 100), 0) / articles.length)
+      : 0,
   };
 
   const handleDeleteArticle = (id: string) => {
@@ -318,6 +199,23 @@ export default function KnowledgePage() {
 
   return (
     <div className="w-full min-h-screen px-3 py-2 w-full max-w-full">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading knowledge articles…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && articles.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No knowledge articles found.
+        </div>
+      )}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

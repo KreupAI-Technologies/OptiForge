@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Eye, Edit, Trash2, ShoppingCart, Package, Clock, CheckCircle, DollarSign, Calendar, TrendingUp, ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, ShoppingCart, Package, Clock, CheckCircle, DollarSign, Calendar, TrendingUp, ChevronLeft, ChevronRight, Download, FileText, AlertCircle } from 'lucide-react';
+import { purchaseOrderService } from '@/services/purchase-order.service';
 
 interface PurchaseOrder {
   id: string;
@@ -26,128 +27,62 @@ interface PurchaseOrder {
   currency: string;
 }
 
-const mockPurchaseOrders: PurchaseOrder[] = [
-  {
-    id: 'PO-001',
-    poNumber: 'PO-2025-001',
-    vendorName: 'Steel Masters Inc',
-    vendorCode: 'VND-SS-001',
-    poDate: '2025-10-01',
-    expectedDelivery: '2025-10-20',
-    actualDelivery: '2025-10-19',
-    status: 'fully_received',
-    totalAmount: 125000,
-    taxAmount: 15000,
-    grandTotal: 140000,
-    itemsCount: 15,
-    receivedItems: 15,
-    paymentTerms: 'Net 30',
-    priority: 'high',
-    createdBy: 'John Procurement',
-    approvedBy: 'Sarah Manager',
-    notes: 'Stainless steel sheets for production',
-    currency: 'USD',
-  },
-  {
-    id: 'PO-002',
-    poNumber: 'PO-2025-002',
-    vendorName: 'ElectroTech Solutions',
-    vendorCode: 'VND-ELC-002',
-    poDate: '2025-10-05',
-    expectedDelivery: '2025-10-25',
-    status: 'sent_to_vendor',
-    totalAmount: 85000,
-    taxAmount: 10200,
-    grandTotal: 95200,
-    itemsCount: 25,
-    receivedItems: 0,
-    paymentTerms: 'Net 45',
-    priority: 'medium',
-    createdBy: 'Michael Buyer',
-    approvedBy: 'Sarah Manager',
-    notes: 'Electronic components for assembly line',
-    currency: 'USD',
-  },
-  {
-    id: 'PO-003',
-    poNumber: 'PO-2025-003',
-    vendorName: 'PackPro Industries',
-    vendorCode: 'VND-PKG-003',
-    poDate: '2025-10-08',
-    expectedDelivery: '2025-10-18',
-    actualDelivery: '2025-10-18',
-    status: 'partially_received',
-    totalAmount: 45000,
-    taxAmount: 5400,
-    grandTotal: 50400,
-    itemsCount: 20,
-    receivedItems: 12,
-    paymentTerms: 'Net 30',
-    priority: 'low',
-    createdBy: 'Lisa Coordinator',
-    approvedBy: 'Robert Director',
-    notes: 'Packaging materials - partial delivery accepted',
-    currency: 'USD',
-  },
-  {
-    id: 'PO-004',
-    poNumber: 'PO-2025-004',
-    vendorName: 'Precision Machinery Co',
-    vendorCode: 'VND-MCH-004',
-    poDate: '2025-10-10',
-    expectedDelivery: '2025-11-15',
-    status: 'approved',
-    totalAmount: 350000,
-    taxAmount: 42000,
-    grandTotal: 392000,
-    itemsCount: 3,
-    receivedItems: 0,
-    paymentTerms: 'Net 60',
-    priority: 'urgent',
-    createdBy: 'David Engineer',
-    approvedBy: 'Sarah Manager',
-    notes: 'CNC machines for new production line',
-    currency: 'USD',
-  },
-  {
-    id: 'PO-005',
-    poNumber: 'PO-2025-005',
-    vendorName: 'ChemSupply Corp',
-    vendorCode: 'VND-CHM-005',
-    poDate: '2025-10-12',
-    expectedDelivery: '2025-10-28',
-    status: 'pending_approval',
-    totalAmount: 67000,
-    taxAmount: 8040,
-    grandTotal: 75040,
-    itemsCount: 18,
-    receivedItems: 0,
-    paymentTerms: 'Net 30',
-    priority: 'medium',
-    createdBy: 'Emily Buyer',
-    notes: 'Industrial chemicals and solvents',
-    currency: 'USD',
-  },
-  {
-    id: 'PO-006',
-    poNumber: 'PO-2025-006',
-    vendorName: 'Global Logistics Partners',
-    vendorCode: 'VND-LOG-006',
-    poDate: '2025-10-14',
-    expectedDelivery: '2025-10-22',
-    status: 'draft',
-    totalAmount: 28000,
-    taxAmount: 3360,
-    grandTotal: 31360,
-    itemsCount: 8,
-    receivedItems: 0,
-    paymentTerms: 'Net 15',
-    priority: 'low',
-    createdBy: 'John Procurement',
-    notes: 'Transportation and logistics services',
-    currency: 'USD',
-  },
-];
+// Map the backend PO status (title-case, e.g. "Fully Received") to the
+// page's snake_case status union.
+const PO_STATUS_MAP: Record<string, PurchaseOrder['status']> = {
+  'Draft': 'draft',
+  'Pending Approval': 'pending_approval',
+  'Approved': 'approved',
+  'Sent to Vendor': 'sent_to_vendor',
+  'Partially Received': 'partially_received',
+  'Fully Received': 'fully_received',
+  'Closed': 'fully_received',
+  'Cancelled': 'cancelled',
+};
+
+const PO_PRIORITY_MAP: Record<string, PurchaseOrder['priority']> = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  urgent: 'urgent',
+};
+
+// Defensive transform from the raw API/ORM PurchaseOrder shape to the page model.
+function mapPurchaseOrder(raw: any): PurchaseOrder {
+  const items: any[] = Array.isArray(raw?.items) ? raw.items : [];
+  const itemsCount = raw?.itemsCount != null ? Number(raw.itemsCount) : items.length;
+  const receivedItems =
+    raw?.receivedItems != null
+      ? Number(raw.receivedItems)
+      : items.filter((it) => Number(it?.receivedQuantity ?? 0) >= Number(it?.quantity ?? 0) && Number(it?.quantity ?? 0) > 0).length;
+  const subtotal = Number(raw?.subtotal ?? raw?.totalAmount ?? 0);
+  const taxAmount = Number(raw?.taxAmount ?? 0);
+  const grandTotal = Number(raw?.totalAmount ?? subtotal + taxAmount);
+  const rawStatus = String(raw?.status ?? '');
+  const rawPriority = String(raw?.priority ?? '').toLowerCase();
+
+  return {
+    id: String(raw?.id ?? ''),
+    poNumber: raw?.poNumber ?? '',
+    vendorName: raw?.vendorName ?? '',
+    vendorCode: raw?.vendorCode ?? '',
+    poDate: raw?.orderDate ?? raw?.poDate ?? '',
+    expectedDelivery: raw?.deliveryDate ?? raw?.expectedDelivery ?? '',
+    actualDelivery: raw?.actualDelivery ?? undefined,
+    status: PO_STATUS_MAP[rawStatus] ?? 'draft',
+    totalAmount: subtotal,
+    taxAmount,
+    grandTotal,
+    itemsCount,
+    receivedItems,
+    paymentTerms: raw?.paymentTerms ?? '',
+    priority: PO_PRIORITY_MAP[rawPriority] ?? 'medium',
+    createdBy: raw?.createdBy ?? '',
+    approvedBy: raw?.approvedBy ?? undefined,
+    notes: raw?.notes ?? '',
+    currency: raw?.currency ?? 'USD',
+  };
+}
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -185,12 +120,43 @@ const priorityLabels = {
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(mockPurchaseOrders);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = (await purchaseOrderService.getAllPurchaseOrders()) as any;
+        const raw: any[] = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+        const mapped = raw.map(mapPurchaseOrder);
+        if (!cancelled) setPurchaseOrders(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load purchase orders');
+          setPurchaseOrders([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredPOs = purchaseOrders.filter((po) => {
     const matchesSearch =
@@ -222,6 +188,23 @@ export default function PurchaseOrdersPage() {
 
   return (
     <div className="w-full h-full px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading purchase orders…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && purchaseOrders.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No purchase orders found.
+        </div>
+      )}
       {/* Stats */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

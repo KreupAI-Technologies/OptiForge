@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -14,8 +14,10 @@ import {
   Printer,
   CheckCircle,
   Clock,
-  MapPin
+  MapPin,
+  AlertCircle
 } from 'lucide-react';
+import { deliveryNoteService } from '@/services/delivery-note.service';
 
 interface DeliveryNote {
   id: string;
@@ -43,168 +45,66 @@ interface DeliveryNote {
 export default function DeliveryNotesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const deliveryNotes: DeliveryNote[] = [
-    {
-      id: '1',
-      deliveryNoteNumber: 'DN-2025-001',
-      orderNumber: 'SO-2025-112',
-      customerName: 'Tata Motors Limited',
-      deliveryAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      issueDate: '2025-10-20',
-      deliveryDate: '2025-10-22',
-      status: 'delivered',
-      itemsCount: 15,
-      totalQuantity: 250,
-      carrier: 'Blue Dart Express',
-      vehicleNumber: 'GJ-01-AB-1234',
-      driverName: 'Ramesh Patel',
-      driverPhone: '+91 98765 00001',
-      specialInstructions: 'Delivery at loading bay 3'
-    },
-    {
-      id: '2',
-      deliveryNoteNumber: 'DN-2025-002',
-      orderNumber: 'SO-2025-115',
-      customerName: 'Reliance Industries',
-      deliveryAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      issueDate: '2025-10-21',
-      status: 'in_transit',
-      itemsCount: 20,
-      totalQuantity: 400,
-      carrier: 'Professional Couriers',
-      vehicleNumber: 'GJ-18-CD-5678',
-      driverName: 'Suresh Kumar',
-      driverPhone: '+91 98765 00002',
-      specialInstructions: 'Security clearance required'
-    },
-    {
-      id: '3',
-      deliveryNoteNumber: 'DN-2025-003',
-      orderNumber: 'SO-2025-118',
-      customerName: 'Mahindra & Mahindra',
-      deliveryAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      issueDate: '2025-10-22',
-      status: 'issued',
-      itemsCount: 8,
-      totalQuantity: 90,
-      carrier: 'DTDC Courier',
-      specialInstructions: 'Fragile items - Handle with care'
-    },
-    {
-      id: '4',
-      deliveryNoteNumber: 'DN-2025-004',
-      orderNumber: 'SO-2025-120',
-      customerName: 'L&T Heavy Engineering',
-      deliveryAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      issueDate: '2025-10-19',
-      deliveryDate: '2025-10-21',
-      status: 'delivered',
-      itemsCount: 12,
-      totalQuantity: 180,
-      carrier: 'VRL Logistics',
-      vehicleNumber: 'MH-12-EF-9012',
-      driverName: 'Amit Sharma',
-      driverPhone: '+91 98765 00003'
-    },
-    {
-      id: '5',
-      deliveryNoteNumber: 'DN-2025-005',
-      orderNumber: 'SO-2025-122',
-      customerName: 'Bharat Heavy Electricals',
-      deliveryAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      issueDate: '2025-10-23',
-      status: 'issued',
-      itemsCount: 18,
-      totalQuantity: 320,
-      carrier: 'Gati Packers',
-      specialInstructions: 'Heavy items - Crane required for unloading'
-    },
-    {
-      id: '6',
-      deliveryNoteNumber: 'DN-2025-006',
-      orderNumber: 'SO-2025-124',
-      customerName: 'Adani Ports',
-      deliveryAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      issueDate: '2025-10-20',
-      deliveryDate: '2025-10-24',
-      status: 'delivered',
-      itemsCount: 10,
-      totalQuantity: 120,
-      carrier: 'Safe Express',
-      vehicleNumber: 'GJ-05-GH-3456',
-      driverName: 'Vikram Singh',
-      driverPhone: '+91 98765 00004'
-    },
-    {
-      id: '7',
-      deliveryNoteNumber: 'DN-2025-007',
-      orderNumber: 'SO-2025-126',
-      customerName: 'JSW Steel',
-      deliveryAddress: {
-        street: 'JSW Plant Complex',
-        city: 'Ballari',
-        state: 'Karnataka',
-        pincode: '583275'
-      },
-      issueDate: '2025-10-21',
-      status: 'in_transit',
-      itemsCount: 14,
-      totalQuantity: 200,
-      carrier: 'TCI Express',
-      vehicleNumber: 'KA-20-IJ-7890',
-      driverName: 'Ravi Kumar',
-      driverPhone: '+91 98765 00005'
-    },
-    {
-      id: '8',
-      deliveryNoteNumber: 'DN-2025-008',
-      orderNumber: 'SO-2025-128',
-      customerName: 'Hindalco Industries',
-      deliveryAddress: {
-        street: 'Hindalco Aluminum Plant',
-        city: 'Hirakud',
-        state: 'Odisha',
-        pincode: '768016'
-      },
-      issueDate: '2025-10-18',
-      status: 'cancelled',
-      itemsCount: 6,
-      totalQuantity: 75,
-      carrier: 'Om Logistics',
-      specialInstructions: 'Order cancelled by customer'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    // Map backend status enum (Draft/Issued/Acknowledged/Disputed/Cancelled)
+    // to this page's status values.
+    const statusMap: Record<string, DeliveryNote['status']> = {
+      Draft: 'issued',
+      Issued: 'issued',
+      InTransit: 'in_transit',
+      Acknowledged: 'delivered',
+      Delivered: 'delivered',
+      Disputed: 'issued',
+      Cancelled: 'cancelled',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = (await deliveryNoteService.getAllDeliveryNotes()) as any;
+        const raw: any[] = Array.isArray(response) ? response : (response?.data ?? []);
+        const mapped: DeliveryNote[] = (raw ?? []).map((n) => ({
+          id: String(n.id ?? ''),
+          deliveryNoteNumber: n.deliveryNoteNumber ?? '',
+          orderNumber: n.orderNumber ?? n.shipmentNumber ?? '',
+          customerName: n.customerName ?? '',
+          deliveryAddress: {
+            street: n.deliveryAddress ?? '',
+            city: n.city ?? '',
+            state: n.state ?? '',
+            pincode: n.postalCode ?? n.pincode ?? '',
+          },
+          issueDate: n.createdAt ?? n.issueDate ?? n.deliveryDate ?? '',
+          deliveryDate: n.deliveryDate ?? undefined,
+          status: statusMap[(n.status ?? '').toString()] ?? 'issued',
+          itemsCount: Number(n.totalItems ?? (Array.isArray(n.items) ? n.items.length : 0)),
+          totalQuantity: Number(n.totalDeliveredQuantity ?? 0),
+          carrier: n.carrier ?? '—',
+          vehicleNumber: n.vehicleNumber ?? undefined,
+          driverName: n.driverName ?? n.receivedBy ?? undefined,
+          driverPhone: n.driverPhone ?? undefined,
+          specialInstructions: n.notes ?? n.specialInstructions ?? undefined,
+        }));
+        if (!cancelled) setDeliveryNotes(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load delivery notes');
+          setDeliveryNotes([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredNotes = deliveryNotes.filter(note => {
     const matchesSearch =
@@ -244,6 +144,18 @@ export default function DeliveryNotesPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading delivery notes…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

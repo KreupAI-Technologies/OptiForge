@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle,
   TruckIcon,
@@ -11,8 +11,10 @@ import {
   Search,
   Filter,
   Eye,
-  BarChart3
+  BarChart3,
+  AlertCircle
 } from 'lucide-react';
+import { stockTransferService } from '@/services/stock-transfer.service';
 
 interface CompletedTransfer {
   id: number;
@@ -34,78 +36,58 @@ export default function CompletedTransfersPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('this-month');
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
 
-  const [completedTransfers, setCompletedTransfers] = useState<CompletedTransfer[]>([
-    {
-      id: 1,
-      transferNumber: 'TR-2025-005',
-      fromWarehouse: 'Main Warehouse',
-      toWarehouse: 'Assembly Plant',
-      requestedBy: 'John Smith',
-      requestDate: '2025-01-15',
-      completedDate: '2025-01-16',
-      itemCount: 7,
-      totalQuantity: 180,
-      receivedBy: 'Mike Davis',
-      transportMode: 'Internal Truck',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      transferNumber: 'TR-2025-006',
-      fromWarehouse: 'FG Store',
-      toWarehouse: 'Main Warehouse',
-      requestedBy: 'Sarah Johnson',
-      requestDate: '2025-01-17',
-      completedDate: '2025-01-18',
-      itemCount: 4,
-      totalQuantity: 95,
-      receivedBy: 'Emily Chen',
-      transportMode: 'Manual Handling',
-      status: 'completed'
-    },
-    {
-      id: 3,
-      transferNumber: 'TR-2025-007',
-      fromWarehouse: 'Assembly Plant',
-      toWarehouse: 'FG Store',
-      requestedBy: 'Robert Lee',
-      requestDate: '2025-01-18',
-      completedDate: '2025-01-19',
-      itemCount: 15,
-      totalQuantity: 420,
-      receivedBy: 'John Smith',
-      transportMode: 'Forklift',
-      status: 'partially-received'
-    },
-    {
-      id: 4,
-      transferNumber: 'TR-2025-008',
-      fromWarehouse: 'Main Warehouse',
-      toWarehouse: 'Assembly Plant',
-      requestedBy: 'Emily Chen',
-      requestDate: '2025-01-19',
-      completedDate: '2025-01-20',
-      itemCount: 9,
-      totalQuantity: 265,
-      receivedBy: 'Robert Lee',
-      transportMode: 'Internal Truck',
-      status: 'completed'
-    },
-    {
-      id: 5,
-      transferNumber: 'TR-2025-009',
-      fromWarehouse: 'FG Store',
-      toWarehouse: 'Main Warehouse',
-      requestedBy: 'Mike Davis',
-      requestDate: '2025-01-20',
-      completedDate: '2025-01-21',
-      itemCount: 6,
-      totalQuantity: 145,
-      receivedBy: 'Sarah Johnson',
-      transportMode: 'Manual Handling',
-      status: 'completed'
-    }
-  ]);
+  const [completedTransfers, setCompletedTransfers] = useState<CompletedTransfer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the raw StockTransfer ORM shape. Keep only completed
+        // transfers and map the fields onto this page's CompletedTransfer model.
+        const raw = (await stockTransferService.getAllTransfers()) as any[];
+        const dateOnly = (v: any) => (v ? String(v).slice(0, 10) : '');
+        const mapped: CompletedTransfer[] = (raw || [])
+          .filter((t) => {
+            const s = String(t?.status ?? '').toUpperCase();
+            return s === 'COMPLETED' || s === 'RECEIVED';
+          })
+          .map((t, index) => ({
+            id: t.id ?? index + 1,
+            transferNumber: t.transferNumber ?? '',
+            fromWarehouse: t.sourceWarehouseName ?? t.sourceWarehouseId ?? '',
+            toWarehouse: t.targetWarehouseName ?? t.targetWarehouseId ?? '',
+            requestedBy: t.requestedByName ?? t.requestedBy ?? '',
+            requestDate: dateOnly(t.requestDate),
+            completedDate: dateOnly(t.receivedAt ?? t.actualArrivalDate ?? t.updatedAt),
+            itemCount: Number(t.totalItems ?? (Array.isArray(t.items) ? t.items.length : 0)),
+            totalQuantity: Number(t.totalReceivedQuantity ?? t.totalRequestedQuantity ?? 0),
+            receivedBy: t.receivedByName ?? t.receivedBy ?? '',
+            transportMode: t.shippingMethod ?? '',
+            status:
+              Number(t.totalReceivedQuantity ?? 0) > 0 &&
+              Number(t.totalReceivedQuantity ?? 0) < Number(t.totalRequestedQuantity ?? 0)
+                ? 'partially-received'
+                : 'completed',
+          }));
+        if (!cancelled) setCompletedTransfers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load completed transfers');
+          setCompletedTransfers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -152,6 +134,19 @@ export default function CompletedTransfersPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading completed transfers…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

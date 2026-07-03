@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PackageMinus,
   Factory,
@@ -16,6 +16,7 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
+import { stockEntryService, StockEntryType } from '@/services/stock-entry.service';
 
 interface Issue {
   id: number;
@@ -39,94 +40,69 @@ export default function InventoryIssuePage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
 
-  const [issues, setIssues] = useState<Issue[]>([
-    {
-      id: 1,
-      issueNumber: 'ISS-2025-001',
-      issueDate: '2025-01-20',
-      issueType: 'production',
-      destinationDocument: 'WO-2025-085',
-      warehouse: 'RM Store',
-      issuedTo: 'Production Floor A',
-      issuedBy: 'John Smith',
-      itemCount: 12,
-      totalQuantity: 385,
-      status: 'completed',
-      priority: 'normal'
-    },
-    {
-      id: 2,
-      issueNumber: 'ISS-2025-002',
-      issueDate: '2025-01-21',
-      issueType: 'sales',
-      destinationDocument: 'SO-2025-142',
-      warehouse: 'FG Store',
-      issuedTo: 'Customer - ABC Corp',
-      issuedBy: 'Sarah Johnson',
-      itemCount: 5,
-      totalQuantity: 12,
-      status: 'pending',
-      priority: 'high',
-      expectedDate: '2025-01-22'
-    },
-    {
-      id: 3,
-      issueNumber: 'ISS-2025-003',
-      issueDate: '2025-01-21',
-      issueType: 'transfer',
-      destinationDocument: 'TR-2025-015',
-      warehouse: 'Main Warehouse',
-      issuedTo: 'Assembly Plant',
-      issuedBy: 'Mike Davis',
-      itemCount: 8,
-      totalQuantity: 245,
-      status: 'partially-issued',
-      priority: 'normal'
-    },
-    {
-      id: 4,
-      issueNumber: 'ISS-2025-004',
-      issueDate: '2025-01-22',
-      issueType: 'project',
-      destinationDocument: 'PRJ-2025-012',
-      warehouse: 'Main Warehouse',
-      issuedTo: 'Site Installation Team',
-      issuedBy: 'Emily Chen',
-      itemCount: 15,
-      totalQuantity: 180,
-      status: 'completed',
-      priority: 'urgent'
-    },
-    {
-      id: 5,
-      issueNumber: 'ISS-2025-005',
-      issueDate: '2025-01-22',
-      issueType: 'maintenance',
-      destinationDocument: 'MAINT-2025-028',
-      warehouse: 'Spares Store',
-      issuedTo: 'Maintenance Department',
-      issuedBy: 'Robert Lee',
-      itemCount: 4,
-      totalQuantity: 22,
-      status: 'completed',
-      priority: 'high'
-    },
-    {
-      id: 6,
-      issueNumber: 'ISS-2025-006',
-      issueDate: '2025-01-22',
-      issueType: 'production',
-      destinationDocument: 'WO-2025-092',
-      warehouse: 'RM Store',
-      issuedTo: 'Production Floor B',
-      issuedBy: 'John Smith',
-      itemCount: 9,
-      totalQuantity: 310,
-      status: 'pending',
-      priority: 'normal',
-      expectedDate: '2025-01-23'
-    }
-  ]);
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Issues on this page are outbound stock entries. Fetch the raw
+        // StockEntry ORM shape (ISSUE type) and map onto the Issue model.
+        const raw = (await stockEntryService.getAllStockEntries({
+          entryType: StockEntryType.ISSUE,
+        })) as any[];
+        const dateOnly = (v: any) => (v ? String(v).slice(0, 10) : '');
+        const refToType: Record<string, Issue['issueType']> = {
+          WORK_ORDER: 'production',
+          SALES_ORDER: 'sales',
+          STOCK_TRANSFER: 'transfer',
+          PROJECT: 'project',
+          MAINTENANCE: 'maintenance',
+        };
+        const statusMap: Record<string, Issue['status']> = {
+          DRAFT: 'pending',
+          SUBMITTED: 'pending',
+          PENDING_POST: 'partially-issued',
+          POSTED: 'completed',
+          CANCELLED: 'cancelled',
+        };
+        const mapped: Issue[] = (raw || []).map((e, index) => {
+          const refType = String(e.referenceType ?? '').toUpperCase();
+          return {
+            id: e.id ?? index + 1,
+            issueNumber: e.entryNumber ?? '',
+            issueDate: dateOnly(e.entryDate),
+            issueType: refToType[refType] ?? 'production',
+            destinationDocument: e.referenceNumber ?? '',
+            warehouse: e.warehouseName ?? e.warehouseId ?? '',
+            issuedTo: e.customerName ?? e.referenceNumber ?? '',
+            issuedBy: e.createdByName ?? e.createdBy ?? '',
+            itemCount: Number(e.totalItems ?? (Array.isArray(e.items) ? e.items.length : 0)),
+            totalQuantity: Number(e.totalQuantity ?? 0),
+            status: statusMap[String(e.status ?? '').toUpperCase()] ?? 'pending',
+            priority: 'normal',
+            expectedDate: e.postingDate ? dateOnly(e.postingDate) : undefined,
+          };
+        });
+        if (!cancelled) setIssues(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load issues');
+          setIssues([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -207,6 +183,19 @@ export default function InventoryIssuePage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading issues…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

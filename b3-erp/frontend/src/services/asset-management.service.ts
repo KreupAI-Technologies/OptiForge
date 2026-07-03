@@ -4,7 +4,7 @@
  * maintenance, stock management, and reporting
  */
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================================================
 // Enums

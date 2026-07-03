@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Plus,
@@ -12,8 +12,10 @@ import {
   MapPin,
   MoreVertical,
   FileText,
-  DollarSign
+  DollarSign,
+  AlertCircle
 } from 'lucide-react';
+import { vendorService } from '@/services/VendorService';
 
 interface Vendor {
   id: string;
@@ -28,61 +30,73 @@ interface Vendor {
   balance: number;
 }
 
+// Map the categorical rating labels used by the backend to a 0-5 numeric score.
+const RATING_SCORE: Record<string, number> = {
+  Excellent: 5,
+  Good: 4,
+  Fair: 3,
+  Poor: 2,
+  'No Rating': 0,
+};
+
+// Defensive transform from the raw API/ORM vendor shape to the page's Vendor model.
+function mapVendor(raw: any): Vendor {
+  const status = raw?.status;
+  const normalizedStatus: Vendor['status'] =
+    status === 'Active' || status === 'Inactive' || status === 'Blacklisted' ? status : 'Inactive';
+  const rating =
+    raw?.averageRating != null
+      ? Number(raw.averageRating)
+      : RATING_SCORE[raw?.overallRating as string] ?? 0;
+  return {
+    id: String(raw?.id ?? ''),
+    code: raw?.vendorCode ?? raw?.code ?? '',
+    name: raw?.vendorName ?? raw?.name ?? '',
+    category: raw?.category ?? '',
+    contactPerson: raw?.contactPerson ?? '',
+    email: raw?.email ?? '',
+    phone: raw?.phone ?? '',
+    rating: Number(rating ?? 0),
+    status: normalizedStatus,
+    balance: Number(raw?.outstandingPayables ?? raw?.balance ?? 0),
+  };
+}
+
 export default function VendorManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Mock Data
-  const vendors: Vendor[] = [
-    {
-      id: '1',
-      code: 'VEN-001',
-      name: 'Global Steel Supplies Ltd',
-      category: 'Raw Materials',
-      contactPerson: 'John Smith',
-      email: 'sales@globalsteel.com',
-      phone: '+1 (555) 123-4567',
-      rating: 4.8,
-      status: 'Active',
-      balance: 15000
-    },
-    {
-      id: '2',
-      code: 'VEN-002',
-      name: 'TechComponents Inc',
-      category: 'Electronics',
-      contactPerson: 'Sarah Connor',
-      email: 's.connor@techcomp.com',
-      phone: '+1 (555) 987-6543',
-      rating: 4.5,
-      status: 'Active',
-      balance: 5000
-    },
-    {
-      id: '3',
-      code: 'VEN-003',
-      name: 'Office Depot',
-      category: 'Office Supplies',
-      contactPerson: 'Mike Ross',
-      email: 'orders@officedepot.com',
-      phone: '+1 (555) 456-7890',
-      rating: 4.0,
-      status: 'Active',
-      balance: 0
-    },
-    {
-      id: '4',
-      code: 'VEN-004',
-      name: 'Fast Logistics Co',
-      category: 'Logistics',
-      contactPerson: 'David Kim',
-      email: 'dispatch@fastlogistics.com',
-      phone: '+1 (555) 789-0123',
-      rating: 3.5,
-      status: 'Inactive',
-      balance: 0
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = (await vendorService.getVendors()) as any;
+        const raw: any[] = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+        const mapped = raw.map(mapVendor);
+        if (!cancelled) setVendors(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load vendors');
+          setVendors([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredVendors = vendors.filter(vendor => {
     const matchesSearch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -146,6 +160,25 @@ export default function VendorManagementPage() {
             </select>
           </div>
         </div>
+
+        {/* Load states */}
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-300">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-400/40 border-t-orange-400" />
+            Loading vendors…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && vendors.length === 0 && (
+          <div className="rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-sm text-gray-400">
+            No vendors found.
+          </div>
+        )}
 
         {/* Vendors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

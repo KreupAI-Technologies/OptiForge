@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Package, Truck, CheckCircle, Clock, AlertTriangle, XCircle, Filter, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Search, Package, Truck, CheckCircle, Clock, AlertTriangle, XCircle, Filter, TrendingUp, AlertCircle } from 'lucide-react';
+import { shipmentService } from '@/services/shipment.service';
 
 interface ShipmentStatus {
   id: string;
@@ -30,198 +31,62 @@ export default function TrackingStatusPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
-  const shipments: ShipmentStatus[] = [
-    {
-      id: '1',
-      shipmentNo: 'OB-2025-0531',
-      trackingNumber: 'TRK-CHN-2025-4521',
-      orderNo: 'SO-2025-1234',
-      customer: 'ABC Manufacturing Ltd',
-      origin: 'Chennai Warehouse A',
-      destination: 'Bangalore, Karnataka',
-      status: 'in-transit',
-      priority: 'express',
-      shipmentDate: '2025-10-21 08:30',
-      expectedDelivery: '2025-10-23 16:00',
-      actualDelivery: '',
-      items: 12,
-      weight: 450,
-      carrier: 'Blue Dart Express',
-      lastUpdate: '2025-10-21 15:00',
-      currentLocation: 'Vellore Transit Hub'
-    },
-    {
-      id: '2',
-      shipmentNo: 'OB-2025-0532',
-      trackingNumber: 'TRK-CHN-2025-4522',
-      orderNo: 'SO-2025-1235',
-      customer: 'XYZ Industries Pvt Ltd',
-      origin: 'Chennai Warehouse B',
-      destination: 'Hyderabad, Telangana',
-      status: 'out-for-delivery',
-      priority: 'express',
-      shipmentDate: '2025-10-20 10:00',
-      expectedDelivery: '2025-10-22 14:00',
-      actualDelivery: '',
-      items: 8,
-      weight: 320,
-      carrier: 'DHL Express',
-      lastUpdate: '2025-10-22 09:30',
-      currentLocation: 'Hyderabad Distribution Center'
-    },
-    {
-      id: '3',
-      shipmentNo: 'OB-2025-0533',
-      trackingNumber: 'TRK-CHN-2025-4523',
-      orderNo: 'SO-2025-1236',
-      customer: 'TechCorp Solutions',
-      origin: 'Chennai Warehouse A',
-      destination: 'Mumbai, Maharashtra',
-      status: 'delayed',
-      priority: 'standard',
-      shipmentDate: '2025-10-19 14:00',
-      expectedDelivery: '2025-10-22 12:00',
-      actualDelivery: '',
-      items: 15,
-      weight: 680,
-      carrier: 'Indian Post',
-      lastUpdate: '2025-10-21 18:30',
-      currentLocation: 'Pune Transit Hub - Delayed due to vehicle breakdown'
-    },
-    {
-      id: '4',
-      shipmentNo: 'OB-2025-0534',
-      trackingNumber: 'TRK-CHN-2025-4524',
-      orderNo: 'SO-2025-1237',
-      customer: 'Global Traders Inc',
-      origin: 'Chennai Warehouse A',
-      destination: 'Pune, Maharashtra',
-      status: 'delivered',
-      priority: 'economy',
-      shipmentDate: '2025-10-21 07:00',
-      expectedDelivery: '2025-10-23 14:00',
-      actualDelivery: '2025-10-23 15:45',
-      items: 20,
-      weight: 890,
-      carrier: 'FedEx',
-      lastUpdate: '2025-10-23 15:45',
-      currentLocation: 'Delivered to customer location'
-    },
-    {
-      id: '5',
-      shipmentNo: 'OB-2025-0535',
-      trackingNumber: 'TRK-CHN-2025-4525',
-      orderNo: 'SO-2025-1238',
-      customer: 'Metro Wholesale',
-      origin: 'Chennai Warehouse B',
-      destination: 'Coimbatore, Tamil Nadu',
-      status: 'picked-up',
-      priority: 'standard',
-      shipmentDate: '2025-10-22 11:00',
-      expectedDelivery: '2025-10-23 18:00',
-      actualDelivery: '',
-      items: 10,
-      weight: 275,
-      carrier: 'DTDC Courier',
-      lastUpdate: '2025-10-22 11:15',
-      currentLocation: 'Chennai Warehouse B - Loading completed'
-    },
-    {
-      id: '6',
-      shipmentNo: 'OB-2025-0536',
-      trackingNumber: 'TRK-CHN-2025-4526',
-      orderNo: 'SO-2025-1239',
-      customer: 'Precision Parts Ltd',
-      origin: 'Chennai Warehouse A',
-      destination: 'Delhi NCR',
-      status: 'in-transit',
-      priority: 'express',
-      shipmentDate: '2025-10-20 09:00',
-      expectedDelivery: '2025-10-23 10:00',
-      actualDelivery: '',
-      items: 18,
-      weight: 540,
-      carrier: 'Blue Dart Express',
-      lastUpdate: '2025-10-22 06:30',
-      currentLocation: 'Nagpur Transit Hub'
-    },
-    {
-      id: '7',
-      shipmentNo: 'OB-2025-0537',
-      trackingNumber: 'TRK-CHN-2025-4527',
-      orderNo: 'SO-2025-1240',
-      customer: 'Eastern Electronics',
-      origin: 'Chennai Warehouse B',
-      destination: 'Kolkata, West Bengal',
-      status: 'failed',
-      priority: 'standard',
-      shipmentDate: '2025-10-18 13:00',
-      expectedDelivery: '2025-10-21 16:00',
-      actualDelivery: '',
-      items: 7,
-      weight: 195,
-      carrier: 'Indian Post',
-      lastUpdate: '2025-10-21 14:20',
-      currentLocation: 'Kolkata - Delivery failed: Customer not available'
-    },
-    {
-      id: '8',
-      shipmentNo: 'OB-2025-0538',
-      trackingNumber: 'TRK-CHN-2025-4528',
-      orderNo: 'SO-2025-1241',
-      customer: 'Southern Suppliers',
-      origin: 'Chennai Warehouse A',
-      destination: 'Kochi, Kerala',
-      status: 'delivered',
-      priority: 'express',
-      shipmentDate: '2025-10-21 08:00',
-      expectedDelivery: '2025-10-22 17:00',
-      actualDelivery: '2025-10-22 16:30',
-      items: 14,
-      weight: 410,
-      carrier: 'DHL Express',
-      lastUpdate: '2025-10-22 16:30',
-      currentLocation: 'Delivered to customer location'
-    },
-    {
-      id: '9',
-      shipmentNo: 'OB-2025-0539',
-      trackingNumber: 'TRK-CHN-2025-4529',
-      orderNo: 'SO-2025-1242',
-      customer: 'Northern Distributors',
-      origin: 'Chennai Warehouse B',
-      destination: 'Jaipur, Rajasthan',
-      status: 'pending',
-      priority: 'economy',
-      shipmentDate: '2025-10-23 10:00',
-      expectedDelivery: '2025-10-26 15:00',
-      actualDelivery: '',
-      items: 22,
-      weight: 780,
-      carrier: 'DTDC Courier',
-      lastUpdate: '2025-10-23 10:00',
-      currentLocation: 'Pending pickup from warehouse'
-    },
-    {
-      id: '10',
-      shipmentNo: 'OB-2025-0540',
-      trackingNumber: 'TRK-CHN-2025-4530',
-      orderNo: 'SO-2025-1243',
-      customer: 'Coastal Enterprises',
-      origin: 'Chennai Warehouse A',
-      destination: 'Visakhapatnam, Andhra Pradesh',
-      status: 'returned',
-      priority: 'standard',
-      shipmentDate: '2025-10-17 12:00',
-      expectedDelivery: '2025-10-20 14:00',
-      actualDelivery: '',
-      items: 9,
-      weight: 330,
-      carrier: 'FedEx',
-      lastUpdate: '2025-10-21 11:45',
-      currentLocation: 'Returned to Chennai Warehouse - Customer rejected'
-    }
-  ];
+  const [shipments, setShipments] = useState<ShipmentStatus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the sales Shipment ORM shape; map defensively to the
+        // page's ShipmentStatus model.
+        const { data } = await shipmentService.getAllShipments();
+        const statusMap: Record<string, ShipmentStatus['status']> = {
+          Draft: 'pending', Pending: 'pending', Dispatched: 'picked-up',
+          'In Transit': 'in-transit', 'Out for Delivery': 'out-for-delivery',
+          Delivered: 'delivered', Cancelled: 'failed', Returned: 'returned',
+        };
+        const priorityMap: Record<string, ShipmentStatus['priority']> = {
+          Urgent: 'express', High: 'express', Normal: 'standard', Low: 'economy',
+        };
+        const mapped: ShipmentStatus[] = (data as any[]).map((s) => ({
+          id: String(s.id ?? ''),
+          shipmentNo: s.shipmentNumber ?? '',
+          trackingNumber: s.trackingNumber ?? '',
+          orderNo: s.orderNumber ?? s.orderId ?? '',
+          customer: s.customerName ?? '',
+          origin: '',
+          destination: [s.city, s.state].filter(Boolean).join(', ') || s.deliveryAddress || '',
+          status: statusMap[s.status] ?? 'pending',
+          priority: priorityMap[s.priority] ?? 'standard',
+          shipmentDate: s.shipmentDate ?? '',
+          expectedDelivery: s.expectedDeliveryDate ?? '',
+          actualDelivery: s.actualDeliveryDate ?? '',
+          items: Number(s.totalItems ?? 0),
+          weight: Number(s.totalWeight ?? 0),
+          carrier: s.carrierName ?? '',
+          lastUpdate: s.updatedAt ?? '',
+          currentLocation: s.currentLocation ?? '',
+        }));
+        if (!cancelled) setShipments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load shipment statuses');
+          setShipments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const statusStats = {
     total: shipments.length,
@@ -296,6 +161,24 @@ export default function TrackingStatusPage() {
           <p className="text-sm text-gray-500 mt-1">Monitor all shipment statuses in real-time</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading shipment statuses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && shipments.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No shipments found.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-3 shadow-sm">

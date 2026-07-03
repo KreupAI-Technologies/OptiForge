@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -13,8 +13,10 @@ import {
   Copy,
   Star,
   TrendingUp,
-  Clock
+  Clock,
+  AlertCircle
 } from 'lucide-react'
+import { cpqContractService } from '@/services/cpq'
 
 interface ContractTemplate {
   id: string
@@ -37,144 +39,62 @@ interface ContractTemplate {
 export default function CPQContractsTemplatesPage() {
   const router = useRouter()
 
-  const [templates] = useState<ContractTemplate[]>([
-    {
-      id: 'CTPL-001',
-      name: 'Standard Sales Contract',
-      description: 'Standard B2B sales agreement for modular kitchen projects',
-      category: 'Sales',
-      type: 'sales',
-      clauses: 15,
-      pages: 12,
-      usageCount: 234,
-      lastUsed: '2024-10-18',
-      avgContractValue: 2500000,
-      avgDuration: '12 months',
-      isFavorite: true,
-      status: 'active',
-      createdBy: 'Legal Team',
-      createdDate: '2024-01-15'
-    },
-    {
-      id: 'CTPL-002',
-      name: 'Premium Service Agreement',
-      description: 'Comprehensive service contract with extended warranty and support',
-      category: 'Service',
-      type: 'service',
-      clauses: 18,
-      pages: 16,
-      usageCount: 156,
-      lastUsed: '2024-10-17',
-      avgContractValue: 3200000,
-      avgDuration: '24 months',
-      isFavorite: true,
-      status: 'active',
-      createdBy: 'Legal Team',
-      createdDate: '2024-02-20'
-    },
-    {
-      id: 'CTPL-003',
-      name: 'Bulk Order Contract',
-      description: 'Volume purchase agreement for builder projects with special terms',
-      category: 'Sales',
-      type: 'sales',
-      clauses: 16,
-      pages: 14,
-      usageCount: 87,
-      lastUsed: '2024-10-15',
-      avgContractValue: 5800000,
-      avgDuration: '18 months',
-      isFavorite: false,
-      status: 'active',
-      createdBy: 'Legal Team',
-      createdDate: '2024-03-10'
-    },
-    {
-      id: 'CTPL-004',
-      name: 'Maintenance Contract',
-      description: 'Annual maintenance agreement for post-installation support',
-      category: 'Service',
-      type: 'service',
-      clauses: 12,
-      pages: 8,
-      usageCount: 312,
-      lastUsed: '2024-10-18',
-      avgContractValue: 450000,
-      avgDuration: '12 months',
-      isFavorite: true,
-      status: 'active',
-      createdBy: 'Service Team',
-      createdDate: '2024-01-25'
-    },
-    {
-      id: 'CTPL-005',
-      name: 'NDA - Standard',
-      description: 'Non-disclosure agreement for business partners and suppliers',
-      category: 'Legal',
-      type: 'nda',
-      clauses: 8,
-      pages: 4,
-      usageCount: 445,
-      lastUsed: '2024-10-18',
-      avgContractValue: 0,
-      avgDuration: '36 months',
-      isFavorite: true,
-      status: 'active',
-      createdBy: 'Legal Team',
-      createdDate: '2024-01-10'
-    },
-    {
-      id: 'CTPL-006',
-      name: 'Partnership Agreement',
-      description: 'Strategic partnership contract for dealer/distributor networks',
-      category: 'Partnership',
-      type: 'partnership',
-      clauses: 20,
-      pages: 18,
-      usageCount: 45,
-      lastUsed: '2024-10-10',
-      avgContractValue: 0,
-      avgDuration: '60 months',
-      isFavorite: false,
-      status: 'active',
-      createdBy: 'Business Development',
-      createdDate: '2024-04-05'
-    },
-    {
-      id: 'CTPL-007',
-      name: 'Installation Service Contract',
-      description: 'Specific contract for kitchen installation services only',
-      category: 'Service',
-      type: 'service',
-      clauses: 10,
-      pages: 6,
-      usageCount: 198,
-      lastUsed: '2024-10-16',
-      avgContractValue: 125000,
-      avgDuration: '1 month',
-      isFavorite: false,
-      status: 'active',
-      createdBy: 'Operations',
-      createdDate: '2024-05-12'
-    },
-    {
-      id: 'CTPL-008',
-      name: 'Warranty Extension Contract',
-      description: 'Extended warranty agreement beyond standard coverage',
-      category: 'Service',
-      type: 'service',
-      clauses: 9,
-      pages: 5,
-      usageCount: 267,
-      lastUsed: '2024-10-17',
-      avgContractValue: 285000,
-      avgDuration: '24 months',
-      isFavorite: false,
-      status: 'active',
-      createdBy: 'Service Team',
-      createdDate: '2024-06-18'
+  const [templates, setTemplates] = useState<ContractTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the ContractTemplate ORM shape (templateName/description/
+        // contractType/clauses[]/defaultDurationMonths/isActive); map it to this
+        // page's template model. Usage/analytics fields (pages, usageCount,
+        // avgContractValue, isFavorite, createdBy) are not on the record.
+        const raw = (await cpqContractService.findAllTemplates()) as any[]
+        const typeMap: Record<string, ContractTemplate['type']> = {
+          sales: 'sales',
+          service: 'service',
+          maintenance: 'service',
+          subscription: 'service',
+          framework: 'partnership',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: ContractTemplate[] = (raw ?? []).map((t) => ({
+          id: t.id ?? '',
+          name: t.templateName ?? '',
+          description: t.description ?? '',
+          category: t.contractType ?? '',
+          type: typeMap[String(t.contractType ?? '').toLowerCase()] ?? 'sales',
+          clauses: Array.isArray(t.clauses) ? t.clauses.length : Number(t.clauses ?? 0),
+          pages: Number(t.pages ?? 0),
+          usageCount: Number(t.usageCount ?? 0),
+          lastUsed: toDate(t.updatedAt ?? t.createdAt),
+          avgContractValue: Number(t.avgContractValue ?? 0),
+          avgDuration: t.defaultDurationMonths ? `${t.defaultDurationMonths} months` : '',
+          isFavorite: Boolean(t.isFavorite ?? false),
+          status: t.isActive === false ? 'archived' : 'active',
+          createdBy: t.createdBy ?? '',
+          createdDate: toDate(t.createdAt),
+        }))
+        if (!cancelled) setTemplates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contract templates')
+          setTemplates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getCategoryColor = (category: string) => {
     const colors: any = {
@@ -202,6 +122,23 @@ export default function CPQContractsTemplatesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading contract templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && templates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No contract templates found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

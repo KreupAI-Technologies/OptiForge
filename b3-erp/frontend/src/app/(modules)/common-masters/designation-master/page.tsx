@@ -4,16 +4,61 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, TrendingUp, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockDesignations, Designation } from '@/data/common-masters/designations';
+import { Designation } from '@/data/common-masters/designations';
+import { hrMastersService } from '@/services/hr-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function DesignationMasterPage() {
-  const [designations, setDesignations] = useState<Designation[]>(mockDesignations);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterLevel, setFilterLevel] = useState<string>('all');
   const [filterGrade, setFilterGrade] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch designations from the live backend, mapping the raw API shape to the page's Designation model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await hrMastersService.getAllDesignations(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: Designation[] = raw.map((d) => ({
+          id: String(d.id ?? ''),
+          code: d.code ?? '',
+          name: d.name ?? '',
+          level: Number(d.level ?? 0),
+          grade: d.grade ?? '',
+          department: d.department ?? d.departmentName ?? '',
+          parentDesignation: d.parentDesignation ?? undefined,
+          reportingTo: d.reportingTo ?? undefined,
+          isActive: d.isActive ?? true,
+          minSalary: d.minSalary !== null && d.minSalary !== undefined ? Number(d.minSalary) : undefined,
+          maxSalary: d.maxSalary !== null && d.maxSalary !== undefined ? Number(d.maxSalary) : undefined,
+          headCount: d.headCount !== null && d.headCount !== undefined ? Number(d.headCount) : undefined,
+          createdAt: d.createdAt ?? '',
+          updatedAt: d.updatedAt ?? '',
+        }));
+        if (!cancelled) setDesignations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load designations');
+          setDesignations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -375,6 +420,24 @@ export default function DesignationMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading designations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && designations.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No designations found.
+        </div>
+      )}
 
       {/* Data Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

@@ -1,7 +1,7 @@
 // Logistics Management Service
 // Handles all Logistics related API calls and data management
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================
 // ENUMS

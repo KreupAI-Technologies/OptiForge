@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Download, FileText, DollarSign, Calendar, AlertCircle, CheckCircle, Clock, TrendingUp, User, Building2, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 
 interface Contract {
   id: string;
@@ -30,241 +31,62 @@ interface Contract {
   outstandingAmount: number;
   createdDate: string;
 }
-
-const mockContracts: Contract[] = [
-  {
-    id: '1',
-    contractNumber: 'CNT-2024-001',
-    title: 'Enterprise Software License Agreement',
-    customer: 'John Smith',
-    customerCompany: 'Acme Corporation',
-    type: 'license',
-    status: 'active',
-    value: 450000,
-    recurringValue: 90000,
-    billingCycle: 'annually',
-    startDate: '2024-01-01',
-    endDate: '2026-12-31',
-    signedDate: '2023-12-15',
-    autoRenew: true,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 30',
-    assignedTo: 'Sarah Johnson',
-    tags: ['Enterprise', 'Software', 'Multi-Year'],
-    attachments: 8,
-    lastInvoiceDate: '2024-01-01',
-    nextInvoiceDate: '2025-01-01',
-    totalInvoiced: 90000,
-    outstandingAmount: 0,
-    createdDate: '2023-11-20',
-  },
-  {
-    id: '2',
-    contractNumber: 'CNT-2024-002',
-    title: 'Cloud Infrastructure Services',
-    customer: 'Emily Davis',
-    customerCompany: 'TechStart Inc',
-    type: 'service',
-    status: 'active',
-    value: 36000,
-    recurringValue: 3000,
-    billingCycle: 'monthly',
-    startDate: '2024-03-01',
-    endDate: '2025-02-28',
-    signedDate: '2024-02-20',
-    autoRenew: true,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 15',
-    assignedTo: 'Michael Chen',
-    tags: ['Cloud', 'Infrastructure', 'Monthly'],
-    attachments: 4,
-    lastInvoiceDate: '2024-10-01',
-    nextInvoiceDate: '2024-11-01',
-    totalInvoiced: 21000,
-    outstandingAmount: 3000,
-    createdDate: '2024-02-10',
-  },
-  {
-    id: '3',
-    contractNumber: 'CNT-2024-003',
-    title: 'Premium Support Package',
-    customer: 'Robert Johnson',
-    customerCompany: 'Global Industries Ltd',
-    type: 'support',
-    status: 'pending_renewal',
-    value: 85000,
-    recurringValue: 85000,
-    billingCycle: 'annually',
-    startDate: '2023-11-01',
-    endDate: '2024-10-31',
-    signedDate: '2023-10-15',
-    autoRenew: false,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30',
-    assignedTo: 'Sarah Johnson',
-    tags: ['Support', 'Premium', 'Renewal Due'],
-    attachments: 3,
-    lastInvoiceDate: '2023-11-01',
-    nextInvoiceDate: '2024-11-01',
-    totalInvoiced: 85000,
-    outstandingAmount: 0,
-    createdDate: '2023-09-20',
-  },
-  {
-    id: '4',
-    contractNumber: 'CNT-2024-004',
-    title: 'Custom ERP Implementation & Maintenance',
-    customer: 'Lisa Anderson',
-    customerCompany: 'Manufacturing Solutions Co',
-    type: 'custom',
-    status: 'active',
-    value: 520000,
-    recurringValue: 40000,
-    billingCycle: 'quarterly',
-    startDate: '2024-02-01',
-    endDate: '2027-01-31',
-    signedDate: '2024-01-20',
-    autoRenew: false,
-    renewalNoticeDays: 120,
-    paymentTerms: 'Net 45',
-    assignedTo: 'David Park',
-    tags: ['ERP', 'Custom', 'Implementation'],
-    attachments: 12,
-    lastInvoiceDate: '2024-08-01',
-    nextInvoiceDate: '2024-11-01',
-    totalInvoiced: 120000,
-    outstandingAmount: 40000,
-    createdDate: '2023-12-15',
-  },
-  {
-    id: '5',
-    contractNumber: 'CNT-2024-005',
-    title: 'SaaS Subscription - Business Plan',
-    customer: 'James Wilson',
-    customerCompany: 'Financial Services Group',
-    type: 'subscription',
-    status: 'active',
-    value: 24000,
-    recurringValue: 2000,
-    billingCycle: 'monthly',
-    startDate: '2024-05-01',
-    endDate: '2025-04-30',
-    signedDate: '2024-04-25',
-    autoRenew: true,
-    renewalNoticeDays: 30,
-    paymentTerms: 'Credit Card - Immediate',
-    assignedTo: 'Sarah Johnson',
-    tags: ['SaaS', 'Subscription', 'Business'],
-    attachments: 2,
-    lastInvoiceDate: '2024-10-01',
-    nextInvoiceDate: '2024-11-01',
-    totalInvoiced: 10000,
-    outstandingAmount: 0,
-    createdDate: '2024-04-15',
-  },
-  {
-    id: '6',
-    contractNumber: 'CNT-2024-006',
-    title: 'Annual Maintenance Agreement',
-    customer: 'Maria Garcia',
-    customerCompany: 'Retail Innovations',
-    type: 'maintenance',
-    status: 'active',
-    value: 48000,
-    recurringValue: 48000,
-    billingCycle: 'annually',
-    startDate: '2024-06-01',
-    endDate: '2025-05-31',
-    signedDate: '2024-05-20',
-    autoRenew: true,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30',
-    assignedTo: 'Michael Chen',
-    tags: ['Maintenance', 'Annual', 'Hardware'],
-    attachments: 5,
-    lastInvoiceDate: '2024-06-01',
-    nextInvoiceDate: '2025-06-01',
-    totalInvoiced: 48000,
-    outstandingAmount: 0,
-    createdDate: '2024-05-10',
-  },
-  {
-    id: '7',
-    contractNumber: 'CNT-2023-015',
-    title: 'Consulting Services Agreement',
-    customer: 'Thomas Brown',
-    customerCompany: 'Healthcare Systems Inc',
-    type: 'service',
-    status: 'expired',
-    value: 180000,
-    billingCycle: 'one-time',
-    startDate: '2023-06-01',
-    endDate: '2024-05-31',
-    signedDate: '2023-05-15',
-    autoRenew: false,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 30 - Milestone Based',
-    assignedTo: 'David Park',
-    tags: ['Consulting', 'Project', 'Expired'],
-    attachments: 9,
-    lastInvoiceDate: '2024-05-01',
-    totalInvoiced: 180000,
-    outstandingAmount: 0,
-    createdDate: '2023-04-20',
-  },
-  {
-    id: '8',
-    contractNumber: 'CNT-2024-007',
-    title: 'Software Development Services',
-    customer: 'Patricia Martinez',
-    customerCompany: 'E-Commerce Solutions Ltd',
-    type: 'service',
-    status: 'suspended',
-    value: 120000,
-    recurringValue: 10000,
-    billingCycle: 'monthly',
-    startDate: '2024-04-01',
-    endDate: '2025-03-31',
-    signedDate: '2024-03-20',
-    autoRenew: false,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30',
-    assignedTo: 'Michael Chen',
-    tags: ['Development', 'Custom', 'Suspended'],
-    attachments: 6,
-    lastInvoiceDate: '2024-08-01',
-    totalInvoiced: 50000,
-    outstandingAmount: 20000,
-    createdDate: '2024-03-10',
-  },
-  {
-    id: '9',
-    contractNumber: 'CNT-2024-008',
-    title: 'Enterprise Support & Training Package',
-    customer: 'William Davis',
-    customerCompany: 'Tech Innovations Corp',
-    type: 'support',
-    status: 'draft',
-    value: 95000,
-    recurringValue: 95000,
-    billingCycle: 'annually',
-    startDate: '2024-11-01',
-    endDate: '2025-10-31',
-    autoRenew: true,
-    renewalNoticeDays: 60,
-    paymentTerms: 'Net 30',
-    assignedTo: 'Sarah Johnson',
-    tags: ['Support', 'Training', 'Draft'],
-    attachments: 1,
-    totalInvoiced: 0,
-    outstandingAmount: 0,
-    createdDate: '2024-10-15',
-  },
-];
-
 export default function ContractsPage() {
   const router = useRouter();
-  const [contracts] = useState<Contract[]>(mockContracts);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (NestJS CrmContract) uses different field names than the page's
+        // Contract model; map defensively and coerce numeric values.
+        const raw = (await crmService.contracts.getAll()) as any[];
+        const mapped: Contract[] = (raw || []).map((c) => ({
+          id: String(c.id),
+          contractNumber: c.contractNumber ?? '',
+          title: c.title ?? '',
+          customer: c.contactName ?? c.customerName ?? '',
+          customerCompany: c.customerName ?? '',
+          type: (c.type ?? 'custom') as Contract['type'],
+          status: (c.status ?? 'draft') as Contract['status'],
+          value: Number(c.contractValue ?? c.value ?? 0),
+          recurringValue: c.recurringValue != null ? Number(c.recurringValue) : undefined,
+          billingCycle: c.billingCycle ?? undefined,
+          startDate: c.startDate ?? '',
+          endDate: c.endDate ?? '',
+          signedDate: c.signedDate ?? undefined,
+          autoRenew: Boolean(c.autoRenew),
+          renewalNoticeDays: Number(c.renewalNoticeDays ?? 0),
+          paymentTerms: c.paymentTerms ?? '',
+          assignedTo: c.ownerName ?? c.assignedTo ?? '',
+          tags: Array.isArray(c.tags) ? c.tags : [],
+          attachments: Array.isArray(c.attachments) ? c.attachments.length : Number(c.attachments ?? 0),
+          lastInvoiceDate: c.lastInvoiceDate ?? undefined,
+          nextInvoiceDate: c.nextInvoiceDate ?? c.renewalDate ?? undefined,
+          totalInvoiced: Number(c.totalInvoiced ?? 0),
+          outstandingAmount: Number(c.outstandingAmount ?? 0),
+          createdDate: c.createdAt ?? c.createdDate ?? '',
+        }));
+        if (!cancelled) setContracts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contracts');
+          setContracts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'active' | 'pending_renewal' | 'expired' | 'terminated' | 'suspended'>('all');
   const [filterType, setFilterType] = useState<'all' | 'service' | 'subscription' | 'license' | 'support' | 'maintenance' | 'custom'>('all');
@@ -340,6 +162,23 @@ export default function ContractsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading contracts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && contracts.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No contracts found.
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Mail, Users, TrendingUp, Target, Search, Plus, Calendar, BarChart3, Play, Pause, CheckCircle, XCircle, Clock, Eye, Edit, Copy, Trash2, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mail, Users, TrendingUp, Target, Search, Plus, Calendar, BarChart3, Play, Pause, CheckCircle, XCircle, Clock, Eye, Edit, Copy, Trash2, ArrowRight, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Campaign {
   id: string;
@@ -25,136 +26,54 @@ interface Campaign {
   owner: string;
 }
 
-const mockCampaigns: Campaign[] = [
-  {
-    id: '1',
-    name: 'Q4 Product Launch Campaign',
-    type: 'email',
-    status: 'active',
-    startDate: '2024-10-01',
-    endDate: '2024-12-31',
-    budget: 50000,
-    spent: 28500,
-    audience: 12500,
-    sent: 9800,
-    delivered: 9650,
-    opened: 4825,
-    clicked: 1930,
-    converted: 245,
-    revenue: 856000,
-    owner: 'Sarah Johnson',
-  },
-  {
-    id: '2',
-    name: 'Enterprise Customer Webinar Series',
-    type: 'webinar',
-    status: 'active',
-    startDate: '2024-09-15',
-    endDate: '2024-11-30',
-    budget: 35000,
-    spent: 24500,
-    audience: 3450,
-    sent: 3200,
-    delivered: 3180,
-    opened: 1908,
-    clicked: 856,
-    converted: 128,
-    revenue: 512000,
-    owner: 'Michael Chen',
-  },
-  {
-    id: '3',
-    name: 'Holiday Promotion 2024',
-    type: 'email',
-    status: 'scheduled',
-    startDate: '2024-11-15',
-    endDate: '2024-12-25',
-    budget: 75000,
-    spent: 5000,
-    audience: 25600,
-    sent: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    converted: 0,
-    revenue: 0,
-    owner: 'Emily Rodriguez',
-  },
-  {
-    id: '4',
-    name: 'Customer Success Stories',
-    type: 'content',
-    status: 'active',
-    startDate: '2024-08-01',
-    endDate: '2024-10-31',
-    budget: 25000,
-    spent: 22000,
-    audience: 18900,
-    sent: 15600,
-    delivered: 15450,
-    opened: 8505,
-    clicked: 3401,
-    converted: 187,
-    revenue: 374000,
-    owner: 'David Martinez',
-  },
-  {
-    id: '5',
-    name: 'Trade Show Lead Nurture',
-    type: 'email',
-    status: 'completed',
-    startDate: '2024-07-01',
-    endDate: '2024-09-30',
-    budget: 40000,
-    spent: 38500,
-    audience: 8700,
-    sent: 7800,
-    delivered: 7720,
-    opened: 4632,
-    clicked: 1853,
-    converted: 156,
-    revenue: 624000,
-    owner: 'Sarah Johnson',
-  },
-  {
-    id: '6',
-    name: 'LinkedIn Thought Leadership',
-    type: 'social',
-    status: 'active',
-    startDate: '2024-09-01',
-    budget: 20000,
-    spent: 12000,
-    audience: 45000,
-    sent: 38000,
-    delivered: 38000,
-    opened: 11400,
-    clicked: 3420,
-    converted: 89,
-    revenue: 178000,
-    owner: 'Michael Chen',
-  },
-  {
-    id: '7',
-    name: 'Re-engagement Campaign',
-    type: 'email',
-    status: 'paused',
-    startDate: '2024-10-10',
-    budget: 15000,
-    spent: 4500,
-    audience: 5600,
-    sent: 2800,
-    delivered: 2758,
-    opened: 828,
-    clicked: 248,
-    converted: 12,
-    revenue: 24000,
-    owner: 'Emily Rodriguez',
-  },
-];
-
 export default function CampaignsPage() {
   const router = useRouter();
-  const [campaigns, setCampaigns] = useState<Campaign[]>(mockCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (NestJS CrmCampaign) uses different field names than the page's
+        // Campaign model; map defensively and coerce numeric metrics.
+        const raw = (await crmService.campaigns.getAll()) as any[];
+        const mapped: Campaign[] = (raw || []).map((c) => ({
+          id: String(c.id),
+          name: c.name ?? '',
+          type: (c.type ?? 'email') as Campaign['type'],
+          status: (c.status ?? 'draft') as Campaign['status'],
+          startDate: c.startDate ?? '',
+          endDate: c.endDate ?? undefined,
+          budget: Number(c.budget ?? 0),
+          spent: Number(c.actualCost ?? c.spent ?? 0),
+          audience: Number(c.totalLeads ?? c.audience ?? 0),
+          sent: Number(c.sent ?? 0),
+          delivered: Number(c.delivered ?? 0),
+          opened: Number(c.opened ?? 0),
+          clicked: Number(c.clicked ?? 0),
+          converted: Number(c.convertedLeads ?? c.converted ?? 0),
+          revenue: Number(c.actualRevenue ?? c.revenue ?? 0),
+          owner: c.assignedToName ?? c.owner ?? '',
+        }));
+        if (!cancelled) setCampaigns(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load campaigns');
+          setCampaigns([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'scheduled' | 'active' | 'paused' | 'completed'>('all');
   const [filterType, setFilterType] = useState<'all' | 'email' | 'social' | 'webinar' | 'content' | 'event'>('all');
@@ -251,6 +170,23 @@ export default function CampaignsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading campaigns…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && campaigns.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No campaigns found.
+        </div>
+      )}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

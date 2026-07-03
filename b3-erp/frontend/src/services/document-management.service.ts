@@ -4,7 +4,7 @@
  * compliance documents, HR policies, document repository, and certificate requests
  */
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================================================
 // Enums

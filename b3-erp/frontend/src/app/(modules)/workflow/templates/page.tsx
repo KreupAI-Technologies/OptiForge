@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, Edit, Trash2, Copy, Play, Pause,
@@ -8,6 +8,7 @@ import {
   AlertCircle, ChevronLeft, ChevronRight, Settings, Download,
   Upload, Filter, Calendar, Tag, BarChart3, Activity
 } from 'lucide-react';
+import { WorkflowService } from '@/services/workflow.service';
 
 interface WorkflowTemplate {
   id: string;
@@ -26,169 +27,6 @@ interface WorkflowTemplate {
   tags: string[];
 }
 
-const mockTemplates: WorkflowTemplate[] = [
-  {
-    id: 'WT001',
-    name: 'Purchase Order Approval',
-    description: 'Multi-level approval workflow for purchase orders exceeding budget thresholds',
-    category: 'approval',
-    status: 'active',
-    version: '2.3',
-    steps: 5,
-    usageCount: 247,
-    avgDuration: '2.5 hrs',
-    successRate: 94.5,
-    createdBy: 'Admin User',
-    createdAt: '2025-08-15',
-    lastModified: '2025-10-12',
-    tags: ['procurement', 'finance', 'critical'],
-  },
-  {
-    id: 'WT002',
-    name: 'Employee Onboarding',
-    description: 'Automated workflow for new employee registration and setup',
-    category: 'automation',
-    status: 'active',
-    version: '1.8',
-    steps: 8,
-    usageCount: 89,
-    avgDuration: '3 days',
-    successRate: 98.2,
-    createdBy: 'HR Manager',
-    createdAt: '2025-09-01',
-    lastModified: '2025-10-10',
-    tags: ['hr', 'onboarding', 'automation'],
-  },
-  {
-    id: 'WT003',
-    name: 'Production Order Notification',
-    description: 'Automated notifications for production order status changes',
-    category: 'notification',
-    status: 'active',
-    version: '1.2',
-    steps: 3,
-    usageCount: 532,
-    avgDuration: '5 mins',
-    successRate: 99.8,
-    createdBy: 'Production Manager',
-    createdAt: '2025-09-15',
-    lastModified: '2025-10-08',
-    tags: ['production', 'notifications'],
-  },
-  {
-    id: 'WT004',
-    name: 'Sales Quote Approval',
-    description: 'Tiered approval process for sales quotations based on discount levels',
-    category: 'approval',
-    status: 'active',
-    version: '3.1',
-    steps: 4,
-    usageCount: 178,
-    avgDuration: '1.2 hrs',
-    successRate: 91.3,
-    createdBy: 'Sales Director',
-    createdAt: '2025-07-20',
-    lastModified: '2025-10-14',
-    tags: ['sales', 'crm', 'approval'],
-  },
-  {
-    id: 'WT005',
-    name: 'Invoice Payment Reconciliation',
-    description: 'Automated workflow for invoice payment matching and reconciliation',
-    category: 'automation',
-    status: 'active',
-    version: '2.0',
-    steps: 6,
-    usageCount: 412,
-    avgDuration: '45 mins',
-    successRate: 96.7,
-    createdBy: 'Finance Controller',
-    createdAt: '2025-08-25',
-    lastModified: '2025-10-11',
-    tags: ['finance', 'accounting', 'automation'],
-  },
-  {
-    id: 'WT006',
-    name: 'Quality Control Process',
-    description: 'Multi-stage quality inspection and approval workflow',
-    category: 'approval',
-    status: 'active',
-    version: '1.5',
-    steps: 7,
-    usageCount: 156,
-    avgDuration: '4 hrs',
-    successRate: 88.9,
-    createdBy: 'QC Manager',
-    createdAt: '2025-09-10',
-    lastModified: '2025-10-09',
-    tags: ['quality', 'production', 'inspection'],
-  },
-  {
-    id: 'WT007',
-    name: 'Expense Reimbursement',
-    description: 'Employee expense submission and approval workflow',
-    category: 'approval',
-    status: 'active',
-    version: '2.7',
-    steps: 4,
-    usageCount: 321,
-    avgDuration: '1 day',
-    successRate: 93.8,
-    createdBy: 'HR Manager',
-    createdAt: '2025-08-01',
-    lastModified: '2025-10-13',
-    tags: ['hr', 'finance', 'expenses'],
-  },
-  {
-    id: 'WT008',
-    name: 'Inventory Reorder Alert',
-    description: 'Automated alerts when inventory falls below reorder point',
-    category: 'notification',
-    status: 'active',
-    version: '1.0',
-    steps: 2,
-    usageCount: 678,
-    avgDuration: '1 min',
-    successRate: 99.9,
-    createdBy: 'Inventory Manager',
-    createdAt: '2025-09-20',
-    lastModified: '2025-10-07',
-    tags: ['inventory', 'alerts', 'procurement'],
-  },
-  {
-    id: 'WT009',
-    name: 'Project Milestone Tracking',
-    description: 'Custom workflow for project milestone completion and sign-off',
-    category: 'custom',
-    status: 'draft',
-    version: '0.9',
-    steps: 9,
-    usageCount: 0,
-    avgDuration: 'N/A',
-    successRate: 0,
-    createdBy: 'Project Manager',
-    createdAt: '2025-10-05',
-    lastModified: '2025-10-15',
-    tags: ['projects', 'milestones', 'tracking'],
-  },
-  {
-    id: 'WT010',
-    name: 'Customer Complaint Resolution',
-    description: 'End-to-end workflow for handling customer complaints and feedback',
-    category: 'custom',
-    status: 'active',
-    version: '1.4',
-    steps: 6,
-    usageCount: 94,
-    avgDuration: '2 days',
-    successRate: 90.4,
-    createdBy: 'Support Manager',
-    createdAt: '2025-09-05',
-    lastModified: '2025-10-10',
-    tags: ['support', 'crm', 'complaints'],
-  },
-];
-
 const categoryColors = {
   approval: 'bg-blue-100 text-blue-700',
   automation: 'bg-green-100 text-green-700',
@@ -204,7 +42,70 @@ const statusColors = {
 
 export default function WorkflowTemplatesPage() {
   const router = useRouter();
-  const [templates, setTemplates] = useState<WorkflowTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Service returns a rich workflow-template shape; map it defensively to
+        // this page's lightweight WorkflowTemplate model.
+        const raw = (await WorkflowService.getAllWorkflowTemplates()) as any[];
+        const categoryMap: Record<string, WorkflowTemplate['category']> = {
+          approval: 'approval',
+          automation: 'automation',
+          notification: 'notification',
+          custom: 'custom',
+        };
+        const statusMap: Record<string, WorkflowTemplate['status']> = {
+          active: 'active',
+          draft: 'draft',
+          inactive: 'archived',
+          archived: 'archived',
+        };
+        const mapped: WorkflowTemplate[] = (raw ?? []).map((t) => {
+          const rawCategory = String(t.category ?? '').toLowerCase();
+          const rawStatus = String(t.status ?? '').toLowerCase();
+          return {
+            id: String(t.id ?? t.code ?? ''),
+            name: t.name ?? '',
+            description: t.description ?? '',
+            category: categoryMap[rawCategory] ?? 'custom',
+            status: statusMap[rawStatus] ?? 'draft',
+            version: String(t.version ?? '1'),
+            steps: Array.isArray(t.steps) ? t.steps.length : Number(t.steps ?? 0),
+            usageCount: Number(t.instanceCount ?? t.usageCount ?? 0),
+            avgDuration: t.avgDuration ?? 'N/A',
+            successRate: Number(t.successRate ?? 0),
+            createdBy: t.createdBy ?? 'Unknown',
+            createdAt: t.createdAt
+              ? new Date(t.createdAt).toISOString().split('T')[0]
+              : '',
+            lastModified: t.updatedAt
+              ? new Date(t.updatedAt).toISOString().split('T')[0]
+              : (t.lastModified ?? ''),
+            tags: Array.isArray(t.tags) ? t.tags : t.category ? [String(t.category)] : [],
+          };
+        });
+        if (!cancelled) setTemplates(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load workflow templates');
+          setTemplates([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -344,6 +245,23 @@ export default function WorkflowTemplatesPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading workflow templates…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && templates.length === 0 && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            No workflow templates found.
+          </div>
+        )}
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">

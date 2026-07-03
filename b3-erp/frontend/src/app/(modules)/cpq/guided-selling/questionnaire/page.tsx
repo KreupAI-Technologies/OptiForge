@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -16,8 +16,10 @@ import {
   Play,
   BarChart3,
   Clock,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
+import { cpqGuidedSellingService } from '@/services/cpq';
 import {
   QuestionnaireModal,
   QuestionBuilderModal,
@@ -61,236 +63,57 @@ export default function QuestionnairePage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<Questionnaire | null>(null);
 
-  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([
-    {
-      id: '1',
-      questionnaireCode: 'Q-LUX-001',
-      questionnaireName: 'Luxury Kitchen Requirements Assessment',
-      category: 'Luxury Kitchen',
-      targetSegment: 'High Net Worth Individuals',
-      questions: 24,
-      avgCompletionTime: 18,
-      completionRate: 87.5,
-      usageCount: 142,
-      qualifiedLeads: 118,
-      qualificationRate: 83.1,
-      avgDealSize: 2850000,
-      status: 'active',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-04-15',
-      lastUpdated: '2025-10-12',
-      description: 'Comprehensive needs assessment for luxury modular kitchen projects covering design preferences, space requirements, appliance selections, and budget expectations.'
-    },
-    {
-      id: '2',
-      questionnaireCode: 'Q-STD-002',
-      questionnaireName: 'Standard Modular Kitchen Discovery',
-      category: 'Standard Kitchen',
-      targetSegment: 'Middle Income Residential',
-      questions: 16,
-      avgCompletionTime: 12,
-      completionRate: 92.3,
-      usageCount: 387,
-      qualifiedLeads: 342,
-      qualificationRate: 88.4,
-      avgDealSize: 850000,
-      status: 'active',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-05-20',
-      lastUpdated: '2025-10-15',
-      description: 'Efficient discovery process for mid-range modular kitchens focusing on space constraints, storage needs, budget range, and timeline expectations.'
-    },
-    {
-      id: '3',
-      questionnaireCode: 'Q-COMM-003',
-      questionnaireName: 'Commercial Kitchen Needs Analysis',
-      category: 'Commercial Kitchen',
-      targetSegment: 'B2B - Restaurants & Hotels',
-      questions: 32,
-      avgCompletionTime: 28,
-      completionRate: 78.9,
-      usageCount: 78,
-      qualifiedLeads: 58,
-      qualificationRate: 74.4,
-      avgDealSize: 4500000,
-      status: 'active',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-06-10',
-      lastUpdated: '2025-10-08',
-      description: 'Detailed commercial kitchen assessment including capacity planning, equipment specifications, compliance requirements, workflow analysis, and ROI projections.'
-    },
-    {
-      id: '4',
-      questionnaireCode: 'Q-RENO-004',
-      questionnaireName: 'Kitchen Renovation Pain Points',
-      category: 'Renovation',
-      targetSegment: 'Home Renovation Projects',
-      questions: 18,
-      avgCompletionTime: 14,
-      completionRate: 85.7,
-      usageCount: 234,
-      qualifiedLeads: 189,
-      qualificationRate: 80.8,
-      avgDealSize: 1250000,
-      status: 'active',
-      createdBy: 'Suresh Reddy',
-      createdDate: '2024-07-18',
-      lastUpdated: '2025-10-14',
-      description: 'Targeted questionnaire identifying current kitchen issues, desired improvements, budget constraints, and renovation timeline for existing homes.'
-    },
-    {
-      id: '5',
-      questionnaireCode: 'Q-SINK-005',
-      questionnaireName: 'Sink & Faucet Selection Guide',
-      category: 'Sinks & Faucets',
-      targetSegment: 'Retail Customers',
-      questions: 10,
-      avgCompletionTime: 7,
-      completionRate: 94.2,
-      usageCount: 567,
-      qualifiedLeads: 512,
-      qualificationRate: 90.3,
-      avgDealSize: 125000,
-      status: 'active',
-      createdBy: 'Vikram Singh',
-      createdDate: '2024-08-05',
-      lastUpdated: '2025-10-18',
-      description: 'Quick selection guide for kitchen sinks and faucets covering material preferences, size requirements, installation type, and style choices.'
-    },
-    {
-      id: '6',
-      questionnaireCode: 'Q-APPL-006',
-      questionnaireName: 'Kitchen Appliances Bundle Builder',
-      category: 'Appliances',
-      targetSegment: 'New Home Buyers',
-      questions: 14,
-      avgCompletionTime: 10,
-      completionRate: 89.5,
-      usageCount: 298,
-      qualifiedLeads: 251,
-      qualificationRate: 84.2,
-      avgDealSize: 580000,
-      status: 'active',
-      createdBy: 'Neha Gupta',
-      createdDate: '2024-09-12',
-      lastUpdated: '2025-10-16',
-      description: 'Interactive bundle builder for kitchen appliances helping customers select chimney, hob, microwave, and dishwasher based on cooking habits and budget.'
-    },
-    {
-      id: '7',
-      questionnaireCode: 'Q-BUILD-007',
-      questionnaireName: 'Builder Project Requirements',
-      category: 'Builder Projects',
-      targetSegment: 'Real Estate Developers',
-      questions: 28,
-      avgCompletionTime: 25,
-      completionRate: 72.4,
-      usageCount: 52,
-      qualifiedLeads: 35,
-      qualificationRate: 67.3,
-      avgDealSize: 12500000,
-      status: 'active',
-      createdBy: 'Arun Kumar',
-      createdDate: '2024-10-08',
-      lastUpdated: '2025-10-10',
-      description: 'Comprehensive builder project assessment covering unit counts, standardization requirements, budget per unit, delivery timeline, and volume pricing expectations.'
-    },
-    {
-      id: '8',
-      questionnaireCode: 'Q-SMART-008',
-      questionnaireName: 'Smart Kitchen Technology Assessment',
-      category: 'Smart Kitchen',
-      targetSegment: 'Tech-Savvy Professionals',
-      questions: 20,
-      avgCompletionTime: 15,
-      completionRate: 81.3,
-      usageCount: 145,
-      qualifiedLeads: 112,
-      qualificationRate: 77.2,
-      avgDealSize: 1850000,
-      status: 'active',
-      createdBy: 'Meera Iyer',
-      createdDate: '2024-11-20',
-      lastUpdated: '2025-10-17',
-      description: 'Technology-focused assessment for smart kitchen solutions covering automation preferences, IoT integration, voice control, and energy efficiency priorities.'
-    },
-    {
-      id: '9',
-      questionnaireCode: 'Q-COMP-009',
-      questionnaireName: 'Compact Kitchen Space Planning',
-      category: 'Compact Kitchen',
-      targetSegment: 'Studio Apartments',
-      questions: 12,
-      avgCompletionTime: 9,
-      completionRate: 90.8,
-      usageCount: 412,
-      qualifiedLeads: 358,
-      qualificationRate: 86.9,
-      avgDealSize: 450000,
-      status: 'active',
-      createdBy: 'Kavita Desai',
-      createdDate: '2025-01-15',
-      lastUpdated: '2025-10-19',
-      description: 'Space-efficient kitchen planning questionnaire for small spaces covering dimensions, multi-functional needs, storage priorities, and budget optimization.'
-    },
-    {
-      id: '10',
-      questionnaireCode: 'Q-SUST-010',
-      questionnaireName: 'Sustainable Kitchen Values Assessment',
-      category: 'Sustainable Kitchen',
-      targetSegment: 'Eco-Conscious Buyers',
-      questions: 16,
-      avgCompletionTime: 13,
-      completionRate: 86.5,
-      usageCount: 178,
-      qualifiedLeads: 145,
-      qualificationRate: 81.5,
-      avgDealSize: 1350000,
-      status: 'active',
-      createdBy: 'Pooja Nair',
-      createdDate: '2025-02-28',
-      lastUpdated: '2025-10-13',
-      description: 'Sustainability-focused assessment covering eco-friendly material preferences, energy-efficient appliances, recycled content, and carbon footprint priorities.'
-    },
-    {
-      id: '11',
-      questionnaireCode: 'Q-COOK-011',
-      questionnaireName: 'Cookware & Accessories Needs',
-      category: 'Cookware',
-      targetSegment: 'Cooking Enthusiasts',
-      questions: 8,
-      avgCompletionTime: 6,
-      completionRate: 96.2,
-      usageCount: 623,
-      qualifiedLeads: 571,
-      qualificationRate: 91.7,
-      avgDealSize: 85000,
-      status: 'active',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2025-04-10',
-      lastUpdated: '2025-10-20',
-      description: 'Quick discovery for cookware and accessories based on cooking frequency, cuisine types, material preferences, and budget range.'
-    },
-    {
-      id: '12',
-      questionnaireCode: 'Q-LEAD-012',
-      questionnaireName: 'Initial Kitchen Project Lead Qualifier',
-      category: 'General',
-      targetSegment: 'All Segments',
-      questions: 6,
-      avgCompletionTime: 4,
-      completionRate: 98.5,
-      usageCount: 1245,
-      qualifiedLeads: 987,
-      qualificationRate: 79.3,
-      avgDealSize: 950000,
-      status: 'active',
-      createdBy: 'Priya Sharma',
-      createdDate: '2025-05-25',
-      lastUpdated: '2025-10-18',
-      description: 'Ultra-short lead qualification questionnaire to quickly identify budget range, timeline, and seriousness of kitchen project inquiries.'
-    }
-  ]);
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the SalesQuestionnaire ORM shape (name/description/
+        // industry/productCategory/questions[]/isActive/createdAt); map it to this
+        // page's analytics-oriented Questionnaire model. Lead/completion metrics are
+        // not part of the questionnaire record and default to 0.
+        const raw = (await cpqGuidedSellingService.findAllQuestionnaires()) as any[];
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : '';
+        const mapped: Questionnaire[] = (raw ?? []).map((q) => ({
+          id: q.id ?? '',
+          questionnaireCode: q.questionnaireCode ?? q.id ?? '',
+          questionnaireName: q.name ?? '',
+          category: q.productCategory ?? q.industry ?? '',
+          targetSegment: q.industry ?? '',
+          questions: Array.isArray(q.questions) ? q.questions.length : Number(q.questions ?? 0),
+          avgCompletionTime: Number(q.avgCompletionTime ?? 0),
+          completionRate: Number(q.completionRate ?? 0),
+          usageCount: Number(q.usageCount ?? 0),
+          qualifiedLeads: Number(q.qualifiedLeads ?? 0),
+          qualificationRate: Number(q.qualificationRate ?? 0),
+          avgDealSize: Number(q.avgDealSize ?? 0),
+          status: q.isActive === false ? 'archived' : 'active',
+          createdBy: q.createdBy ?? '',
+          createdDate: toDate(q.createdAt),
+          lastUpdated: toDate(q.updatedAt ?? q.createdAt),
+          description: q.description ?? '',
+        }));
+        if (!cancelled) setQuestionnaires(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load questionnaires');
+          setQuestionnaires([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = ['all', ...Array.from(new Set(questionnaires.map(q => q.category)))];
 
@@ -377,6 +200,23 @@ export default function QuestionnairePage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading questionnaires…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && questionnaires.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No questionnaires found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

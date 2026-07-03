@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Search,
@@ -14,8 +14,10 @@ import {
   BarChart3,
   Eye,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  AlertCircle
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface StockItem {
   id: number;
@@ -39,98 +41,63 @@ export default function StockLevelsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [stockItems, setStockItems] = useState<StockItem[]>([
-    {
-      id: 1,
-      itemCode: 'RM-001',
-      itemName: 'Mild Steel Plate 10mm',
-      category: 'Raw Material',
-      warehouse: 'Main Warehouse',
-      currentStock: 450,
-      reorderLevel: 200,
-      maxLevel: 1000,
-      uom: 'Kg',
-      unitValue: 65,
-      totalValue: 29250,
-      lastUpdated: '2025-01-20 14:30',
-      status: 'adequate'
-    },
-    {
-      id: 2,
-      itemCode: 'RM-002',
-      itemName: 'Stainless Steel Rod 25mm',
-      category: 'Raw Material',
-      warehouse: 'Main Warehouse',
-      currentStock: 85,
-      reorderLevel: 100,
-      maxLevel: 500,
-      uom: 'Pcs',
-      unitValue: 450,
-      totalValue: 38250,
-      lastUpdated: '2025-01-20 14:15',
-      status: 'low'
-    },
-    {
-      id: 3,
-      itemCode: 'CP-101',
-      itemName: 'Hydraulic Cylinder Assembly',
-      category: 'Components',
-      warehouse: 'Assembly Plant',
-      currentStock: 12,
-      reorderLevel: 20,
-      maxLevel: 80,
-      uom: 'Nos',
-      unitValue: 12500,
-      totalValue: 150000,
-      lastUpdated: '2025-01-20 13:45',
-      status: 'critical'
-    },
-    {
-      id: 4,
-      itemCode: 'FG-201',
-      itemName: 'Motor Housing Complete',
-      category: 'Finished Goods',
-      warehouse: 'FG Store',
-      currentStock: 145,
-      reorderLevel: 50,
-      maxLevel: 100,
-      uom: 'Nos',
-      unitValue: 3500,
-      totalValue: 507500,
-      lastUpdated: '2025-01-20 12:30',
-      status: 'overstock'
-    },
-    {
-      id: 5,
-      itemCode: 'RM-003',
-      itemName: 'Aluminum Sheet 5mm',
-      category: 'Raw Material',
-      warehouse: 'Main Warehouse',
-      currentStock: 320,
-      reorderLevel: 150,
-      maxLevel: 800,
-      uom: 'Kg',
-      unitValue: 180,
-      totalValue: 57600,
-      lastUpdated: '2025-01-20 11:20',
-      status: 'adequate'
-    },
-    {
-      id: 6,
-      itemCode: 'CP-102',
-      itemName: 'Electric Motor 5HP',
-      category: 'Components',
-      warehouse: 'Assembly Plant',
-      currentStock: 8,
-      reorderLevel: 15,
-      maxLevel: 60,
-      uom: 'Nos',
-      unitValue: 8500,
-      totalValue: 68000,
-      lastUpdated: '2025-01-20 10:45',
-      status: 'critical'
-    }
-  ]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the raw StockBalance shape; map it onto this page's
+        // StockItem model and derive a status band from the reorder level.
+        const raw = (await inventoryService.getStockBalances()) as any[];
+        const mapped: StockItem[] = (raw || []).map((b, index) => {
+          const currentStock = Number(b.availableQuantity ?? b.freeQuantity ?? 0);
+          const reorderLevel = Number(b.reorderLevel ?? 0);
+          const maxLevel = Number(b.maxLevel ?? b.maxStockLevel ?? 0);
+          const totalValue = Number(b.stockValue ?? 0);
+          let status: StockItem['status'] = 'adequate';
+          if (b.belowReorderLevel || (reorderLevel > 0 && currentStock <= reorderLevel * 0.5)) {
+            status = 'critical';
+          } else if (reorderLevel > 0 && currentStock <= reorderLevel) {
+            status = 'low';
+          } else if (maxLevel > 0 && currentStock > maxLevel) {
+            status = 'overstock';
+          }
+          return {
+            id: b.id ?? index + 1,
+            itemCode: b.itemCode ?? '',
+            itemName: b.itemName ?? '',
+            category: b.category ?? b.itemCategory ?? '',
+            warehouse: b.warehouseName ?? b.warehouseId ?? '',
+            currentStock,
+            reorderLevel,
+            maxLevel,
+            uom: b.uom ?? '',
+            unitValue: currentStock > 0 ? Number((totalValue / currentStock).toFixed(2)) : 0,
+            totalValue,
+            lastUpdated: b.lastUpdated ? String(b.lastUpdated).replace('T', ' ').slice(0, 16) : '',
+            status,
+          };
+        });
+        if (!cancelled) setStockItems(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stock levels');
+          setStockItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -199,6 +166,19 @@ export default function StockLevelsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading stock levels…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

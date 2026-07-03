@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, Package, Truck, MapPin, Calendar, CheckCircle, Clock, AlertTriangle, Download, User } from 'lucide-react';
+import { ArrowLeft, Search, Package, Truck, MapPin, Calendar, CheckCircle, Clock, AlertTriangle, Download, User, AlertCircle } from 'lucide-react';
+import { shipmentService } from '@/services/shipment.service';
 
 interface OutboundShipment {
   id: string;
@@ -29,142 +30,64 @@ export default function OutboundShippingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
+  const [outboundShipments, setOutboundShipments] = useState<OutboundShipment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const outboundShipments: OutboundShipment[] = [
-    {
-      id: '1',
-      shipmentNo: 'OB-2025-0531',
-      soNumber: 'SO-2025-3421',
-      customer: 'Precision Engineering Co',
-      carrier: 'Express Logistics',
-      origin: 'Warehouse A - Chennai',
-      destination: 'Bangalore, Karnataka',
-      shipDate: '2025-10-21',
-      deliveryDate: '2025-10-23',
-      items: 8,
-      totalQty: 450,
-      totalValue: 235000,
-      status: 'in-transit',
-      trackingNumber: 'TRK-CHN-2025-4521',
-      vehicleNo: 'TN-01-AB-1234',
-      driverName: 'Rajesh Kumar',
-      priority: 'express'
-    },
-    {
-      id: '2',
-      shipmentNo: 'OB-2025-0532',
-      soNumber: 'SO-2025-3422',
-      customer: 'Industrial Solutions Ltd',
-      carrier: 'Fast Track Transport',
-      origin: 'Warehouse A - Chennai',
-      destination: 'Hyderabad, Telangana',
-      shipDate: '2025-10-22',
-      deliveryDate: '2025-10-24',
-      items: 5,
-      totalQty: 280,
-      totalValue: 156000,
-      status: 'ready',
-      trackingNumber: 'TRK-CHN-2025-4522',
-      vehicleNo: 'TN-02-CD-5678',
-      driverName: 'Suresh Reddy',
-      priority: 'express'
-    },
-    {
-      id: '3',
-      shipmentNo: 'OB-2025-0533',
-      soNumber: 'SO-2025-3423',
-      customer: 'Manufacturing Hub Inc',
-      carrier: 'Reliable Freight',
-      origin: 'Warehouse B - Chennai',
-      destination: 'Mumbai, Maharashtra',
-      shipDate: '2025-10-23',
-      deliveryDate: '2025-10-26',
-      items: 12,
-      totalQty: 850,
-      totalValue: 425000,
-      status: 'packed',
-      trackingNumber: 'TRK-CHN-2025-4523',
-      vehicleNo: 'TN-03-EF-9012',
-      driverName: 'Arun Sharma',
-      priority: 'standard'
-    },
-    {
-      id: '4',
-      shipmentNo: 'OB-2025-0534',
-      soNumber: 'SO-2025-3424',
-      customer: 'TechParts Distributors',
-      carrier: 'Quick Ship Logistics',
-      origin: 'Warehouse A - Chennai',
-      destination: 'Pune, Maharashtra',
-      shipDate: '2025-10-21',
-      deliveryDate: '2025-10-23',
-      items: 6,
-      totalQty: 320,
-      totalValue: 178000,
-      status: 'delivered',
-      trackingNumber: 'TRK-CHN-2025-4524',
-      vehicleNo: 'TN-04-GH-3456',
-      driverName: 'Vijay Singh',
-      priority: 'standard'
-    },
-    {
-      id: '5',
-      shipmentNo: 'OB-2025-0535',
-      soNumber: 'SO-2025-3425',
-      customer: 'AutoParts Wholesale',
-      carrier: 'Economy Transport',
-      origin: 'Warehouse B - Chennai',
-      destination: 'Coimbatore, Tamil Nadu',
-      shipDate: '2025-10-24',
-      deliveryDate: '2025-10-27',
-      items: 4,
-      totalQty: 180,
-      totalValue: 89000,
-      status: 'pending',
-      trackingNumber: 'TRK-CHN-2025-4525',
-      vehicleNo: 'TN-05-IJ-7890',
-      driverName: 'Prakash Iyer',
-      priority: 'economy'
-    },
-    {
-      id: '6',
-      shipmentNo: 'OB-2025-0536',
-      soNumber: 'SO-2025-3426',
-      customer: 'Machinery Supplies Co',
-      carrier: 'Swift Delivery',
-      origin: 'Warehouse A - Chennai',
-      destination: 'Kochi, Kerala',
-      shipDate: '2025-10-22',
-      deliveryDate: '2025-10-24',
-      items: 7,
-      totalQty: 410,
-      totalValue: 298000,
-      status: 'dispatched',
-      trackingNumber: 'TRK-CHN-2025-4526',
-      vehicleNo: 'TN-06-KL-2345',
-      driverName: 'Mohammed Ali',
-      priority: 'express'
-    },
-    {
-      id: '7',
-      shipmentNo: 'OB-2025-0537',
-      soNumber: 'SO-2025-3427',
-      customer: 'Industrial Components Ltd',
-      carrier: 'Express Logistics',
-      origin: 'Warehouse B - Chennai',
-      destination: 'Delhi, NCR',
-      shipDate: '2025-10-21',
-      deliveryDate: '2025-10-25',
-      items: 10,
-      totalQty: 620,
-      totalValue: 512000,
-      status: 'in-transit',
-      trackingNumber: 'TRK-CHN-2025-4527',
-      vehicleNo: 'TN-07-MN-6789',
-      driverName: 'Ramesh Verma',
-      priority: 'express'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the sales Shipment ORM shape; map defensively to the
+        // page's OutboundShipment model.
+        const { data } = await shipmentService.getAllShipments();
+        const statusMap: Record<string, OutboundShipment['status']> = {
+          Draft: 'pending', Pending: 'pending', Packed: 'packed', Ready: 'ready',
+          Dispatched: 'dispatched', 'In Transit': 'in-transit',
+          Delivered: 'delivered', Returned: 'returned', Cancelled: 'returned',
+        };
+        const priorityMap: Record<string, OutboundShipment['priority']> = {
+          Urgent: 'express', High: 'express', Normal: 'standard', Low: 'economy',
+        };
+        const mapped: OutboundShipment[] = (data as any[]).map((s) => {
+          const items = Array.isArray(s.items) ? s.items : [];
+          return {
+            id: String(s.id ?? ''),
+            shipmentNo: s.shipmentNumber ?? '',
+            soNumber: s.orderNumber ?? s.orderId ?? '',
+            customer: s.customerName ?? '',
+            carrier: s.carrierName ?? '',
+            origin: '',
+            destination: [s.city, s.state].filter(Boolean).join(', ') || s.deliveryAddress || '',
+            shipDate: s.dispatchDate ?? s.shipmentDate ?? '',
+            deliveryDate: s.actualDeliveryDate ?? s.expectedDeliveryDate ?? '',
+            items: Number(s.totalItems ?? items.length ?? 0),
+            totalQty: Number(s.totalItems ?? 0),
+            totalValue: Number(s.shippingCost ?? 0),
+            status: statusMap[s.status] ?? 'pending',
+            trackingNumber: s.trackingNumber ?? '',
+            vehicleNo: s.vehicleNumber ?? '',
+            driverName: s.driverName ?? '',
+            priority: priorityMap[s.priority] ?? 'standard',
+          };
+        });
+        if (!cancelled) setOutboundShipments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load outbound shipments');
+          setOutboundShipments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredShipments = outboundShipments.filter(shipment => {
     const matchesSearch = shipment.shipmentNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -228,6 +151,24 @@ export default function OutboundShippingPage() {
           <span>Export Report</span>
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading outbound shipments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && outboundShipments.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No outbound shipments found.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-200">

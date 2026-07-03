@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -13,9 +13,11 @@ import {
   Copy,
   Star,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  AlertCircle
 } from 'lucide-react'
 import { TemplateModal, ViewTemplateModal, UseTemplateModal, FilterModal } from '@/components/cpq/QuoteTemplateModals'
+import { cpqQuoteService } from '@/services/cpq'
 
 interface QuoteTemplate {
   id: string
@@ -41,85 +43,48 @@ export default function CPQQuotesTemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<QuoteTemplate | null>(null)
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
 
-  const [templates, setTemplates] = useState<QuoteTemplate[]>([
-    {
-      id: 'TPL-001',
-      name: 'Premium Kitchen Package',
-      description: 'Complete template for premium modular kitchen quotations',
-      category: 'Premium',
-      sections: 8,
-      lastUsed: '2024-10-18',
-      usageCount: 234,
-      isFavorite: true,
-      status: 'active'
-    },
-    {
-      id: 'TPL-002',
-      name: 'L-Shaped Kitchen Standard',
-      description: 'Standard quotation template for L-shaped kitchen layouts',
-      category: 'Standard',
-      sections: 6,
-      lastUsed: '2024-10-17',
-      usageCount: 187,
-      isFavorite: true,
-      status: 'active'
-    },
-    {
-      id: 'TPL-003',
-      name: 'Island Kitchen Deluxe',
-      description: 'Comprehensive template for island kitchen configurations',
-      category: 'Deluxe',
-      sections: 10,
-      lastUsed: '2024-10-15',
-      usageCount: 145,
-      isFavorite: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-004',
-      name: 'Builder Economy Package',
-      description: 'Quick quote template for builder economy projects',
-      category: 'Economy',
-      sections: 5,
-      lastUsed: '2024-10-12',
-      usageCount: 312,
-      isFavorite: true,
-      status: 'active'
-    },
-    {
-      id: 'TPL-005',
-      name: 'Straight Kitchen Basic',
-      description: 'Simple template for straight kitchen layouts',
-      category: 'Basic',
-      sections: 4,
-      lastUsed: '2024-10-10',
-      usageCount: 98,
-      isFavorite: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-006',
-      name: 'Custom Design Package',
-      description: 'Flexible template for custom kitchen designs',
-      category: 'Custom',
-      sections: 12,
-      lastUsed: '2024-10-08',
-      usageCount: 67,
-      isFavorite: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-007',
-      name: 'Renovation Quote',
-      description: 'Template for kitchen renovation projects',
-      category: 'Renovation',
-      sections: 7,
-      lastUsed: '2024-09-25',
-      usageCount: 45,
-      isFavorite: false,
-      status: 'inactive'
+  const [templates, setTemplates] = useState<QuoteTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the QuoteTemplate ORM shape (templateName/description/
+        // category/isActive/createdAt); map it to this page's template model.
+        // sections and isFavorite are presentation-only and default to 0/false.
+        const raw = (await cpqQuoteService.findAllTemplates()) as any[]
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: QuoteTemplate[] = (raw ?? []).map((t) => ({
+          id: t.id ?? '',
+          name: t.templateName ?? '',
+          description: t.description ?? '',
+          category: t.category ?? '',
+          sections: Array.isArray(t.sections) ? t.sections.length : Number(t.sections ?? 0),
+          lastUsed: toDate(t.updatedAt ?? t.createdAt),
+          usageCount: Number(t.usageCount ?? 0),
+          isFavorite: Boolean(t.isFavorite ?? false),
+          status: t.isActive === false ? 'inactive' : 'active',
+        }))
+        if (!cancelled) setTemplates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load quote templates')
+          setTemplates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getCategoryColor = (category: string) => {
     const colors: any = {
@@ -270,6 +235,23 @@ export default function CPQQuotesTemplatesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading quote templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && templates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No quote templates found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

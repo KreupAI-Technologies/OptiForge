@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Copy
 } from 'lucide-react'
+import { cpqContractService } from '@/services/cpq'
 
 interface Clause {
   id: string
@@ -36,188 +37,65 @@ interface Clause {
 export default function CPQContractsClausesPage() {
   const router = useRouter()
 
-  const [clauses] = useState<Clause[]>([
-    {
-      id: 'CLS-001',
-      name: 'Confidentiality Agreement',
-      category: 'essential',
-      description: 'Standard confidentiality clause protecting business information',
-      fullText: 'Both parties agree to maintain confidentiality of all proprietary information shared during the course of this agreement. Disclosure to third parties requires prior written consent.',
-      isRequired: true,
-      usageCount: 456,
-      lastUsed: '2024-10-18',
-      status: 'active',
-      version: '2.1',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-01-15',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-002',
-      name: 'Intellectual Property Rights',
-      category: 'legal',
-      description: 'Defines ownership of IP created during project execution',
-      fullText: 'All intellectual property rights, including designs, specifications, and custom solutions, remain the property of the company unless explicitly transferred in writing.',
-      isRequired: true,
-      usageCount: 423,
-      lastUsed: '2024-10-18',
-      status: 'active',
-      version: '1.8',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-02-10',
-      applicableContractTypes: ['Sales', 'Service']
-    },
-    {
-      id: 'CLS-003',
-      name: 'Payment Terms',
-      category: 'financial',
-      description: 'Standard payment schedule and terms',
-      fullText: 'Payment shall be made as per agreed milestones. Late payment attracts interest at 18% per annum. Advance payment is non-refundable.',
-      isRequired: true,
-      usageCount: 512,
-      lastUsed: '2024-10-18',
-      status: 'active',
-      version: '3.0',
-      approvedBy: 'Finance & Legal',
-      approvalDate: '2024-03-05',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-004',
-      name: 'Limitation of Liability',
-      category: 'legal',
-      description: 'Defines liability limits for both parties',
-      fullText: "Company's liability is limited to the contract value. No liability for indirect, consequential, or punitive damages. Force majeure events exclude liability.",
-      isRequired: false,
-      usageCount: 378,
-      lastUsed: '2024-10-17',
-      status: 'active',
-      version: '2.5',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-01-20',
-      applicableContractTypes: ['Sales', 'Service']
-    },
-    {
-      id: 'CLS-005',
-      name: 'Termination Clause',
-      category: 'legal',
-      description: 'Conditions for contract termination',
-      fullText: 'Either party may terminate with 30 days notice. Immediate termination allowed for material breach. Upon termination, payment for completed work is due.',
-      isRequired: true,
-      usageCount: 445,
-      lastUsed: '2024-10-17',
-      status: 'active',
-      version: '2.2',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-02-15',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-006',
-      name: 'Warranty Terms',
-      category: 'operational',
-      description: 'Product and service warranty coverage',
-      fullText: 'Company warrants products against manufacturing defects for 36 months. Installation warranty covers 12 months. Misuse or damage voids warranty.',
-      isRequired: true,
-      usageCount: 489,
-      lastUsed: '2024-10-18',
-      status: 'active',
-      version: '1.5',
-      approvedBy: 'Service & Legal',
-      approvalDate: '2024-04-01',
-      applicableContractTypes: ['Sales', 'Service']
-    },
-    {
-      id: 'CLS-007',
-      name: 'Dispute Resolution',
-      category: 'legal',
-      description: 'Mechanism for resolving disputes',
-      fullText: 'Disputes shall be resolved through arbitration under Indian Arbitration Act. Venue: Mumbai. Arbitration costs shared equally. Legal proceedings as last resort.',
-      isRequired: false,
-      usageCount: 367,
-      lastUsed: '2024-10-16',
-      status: 'active',
-      version: '2.0',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-01-10',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-008',
-      name: 'Force Majeure',
-      category: 'operational',
-      description: 'Protection for uncontrollable events',
-      fullText: 'Neither party liable for delays due to acts of God, war, government actions, pandemics, or natural disasters. Performance suspended during force majeure. Contract may be terminated if event exceeds 90 days.',
-      isRequired: false,
-      usageCount: 334,
-      lastUsed: '2024-10-15',
-      status: 'active',
-      version: '1.3',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-05-12',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-009',
-      name: 'Delivery & Installation',
-      category: 'operational',
-      description: 'Terms for product delivery and installation',
-      fullText: 'Delivery within agreed timeline. Installation within 7 days of delivery. Customer to provide site readiness. Delays due to site issues not company liability.',
-      isRequired: true,
-      usageCount: 467,
-      lastUsed: '2024-10-18',
-      status: 'active',
-      version: '1.7',
-      approvedBy: 'Operations & Legal',
-      approvalDate: '2024-03-20',
-      applicableContractTypes: ['Sales']
-    },
-    {
-      id: 'CLS-010',
-      name: 'Compliance & Regulations',
-      category: 'compliance',
-      description: 'Adherence to laws and regulations',
-      fullText: 'Both parties agree to comply with all applicable laws, including labor, environmental, and safety regulations. Company maintains ISO certifications. Customer responsible for obtaining necessary permits.',
-      isRequired: true,
-      usageCount: 398,
-      lastUsed: '2024-10-17',
-      status: 'active',
-      version: '1.4',
-      approvedBy: 'Compliance & Legal',
-      approvalDate: '2024-06-01',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-011',
-      name: 'Data Protection & Privacy',
-      category: 'compliance',
-      description: 'GDPR and data privacy compliance',
-      fullText: 'Personal data collected will be processed per data protection laws. Data used only for contract purposes. Customer data not shared with third parties without consent. Data breach notification within 72 hours.',
-      isRequired: true,
-      usageCount: 412,
-      lastUsed: '2024-10-18',
-      status: 'active',
-      version: '2.3',
-      approvedBy: 'IT Security & Legal',
-      approvalDate: '2024-07-15',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
-    },
-    {
-      id: 'CLS-012',
-      name: 'Amendments & Modifications',
-      category: 'operational',
-      description: 'Process for contract changes',
-      fullText: 'Contract amendments require written agreement from both parties. Minor modifications allowed with email confirmation. Major changes need new contract addendum with signatures.',
-      isRequired: false,
-      usageCount: 289,
-      lastUsed: '2024-10-14',
-      status: 'active',
-      version: '1.2',
-      approvedBy: 'Legal Department',
-      approvalDate: '2024-08-05',
-      applicableContractTypes: ['Sales', 'Service', 'Partnership']
+  const [clauses, setClauses] = useState<Clause[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the ContractClause ORM shape (title/content/category/
+        // clauseType/language/usageCount/isActive); map it to this page's richer
+        // Clause model. Fields not tracked on the clause record (fullText excerpt,
+        // isRequired, version, approvedBy, contract types) fall back to defaults.
+        const raw = (await cpqContractService.findAllClauses()) as any[]
+        const categoryMap: Record<string, Clause['category']> = {
+          warranty: 'operational',
+          liability: 'legal',
+          legal: 'legal',
+          financial: 'financial',
+          payment: 'financial',
+          compliance: 'compliance',
+          essential: 'essential',
+          operational: 'operational',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: Clause[] = (raw ?? []).map((c) => ({
+          id: c.id ?? '',
+          name: c.title ?? '',
+          category: categoryMap[String(c.category ?? '').toLowerCase()] ?? 'essential',
+          description: typeof c.content === 'string' ? c.content.slice(0, 160) : '',
+          fullText: c.content ?? '',
+          isRequired: c.clauseType === 'standard',
+          usageCount: Number(c.usageCount ?? 0),
+          lastUsed: toDate(c.updatedAt),
+          status: c.isActive === false ? 'deprecated' : 'active',
+          version: c.version ?? '1.0',
+          approvedBy: c.approvedBy ?? '',
+          approvalDate: toDate(c.createdAt),
+          applicableContractTypes: Array.isArray(c.applicableContractTypes)
+            ? c.applicableContractTypes
+            : [],
+        }))
+        if (!cancelled) setClauses(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load clauses')
+          setClauses([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getCategoryColor = (category: string) => {
     const colors: any = {
@@ -246,6 +124,23 @@ export default function CPQContractsClausesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading clauses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && clauses.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No clauses found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

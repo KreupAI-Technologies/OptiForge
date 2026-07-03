@@ -1,16 +1,68 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, Search, Filter, Download, User, Shield, AlertCircle, FileText } from 'lucide-react';
+import { AuditLogService } from '@/services/audit-log.service';
+
+interface AuditLogRow {
+    id: string;
+    action: string;
+    user: string;
+    ip: string;
+    time: string;
+    status: string;
+    details: string;
+}
 
 export default function AuditLogsPage() {
-    const [logs, setLogs] = useState([
-        { id: 'LOG-8921', action: 'User Login', user: 'alice.smith@example.com', ip: '192.168.1.45', time: '2024-03-21 10:45:22', status: 'success', details: 'Successful login via SSO' },
-        { id: 'LOG-8920', action: 'File Access', user: 'bob.jones@example.com', ip: '192.168.1.12', time: '2024-03-21 10:42:15', status: 'success', details: 'Accessed "Q4 Financials.pdf"' },
-        { id: 'LOG-8919', action: 'Failed Login', user: 'unknown', ip: '45.23.12.99', time: '2024-03-21 10:40:01', status: 'failure', details: 'Invalid password attempt' },
-        { id: 'LOG-8918', action: 'Permission Change', user: 'admin', ip: '10.0.0.5', time: '2024-03-21 10:35:00', status: 'success', details: 'Updated role "Editor" permissions' },
-        { id: 'LOG-8917', action: 'Data Export', user: 'charlie.brown@example.com', ip: '192.168.1.88', time: '2024-03-21 10:30:45', status: 'warning', details: 'Large dataset export (5000+ records)' },
-    ]);
+    const [logs, setLogs] = useState<AuditLogRow[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns a paginated envelope of raw audit log records;
+                // map each to the page's flat row model.
+                const res = (await AuditLogService.getAuditLogs()) as any;
+                const raw: any[] = Array.isArray(res) ? res : (res?.data ?? []);
+                const severityToStatus = (sev: any): string => {
+                    const s = String(sev ?? '').toLowerCase();
+                    if (s.includes('critical') || s.includes('error') || s.includes('high')) return 'failure';
+                    if (s.includes('warn') || s.includes('medium')) return 'warning';
+                    return 'success';
+                };
+                const mapped: AuditLogRow[] = raw.map((l, i) => {
+                    const ts = l.timestamp ?? l.createdAt ?? l.time;
+                    const time = ts ? new Date(ts).toLocaleString() : '';
+                    return {
+                        id: String(l.id ?? `LOG-${i}`),
+                        action: String(l.action ?? l.description ?? 'Event'),
+                        user: String(l.userEmail ?? l.userName ?? l.user ?? 'unknown'),
+                        ip: String(l.ipAddress ?? l.ip ?? '-'),
+                        time,
+                        status: l.status ? String(l.status).toLowerCase() : severityToStatus(l.severity),
+                        details: String(l.description ?? l.details ?? ''),
+                    };
+                });
+                if (!cancelled) setLogs(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load audit logs');
+                    setLogs([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
@@ -25,6 +77,24 @@ export default function AuditLogsPage() {
                         Export CSV
                     </button>
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading audit logs…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertCircle className="w-4 h-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && logs.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        No audit logs found.
+                    </div>
+                )}
 
                 {/* Search and Filter */}
                 <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-2">

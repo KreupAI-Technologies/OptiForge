@@ -50,118 +50,6 @@ import {
 } from '@/components/project-management/TasksModals';
 import { projectManagementService, Project, ProjectTask } from '@/services/ProjectManagementService';
 
-// --- RICH MOCK DATA ---
-const MOCK_TASKS: Task[] = [
-  {
-    id: 'TSK-1001',
-    taskNumber: 'TSK-1001',
-    taskName: 'Structural Framework Design',
-    projectNumber: 'PRJ-2024-001',
-    projectName: 'Taj Hotel Commercial Kitchen',
-    deliverable: 'DEL-001',
-    assignedTo: 'Rahul Verma',
-    startDate: '2024-01-15T09:00:00Z',
-    dueDate: '2024-02-01T17:00:00Z',
-    status: 'Completed',
-    priority: 'High',
-    progress: 100,
-    estimatedHours: 40,
-    actualHours: 42,
-    dependencies: [],
-    avatar: 'RV'
-  },
-  {
-    id: 'TSK-1002',
-    taskNumber: 'TSK-1002',
-    taskName: 'Gas Pipeline Routing',
-    projectNumber: 'PRJ-2024-001',
-    projectName: 'Taj Hotel Commercial Kitchen',
-    deliverable: 'DEL-002',
-    assignedTo: 'Vikram Singh',
-    startDate: '2024-02-02T09:00:00Z',
-    dueDate: '2024-02-10T17:00:00Z',
-    status: 'In Progress',
-    priority: 'Critical',
-    progress: 65,
-    estimatedHours: 24,
-    actualHours: 18,
-    dependencies: ['TSK-1001'],
-    avatar: 'VS'
-  },
-  {
-    id: 'TSK-1003',
-    taskNumber: 'TSK-1003',
-    taskName: 'Equipment Procurement',
-    projectNumber: 'PRJ-2024-001',
-    projectName: 'Taj Hotel Commercial Kitchen',
-    deliverable: 'DEL-003',
-    assignedTo: 'Priya Sharma',
-    startDate: '2024-01-20T09:00:00Z',
-    dueDate: '2024-02-15T17:00:00Z',
-    status: 'Blocked',
-    priority: 'High',
-    progress: 30,
-    estimatedHours: 16,
-    actualHours: 12,
-    dependencies: [],
-    avatar: 'PS'
-  },
-  {
-    id: 'TSK-1004',
-    taskNumber: 'TSK-1004',
-    taskName: 'Electrical Load Calculation',
-    projectNumber: 'PRJ-2024-002',
-    projectName: 'BigBasket Cold Storage',
-    deliverable: 'DEL-101',
-    assignedTo: 'Amit Kumar',
-    startDate: '2024-02-05T09:00:00Z',
-    dueDate: '2024-02-12T17:00:00Z',
-    status: 'To Do',
-    priority: 'Medium',
-    progress: 0,
-    estimatedHours: 12,
-    actualHours: 0,
-    dependencies: [],
-    avatar: 'AK'
-  },
-  {
-    id: 'TSK-1005',
-    taskNumber: 'TSK-1005',
-    taskName: 'Safety Review Meeting',
-    projectNumber: 'PRJ-2024-002',
-    projectName: 'BigBasket Cold Storage',
-    deliverable: 'DEL-102',
-    assignedTo: 'Sneha Gupta',
-    startDate: '2024-02-10T10:00:00Z',
-    dueDate: '2024-02-10T11:00:00Z',
-    status: 'To Do',
-    priority: 'Low',
-    progress: 0,
-    estimatedHours: 1,
-    actualHours: 0,
-    dependencies: [],
-    avatar: 'SG'
-  },
-  {
-    id: 'TSK-1006',
-    taskNumber: 'TSK-1006',
-    taskName: 'Final Inspection',
-    projectNumber: 'PRJ-2024-001',
-    projectName: 'Taj Hotel Commercial Kitchen',
-    deliverable: 'DEL-999',
-    assignedTo: 'Management',
-    startDate: '2024-02-28T09:00:00Z',
-    dueDate: '2024-02-28T17:00:00Z',
-    status: 'Review',
-    priority: 'Critical',
-    progress: 0,
-    estimatedHours: 8,
-    actualHours: 0,
-    dependencies: ['TSK-1002', 'TSK-1003'],
-    avatar: 'MG'
-  }
-];
-
 interface Task {
   id: string;
   taskNumber: string;
@@ -187,6 +75,7 @@ type GroupBy = 'status' | 'priority' | 'assignee';
 
 export default function TasksListPage() {
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -199,16 +88,97 @@ export default function TasksListPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  // Hydration fix & Initial Load
+  // Initial Load — fetch projects and their tasks from the live backend, then
+  // defensively map the raw ProjectTask/ORM shape onto this page's Task model.
   useEffect(() => {
-    // Immediate mock data load
-    setTasks(MOCK_TASKS);
-    setProjects([
-      { id: 'all', name: 'All Projects', clientName: '', status: '', priority: '', progress: 0, budgetAllocated: 0, budgetSpent: 0 },
-      { id: 'PRJ-2024-001', name: 'Taj Hotel Commercial Kitchen', clientName: '', status: '', priority: '', progress: 0, budgetAllocated: 0, budgetSpent: 0 },
-      { id: 'PRJ-2024-002', name: 'BigBasket Cold Storage', clientName: '', status: '', priority: '', progress: 0, budgetAllocated: 0, budgetSpent: 0 },
-    ]);
-    setLoading(false);
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rawProjects = (await projectManagementService.getProjects()) as any[];
+        const projectList: Project[] = [
+          { id: 'all', name: 'All Projects', clientName: '', status: '', priority: '', progress: 0, budgetAllocated: 0, budgetSpent: 0 },
+          ...rawProjects.map((p) => ({
+            id: p.id,
+            name: p.name ?? p.projectName ?? p.id,
+            clientName: p.clientName ?? '',
+            status: p.status ?? '',
+            priority: p.priority ?? '',
+            progress: Number(p.progress ?? 0),
+            budgetAllocated: Number(p.budgetAllocated ?? 0),
+            budgetSpent: Number(p.budgetSpent ?? 0),
+          })),
+        ];
+
+        const projName = new Map<string, string>(
+          rawProjects.map((p) => [p.id, p.name ?? p.projectName ?? p.id]),
+        );
+        const projCode = new Map<string, string>(
+          rawProjects.map((p) => [p.id, p.projectCode ?? p.id]),
+        );
+
+        const taskLists = await Promise.all(
+          rawProjects.map((p) =>
+            projectManagementService
+              .getTasks(p.id)
+              .catch(() => [] as ProjectTask[]),
+          ),
+        );
+        const rawTasks = taskLists.flat() as any[];
+
+        const initials = (name: string) =>
+          (name || '')
+            .split(' ')
+            .map((w) => w[0])
+            .filter(Boolean)
+            .slice(0, 2)
+            .join('')
+            .toUpperCase();
+
+        const mapped: Task[] = rawTasks.map((t) => {
+          const assignee = Array.isArray(t.assignedTo)
+            ? (t.assignedToNames?.[0] ?? t.assignedTo[0] ?? '')
+            : (t.assignedTo ?? t.assignee ?? '');
+          const pid = t.projectId;
+          return {
+            id: t.id,
+            taskNumber: t.taskNumber ?? t.id,
+            taskName: t.name ?? t.taskName ?? '',
+            projectNumber: projCode.get(pid) ?? pid ?? '',
+            projectName: projName.get(pid) ?? '',
+            deliverable: t.deliverable ?? '',
+            assignedTo: String(assignee),
+            startDate: t.startDate ?? '',
+            dueDate: t.endDate ?? t.dueDate ?? '',
+            completedDate: t.completedDate,
+            status: (t.status ?? 'To Do') as Task['status'],
+            priority: (t.priority ?? 'Medium') as Task['priority'],
+            progress: Number(t.progress ?? 0),
+            estimatedHours: Number(t.estimatedHours ?? 0),
+            actualHours: Number(t.actualHours ?? 0),
+            dependencies: Array.isArray(t.dependencies) ? t.dependencies : [],
+            avatar: initials(String(assignee)),
+          };
+        });
+
+        if (!cancelled) {
+          setProjects(projectList);
+          setTasks(mapped);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load tasks');
+          setTasks([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredTasks = useMemo(() => {
@@ -498,6 +468,12 @@ export default function TasksListPage() {
 
       {/* Main Content */}
       <div className="flex-1 w-full px-3 py-2 overflow-hidden">
+        {loadError && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4" />
+            {loadError}
+          </div>
+        )}
         {viewMode === 'list' ? renderListView() : renderBoardView()}
       </div>
 

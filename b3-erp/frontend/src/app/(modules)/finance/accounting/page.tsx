@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Download, BookOpen, Calendar, DollarSign, FileText, AlertCircle, CheckCircle, Clock, ChevronLeft, ChevronRight, User, TrendingUp, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { JournalService } from '@/services/journal.service';
 
 interface JournalEntry {
   id: string;
@@ -19,99 +20,6 @@ interface JournalEntry {
   postedDate: string;
   status: 'draft' | 'posted' | 'reversed';
 }
-
-const mockJournalEntries: JournalEntry[] = [
-  {
-    id: 'JE-001',
-    entryNumber: 'JE-2025-001',
-    entryDate: '2025-10-01',
-    accountCode: '1000',
-    accountName: 'Cash - Operating Account',
-    description: 'Customer payment received from Hotel Paradise Ltd',
-    debitAmount: 172500,
-    creditAmount: 0,
-    entryType: 'journal_entry',
-    referenceNumber: 'INV-2025-001',
-    postedBy: 'Finance Team',
-    postedDate: '2025-10-01',
-    status: 'posted',
-  },
-  {
-    id: 'JE-002',
-    entryNumber: 'JE-2025-002',
-    entryDate: '2025-10-01',
-    accountCode: '4000',
-    accountName: 'Revenue - Product Sales',
-    description: 'Revenue recognition for Hotel Paradise Ltd',
-    debitAmount: 0,
-    creditAmount: 172500,
-    entryType: 'journal_entry',
-    referenceNumber: 'INV-2025-001',
-    postedBy: 'Finance Team',
-    postedDate: '2025-10-01',
-    status: 'posted',
-  },
-  {
-    id: 'JE-003',
-    entryNumber: 'JE-2025-003',
-    entryDate: '2025-10-08',
-    accountCode: '5000',
-    accountName: 'COGS - Raw Materials',
-    description: 'Cost of goods sold for October production',
-    debitAmount: 125000,
-    creditAmount: 0,
-    entryType: 'journal_entry',
-    referenceNumber: 'PO-2025-101',
-    postedBy: 'John Accountant',
-    postedDate: '2025-10-08',
-    status: 'posted',
-  },
-  {
-    id: 'JE-004',
-    entryNumber: 'JE-2025-004',
-    entryDate: '2025-10-08',
-    accountCode: '1200',
-    accountName: 'Inventory - Raw Materials',
-    description: 'Inventory reduction for production consumption',
-    debitAmount: 0,
-    creditAmount: 125000,
-    entryType: 'journal_entry',
-    referenceNumber: 'PO-2025-101',
-    postedBy: 'John Accountant',
-    postedDate: '2025-10-08',
-    status: 'posted',
-  },
-  {
-    id: 'JE-005',
-    entryNumber: 'JE-2025-005',
-    entryDate: '2025-10-15',
-    accountCode: '5100',
-    accountName: 'Depreciation Expense',
-    description: 'Monthly depreciation adjustment for equipment',
-    debitAmount: 12500,
-    creditAmount: 0,
-    entryType: 'adjustment',
-    referenceNumber: 'ADJ-2025-10',
-    postedBy: 'Sarah Finance',
-    postedDate: '2025-10-15',
-    status: 'posted',
-  },
-  {
-    id: 'JE-006',
-    entryNumber: 'JE-2025-006',
-    entryDate: '2025-10-15',
-    accountCode: '1500',
-    accountName: 'Accumulated Depreciation',
-    description: 'Accumulated depreciation contra account',
-    debitAmount: 0,
-    creditAmount: 12500,
-    entryType: 'adjustment',
-    referenceNumber: 'ADJ-2025-10',
-    postedBy: 'Sarah Finance',
-    postedDate: '2025-10-15',
-    status: 'posted',
-  },
-];
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -143,7 +51,77 @@ const entryTypeLabels = {
 
 export default function AccountingPage() {
   const router = useRouter();
-  const [entries, setEntries] = useState<JournalEntry[]>(mockJournalEntries);
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns { data, total, ... } of JournalEntry headers with a
+        // nested lines[] array; flatten each line into a page-level row.
+        const res = (await JournalService.getAllJournalEntries({ limit: 100 })) as any;
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? []);
+        const typeMap: Record<string, JournalEntry['entryType']> = {
+          STANDARD: 'journal_entry', MANUAL: 'journal_entry',
+          ADJUSTING: 'adjustment', ADJUSTMENT: 'adjustment',
+          CLOSING: 'closing', REVERSING: 'reversal', REVERSAL: 'reversal',
+          ACCRUAL: 'accrual', OPENING: 'journal_entry',
+        };
+        const statusMap: Record<string, JournalEntry['status']> = {
+          DRAFT: 'draft', PENDING_APPROVAL: 'draft', APPROVED: 'draft',
+          POSTED: 'posted', REVERSED: 'reversed', CANCELLED: 'draft',
+        };
+        const flattened: JournalEntry[] = [];
+        raw.forEach((e) => {
+          const entryDate = e.entryDate ? String(e.entryDate).split('T')[0] : '';
+          const postedDate = (e.postedAt ?? e.postingDate)
+            ? String(e.postedAt ?? e.postingDate).split('T')[0]
+            : entryDate;
+          const entryType =
+            typeMap[String(e.source ?? e.type ?? '').toUpperCase()]
+            ?? typeMap[String(e.type ?? '').toUpperCase()]
+            ?? 'journal_entry';
+          const status = statusMap[String(e.status ?? '').toUpperCase()] ?? 'draft';
+          const lines: any[] = Array.isArray(e.lines) && e.lines.length > 0
+            ? e.lines
+            : [{ accountCode: '', accountName: '', debit: e.totalDebit, credit: e.totalCredit }];
+          lines.forEach((line, idx) => {
+            flattened.push({
+              id: `${e.id ?? e.entryNumber ?? 'JE'}-${line.id ?? idx}`,
+              entryNumber: e.entryNumber ?? '',
+              entryDate,
+              accountCode: line.accountCode ?? '',
+              accountName: line.accountName ?? '',
+              description: line.description ?? e.description ?? '',
+              debitAmount: Number(line.debit ?? 0),
+              creditAmount: Number(line.credit ?? 0),
+              entryType,
+              referenceNumber: e.reference ?? e.referenceNumber ?? '',
+              postedBy: e.postedBy ?? e.submittedBy ?? '',
+              postedDate,
+              status,
+            });
+          });
+        });
+        if (!cancelled) setEntries(flattened);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load journal entries');
+          setEntries([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
@@ -280,6 +258,23 @@ export default function AccountingPage() {
         </button>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <Clock className="h-4 w-4 animate-spin" />
+          Loading journal entries…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && entries.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No journal entries found.
+        </div>
+      )}
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">

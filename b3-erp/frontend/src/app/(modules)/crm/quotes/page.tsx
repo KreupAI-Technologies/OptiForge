@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { FileText, Plus, Search, DollarSign, TrendingUp, CheckCircle, Clock, XCircle, Calendar, User, Building2, Download, Send, Eye, Edit, Copy, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FileText, Plus, Search, DollarSign, TrendingUp, CheckCircle, Clock, XCircle, Calendar, User, Building2, Download, Send, Eye, Edit, Copy, Trash2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Quote {
   id: string;
@@ -25,131 +26,54 @@ interface Quote {
   probability: number;
 }
 
-const mockQuotes: Quote[] = [
-  {
-    id: '1',
-    quoteNumber: 'QT-2024-001',
-    title: 'Enterprise Software License - Annual',
-    customer: 'TechCorp Global Inc.',
-    contact: 'Sarah Johnson (CTO)',
-    status: 'sent',
-    amount: 850000,
-    discount: 212500,
-    finalAmount: 637500,
-    validUntil: '2024-11-30',
-    createdDate: '2024-10-15',
-    sentDate: '2024-10-16',
-    owner: 'Michael Chen',
-    products: 5,
-    probability: 75,
-  },
-  {
-    id: '2',
-    quoteNumber: 'QT-2024-002',
-    title: 'Professional Services Package',
-    customer: 'FinanceHub International',
-    contact: 'Elizabeth Wilson (CFO)',
-    status: 'accepted',
-    amount: 520000,
-    discount: 52000,
-    finalAmount: 468000,
-    validUntil: '2024-10-31',
-    createdDate: '2024-10-10',
-    sentDate: '2024-10-11',
-    acceptedDate: '2024-10-18',
-    owner: 'Emily Rodriguez',
-    products: 3,
-    probability: 100,
-  },
-  {
-    id: '3',
-    quoteNumber: 'QT-2024-003',
-    title: 'Cloud Infrastructure Setup',
-    customer: 'StartupTech Inc.',
-    contact: 'Michael Chen (CEO)',
-    status: 'viewed',
-    amount: 125000,
-    discount: 12500,
-    finalAmount: 112500,
-    validUntil: '2024-11-15',
-    createdDate: '2024-10-18',
-    sentDate: '2024-10-19',
-    owner: 'David Martinez',
-    products: 4,
-    probability: 60,
-  },
-  {
-    id: '4',
-    quoteNumber: 'QT-2024-004',
-    title: 'Manufacturing ERP Implementation',
-    customer: 'GlobalManufacturing Corp',
-    contact: 'Robert Davis (VP Operations)',
-    status: 'draft',
-    amount: 950000,
-    discount: 95000,
-    finalAmount: 855000,
-    validUntil: '2024-12-15',
-    createdDate: '2024-10-20',
-    owner: 'Sarah Johnson',
-    products: 8,
-    probability: 50,
-  },
-  {
-    id: '5',
-    quoteNumber: 'QT-2024-005',
-    title: 'Security & Compliance Audit',
-    customer: 'FinServ Group',
-    contact: 'Compliance Director',
-    status: 'sent',
-    amount: 75000,
-    discount: 3750,
-    finalAmount: 71250,
-    validUntil: '2024-11-20',
-    createdDate: '2024-10-12',
-    sentDate: '2024-10-13',
-    owner: 'Michael Chen',
-    products: 2,
-    probability: 70,
-  },
-  {
-    id: '6',
-    quoteNumber: 'QT-2024-006',
-    title: 'Training & Support - Quarterly',
-    customer: 'Enterprise Solutions Ltd.',
-    contact: 'John Anderson (CTO)',
-    status: 'rejected',
-    amount: 48000,
-    discount: 0,
-    finalAmount: 48000,
-    validUntil: '2024-10-25',
-    createdDate: '2024-10-05',
-    sentDate: '2024-10-06',
-    owner: 'Emily Rodriguez',
-    products: 1,
-    probability: 0,
-  },
-  {
-    id: '7',
-    quoteNumber: 'QT-2024-007',
-    title: 'Data Migration Services',
-    customer: 'Healthcare Systems Inc.',
-    contact: 'IT Director',
-    status: 'expired',
-    amount: 180000,
-    discount: 18000,
-    finalAmount: 162000,
-    validUntil: '2024-10-15',
-    createdDate: '2024-09-20',
-    sentDate: '2024-09-21',
-    owner: 'David Martinez',
-    products: 3,
-    probability: 40,
-  },
-];
-
 export default function QuotesPage() {
   const router = useRouter();
-  const [quotes, setQuotes] = useState<Quote[]>(mockQuotes);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (NestJS CrmQuote) uses different field names than the page's
+        // Quote model; map defensively and coerce numeric amounts.
+        const raw = (await crmService.quotes.getAll()) as any[];
+        const mapped: Quote[] = (raw || []).map((q) => ({
+          id: String(q.id),
+          quoteNumber: q.quoteNumber ?? '',
+          title: q.title ?? '',
+          customer: q.customerName ?? '',
+          contact: q.contactName ?? '',
+          status: (q.status ?? 'draft') as Quote['status'],
+          amount: Number(q.subtotal ?? q.amount ?? 0),
+          discount: Number(q.discountAmount ?? q.discount ?? 0),
+          finalAmount: Number(q.totalAmount ?? q.finalAmount ?? 0),
+          validUntil: q.validUntil ?? '',
+          createdDate: q.createdAt ?? q.createdDate ?? '',
+          sentDate: q.sentDate ?? undefined,
+          acceptedDate: q.acceptedDate ?? undefined,
+          owner: q.preparedByName ?? q.owner ?? '',
+          products: Array.isArray(q.items) ? q.items.length : Number(q.products ?? 0),
+          probability: Number(q.probability ?? 0),
+        }));
+        if (!cancelled) setQuotes(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load quotes');
+          setQuotes([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'probability'>('date');
@@ -281,6 +205,23 @@ export default function QuotesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading quotes…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && quotes.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No quotes found.
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <Link href="/crm/quotes/create">

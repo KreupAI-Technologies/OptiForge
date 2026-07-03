@@ -23,6 +23,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { inspectionService as InspectionService } from '@/services/inspection.service';
 
 interface ProjectInfo {
     id: string;
@@ -45,44 +46,24 @@ interface QCApproval {
     remarks?: string;
 }
 
-const mockApprovals: QCApproval[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        inspectionId: 'QI-2024-001',
-        inspector: 'Alice Johnson',
-        inspectionDate: '2025-01-22',
-        status: 'Approved',
-        manager: 'QC Manager Sarah',
-        approvalDate: '2025-01-22',
-        certificateNumber: 'QC-CERT-2025-001',
-        remarks: 'All quality parameters met. Approved for packaging.',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-003',
-        productName: 'Cabinet Frame Assembly',
-        inspectionId: 'QI-2024-003',
-        inspector: 'Bob Martinez',
-        inspectionDate: '2025-01-23',
-        status: 'Rejected',
-        manager: 'QC Manager Sarah',
-        approvalDate: '2025-01-23',
-        remarks: 'Dimensional defects found. Sent for rework.',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        productName: 'Drawer Slide Assembly',
-        inspectionId: 'QI-2024-005',
-        inspector: 'Carol White',
-        inspectionDate: '2025-01-24',
-        status: 'Pending Approval',
-        manager: 'QC Manager Sarah',
-        remarks: 'Awaiting manager review.',
-    },
-];
+// Map a raw inspection status/result into the page's QCApproval status.
+const toApprovalStatus = (insp: any): QCApproval['status'] => {
+    const status = String(insp?.status ?? '').toLowerCase();
+    const result = String(insp?.overallResult ?? insp?.result ?? '').toLowerCase();
+    if (insp?.approvedBy || insp?.approvedAt || status === 'approved' || status === 'closed') {
+        return 'Approved';
+    }
+    if (status === 'rejected' || status === 'failed' || result === 'fail' || result === 'failed' || result === 'rejected') {
+        return 'Rejected';
+    }
+    return 'Pending Approval';
+};
+
+const toDateString = (value: any): string | undefined => {
+    if (!value) return undefined;
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? String(value) : d.toISOString().split('T')[0];
+};
 
 export default function QCApprovalsPage() {
     const router = useRouter();
@@ -132,14 +113,45 @@ export default function QCApprovalsPage() {
 
     // Load approvals when project is selected
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        let cancelled = false;
+        const load = async () => {
             setLoading(true);
-            setTimeout(() => {
-                setApprovals(mockApprovals);
-                setLoading(false);
-            }, 300);
-        }
-    }, [selectedProject]);
+            try {
+                // Backend returns raw Inspection ORM shape; map each inspection to
+                // the page's QCApproval model (an approval gate per inspection).
+                const raw = (await InspectionService.getAllInspections()) as any[];
+                const list = Array.isArray(raw) ? raw : [];
+                const mapped: QCApproval[] = list.map((insp: any, idx: number) => ({
+                    id: String(insp?.id ?? insp?.inspectionNumber ?? idx),
+                    woNumber: insp?.workOrderNumber ?? insp?.workOrderId ?? '-',
+                    productName: insp?.productName ?? insp?.productCode ?? 'Unknown Product',
+                    inspectionId: insp?.inspectionNumber ?? String(insp?.id ?? ''),
+                    inspector: insp?.inspectorName ?? insp?.inspectorId ?? 'Unassigned',
+                    inspectionDate:
+                        toDateString(insp?.completedAt ?? insp?.scheduledDate ?? insp?.startedAt) ?? '-',
+                    status: toApprovalStatus(insp),
+                    manager: insp?.reviewerName ?? insp?.approvedBy ?? insp?.reviewerId ?? 'Unassigned',
+                    approvalDate: toDateString(insp?.approvedAt),
+                    certificateNumber: insp?.certificateNumber ?? undefined,
+                    remarks: insp?.notes ?? undefined,
+                }));
+                if (!cancelled) setApprovals(mapped);
+            } catch (error) {
+                console.error('Failed to load QC approvals:', error);
+                if (!cancelled) {
+                    setApprovals([]);
+                    toast({ title: 'Error', description: 'Failed to load QC approvals', variant: 'destructive' });
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedProject, toast]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
         setSelectedProject(project);
@@ -374,6 +386,11 @@ export default function QCApprovalsPage() {
                                     </div>
                                 </div>
                             ))}
+                            {filteredApprovals.length === 0 && (
+                                <div className="bg-white rounded-lg border p-8 text-center text-gray-500">
+                                    No QC approvals found for this project.
+                                </div>
+                            )}
                         </div>
                     </>
                 )}

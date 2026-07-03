@@ -1,19 +1,68 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Plus, Search, Download, Filter, X, ArrowRightLeft, Calculator, Scale } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Download, Filter, X, ArrowRightLeft, Calculator, Scale, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockUOMConversions, UOMConversion, getUOMConversionStats, getCategoryDisplayName } from '@/data/common-masters/uom-conversions';
+import { UOMConversion, getUOMConversionStats, getCategoryDisplayName } from '@/data/common-masters/uom-conversions';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function UomconversionmasterPage() {
-  const [conversions, setConversions] = useState<UOMConversion[]>(mockUOMConversions);
+  const [conversions, setConversions] = useState<UOMConversion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedConversion, setSelectedConversion] = useState<UOMConversion | null>(null);
   const [calcFromValue, setCalcFromValue] = useState<number>(1);
   const [calcToValue, setCalcToValue] = useState<number>(0);
+
+  // Fetch UOM conversions from the live backend, mapping the raw API shape into the page's model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllUomConversions(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: UOMConversion[] = raw.map((u) => {
+          const fromUOM = u.fromUom?.code ?? u.fromUom?.name ?? u.fromUOM ?? '';
+          const toUOM = u.toUom?.code ?? u.toUom?.name ?? u.toUOM ?? '';
+          const factor = Number(u.conversionFactor ?? 0);
+          return {
+            id: String(u.id ?? ''),
+            conversionCode: u.conversionCode ?? (fromUOM && toUOM ? `${fromUOM}-${toUOM}` : ''),
+            fromUOM,
+            toUOM,
+            conversionFactor: factor,
+            category: (u.category ?? 'quantity') as UOMConversion['category'],
+            isReversible: u.isReversible ?? true,
+            formula: u.formula ?? (fromUOM && toUOM ? `1 ${fromUOM} = ${factor} ${toUOM}` : ''),
+            description: u.description ?? '',
+            examples: u.examples ?? '',
+            isActive: u.isActive ?? true,
+            lastUpdated: u.lastUpdated ?? u.updatedAt ?? '',
+            usageCount: Number(u.usageCount ?? 0),
+          };
+        });
+        if (!cancelled) setConversions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load UOM conversions');
+          setConversions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return conversions.filter(conversion => {
@@ -293,6 +342,24 @@ export default function UomconversionmasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading UOM conversions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && conversions.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No UOM conversions found.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <DataTable

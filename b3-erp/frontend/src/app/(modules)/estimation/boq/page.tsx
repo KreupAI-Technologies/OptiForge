@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Eye, Edit, Trash2, ClipboardList, Calendar, User, Package, DollarSign, CheckCircle, Clock, Download, ChevronLeft, ChevronRight, FileText, Hash } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, ClipboardList, Calendar, User, Package, DollarSign, CheckCircle, Clock, Download, ChevronLeft, ChevronRight, FileText, Hash, AlertCircle } from 'lucide-react';
+import { estimationBOQService } from '@/services/estimation-boq.service';
 
 interface BOQ {
   id: string;
@@ -21,104 +22,15 @@ interface BOQ {
   description: string;
 }
 
-const mockBOQs: BOQ[] = [
-  {
-    id: 'BOQ-001',
-    boqNumber: 'BOQ-HP-2025-001',
-    projectName: 'Commercial Kitchen Setup - Hotel Paradise',
-    customerName: 'Hotel Paradise Ltd',
-    customerId: 'CUST-001',
-    createdDate: '2025-09-15',
-    revisionNumber: 2,
-    status: 'completed',
-    totalItems: 45,
-    totalQuantity: 320,
-    estimatedValue: 150000,
-    assignedTo: 'John Estimator',
-    linkedEstimation: 'EST-2025-001',
-    description: 'Complete kitchen setup including cooking, refrigeration, and serving equipment',
-  },
-  {
-    id: 'BOQ-002',
-    boqNumber: 'BOQ-CD-2025-002',
-    projectName: 'Restaurant Equipment Package',
-    customerName: 'Culinary Delights Inc',
-    customerId: 'CUST-002',
-    createdDate: '2025-09-25',
-    revisionNumber: 1,
-    status: 'approved',
-    totalItems: 32,
-    totalQuantity: 180,
-    estimatedValue: 102000,
-    assignedTo: 'Sarah Costing',
-    linkedEstimation: 'EST-2025-002',
-    description: 'Restaurant kitchen and dining area equipment',
-  },
-  {
-    id: 'BOQ-003',
-    boqNumber: 'BOQ-CGH-2025-003',
-    projectName: 'Hospital Kitchen Renovation',
-    customerName: 'City General Hospital',
-    customerId: 'CUST-003',
-    createdDate: '2025-10-01',
-    revisionNumber: 3,
-    status: 'in_costing',
-    totalItems: 68,
-    totalQuantity: 450,
-    estimatedValue: 240000,
-    assignedTo: 'Michael Chen',
-    linkedEstimation: null,
-    description: 'Large-scale hospital cafeteria and patient meal prep area',
-  },
-  {
-    id: 'BOQ-004',
-    boqNumber: 'BOQ-SA-2025-004',
-    projectName: 'School Cafeteria Equipment',
-    customerName: 'Springfield Academy',
-    customerId: 'CUST-004',
-    createdDate: '2025-10-08',
-    revisionNumber: 1,
-    status: 'under_review',
-    totalItems: 25,
-    totalQuantity: 150,
-    estimatedValue: 54000,
-    assignedTo: 'John Estimator',
-    linkedEstimation: null,
-    description: 'Basic cafeteria setup for 500 student capacity',
-  },
-  {
-    id: 'BOQ-005',
-    boqNumber: 'BOQ-AB-2025-005',
-    projectName: 'Bakery Production Line',
-    customerName: 'Artisan Bakers Co',
-    customerId: 'CUST-005',
-    createdDate: '2025-10-12',
-    revisionNumber: 2,
-    status: 'rejected',
-    totalItems: 52,
-    totalQuantity: 280,
-    estimatedValue: 210000,
-    assignedTo: 'Sarah Costing',
-    linkedEstimation: null,
-    description: 'Industrial bakery equipment and production line setup',
-  },
-  {
-    id: 'BOQ-006',
-    boqNumber: 'BOQ-LR-2025-006',
-    projectName: 'Luxury Resort Multi-Kitchen Project',
-    customerName: 'Luxury Resort Group',
-    customerId: 'CUST-009',
-    createdDate: '2025-10-14',
-    revisionNumber: 1,
-    status: 'draft',
-    totalItems: 95,
-    totalQuantity: 620,
-    estimatedValue: 380000,
-    assignedTo: 'Lisa Martinez',
-    linkedEstimation: null,
-    description: 'Multiple kitchen facilities for resort complex',
-  },
-];
+// Map the backend BOQStatus (PascalCase) to this page's lowercase status enum.
+const STATUS_MAP: Record<string, BOQ['status']> = {
+  Draft: 'draft',
+  'Under Review': 'under_review',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  'In Costing': 'in_costing',
+  Completed: 'completed',
+};
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -140,7 +52,51 @@ const statusLabels = {
 
 export default function BOQPage() {
   const router = useRouter();
-  const [boqs, setBOQs] = useState<BOQ[]>(mockBOQs);
+  const [boqs, setBOQs] = useState<BOQ[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns its own BOQ ORM shape (boqNumber/projectName/
+        // clientName/estimatedValue/status PascalCase); map it to this
+        // page's BOQ model defensively.
+        const raw = (await estimationBOQService.findAll()) as any[];
+        const mapped: BOQ[] = (raw ?? []).map((b) => ({
+          id: String(b.id ?? b.boqNumber ?? ''),
+          boqNumber: b.boqNumber ?? b.boq_number ?? '',
+          projectName: b.projectName ?? b.project_name ?? '',
+          customerName: b.clientName ?? b.customerName ?? b.client_name ?? '',
+          customerId: String(b.customerId ?? b.clientId ?? b.customer_id ?? ''),
+          createdDate: (b.createdAt ?? b.created_at ?? '').toString().split('T')[0] ?? '',
+          revisionNumber: Number(b.revisionNumber ?? b.revision ?? 1),
+          status: STATUS_MAP[b.status] ?? 'draft',
+          totalItems: Number(b.totalItems ?? b.itemCount ?? 0),
+          totalQuantity: Number(b.totalQuantity ?? 0),
+          estimatedValue: Number(b.estimatedValue ?? 0),
+          assignedTo: b.assignedTo ?? b.assigned_to ?? '',
+          linkedEstimation: b.linkedEstimation ?? b.costEstimateId ?? null,
+          description: b.description ?? b.notes ?? '',
+        }));
+        if (!cancelled) setBOQs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load BOQs');
+          setBOQs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -174,6 +130,23 @@ export default function BOQPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading BOQs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && boqs.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No BOQs found.
+        </div>
+      )}
       {/* Stats */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

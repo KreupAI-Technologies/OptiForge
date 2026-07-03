@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -13,6 +13,7 @@ import {
   MoreVertical,
   AlertCircle
 } from 'lucide-react';
+import { InvoiceService } from '@/services/invoice.service';
 
 interface PendingInvoice {
   id: string;
@@ -29,102 +30,55 @@ interface PendingInvoice {
 
 export default function PendingInvoicesPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [pendingInvoices, setPendingInvoices] = useState<PendingInvoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const pendingInvoices: PendingInvoice[] = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2025-1235',
-      customerName: 'Reliance Industries',
-      invoiceDate: '2025-10-19',
-      dueDate: '2025-11-19',
-      amount: 2340000,
-      daysUntilDue: 30,
-      itemsCount: 15,
-      remindersSent: 0
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2025-1237',
-      customerName: 'Mahindra & Mahindra',
-      invoiceDate: '2025-10-20',
-      dueDate: '2025-11-20',
-      amount: 445000,
-      daysUntilDue: 31,
-      itemsCount: 8,
-      remindersSent: 0
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-2025-1240',
-      customerName: 'Godrej Industries',
-      invoiceDate: '2025-10-18',
-      dueDate: '2025-11-03',
-      amount: 325000,
-      daysUntilDue: 14,
-      itemsCount: 5,
-      lastReminder: '2025-10-15',
-      remindersSent: 1
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-2025-1242',
-      customerName: 'Bharat Heavy Electricals',
-      invoiceDate: '2025-10-17',
-      dueDate: '2025-10-27',
-      amount: 1890000,
-      daysUntilDue: 7,
-      itemsCount: 20,
-      lastReminder: '2025-10-18',
-      remindersSent: 2
-    },
-    {
-      id: '5',
-      invoiceNumber: 'INV-2025-1244',
-      customerName: 'Hindustan Zinc',
-      invoiceDate: '2025-10-16',
-      dueDate: '2025-10-26',
-      amount: 567000,
-      daysUntilDue: 6,
-      itemsCount: 10,
-      lastReminder: '2025-10-19',
-      remindersSent: 2
-    },
-    {
-      id: '6',
-      invoiceNumber: 'INV-2025-1246',
-      customerName: 'JSW Steel',
-      invoiceDate: '2025-10-15',
-      dueDate: '2025-10-25',
-      amount: 980000,
-      daysUntilDue: 5,
-      itemsCount: 12,
-      lastReminder: '2025-10-18',
-      remindersSent: 3
-    },
-    {
-      id: '7',
-      invoiceNumber: 'INV-2025-1248',
-      customerName: 'Hindalco Industries',
-      invoiceDate: '2025-10-19',
-      dueDate: '2025-11-04',
-      amount: 756000,
-      daysUntilDue: 15,
-      itemsCount: 9,
-      remindersSent: 0
-    },
-    {
-      id: '8',
-      invoiceNumber: 'INV-2025-1250',
-      customerName: 'ACC Cement',
-      invoiceDate: '2025-10-18',
-      dueDate: '2025-11-02',
-      amount: 432000,
-      daysUntilDue: 13,
-      itemsCount: 6,
-      lastReminder: '2025-10-16',
-      remindersSent: 1
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = (await InvoiceService.getAllInvoices({ limit: 200 })) as any;
+        const raw: any[] = Array.isArray(response) ? response : (response?.data ?? []);
+        const now = Date.now();
+        // "Pending" = not yet paid, not overdue, not cancelled/void.
+        const pendingStatuses = new Set(['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'POSTED', 'PARTIALLY_PAID']);
+        const mapped: PendingInvoice[] = (raw ?? [])
+          .filter((inv) => pendingStatuses.has((inv.status ?? '').toString().toUpperCase()))
+          .map((inv) => {
+            const due = inv.dueDate ? new Date(inv.dueDate).getTime() : now;
+            const daysUntilDue = Math.round((due - now) / (1000 * 60 * 60 * 24));
+            const itemsCount = Array.isArray(inv.lineItems) ? inv.lineItems.length : Number(inv.itemsCount ?? 0);
+            return {
+              id: String(inv.id ?? ''),
+              invoiceNumber: inv.invoiceNumber ?? inv.number ?? '',
+              customerName: inv.customerName ?? inv.customer?.name ?? '',
+              invoiceDate: inv.invoiceDate ?? '',
+              dueDate: inv.dueDate ?? '',
+              amount: Number(inv.amountDue ?? inv.totalAmount ?? inv.amount ?? 0),
+              daysUntilDue,
+              itemsCount,
+              lastReminder: inv.lastReminder ?? undefined,
+              remindersSent: Number(inv.remindersSent ?? 0),
+            };
+          });
+        if (!cancelled) setPendingInvoices(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pending invoices');
+          setPendingInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredInvoices = pendingInvoices.filter(invoice =>
     invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -145,6 +99,18 @@ export default function PendingInvoicesPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-yellow-50 to-orange-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading pending invoices…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

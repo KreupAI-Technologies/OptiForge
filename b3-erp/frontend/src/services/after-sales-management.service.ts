@@ -1,7 +1,7 @@
 // After Sales Management Service - Frontend
 // Comprehensive service for After Sales Service module
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ========================================
 // ENUMS

@@ -4,15 +4,97 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Building2, CreditCard, TrendingUp, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockBanks, Bank, getBankStats } from '@/data/common-masters/banks';
+import { Bank, getBankStats } from '@/data/common-masters/banks';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function BankMasterPage() {
-  const [banks, setBanks] = useState<Bank[]>(mockBanks);
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPurpose, setFilterPurpose] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch bank accounts from the live backend, mapping the raw API shape into the page's Bank model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllBankAccounts(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: Bank[] = raw.map((b) => ({
+          id: String(b.id ?? ''),
+          bankCode: b.bankCode ?? '',
+          bankName: b.bankName ?? '',
+          branchName: b.branchName ?? '',
+          branchCode: b.branchCode ?? '',
+          accountNumber: b.accountNumber ?? '',
+          accountType: (b.accountType ?? 'current') as Bank['accountType'],
+          accountHolderName: b.accountHolderName ?? '',
+          accountCurrency: b.accountCurrency ?? b.currency ?? 'INR',
+          ifscCode: b.ifscCode ?? '',
+          micrCode: b.micrCode ?? undefined,
+          swiftCode: b.swiftCode ?? undefined,
+          ibanNumber: b.ibanNumber ?? undefined,
+          address: b.address ?? b.contactDetails?.address ?? '',
+          city: b.city ?? '',
+          state: b.state ?? '',
+          pincode: b.pincode ?? '',
+          country: b.country ?? '',
+          phone: b.phone ?? '',
+          email: b.email ?? '',
+          contactPerson: b.contactPerson ?? undefined,
+          currentBalance: Number(b.currentBalance ?? b.bankingDetails?.currentBalance ?? 0),
+          openingBalance: Number(b.openingBalance ?? 0),
+          availableBalance: Number(b.availableBalance ?? 0),
+          overdraftLimit: b.overdraftLimit !== null && b.overdraftLimit !== undefined ? Number(b.overdraftLimit) : undefined,
+          minimumBalance: Number(b.minimumBalance ?? 0),
+          dailyTransactionLimit: b.dailyTransactionLimit !== null && b.dailyTransactionLimit !== undefined ? Number(b.dailyTransactionLimit) : undefined,
+          singleTransactionLimit: b.singleTransactionLimit !== null && b.singleTransactionLimit !== undefined ? Number(b.singleTransactionLimit) : undefined,
+          monthlyTransactionLimit: b.monthlyTransactionLimit !== null && b.monthlyTransactionLimit !== undefined ? Number(b.monthlyTransactionLimit) : undefined,
+          isPrimaryAccount: b.isPrimary ?? b.isPrimaryAccount ?? false,
+          accountPurpose: (b.accountPurpose ?? 'operations') as Bank['accountPurpose'],
+          allowedTransactionTypes: Array.isArray(b.allowedTransactionTypes) ? b.allowedTransactionTypes : [],
+          internetBankingEnabled: b.internetBankingEnabled ?? b.onlineAccess?.enabled ?? false,
+          internetBankingId: b.internetBankingId ?? undefined,
+          lastLoginDate: b.lastLoginDate ?? undefined,
+          bankIntegrationEnabled: b.bankIntegrationEnabled ?? false,
+          apiEndpoint: b.apiEndpoint ?? undefined,
+          lastSyncDate: b.lastSyncDate ?? undefined,
+          autoReconciliation: b.autoReconciliation ?? false,
+          totalDeposits: Number(b.totalDeposits ?? 0),
+          totalWithdrawals: Number(b.totalWithdrawals ?? 0),
+          transactionCount: Number(b.transactionCount ?? 0),
+          lastTransactionDate: b.lastTransactionDate ?? '',
+          taxDeductionAccount: b.taxDeductionAccount ?? false,
+          gstRegistered: b.gstRegistered ?? false,
+          gstNumber: b.gstNumber ?? undefined,
+          isActive: b.isActive ?? (b.status ? b.status === 'active' : true),
+          createdBy: b.createdBy ?? '',
+          createdDate: b.createdDate ?? b.createdAt ?? '',
+          modifiedBy: b.modifiedBy ?? '',
+          modifiedDate: b.modifiedDate ?? b.updatedAt ?? '',
+        }));
+        if (!cancelled) setBanks(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load bank accounts');
+          setBanks([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -307,6 +389,24 @@ export default function BankMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading bank accounts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && banks.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No bank accounts found.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <DataTable data={filteredData} columns={columns} pagination={{ enabled: true, pageSize: 10 }} sorting={{ enabled: true, defaultSort: { column: 'bank', direction: 'asc' } }} emptyMessage="No banks found" />

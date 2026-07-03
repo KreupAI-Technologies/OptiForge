@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -17,6 +17,7 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react'
+import { cpqQuoteService } from '@/services/cpq'
 
 interface Quote {
   id: string
@@ -33,96 +34,61 @@ interface Quote {
 export default function CPQQuotesPage() {
   const router = useRouter()
 
-  const [quotes] = useState<Quote[]>([
-    {
-      id: 'Q-001',
-      quoteNumber: 'QT-2024-1234',
-      customerName: 'Prestige Properties Ltd',
-      projectName: 'Premium Modular Kitchen - Tower A',
-      value: 2850000,
-      status: 'sent',
-      createdDate: '2024-10-15',
-      expiryDate: '2024-11-15',
-      validDays: 31
-    },
-    {
-      id: 'Q-002',
-      quoteNumber: 'QT-2024-1235',
-      customerName: 'Urban Homes Pvt Ltd',
-      projectName: 'L-Shaped Kitchen - Villa Project',
-      value: 1750000,
-      status: 'viewed',
-      createdDate: '2024-10-18',
-      expiryDate: '2024-11-18',
-      validDays: 31
-    },
-    {
-      id: 'Q-003',
-      quoteNumber: 'QT-2024-1236',
-      customerName: 'Elite Builders & Developers',
-      projectName: 'Island Kitchen Package - Penthouse',
-      value: 4200000,
-      status: 'accepted',
-      createdDate: '2024-10-10',
-      expiryDate: '2024-11-10',
-      validDays: 31
-    },
-    {
-      id: 'Q-004',
-      quoteNumber: 'QT-2024-1237',
-      customerName: 'Skyline Constructions',
-      projectName: 'Standard Modular - Apartment Block',
-      value: 980000,
-      status: 'draft',
-      createdDate: '2024-10-19',
-      expiryDate: '2024-11-19',
-      validDays: 31
-    },
-    {
-      id: 'Q-005',
-      quoteNumber: 'QT-2024-1238',
-      customerName: 'Modern Living Interiors',
-      projectName: 'Straight Kitchen - Studio Units',
-      value: 650000,
-      status: 'rejected',
-      createdDate: '2024-10-05',
-      expiryDate: '2024-11-05',
-      validDays: 31
-    },
-    {
-      id: 'Q-006',
-      quoteNumber: 'QT-2024-1239',
-      customerName: 'Habitat Homes',
-      projectName: 'Basic Kitchen Package',
-      value: 485000,
-      status: 'expired',
-      createdDate: '2024-09-15',
-      expiryDate: '2024-10-15',
-      validDays: 30
-    },
-    {
-      id: 'Q-007',
-      quoteNumber: 'QT-2024-1240',
-      customerName: 'Green Valley Builders',
-      projectName: 'Compact Modular Kitchen',
-      value: 425000,
-      status: 'sent',
-      createdDate: '2024-10-17',
-      expiryDate: '2024-11-17',
-      validDays: 31
-    },
-    {
-      id: 'Q-008',
-      quoteNumber: 'QT-2024-1241',
-      customerName: 'Prestige Properties Ltd',
-      projectName: 'Premium Island Kitchen - Tower B',
-      value: 3650000,
-      status: 'viewed',
-      createdDate: '2024-10-16',
-      expiryDate: '2024-11-16',
-      validDays: 31
+  const [quotes, setQuotes] = useState<Quote[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the CPQ quote ORM shape (quoteNumber/customerName/
+        // title/totalAmount/status/createdAt/expiresAt/validityDays); map it to
+        // this page's simplified Quote model.
+        const raw = (await cpqQuoteService.findAll()) as any[]
+        const statusMap: Record<string, Quote['status']> = {
+          draft: 'draft',
+          pending_approval: 'sent',
+          approved: 'sent',
+          sent: 'sent',
+          viewed: 'viewed',
+          accepted: 'accepted',
+          declined: 'rejected',
+          rejected: 'rejected',
+          expired: 'expired',
+          converted: 'accepted',
+          cancelled: 'rejected',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: Quote[] = (raw ?? []).map((q) => ({
+          id: q.id ?? q.quoteNumber ?? '',
+          quoteNumber: q.quoteNumber ?? q.id ?? '',
+          customerName: q.customerName ?? '',
+          projectName: q.title ?? q.description ?? '',
+          value: Number(q.totalAmount ?? q.subtotal ?? 0),
+          status: statusMap[q.status] ?? 'draft',
+          createdDate: toDate(q.createdAt),
+          expiryDate: toDate(q.expiresAt),
+          validDays: Number(q.validityDays ?? 0),
+        }))
+        if (!cancelled) setQuotes(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load quotes')
+          setQuotes([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     const colors: any = {
@@ -148,10 +114,27 @@ export default function CPQQuotesPage() {
   const totalValue = quotes.reduce((sum, q) => sum + q.value, 0)
   const acceptedQuotes = quotes.filter(q => q.status === 'accepted')
   const acceptedValue = acceptedQuotes.reduce((sum, q) => sum + q.value, 0)
-  const winRate = Math.round((acceptedQuotes.length / quotes.length) * 100)
+  const winRate = quotes.length > 0 ? Math.round((acceptedQuotes.length / quotes.length) * 100) : 0
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading quotes…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && quotes.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No quotes found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

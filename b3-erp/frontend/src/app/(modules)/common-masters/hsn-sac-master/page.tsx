@@ -4,15 +4,73 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Receipt, TrendingUp, FileText, Package, Percent, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockHSNSAC, HSNSAC, getHSNSACStats } from '@/data/common-masters/hsn-sac';
+import { HSNSAC, getHSNSACStats } from '@/data/common-masters/hsn-sac';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function HSNSACMasterPage() {
-  const [hsnSacRecords, setHsnSacRecords] = useState<HSNSAC[]>(mockHSNSAC);
+  const [hsnSacRecords, setHsnSacRecords] = useState<HSNSAC[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCodeType, setFilterCodeType] = useState<string>('all');
   const [filterApplicableFor, setFilterApplicableFor] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch HSN/SAC codes from the live backend, mapping the raw API shape into the page's HSNSAC model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllHsnSacs(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: HSNSAC[] = raw.map((h) => {
+          const totalGST = Number(h.totalGST ?? h.gstPercentage ?? 0);
+          const igst = Number(h.igstRate ?? totalGST);
+          return {
+            id: String(h.id ?? ''),
+            code: h.code ?? '',
+            codeType: (h.codeType ?? (h.applicableFor === 'services' ? 'SAC' : 'HSN')) as HSNSAC['codeType'],
+            description: h.description ?? '',
+            category: h.category ?? '',
+            cgstRate: Number(h.cgstRate ?? igst / 2),
+            sgstRate: Number(h.sgstRate ?? igst / 2),
+            igstRate: igst,
+            cessRate: h.cessRate !== null && h.cessRate !== undefined ? Number(h.cessRate) : undefined,
+            totalGST: totalGST || igst,
+            applicableFor: (h.applicableFor ?? 'goods') as HSNSAC['applicableFor'],
+            itemGroup: h.itemGroup ?? undefined,
+            isExempted: h.isExempted ?? undefined,
+            isNilRated: h.isNilRated ?? undefined,
+            isReverseCharge: h.isReverseCharge ?? undefined,
+            itemsCount: Number(h.itemsCount ?? 0),
+            transactionsCount: Number(h.transactionsCount ?? 0),
+            totalTaxableAmount: Number(h.totalTaxableAmount ?? 0),
+            totalTaxCollected: Number(h.totalTaxCollected ?? 0),
+            lastUsedDate: h.lastUsedDate ?? '',
+            isActive: h.isActive ?? true,
+            createdBy: h.createdBy ?? '',
+            createdDate: h.createdDate ?? h.createdAt ?? '',
+          };
+        });
+        if (!cancelled) setHsnSacRecords(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load HSN/SAC codes');
+          setHsnSacRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -392,6 +450,24 @@ export default function HSNSACMasterPage() {
           </div>
         )}
           </div>
+
+          {isLoading && (
+            <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading HSN/SAC codes…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
+          {!isLoading && !loadError && hsnSacRecords.length === 0 && (
+            <div className="mx-4 mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              No HSN/SAC codes found.
+            </div>
+          )}
 
           <div className="flex-1 overflow-auto">
             <DataTable

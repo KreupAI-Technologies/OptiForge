@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, ThumbsUp, ThumbsDown, BookOpen, FileText, Video, Code, AlertCircle, TrendingUp, Star, Clock, User } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface KnowledgeArticle {
   id: string;
@@ -29,204 +30,60 @@ interface KnowledgeArticle {
   attachments: number;
 }
 
-const mockArticles: KnowledgeArticle[] = [
-  {
-    id: '1',
-    articleNumber: 'KB-001',
-    title: 'Getting Started with Your First Project',
-    excerpt: 'Learn how to create and configure your first project in 5 simple steps.',
-    category: 'getting_started',
-    type: 'tutorial',
-    content: 'Full tutorial content here...',
-    author: 'Sarah Johnson',
-    createdDate: '2024-01-15',
-    lastUpdated: '2024-09-20',
-    views: 12450,
-    helpful: 1850,
-    notHelpful: 125,
-    averageRating: 4.7,
-    totalRatings: 430,
-    isPinned: true,
-    isPublished: true,
-    tags: ['Setup', 'Beginner', 'Quick Start'],
-    relatedArticles: ['KB-002', 'KB-005'],
-    estimatedReadTime: 8,
-    difficultyLevel: 'beginner',
-    attachments: 3,
-  },
-  {
-    id: '2',
-    articleNumber: 'KB-002',
-    title: 'How to Configure SSO Authentication',
-    excerpt: 'Step-by-step guide to setting up Single Sign-On with SAML 2.0 or OAuth 2.0.',
-    category: 'how_to',
-    type: 'article',
-    content: 'Full article content here...',
-    author: 'Michael Chen',
-    createdDate: '2024-02-10',
-    lastUpdated: '2024-10-05',
-    views: 8920,
-    helpful: 1420,
-    notHelpful: 89,
-    averageRating: 4.5,
-    totalRatings: 312,
-    isPinned: true,
-    isPublished: true,
-    tags: ['Authentication', 'SSO', 'Security', 'Advanced'],
-    relatedArticles: ['KB-012', 'KB-018'],
-    estimatedReadTime: 15,
-    difficultyLevel: 'advanced',
-    attachments: 5,
-  },
-  {
-    id: '3',
-    articleNumber: 'KB-003',
-    title: 'Troubleshooting Dashboard Loading Issues',
-    excerpt: 'Common solutions for dashboard performance problems and loading errors.',
-    category: 'troubleshooting',
-    type: 'article',
-    content: 'Full troubleshooting guide...',
-    author: 'David Park',
-    createdDate: '2024-03-05',
-    lastUpdated: '2024-10-18',
-    views: 15680,
-    helpful: 2340,
-    notHelpful: 156,
-    averageRating: 4.6,
-    totalRatings: 578,
-    isPinned: false,
-    isPublished: true,
-    tags: ['Dashboard', 'Performance', 'Troubleshooting'],
-    relatedArticles: ['KB-007', 'KB-015'],
-    estimatedReadTime: 10,
-    difficultyLevel: 'intermediate',
-    attachments: 4,
-  },
-  {
-    id: '4',
-    articleNumber: 'KB-004',
-    title: 'REST API Quick Start Guide',
-    excerpt: 'Get started with our REST API in minutes with examples in multiple languages.',
-    category: 'api_docs',
-    type: 'code_snippet',
-    content: 'API documentation and code examples...',
-    author: 'Sarah Johnson',
-    createdDate: '2024-01-20',
-    lastUpdated: '2024-10-10',
-    views: 22340,
-    helpful: 3120,
-    notHelpful: 201,
-    averageRating: 4.8,
-    totalRatings: 892,
-    isPinned: true,
-    isPublished: true,
-    tags: ['API', 'REST', 'Integration', 'Developer'],
-    relatedArticles: ['KB-009', 'KB-014'],
-    estimatedReadTime: 20,
-    difficultyLevel: 'intermediate',
-    attachments: 8,
-  },
-  {
-    id: '5',
-    articleNumber: 'KB-005',
-    title: 'Best Practices for Data Security',
-    excerpt: 'Essential security practices to protect your data and maintain compliance.',
-    category: 'best_practices',
-    type: 'article',
-    content: 'Security best practices content...',
-    author: 'Michael Chen',
-    createdDate: '2024-02-28',
-    lastUpdated: '2024-09-15',
-    views: 9870,
-    helpful: 1680,
-    notHelpful: 78,
-    averageRating: 4.9,
-    totalRatings: 425,
-    isPinned: false,
-    isPublished: true,
-    tags: ['Security', 'Best Practices', 'Compliance'],
-    relatedArticles: ['KB-002', 'KB-011'],
-    estimatedReadTime: 12,
-    difficultyLevel: 'intermediate',
-    attachments: 2,
-  },
-  {
-    id: '6',
-    articleNumber: 'KB-006',
-    title: 'Frequently Asked Questions',
-    excerpt: 'Answers to the most common questions about billing, features, and support.',
-    category: 'faq',
-    type: 'article',
-    content: 'FAQ content...',
-    author: 'David Park',
-    createdDate: '2024-01-10',
-    lastUpdated: '2024-10-19',
-    views: 18920,
-    helpful: 2580,
-    notHelpful: 142,
-    averageRating: 4.7,
-    totalRatings: 634,
-    isPinned: true,
-    isPublished: true,
-    tags: ['FAQ', 'General', 'Support'],
-    relatedArticles: ['KB-001', 'KB-013'],
-    estimatedReadTime: 5,
-    difficultyLevel: 'beginner',
-    attachments: 0,
-  },
-  {
-    id: '7',
-    articleNumber: 'KB-007',
-    title: 'Video Tutorial: Advanced Reporting',
-    excerpt: 'Learn how to create custom reports and dashboards with this 15-minute video tutorial.',
-    category: 'how_to',
-    type: 'video',
-    content: 'Video tutorial...',
-    author: 'Sarah Johnson',
-    createdDate: '2024-04-12',
-    lastUpdated: '2024-04-12',
-    views: 6780,
-    helpful: 890,
-    notHelpful: 45,
-    averageRating: 4.8,
-    totalRatings: 234,
-    isPinned: false,
-    isPublished: true,
-    tags: ['Reporting', 'Video', 'Advanced', 'Tutorial'],
-    relatedArticles: ['KB-003', 'KB-010'],
-    estimatedReadTime: 15,
-    difficultyLevel: 'advanced',
-    attachments: 1,
-  },
-  {
-    id: '8',
-    articleNumber: 'KB-008',
-    title: 'Release Notes - Q3 2024',
-    excerpt: 'New features, improvements, and bug fixes released in Q3 2024.',
-    category: 'release_notes',
-    type: 'article',
-    content: 'Release notes content...',
-    author: 'Michael Chen',
-    createdDate: '2024-10-01',
-    lastUpdated: '2024-10-01',
-    views: 4520,
-    helpful: 520,
-    notHelpful: 28,
-    averageRating: 4.6,
-    totalRatings: 156,
-    isPinned: false,
-    isPublished: true,
-    tags: ['Release Notes', 'Updates', 'Features'],
-    relatedArticles: ['KB-016', 'KB-017'],
-    estimatedReadTime: 7,
-    difficultyLevel: 'beginner',
-    attachments: 6,
-  },
-];
-
 export default function KnowledgeBasePage() {
   const router = useRouter();
-  const [articles] = useState<KnowledgeArticle[]>(mockArticles);
+  const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (NestJS CrmKnowledgeArticle) uses different field names than
+        // the page's KnowledgeArticle model; map defensively and coerce numerics.
+        const raw = (await crmService.knowledgeArticles.getAll()) as any[];
+        const mapped: KnowledgeArticle[] = (raw || []).map((a) => ({
+          id: String(a.id),
+          articleNumber: a.articleNumber ?? '',
+          title: a.title ?? '',
+          excerpt: a.summary ?? '',
+          category: (a.category ?? 'faq') as KnowledgeArticle['category'],
+          type: (a.type ?? 'article') as KnowledgeArticle['type'],
+          content: a.content ?? '',
+          author: a.authorName ?? a.author ?? '',
+          createdDate: a.createdAt ?? a.createdDate ?? '',
+          lastUpdated: a.updatedAt ?? a.lastUpdated ?? '',
+          views: Number(a.viewCount ?? a.views ?? 0),
+          helpful: Number(a.helpfulCount ?? a.helpful ?? 0),
+          notHelpful: Number(a.notHelpfulCount ?? a.notHelpful ?? 0),
+          averageRating: Number(a.averageRating ?? 0),
+          totalRatings: Number(a.totalRatings ?? 0),
+          isPinned: Boolean(a.isPinned),
+          isPublished: a.status ? a.status === 'published' : Boolean(a.isPublished),
+          tags: Array.isArray(a.tags) ? a.tags : [],
+          relatedArticles: Array.isArray(a.relatedArticles) ? a.relatedArticles : [],
+          estimatedReadTime: Number(a.estimatedReadTime ?? 0),
+          difficultyLevel: (a.difficultyLevel ?? 'beginner') as KnowledgeArticle['difficultyLevel'],
+          attachments: Array.isArray(a.attachments) ? a.attachments.length : Number(a.attachments ?? 0),
+        }));
+        if (!cancelled) setArticles(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load knowledge articles');
+          setArticles([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'getting_started' | 'how_to' | 'troubleshooting' | 'api_docs' | 'best_practices' | 'faq' | 'release_notes'>('all');
   const [filterType, setFilterType] = useState<'all' | 'article' | 'video' | 'code_snippet' | 'tutorial'>('all');
@@ -294,6 +151,23 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading articles…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && articles.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No articles found.
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

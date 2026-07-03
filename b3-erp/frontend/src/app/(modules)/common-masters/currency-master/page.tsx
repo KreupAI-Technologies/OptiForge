@@ -4,15 +4,57 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, DollarSign, Star, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockCurrencies, Currency } from '@/data/common-masters/currencies';
+import { Currency } from '@/data/common-masters/currencies';
+import { commonMastersService } from '@/services/common-masters.service';
 
 export default function CurrencyMasterPage() {
-  const [currencies, setCurrencies] = useState<Currency[]>(mockCurrencies);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDecimalDigits, setFilterDecimalDigits] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch currencies from the live backend, mapping the raw API shape to the page's Currency model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllCurrencies()) as any[];
+        const mapped: Currency[] = raw.map((c) => ({
+          id: String(c.id ?? ''),
+          code: c.code ?? '',
+          name: c.name ?? '',
+          symbol: c.symbol ?? '',
+          symbolNative: c.symbolNative ?? c.symbol ?? '',
+          decimalDigits: Number(c.decimalDigits ?? 2),
+          rounding: Number(c.rounding ?? 0),
+          namePlural: c.namePlural ?? c.name ?? '',
+          isActive: c.isActive ?? true,
+          isBaseCurrency: c.isBaseCurrency ?? false,
+          countries: Array.isArray(c.countries) ? c.countries : [],
+          createdAt: c.createdAt ?? '',
+          updatedAt: c.updatedAt ?? '',
+        }));
+        if (!cancelled) setCurrencies(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load currencies');
+          setCurrencies([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Toast notification effect
   useEffect(() => {
@@ -377,6 +419,24 @@ export default function CurrencyMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading currencies…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && currencies.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No currencies found.
+        </div>
+      )}
 
       {/* Data Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

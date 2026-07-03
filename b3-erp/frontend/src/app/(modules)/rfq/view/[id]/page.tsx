@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { procurementRFQService } from '@/services/procurement-rfq.service';
 import {
   ArrowLeft,
   Edit,
@@ -98,137 +99,118 @@ interface RFQ {
   updatedAt: string;
 }
 
-// Mock Data - ManufacturingOS India
-const mockRFQ: RFQ = {
-  id: '1',
-  rfqNumber: 'RFQ-2025-0087',
-  status: 'quotes_received',
-  title: 'Procurement of CNC Machine Spare Parts and Raw Materials',
-  category: 'raw_materials',
-  issueDate: '2025-10-12',
-  closingDate: '2025-10-25',
-  validityPeriod: 30,
-  vendorsInvited: 5,
-  quotesReceived: 3,
-  lowestQuote: 465000,
-  daysRemaining: 8,
-  linkedPR: 'PR-2025-0142',
-  items: [
-    {
-      id: '1',
-      itemCode: 'SP-CNC-2045',
-      description: 'CNC Router Spindle Bearing Assembly',
-      specifications: 'High-precision bearing, SKF/NSK brand, 60mm bore, 110mm OD, sealed type',
-      quantity: 2,
-      unit: 'Nos',
-      targetPrice: 12500,
-    },
-    {
-      id: '2',
-      itemCode: 'RM-PLY-001',
-      description: 'Commercial Grade Plywood 19mm',
-      specifications: 'BWP grade, 8x4 ft, ISI marked, moisture resistant, smooth finish both sides',
-      quantity: 150,
-      unit: 'Sheets',
-      targetPrice: 1850,
-    },
-    {
-      id: '3',
-      itemCode: 'RM-HW-2567',
-      description: 'Stainless Steel Cabinet Hinges',
-      specifications: 'Soft-close hinges, 165-degree opening, Hettich/Hafele brand, nickel finish',
-      quantity: 500,
-      unit: 'Nos',
-      targetPrice: 180,
-    },
-  ],
-  vendors: [
-    {
-      id: '1',
-      vendorId: 'V-001',
-      vendorName: 'SKF India Ltd',
-      contactPerson: 'Ramesh Kumar',
-      email: 'ramesh.k@skfindia.com',
-      phone: '+91-22-4567-1234',
-      status: 'submitted',
-      submittedDate: '2025-10-18',
-      items: [
-        { itemId: '1', unitPrice: 12000, total: 24000, deliveryTime: '7 days', remarks: 'Original SKF bearing' },
-        { itemId: '2', unitPrice: 1800, total: 270000, deliveryTime: '10 days', remarks: 'CenturyPly BWP Grade' },
-        { itemId: '3', unitPrice: 175, total: 87500, deliveryTime: '7 days', remarks: 'Hettich soft-close' },
-      ],
-      paymentTerms: 'Net 30 days',
-      deliveryTerms: 'Ex-Works Mumbai',
-      validity: '30 days from quote date',
-      totalAmount: 381500,
-      notes: 'All items in stock. Can expedite delivery if needed.',
-    },
-    {
-      id: '2',
-      vendorId: 'V-002',
-      vendorName: 'Greenply Industries',
-      contactPerson: 'Sunil Patil',
-      email: 'sunil.p@greenply.com',
-      phone: '+91-22-4567-5678',
-      status: 'submitted',
-      submittedDate: '2025-10-19',
-      items: [
-        { itemId: '1', unitPrice: 12800, total: 25600, deliveryTime: '10 days', remarks: 'NSK bearing - imported' },
-        { itemId: '2', unitPrice: 1750, total: 262500, deliveryTime: '5 days', remarks: 'Greenply BWP Premium' },
-        { itemId: '3', unitPrice: 180, total: 90000, deliveryTime: '7 days', remarks: 'Hafele brand' },
-      ],
-      paymentTerms: 'Net 45 days',
-      deliveryTerms: 'Door Delivery',
-      validity: '45 days from quote date',
-      totalAmount: 378100,
-      notes: 'Bulk discount applied. Free delivery for orders above 3 lakhs.',
-    },
-    {
-      id: '3',
-      vendorId: 'V-003',
-      vendorName: 'Hettich India Pvt Ltd',
-      contactPerson: 'Priya Sharma',
-      email: 'priya.s@hettich.com',
-      phone: '+91-22-4567-9012',
-      status: 'submitted',
-      submittedDate: '2025-10-20',
-      items: [
-        { itemId: '1', unitPrice: 13200, total: 26400, deliveryTime: '14 days', remarks: 'Premium SKF bearing' },
-        { itemId: '2', unitPrice: 1820, total: 273000, deliveryTime: '7 days', remarks: 'Century BWP' },
-        { itemId: '3', unitPrice: 165, total: 82500, deliveryTime: '3 days', remarks: 'Hettich factory direct' },
-      ],
-      paymentTerms: 'Net 30 days',
-      deliveryTerms: 'FOB Mumbai',
-      validity: '30 days from quote date',
-      totalAmount: 381900,
-      notes: 'Premium quality. Extended warranty available.',
-    },
-  ],
-  commercialTerms: {
-    paymentTerms: 'Net 30 days from delivery',
-    deliveryTerms: 'Door delivery to factory premises',
-    incoterms: 'Ex-Works (Factory)',
-    inspectionRequirements: 'Quality inspection required before acceptance',
-  },
-  evaluationCriteria: {
-    price: 50,
-    quality: 30,
-    deliveryTime: 15,
-    paymentTerms: 5,
-  },
-  termsAndConditions: `1. All prices should be quoted in INR including GST
-2. Payment terms: Net 30 days from delivery
-3. Delivery must be made to our factory premises in Bhiwandi
-4. Quality inspection will be conducted before acceptance
-5. Vendor must provide warranty as per industry standards
-6. Late delivery penalties may apply as per contract
-7. ManufacturingOS reserves the right to reject any or all quotes
-8. Award decision is final and binding`,
-  notesToVendors: 'Please ensure all items are original and come with manufacturer warranties. Priority will be given to vendors who can deliver within 7 days.',
-  createdBy: 'Rajesh Patel - Procurement Manager',
-  createdAt: '2025-10-12 10:30 AM',
-  updatedAt: '2025-10-20 03:45 PM',
+// Maps the backend ProcurementRFQ status enum to this page's status union.
+const STATUS_MAP: Record<string, RFQ['status']> = {
+  Draft: 'draft',
+  Sent: 'issued',
+  'Responses Received': 'quotes_received',
+  'Under Evaluation': 'evaluated',
+  Awarded: 'awarded',
+  Cancelled: 'cancelled',
+  Expired: 'cancelled',
 };
+
+// Defensive transform: maps the raw API/ORM ProcurementRFQ shape to the
+// page's RFQ interface. Fields the backend does not provide (category,
+// evaluationCriteria, commercialTerms sub-fields) fall back to sensible
+// defaults so the existing UI keeps rendering.
+function transformRFQ(raw: any): RFQ {
+  const items = Array.isArray(raw?.items) ? raw.items : [];
+  const invited = Array.isArray(raw?.invitedVendors) ? raw.invitedVendors : [];
+  const quotes = Array.isArray(raw?.quotes) ? raw.quotes : [];
+
+  const mappedItems: RFQItem[] = items.map((it: any, idx: number) => ({
+    id: String(it?.id ?? it?.itemId ?? idx),
+    itemCode: it?.itemCode ?? '',
+    description: it?.itemName ?? it?.description ?? '',
+    specifications: it?.specifications ?? '',
+    quantity: Number(it?.quantity ?? 0),
+    unit: it?.unit ?? '',
+    targetPrice: Number(it?.targetPrice ?? 0),
+  }));
+
+  // Build a vendor list from quotes (submitted) merged with invited vendors.
+  const quoteByVendor = new Map<string, any>();
+  quotes.forEach((q: any) => {
+    if (q?.vendorId) quoteByVendor.set(String(q.vendorId), q);
+  });
+
+  const mappedVendors: VendorQuote[] = invited.map((v: any, idx: number) => {
+    const q = quoteByVendor.get(String(v?.vendorId));
+    const qItems = Array.isArray(q?.items) ? q.items : [];
+    return {
+      id: String(q?.id ?? v?.vendorId ?? idx),
+      vendorId: v?.vendorId ?? q?.vendorId ?? '',
+      vendorName: v?.vendorName ?? q?.vendorName ?? '',
+      contactPerson: v?.contactPerson ?? '',
+      email: v?.email ?? '',
+      phone: v?.phone ?? '',
+      status: q ? 'submitted' : 'pending',
+      submittedDate: q?.receivedAt ?? q?.quoteDate ?? '',
+      items: qItems.map((qi: any) => ({
+        itemId: String(qi?.rfqItemId ?? ''),
+        unitPrice: Number(qi?.unitPrice ?? 0),
+        total: Number(qi?.totalPrice ?? 0),
+        deliveryTime: qi?.leadTimeDays != null ? `${qi.leadTimeDays} days` : '',
+        remarks: qi?.remarks ?? '',
+      })),
+      paymentTerms: q?.paymentTerms ?? '',
+      deliveryTerms: q?.deliveryTerms ?? '',
+      validity: q?.validUntil ?? '',
+      totalAmount: Number(q?.totalAmount ?? 0),
+      notes: q?.evaluationNotes ?? '',
+    };
+  });
+
+  const submittedQuotes = mappedVendors.filter((v) => v.status === 'submitted');
+  const lowestQuote = submittedQuotes.length
+    ? Math.min(...submittedQuotes.map((v) => v.totalAmount || Infinity))
+    : 0;
+
+  const closingDate = raw?.responseDeadline ?? '';
+  let daysRemaining = 0;
+  if (closingDate) {
+    const diff = Math.ceil(
+      (new Date(closingDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+    );
+    daysRemaining = Number.isFinite(diff) ? Math.max(diff, 0) : 0;
+  }
+
+  return {
+    id: String(raw?.id ?? ''),
+    rfqNumber: raw?.rfqNumber ?? '',
+    status: STATUS_MAP[raw?.status] ?? 'draft',
+    title: raw?.title ?? '',
+    category: 'raw_materials',
+    issueDate: raw?.createdDate ?? '',
+    closingDate,
+    validityPeriod: 0,
+    vendorsInvited: invited.length,
+    quotesReceived: submittedQuotes.length,
+    lowestQuote: Number.isFinite(lowestQuote) ? lowestQuote : 0,
+    daysRemaining,
+    linkedPR: raw?.prReference ?? '',
+    items: mappedItems,
+    vendors: mappedVendors,
+    commercialTerms: {
+      paymentTerms: '',
+      deliveryTerms: '',
+      incoterms: '',
+      inspectionRequirements: '',
+    },
+    evaluationCriteria: {
+      price: 50,
+      quality: 30,
+      deliveryTime: 15,
+      paymentTerms: 5,
+    },
+    termsAndConditions: raw?.terms ?? '',
+    notesToVendors: raw?.notes ?? '',
+    createdBy: raw?.requestedByName ?? '',
+    createdAt: raw?.createdAt ?? '',
+    updatedAt: raw?.updatedAt ?? '',
+  };
+}
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700 border-gray-300',
@@ -256,7 +238,33 @@ export default function ViewRFQPage() {
   const router = useRouter();
   const params = useParams();
   const rfqId = params.id as string;
-  const rfq = mockRFQ;
+
+  const [rfq, setRfq] = useState<RFQ | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await procurementRFQService.getRFQById(rfqId)) as any;
+        if (!cancelled) setRfq(transformRFQ(raw));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load RFQ');
+          setRfq(null);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    if (rfqId) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [rfqId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'comparison'>('overview');
 
@@ -275,14 +283,15 @@ export default function ViewRFQPage() {
   };
 
   const getLowestQuoteVendor = () => {
-    return rfq.vendors.reduce((lowest, vendor) =>
+    const vendors = rfq?.vendors ?? [];
+    return vendors.reduce((lowest, vendor) =>
       vendor.totalAmount < lowest.totalAmount ? vendor : lowest
     );
   };
 
   const calculateScore = (vendor: VendorQuote) => {
-    const lowestPrice = Math.min(...rfq.vendors.map(v => v.totalAmount));
-    const priceScore = (lowestPrice / vendor.totalAmount) * rfq.evaluationCriteria.price;
+    const lowestPrice = Math.min(...(rfq?.vendors ?? []).map(v => v.totalAmount));
+    const priceScore = (lowestPrice / vendor.totalAmount) * (rfq?.evaluationCriteria.price ?? 0);
 
     // Simplified scoring - in real system would be more complex
     const qualityScore = 25; // Assume 25 out of 30
@@ -291,6 +300,52 @@ export default function ViewRFQPage() {
 
     return (priceScore + qualityScore + deliveryScore + paymentScore).toFixed(1);
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading RFQ…
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+        <button
+          onClick={() => router.push('/rfq')}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to RFQs</span>
+        </button>
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      </div>
+    );
+  }
+
+  if (!rfq) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+        <button
+          onClick={() => router.push('/rfq')}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to RFQs</span>
+        </button>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          RFQ not found.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -10,8 +10,10 @@ import {
   Eye,
   Download,
   Filter,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
+import { InvoiceService } from '@/services/invoice.service';
 
 interface PaidInvoice {
   id: string;
@@ -30,113 +32,55 @@ interface PaidInvoice {
 export default function PaidInvoicesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('all');
+  const [paidInvoices, setPaidInvoices] = useState<PaidInvoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const paidInvoices: PaidInvoice[] = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2025-1234',
-      customerName: 'Tata Motors Limited',
-      invoiceDate: '2025-10-18',
-      dueDate: '2025-11-18',
-      paidDate: '2025-11-15',
-      amount: 1245000,
-      paymentMethod: 'Bank Transfer',
-      transactionRef: 'TXN-2025-8901',
-      daysEarly: 3,
-      itemsCount: 15
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2025-1238',
-      customerName: 'Adani Ports',
-      invoiceDate: '2025-10-17',
-      dueDate: '2025-11-17',
-      paidDate: '2025-11-16',
-      amount: 675000,
-      paymentMethod: 'Bank Transfer',
-      transactionRef: 'TXN-2025-8902',
-      daysEarly: 1,
-      itemsCount: 10
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-2025-1225',
-      customerName: 'Reliance Industries',
-      invoiceDate: '2025-10-10',
-      dueDate: '2025-11-10',
-      paidDate: '2025-11-08',
-      amount: 3450000,
-      paymentMethod: 'RTGS',
-      transactionRef: 'TXN-2025-8850',
-      daysEarly: 2,
-      itemsCount: 25
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-2025-1220',
-      customerName: 'JSW Steel',
-      invoiceDate: '2025-10-08',
-      dueDate: '2025-11-08',
-      paidDate: '2025-11-07',
-      amount: 2340000,
-      paymentMethod: 'Check',
-      transactionRef: 'CHQ-456789',
-      daysEarly: 1,
-      itemsCount: 18
-    },
-    {
-      id: '5',
-      invoiceNumber: 'INV-2025-1215',
-      customerName: 'Mahindra & Mahindra',
-      invoiceDate: '2025-10-05',
-      dueDate: '2025-11-05',
-      paidDate: '2025-11-05',
-      amount: 890000,
-      paymentMethod: 'Bank Transfer',
-      transactionRef: 'TXN-2025-8820',
-      daysEarly: 0,
-      itemsCount: 12
-    },
-    {
-      id: '6',
-      invoiceNumber: 'INV-2025-1210',
-      customerName: 'Bharat Heavy Electricals',
-      invoiceDate: '2025-10-03',
-      dueDate: '2025-11-03',
-      paidDate: '2025-10-30',
-      amount: 1560000,
-      paymentMethod: 'NEFT',
-      transactionRef: 'TXN-2025-8800',
-      daysEarly: 4,
-      itemsCount: 20
-    },
-    {
-      id: '7',
-      invoiceNumber: 'INV-2025-1205',
-      customerName: 'Hindalco Industries',
-      invoiceDate: '2025-10-01',
-      dueDate: '2025-11-01',
-      paidDate: '2025-10-28',
-      amount: 725000,
-      paymentMethod: 'Bank Transfer',
-      transactionRef: 'TXN-2025-8780',
-      daysEarly: 4,
-      itemsCount: 8
-    },
-    {
-      id: '8',
-      invoiceNumber: 'INV-2025-1200',
-      customerName: 'L&T Heavy Engineering',
-      invoiceDate: '2025-09-28',
-      dueDate: '2025-10-28',
-      paidDate: '2025-10-25',
-      amount: 1980000,
-      paymentMethod: 'RTGS',
-      transactionRef: 'TXN-2025-8750',
-      daysEarly: 3,
-      itemsCount: 16
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const response = (await InvoiceService.getAllInvoices({ status: 'PAID' as any, limit: 200 })) as any;
+        const raw: any[] = Array.isArray(response) ? response : (response?.data ?? []);
+        const mapped: PaidInvoice[] = (raw ?? [])
+          .filter((inv) => (inv.status ?? '').toString().toUpperCase() === 'PAID')
+          .map((inv) => {
+            const paidDate = inv.paidAt ?? inv.paidDate ?? inv.postedAt ?? '';
+            const due = inv.dueDate ? new Date(inv.dueDate).getTime() : 0;
+            const paid = paidDate ? new Date(paidDate).getTime() : 0;
+            const daysEarly = due && paid ? Math.max(0, Math.floor((due - paid) / (1000 * 60 * 60 * 24))) : 0;
+            const itemsCount = Array.isArray(inv.lineItems) ? inv.lineItems.length : Number(inv.itemsCount ?? 0);
+            return {
+              id: String(inv.id ?? ''),
+              invoiceNumber: inv.invoiceNumber ?? inv.number ?? '',
+              customerName: inv.customerName ?? inv.customer?.name ?? '',
+              invoiceDate: inv.invoiceDate ?? '',
+              dueDate: inv.dueDate ?? '',
+              paidDate: paidDate,
+              amount: Number(inv.totalAmount ?? inv.amountPaid ?? inv.amount ?? 0),
+              paymentMethod: inv.paymentMethod ?? '—',
+              transactionRef: inv.transactionRef ?? inv.reference ?? '—',
+              daysEarly,
+              itemsCount,
+            };
+          });
+        if (!cancelled) setPaidInvoices(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load paid invoices');
+          setPaidInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredInvoices = paidInvoices.filter(invoice =>
     invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -144,14 +88,14 @@ export default function PaidInvoicesPage() {
   );
 
   const totalAmount = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const avgPaymentTime = Math.round(
+  const avgPaymentTime = paidInvoices.length > 0 ? Math.round(
     paidInvoices.reduce((sum, inv) => {
       const daysToPayment = Math.floor(
         (new Date(inv.paidDate).getTime() - new Date(inv.invoiceDate).getTime()) / (1000 * 60 * 60 * 24)
       );
-      return sum + daysToPayment;
+      return sum + (Number.isFinite(daysToPayment) ? daysToPayment : 0);
     }, 0) / paidInvoices.length
-  );
+  ) : 0;
   const paidEarly = paidInvoices.filter(inv => inv.daysEarly > 0).length;
 
   return (
@@ -217,6 +161,18 @@ export default function PaidInvoicesPage() {
           </div>
         </div>
 
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading paid invoices…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Search and Filter */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

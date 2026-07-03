@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -17,8 +17,10 @@ import {
   Folder,
   BarChart3,
   TrendingUp,
-  Download
+  Download,
+  AlertCircle
 } from 'lucide-react'
+import { cpqProposalService } from '@/services/cpq'
 import {
   UploadContentModal,
   ViewContentModal,
@@ -46,146 +48,60 @@ interface ContentItem {
 export default function CPQProposalsContentPage() {
   const router = useRouter()
 
-  const [content] = useState<ContentItem[]>([
-    {
-      id: 'CNT-001',
-      name: 'Premium Kitchen 3D Renders',
-      type: 'image',
-      category: 'Visualizations',
-      description: 'High-quality 3D renders of premium modular kitchen designs',
-      fileSize: '24.5 MB',
-      usageCount: 156,
-      lastUsed: '2024-10-18',
-      tags: ['3D', 'Premium', 'Renders', 'Kitchen'],
-      status: 'approved',
-      createdBy: 'Design Team',
-      createdDate: '2024-06-15'
-    },
-    {
-      id: 'CNT-002',
-      name: 'Company Profile & Capabilities',
-      type: 'document',
-      category: 'Company Info',
-      description: 'Comprehensive company profile with capabilities, certifications, and achievements',
-      fileSize: '3.2 MB',
-      usageCount: 289,
-      lastUsed: '2024-10-18',
-      tags: ['Company', 'Profile', 'Certifications'],
-      status: 'approved',
-      createdBy: 'Marketing',
-      createdDate: '2024-01-10'
-    },
-    {
-      id: 'CNT-003',
-      name: 'Material Specifications',
-      type: 'specification',
-      category: 'Technical',
-      description: 'Detailed specifications for all materials used in kitchen manufacturing',
-      fileSize: '1.8 MB',
-      usageCount: 234,
-      lastUsed: '2024-10-17',
-      tags: ['Materials', 'Specifications', 'Technical'],
-      status: 'approved',
-      createdBy: 'Technical Team',
-      createdDate: '2024-03-20'
-    },
-    {
-      id: 'CNT-004',
-      name: 'Customer Success Stories',
-      type: 'case-study',
-      category: 'Case Studies',
-      description: 'Collection of successful project implementations with customer testimonials',
-      fileSize: '8.7 MB',
-      usageCount: 187,
-      lastUsed: '2024-10-16',
-      tags: ['Case Study', 'Success', 'Testimonials'],
-      status: 'approved',
-      createdBy: 'Marketing',
-      createdDate: '2024-05-12'
-    },
-    {
-      id: 'CNT-005',
-      name: 'Installation Process Video',
-      type: 'video',
-      category: 'Process',
-      description: 'Step-by-step video showing kitchen installation process',
-      fileSize: '125 MB',
-      usageCount: 145,
-      lastUsed: '2024-10-15',
-      tags: ['Video', 'Installation', 'Process'],
-      status: 'approved',
-      createdBy: 'Operations',
-      createdDate: '2024-07-08'
-    },
-    {
-      id: 'CNT-006',
-      name: 'Warranty & Maintenance Terms',
-      type: 'document',
-      category: 'Legal',
-      description: 'Standard warranty terms and maintenance guidelines',
-      fileSize: '950 KB',
-      usageCount: 312,
-      lastUsed: '2024-10-18',
-      tags: ['Warranty', 'Legal', 'Terms'],
-      status: 'approved',
-      createdBy: 'Legal',
-      createdDate: '2024-02-05'
-    },
-    {
-      id: 'CNT-007',
-      name: 'L-Shaped Kitchen Designs',
-      type: 'image',
-      category: 'Visualizations',
-      description: 'Gallery of L-shaped kitchen layout options and configurations',
-      fileSize: '18.3 MB',
-      usageCount: 198,
-      lastUsed: '2024-10-17',
-      tags: ['L-Shaped', 'Layouts', 'Designs'],
-      status: 'approved',
-      createdBy: 'Design Team',
-      createdDate: '2024-06-22'
-    },
-    {
-      id: 'CNT-008',
-      name: 'Quality Certifications',
-      type: 'document',
-      category: 'Certifications',
-      description: 'ISO certifications and quality compliance documents',
-      fileSize: '2.1 MB',
-      usageCount: 267,
-      lastUsed: '2024-10-16',
-      tags: ['ISO', 'Quality', 'Certifications'],
-      status: 'approved',
-      createdBy: 'Quality Team',
-      createdDate: '2024-04-15'
-    },
-    {
-      id: 'CNT-009',
-      name: 'Sustainability Practices',
-      type: 'text',
-      category: 'Company Info',
-      description: 'Overview of eco-friendly materials and sustainable manufacturing practices',
-      usageCount: 124,
-      lastUsed: '2024-10-14',
-      tags: ['Sustainability', 'Eco-Friendly', 'Green'],
-      status: 'approved',
-      createdBy: 'Marketing',
-      createdDate: '2024-08-01'
-    },
-    {
-      id: 'CNT-010',
-      name: 'Smart Kitchen Technologies',
-      type: 'text',
-      category: 'Technology',
-      description: 'Information about smart appliances and IoT integration options',
-      usageCount: 89,
-      lastUsed: '2024-10-12',
-      tags: ['Smart', 'Technology', 'IoT'],
-      status: 'pending',
-      createdBy: 'Product Team',
-      createdDate: '2024-09-15'
+  const [content, setContent] = useState<ContentItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the ContentLibraryItem ORM shape (contentType/category/
+        // name/content/tags/usageCount/isActive/createdBy/createdAt); map it to this
+        // page's ContentItem model. fileSize and approval status are not tracked on
+        // the library record, so they fall back to defaults.
+        const raw = (await cpqProposalService.findAllContentLibraryItems()) as any[]
+        const typeMap: Record<string, ContentItem['type']> = {
+          text: 'text',
+          image: 'image',
+          video: 'video',
+          document: 'document',
+          table: 'document',
+          clause: 'text',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: ContentItem[] = (raw ?? []).map((c) => ({
+          id: c.id ?? '',
+          name: c.name ?? '',
+          type: typeMap[String(c.contentType ?? '').toLowerCase()] ?? 'document',
+          category: c.category ?? '',
+          description: typeof c.content === 'string' ? c.content.slice(0, 160) : '',
+          fileSize: c.fileSize ?? undefined,
+          usageCount: Number(c.usageCount ?? 0),
+          lastUsed: toDate(c.updatedAt ?? c.createdAt),
+          tags: Array.isArray(c.tags) ? c.tags : [],
+          status: c.isActive === false ? 'draft' : 'approved',
+          createdBy: c.createdBy ?? '',
+          createdDate: toDate(c.createdAt),
+        }))
+        if (!cancelled) setContent(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load content library')
+          setContent([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -285,6 +201,23 @@ export default function CPQProposalsContentPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading content library…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && content.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No content items found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

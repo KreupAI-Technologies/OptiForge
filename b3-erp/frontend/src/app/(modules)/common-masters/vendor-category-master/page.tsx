@@ -6,14 +6,79 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Truck, Star, Shield, TrendingUp, Package, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockVendorCategories, VendorCategory, getVendorCategoryStats } from '@/data/common-masters/vendor-categories';
+import { VendorCategory, getVendorCategoryStats } from '@/data/common-masters/vendor-categories';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function VendorCategoryMasterPage() {
-  const [categories, setCategories] = useState<VendorCategory[]>(mockVendorCategories);
+  const [categories, setCategories] = useState<VendorCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch vendor categories from the live backend, mapping the raw API shape into the page's model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllVendorCategories(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: VendorCategory[] = raw.map((c) => ({
+          id: String(c.id ?? ''),
+          categoryCode: c.code ?? c.categoryCode ?? '',
+          categoryName: c.name ?? c.categoryName ?? '',
+          description: c.description ?? '',
+          defaultPaymentTerms: c.defaultPaymentTerms ?? '',
+          defaultDeliveryTerms: c.defaultDeliveryTerms ?? undefined,
+          creditPeriod: Number(c.creditPeriod ?? 0),
+          paymentDays: c.paymentDays !== null && c.paymentDays !== undefined ? Number(c.paymentDays) : undefined,
+          advancePaymentPercentage: c.advancePaymentPercentage !== null && c.advancePaymentPercentage !== undefined ? Number(c.advancePaymentPercentage) : undefined,
+          advancePaymentRequired: c.advancePaymentRequired ?? undefined,
+          advancePercentage: c.advancePercentage !== null && c.advancePercentage !== undefined ? Number(c.advancePercentage) : undefined,
+          materialType: (c.materialType ?? 'others') as VendorCategory['materialType'],
+          vendorType: c.vendorType ?? undefined,
+          isPreferred: c.isPreferred ?? undefined,
+          qualityRating: (c.qualityRating ?? 'B') as VendorCategory['qualityRating'],
+          minOrderValue: Number(c.minOrderValue ?? 0),
+          leadTimeDays: Number(c.leadTimeDays ?? 0),
+          onTimeDeliveryRate: c.onTimeDeliveryRate !== null && c.onTimeDeliveryRate !== undefined ? Number(c.onTimeDeliveryRate) : undefined,
+          evaluationRequired: c.evaluationRequired ?? false,
+          inspectionRequired: c.inspectionRequired ?? false,
+          requiresQualityInspection: c.requiresQualityInspection ?? undefined,
+          certificationRequired: c.certificationRequired ?? false,
+          certifications: Array.isArray(c.certifications) ? c.certifications : undefined,
+          defectRate: c.defectRate !== null && c.defectRate !== undefined ? Number(c.defectRate) : undefined,
+          complianceScore: c.complianceScore !== null && c.complianceScore !== undefined ? Number(c.complianceScore) : undefined,
+          vendorsCount: Number(c.vendorsCount ?? 0),
+          totalPurchases: Number(c.totalPurchases ?? 0),
+          avgOrderValue: Number(c.avgOrderValue ?? 0),
+          averagePOValue: c.averagePOValue !== null && c.averagePOValue !== undefined ? Number(c.averagePOValue) : undefined,
+          outstandingAmount: Number(c.outstandingAmount ?? 0),
+          pendingPayments: c.pendingPayments !== null && c.pendingPayments !== undefined ? Number(c.pendingPayments) : undefined,
+          isActive: c.isActive ?? true,
+          createdBy: c.createdBy ?? '',
+          createdDate: c.createdDate ?? c.createdAt ?? '',
+        }));
+        if (!cancelled) setCategories(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load vendor categories');
+          setCategories([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -403,6 +468,24 @@ export default function VendorCategoryMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading vendor categories…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && categories.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No vendor categories found.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <DataTable

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, MessageSquare, MapPin, Headphones, AlertCircle, ThumbsUp, Calendar, User, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePageVisitLogger } from '@/hooks/usePageVisitLogger';
 import { useToast, ConfirmDialog } from '@/components/ui';
+import { interactionsService } from '@/services/interactions.service';
 
 interface Interaction {
   id: string;
@@ -17,97 +18,6 @@ interface Interaction {
   duration: string;
   outcome: 'positive' | 'neutral' | 'negative' | 'follow_up_required';
 }
-
-const mockInteractions: Interaction[] = [
-  {
-    id: '1',
-    type: 'call',
-    customer: 'Modern Kitchen Designs Ltd',
-    contactPerson: 'Sarah Johnson',
-    subject: 'Discussed new modular kitchen requirements',
-    performedBy: 'Michael Chen',
-    dateTime: '2025-10-11 10:30',
-    duration: '45 mins',
-    outcome: 'positive',
-  },
-  {
-    id: '2',
-    type: 'meeting',
-    customer: 'Gourmet Restaurant Group',
-    contactPerson: 'David Martinez',
-    subject: 'Commercial kitchen equipment presentation',
-    performedBy: 'Sarah Johnson',
-    dateTime: '2025-10-10 14:00',
-    duration: '2 hours',
-    outcome: 'follow_up_required',
-  },
-  {
-    id: '3',
-    type: 'site_visit',
-    customer: 'Urban Living Spaces',
-    contactPerson: 'Emily Davis',
-    subject: 'Site measurement and design consultation',
-    performedBy: 'David Park',
-    dateTime: '2025-10-10 09:00',
-    duration: '3 hours',
-    outcome: 'positive',
-  },
-  {
-    id: '4',
-    type: 'email',
-    customer: 'HomeTech Solutions',
-    contactPerson: 'Robert Wilson',
-    subject: 'Sent quote for kitchen cabinet installation',
-    performedBy: 'Michael Chen',
-    dateTime: '2025-10-09 16:20',
-    duration: '15 mins',
-    outcome: 'neutral',
-  },
-  {
-    id: '5',
-    type: 'support',
-    customer: 'Premium Kitchens Inc',
-    contactPerson: 'Lisa Anderson',
-    subject: 'After-sales service request for drawer mechanism',
-    performedBy: 'John Smith',
-    dateTime: '2025-10-09 11:00',
-    duration: '1 hour',
-    outcome: 'positive',
-  },
-  {
-    id: '6',
-    type: 'complaint',
-    customer: 'Elite Home Builders',
-    contactPerson: 'James Martinez',
-    subject: 'Delay in delivery of kitchen countertops',
-    performedBy: 'Sarah Johnson',
-    dateTime: '2025-10-08 15:30',
-    duration: '30 mins',
-    outcome: 'follow_up_required',
-  },
-  {
-    id: '7',
-    type: 'feedback',
-    customer: 'Luxury Interiors Co',
-    contactPerson: 'Patricia Brown',
-    subject: 'Customer satisfaction survey response',
-    performedBy: 'David Park',
-    dateTime: '2025-10-08 10:00',
-    duration: '20 mins',
-    outcome: 'positive',
-  },
-  {
-    id: '8',
-    type: 'call',
-    customer: 'Smart Home Solutions',
-    contactPerson: 'Richard Taylor',
-    subject: 'Follow-up on previous kitchen design proposal',
-    performedBy: 'Michael Chen',
-    dateTime: '2025-10-07 13:45',
-    duration: '35 mins',
-    outcome: 'neutral',
-  },
-];
 
 const typeIcons = {
   call: Phone,
@@ -139,7 +49,9 @@ const outcomeColors = {
 export default function InteractionsPage() {
   const router = useRouter();
   const { addToast } = useToast();
-  const [interactions, setInteractions] = useState<Interaction[]>(mockInteractions);
+  const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -150,6 +62,42 @@ export default function InteractionsPage() {
 
   // Automatically log page visits
   usePageVisitLogger('/crm/interactions', true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Service returns the raw interaction shape; map defensively to the
+        // page's Interaction model.
+        const raw = (await interactionsService.getAllInteractions()) as any[];
+        const mapped: Interaction[] = (raw || []).map((i) => ({
+          id: String(i.id),
+          type: (i.type ?? 'call') as Interaction['type'],
+          customer: i.customer ?? '',
+          contactPerson: i.contactPerson ?? '',
+          subject: i.subject ?? '',
+          performedBy: i.performedBy ?? '',
+          dateTime: i.dateTime ?? i.createdAt ?? '',
+          duration: i.duration ?? '',
+          outcome: (i.outcome ?? 'neutral') as Interaction['outcome'],
+        }));
+        if (!cancelled) setInteractions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load interactions');
+          setInteractions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredInteractions = interactions.filter((interaction) => {
     const matchesSearch =
@@ -208,6 +156,23 @@ export default function InteractionsPage() {
 
   return (
     <div className="w-full min-h-screen px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading interactions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && interactions.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No interactions found.
+        </div>
+      )}
       {/* Stats with Add Button */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

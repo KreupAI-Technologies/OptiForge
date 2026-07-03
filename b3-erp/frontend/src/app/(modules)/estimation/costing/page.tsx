@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Eye, Edit, Trash2, FileText, Calendar, DollarSign, User, TrendingUp, Download, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, FileText, Calendar, DollarSign, User, TrendingUp, Download, Filter, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { costEstimateService } from '@/services/estimation-cost-estimate.service';
 
 interface CostEstimation {
   id: string;
@@ -19,78 +20,17 @@ interface CostEstimation {
   currency: string;
 }
 
-const mockEstimations: CostEstimation[] = [
-  {
-    id: 'EST-2025-001',
-    projectName: 'Commercial Kitchen Setup - Hotel Paradise',
-    customerName: 'Hotel Paradise Ltd',
-    boqReference: 'BOQ-HP-2025-001',
-    estimationDate: '2025-10-01',
-    deliveryDate: '2025-11-15',
-    totalCost: 125000,
-    margin: 25000,
-    finalPrice: 150000,
-    status: 'approved',
-    createdBy: 'John Estimator',
-    currency: 'USD',
-  },
-  {
-    id: 'EST-2025-002',
-    projectName: 'Restaurant Equipment Package',
-    customerName: 'Culinary Delights Inc',
-    boqReference: 'BOQ-CD-2025-002',
-    estimationDate: '2025-10-05',
-    deliveryDate: '2025-10-30',
-    totalCost: 85000,
-    margin: 17000,
-    finalPrice: 102000,
-    status: 'pending_approval',
-    createdBy: 'Sarah Costing',
-    currency: 'USD',
-  },
-  {
-    id: 'EST-2025-003',
-    projectName: 'Hospital Kitchen Renovation',
-    customerName: 'City General Hospital',
-    boqReference: 'BOQ-CGH-2025-003',
-    estimationDate: '2025-10-08',
-    deliveryDate: '2025-12-01',
-    totalCost: 200000,
-    margin: 40000,
-    finalPrice: 240000,
-    status: 'draft',
-    createdBy: 'Michael Chen',
-    currency: 'USD',
-  },
-  {
-    id: 'EST-2025-004',
-    projectName: 'School Cafeteria Equipment',
-    customerName: 'Springfield Academy',
-    boqReference: 'BOQ-SA-2025-004',
-    estimationDate: '2025-10-10',
-    deliveryDate: '2025-11-20',
-    totalCost: 45000,
-    margin: 9000,
-    finalPrice: 54000,
-    status: 'approved',
-    createdBy: 'John Estimator',
-    currency: 'USD',
-  },
-  {
-    id: 'EST-2025-005',
-    projectName: 'Bakery Production Line',
-    customerName: 'Artisan Bakers Co',
-    boqReference: 'BOQ-AB-2025-005',
-    estimationDate: '2025-10-12',
-    deliveryDate: '2025-11-25',
-    totalCost: 175000,
-    margin: 35000,
-    finalPrice: 210000,
-    status: 'rejected',
-    createdBy: 'Sarah Costing',
-    currency: 'USD',
-  },
-];
+// Default company scope; the backend cost-estimate endpoints are company-scoped.
+const COMPANY_ID = 'company-001';
+
+// Map the backend CostEstimateStatus to this page's lowercase status enum.
+const STATUS_MAP: Record<string, CostEstimation['status']> = {
+  Draft: 'draft',
+  'Pending Approval': 'pending_approval',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  'Converted to Order': 'approved',
+};
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -110,7 +50,53 @@ const statusLabels = {
 
 export default function CostingPage() {
   const router = useRouter();
-  const [estimations, setEstimations] = useState<CostEstimation[]>(mockEstimations);
+  const [estimations, setEstimations] = useState<CostEstimation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the CostEstimate ORM shape (estimateNumber/title/
+        // customerName/totalCost/status PascalCase); map defensively to this
+        // page's CostEstimation model.
+        const raw = (await costEstimateService.findAll(COMPANY_ID)) as any[];
+        const mapped: CostEstimation[] = (raw ?? []).map((e) => {
+          const totalCost = Number(e.totalCost ?? e.directCost ?? 0);
+          const finalPrice = Number(e.finalPrice ?? e.totalPrice ?? totalCost);
+          return {
+            id: String(e.id ?? e.estimateNumber ?? ''),
+            projectName: e.title ?? e.projectName ?? e.estimateNumber ?? '',
+            customerName: e.customerName ?? e.customer_name ?? '',
+            boqReference: e.boqId ?? e.boqReference ?? e.boq_id ?? '',
+            estimationDate: (e.estimateDate ?? e.createdAt ?? '').toString().split('T')[0] ?? '',
+            deliveryDate: (e.validUntil ?? '').toString().split('T')[0] ?? '',
+            totalCost,
+            margin: Number(e.margin ?? Math.max(finalPrice - totalCost, 0)),
+            finalPrice,
+            status: STATUS_MAP[e.status] ?? 'draft',
+            createdBy: e.submittedBy ?? e.createdBy ?? '',
+            currency: e.currency ?? 'USD',
+          };
+        });
+        if (!cancelled) setEstimations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cost estimates');
+          setEstimations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,6 +131,23 @@ export default function CostingPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading cost estimates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && estimations.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No cost estimates found.
+        </div>
+      )}
       {/* Stats */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

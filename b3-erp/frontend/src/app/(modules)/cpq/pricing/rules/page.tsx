@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Calculator,
@@ -12,9 +12,11 @@ import {
   ToggleLeft,
   ToggleRight,
   TrendingUp,
-  Percent
+  Percent,
+  AlertCircle
 } from 'lucide-react'
 import { CreateRuleModal, EditRuleModal, TestRuleModal } from '@/components/cpq/PricingRuleModals'
+import { cpqPricingService } from '@/services/cpq'
 
 interface PricingRule {
   id: string
@@ -37,88 +39,67 @@ export default function CPQPricingRulesPage() {
   const [isTestModalOpen, setIsTestModalOpen] = useState(false)
   const [selectedRule, setSelectedRule] = useState<PricingRule | null>(null)
 
-  const [pricingRules, setPricingRules] = useState<PricingRule[]>([
-    {
-      id: 'PR-001',
-      name: 'Premium Material Markup',
-      type: 'markup',
-      condition: 'If Material = Premium',
-      value: '+35%',
-      priority: 1,
-      status: 'active',
-      appliedCount: 156
-    },
-    {
-      id: 'PR-002',
-      name: 'Bulk Order Discount',
-      type: 'discount',
-      condition: 'If Quantity > 10',
-      value: '-12%',
-      priority: 2,
-      status: 'active',
-      appliedCount: 89
-    },
-    {
-      id: 'PR-003',
-      name: 'Custom Configuration Surcharge',
-      type: 'markup',
-      condition: 'If Customization = Yes',
-      value: '+₹50,000',
-      priority: 1,
-      status: 'active',
-      appliedCount: 203
-    },
-    {
-      id: 'PR-004',
-      name: 'Volume Based Tiered Pricing',
-      type: 'tiered',
-      condition: 'Based on Quantity Tiers',
-      value: '5-10: -8%, 11-20: -15%, 21+: -22%',
-      priority: 2,
-      status: 'active',
-      appliedCount: 127
-    },
-    {
-      id: 'PR-005',
-      name: 'Smart Appliance Premium',
-      type: 'markup',
-      condition: 'If Appliance Type = Smart',
-      value: '+25%',
-      priority: 1,
-      status: 'active',
-      appliedCount: 94
-    },
-    {
-      id: 'PR-006',
-      name: 'Express Delivery Fee',
-      type: 'markup',
-      condition: 'If Delivery = Express',
-      value: '+₹15,000',
-      priority: 3,
-      status: 'active',
-      appliedCount: 67
-    },
-    {
-      id: 'PR-007',
-      name: 'Seasonal Discount - Q4',
-      type: 'discount',
-      condition: 'If Quarter = Q4',
-      value: '-10%',
-      priority: 3,
-      status: 'inactive',
-      appliedCount: 45
-    },
-    {
-      id: 'PR-008',
-      name: 'Complex Formula Pricing',
-      type: 'formula',
-      condition: 'Custom calculation',
-      value: 'Base * (1 + Complexity/100) + Labor',
-      priority: 2,
-      status: 'active',
-      appliedCount: 112
+  const [pricingRules, setPricingRules] = useState<PricingRule[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the structured PricingRule ORM shape (ruleName/ruleType/
+        // conditions[]/adjustmentType/adjustmentValue/priority/isActive); collapse
+        // it into this page's display-oriented model.
+        const raw = (await cpqPricingService.findAllRules()) as any[]
+        const typeMap: Record<string, PricingRule['type']> = {
+          markup: 'markup',
+          discount: 'discount',
+          formula: 'formula',
+          tiered: 'tiered',
+          volume: 'tiered',
+          base_price: 'markup',
+          customer_specific: 'discount',
+          promotional: 'discount',
+        }
+        const describeConditions = (conds: any): string => {
+          if (!Array.isArray(conds) || conds.length === 0) return '—'
+          return conds
+            .map((c) => `${c?.field ?? ''} ${c?.operator ?? ''} ${String(c?.value ?? '')}`.trim())
+            .join('; ')
+        }
+        const describeValue = (r: any): string => {
+          const v = Number(r?.adjustmentValue ?? 0)
+          if (r?.adjustmentType === 'percentage') return `${v}%`
+          if (r?.adjustmentType === 'formula') return String(r?.formulaExpression ?? 'formula')
+          return String(v)
+        }
+        const mapped: PricingRule[] = (raw ?? []).map((r) => ({
+          id: r.id ?? '',
+          name: r.ruleName ?? '',
+          type: typeMap[r.ruleType] ?? 'markup',
+          condition: describeConditions(r.conditions),
+          value: describeValue(r),
+          priority: Number(r.priority ?? 0),
+          status: r.isActive === false ? 'inactive' : 'active',
+          appliedCount: Number(r.appliedCount ?? 0),
+        }))
+        if (!cancelled) setPricingRules(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pricing rules')
+          setPricingRules([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getTypeColor = (type: string) => {
     const colors: any = {
@@ -230,6 +211,23 @@ export default function CPQPricingRulesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading pricing rules…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && pricingRules.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No pricing rules found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

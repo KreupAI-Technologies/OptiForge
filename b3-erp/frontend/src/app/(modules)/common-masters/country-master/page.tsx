@@ -4,16 +4,56 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Upload, Filter, X, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockCountries, Country } from '@/data/common-masters/countries';
+import { Country } from '@/data/common-masters/countries';
+import { commonMastersService } from '@/services/common-masters.service';
 
 export default function CountryMasterPage() {
-  const [countries, setCountries] = useState<Country[]>(mockCountries);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterContinent, setFilterContinent] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch countries from the live backend, mapping the raw API shape to the page's Country model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllCountries()) as any[];
+        const mapped: Country[] = raw.map((c) => ({
+          id: String(c.id ?? ''),
+          code: c.code ?? '',
+          name: c.name ?? '',
+          dialCode: c.dialCode ?? c.phoneCode ?? '',
+          currency: c.currency ?? '',
+          currencySymbol: c.currencySymbol ?? '',
+          flag: c.flag ?? '',
+          continent: c.continent ?? '',
+          isActive: c.isActive ?? true,
+          createdAt: c.createdAt ?? '',
+          updatedAt: c.updatedAt ?? '',
+        }));
+        if (!cancelled) setCountries(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load countries');
+          setCountries([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Toast notification effect
   useEffect(() => {
@@ -201,6 +241,24 @@ export default function CountryMasterPage() {
                 {toast.type === 'info' && <AlertCircle className="w-5 h-5" />}
                 <span className="font-medium">{toast.message}</span>
               </div>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading countries…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
+          {!isLoading && !loadError && countries.length === 0 && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              No countries found.
             </div>
           )}
 

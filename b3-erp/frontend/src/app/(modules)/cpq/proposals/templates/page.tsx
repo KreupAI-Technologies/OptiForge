@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -15,8 +15,10 @@ import {
   ToggleLeft,
   ToggleRight,
   Layers,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react'
+import { cpqProposalService } from '@/services/cpq'
 import {
   TemplateModal,
   ViewTemplateModal,
@@ -46,144 +48,55 @@ interface ProposalTemplate {
 export default function CPQProposalsTemplatesPage() {
   const router = useRouter()
 
-  const [templates] = useState<ProposalTemplate[]>([
-    {
-      id: 'TPL-P001',
-      name: 'Premium Kitchen Proposal',
-      description: 'Comprehensive proposal template for premium modular kitchen projects with 3D visualizations',
-      category: 'Premium',
-      sections: 12,
-      pages: 24,
-      lastUsed: '2024-10-18',
-      usageCount: 156,
-      successRate: 72,
-      avgDealSize: 2850000,
-      isFavorite: true,
-      status: 'active',
-      thumbnail: '/templates/premium-kitchen.jpg',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-06-15'
-    },
-    {
-      id: 'TPL-P002',
-      name: 'Standard Kitchen Proposal',
-      description: 'Standard template for mid-range modular kitchen projects',
-      category: 'Standard',
-      sections: 8,
-      pages: 16,
-      lastUsed: '2024-10-17',
-      usageCount: 243,
-      successRate: 68,
-      avgDealSize: 1750000,
-      isFavorite: true,
-      status: 'active',
-      thumbnail: '/templates/standard-kitchen.jpg',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-05-20'
-    },
-    {
-      id: 'TPL-P003',
-      name: 'L-Shaped Kitchen Proposal',
-      description: 'Specialized template for L-shaped kitchen layouts with space optimization',
-      category: 'Layout-Specific',
-      sections: 10,
-      pages: 18,
-      lastUsed: '2024-10-16',
-      usageCount: 187,
-      successRate: 70,
-      avgDealSize: 2100000,
-      isFavorite: false,
-      status: 'active',
-      thumbnail: '/templates/l-shaped.jpg',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-07-10'
-    },
-    {
-      id: 'TPL-P004',
-      name: 'Island Kitchen Proposal',
-      description: 'Luxury template for island kitchen configurations',
-      category: 'Luxury',
-      sections: 14,
-      pages: 28,
-      lastUsed: '2024-10-15',
-      usageCount: 92,
-      successRate: 75,
-      avgDealSize: 4200000,
-      isFavorite: true,
-      status: 'active',
-      thumbnail: '/templates/island.jpg',
-      createdBy: 'Neha Gupta',
-      createdDate: '2024-08-05'
-    },
-    {
-      id: 'TPL-P005',
-      name: 'Builder Economy Package',
-      description: 'Quick proposal template for builder economy projects with standard features',
-      category: 'Economy',
-      sections: 6,
-      pages: 12,
-      lastUsed: '2024-10-12',
-      usageCount: 324,
-      successRate: 64,
-      avgDealSize: 950000,
-      isFavorite: false,
-      status: 'active',
-      thumbnail: '/templates/economy.jpg',
-      createdBy: 'Vikram Singh',
-      createdDate: '2024-04-18'
-    },
-    {
-      id: 'TPL-P006',
-      name: 'Custom Design Proposal',
-      description: 'Flexible template for fully customized kitchen designs',
-      category: 'Custom',
-      sections: 16,
-      pages: 32,
-      lastUsed: '2024-10-10',
-      usageCount: 78,
-      successRate: 78,
-      avgDealSize: 5800000,
-      isFavorite: false,
-      status: 'active',
-      thumbnail: '/templates/custom.jpg',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-09-01'
-    },
-    {
-      id: 'TPL-P007',
-      name: 'Renovation Proposal',
-      description: 'Template for kitchen renovation and remodeling projects',
-      category: 'Renovation',
-      sections: 9,
-      pages: 18,
-      lastUsed: '2024-09-28',
-      usageCount: 134,
-      successRate: 66,
-      avgDealSize: 1450000,
-      isFavorite: false,
-      status: 'active',
-      thumbnail: '/templates/renovation.jpg',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-07-22'
-    },
-    {
-      id: 'TPL-P008',
-      name: 'Quick Quote Proposal',
-      description: 'Lightweight template for quick quotations with essential details only',
-      category: 'Quick',
-      sections: 5,
-      pages: 8,
-      lastUsed: '2024-10-08',
-      usageCount: 412,
-      successRate: 58,
-      avgDealSize: 725000,
-      isFavorite: true,
-      status: 'active',
-      thumbnail: '/templates/quick.jpg',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-03-15'
+  const [templates, setTemplates] = useState<ProposalTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the ProposalTemplate ORM shape (templateName/description/
+        // category/sections[]/isActive/usageCount/createdAt); map it to this page's
+        // template model. Analytics/presentation fields (pages, successRate,
+        // avgDealSize, thumbnail, createdBy) are not part of the record.
+        const raw = (await cpqProposalService.findAllTemplates()) as any[]
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: ProposalTemplate[] = (raw ?? []).map((t) => ({
+          id: t.id ?? '',
+          name: t.templateName ?? '',
+          description: t.description ?? '',
+          category: t.category ?? '',
+          sections: Array.isArray(t.sections) ? t.sections.length : Number(t.sections ?? 0),
+          pages: Number(t.pages ?? 0),
+          lastUsed: toDate(t.updatedAt ?? t.createdAt),
+          usageCount: Number(t.usageCount ?? 0),
+          successRate: Number(t.successRate ?? 0),
+          avgDealSize: Number(t.avgDealSize ?? 0),
+          isFavorite: Boolean(t.isFavorite ?? false),
+          status: t.isActive === false ? 'archived' : 'active',
+          thumbnail: t.thumbnail ?? '',
+          createdBy: t.createdBy ?? '',
+          createdDate: toDate(t.createdAt),
+        }))
+        if (!cancelled) setTemplates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load proposal templates')
+          setTemplates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getCategoryColor = (category: string) => {
     const colors: any = {
@@ -277,6 +190,23 @@ export default function CPQProposalsTemplatesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading proposal templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && templates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No proposal templates found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

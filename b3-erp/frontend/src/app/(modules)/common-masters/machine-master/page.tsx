@@ -4,16 +4,103 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Settings, Activity, AlertCircle, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockMachines, Machine, getMachineStats } from '@/data/common-masters/machines';
+import { Machine, getMachineStats } from '@/data/common-masters/machines';
+import { manufacturingMastersService } from '@/services/manufacturing-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function MachineMasterPage() {
-  const [machines, setMachines] = useState<Machine[]>(mockMachines);
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterLocation, setFilterLocation] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch machines from the live backend, mapping the flat API shape into the page's nested Machine model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await manufacturingMastersService.getAllMachines(DEFAULT_COMPANY_ID)) as any[];
+        const statusToOperational: Record<string, Machine['operationalStatus']> = {
+          running: 'running', idle: 'idle', maintenance: 'maintenance',
+          breakdown: 'breakdown', retired: 'retired',
+        };
+        const mapped: Machine[] = raw.map((m) => ({
+          id: String(m.id ?? ''),
+          machineCode: m.machineCode ?? m.code ?? '',
+          machineName: m.machineName ?? m.name ?? '',
+          machineType: (m.machineType ?? 'cutting') as Machine['machineType'],
+          category: (m.category ?? 'production') as Machine['category'],
+          manufacturer: m.manufacturer ?? '',
+          model: m.model ?? '',
+          serialNumber: m.serialNumber ?? '',
+          location: m.location ?? '',
+          workCenter: m.workCenter?.name ?? m.workCenter ?? '',
+          department: m.department ?? '',
+          capacity: {
+            unit: m.capacity?.unit ?? 'units',
+            perHour: Number(m.capacity?.perHour ?? 0),
+            perShift: Number(m.capacity?.perShift ?? 0),
+            perDay: Number(m.capacity?.perDay ?? 0),
+          },
+          specifications: {
+            powerRating: m.specifications?.powerRating ?? m.power ?? '',
+            voltage: m.specifications?.voltage ?? '',
+            dimensions: m.specifications?.dimensions ?? m.dimensions ?? '',
+            weight: m.specifications?.weight ?? (m.weight !== null && m.weight !== undefined ? String(m.weight) : ''),
+          },
+          operatorRequired: Number(m.operatorRequired ?? 0),
+          skillLevel: (m.skillLevel ?? 'basic') as Machine['skillLevel'],
+          setupTime: Number(m.setupTime ?? 0),
+          cycleTime: Number(m.cycleTime ?? 0),
+          maintenance: {
+            lastDate: m.maintenance?.lastDate ?? '',
+            nextDate: m.maintenance?.nextDate ?? '',
+            frequency: (m.maintenance?.frequency ?? 'monthly') as Machine['maintenance']['frequency'],
+            type: (m.maintenance?.type ?? 'preventive') as Machine['maintenance']['type'],
+          },
+          purchaseDate: m.purchaseDate ?? '',
+          purchaseCost: Number(m.purchaseCost ?? 0),
+          currency: m.currency ?? 'INR',
+          depreciationRate: Number(m.depreciationRate ?? 0),
+          currentValue: Number(m.currentValue ?? 0),
+          oee: Number(m.oee ?? 0),
+          availability: Number(m.availability ?? 0),
+          performance: Number(m.performance ?? m.efficiency ?? 0),
+          quality: Number(m.quality ?? 0),
+          downtimeHours: Number(m.downtimeHours ?? 0),
+          utilizationRate: Number(m.utilizationRate ?? 0),
+          safetyInstructions: Array.isArray(m.safetyInstructions) ? m.safetyInstructions : [],
+          requiresSafetyTraining: m.requiresSafetyTraining ?? false,
+          lastSafetyInspection: m.lastSafetyInspection ?? undefined,
+          operationalStatus: statusToOperational[m.status] ?? (m.operationalStatus ?? 'idle') as Machine['operationalStatus'],
+          isActive: m.isActive ?? true,
+          createdAt: m.createdAt ?? '',
+          updatedAt: m.updatedAt ?? '',
+          notes: m.notes ?? undefined,
+        }));
+        if (!cancelled) setMachines(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load machines');
+          setMachines([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -433,6 +520,24 @@ export default function MachineMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading machines…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && machines.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No machines found.
+        </div>
+      )}
 
       {/* Data Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

@@ -127,7 +127,7 @@ export interface ProductionPlanFilters {
 // MOCK DATA
 // ============================================================================
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 export const MOCK_PRODUCTION_PLANS: ProductionPlan[] = [
   {

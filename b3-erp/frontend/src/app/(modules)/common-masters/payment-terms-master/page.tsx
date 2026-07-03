@@ -4,15 +4,78 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, CreditCard, Users, TrendingUp, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockPaymentTerms, PaymentTerm, getPaymentTermStats } from '@/data/common-masters/payment-terms';
+import { PaymentTerm, getPaymentTermStats } from '@/data/common-masters/payment-terms';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function PaymentTermsMasterPage() {
-  const [terms, setTerms] = useState<PaymentTerm[]>(mockPaymentTerms);
+  const [terms, setTerms] = useState<PaymentTerm[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterApplicability, setFilterApplicability] = useState<string>('all');
   const [filterMethod, setFilterMethod] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch payment terms from the live backend, mapping the raw API shape into the page's model.
+  useEffect(() => {
+    let cancelled = false;
+    const applicableToMap: Record<string, PaymentTerm['applicableFor']> = {
+      customer: 'customers', customers: 'customers',
+      vendor: 'vendors', vendors: 'vendors',
+      both: 'both', all: 'both',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllPaymentTerms(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: PaymentTerm[] = raw.map((t) => ({
+          id: String(t.id ?? ''),
+          termCode: t.termCode ?? '',
+          termName: t.termName ?? '',
+          description: t.description ?? '',
+          daysAfterInvoice: Number(t.dueDays ?? t.daysAfterInvoice ?? 0),
+          daysAfterDelivery: Number(t.daysAfterDelivery ?? 0),
+          creditPeriod: Number(t.creditPeriod ?? t.dueDays ?? 0),
+          paymentMethod: (t.paymentType ?? t.paymentMethod ?? 'credit') as PaymentTerm['paymentMethod'],
+          advancePercentage: t.advancePercentage !== null && t.advancePercentage !== undefined ? Number(t.advancePercentage) : undefined,
+          earlyPaymentDiscount: t.discountTerms?.earlyPaymentDiscount !== undefined && t.discountTerms?.earlyPaymentDiscount !== null ? Number(t.discountTerms.earlyPaymentDiscount) : undefined,
+          earlyPaymentDays: t.discountTerms?.earlyPaymentDays !== undefined && t.discountTerms?.earlyPaymentDays !== null ? Number(t.discountTerms.earlyPaymentDays) : undefined,
+          cashDiscountPercentage: t.discountTerms?.cashDiscountPercentage !== undefined && t.discountTerms?.cashDiscountPercentage !== null ? Number(t.discountTerms.cashDiscountPercentage) : undefined,
+          lateFeePercentage: t.penaltyTerms?.lateFeePercentage !== undefined && t.penaltyTerms?.lateFeePercentage !== null ? Number(t.penaltyTerms.lateFeePercentage) : undefined,
+          lateFeeStartsAfter: t.penaltyTerms?.lateFeeStartsAfter !== undefined && t.penaltyTerms?.lateFeeStartsAfter !== null ? Number(t.penaltyTerms.lateFeeStartsAfter) : undefined,
+          interestRate: t.penaltyTerms?.interestRate !== undefined && t.penaltyTerms?.interestRate !== null ? Number(t.penaltyTerms.interestRate) : undefined,
+          applicableFor: applicableToMap[t.applicableTo] ?? (t.applicableFor ?? 'both') as PaymentTerm['applicableFor'],
+          isDefault: t.isDefault ?? false,
+          priority: Number(t.priority ?? 0),
+          customersUsing: Number(t.customersUsing ?? 0),
+          vendorsUsing: Number(t.vendorsUsing ?? 0),
+          transactionsCount: Number(t.transactionsCount ?? 0),
+          totalAmount: Number(t.totalAmount ?? 0),
+          isActive: t.isActive ?? (t.status ? t.status === 'active' : true),
+          createdBy: t.createdBy ?? '',
+          createdDate: t.createdDate ?? t.createdAt ?? '',
+          modifiedBy: t.modifiedBy ?? '',
+          modifiedDate: t.modifiedDate ?? t.updatedAt ?? '',
+        }));
+        if (!cancelled) setTerms(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load payment terms');
+          setTerms([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -296,6 +359,24 @@ export default function PaymentTermsMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading payment terms…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && terms.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No payment terms found.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <DataTable data={filteredData} columns={columns} pagination={{ enabled: true, pageSize: 10 }} sorting={{ enabled: true, defaultSort: { column: 'term', direction: 'asc' } }} emptyMessage="No payment terms found" />

@@ -1,7 +1,7 @@
 // IT Admin Management Service
 // Provides comprehensive IT administration functionality
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================
 // INTERFACES

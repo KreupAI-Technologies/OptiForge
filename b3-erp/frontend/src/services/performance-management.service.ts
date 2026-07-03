@@ -4,7 +4,7 @@
  * feedback, KPIs, PIPs, and performance analytics
  */
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================================================
 // Enums

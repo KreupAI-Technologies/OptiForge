@@ -1,49 +1,88 @@
 'use client';
 
-import React, { useState } from 'react';
-import { MessageSquare, Heart, Share2, MoreHorizontal, Image, FileText, Send, ThumbsUp, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MessageSquare, Heart, Share2, MoreHorizontal, Image, FileText, Send, ThumbsUp, MessageCircle, AlertCircle } from 'lucide-react';
+import { collaborationService } from '@/services/collaboration.service';
+
+interface FeedPost {
+    id: number | string;
+    author: string;
+    role: string;
+    time: string;
+    content: string;
+    likes: number;
+    comments: number;
+    hasImage: boolean;
+    image?: string;
+    isSystem?: boolean;
+}
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
+
+// Format an ISO/date value into a coarse relative label.
+const toRelativeTime = (value: any): string => {
+    if (!value) return '';
+    const then = new Date(value).getTime();
+    if (Number.isNaN(then)) return '';
+    const diffMs = Date.now() - then;
+    const mins = Math.round(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.round(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+};
 
 export default function ActivityFeedPage() {
-    const [posts, setPosts] = useState([
-        {
-            id: 1,
-            author: 'Sarah Wilson',
-            role: 'Project Manager',
-            time: '2 hours ago',
-            content: 'Just deployed the new Q4 roadmap. Great work everyone on hitting the milestones early! 🚀',
-            likes: 12,
-            comments: 3,
-            hasImage: true,
-            image: '/api/placeholder/600/300',
-        },
-        {
-            id: 2,
-            author: 'Mike Johnson',
-            role: 'Lead Developer',
-            time: '4 hours ago',
-            content: 'The new API documentation is now live. Check it out in the developer portal.',
-            likes: 8,
-            comments: 1,
-            hasImage: false,
-        },
-        {
-            id: 3,
-            author: 'System',
-            role: 'Automated',
-            time: '5 hours ago',
-            content: 'Weekly maintenance completed successfully. All systems are operational.',
-            likes: 2,
-            comments: 0,
-            hasImage: false,
-            isSystem: true,
-        },
-    ]);
+    const [posts, setPosts] = useState<FeedPost[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns raw TeamActivity records; map them to the
+                // page's FeedPost model defensively.
+                const raw = (await collaborationService.getRecentActivity(COMPANY_ID, 20)) as any[];
+                const mapped: FeedPost[] = (raw ?? []).map((a) => {
+                    const author = a.userName ?? 'Unknown';
+                    return {
+                        id: a.id ?? Math.random(),
+                        author,
+                        role: a.teamName ?? a.activityType ?? 'Activity',
+                        time: toRelativeTime(a.activityAt ?? a.createdAt),
+                        content: a.activityDescription ?? '',
+                        likes: Number(a.likes ?? 0),
+                        comments: Number(a.comments ?? 0),
+                        hasImage: false,
+                        isSystem: author === 'System' || author === 'system',
+                    };
+                });
+                if (!cancelled) setPosts(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load activity feed');
+                    setPosts([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const [newPost, setNewPost] = useState('');
 
     const handlePost = () => {
         if (!newPost.trim()) return;
-        const post = {
+        const post: FeedPost = {
             id: Date.now(),
             author: 'You',
             role: 'Current User',
@@ -104,6 +143,23 @@ export default function ActivityFeedPage() {
                 </div>
 
                 {/* Feed */}
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading activity feed…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && posts.length === 0 && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        No activity yet.
+                    </div>
+                )}
                 <div className="space-y-3">
                     {posts.map((post) => (
                         <div key={post.id} className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">

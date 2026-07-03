@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Package,
@@ -15,103 +15,63 @@ import {
   DollarSign,
   Tag,
   Grid3x3,
-  Image
+  Image,
+  AlertCircle
 } from 'lucide-react'
 import { ProductModal, ViewProductModal, FilterModal, Product } from '@/components/cpq/ProductCatalogModals'
+import { cpqProductService } from '@/services/cpq'
 
 export default function CPQProductsCatalogPage() {
   const router = useRouter()
 
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 'PROD-001',
-      sku: 'PMK-LUX-001',
-      name: 'Premium Modular Kitchen - Island Configuration',
-      category: 'Premium Modular Kitchen',
-      basePrice: 6500000,
-      status: 'active',
-      variants: 12,
-      lastModified: '2025-10-18',
-      image: '🏠'
-    },
-    {
-      id: 'PROD-002',
-      sku: 'ISL-STD-001',
-      name: 'Standard Island Kitchen Package',
-      category: 'Island Kitchen',
-      basePrice: 4200000,
-      status: 'active',
-      variants: 8,
-      lastModified: '2025-10-17',
-      image: '🏡'
-    },
-    {
-      id: 'PROD-003',
-      sku: 'LSH-MOD-001',
-      name: 'L-Shaped Modular Kitchen',
-      category: 'L-Shaped Kitchen',
-      basePrice: 2800000,
-      status: 'active',
-      variants: 10,
-      lastModified: '2025-10-16',
-      image: '🏘️'
-    },
-    {
-      id: 'PROD-004',
-      sku: 'PAR-STD-001',
-      name: 'Parallel Kitchen with Breakfast Counter',
-      category: 'Parallel Kitchen',
-      basePrice: 3100000,
-      status: 'active',
-      variants: 6,
-      lastModified: '2025-10-15',
-      image: '🏚️'
-    },
-    {
-      id: 'PROD-005',
-      sku: 'COM-MIN-001',
-      name: 'Compact Kitchen for Studio Apartments',
-      category: 'Compact Kitchen',
-      basePrice: 850000,
-      status: 'active',
-      variants: 5,
-      lastModified: '2025-10-14',
-      image: '🏢'
-    },
-    {
-      id: 'PROD-006',
-      sku: 'CMR-PRO-001',
-      name: 'Commercial Kitchen - Restaurant Setup',
-      category: 'Commercial Kitchen',
-      basePrice: 12500000,
-      status: 'active',
-      variants: 15,
-      lastModified: '2025-10-13',
-      image: '🏭'
-    },
-    {
-      id: 'PROD-007',
-      sku: 'INS-HOT-001',
-      name: 'Institutional Kitchen - Hotel Package',
-      category: 'Institutional Kitchen',
-      basePrice: 18500000,
-      status: 'active',
-      variants: 20,
-      lastModified: '2025-10-12',
-      image: '🏨'
-    },
-    {
-      id: 'PROD-008',
-      sku: 'BLD-PKG-001',
-      name: 'Builder Package - Standard Kitchen Bundle',
-      category: 'Builder Package',
-      basePrice: 22000000,
-      status: 'active',
-      variants: 8,
-      lastModified: '2025-10-10',
-      image: '🏗️'
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the CPQProduct ORM shape (sku/name/category/basePrice/
+        // status/updatedAt); map it to this page's catalog Product model. variants
+        // and image are presentation-only and not part of the product record.
+        const raw = (await cpqProductService.findAllProducts()) as any[]
+        const statusMap: Record<string, Product['status']> = {
+          active: 'active',
+          inactive: 'inactive',
+          discontinued: 'discontinued',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: Product[] = (raw ?? []).map((p) => ({
+          id: p.id ?? '',
+          sku: p.sku ?? '',
+          name: p.name ?? '',
+          category: p.category ?? '',
+          basePrice: Number(p.basePrice ?? 0),
+          status: statusMap[p.status] ?? 'active',
+          variants: Number(p.variants ?? 0),
+          lastModified: toDate(p.updatedAt ?? p.createdAt),
+          image: p.imageUrl ?? '📦',
+          description: p.description ?? undefined,
+        }))
+        if (!cancelled) setProducts(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load products')
+          setProducts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All Categories')
@@ -246,6 +206,23 @@ export default function CPQProductsCatalogPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading products…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && products.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No products found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

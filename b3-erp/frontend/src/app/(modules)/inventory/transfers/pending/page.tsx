@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Clock,
   CheckCircle,
@@ -13,8 +13,10 @@ import {
   Calendar,
   Search,
   Filter,
-  Download
+  Download,
+  AlertCircle
 } from 'lucide-react';
+import { stockTransferService } from '@/services/stock-transfer.service';
 
 interface PendingTransfer {
   id: number;
@@ -34,60 +36,62 @@ export default function PendingTransfersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [pendingTransfers, setPendingTransfers] = useState<PendingTransfer[]>([
-    {
-      id: 1,
-      transferNumber: 'TR-2025-001',
-      fromWarehouse: 'Main Warehouse',
-      toWarehouse: 'Assembly Plant',
-      requestedBy: 'John Smith',
-      requestDate: '2025-01-20',
-      itemCount: 5,
-      totalQuantity: 125,
-      status: 'pending-approval',
-      priority: 'urgent',
-      approver: 'Sarah Johnson'
-    },
-    {
-      id: 2,
-      transferNumber: 'TR-2025-002',
-      fromWarehouse: 'FG Store',
-      toWarehouse: 'Main Warehouse',
-      requestedBy: 'Mike Davis',
-      requestDate: '2025-01-21',
-      itemCount: 3,
-      totalQuantity: 45,
-      status: 'approved',
-      priority: 'normal',
-      approver: 'Robert Lee'
-    },
-    {
-      id: 3,
-      transferNumber: 'TR-2025-003',
-      fromWarehouse: 'Main Warehouse',
-      toWarehouse: 'FG Store',
-      requestedBy: 'Emily Chen',
-      requestDate: '2025-01-21',
-      itemCount: 8,
-      totalQuantity: 230,
-      status: 'ready-to-ship',
-      priority: 'normal',
-      approver: 'Sarah Johnson'
-    },
-    {
-      id: 4,
-      transferNumber: 'TR-2025-004',
-      fromWarehouse: 'Assembly Plant',
-      toWarehouse: 'Main Warehouse',
-      requestedBy: 'Robert Lee',
-      requestDate: '2025-01-19',
-      itemCount: 12,
-      totalQuantity: 340,
-      status: 'in-transit',
-      priority: 'urgent',
-      approver: 'Mike Davis'
-    }
-  ]);
+  const [pendingTransfers, setPendingTransfers] = useState<PendingTransfer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the raw StockTransfer ORM shape. Keep only the
+        // active (not completed/cancelled/rejected) transfers and map the
+        // backend status enum to this page's status union.
+        const raw = (await stockTransferService.getAllTransfers()) as any[];
+        const dateOnly = (v: any) => (v ? String(v).slice(0, 10) : '');
+        const statusMap: Record<string, PendingTransfer['status']> = {
+          DRAFT: 'pending-approval',
+          SUBMITTED: 'pending-approval',
+          APPROVED: 'approved',
+          DISPATCHED: 'ready-to-ship',
+          IN_TRANSIT: 'in-transit',
+        };
+        const mapped: PendingTransfer[] = (raw || [])
+          .filter((t) => statusMap[String(t?.status ?? '').toUpperCase()])
+          .map((t, index) => {
+            const s = String(t.status ?? '').toUpperCase();
+            const prio = String(t.priority ?? '').toUpperCase();
+            return {
+              id: t.id ?? index + 1,
+              transferNumber: t.transferNumber ?? '',
+              fromWarehouse: t.sourceWarehouseName ?? t.sourceWarehouseId ?? '',
+              toWarehouse: t.targetWarehouseName ?? t.targetWarehouseId ?? '',
+              requestedBy: t.requestedByName ?? t.requestedBy ?? '',
+              requestDate: dateOnly(t.requestDate),
+              itemCount: Number(t.totalItems ?? (Array.isArray(t.items) ? t.items.length : 0)),
+              totalQuantity: Number(t.totalRequestedQuantity ?? 0),
+              status: statusMap[s] ?? 'pending-approval',
+              priority: prio === 'HIGH' || prio === 'URGENT' ? 'urgent' : 'normal',
+              approver: t.approvedByName ?? t.approvedBy ?? '',
+            };
+          });
+        if (!cancelled) setPendingTransfers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pending transfers');
+          setPendingTransfers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -157,6 +161,19 @@ export default function PendingTransfersPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading pending transfers…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -315,6 +332,13 @@ export default function PendingTransfersPage() {
             </tbody>
           </table>
         </div>
+
+        {!isLoading && !loadError && filteredTransfers.length === 0 && (
+          <div className="text-center py-12">
+            <Clock className="w-12 h-12 text-gray-400 mb-2 mx-auto" />
+            <p className="text-gray-500">No pending transfers found matching your filters</p>
+          </div>
+        )}
       </div>
     </div>
   );

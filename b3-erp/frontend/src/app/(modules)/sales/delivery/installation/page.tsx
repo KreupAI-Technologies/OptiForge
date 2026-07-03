@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -17,6 +17,7 @@ import {
   Camera,
   ClipboardCheck
 } from 'lucide-react';
+import { InstallationService } from '@/services/installation.service';
 
 interface Installation {
   id: string;
@@ -58,201 +59,76 @@ export default function InstallationPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
-  const installations: Installation[] = [
-    {
-      id: '1',
-      installationNumber: 'INST-2025-001',
-      orderNumber: 'SO-2025-089',
-      handoverNumber: 'HO-2025-001',
-      customerName: 'Tata Motors Limited',
-      customerContact: 'Rajesh Kumar',
-      customerPhone: '+91 98765 43210',
-      siteAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      scheduledDate: '2025-10-23',
-      scheduledTime: '10:00 AM',
-      status: 'completed',
-      itemsCount: 15,
-      estimatedDuration: 6,
-      technician: {
-        name: 'Suresh Patel',
-        phone: '+91 98765 11111',
-        specialization: 'Industrial Machinery'
-      },
-      completionDate: '2025-10-23',
-      completionPercentage: 100,
-      testingDone: true,
-      trainingProvided: true,
-      documentsHandedOver: true,
-      customerSignature: true,
-      rating: 5,
-      feedback: 'Excellent installation service. Very professional team.',
-      photosAvailable: true
-    },
-    {
-      id: '2',
-      installationNumber: 'INST-2025-002',
-      orderNumber: 'SO-2025-095',
-      handoverNumber: 'HO-2025-003',
-      customerName: 'Reliance Industries',
-      customerContact: 'Vikram Shah',
-      customerPhone: '+91 98765 43212',
-      siteAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      scheduledDate: '2025-10-24',
-      scheduledTime: '9:00 AM',
-      status: 'in_progress',
-      itemsCount: 20,
-      estimatedDuration: 8,
-      technician: {
-        name: 'Amit Kumar',
-        phone: '+91 98765 22222',
-        specialization: 'Heavy Equipment'
-      },
-      completionPercentage: 65,
-      testingDone: false,
-      trainingProvided: false,
-      documentsHandedOver: false,
-      customerSignature: false,
-      photosAvailable: false
-    },
-    {
-      id: '3',
-      installationNumber: 'INST-2025-003',
-      orderNumber: 'SO-2025-102',
-      handoverNumber: 'HO-2025-005',
-      customerName: 'Mahindra & Mahindra',
-      customerContact: 'Priya Sharma',
-      customerPhone: '+91 98765 43214',
-      siteAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      scheduledDate: '2025-10-25',
-      scheduledTime: '11:00 AM',
-      status: 'scheduled',
-      itemsCount: 8,
-      estimatedDuration: 4,
-      technician: {
-        name: 'Ravi Verma',
-        phone: '+91 98765 33333',
-        specialization: 'Automotive Equipment'
-      },
-      completionPercentage: 0,
-      testingDone: false,
-      trainingProvided: false,
-      documentsHandedOver: false,
-      customerSignature: false,
-      photosAvailable: false
-    },
-    {
-      id: '4',
-      installationNumber: 'INST-2025-004',
-      orderNumber: 'SO-2025-104',
-      handoverNumber: 'HO-2025-006',
-      customerName: 'Bharat Heavy Electricals',
-      customerContact: 'Arun Verma',
-      customerPhone: '+91 98765 43216',
-      siteAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      scheduledDate: '2025-10-22',
-      scheduledTime: '2:00 PM',
-      status: 'completed',
-      itemsCount: 18,
-      estimatedDuration: 10,
-      technician: {
-        name: 'Dinesh Sharma',
-        phone: '+91 98765 44444',
-        specialization: 'Electrical Systems'
-      },
-      completionDate: '2025-10-22',
-      completionPercentage: 100,
-      testingDone: true,
-      trainingProvided: true,
-      documentsHandedOver: true,
-      customerSignature: true,
-      rating: 5,
-      feedback: 'Professional installation. Excellent technical knowledge.',
-      photosAvailable: true
-    },
-    {
-      id: '5',
-      installationNumber: 'INST-2025-005',
-      orderNumber: 'SO-2025-108',
-      handoverNumber: 'HO-2025-008',
-      customerName: 'L&T Heavy Engineering',
-      customerContact: 'Suresh Menon',
-      customerPhone: '+91 98765 43215',
-      siteAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      scheduledDate: '2025-10-21',
-      scheduledTime: '8:00 AM',
-      status: 'on_hold',
-      itemsCount: 12,
-      estimatedDuration: 7,
-      technician: {
-        name: 'Prakash Joshi',
-        phone: '+91 98765 55555',
-        specialization: 'Construction Equipment'
-      },
-      completionPercentage: 40,
-      testingDone: false,
-      trainingProvided: false,
-      documentsHandedOver: false,
-      customerSignature: false,
-      issues: 'Site access restricted due to safety audit',
-      photosAvailable: false
-    },
-    {
-      id: '6',
-      installationNumber: 'INST-2025-006',
-      orderNumber: 'SO-2025-112',
-      handoverNumber: 'HO-2025-010',
-      customerName: 'JSW Steel',
-      customerContact: 'Amit Sharma',
-      customerPhone: '+91 98765 43211',
-      siteAddress: {
-        street: 'JSW Plant Complex',
-        city: 'Ballari',
-        state: 'Karnataka',
-        pincode: '583275'
-      },
-      scheduledDate: '2025-10-26',
-      scheduledTime: '10:00 AM',
-      status: 'scheduled',
-      itemsCount: 14,
-      estimatedDuration: 6,
-      technician: {
-        name: 'Kiran Kumar',
-        phone: '+91 98765 66666',
-        specialization: 'Steel Processing Equipment'
-      },
-      completionPercentage: 0,
-      testingDone: false,
-      trainingProvided: false,
-      documentsHandedOver: false,
-      customerSignature: false,
-      photosAvailable: false
-    }
-  ];
+  const [installations, setInstallations] = useState<Installation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Map backend InstallationStatus to this page's status values.
+    const statusMap: Record<string, Installation['status']> = {
+      scheduled: 'scheduled',
+      in_progress: 'in_progress',
+      completed: 'completed',
+      handed_over: 'completed',
+      on_hold: 'on_hold',
+      cancelled: 'cancelled',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await InstallationService.getAllInstallationJobs()) as any[];
+        const mapped: Installation[] = (raw ?? []).map((j) => ({
+          id: String(j.id ?? ''),
+          installationNumber: j.jobNumber ?? j.installationNumber ?? '',
+          orderNumber: j.orderNumber ?? '',
+          handoverNumber: j.handoverNumber ?? '',
+          customerName: j.customerName ?? '',
+          customerContact: j.customerContact ?? j.teamLeaderName ?? '',
+          customerPhone: j.customerPhone ?? '',
+          siteAddress: {
+            street: typeof j.siteAddress === 'string' ? j.siteAddress : (j.siteAddress?.street ?? ''),
+            city: j.city ?? j.siteAddress?.city ?? '',
+            state: j.state ?? j.siteAddress?.state ?? '',
+            pincode: j.postalCode ?? j.pincode ?? j.siteAddress?.pincode ?? '',
+          },
+          scheduledDate: j.scheduledDate ?? '',
+          scheduledTime: j.scheduledTime ?? '',
+          status: statusMap[(j.status ?? '').toString()] ?? 'scheduled',
+          itemsCount: Number(j.equipmentCount ?? (Array.isArray(j.equipmentList) ? j.equipmentList.length : 0)),
+          estimatedDuration: Number(j.estimatedDuration ?? 0),
+          technician: {
+            name: j.teamLeaderName ?? j.technician?.name ?? '',
+            phone: j.technician?.phone ?? '',
+            specialization: j.technician?.specialization ?? '',
+          },
+          completionDate: j.completionDate ?? undefined,
+          completionPercentage: Number(j.installationProgress ?? j.completionPercentage ?? 0),
+          testingDone: Boolean(j.testingCompleted ?? j.testingDone ?? false),
+          trainingProvided: Boolean(j.trainingProvided ?? false),
+          documentsHandedOver: Boolean(j.documentsHandedOver ?? false),
+          customerSignature: Boolean(j.customerSignature ?? false),
+          rating: j.rating != null ? Number(j.rating) : undefined,
+          feedback: j.feedback ?? undefined,
+          issues: j.issues ?? undefined,
+          photosAvailable: Boolean(j.photosAvailable ?? false),
+        }));
+        if (!cancelled) setInstallations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load installations');
+          setInstallations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredInstallations = installations.filter(installation => {
     const matchesSearch =
@@ -268,7 +144,10 @@ export default function InstallationPage() {
   const totalInstallations = installations.length;
   const completed = installations.filter(i => i.status === 'completed').length;
   const inProgress = installations.filter(i => i.status === 'in_progress').length;
-  const avgRating = installations.filter(i => i.rating).reduce((sum, i) => sum + (i.rating || 0), 0) / installations.filter(i => i.rating).length;
+  const ratedInstallations = installations.filter(i => i.rating);
+  const avgRating = ratedInstallations.length > 0
+    ? ratedInstallations.reduce((sum, i) => sum + (i.rating || 0), 0) / ratedInstallations.length
+    : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -310,6 +189,18 @@ export default function InstallationPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading installations…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

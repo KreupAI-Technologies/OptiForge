@@ -4,14 +4,73 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Users, TrendingUp, Award, CreditCard, Package, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockCustomerCategories, CustomerCategory, getCustomerCategoryStats } from '@/data/common-masters/customer-categories';
+import { CustomerCategory, getCustomerCategoryStats } from '@/data/common-masters/customer-categories';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function CustomerCategoryMasterPage() {
-  const [categories, setCategories] = useState<CustomerCategory[]>(mockCustomerCategories);
+  const [categories, setCategories] = useState<CustomerCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBusinessType, setFilterBusinessType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch customer categories from the live backend, mapping the raw API shape into the page's model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await commonMastersService.getAllCustomerCategories(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: CustomerCategory[] = raw.map((c) => ({
+          id: String(c.id ?? ''),
+          categoryCode: c.code ?? c.categoryCode ?? '',
+          categoryName: c.name ?? c.categoryName ?? '',
+          description: c.description ?? '',
+          defaultDiscount: Number(c.criteria?.defaultDiscount ?? c.defaultDiscount ?? 0),
+          maxDiscountAllowed: Number(c.criteria?.maxDiscountAllowed ?? c.maxDiscountAllowed ?? 0),
+          priceListId: c.priceListId ?? '',
+          priceListName: c.priceListName ?? '',
+          defaultPriceList: c.defaultPriceList ?? undefined,
+          defaultCreditLimit: Number(c.terms?.defaultCreditLimit ?? c.defaultCreditLimit ?? 0),
+          defaultPaymentTerms: c.terms?.defaultPaymentTerms ?? c.defaultPaymentTerms ?? '',
+          creditPeriod: Number(c.terms?.creditPeriod ?? c.creditPeriod ?? 0),
+          requiresApproval: c.requiresApproval ?? false,
+          businessType: (c.classification ?? c.businessType ?? 'end_user') as CustomerCategory['businessType'],
+          priority: (c.priority ?? 'medium') as CustomerCategory['priority'],
+          tier: (c.level ?? c.tier) as CustomerCategory['tier'],
+          volumeDiscountApplicable: c.volumeDiscountApplicable ?? undefined,
+          creditDays: c.creditDays !== null && c.creditDays !== undefined ? Number(c.creditDays) : undefined,
+          specialPricingApplicable: c.specialPricingApplicable ?? undefined,
+          defaultTerritory: c.defaultTerritory ?? undefined,
+          shippingChargesApply: c.shippingChargesApply ?? false,
+          customersCount: Number(c.metrics?.customersCount ?? c.customersCount ?? 0),
+          totalSales: Number(c.metrics?.totalSales ?? c.totalSales ?? 0),
+          avgOrderValue: Number(c.metrics?.avgOrderValue ?? c.avgOrderValue ?? 0),
+          outstandingAmount: Number(c.metrics?.outstandingAmount ?? c.outstandingAmount ?? 0),
+          isActive: c.isActive ?? (c.status ? c.status === 'active' : true),
+          createdBy: c.createdBy ?? '',
+          createdDate: c.createdDate ?? c.createdAt ?? '',
+        }));
+        if (!cancelled) setCategories(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load customer categories');
+          setCategories([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-dismiss toast after 3 seconds
   useEffect(() => {
@@ -374,6 +433,24 @@ export default function CustomerCategoryMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading customer categories…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && categories.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No customer categories found.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <DataTable

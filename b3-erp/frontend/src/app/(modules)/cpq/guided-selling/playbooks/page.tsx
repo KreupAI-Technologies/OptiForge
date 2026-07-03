@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -17,8 +17,10 @@ import {
   Copy,
   Play,
   Award,
-  BarChart3
+  BarChart3,
+  AlertCircle
 } from 'lucide-react';
+import { cpqGuidedSellingService } from '@/services/cpq';
 import {
   PlaybookModal,
   ViewPlaybookModal,
@@ -60,236 +62,57 @@ export default function GuidedSellingPlaybooksPage() {
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [selectedPlaybook, setSelectedPlaybook] = useState<Playbook | null>(null);
 
-  const [playbooks, setPlaybooks] = useState<Playbook[]>([
-    {
-      id: '1',
-      playbookCode: 'PB-PREM-001',
-      playbookName: 'Premium Modular Kitchen - Luxury Segment',
-      category: 'Modular Kitchen',
-      targetSegment: 'Luxury Residential',
-      productFocus: 'High-end modular kitchens with premium appliances',
-      stages: 6,
-      avgDealSize: 2850000,
-      winRate: 68.5,
-      avgCycleTime: 21,
-      usageCount: 145,
-      successfulDeals: 98,
-      status: 'active',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-03-15',
-      lastUpdated: '2025-10-10',
-      description: 'Consultative selling approach for luxury kitchen projects with design consultation, premium material selection, and high-end appliance integration.'
-    },
-    {
-      id: '2',
-      playbookCode: 'PB-STAN-002',
-      playbookName: 'Standard Modular Kitchen - Mid-Range',
-      category: 'Modular Kitchen',
-      targetSegment: 'Middle Income Residential',
-      productFocus: 'Value-focused modular kitchen solutions',
-      stages: 5,
-      avgDealSize: 850000,
-      winRate: 72.3,
-      avgCycleTime: 14,
-      usageCount: 287,
-      successfulDeals: 205,
-      status: 'active',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-04-20',
-      lastUpdated: '2025-10-08',
-      description: 'Efficient selling process for mid-range kitchens focusing on value proposition, space optimization, and practical functionality.'
-    },
-    {
-      id: '3',
-      playbookCode: 'PB-COMM-003',
-      playbookName: 'Commercial Kitchen - Restaurant & Hotel',
-      category: 'Commercial Kitchen',
-      targetSegment: 'B2B - Hospitality',
-      productFocus: 'Industrial-grade kitchen equipment and systems',
-      stages: 7,
-      avgDealSize: 4500000,
-      winRate: 58.2,
-      avgCycleTime: 35,
-      usageCount: 78,
-      successfulDeals: 45,
-      status: 'active',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-05-10',
-      lastUpdated: '2025-09-28',
-      description: 'Complex B2B selling for commercial kitchens with compliance requirements, capacity planning, and ROI justification.'
-    },
-    {
-      id: '4',
-      playbookCode: 'PB-SINK-004',
-      playbookName: 'Premium Sink Solutions - Standalone',
-      category: 'Kitchen Sinks',
-      targetSegment: 'Retail - All Segments',
-      productFocus: 'High-quality sinks and faucet systems',
-      stages: 4,
-      avgDealSize: 125000,
-      winRate: 81.5,
-      avgCycleTime: 7,
-      usageCount: 456,
-      successfulDeals: 372,
-      status: 'active',
-      createdBy: 'Suresh Reddy',
-      createdDate: '2024-06-15',
-      lastUpdated: '2025-10-15',
-      description: 'Quick sales cycle for sink and faucet products with feature-benefit selling and material education.'
-    },
-    {
-      id: '5',
-      playbookCode: 'PB-APPL-005',
-      playbookName: 'Kitchen Appliances Bundle - Complete Package',
-      category: 'Kitchen Appliances',
-      targetSegment: 'New Home Buyers',
-      productFocus: 'Chimney, hob, microwave, dishwasher bundle',
-      stages: 5,
-      avgDealSize: 580000,
-      winRate: 75.8,
-      avgCycleTime: 12,
-      usageCount: 198,
-      successfulDeals: 148,
-      status: 'active',
-      createdBy: 'Vikram Singh',
-      createdDate: '2024-07-22',
-      lastUpdated: '2025-10-12',
-      description: 'Bundle selling strategy for new homeowners with package discounts, installation services, and extended warranty options.'
-    },
-    {
-      id: '6',
-      playbookCode: 'PB-RENO-006',
-      playbookName: 'Kitchen Renovation - Existing Home',
-      category: 'Renovation',
-      targetSegment: 'Home Renovation',
-      productFocus: 'Complete kitchen makeover solutions',
-      stages: 6,
-      avgDealSize: 1250000,
-      winRate: 64.2,
-      avgCycleTime: 18,
-      usageCount: 167,
-      successfulDeals: 106,
-      status: 'active',
-      createdBy: 'Neha Gupta',
-      createdDate: '2024-08-10',
-      lastUpdated: '2025-10-05',
-      description: 'Renovation-focused approach addressing pain points, before-after visualization, and phased implementation options.'
-    },
-    {
-      id: '7',
-      playbookCode: 'PB-BUILD-007',
-      playbookName: 'Builder Package - Volume Sales',
-      category: 'Builder Projects',
-      targetSegment: 'B2B - Real Estate Developers',
-      productFocus: 'Bulk modular kitchen installations',
-      stages: 8,
-      avgDealSize: 12500000,
-      winRate: 52.8,
-      avgCycleTime: 45,
-      usageCount: 42,
-      successfulDeals: 22,
-      status: 'active',
-      createdBy: 'Arun Kumar',
-      createdDate: '2024-09-05',
-      lastUpdated: '2025-09-20',
-      description: 'Enterprise selling for builder partnerships with volume pricing, standardization benefits, and project timeline alignment.'
-    },
-    {
-      id: '8',
-      playbookCode: 'PB-SMART-008',
-      playbookName: 'Smart Kitchen - IoT Integration',
-      category: 'Smart Kitchen',
-      targetSegment: 'Tech-Savvy Urban Professionals',
-      productFocus: 'Smart appliances and automation',
-      stages: 6,
-      avgDealSize: 1850000,
-      winRate: 61.3,
-      avgCycleTime: 16,
-      usageCount: 89,
-      successfulDeals: 54,
-      status: 'active',
-      createdBy: 'Meera Iyer',
-      createdDate: '2024-10-12',
-      lastUpdated: '2025-10-18',
-      description: 'Technology-focused selling emphasizing automation, energy efficiency, and connected appliance ecosystem.'
-    },
-    {
-      id: '9',
-      playbookCode: 'PB-COMP-009',
-      playbookName: 'Compact Kitchen - Space-Saving Solutions',
-      category: 'Compact Kitchen',
-      targetSegment: 'Studio Apartments & Small Homes',
-      productFocus: 'Space-optimized kitchen designs',
-      stages: 4,
-      avgDealSize: 450000,
-      winRate: 78.9,
-      avgCycleTime: 10,
-      usageCount: 234,
-      successfulDeals: 184,
-      status: 'active',
-      createdBy: 'Kavita Desai',
-      createdDate: '2025-01-18',
-      lastUpdated: '2025-10-14',
-      description: 'Solution selling for small spaces with creative storage solutions, multi-functional designs, and efficient layouts.'
-    },
-    {
-      id: '10',
-      playbookCode: 'PB-SUST-010',
-      playbookName: 'Sustainable Kitchen - Eco-Friendly',
-      category: 'Sustainable Kitchen',
-      targetSegment: 'Environmentally Conscious Buyers',
-      productFocus: 'Eco-friendly materials and energy-efficient appliances',
-      stages: 5,
-      avgDealSize: 1350000,
-      winRate: 69.7,
-      avgCycleTime: 15,
-      usageCount: 112,
-      successfulDeals: 78,
-      status: 'active',
-      createdBy: 'Pooja Nair',
-      createdDate: '2025-02-25',
-      lastUpdated: '2025-10-16',
-      description: 'Values-based selling highlighting sustainability, recycled materials, energy star appliances, and carbon footprint reduction.'
-    },
-    {
-      id: '11',
-      playbookCode: 'PB-LUXV-011',
-      playbookName: 'Luxury Villa Kitchen - Ultra Premium',
-      category: 'Luxury Kitchen',
-      targetSegment: 'Ultra High Net Worth',
-      productFocus: 'Bespoke luxury kitchen installations',
-      stages: 8,
-      avgDealSize: 5800000,
-      winRate: 45.2,
-      avgCycleTime: 42,
-      usageCount: 35,
-      successfulDeals: 15,
-      status: 'active',
-      createdBy: 'Arjun Menon',
-      createdDate: '2025-03-30',
-      lastUpdated: '2025-10-02',
-      description: 'White-glove selling for ultra-luxury projects with Italian marble, custom cabinetry, imported appliances, and concierge service.'
-    },
-    {
-      id: '12',
-      playbookCode: 'PB-ACCE-012',
-      playbookName: 'Kitchen Accessories - Add-on Sales',
-      category: 'Accessories',
-      targetSegment: 'Existing Customers',
-      productFocus: 'Organizers, cookware, and accessories',
-      stages: 3,
-      avgDealSize: 85000,
-      winRate: 84.5,
-      avgCycleTime: 5,
-      usageCount: 523,
-      successfulDeals: 442,
-      status: 'active',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2025-05-10',
-      lastUpdated: '2025-10-19',
-      description: 'Upselling strategy for existing customers focusing on organization solutions, premium cookware, and kitchen enhancement products.'
-    }
-  ]);
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the SalesPlaybook ORM shape (name/description/industry/
+        // customerSegment/stages[]/usageCount/successRate/isActive); map it to this
+        // page's analytics-oriented Playbook model. Deal-size/cycle-time metrics are
+        // not part of the playbook record and default to 0.
+        const raw = (await cpqGuidedSellingService.findAllPlaybooks()) as any[];
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : '';
+        const mapped: Playbook[] = (raw ?? []).map((p) => ({
+          id: p.id ?? '',
+          playbookCode: p.playbookCode ?? p.id ?? '',
+          playbookName: p.name ?? '',
+          category: p.industry ?? '',
+          targetSegment: p.customerSegment ?? '',
+          productFocus: p.productFocus ?? '',
+          stages: Array.isArray(p.stages) ? p.stages.length : Number(p.stages ?? 0),
+          avgDealSize: Number(p.avgDealSize ?? 0),
+          winRate: Number(p.successRate ?? 0),
+          avgCycleTime: Number(p.avgCycleTime ?? 0),
+          usageCount: Number(p.usageCount ?? 0),
+          successfulDeals: Number(p.successfulDeals ?? 0),
+          status: p.isActive === false ? 'archived' : 'active',
+          createdBy: p.createdBy ?? '',
+          createdDate: toDate(p.createdAt),
+          lastUpdated: toDate(p.updatedAt ?? p.createdAt),
+          description: p.description ?? '',
+        }));
+        if (!cancelled) setPlaybooks(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load playbooks');
+          setPlaybooks([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = ['all', ...Array.from(new Set(playbooks.map(p => p.category)))];
 
@@ -366,6 +189,23 @@ export default function GuidedSellingPlaybooksPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading playbooks…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && playbooks.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No playbooks found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

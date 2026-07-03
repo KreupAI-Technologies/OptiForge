@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -14,6 +14,7 @@ import {
   Mail,
   Clock
 } from 'lucide-react';
+import { InvoiceService } from '@/services/invoice.service';
 
 interface OverdueInvoice {
   id: string;
@@ -33,129 +34,53 @@ interface OverdueInvoice {
 
 export default function OverdueInvoicesPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [overdueInvoices, setOverdueInvoices] = useState<OverdueInvoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const overdueInvoices: OverdueInvoice[] = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2025-1236',
-      customerName: 'L&T Heavy Engineering',
-      customerEmail: 'accounts@lnt.com',
-      customerPhone: '+91 98765 43214',
-      invoiceDate: '2025-10-15',
-      dueDate: '2025-11-15',
-      amount: 856000,
-      daysOverdue: 5,
-      itemsCount: 12,
-      remindersSent: 3,
-      lastReminder: '2025-11-18',
-      overdueReason: 'Payment processing delay'
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-2025-1228',
-      customerName: 'Godrej Industries',
-      customerEmail: 'finance@godrej.com',
-      customerPhone: '+91 98765 43215',
-      invoiceDate: '2025-10-08',
-      dueDate: '2025-11-08',
-      amount: 445000,
-      daysOverdue: 12,
-      itemsCount: 8,
-      remindersSent: 5,
-      lastReminder: '2025-11-17',
-      overdueReason: 'Dispute on 2 items'
-    },
-    {
-      id: '3',
-      invoiceNumber: 'INV-2025-1222',
-      customerName: 'Hindustan Zinc',
-      customerEmail: 'payments@hzl.com',
-      customerPhone: '+91 98765 43217',
-      invoiceDate: '2025-10-05',
-      dueDate: '2025-11-05',
-      amount: 325000,
-      daysOverdue: 15,
-      itemsCount: 6,
-      remindersSent: 6,
-      lastReminder: '2025-11-15',
-      overdueReason: 'Budget approval pending'
-    },
-    {
-      id: '4',
-      invoiceNumber: 'INV-2025-1218',
-      customerName: 'ACC Cement',
-      customerEmail: 'procurement@acc.in',
-      customerPhone: '+91 98765 43218',
-      invoiceDate: '2025-10-01',
-      dueDate: '2025-11-01',
-      amount: 675000,
-      daysOverdue: 19,
-      itemsCount: 10,
-      remindersSent: 7,
-      lastReminder: '2025-11-16',
-      overdueReason: 'Invoice not received'
-    },
-    {
-      id: '5',
-      invoiceNumber: 'INV-2025-1212',
-      customerName: 'UltraTech Cement',
-      customerEmail: 'accounts@ultratech.com',
-      customerPhone: '+91 98765 43219',
-      invoiceDate: '2025-09-28',
-      dueDate: '2025-10-28',
-      amount: 1234000,
-      daysOverdue: 23,
-      itemsCount: 15,
-      remindersSent: 8,
-      lastReminder: '2025-11-14',
-      overdueReason: 'Awaiting quality clearance'
-    },
-    {
-      id: '6',
-      invoiceNumber: 'INV-2025-1208',
-      customerName: 'Ambuja Cements',
-      customerEmail: 'finance@ambuja.com',
-      customerPhone: '+91 98765 43220',
-      invoiceDate: '2025-09-25',
-      dueDate: '2025-10-25',
-      amount: 567000,
-      daysOverdue: 26,
-      itemsCount: 9,
-      remindersSent: 9,
-      lastReminder: '2025-11-12',
-      overdueReason: 'PO mismatch'
-    },
-    {
-      id: '7',
-      invoiceNumber: 'INV-2025-1202',
-      customerName: 'Shree Cement',
-      customerEmail: 'payments@shreecement.com',
-      customerPhone: '+91 98765 43221',
-      invoiceDate: '2025-09-20',
-      dueDate: '2025-10-20',
-      amount: 890000,
-      daysOverdue: 31,
-      itemsCount: 14,
-      remindersSent: 10,
-      lastReminder: '2025-11-10',
-      overdueReason: 'Financial constraints'
-    },
-    {
-      id: '8',
-      invoiceNumber: 'INV-2025-1195',
-      customerName: 'JK Cement',
-      customerEmail: 'accounts@jkcement.com',
-      customerPhone: '+91 98765 43222',
-      invoiceDate: '2025-09-15',
-      dueDate: '2025-10-15',
-      amount: 432000,
-      daysOverdue: 36,
-      itemsCount: 7,
-      remindersSent: 12,
-      lastReminder: '2025-11-08',
-      overdueReason: 'Management approval pending'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await InvoiceService.getOverdueInvoices()) as any[];
+        const now = Date.now();
+        const mapped: OverdueInvoice[] = (raw ?? []).map((inv) => {
+          const due = inv.dueDate ? new Date(inv.dueDate).getTime() : now;
+          const daysOverdue = Math.max(0, Math.floor((now - due) / (1000 * 60 * 60 * 24)));
+          const itemsCount = Array.isArray(inv.lineItems) ? inv.lineItems.length : Number(inv.itemsCount ?? 0);
+          return {
+            id: String(inv.id ?? ''),
+            invoiceNumber: inv.invoiceNumber ?? inv.number ?? '',
+            customerName: inv.customerName ?? inv.customer?.name ?? '',
+            customerEmail: inv.customerEmail ?? inv.customer?.email ?? '',
+            customerPhone: inv.customerPhone ?? inv.customer?.phone ?? '',
+            invoiceDate: inv.invoiceDate ?? '',
+            dueDate: inv.dueDate ?? '',
+            amount: Number(inv.amountDue ?? inv.totalAmount ?? inv.amount ?? 0),
+            daysOverdue,
+            itemsCount,
+            remindersSent: Number(inv.remindersSent ?? 0),
+            lastReminder: inv.lastReminder ?? undefined,
+            overdueReason: inv.overdueReason ?? undefined,
+          };
+        });
+        if (!cancelled) setOverdueInvoices(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load overdue invoices');
+          setOverdueInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredInvoices = overdueInvoices.filter(invoice =>
     invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,7 +90,7 @@ export default function OverdueInvoicesPage() {
   const totalAmount = overdueInvoices.reduce((sum, inv) => sum + inv.amount, 0);
   const criticalOverdue = overdueInvoices.filter(inv => inv.daysOverdue > 30).length;
   const totalOverdueDays = overdueInvoices.reduce((sum, inv) => sum + inv.daysOverdue, 0);
-  const avgOverdueDays = Math.round(totalOverdueDays / overdueInvoices.length);
+  const avgOverdueDays = overdueInvoices.length > 0 ? Math.round(totalOverdueDays / overdueInvoices.length) : 0;
 
   const getOverdueColor = (days: number) => {
     if (days > 30) return 'bg-red-600';
@@ -182,6 +107,18 @@ export default function OverdueInvoicesPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-pink-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading overdue invoices…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

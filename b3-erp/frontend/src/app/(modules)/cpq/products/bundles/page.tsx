@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Package2,
@@ -13,13 +13,15 @@ import {
   Trash2,
   DollarSign,
   Tag,
-  ShoppingCart
+  ShoppingCart,
+  AlertCircle
 } from 'lucide-react'
 import {
   BundleModal,
   ViewBundleModal,
   FilterModal
 } from '@/components/cpq/BundleModals'
+import { cpqProductService } from '@/services/cpq'
 
 interface Bundle {
   id: string
@@ -36,74 +38,46 @@ interface Bundle {
 export default function CPQProductsBundlesPage() {
   const router = useRouter()
 
-  const [bundles, setBundles] = useState<Bundle[]>([
-    {
-      id: 'BUN-001',
-      name: 'Complete Premium Kitchen Package',
-      description: 'Premium modular kitchen with island, appliances, and accessories',
-      products: 8,
-      basePrice: 8500000,
-      bundlePrice: 7650000,
-      savings: 10,
-      status: 'active',
-      popularity: 92
-    },
-    {
-      id: 'BUN-002',
-      name: 'Essential Kitchen Starter Bundle',
-      description: 'L-shaped kitchen with basic appliances and countertop',
-      products: 5,
-      basePrice: 3500000,
-      bundlePrice: 3150000,
-      savings: 10,
-      status: 'active',
-      popularity: 88
-    },
-    {
-      id: 'BUN-003',
-      name: 'Compact Studio Kitchen Set',
-      description: 'Space-saving kitchen with essential appliances',
-      products: 4,
-      basePrice: 1200000,
-      bundlePrice: 1020000,
-      savings: 15,
-      status: 'active',
-      popularity: 85
-    },
-    {
-      id: 'BUN-004',
-      name: 'Commercial Kitchen Pro Package',
-      description: 'Industrial-grade equipment for restaurants',
-      products: 12,
-      basePrice: 15000000,
-      bundlePrice: 13500000,
-      savings: 10,
-      status: 'active',
-      popularity: 78
-    },
-    {
-      id: 'BUN-005',
-      name: 'Builder Economy Package',
-      description: 'Bulk package for builder projects - 50 units',
-      products: 6,
-      basePrice: 25000000,
-      bundlePrice: 21250000,
-      savings: 15,
-      status: 'active',
-      popularity: 95
-    },
-    {
-      id: 'BUN-006',
-      name: 'Luxury Island Kitchen Bundle',
-      description: 'Premium island kitchen with wine cellar and smart appliances',
-      products: 10,
-      basePrice: 12000000,
-      bundlePrice: 10200000,
-      savings: 15,
-      status: 'active',
-      popularity: 82
+  const [bundles, setBundles] = useState<Bundle[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the ProductBundle ORM shape (bundleName/description/
+        // basePrice/finalPrice/discountPercentage/items[]/isActive); map it to this
+        // page's Bundle model. popularity is presentation-only (defaults to 0).
+        const raw = (await cpqProductService.findAllBundles()) as any[]
+        const mapped: Bundle[] = (raw ?? []).map((b) => ({
+          id: b.id ?? '',
+          name: b.bundleName ?? '',
+          description: b.description ?? '',
+          products: Array.isArray(b.items) ? b.items.length : Number(b.products ?? 0),
+          basePrice: Number(b.basePrice ?? 0),
+          bundlePrice: Number(b.finalPrice ?? b.basePrice ?? 0),
+          savings: Number(b.discountPercentage ?? 0),
+          status: b.isActive === false ? 'inactive' : 'active',
+          popularity: Number(b.popularity ?? 0),
+        }))
+        if (!cancelled) setBundles(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load bundles')
+          setBundles([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Modal states
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false)
@@ -239,6 +213,23 @@ export default function CPQProductsBundlesPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading bundles…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && bundles.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No bundles found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

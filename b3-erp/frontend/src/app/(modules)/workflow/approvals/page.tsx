@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, CheckCircle, XCircle, Clock, AlertCircle,
@@ -8,6 +8,7 @@ import {
   TrendingUp, Calendar, DollarSign, ShoppingCart, Package,
   Briefcase, Activity, MessageSquare, ThumbsUp, ThumbsDown, Flag
 } from 'lucide-react';
+import { approvalService } from '@/services/ApprovalService';
 
 interface ApprovalRequest {
   id: string;
@@ -34,263 +35,6 @@ interface ApprovalRequest {
     comment?: string;
   }>;
 }
-
-const mockApprovals: ApprovalRequest[] = [
-  {
-    id: 'APR001',
-    title: 'Purchase Order Approval - Raw Materials',
-    description: 'Bulk purchase of stainless steel sheets and aluminum profiles for Q4 production',
-    type: 'purchase_order',
-    referenceId: 'PO-2025-10-156',
-    amount: 45000,
-    status: 'pending',
-    priority: 'high',
-    requestedBy: 'Procurement Manager',
-    requestedDate: '2025-10-15',
-    currentApprover: 'Finance Director',
-    approvalLevel: 'Level 2 of 3',
-    totalLevels: 3,
-    deadline: '2025-10-20',
-    daysRemaining: 3,
-    comments: 2,
-    attachments: 3,
-    history: [
-      { approver: 'Department Head', action: 'approved', date: '2025-10-15 14:30', comment: 'Approved for necessary materials' },
-      { approver: 'Finance Director', action: 'pending', date: '2025-10-16 09:00' },
-    ],
-  },
-  {
-    id: 'APR001B',
-    title: 'Purchase Order Approval - Office Equipment (RESUBMITTED)',
-    description: 'Purchase request for ergonomic office chairs and standing desks. Previously rejected due to budget concerns. Amount reduced from $8500 to $6200 by choosing economy model chairs.',
-    type: 'purchase_order',
-    referenceId: 'PO-2025-10-142-R2',
-    amount: 6200,
-    status: 'pending',
-    priority: 'medium',
-    requestedBy: 'Admin Manager',
-    requestedDate: '2025-10-17',
-    currentApprover: 'Finance Manager',
-    approvalLevel: 'Level 1 of 2 (Resubmission)',
-    totalLevels: 2,
-    deadline: '2025-10-21',
-    daysRemaining: 4,
-    comments: 4,
-    attachments: 5,
-    history: [
-      // Previous attempt (rejected)
-      { approver: 'Admin Manager', action: 'pending', date: '2025-10-10 09:00', comment: 'Initial submission' },
-      { approver: 'Department Head', action: 'approved', date: '2025-10-10 14:20', comment: 'Necessary for employee health' },
-      { approver: 'Finance Manager', action: 'rejected', date: '2025-10-11 10:30', comment: 'Amount exceeds budget allocation for office equipment this quarter. Please revise to $6000 or less.' },
-      // Current attempt (pending)
-      { approver: 'Admin Manager', action: 'pending', date: '2025-10-17 08:45', comment: 'Resubmitted with reduced amount - selected economy model chairs to meet budget requirement' },
-      { approver: 'Finance Manager', action: 'pending', date: '2025-10-17 09:00' },
-    ],
-  },
-  {
-    id: 'APR002',
-    title: 'Employee Expense Reimbursement',
-    description: 'Travel expenses for client meeting in New York - accommodation, flights, and meals',
-    type: 'expense',
-    referenceId: 'EXP-2025-10-089',
-    amount: 2850,
-    status: 'pending',
-    priority: 'medium',
-    requestedBy: 'John Smith - Sales',
-    requestedDate: '2025-10-14',
-    currentApprover: 'Sales Manager',
-    approvalLevel: 'Level 1 of 2',
-    totalLevels: 2,
-    deadline: '2025-10-18',
-    daysRemaining: 1,
-    comments: 1,
-    attachments: 8,
-    history: [
-      { approver: 'Sales Manager', action: 'pending', date: '2025-10-14 16:45' },
-    ],
-  },
-  {
-    id: 'APR003',
-    title: 'Sales Quotation - Premium Kitchen Set',
-    description: 'Special discount quotation for VIP customer - 25% discount on bulk order',
-    type: 'quotation',
-    referenceId: 'QT-2025-10-234',
-    amount: 125000,
-    status: 'approved',
-    priority: 'urgent',
-    requestedBy: 'Sarah Williams - Sales',
-    requestedDate: '2025-10-13',
-    currentApprover: 'CEO',
-    approvalLevel: 'Completed',
-    totalLevels: 3,
-    deadline: '2025-10-15',
-    daysRemaining: 0,
-    comments: 5,
-    attachments: 2,
-    history: [
-      { approver: 'Sales Manager', action: 'approved', date: '2025-10-13 10:15', comment: 'Good opportunity' },
-      { approver: 'Sales Director', action: 'approved', date: '2025-10-13 15:30', comment: 'Strategic customer' },
-      { approver: 'CEO', action: 'approved', date: '2025-10-14 09:00', comment: 'Approved for relationship building' },
-    ],
-  },
-  {
-    id: 'APR004',
-    title: 'Annual Leave Request',
-    description: 'Vacation leave for 10 days - December holiday period',
-    type: 'leave',
-    referenceId: 'LEAVE-2025-10-045',
-    status: 'pending',
-    priority: 'low',
-    requestedBy: 'Michael Chen - Production',
-    requestedDate: '2025-10-12',
-    currentApprover: 'Production Manager',
-    approvalLevel: 'Level 1 of 1',
-    totalLevels: 1,
-    deadline: '2025-10-19',
-    daysRemaining: 2,
-    comments: 0,
-    attachments: 0,
-    history: [
-      { approver: 'Production Manager', action: 'pending', date: '2025-10-12 11:20' },
-    ],
-  },
-  {
-    id: 'APR005',
-    title: 'Budget Allocation - IT Infrastructure',
-    description: 'Capital expenditure for server upgrade and network infrastructure improvements',
-    type: 'budget',
-    referenceId: 'BUD-2025-Q4-012',
-    amount: 85000,
-    status: 'pending',
-    priority: 'high',
-    requestedBy: 'IT Manager',
-    requestedDate: '2025-10-16',
-    currentApprover: 'CFO',
-    approvalLevel: 'Level 2 of 2',
-    totalLevels: 2,
-    deadline: '2025-10-25',
-    daysRemaining: 8,
-    comments: 3,
-    attachments: 5,
-    history: [
-      { approver: 'IT Director', action: 'approved', date: '2025-10-16 14:00', comment: 'Critical for operations' },
-      { approver: 'CFO', action: 'pending', date: '2025-10-17 08:30' },
-    ],
-  },
-  {
-    id: 'APR006',
-    title: 'Project Budget Amendment',
-    description: 'Additional budget request for Kitchen Cabinet Project - scope changes',
-    type: 'project',
-    referenceId: 'PRJ-2025-089',
-    amount: 32000,
-    status: 'pending',
-    priority: 'urgent',
-    requestedBy: 'Project Manager',
-    requestedDate: '2025-10-17',
-    currentApprover: 'Operations Director',
-    approvalLevel: 'Level 1 of 2',
-    totalLevels: 2,
-    deadline: '2025-10-19',
-    daysRemaining: 2,
-    comments: 4,
-    attachments: 6,
-    history: [
-      { approver: 'Operations Director', action: 'pending', date: '2025-10-17 10:00' },
-    ],
-  },
-  {
-    id: 'APR007',
-    title: 'Vendor Invoice Payment',
-    description: 'Payment approval for supplier invoice - Q3 raw material delivery',
-    type: 'invoice',
-    referenceId: 'INV-2025-10-567',
-    amount: 67500,
-    status: 'rejected',
-    priority: 'medium',
-    requestedBy: 'Accounts Payable',
-    requestedDate: '2025-10-10',
-    currentApprover: 'Finance Manager',
-    approvalLevel: 'Rejected at Level 1',
-    totalLevels: 2,
-    deadline: '2025-10-15',
-    daysRemaining: -2,
-    comments: 3,
-    attachments: 2,
-    history: [
-      { approver: 'Finance Manager', action: 'rejected', date: '2025-10-11 13:45', comment: 'Invoice discrepancy - quantity mismatch' },
-    ],
-  },
-  {
-    id: 'APR008',
-    title: 'Equipment Purchase - CNC Machine',
-    description: 'New CNC machine for production line expansion',
-    type: 'purchase_order',
-    referenceId: 'PO-2025-10-178',
-    amount: 150000,
-    status: 'pending',
-    priority: 'high',
-    requestedBy: 'Production Manager',
-    requestedDate: '2025-10-16',
-    currentApprover: 'CEO',
-    approvalLevel: 'Level 3 of 3',
-    totalLevels: 3,
-    deadline: '2025-10-22',
-    daysRemaining: 5,
-    comments: 6,
-    attachments: 10,
-    history: [
-      { approver: 'Production Director', action: 'approved', date: '2025-10-16 11:00', comment: 'Essential for capacity increase' },
-      { approver: 'Finance Director', action: 'approved', date: '2025-10-16 16:30', comment: 'Budget available' },
-      { approver: 'CEO', action: 'pending', date: '2025-10-17 08:00' },
-    ],
-  },
-  {
-    id: 'APR009',
-    title: 'Training Budget Approval',
-    description: 'Annual training program for production staff - safety and quality certifications',
-    type: 'budget',
-    referenceId: 'BUD-2025-Q4-015',
-    amount: 18500,
-    status: 'approved',
-    priority: 'medium',
-    requestedBy: 'HR Manager',
-    requestedDate: '2025-10-11',
-    currentApprover: 'CFO',
-    approvalLevel: 'Completed',
-    totalLevels: 2,
-    deadline: '2025-10-18',
-    daysRemaining: 1,
-    comments: 2,
-    attachments: 4,
-    history: [
-      { approver: 'HR Director', action: 'approved', date: '2025-10-11 14:20', comment: 'Necessary for compliance' },
-      { approver: 'CFO', action: 'approved', date: '2025-10-12 10:00', comment: 'Approved' },
-    ],
-  },
-  {
-    id: 'APR010',
-    title: 'Marketing Campaign Budget',
-    description: 'Q4 digital marketing campaign - social media and online advertising',
-    type: 'budget',
-    referenceId: 'BUD-2025-Q4-018',
-    amount: 25000,
-    status: 'expired',
-    priority: 'low',
-    requestedBy: 'Marketing Manager',
-    requestedDate: '2025-10-05',
-    currentApprover: 'Marketing Director',
-    approvalLevel: 'Expired at Level 1',
-    totalLevels: 2,
-    deadline: '2025-10-12',
-    daysRemaining: -5,
-    comments: 1,
-    attachments: 3,
-    history: [
-      { approver: 'Marketing Director', action: 'pending', date: '2025-10-05 15:30' },
-    ],
-  },
-];
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -328,7 +72,107 @@ const typeColors = {
 
 export default function ApprovalsPage() {
   const router = useRouter();
-  const [approvals, setApprovals] = useState<ApprovalRequest[]>(mockApprovals);
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Service returns the backend ApprovalRequest shape (documentType/
+        // documentNumber/dueDate/justification/approvalHistory); map it
+        // defensively to this page's ApprovalRequest model.
+        const raw = (await approvalService.getApprovals()) as any[];
+        const typeMap: Record<string, ApprovalRequest['type']> = {
+          purchase_order: 'purchase_order',
+          requisition: 'purchase_order',
+          rfq: 'quotation',
+          quotation: 'quotation',
+          contract: 'project',
+          vendor: 'purchase_order',
+          payment: 'invoice',
+          invoice: 'invoice',
+          expense: 'expense',
+          leave: 'leave',
+          budget: 'budget',
+          project: 'project',
+        };
+        const statusMap: Record<string, ApprovalRequest['status']> = {
+          pending: 'pending',
+          approved: 'approved',
+          rejected: 'rejected',
+          escalated: 'pending',
+          expired: 'expired',
+        };
+        const priorityMap: Record<string, ApprovalRequest['priority']> = {
+          low: 'low',
+          medium: 'medium',
+          high: 'high',
+          urgent: 'urgent',
+        };
+        const dayMs = 1000 * 60 * 60 * 24;
+        const mapped: ApprovalRequest[] = (raw ?? []).map((a) => {
+          const rawType = String(a.documentType ?? a.type ?? '').toLowerCase();
+          const rawStatus = String(a.status ?? '').toLowerCase();
+          const rawPriority = String(a.priority ?? '').toLowerCase();
+          const totalLevels = Number(a.totalLevels ?? 1);
+          const level = Number(a.approvalLevel ?? 0);
+          const deadline = a.dueDate ?? '';
+          let daysRemaining = 0;
+          if (deadline) {
+            const diff = new Date(deadline).getTime() - Date.now();
+            daysRemaining = Math.ceil(diff / dayMs);
+          }
+          const history = Array.isArray(a.approvalHistory)
+            ? a.approvalHistory.map((h: any) => ({
+                approver: h.approver ?? '',
+                action:
+                  h.action === 'approved' || h.action === 'rejected'
+                    ? h.action
+                    : 'pending',
+                date: h.date ?? '',
+                comment: h.comments ?? h.comment,
+              }))
+            : [];
+          return {
+            id: String(a.id ?? ''),
+            title: a.title ?? '',
+            description: a.justification ?? a.description ?? '',
+            type: typeMap[rawType] ?? 'purchase_order',
+            referenceId: a.documentNumber ?? a.referenceId ?? '',
+            amount: a.amount !== null && a.amount !== undefined ? Number(a.amount) : undefined,
+            status: statusMap[rawStatus] ?? 'pending',
+            priority: priorityMap[rawPriority] ?? 'medium',
+            requestedBy: a.requestedBy ?? '',
+            requestedDate: a.requestedDate ?? '',
+            currentApprover: a.currentApprover ?? '',
+            approvalLevel: level && totalLevels ? `Level ${level} of ${totalLevels}` : (a.approvalLevel ?? ''),
+            totalLevels,
+            deadline,
+            daysRemaining,
+            comments: Number(a.comments ?? 0),
+            attachments: Number(a.attachments ?? 0),
+            history,
+          };
+        });
+        if (!cancelled) setApprovals(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load approval requests');
+          setApprovals([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -476,6 +320,23 @@ export default function ApprovalsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading approval requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && approvals.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No approval requests found.
+        </div>
+      )}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Users,
@@ -12,9 +12,11 @@ import {
   Star,
   TrendingUp,
   DollarSign,
-  Award
+  Award,
+  AlertCircle
 } from 'lucide-react'
 import { CustomerPricingModal, ViewCustomerModal, FilterModal } from '@/components/cpq/CustomerPricingModals'
+import { cpqPricingService } from '@/services/cpq'
 
 interface CustomerPricing {
   id: string
@@ -39,85 +41,55 @@ export default function CPQPricingCustomerPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerPricing | null>(null)
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
 
-  const [customerPricing, setCustomerPricing] = useState<CustomerPricing[]>([
-    {
-      id: 'CP-001',
-      customerName: 'Prestige Properties Ltd',
-      customerId: 'CUST-1234',
-      tier: 'platinum',
-      baseDiscount: 18,
-      specialTerms: 'Net 60 days, Free installation on orders > ₹50L',
-      lifetimeValue: 12500000,
-      activeContracts: 8,
-      lastUpdated: '2024-10-15'
-    },
-    {
-      id: 'CP-002',
-      customerName: 'Urban Homes Pvt Ltd',
-      customerId: 'CUST-2156',
-      tier: 'gold',
-      baseDiscount: 12,
-      specialTerms: 'Net 45 days, Volume discount on bulk orders',
-      lifetimeValue: 7800000,
-      activeContracts: 5,
-      lastUpdated: '2024-10-12'
-    },
-    {
-      id: 'CP-003',
-      customerName: 'Elite Builders & Developers',
-      customerId: 'CUST-3421',
-      tier: 'platinum',
-      baseDiscount: 20,
-      specialTerms: 'Net 90 days, Dedicated account manager, Priority support',
-      lifetimeValue: 15200000,
-      activeContracts: 12,
-      lastUpdated: '2024-10-18'
-    },
-    {
-      id: 'CP-004',
-      customerName: 'Skyline Constructions',
-      customerId: 'CUST-4567',
-      tier: 'gold',
-      baseDiscount: 10,
-      specialTerms: 'Net 30 days, Quarterly rebates',
-      lifetimeValue: 6300000,
-      activeContracts: 4,
-      lastUpdated: '2024-10-10'
-    },
-    {
-      id: 'CP-005',
-      customerName: 'Modern Living Interiors',
-      customerId: 'CUST-5678',
-      tier: 'silver',
-      baseDiscount: 8,
-      specialTerms: 'Net 30 days, Standard warranty',
-      lifetimeValue: 3200000,
-      activeContracts: 2,
-      lastUpdated: '2024-10-08'
-    },
-    {
-      id: 'CP-006',
-      customerName: 'Habitat Homes',
-      customerId: 'CUST-6789',
-      tier: 'silver',
-      baseDiscount: 7,
-      specialTerms: 'Net 30 days, Basic support',
-      lifetimeValue: 2800000,
-      activeContracts: 3,
-      lastUpdated: '2024-10-05'
-    },
-    {
-      id: 'CP-007',
-      customerName: 'Green Valley Builders',
-      customerId: 'CUST-7890',
-      tier: 'bronze',
-      baseDiscount: 5,
-      specialTerms: 'Net 15 days, Standard pricing',
-      lifetimeValue: 1500000,
-      activeContracts: 1,
-      lastUpdated: '2024-10-02'
+  const [customerPricing, setCustomerPricing] = useState<CustomerPricing[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the CustomerPricing ORM shape (customerId/customerName/
+        // pricingTier/discountPercentage/contractReference/validFrom); map it to
+        // this page's display model. lifetimeValue/activeContracts are not part of
+        // the pricing record, so they default to 0.
+        const raw = (await cpqPricingService.findAllCustomerPricing()) as any[]
+        const tierMap: Record<string, CustomerPricing['tier']> = {
+          platinum: 'platinum',
+          gold: 'gold',
+          silver: 'silver',
+          bronze: 'bronze',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const mapped: CustomerPricing[] = (raw ?? []).map((c) => ({
+          id: c.id ?? '',
+          customerName: c.customerName ?? '',
+          customerId: c.customerId ?? '',
+          tier: tierMap[String(c.pricingTier ?? '').toLowerCase()] ?? 'bronze',
+          baseDiscount: Number(c.discountPercentage ?? 0),
+          specialTerms: c.contractReference ?? '',
+          lifetimeValue: Number(c.lifetimeValue ?? 0),
+          activeContracts: Number(c.activeContracts ?? 0),
+          lastUpdated: toDate(c.updatedAt ?? c.validFrom),
+        }))
+        if (!cancelled) setCustomerPricing(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load customer pricing')
+          setCustomerPricing([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getTierColor = (tier: string) => {
     const colors: any = {
@@ -235,6 +207,23 @@ export default function CPQPricingCustomerPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading customer pricing…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && customerPricing.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No customer pricing found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

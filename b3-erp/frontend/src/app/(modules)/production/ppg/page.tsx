@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Factory, Calendar, Package, TrendingUp, Activity, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { PlanModal, ViewPlanModal, ExportModal } from '@/components/production/PPGModals';
+import { productionPlanService } from '@/services/production-plan.service';
 
 interface ProductionPlan {
   id: string;
@@ -26,108 +27,25 @@ interface ProductionPlan {
   notes: string;
 }
 
-const mockProductionPlans: ProductionPlan[] = [
-  {
-    id: 'PPG-001',
-    planNumber: 'PPG-2025-W42',
-    planName: 'Week 42 - Commercial Kitchen Production',
-    productLine: 'Kitchen Equipment Line A',
-    startDate: '2025-10-14',
-    endDate: '2025-10-20',
-    status: 'in_progress',
-    totalCapacity: 500,
-    usedCapacity: 420,
-    capacityUnit: 'hours',
-    materialsReady: 95,
-    materialsRequired: 100,
-    workOrdersTotal: 8,
-    workOrdersCompleted: 5,
-    onSchedulePercentage: 92,
-    shiftPlan: '2 Shifts - Day & Evening',
-    planner: 'John Planning',
-    notes: 'On track for weekly targets',
-  },
-  {
-    id: 'PPG-002',
-    planNumber: 'PPG-2025-W43',
-    planName: 'Week 43 - Industrial Ovens Batch',
-    productLine: 'Oven Manufacturing Line B',
-    startDate: '2025-10-21',
-    endDate: '2025-10-27',
-    status: 'scheduled',
-    totalCapacity: 600,
-    usedCapacity: 540,
-    capacityUnit: 'hours',
-    materialsReady: 88,
-    materialsRequired: 100,
-    workOrdersTotal: 6,
-    workOrdersCompleted: 0,
-    onSchedulePercentage: 100,
-    shiftPlan: '3 Shifts - 24x7',
-    planner: 'Sarah Scheduling',
-    notes: 'High priority batch scheduled',
-  },
-  {
-    id: 'PPG-003',
-    planNumber: 'PPG-2025-W44',
-    planName: 'Week 44 - Refrigeration Systems',
-    productLine: 'Refrigeration Line C',
-    startDate: '2025-10-28',
-    endDate: '2025-11-03',
-    status: 'draft',
-    totalCapacity: 480,
-    usedCapacity: 350,
-    capacityUnit: 'hours',
-    materialsReady: 72,
-    materialsRequired: 100,
-    workOrdersTotal: 4,
-    workOrdersCompleted: 0,
-    onSchedulePercentage: 0,
-    shiftPlan: '2 Shifts - Day & Night',
-    planner: 'Michael Planner',
-    notes: 'Pending materials procurement',
-  },
-  {
-    id: 'PPG-004',
-    planNumber: 'PPG-2025-W41',
-    planName: 'Week 41 - Stainless Steel Fabrication',
-    productLine: 'Fabrication Shop 1',
-    startDate: '2025-10-07',
-    endDate: '2025-10-13',
-    status: 'completed',
-    totalCapacity: 450,
-    usedCapacity: 445,
-    capacityUnit: 'hours',
-    materialsReady: 100,
-    materialsRequired: 100,
-    workOrdersTotal: 12,
-    workOrdersCompleted: 12,
-    onSchedulePercentage: 98,
-    shiftPlan: '2 Shifts - Day & Evening',
-    planner: 'John Planning',
-    notes: 'Successfully completed on time',
-  },
-  {
-    id: 'PPG-005',
-    planNumber: 'PPG-2025-W45',
-    planName: 'Week 45 - Mixer Production Run',
-    productLine: 'Mixer Assembly Line D',
-    startDate: '2025-11-04',
-    endDate: '2025-11-10',
-    status: 'scheduled',
-    totalCapacity: 520,
-    usedCapacity: 480,
-    capacityUnit: 'hours',
-    materialsReady: 85,
-    materialsRequired: 100,
-    workOrdersTotal: 5,
-    workOrdersCompleted: 0,
-    onSchedulePercentage: 100,
-    shiftPlan: '2 Shifts - Day & Evening',
-    planner: 'Sarah Scheduling',
-    notes: 'Materials arriving on schedule',
-  },
-];
+// Maps the backend ProductionPlanStatus (Draft/Submitted/Approved/Released/
+// In Progress/Completed/Cancelled) to this page's status vocabulary.
+const mapPlanStatus = (raw: string): ProductionPlan['status'] => {
+  switch (raw) {
+    case 'In Progress':
+    case 'Released':
+      return 'in_progress';
+    case 'Approved':
+    case 'Submitted':
+      return 'scheduled';
+    case 'Completed':
+      return 'completed';
+    case 'Cancelled':
+      return 'cancelled';
+    case 'Draft':
+    default:
+      return 'draft';
+  }
+};
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -147,7 +65,80 @@ const statusLabels = {
 
 export default function PPGPage() {
   const router = useRouter();
-  const [plans, setPlans] = useState<ProductionPlan[]>(mockProductionPlans);
+  const [plans, setPlans] = useState<ProductionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await productionPlanService.getAllPlans()) as any[];
+        const mapped: ProductionPlan[] = (raw ?? []).map((p) => {
+          const items = Array.isArray(p.items) ? p.items : [];
+          const woTotal = items.length;
+          const woCompleted = items.filter(
+            (i: any) => i?.status === 'Completed',
+          ).length;
+          const totalCapacity = Number(
+            (Array.isArray(p.capacitySummary) ? p.capacitySummary : []).reduce(
+              (s: number, c: any) => s + Number(c?.availableCapacity ?? 0),
+              0,
+            ),
+          );
+          const usedCapacity = Number(
+            (Array.isArray(p.capacitySummary) ? p.capacitySummary : []).reduce(
+              (s: number, c: any) => s + Number(c?.plannedCapacity ?? 0),
+              0,
+            ),
+          );
+          return {
+            id: String(p.id ?? p.planNumber ?? ''),
+            planNumber: p.planNumber ?? '',
+            planName: p.planName ?? '',
+            productLine: p.plantName ?? p.planType ?? '',
+            startDate: p.startDate ?? '',
+            endDate: p.endDate ?? '',
+            status: mapPlanStatus(String(p.status ?? 'Draft')),
+            totalCapacity,
+            usedCapacity,
+            capacityUnit: 'hours',
+            materialsReady: Array.isArray(p.materialRequirements)
+              ? p.materialRequirements.filter(
+                  (m: any) => Number(m?.shortageQuantity ?? 0) <= 0,
+                ).length
+              : 0,
+            materialsRequired: Array.isArray(p.materialRequirements)
+              ? p.materialRequirements.length
+              : 0,
+            workOrdersTotal: woTotal,
+            workOrdersCompleted: woCompleted,
+            onSchedulePercentage:
+              woTotal > 0 ? Math.round((woCompleted / woTotal) * 100) : 0,
+            shiftPlan: '',
+            planner: p.createdBy ?? '',
+            notes: p.notes ?? '',
+          };
+        });
+        if (!cancelled) setPlans(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load production plans',
+          );
+          setPlans([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -175,9 +166,14 @@ export default function PPGPage() {
 
   const stats = {
     activePlans: plans.filter((p) => p.status === 'scheduled' || p.status === 'in_progress').length,
-    avgCapacityUsed: Math.round(
-      plans.reduce((sum, p) => sum + (p.usedCapacity / p.totalCapacity) * 100, 0) / plans.length
-    ),
+    avgCapacityUsed: plans.length
+      ? Math.round(
+          plans.reduce(
+            (sum, p) => sum + (p.totalCapacity ? (p.usedCapacity / p.totalCapacity) * 100 : 0),
+            0,
+          ) / plans.length,
+        )
+      : 0,
     materialsReady: plans.filter((p) => p.materialsReady === p.materialsRequired).length,
     onSchedule: plans.filter((p) => p.onSchedulePercentage >= 90).length,
   };
@@ -239,6 +235,23 @@ export default function PPGPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading production plans…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && plans.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No production plans found.
+        </div>
+      )}
       {/* Stats */}
       <div className="mb-3 flex items-start gap-2">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">

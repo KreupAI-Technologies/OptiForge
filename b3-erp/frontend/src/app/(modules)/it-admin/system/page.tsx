@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Download, Eye, Edit, RotateCcw, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { SystemConfigService } from '@/services/system-config.service';
 
 interface SystemConfig {
   id: string;
@@ -21,113 +22,12 @@ interface SystemConfig {
   tags: string[];
 }
 
-const mockSystemConfigs: SystemConfig[] = [
-  {
-    id: 'CFG001',
-    settingName: 'Session Timeout',
-    category: 'security',
-    currentValue: '30 minutes',
-    defaultValue: '15 minutes',
-    description: 'User session timeout duration for inactive sessions',
-    lastModified: '2025-10-15',
-    modifiedBy: 'Ravi Kumar',
-    dataType: 'integer',
-    validationRule: 'Range: 5-120 minutes',
-    status: 'active',
-    isRequired: true,
-    module: 'Authentication',
-    priority: 1,
-    tags: ['security', 'session', 'timeout']
-  },
-  {
-    id: 'CFG002',
-    settingName: 'Max Upload Size',
-    category: 'performance',
-    currentValue: '50 MB',
-    defaultValue: '25 MB',
-    description: 'Maximum file upload size for attachments',
-    lastModified: '2025-10-10',
-    modifiedBy: 'Priya Sharma',
-    dataType: 'integer',
-    validationRule: 'Range: 1-100 MB',
-    status: 'active',
-    isRequired: true,
-    module: 'File Management',
-    priority: 2,
-    tags: ['performance', 'upload', 'limit']
-  },
-  {
-    id: 'CFG003',
-    settingName: 'API Rate Limit',
-    category: 'integration',
-    currentValue: '1000 requests/hour',
-    defaultValue: '500 requests/hour',
-    description: 'API request rate limiting per client',
-    lastModified: '2025-09-28',
-    modifiedBy: 'Amit Patel',
-    dataType: 'integer',
-    validationRule: 'Range: 100-5000',
-    status: 'active',
-    isRequired: true,
-    module: 'API Gateway',
-    priority: 2,
-    tags: ['api', 'rate-limit', 'integration']
-  },
-  {
-    id: 'CFG004',
-    settingName: 'Backup Schedule',
-    category: 'backup',
-    currentValue: 'Daily at 2:00 AM',
-    defaultValue: 'Weekly at 2:00 AM',
-    description: 'Automated database backup schedule',
-    lastModified: '2025-09-15',
-    modifiedBy: 'Ravi Kumar',
-    dataType: 'cron',
-    validationRule: 'Valid cron expression',
-    status: 'active',
-    isRequired: true,
-    module: 'Backup System',
-    priority: 1,
-    tags: ['backup', 'schedule', 'database']
-  },
-  {
-    id: 'CFG005',
-    settingName: 'SMTP Server',
-    category: 'email',
-    currentValue: 'smtp.b3erp.com:587',
-    defaultValue: 'smtp.gmail.com:587',
-    description: 'SMTP server configuration for email notifications',
-    lastModified: '2025-08-20',
-    modifiedBy: 'Neha Desai',
-    dataType: 'string',
-    validationRule: 'Valid hostname:port',
-    status: 'active',
-    isRequired: true,
-    module: 'Email Service',
-    priority: 2,
-    tags: ['email', 'smtp', 'notification']
-  },
-  {
-    id: 'CFG006',
-    settingName: 'Alert Threshold',
-    category: 'notification',
-    currentValue: '85%',
-    defaultValue: '80%',
-    description: 'System resource usage alert threshold',
-    lastModified: '2025-07-10',
-    modifiedBy: 'Vikram Singh',
-    dataType: 'percentage',
-    validationRule: 'Range: 50-95%',
-    status: 'inactive',
-    isRequired: false,
-    module: 'Monitoring',
-    priority: 3,
-    tags: ['notification', 'alert', 'threshold']
-  }
-];
+const CATEGORY_VALUES = ['security', 'performance', 'integration', 'backup', 'email', 'notification'] as const;
 
 export default function SystemPage() {
-  const [configs] = useState<SystemConfig[]>(mockSystemConfigs);
+  const [configs, setConfigs] = useState<SystemConfig[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -141,6 +41,55 @@ export default function SystemPage() {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the system-config ORM shape (key/name/value/
+        // valueType/category/defaultValue/updatedAt/lastModifiedBy/isEditable);
+        // map it defensively to this page's SystemConfig model.
+        const raw = (await SystemConfigService.getAllConfigs()) as any[];
+        const mapped: SystemConfig[] = (Array.isArray(raw) ? raw : []).map((c) => {
+          const rawCategory = String(c.category ?? '').toLowerCase();
+          const category = (CATEGORY_VALUES as readonly string[]).includes(rawCategory)
+            ? (rawCategory as SystemConfig['category'])
+            : 'integration';
+          return {
+            id: String(c.id ?? c.key ?? ''),
+            settingName: c.name ?? c.key ?? '',
+            category,
+            currentValue: String(c.value ?? ''),
+            defaultValue: String(c.defaultValue ?? ''),
+            description: c.description ?? '',
+            lastModified: c.updatedAt ? String(c.updatedAt).split('T')[0] : '',
+            modifiedBy: c.lastModifiedBy ?? '—',
+            dataType: c.valueType ?? 'string',
+            validationRule: c.validationPattern ?? '',
+            status: (c.isEditable ?? true) ? 'active' : 'inactive',
+            isRequired: Boolean(c.isRequired),
+            module: c.category ?? '',
+            priority: Number(c.priority ?? 0),
+            tags: Array.isArray(c.tags) ? c.tags : [],
+          };
+        });
+        if (!cancelled) setConfigs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load system configuration');
+          setConfigs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ message, type });
@@ -233,6 +182,18 @@ export default function SystemPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">System Configuration</h1>
             <p className="text-gray-600 mt-1">Manage system settings and parameters</p>
+            {isLoading && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-blue-700">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                Loading system configuration…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4" />
+                {loadError}
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
             <button 
@@ -392,6 +353,13 @@ export default function SystemPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
+              {!isLoading && !loadError && currentConfigs.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
+                    No system configurations found.
+                  </td>
+                </tr>
+              )}
               {currentConfigs.map((config) => (
                 <tr key={config.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">

@@ -98,7 +98,7 @@ export interface UpdateWorkCenterDto extends Partial<CreateWorkCenterDto> {
 // MOCK DATA
 // ============================================================================
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 const DEFAULT_SCHEDULE: WorkCenterSchedule[] = [
   { dayOfWeek: 0, dayName: 'Sunday', startTime: '00:00', endTime: '00:00', breakMinutes: 0, isWorkingDay: false },

@@ -4,15 +4,76 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Clock, Sun, Moon, CalendarDays, DollarSign, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockShifts, Shift } from '@/data/common-masters/shifts';
+import { Shift } from '@/data/common-masters/shifts';
+import { hrMastersService } from '@/services/hr-masters.service';
+
+const DEFAULT_COMPANY_ID = '1';
 
 export default function ShiftMasterPage() {
-  const [shifts, setShifts] = useState<Shift[]>(mockShifts);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterApplicable, setFilterApplicable] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Fetch shifts from the live backend, mapping the flat API shape into the page's nested Shift model.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await hrMastersService.getAllShifts(DEFAULT_COMPANY_ID)) as any[];
+        const mapped: Shift[] = raw.map((s) => {
+          const startTime = s.startTime ?? s.timing?.startTime ?? '';
+          const endTime = s.endTime ?? s.timing?.endTime ?? '';
+          return {
+            id: String(s.id ?? ''),
+            shiftCode: s.code ?? s.shiftCode ?? '',
+            shiftName: s.name ?? s.shiftName ?? '',
+            shiftType: (s.shiftType ?? 'general') as Shift['shiftType'],
+            timing: {
+              startTime,
+              endTime,
+              duration: Number(s.timing?.duration ?? 0),
+            },
+            breaks: Array.isArray(s.breaks) ? s.breaks : [],
+            workingDays: Array.isArray(s.workingDays) ? s.workingDays : [],
+            applicableFor: (s.applicableFor ?? 'all') as Shift['applicableFor'],
+            allowances: {
+              shiftAllowance: Number(s.allowances?.shiftAllowance ?? 0),
+              nightAllowance: s.allowances?.nightAllowance !== null && s.allowances?.nightAllowance !== undefined ? Number(s.allowances.nightAllowance) : undefined,
+              overtimeMultiplier: Number(s.allowances?.overtimeMultiplier ?? 1),
+            },
+            attendance: {
+              graceTime: Number(s.attendance?.graceTime ?? 0),
+              minimumHours: Number(s.attendance?.minimumHours ?? 0),
+              halfDayThreshold: Number(s.attendance?.halfDayThreshold ?? 0),
+            },
+            color: s.color ?? '#6b7280',
+            isActive: s.isActive ?? true,
+            effectiveFrom: s.effectiveFrom ?? '',
+            notes: s.notes ?? undefined,
+          };
+        });
+        if (!cancelled) setShifts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load shifts');
+          setShifts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -418,6 +479,24 @@ export default function ShiftMasterPage() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading shifts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && shifts.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No shifts found.
+        </div>
+      )}
 
       {/* Data Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">

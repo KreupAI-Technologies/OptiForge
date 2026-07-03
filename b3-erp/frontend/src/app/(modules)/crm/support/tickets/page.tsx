@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, MessageSquare, Clock, AlertCircle, CheckCircle, XCircle, User, Building2, Calendar, TrendingUp, Mail, Phone, Paperclip } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface SupportTicket {
   id: string;
@@ -31,201 +32,62 @@ interface SupportTicket {
   slaDeadline: string;
 }
 
-const mockTickets: SupportTicket[] = [
-  {
-    id: '1',
-    ticketNumber: 'TKT-2024-0145',
-    subject: 'Unable to access dashboard after latest update',
-    description: 'Users reporting 403 error when trying to access main dashboard since this morning update.',
-    customer: 'John Smith',
-    customerCompany: 'Acme Corporation',
-    contactEmail: 'john.smith@acme.com',
-    contactPhone: '+1 555-0123',
-    status: 'in_progress',
-    priority: 'critical',
-    category: 'technical',
-    assignedTo: 'Sarah Johnson',
-    createdDate: '2024-10-20T08:30:00',
-    lastUpdated: '2024-10-20T10:15:00',
-    firstResponseTime: 12,
-    responseCount: 5,
-    attachments: 3,
-    tags: ['Dashboard', 'Access Issue', 'Update Related'],
-    relatedContract: 'CNT-2024-001',
-    slaStatus: 'at_risk',
-    slaDeadline: '2024-10-20T12:30:00',
-  },
-  {
-    id: '2',
-    ticketNumber: 'TKT-2024-0144',
-    subject: 'Invoice discrepancy - October billing',
-    description: 'Customer questioning additional charges on October invoice. Need to review billing breakdown.',
-    customer: 'Emily Davis',
-    customerCompany: 'TechStart Inc',
-    contactEmail: 'emily.davis@techstart.com',
-    contactPhone: '+1 555-0145',
-    status: 'pending_customer',
-    priority: 'high',
-    category: 'billing',
-    assignedTo: 'Michael Chen',
-    createdDate: '2024-10-19T14:20:00',
-    lastUpdated: '2024-10-19T16:45:00',
-    firstResponseTime: 45,
-    responseCount: 3,
-    attachments: 2,
-    tags: ['Billing', 'Invoice', 'Clarification'],
-    relatedContract: 'CNT-2024-002',
-    slaStatus: 'met',
-    slaDeadline: '2024-10-21T14:20:00',
-  },
-  {
-    id: '3',
-    ticketNumber: 'TKT-2024-0143',
-    subject: 'Feature request: Bulk export functionality',
-    description: 'Customer requesting ability to export large datasets in bulk rather than one at a time.',
-    customer: 'Robert Johnson',
-    customerCompany: 'Global Industries Ltd',
-    contactEmail: 'robert.j@globalind.com',
-    contactPhone: '+1 555-0167',
-    status: 'open',
-    priority: 'medium',
-    category: 'feature_request',
-    assignedTo: 'David Park',
-    createdDate: '2024-10-18T11:00:00',
-    lastUpdated: '2024-10-18T11:00:00',
-    responseCount: 0,
-    attachments: 1,
-    tags: ['Feature Request', 'Export', 'Enhancement'],
-    relatedContract: 'CNT-2024-003',
-    slaStatus: 'at_risk',
-    slaDeadline: '2024-10-20T11:00:00',
-  },
-  {
-    id: '4',
-    ticketNumber: 'TKT-2024-0142',
-    subject: 'Login issues with SSO integration',
-    description: 'SSO authentication failing intermittently. Users having to retry multiple times.',
-    customer: 'Lisa Anderson',
-    customerCompany: 'Manufacturing Solutions Co',
-    contactEmail: 'lisa.a@mfgsolutions.com',
-    contactPhone: '+1 555-0189',
-    status: 'resolved',
-    priority: 'high',
-    category: 'bug',
-    assignedTo: 'Sarah Johnson',
-    createdDate: '2024-10-17T09:15:00',
-    lastUpdated: '2024-10-18T14:30:00',
-    resolvedDate: '2024-10-18T14:30:00',
-    firstResponseTime: 20,
-    resolutionTime: 29.25,
-    responseCount: 8,
-    attachments: 5,
-    tags: ['SSO', 'Authentication', 'Bug'],
-    relatedContract: 'CNT-2024-004',
-    customerSatisfaction: 5,
-    slaStatus: 'met',
-    slaDeadline: '2024-10-17T17:15:00',
-  },
-  {
-    id: '5',
-    ticketNumber: 'TKT-2024-0141',
-    subject: 'Request for additional user licenses',
-    description: 'Need to add 25 more user licenses to existing enterprise plan.',
-    customer: 'James Wilson',
-    customerCompany: 'Financial Services Group',
-    contactEmail: 'james.w@finservices.com',
-    contactPhone: '+1 555-0201',
-    status: 'closed',
-    priority: 'low',
-    category: 'access',
-    assignedTo: 'Michael Chen',
-    createdDate: '2024-10-16T13:30:00',
-    lastUpdated: '2024-10-17T10:15:00',
-    resolvedDate: '2024-10-17T09:45:00',
-    firstResponseTime: 30,
-    resolutionTime: 20.25,
-    responseCount: 4,
-    attachments: 1,
-    tags: ['Licenses', 'Access', 'Upgrade'],
-    relatedContract: 'CNT-2024-005',
-    customerSatisfaction: 4,
-    slaStatus: 'met',
-    slaDeadline: '2024-10-18T13:30:00',
-  },
-  {
-    id: '6',
-    ticketNumber: 'TKT-2024-0140',
-    subject: 'Training session for new features',
-    description: 'Customer requesting dedicated training session for Q4 feature releases.',
-    customer: 'Maria Garcia',
-    customerCompany: 'Retail Innovations',
-    contactEmail: 'maria.g@retailinno.com',
-    contactPhone: '+1 555-0223',
-    status: 'in_progress',
-    priority: 'medium',
-    category: 'training',
-    assignedTo: 'David Park',
-    createdDate: '2024-10-15T10:00:00',
-    lastUpdated: '2024-10-19T15:30:00',
-    firstResponseTime: 60,
-    responseCount: 6,
-    attachments: 2,
-    tags: ['Training', 'Features', 'Education'],
-    relatedContract: 'CNT-2024-006',
-    slaStatus: 'met',
-    slaDeadline: '2024-10-17T10:00:00',
-  },
-  {
-    id: '7',
-    ticketNumber: 'TKT-2024-0139',
-    subject: 'Data sync delays between systems',
-    description: 'Integration data taking 2+ hours to sync instead of normal 15-minute interval.',
-    customer: 'Thomas Brown',
-    customerCompany: 'Healthcare Systems Inc',
-    contactEmail: 'thomas.b@healthsys.com',
-    contactPhone: '+1 555-0245',
-    status: 'open',
-    priority: 'critical',
-    category: 'technical',
-    assignedTo: 'Sarah Johnson',
-    createdDate: '2024-10-20T07:45:00',
-    lastUpdated: '2024-10-20T08:00:00',
-    firstResponseTime: 15,
-    responseCount: 2,
-    attachments: 4,
-    tags: ['Integration', 'Performance', 'Critical'],
-    relatedContract: 'CNT-2024-007',
-    slaStatus: 'breached',
-    slaDeadline: '2024-10-20T09:45:00',
-  },
-  {
-    id: '8',
-    ticketNumber: 'TKT-2024-0138',
-    subject: 'API rate limit clarification',
-    description: 'Customer hitting rate limits. Requesting information on current limits and upgrade options.',
-    customer: 'Patricia Martinez',
-    customerCompany: 'E-Commerce Solutions Ltd',
-    contactEmail: 'patricia.m@ecomsolutions.com',
-    contactPhone: '+1 555-0267',
-    status: 'pending_customer',
-    priority: 'medium',
-    category: 'other',
-    assignedTo: 'Michael Chen',
-    createdDate: '2024-10-19T16:30:00',
-    lastUpdated: '2024-10-20T09:15:00',
-    firstResponseTime: 90,
-    responseCount: 3,
-    attachments: 1,
-    tags: ['API', 'Rate Limits', 'Documentation'],
-    relatedContract: 'CNT-2024-008',
-    slaStatus: 'met',
-    slaDeadline: '2024-10-21T16:30:00',
-  },
-];
-
 export default function SupportTicketsPage() {
   const router = useRouter();
-  const [tickets] = useState<SupportTicket[]>(mockTickets);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (NestJS CrmSupportTicket) uses different field names than the
+        // page's SupportTicket model; map defensively and coerce numerics.
+        const raw = (await crmService.tickets.getAll()) as any[];
+        const mapped: SupportTicket[] = (raw || []).map((t) => ({
+          id: String(t.id),
+          ticketNumber: t.ticketNumber ?? '',
+          subject: t.subject ?? '',
+          description: t.description ?? '',
+          customer: t.contactName ?? t.customerName ?? '',
+          customerCompany: t.customerName ?? '',
+          contactEmail: t.contactEmail ?? '',
+          contactPhone: t.contactPhone ?? '',
+          status: (t.status ?? 'open') as SupportTicket['status'],
+          priority: (t.priority ?? 'medium') as SupportTicket['priority'],
+          category: (t.category ?? 'other') as SupportTicket['category'],
+          assignedTo: t.assignedToName ?? t.assignedTo ?? '',
+          createdDate: t.createdAt ?? t.createdDate ?? '',
+          lastUpdated: t.updatedAt ?? t.lastUpdated ?? '',
+          resolvedDate: t.resolvedAt ?? t.resolvedDate ?? undefined,
+          firstResponseTime: t.firstResponseTime != null ? Number(t.firstResponseTime) : undefined,
+          resolutionTime: t.resolutionTime != null ? Number(t.resolutionTime) : undefined,
+          responseCount: Number(t.responseCount ?? 0),
+          attachments: Array.isArray(t.attachments) ? t.attachments.length : Number(t.attachments ?? 0),
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          relatedContract: t.relatedContract ?? undefined,
+          customerSatisfaction: t.customerSatisfaction ?? undefined,
+          slaStatus: (t.slaStatus ?? 'met') as SupportTicket['slaStatus'],
+          slaDeadline: t.resolutionDeadline ?? t.slaDeadline ?? '',
+        }));
+        if (!cancelled) setTickets(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load tickets');
+          setTickets([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'in_progress' | 'pending_customer' | 'resolved' | 'closed' | 'cancelled'>('all');
   const [filterPriority, setFilterPriority] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all');
@@ -328,6 +190,23 @@ export default function SupportTicketsPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading tickets…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && tickets.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No tickets found.
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Gift,
@@ -13,96 +13,83 @@ import {
   ToggleRight,
   Calendar,
   Tag,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react'
 import { PromotionModal, FilterModal, Promotion } from '@/components/cpq/PromotionModals'
+import { cpqPricingService } from '@/services/cpq'
 
 export default function CPQPricingPromotionsPage() {
   const router = useRouter()
 
-  const [promotions, setPromotions] = useState<Promotion[]>([
-    {
-      id: 'PROMO-001',
-      name: 'Festival Mega Sale',
-      type: 'percentage',
-      value: '15% off',
-      startDate: '2024-10-15',
-      endDate: '2024-11-15',
-      applicableProducts: ['All Modular Kitchens', 'L-Shaped Kitchens'],
-      minPurchase: 500000,
-      status: 'active',
-      usageCount: 89
-    },
-    {
-      id: 'PROMO-002',
-      name: 'New Year Clearance',
-      type: 'percentage',
-      value: '20% off',
-      startDate: '2024-12-26',
-      endDate: '2025-01-10',
-      applicableProducts: ['Premium Cabinets', 'Countertops'],
-      status: 'scheduled',
-      usageCount: 0
-    },
-    {
-      id: 'PROMO-003',
-      name: 'Bundle & Save - Kitchen Essentials',
-      type: 'bundle',
-      value: '₹75,000 off',
-      startDate: '2024-10-01',
-      endDate: '2024-10-31',
-      applicableProducts: ['Cabinet + Countertop + Hardware'],
-      minPurchase: 800000,
-      status: 'active',
-      usageCount: 45
-    },
-    {
-      id: 'PROMO-004',
-      name: 'Buy 2 Get 1 - Hardware Special',
-      type: 'bogo',
-      value: 'Buy 2 Get 1 Free',
-      startDate: '2024-10-10',
-      endDate: '2024-10-25',
-      applicableProducts: ['Cabinet Handles', 'Drawer Rails'],
-      status: 'active',
-      usageCount: 127
-    },
-    {
-      id: 'PROMO-005',
-      name: 'Early Bird Discount',
-      type: 'fixed-amount',
-      value: '₹50,000 off',
-      startDate: '2024-09-01',
-      endDate: '2024-09-30',
-      applicableProducts: ['All Categories'],
-      minPurchase: 1000000,
-      status: 'expired',
-      usageCount: 34
-    },
-    {
-      id: 'PROMO-006',
-      name: 'Summer Sale',
-      type: 'percentage',
-      value: '12% off',
-      startDate: '2024-08-01',
-      endDate: '2024-08-31',
-      applicableProducts: ['Island Kitchens', 'Straight Kitchens'],
-      status: 'expired',
-      usageCount: 67
-    },
-    {
-      id: 'PROMO-007',
-      name: 'Loyalty Reward - Premium Members',
-      type: 'percentage',
-      value: '10% off',
-      startDate: '2024-10-01',
-      endDate: '2024-12-31',
-      applicableProducts: ['All Products'],
-      minPurchase: 300000,
-      status: 'active',
-      usageCount: 156
+  const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the PromotionalPricing ORM shape (promotionName/
+        // promotionType/discountValue/validFrom/validTo/usageCount/isActive/
+        // applicableProducts); map it to this page's display Promotion model.
+        const raw = (await cpqPricingService.findAllPromotions()) as any[]
+        const typeMap: Record<string, Promotion['type']> = {
+          percentage_off: 'percentage',
+          fixed_amount_off: 'fixed-amount',
+          buy_x_get_y: 'bogo',
+          bundle_discount: 'bundle',
+        }
+        const toDate = (v: unknown): string =>
+          v ? new Date(v as string).toISOString().split('T')[0] : ''
+        const deriveStatus = (r: any): Promotion['status'] => {
+          if (r?.isActive === false) return 'expired'
+          const now = Date.now()
+          const from = r?.validFrom ? new Date(r.validFrom).getTime() : NaN
+          const to = r?.validTo ? new Date(r.validTo).getTime() : NaN
+          if (!Number.isNaN(to) && to < now) return 'expired'
+          if (!Number.isNaN(from) && from > now) return 'scheduled'
+          return 'active'
+        }
+        const describeValue = (r: any): string => {
+          const v = Number(r?.discountValue ?? 0)
+          if (r?.promotionType === 'percentage_off') return `${v}% off`
+          if (r?.promotionType === 'fixed_amount_off') return `₹${v.toLocaleString()} off`
+          return String(r?.promotionType ?? '')
+        }
+        const mapped: Promotion[] = (raw ?? []).map((r) => ({
+          id: r.id ?? '',
+          name: r.promotionName ?? '',
+          type: typeMap[r.promotionType] ?? 'percentage',
+          value: describeValue(r),
+          startDate: toDate(r.validFrom),
+          endDate: toDate(r.validTo),
+          applicableProducts: Array.isArray(r.applicableProducts)
+            ? r.applicableProducts
+            : Array.isArray(r.applicableCategories)
+              ? r.applicableCategories
+              : [],
+          minPurchase: r.minimumPurchase != null ? Number(r.minimumPurchase) : undefined,
+          status: deriveStatus(r),
+          usageCount: Number(r.usageCount ?? 0),
+        }))
+        if (!cancelled) setPromotions(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load promotions')
+          setPromotions([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -208,6 +195,23 @@ export default function CPQPricingPromotionsPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading promotions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && promotions.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No promotions found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

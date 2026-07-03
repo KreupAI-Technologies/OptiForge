@@ -1,7 +1,7 @@
 // HR Compliance Service
 // Handles all HR Compliance related API calls and data management
 
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ============================================
 // ENUMS

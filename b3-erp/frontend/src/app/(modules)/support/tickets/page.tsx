@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, MessageSquare, Clock, User, AlertCircle, CheckCircle, XCircle, Filter, Download, ArrowUpDown, ChevronLeft, ChevronRight, Calendar, Tag, Mail, Phone, Ticket, RefreshCw } from 'lucide-react';
 import { FilterPanel, EmptyState, LoadingState, PageToolbar } from '@/components/ui';
+import { getTickets } from '@/services/support-management.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
 interface Ticket {
   id: string;
@@ -30,232 +33,6 @@ interface Ticket {
   department: string;
 }
 
-const mockTickets: Ticket[] = [
-  {
-    id: '1',
-    ticketNumber: 'TKT-2025-001',
-    subject: 'Installation issue with modular kitchen hardware',
-    description: 'Customer facing issues with soft-close hinge installation on upper cabinets',
-    customer: 'Sharma Modular Kitchens Pvt Ltd',
-    customerEmail: 'rajesh@sharmakitchens.co.in',
-    customerPhone: '+91-98765-43210',
-    assignedTo: 'Rahul Kumar',
-    status: 'in_progress',
-    priority: 'high',
-    category: 'technical',
-    createdDate: '2025-10-15',
-    lastUpdated: '2025-10-17',
-    responseTime: 45,
-    slaStatus: 'within_sla',
-    tags: ['hardware', 'installation', 'urgent'],
-    attachments: 3,
-    comments: 5,
-    source: 'email',
-    department: 'Technical Support',
-  },
-  {
-    id: '2',
-    ticketNumber: 'TKT-2025-002',
-    subject: 'Invoice discrepancy for Order #SO-2025-0342',
-    description: 'Customer reporting mismatch in quantities between delivery note and invoice',
-    customer: 'Urban Interiors & Designers',
-    customerEmail: 'anita@urbaninteriors.in',
-    customerPhone: '+91-98123-45678',
-    assignedTo: 'Priya Patel',
-    status: 'pending',
-    priority: 'medium',
-    category: 'billing',
-    createdDate: '2025-10-14',
-    lastUpdated: '2025-10-16',
-    responseTime: 120,
-    slaStatus: 'within_sla',
-    tags: ['billing', 'invoice', 'discrepancy'],
-    attachments: 2,
-    comments: 3,
-    source: 'phone',
-    department: 'Finance',
-  },
-  {
-    id: '3',
-    ticketNumber: 'TKT-2025-003',
-    subject: 'Damaged goods received - Drawer channels',
-    description: 'Multiple drawer channels arrived damaged in shipment SHP-2025-0567',
-    customer: 'Prestige Developers Bangalore',
-    customerEmail: 'suresh.m@prestigedev.co.in',
-    customerPhone: '+91-80-2345-6789',
-    assignedTo: 'Amit Singh',
-    status: 'open',
-    priority: 'critical',
-    category: 'complaint',
-    createdDate: '2025-10-17',
-    lastUpdated: '2025-10-17',
-    responseTime: 15,
-    slaStatus: 'approaching_sla',
-    tags: ['damaged', 'replacement', 'priority'],
-    attachments: 8,
-    comments: 2,
-    source: 'portal',
-    department: 'Quality Control',
-  },
-  {
-    id: '4',
-    ticketNumber: 'TKT-2025-004',
-    subject: 'Request for custom finish samples',
-    description: 'Customer requesting physical samples of custom laminate finishes for approval',
-    customer: 'Archana Architects Associates',
-    customerEmail: 'archana@archanarchitects.com',
-    customerPhone: '+91-22-4567-8901',
-    assignedTo: 'Sanjay Gupta',
-    status: 'resolved',
-    priority: 'low',
-    category: 'general',
-    createdDate: '2025-10-10',
-    lastUpdated: '2025-10-12',
-    resolvedDate: '2025-10-12',
-    responseTime: 60,
-    resolutionTime: 2880,
-    slaStatus: 'within_sla',
-    tags: ['samples', 'custom', 'finishes'],
-    attachments: 0,
-    comments: 4,
-    source: 'email',
-    department: 'Sales Support',
-  },
-  {
-    id: '5',
-    ticketNumber: 'TKT-2025-005',
-    subject: 'Mobile app feature request - BOQ export',
-    description: 'Request to add PDF export functionality for BOQ in mobile application',
-    customer: 'DLF Home Solutions Limited',
-    customerEmail: 'karthik.r@dlfhomes.co.in',
-    customerPhone: '+91-40-3456-7890',
-    assignedTo: 'Vikram Reddy',
-    status: 'open',
-    priority: 'low',
-    category: 'feature_request',
-    createdDate: '2025-10-16',
-    lastUpdated: '2025-10-17',
-    responseTime: 240,
-    slaStatus: 'within_sla',
-    tags: ['enhancement', 'mobile', 'export'],
-    attachments: 1,
-    comments: 1,
-    source: 'portal',
-    department: 'IT',
-  },
-  {
-    id: '6',
-    ticketNumber: 'TKT-2025-006',
-    subject: 'Installation team not arrived on scheduled date',
-    description: 'Installation team scheduled for 15th Oct did not arrive at site',
-    customer: 'Godrej Furniture & Interiors',
-    customerEmail: 'neha.k@godrejinteriors.com',
-    customerPhone: '+91-21-4567-8912',
-    assignedTo: 'Rahul Kumar',
-    status: 'reopened',
-    priority: 'critical',
-    category: 'installation',
-    createdDate: '2025-10-15',
-    lastUpdated: '2025-10-17',
-    responseTime: 30,
-    slaStatus: 'breached_sla',
-    tags: ['installation', 'scheduling', 'urgent'],
-    attachments: 0,
-    comments: 7,
-    source: 'phone',
-    department: 'Installation Services',
-  },
-  {
-    id: '7',
-    ticketNumber: 'TKT-2025-007',
-    subject: 'Payment gateway issue on customer portal',
-    description: 'Unable to process payment through portal, getting error code PG-404',
-    customer: 'Oberoi Realty Projects',
-    customerEmail: 'manish@oberoirealty.co.in',
-    customerPhone: '+91-22-6789-0123',
-    assignedTo: 'Vikram Reddy',
-    status: 'in_progress',
-    priority: 'high',
-    category: 'technical',
-    createdDate: '2025-10-16',
-    lastUpdated: '2025-10-17',
-    responseTime: 90,
-    slaStatus: 'within_sla',
-    tags: ['portal', 'payment', 'technical'],
-    attachments: 2,
-    comments: 4,
-    source: 'chat',
-    department: 'IT',
-  },
-  {
-    id: '8',
-    ticketNumber: 'TKT-2025-008',
-    subject: 'Delay in delivery acknowledgment',
-    description: 'Awaiting delivery confirmation for PO-2025-0892 placed 2 weeks ago',
-    customer: 'Decor Studio Chennai',
-    customerEmail: 'lakshmi@decorstudio.co.in',
-    customerPhone: '+91-44-2876-5432',
-    assignedTo: 'Priya Patel',
-    status: 'pending',
-    priority: 'medium',
-    category: 'general',
-    createdDate: '2025-10-13',
-    lastUpdated: '2025-10-16',
-    responseTime: 180,
-    slaStatus: 'approaching_sla',
-    tags: ['delivery', 'confirmation', 'follow-up'],
-    attachments: 1,
-    comments: 2,
-    source: 'email',
-    department: 'Logistics',
-  },
-  {
-    id: '9',
-    ticketNumber: 'TKT-2025-009',
-    subject: 'Product catalog access request',
-    description: 'New customer requesting access to complete product catalog with pricing',
-    customer: 'Royal Homes Hyderabad',
-    customerEmail: 'vikram@royalhomes.co.in',
-    customerPhone: '+91-40-4567-8901',
-    assignedTo: 'Sanjay Gupta',
-    status: 'closed',
-    priority: 'low',
-    category: 'general',
-    createdDate: '2025-10-08',
-    lastUpdated: '2025-10-09',
-    resolvedDate: '2025-10-09',
-    responseTime: 30,
-    resolutionTime: 1440,
-    slaStatus: 'within_sla',
-    tags: ['catalog', 'access', 'new-customer'],
-    attachments: 0,
-    comments: 2,
-    source: 'walk_in',
-    department: 'Sales Support',
-  },
-  {
-    id: '10',
-    ticketNumber: 'TKT-2025-010',
-    subject: 'Credit limit increase request',
-    description: 'Customer requesting credit limit increase from 5L to 10L for ongoing projects',
-    customer: 'Cosmos Furniture Mart',
-    customerEmail: 'ramesh@cosmosfurniture.in',
-    customerPhone: '+91-22-3456-7890',
-    assignedTo: 'Priya Patel',
-    status: 'in_progress',
-    priority: 'medium',
-    category: 'billing',
-    createdDate: '2025-10-14',
-    lastUpdated: '2025-10-17',
-    responseTime: 60,
-    slaStatus: 'within_sla',
-    tags: ['credit', 'approval', 'finance'],
-    attachments: 3,
-    comments: 6,
-    source: 'email',
-    department: 'Finance',
-  },
-];
 
 const statusColors = {
   open: 'bg-blue-100 text-blue-700',
@@ -290,7 +67,8 @@ const categoryColors = {
 
 export default function TicketsPage() {
   const router = useRouter();
-  const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -304,8 +82,71 @@ export default function TicketsPage() {
   const [sortField, setSortField] = useState<keyof Ticket | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the domain SupportTicket shape; map it defensively
+        // to this page's Ticket model.
+        const res = (await getTickets({ companyId: COMPANY_ID, limit: 500 })) as any;
+        const raw: any[] = Array.isArray(res) ? res : (res?.tickets ?? []);
+        const statusMap: Record<string, Ticket['status']> = {
+          new: 'open', assigned: 'in_progress', in_progress: 'in_progress',
+          pending: 'pending', resolved: 'resolved', closed: 'closed', reopened: 'reopened',
+        };
+        const catMap: Record<string, Ticket['category']> = {
+          technical: 'technical', billing: 'billing', general: 'general',
+          complaint: 'complaint', feature_request: 'feature_request', installation: 'installation',
+        };
+        const srcMap: Record<string, Ticket['source']> = {
+          email: 'email', phone: 'phone', portal: 'portal', chat: 'chat',
+          web: 'portal', social: 'portal', walk_in: 'walk_in',
+        };
+        const toDate = (d: any) => (d ? String(d).slice(0, 10) : '');
+        const mapped: Ticket[] = raw.map((t) => ({
+          id: String(t.id ?? ''),
+          ticketNumber: t.ticketNumber ?? t.ticket_number ?? '',
+          subject: t.subject ?? '',
+          description: t.description ?? '',
+          customer: t.customerName ?? t.customer ?? '',
+          customerEmail: t.customerEmail ?? '',
+          customerPhone: t.customerPhone ?? '',
+          assignedTo: t.assignee?.name ?? t.assigneeName ?? t.assignedTo ?? '',
+          status: statusMap[t.status] ?? 'open',
+          priority: t.priority ?? 'medium',
+          category: catMap[t.category?.name ?? t.category] ?? 'general',
+          createdDate: toDate(t.createdAt ?? t.createdDate),
+          lastUpdated: toDate(t.updatedAt ?? t.lastUpdated),
+          resolvedDate: t.resolvedAt ? toDate(t.resolvedAt) : undefined,
+          responseTime: Number(t.responseTime ?? 0),
+          resolutionTime: t.resolutionTime != null ? Number(t.resolutionTime) : undefined,
+          slaStatus: t.slaBreached ? 'breached_sla' : 'within_sla',
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          attachments: Number(t.attachments ?? (Array.isArray(t.attachments) ? t.attachments.length : 0) ?? 0),
+          comments: Number(Array.isArray(t.comments) ? t.comments.length : t.comments ?? 0),
+          source: srcMap[t.channel ?? t.source] ?? 'email',
+          department: t.department ?? '',
+        }));
+        if (!cancelled) setTickets(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load tickets');
+          setTickets([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSort = (field: keyof Ticket) => {
     if (sortField === field) {
@@ -638,6 +479,13 @@ export default function TicketsPage() {
           />
         )}
       </div>
+
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden p-8">
