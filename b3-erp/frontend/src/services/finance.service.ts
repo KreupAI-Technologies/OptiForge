@@ -1021,6 +1021,103 @@ export class FinanceService {
   static async getCashDashboard(): Promise<any> {
     return this.request<any>('/finance/cash/dashboard');
   }
+
+  // Journal Entries (accounting) detail pages
+  static async getJournalEntries(): Promise<any[]> {
+    const res = await this.request<any>('/finance/journal-entries');
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  static async getJournalEntry(id: string): Promise<any> {
+    return this.request<any>(`/finance/journal-entries/${id}`);
+  }
+
+  static async createJournalEntry(data: any): Promise<any> {
+    return this.request<any>('/finance/journal-entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateJournalEntry(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/journal-entries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Invoices detail pages
+  static async getInvoice(id: string): Promise<any> {
+    return this.request<any>(`/finance/invoices/${id}`);
+  }
+
+  // Payments detail pages
+  static async getPayments(): Promise<any[]> {
+    const res = await this.request<any>('/finance/payments');
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  static async getPayment(id: string): Promise<any> {
+    return this.request<any>(`/finance/payments/${id}`);
+  }
+
+  static async createPayment(data: any): Promise<any> {
+    return this.request<any>('/finance/payments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updatePayment(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Receivables (AR customer accounts) detail pages
+  static async getReceivable(id: string): Promise<any> {
+    return this.request<any>(`/finance/receivables/${id}`);
+  }
+
+  static async updateReceivable(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/receivables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Payables (AP vendor accounts) detail pages
+  static async getPayable(id: string): Promise<any> {
+    return this.request<any>(`/finance/payables/${id}`);
+  }
+
+  static async updatePayable(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/payables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Advanced features (settings / feature toggles)
+  static async getAdvancedFeatures(): Promise<any[]> {
+    const res = await this.request<any>('/finance/advanced-features');
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  static async createAdvancedFeature(data: any): Promise<any> {
+    return this.request<any>('/finance/advanced-features', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateAdvancedFeature(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/advanced-features/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 // Export singleton instance

@@ -102,6 +102,37 @@ import { ComplianceAuditService } from './services/compliance-audit.service';
 import { HrGrievanceService } from './services/hr-grievance.service';
 import { HrDocumentService } from './services/hr-document.service';
 
+// HR Assets & Documents remaining orphan-endpoint build — direct imports
+import { IdCard } from './entities/id-card.entity';
+import { AccessCard } from './entities/access-card.entity';
+import { Stationery } from './entities/stationery.entity';
+import { AssetAudit } from './entities/asset-audit.entity';
+import { VehicleAssignment } from './entities/vehicle-assignment.entity';
+import { AmcContract } from './entities/amc-contract.entity';
+import { PreventiveMaintenance } from './entities/preventive-maintenance.entity';
+import { CertificateRequest } from './entities/certificate-request.entity';
+import { DocumentAuditLog } from './entities/document-audit-log.entity';
+import { IdCardController } from './controllers/id-card.controller';
+import { AccessCardController } from './controllers/access-card.controller';
+import { StationeryController } from './controllers/stationery.controller';
+import { AssetAuditController } from './controllers/asset-audit.controller';
+import { VehicleAssignmentController } from './controllers/vehicle-assignment.controller';
+import { AmcContractController } from './controllers/amc-contract.controller';
+import { PreventiveMaintenanceController } from './controllers/preventive-maintenance.controller';
+import { CertificateRequestController } from './controllers/certificate-request.controller';
+import { DocumentAuditLogController } from './controllers/document-audit-log.controller';
+import { AssetReportController } from './controllers/asset-report.controller';
+import { IdCardService } from './services/id-card.service';
+import { AccessCardService } from './services/access-card.service';
+import { StationeryService } from './services/stationery.service';
+import { AssetAuditService } from './services/asset-audit.service';
+import { VehicleAssignmentService } from './services/vehicle-assignment.service';
+import { AmcContractService } from './services/amc-contract.service';
+import { PreventiveMaintenanceService } from './services/preventive-maintenance.service';
+import { CertificateRequestService } from './services/certificate-request.service';
+import { DocumentAuditLogService } from './services/document-audit-log.service';
+import { AssetReportService } from './services/asset-report.service';
+
 // Succession / Probation / Performance-goals (orphan-endpoint build) — direct imports
 import { SuccessionPlan } from './entities/succession-plan.entity';
 import { ProbationReview } from './entities/probation-review.entity';
@@ -140,6 +171,9 @@ import { PayrollBonusRecordService } from './services/payroll-bonus-record.servi
 import { PayrollSalaryRevisionService } from './services/payroll-salary-revision.service';
 import { PayrollDisbursementService } from './services/payroll-disbursement.service';
 import { PayrollReportService } from './services/payroll-report.service';
+import { AttendanceRecord } from './entities/attendance-record.entity';
+import { AttendanceRecordController } from './controllers/attendance-record.controller';
+import { AttendanceRecordService } from './services/attendance-record.service';
 
 // Entities
 import {
@@ -249,6 +283,8 @@ import { PrismaModule } from '../prisma/prisma.module';
       // HR Asset Management
       AssetItem, AssetRequest, AssetTransfer, AssetReturn, AssetAllocation,
       AssetInventory, AssetMaintenance, Vehicle, VehicleFuel,
+      IdCard, AccessCard, Stationery, AssetAudit, VehicleAssignment,
+      AmcContract, PreventiveMaintenance, CertificateRequest, DocumentAuditLog,
       SuccessionPlan,
       ProbationReview,
       PerformanceGoal,
@@ -276,6 +312,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 
       // Attendance Management
       Attendance,
+      AttendanceRecord,
 
       // Payroll Management
       SalaryStructure,
@@ -306,6 +343,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     AssetItemController, AssetRequestController, AssetTransferController,
     AssetReturnController, AssetAllocationController, AssetInventoryController,
     AssetMaintenanceController, VehicleController, VehicleFuelController,
+    IdCardController, AccessCardController, StationeryController,
+    AssetAuditController, VehicleAssignmentController, AmcContractController,
+    PreventiveMaintenanceController, CertificateRequestController,
+    DocumentAuditLogController, AssetReportController,
     SuccessionPlanController,
     ProbationReviewController,
     PerformanceGoalController,
@@ -326,6 +367,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     LeaveBalanceController,
     LeaveApplicationController,
     AttendanceController,
+    AttendanceRecordController,
     SalaryStructureController,
     PayrollController,
     SalarySlipController,
@@ -353,6 +395,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     AssetItemService, AssetRequestService, AssetTransferService,
     AssetReturnService, AssetAllocationService, AssetInventoryService,
     AssetMaintenanceService, VehicleService, VehicleFuelService,
+    IdCardService, AccessCardService, StationeryService,
+    AssetAuditService, VehicleAssignmentService, AmcContractService,
+    PreventiveMaintenanceService, CertificateRequestService,
+    DocumentAuditLogService, AssetReportService,
     SuccessionPlanService,
     ProbationReviewService,
     PerformanceGoalService,
@@ -373,6 +419,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     LeaveBalanceService,
     LeaveApplicationService,
     AttendanceService,
+    AttendanceRecordService,
     SalaryStructureService,
     PayrollService,
     SalarySlipService,
@@ -422,6 +469,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     LeaveBalanceService,
     LeaveApplicationService,
     AttendanceService,
+    AttendanceRecordService,
     SalaryStructureService,
     PayrollService,
     SalarySlipService,

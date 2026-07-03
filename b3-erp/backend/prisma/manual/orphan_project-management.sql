@@ -912,3 +912,124 @@ CREATE TABLE IF NOT EXISTS "pm_project_plans" (
 
 CREATE INDEX IF NOT EXISTS "IDX_pm_project_plans_company_status"
   ON "pm_project_plans" ("companyId", "status");
+
+-- ============================================================================
+-- projects/planning/scope page — scope items
+-- Additive only. Backs PmScopeItemEntity (pm_scope_items).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "pm_scope_items" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default',
+  "item_code" varchar(255) NULL,
+  "item_name" varchar(255) NULL,
+  "description" text NULL,
+  "project_code" varchar(255) NULL,
+  "project_name" varchar(255) NULL,
+  "category" varchar(255) NOT NULL DEFAULT 'deliverable',
+  "type" varchar(255) NOT NULL DEFAULT 'in-scope',
+  "status" varchar(255) NOT NULL DEFAULT 'defined',
+  "wbs_reference" varchar(255) NULL,
+  "priority" varchar(255) NOT NULL DEFAULT 'medium',
+  "estimated_cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "estimated_duration" integer NOT NULL DEFAULT 0,
+  "dependencies" jsonb NULL,
+  "approved_by" varchar(255) NULL,
+  "approved_date" varchar(255) NULL,
+  "notes" text NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_pm_scope_items" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_pm_scope_items_company_status"
+  ON "pm_scope_items" ("company_id", "status");
+
+-- ============================================================================
+-- projects/planning/charter page — project charters
+-- Additive only. Backs PmCharterEntity (pm_charters).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "pm_charters" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default',
+  "project_code" varchar(255) NULL,
+  "project_name" varchar(255) NULL,
+  "charter_number" varchar(255) NULL,
+  "version" varchar(255) NOT NULL DEFAULT '1.0',
+  "project_manager" varchar(255) NULL,
+  "sponsor" varchar(255) NULL,
+  "client" varchar(255) NULL,
+  "department" varchar(255) NULL,
+  "category" varchar(255) NOT NULL DEFAULT 'construction',
+  "status" varchar(255) NOT NULL DEFAULT 'draft',
+  "priority" varchar(255) NOT NULL DEFAULT 'medium',
+  "objectives" jsonb NULL,
+  "scope" jsonb NULL,
+  "deliverables" jsonb NULL,
+  "stakeholders" jsonb NULL,
+  "budget" numeric(18,2) NOT NULL DEFAULT 0,
+  "start_date" varchar(255) NULL,
+  "end_date" varchar(255) NULL,
+  "duration" varchar(255) NULL,
+  "risks" jsonb NULL,
+  "assumptions" jsonb NULL,
+  "constraints" jsonb NULL,
+  "success_criteria" jsonb NULL,
+  "approvals" jsonb NULL,
+  "created_by" varchar(255) NULL,
+  "created_date" varchar(255) NULL,
+  "last_modified" varchar(255) NULL,
+  "approved_date" varchar(255) NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_pm_charters" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_pm_charters_company_status"
+  ON "pm_charters" ("company_id", "status");
+
+-- ============================================================================
+-- projects/execution/kanban board — kanban cards
+-- Additive only. Backs PmKanbanCardEntity (pm_kanban_cards).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "pm_kanban_cards" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default',
+  "task_number" varchar(255) NULL,
+  "title" varchar(255) NULL,
+  "description" text NULL,
+  "project_code" varchar(255) NULL,
+  "project_name" varchar(255) NULL,
+  "assignee" varchar(255) NULL,
+  "priority" varchar(255) NOT NULL DEFAULT 'medium',
+  "due_date" varchar(255) NULL,
+  "estimated_hours" numeric(10,2) NOT NULL DEFAULT 0,
+  "tags" jsonb NULL,
+  "column_key" varchar(255) NOT NULL DEFAULT 'backlog',
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_pm_kanban_cards" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_pm_kanban_cards_company_column"
+  ON "pm_kanban_cards" ("company_id", "column_key");
+
+-- ============================================================================
+-- projects/tracking/earned-value page — EVM records
+-- Additive only. Backs PmEarnedValueEntity (pm_earned_value).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "pm_earned_value" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default',
+  "project_code" varchar(255) NULL,
+  "project_name" varchar(255) NULL,
+  "budget_at_completion" numeric(18,2) NOT NULL DEFAULT 0,
+  "planned_value" numeric(18,2) NOT NULL DEFAULT 0,
+  "earned_value" numeric(18,2) NOT NULL DEFAULT 0,
+  "actual_cost" numeric(18,2) NOT NULL DEFAULT 0,
+  "progress_percent" integer NOT NULL DEFAULT 0,
+  "start_date" varchar(255) NULL,
+  "end_date" varchar(255) NULL,
+  "status" varchar(255) NOT NULL DEFAULT 'on-track',
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_pm_earned_value" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_pm_earned_value_company_status"
+  ON "pm_earned_value" ("company_id", "status");

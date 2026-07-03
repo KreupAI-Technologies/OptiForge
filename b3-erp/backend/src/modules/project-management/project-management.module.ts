@@ -125,6 +125,18 @@ import { PmReportsService } from './services/pm-reports.service';
 import { PmSiteSurveysService } from './services/pm-site-surveys.service';
 import { PmWbsService } from './services/pm-wbs.service';
 import { PmScheduleService } from './services/pm-schedule.service';
+import { PmScopeService } from './services/pm-scope.service';
+import { PmCharterService } from './services/pm-charter.service';
+import { PmKanbanService } from './services/pm-kanban.service';
+import { PmEarnedValueService } from './services/pm-earned-value.service';
+import { PmScopeItemEntity } from './entities/pm-scope-item.entity';
+import { PmCharterEntity } from './entities/pm-charter.entity';
+import { PmKanbanCardEntity } from './entities/pm-kanban-card.entity';
+import { PmEarnedValueEntity } from './entities/pm-earned-value.entity';
+import { PmScopeController } from './controllers/pm-scope.controller';
+import { PmCharterController } from './controllers/pm-charter.controller';
+import { PmKanbanController } from './controllers/pm-kanban.controller';
+import { PmEarnedValueController } from './controllers/pm-earned-value.controller';
 import { ProjectPlansService } from './services/project-plans.service';
 import { PmDocumentApprovalsService } from './services/pm-document-approvals.service';
 import { PmDesignerTasksService } from './services/pm-designer-tasks.service';
@@ -276,7 +288,11 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         PmEquipmentCatalogEntity,
         PmDispatchCatalogEntity,
         PmBoqLineTemplateEntity,
-        ProjectPlanEntity
+        ProjectPlanEntity,
+        PmScopeItemEntity,
+        PmCharterEntity,
+        PmKanbanCardEntity,
+        PmEarnedValueEntity
     ])],
     controllers: [
         ProjectController,
@@ -325,6 +341,10 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         PmSiteSurveysController,
         PmWbsController,
         PmScheduleController,
+        PmScopeController,
+        PmCharterController,
+        PmKanbanController,
+        PmEarnedValueController,
         PmDocumentApprovalsController,
         PmDesignerTasksController,
         PmResourceAllocationsController,
@@ -391,6 +411,10 @@ import { PmBoqLineTemplatesController } from './controllers/pm-boq-line-template
         PmSiteSurveysService,
         PmWbsService,
         PmScheduleService,
+        PmScopeService,
+        PmCharterService,
+        PmKanbanService,
+        PmEarnedValueService,
         PmDocumentApprovalsService,
         PmDesignerTasksService,
         PmResourceAllocationsService,

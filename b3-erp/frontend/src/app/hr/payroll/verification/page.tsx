@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, AlertTriangle, Search, Eye, Download, FileText, Users, DollarSign, TrendingUp, UserPlus, UserMinus, TrendingDown, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeePayrollRecord {
   id: string;
@@ -397,8 +398,65 @@ export default function PayrollVerificationPage() {
     }
   };
 
+  const [records, setRecords] = useState<EmployeePayrollRecord[]>(mockBatch.records);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getDisbursements('verification');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const num = (v: any) => Number(v ?? 0);
+          const mapped: EmployeePayrollRecord[] = raw.map((r: any) => {
+            const d = r.details ?? {};
+            return {
+              id: r.id ?? '',
+              employeeId: r.employeeId ?? r.employeeCode ?? '',
+              employeeName: r.employeeName ?? '',
+              designation: d.designation ?? '',
+              department: r.department ?? '',
+              grade: d.grade ?? '',
+              basicSalary: num(d.basicSalary),
+              hra: num(d.hra),
+              da: num(d.da),
+              conveyance: num(d.conveyance),
+              medical: num(d.medical),
+              otherEarnings: num(d.otherEarnings),
+              grossSalary: num(d.grossSalary),
+              pfEmployee: num(d.pfEmployee),
+              esiEmployee: num(d.esiEmployee),
+              professionalTax: num(d.professionalTax),
+              tds: num(d.tds),
+              otherDeductions: num(d.otherDeductions),
+              totalDeductions: num(d.totalDeductions),
+              netSalary: num(r.netPay ?? d.netSalary ?? r.amount),
+              presentDays: num(d.presentDays),
+              totalDays: num(d.totalDays),
+              verificationStatus: (r.status ?? 'pending') as EmployeePayrollRecord['verificationStatus'],
+              verifiedBy: d.verifiedBy ?? undefined,
+              verifiedOn: d.verifiedOn ?? undefined,
+              flaggedReason: d.flaggedReason ?? undefined,
+            };
+          });
+          setRecords(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockBatch.records.filter(record => {
+    return records.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -407,7 +465,7 @@ export default function PayrollVerificationPage() {
       const matchesStatus = selectedStatus === 'all' || record.verificationStatus === selectedStatus;
       return matchesSearch && matchesDepartment && matchesStatus;
     });
-  }, [searchTerm, selectedDepartment, selectedStatus]);
+  }, [records, searchTerm, selectedDepartment, selectedStatus]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
 
@@ -436,6 +494,8 @@ export default function PayrollVerificationPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Payroll Verification</h1>
         <p className="text-sm text-gray-600 mt-1">Verify salary calculations before approval and disbursement</p>
+        {isLoading && <p className="text-xs text-gray-400 mt-1">Loading…</p>}
+        {loadError && <p className="text-sm text-red-600 mt-1">{loadError}</p>}
       </div>
 
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-3">

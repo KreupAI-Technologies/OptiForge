@@ -2663,6 +2663,59 @@ class ProjectManagementService {
     listWbs(companyId = 'default') { return this.pmList<any>('wbs', companyId); }
     listSchedule(companyId = 'default') { return this.pmList<any>('schedule', companyId); }
     listCharter(companyId = 'default') { return this.pmList<any>('charter', companyId); }
+    createWbs(data: Partial<any>) { return this.pmCreate<any>('wbs', data); }
+    updateWbs(id: string, data: Partial<any>) { return this.pmUpdate<any>('wbs', id, data); }
+    deleteWbs(id: string) { return this.pmDelete('wbs', id); }
+    createSchedule(data: Partial<any>) { return this.pmCreate<any>('schedule', data); }
+    updateSchedule(id: string, data: Partial<any>) { return this.pmUpdate<any>('schedule', id, data); }
+    deleteSchedule(id: string) { return this.pmDelete('schedule', id); }
+    createCharter(data: Partial<any>) { return this.pmCreate<any>('charter', data); }
+    updateCharter(id: string, data: Partial<any>) { return this.pmUpdate<any>('charter', id, data); }
+    deleteCharter(id: string) { return this.pmDelete('charter', id); }
+
+    // Scope (projects/planning/scope)
+    listScope(companyId = 'default') { return this.pmList<any>('scope', companyId); }
+    createScope(data: Partial<any>) { return this.pmCreate<any>('scope', data); }
+    updateScope(id: string, data: Partial<any>) { return this.pmUpdate<any>('scope', id, data); }
+    deleteScope(id: string) { return this.pmDelete('scope', id); }
+
+    // Kanban (projects/execution/kanban)
+    listKanban(companyId = 'default') { return this.pmList<any>('kanban', companyId); }
+    createKanban(data: Partial<any>) { return this.pmCreate<any>('kanban', data); }
+    updateKanban(id: string, data: Partial<any>) { return this.pmUpdate<any>('kanban', id, data); }
+    deleteKanban(id: string) { return this.pmDelete('kanban', id); }
+
+    // Earned value (projects/tracking/earned-value)
+    listEarnedValue(companyId = 'default') { return this.pmList<any>('earned-value', companyId); }
+    createEarnedValue(data: Partial<any>) { return this.pmCreate<any>('earned-value', data); }
+    updateEarnedValue(id: string, data: Partial<any>) { return this.pmUpdate<any>('earned-value', id, data); }
+    deleteEarnedValue(id: string) { return this.pmDelete('earned-value', id); }
+
+    // Project tasks (projects/execution/tasks) — top-level project-tasks controller
+    async listProjectTasks(companyId = 'default'): Promise<any[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-tasks?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data?.data ?? []);
+        } catch (error) {
+            console.error('Error fetching project-tasks:', error);
+            return [];
+        }
+    }
+
+    // Project budgets (projects/finance/budget) — top-level project-budgets controller
+    async listProjectBudgets(companyId = 'default'): Promise<any[]> {
+        try {
+            const res = await fetch(`${API_BASE_URL}/project-budgets?companyId=${encodeURIComponent(companyId)}`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data?.data ?? []);
+        } catch (error) {
+            console.error('Error fetching project-budgets:', error);
+            return [];
+        }
+    }
 
     // Document approvals (documents/approvals)
     listDocumentApprovals(companyId = 'default') { return this.pmList<PmDocumentApproval>('document-approvals', companyId); }

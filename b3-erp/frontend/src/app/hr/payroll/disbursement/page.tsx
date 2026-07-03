@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Send, CheckCircle, Clock, Download, FileText, Building2, DollarSign, Calendar, AlertCircle, X, Printer, Mail } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeeDisbursement {
   id: string;
@@ -164,13 +165,53 @@ export default function PayrollDisbursementPage() {
     ]
   };
 
+  const [records, setRecords] = useState<EmployeeDisbursement[]>(mockBatch.records);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getDisbursements('disbursement');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped: EmployeeDisbursement[] = raw.map((r: any) => ({
+            id: r.id ?? '',
+            employeeId: r.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? '',
+            designation: r.details?.designation ?? '',
+            department: r.department ?? '',
+            bankName: r.bankName ?? r.details?.bankName ?? '',
+            accountNumber: r.accountNumber ?? r.details?.accountNumber ?? '',
+            ifscCode: r.details?.ifscCode ?? '',
+            netSalary: Number(r.netPay ?? r.details?.netPay ?? r.amount ?? 0),
+            disbursementStatus: (r.status ?? 'pending') as EmployeeDisbursement['disbursementStatus'],
+            disbursedOn: r.details?.disbursedOn ?? undefined,
+            transactionId: r.details?.transactionId ?? undefined,
+            failureReason: r.details?.failureReason ?? undefined,
+          }));
+          setRecords(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockBatch.records.filter(record => {
+    return records.filter(record => {
       const matchesBank = selectedBank === 'all' || record.bankName === selectedBank;
       const matchesStatus = selectedStatus === 'all' || record.disbursementStatus === selectedStatus;
       return matchesBank && matchesStatus;
     });
-  }, [selectedBank, selectedStatus]);
+  }, [records, selectedBank, selectedStatus]);
 
   const banks = ['all', 'HDFC Bank', 'ICICI Bank', 'SBI', 'Axis Bank', 'Kotak Mahindra Bank'];
 
@@ -234,6 +275,8 @@ export default function PayrollDisbursementPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Salary Disbursement</h1>
         <p className="text-sm text-gray-600 mt-1">Process and track salary payments to employee bank accounts</p>
+        {isLoading && <p className="text-xs text-gray-400 mt-1">Loading…</p>}
+        {loadError && <p className="text-sm text-red-600 mt-1">{loadError}</p>}
       </div>
 
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border border-purple-200 p-3 mb-3">

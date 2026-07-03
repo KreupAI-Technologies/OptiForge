@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
     ArrowLeft,
     CheckCircle,
@@ -36,175 +37,52 @@ interface BOMVerification {
     submittedToProcurement: boolean;
 }
 
-const mockVerifications: BOMVerification[] = [
-    {
-        id: '1',
-        bomCode: 'BOM-KIT-001',
-        productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-        verificationDate: '2025-01-20',
-        verifiedBy: 'Technical Lead',
-        status: 'Verified',
-        completeness: 100,
-        submittedToProcurement: true,
-        checks: [
-            {
-                id: '1',
-                category: 'Completeness',
-                checkName: 'All Items Have Part Numbers',
-                status: 'Pass',
-                details: '24/24 items have valid part numbers',
-            },
-            {
-                id: '2',
-                category: 'Completeness',
-                checkName: 'Quantities Specified',
-                status: 'Pass',
-                details: 'All quantities specified and valid',
-            },
-            {
-                id: '3',
-                category: 'Suppliers',
-                checkName: 'Suppliers Identified',
-                status: 'Pass',
-                details: '24/24 items have assigned suppliers',
-            },
-            {
-                id: '4',
-                category: 'Costing',
-                checkName: 'Costs Estimated',
-                status: 'Pass',
-                details: 'All items have cost estimates',
-            },
-            {
-                id: '5',
-                category: 'Categories',
-                checkName: 'Accessories Categorized',
-                status: 'Pass',
-                details: '8 accessories properly categorized',
-            },
-            {
-                id: '6',
-                category: 'Categories',
-                checkName: 'Fittings Categorized',
-                status: 'Pass',
-                details: '6 fittings properly categorized',
-            },
-        ],
-    },
-    {
-        id: '2',
-        bomCode: 'BOM-KIT-003',
-        productName: 'Granite Composite Sink - Single Bowl',
-        verificationDate: '2025-01-21',
-        verifiedBy: 'Technical Lead',
-        status: 'In Review',
-        completeness: 80,
-        submittedToProcurement: false,
-        checks: [
-            {
-                id: '1',
-                category: 'Completeness',
-                checkName: 'All Items Have Part Numbers',
-                status: 'Pass',
-                details: '15/15 items have valid part numbers',
-            },
-            {
-                id: '2',
-                category: 'Completeness',
-                checkName: 'Quantities Specified',
-                status: 'Pass',
-                details: 'All quantities specified',
-            },
-            {
-                id: '3',
-                category: 'Suppliers',
-                checkName: 'Suppliers Identified',
-                status: 'Warning',
-                details: '12/15 items have suppliers - 3 pending',
-            },
-            {
-                id: '4',
-                category: 'Costing',
-                checkName: 'Costs Estimated',
-                status: 'Warning',
-                details: '13/15 items costed - 2 pending quotes',
-            },
-            {
-                id: '5',
-                category: 'Categories',
-                checkName: 'Accessories Categorized',
-                status: 'Pass',
-                details: '5 accessories categorized',
-            },
-            {
-                id: '6',
-                category: 'Categories',
-                checkName: 'Fittings Categorized',
-                status: 'Pass',
-                details: '4 fittings categorized',
-            },
-        ],
-    },
-    {
-        id: '3',
-        bomCode: 'BOM-KIT-008',
-        productName: 'Pull-Down Kitchen Faucet - Brushed Nickel',
-        verificationDate: '2025-01-22',
-        verifiedBy: 'Technical Lead',
-        status: 'Failed',
-        completeness: 45,
-        submittedToProcurement: false,
-        checks: [
-            {
-                id: '1',
-                category: 'Completeness',
-                checkName: 'All Items Have Part Numbers',
-                status: 'Fail',
-                details: '18/22 items have part numbers - 4 missing',
-            },
-            {
-                id: '2',
-                category: 'Completeness',
-                checkName: 'Quantities Specified',
-                status: 'Pass',
-                details: 'All quantities specified',
-            },
-            {
-                id: '3',
-                category: 'Suppliers',
-                checkName: 'Suppliers Identified',
-                status: 'Fail',
-                details: 'Only 10/22 items have suppliers',
-            },
-            {
-                id: '4',
-                category: 'Costing',
-                checkName: 'Costs Estimated',
-                status: 'Fail',
-                details: 'Only 12/22 items have costs',
-            },
-            {
-                id: '5',
-                category: 'Categories',
-                checkName: 'Accessories Categorized',
-                status: 'Warning',
-                details: '3/5 accessories need categorization',
-            },
-            {
-                id: '6',
-                category: 'Categories',
-                checkName: 'Fittings Categorized',
-                status: 'Warning',
-                details: '2/4 fittings need categorization',
-            },
-        ],
-    },
-];
-
 export default function BOMVerificationPage() {
-    const [verifications] = useState<BOMVerification[]>(mockVerifications);
+    const [verifications, setVerifications] = useState<BOMVerification[]>([]);
     const [selectedVerification, setSelectedVerification] = useState<BOMVerification | null>(null);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        const load = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const rows = await ProductionOrphanService.getBomVerifications();
+                if (!active) return;
+                const mapped: BOMVerification[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+                    id: String(r.id ?? ''),
+                    bomCode: r.bomCode ?? r.bom_code ?? '',
+                    productName: r.productName ?? r.product_name ?? '',
+                    verificationDate: r.verificationDate ?? r.verification_date ?? '',
+                    verifiedBy: r.verifiedBy ?? r.verified_by ?? '',
+                    status: (r.status ?? 'Pending') as BOMVerification['status'],
+                    completeness: Number(r.completeness ?? 0),
+                    submittedToProcurement: Boolean(r.submittedToProcurement ?? r.submitted_to_procurement ?? false),
+                    checks: Array.isArray(r.checks)
+                        ? r.checks.map((c: any, idx: number) => ({
+                              id: String(c?.id ?? idx + 1),
+                              category: c?.category ?? '',
+                              checkName: c?.checkName ?? c?.check_name ?? '',
+                              status: (c?.status ?? 'Pass') as VerificationCheck['status'],
+                              details: c?.details ?? '',
+                          }))
+                        : [],
+                }));
+                setVerifications(mapped);
+            } catch (e: any) {
+                if (active) setError(e?.message || 'Failed to load BOM verifications');
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -265,6 +143,17 @@ export default function BOMVerificationPage() {
                         </div>
                     </div>
                 </div>
+
+                {loading && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        Loading BOM verifications…
+                    </div>
+                )}
+                {error && !loading && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
 
                 {/* Statistics */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

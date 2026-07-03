@@ -69,9 +69,16 @@ export default function AndonBoardPage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="px-4 py-3 text-sm text-gray-300">Loading andon lines…</div>
+      )}
+      {error && !loading && (
+        <div className="px-4 py-3 text-sm text-red-400">{error}</div>
+      )}
+
       {/* Andon Board Component */}
       <AndonBoard
-        lines={mockProductionLines}
+        lines={lines}
         refreshInterval={10000}
         onAlertAcknowledge={(alertId: string, lineId: string) => {
           console.log('Alert acknowledged:', alertId, lineId);

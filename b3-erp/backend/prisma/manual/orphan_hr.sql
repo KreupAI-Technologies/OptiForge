@@ -1182,3 +1182,131 @@ CREATE TABLE IF NOT EXISTS "hr_training_programs" (
   CONSTRAINT "PK_hr_training_programs" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_hr_training_programs_companyId" ON "hr_training_programs" ("companyId");
+
+-- Backs the summary/aggregate attendance pages under
+-- /hr/attendance/{monthly,calendar,biometric,reports}. Shared discriminator
+-- table (category selects the page); page-specific fields live in `details`.
+-- The raw per-day hr_attendance table is left untouched.
+CREATE TABLE IF NOT EXISTS "hr_attendance_records" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "category" varchar NOT NULL DEFAULT 'monthly',
+  "employeeId" varchar,
+  "employeeName" varchar,
+  "employeeCode" varchar,
+  "department" varchar,
+  "period" varchar,
+  "date" varchar,
+  "presentDays" numeric(8,2),
+  "absentDays" numeric(8,2),
+  "totalHours" numeric(8,2),
+  "status" varchar NOT NULL DEFAULT 'active',
+  "details" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_attendance_records" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_attendance_records_companyId" ON "hr_attendance_records" ("companyId");
+CREATE INDEX IF NOT EXISTS "IDX_hr_attendance_records_category" ON "hr_attendance_records" ("category");
+
+-- =====================================================================
+-- HR Assets & Documents — remaining orphan-endpoint build (ADDITIVE ONLY)
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS "hr_id_cards" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "cardNumber" varchar, "cardType" varchar NOT NULL DEFAULT 'employee', "issuedTo" varchar,
+  "employeeCode" varchar, "department" varchar, "designation" varchar, "issueDate" varchar,
+  "expiryDate" varchar, "status" varchar NOT NULL DEFAULT 'active', "bloodGroup" varchar,
+  "emergencyContact" varchar, "photo" boolean NOT NULL DEFAULT false, "location" varchar,
+  "issuedBy" varchar, "remarks" text, "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(), CONSTRAINT "PK_hr_id_cards" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_id_cards_companyId" ON "hr_id_cards" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_access_cards" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "cardNumber" varchar, "cardType" varchar NOT NULL DEFAULT 'employee', "issuedTo" varchar,
+  "employeeCode" varchar, "department" varchar, "designation" varchar, "issueDate" varchar,
+  "expiryDate" varchar, "status" varchar NOT NULL DEFAULT 'active', "accessLevel" varchar NOT NULL DEFAULT 'basic',
+  "accessZones" text, "location" varchar, "issuedBy" varchar, "lastUsed" varchar, "remarks" text,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_access_cards" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_access_cards_companyId" ON "hr_access_cards" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_stationery" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "itemCode" varchar, "itemName" varchar, "category" varchar NOT NULL DEFAULT 'other', "brand" varchar,
+  "unit" varchar NOT NULL DEFAULT 'pcs', "totalQuantity" integer NOT NULL DEFAULT 0, "issued" integer NOT NULL DEFAULT 0,
+  "available" integer NOT NULL DEFAULT 0, "minStockLevel" integer NOT NULL DEFAULT 0, "reorderLevel" integer NOT NULL DEFAULT 0,
+  "unitCost" numeric(14,2) NOT NULL DEFAULT 0, "totalValue" numeric(14,2) NOT NULL DEFAULT 0, "location" varchar,
+  "supplier" varchar, "lastPurchaseDate" varchar, "status" varchar NOT NULL DEFAULT 'in_stock',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_stationery" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_stationery_companyId" ON "hr_stationery" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_asset_audits" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "auditId" varchar, "auditDate" varchar, "auditType" varchar NOT NULL DEFAULT 'scheduled', "location" varchar,
+  "auditor" varchar, "totalAssets" integer NOT NULL DEFAULT 0, "verified" integer NOT NULL DEFAULT 0,
+  "missing" integer NOT NULL DEFAULT 0, "damaged" integer NOT NULL DEFAULT 0, "status" varchar NOT NULL DEFAULT 'pending',
+  "completionDate" varchar, "remarks" text, "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(), CONSTRAINT "PK_hr_asset_audits" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_asset_audits_companyId" ON "hr_asset_audits" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_vehicle_assignments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "assignmentId" varchar, "vehicleNumber" varchar, "vehicleName" varchar, "registrationNumber" varchar,
+  "assignedTo" varchar, "employeeCode" varchar, "department" varchar, "designation" varchar,
+  "assignmentDate" varchar, "returnDate" varchar, "purpose" text, "status" varchar NOT NULL DEFAULT 'active',
+  "odometerReadingStart" integer NOT NULL DEFAULT 0, "odometerReadingEnd" integer, "location" varchar, "remarks" text,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_vehicle_assignments" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_vehicle_assignments_companyId" ON "hr_vehicle_assignments" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_amc_contracts" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "contractId" varchar, "assetCategory" varchar NOT NULL DEFAULT 'other', "vendor" varchar, "vendorContact" varchar,
+  "startDate" varchar, "endDate" varchar, "duration" integer NOT NULL DEFAULT 0, "numberOfAssets" integer NOT NULL DEFAULT 0,
+  "contractValue" numeric(14,2) NOT NULL DEFAULT 0, "paymentTerms" varchar NOT NULL DEFAULT 'annual', "coverage" text,
+  "responseTime" varchar, "status" varchar NOT NULL DEFAULT 'active', "renewalDate" varchar, "location" varchar,
+  "contactPerson" varchar, "remarks" text, "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(), CONSTRAINT "PK_hr_amc_contracts" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_amc_contracts_companyId" ON "hr_amc_contracts" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_preventive_maintenance" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "scheduleId" varchar, "assetTag" varchar, "assetName" varchar, "assetCategory" varchar NOT NULL DEFAULT 'other',
+  "maintenanceType" varchar NOT NULL DEFAULT 'inspection', "frequency" varchar NOT NULL DEFAULT 'monthly',
+  "lastMaintenanceDate" varchar, "nextMaintenanceDate" varchar, "assignedTo" varchar,
+  "estimatedDuration" integer NOT NULL DEFAULT 0, "status" varchar NOT NULL DEFAULT 'upcoming', "location" varchar,
+  "checklist" text, "priority" varchar NOT NULL DEFAULT 'medium', "remarks" text,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_preventive_maintenance" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_preventive_maintenance_companyId" ON "hr_preventive_maintenance" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_certificate_requests" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'experience', "requestDate" varchar, "purpose" text, "addressedTo" varchar,
+  "period" varchar, "includeBreakup" boolean NOT NULL DEFAULT false, "includeDetails" text,
+  "deliveryMode" varchar NOT NULL DEFAULT 'email', "status" varchar NOT NULL DEFAULT 'pending', "requestedBy" varchar,
+  "approvedBy" varchar, "approvedOn" varchar, "generatedOn" varchar, "deliveredOn" varchar, "rejectedReason" varchar,
+  "remarks" text, "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_certificate_requests" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_certificate_requests_companyId" ON "hr_certificate_requests" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "hr_document_audit_logs" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(), "companyId" varchar NOT NULL,
+  "timestamp" varchar, "action" varchar NOT NULL DEFAULT 'view', "documentType" varchar, "documentId" varchar,
+  "employeeId" varchar, "employeeName" varchar, "performedBy" varchar, "performedByRole" varchar, "ipAddress" varchar,
+  "remarks" text, "createdAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_document_audit_logs" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_document_audit_logs_companyId" ON "hr_document_audit_logs" ("companyId");

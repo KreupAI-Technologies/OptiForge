@@ -36,6 +36,7 @@ import {
 } from './entities';
 import { ApVendorAccount } from './entities/ap-vendor-account.entity';
 import { ArCustomerAccount } from './entities/ar-customer-account.entity';
+import { AdvancedFeature } from './entities/advanced-feature.entity';
 
 // Controllers
 import {
@@ -55,6 +56,7 @@ import {
 import { AdvancedAnalyticsController } from './controllers/advanced-analytics.controller';
 import { ApVendorAccountController } from './controllers/ap-vendor-account.controller';
 import { ArCustomerAccountController } from './controllers/ar-customer-account.controller';
+import { AdvancedFeatureController } from './controllers/advanced-feature.controller';
 
 // Services
 import {
@@ -82,6 +84,7 @@ import { FinanceSeederService } from './services/finance-seeder.service';
 import { AdvancedAnalyticsService } from './services/advanced-analytics.service';
 import { ApVendorAccountService } from './services/ap-vendor-account.service';
 import { ArCustomerAccountService } from './services/ar-customer-account.service';
+import { AdvancedFeatureService } from './services/advanced-feature.service';
 import { Company } from '../core/entities/company.entity';
 
 @Module({
@@ -143,6 +146,7 @@ import { Company } from '../core/entities/company.entity';
       // Accounts Payable / Receivable master
       ApVendorAccount,
       ArCustomerAccount,
+      AdvancedFeature,
     ]),
   ],
   controllers: [
@@ -161,6 +165,7 @@ import { Company } from '../core/entities/company.entity';
     AdvancedAnalyticsController,
     ApVendorAccountController,
     ArCustomerAccountController,
+    AdvancedFeatureController,
   ],
   providers: [
     ChartOfAccountsService,
@@ -186,6 +191,7 @@ import { Company } from '../core/entities/company.entity';
     AdvancedAnalyticsService,
     ApVendorAccountService,
     ArCustomerAccountService,
+    AdvancedFeatureService,
   ],
   exports: [
     ChartOfAccountsService,

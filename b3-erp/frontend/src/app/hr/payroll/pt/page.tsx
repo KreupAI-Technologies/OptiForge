@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Receipt, Search, Download, FileText, Users, DollarSign, MapPin } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeePT {
   id: string;
@@ -118,8 +119,45 @@ export default function ProfessionalTaxPage() {
     ]
   };
 
+  const [records, setRecords] = useState<EmployeePT[]>(mockPTMonth.records);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getStatutoryFilings('pt');
+        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
+          const mapped: EmployeePT[] = raw.map((r: any) => ({
+            id: r.id ?? r.details?.id ?? '',
+            employeeId: r.employeeId ?? r.employeeCode ?? '',
+            employeeName: r.employeeName ?? '',
+            designation: r.details?.designation ?? '',
+            department: r.department ?? '',
+            state: r.details?.state ?? '',
+            grossSalary: Number(r.details?.grossSalary ?? 0),
+            ptSlab: r.details?.ptSlab ?? '',
+            ptAmount: Number(r.amount ?? r.details?.ptAmount ?? 0),
+            ptApplicable: r.details?.ptApplicable ?? true,
+          }));
+          setRecords(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredRecords = useMemo(() => {
-    return mockPTMonth.records.filter(record => {
+    return records.filter(record => {
       const matchesSearch =
         record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
@@ -127,7 +165,7 @@ export default function ProfessionalTaxPage() {
       const matchesState = selectedState === 'all' || record.state === selectedState;
       return matchesSearch && matchesDepartment && matchesState;
     });
-  }, [searchTerm, selectedDepartment, selectedState]);
+  }, [records, searchTerm, selectedDepartment, selectedState]);
 
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
   const states = ['all', 'Karnataka', 'Maharashtra', 'Tamil Nadu'];
@@ -147,6 +185,8 @@ export default function ProfessionalTaxPage() {
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Professional Tax</h1>
         <p className="text-sm text-gray-600 mt-1">State-wise Professional Tax calculation and payment</p>
+        {isLoading && <p className="text-xs text-gray-400 mt-1">Loading…</p>}
+        {loadError && <p className="text-sm text-red-600 mt-1">{loadError}</p>}
       </div>
 
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg shadow-sm border border-orange-200 p-3 mb-3">

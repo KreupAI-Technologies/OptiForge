@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { PieChart, TrendingUp, TrendingDown, Download, Calendar, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from '@/hooks/use-toast';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface DepartmentBudget {
   department: string;
@@ -24,6 +25,57 @@ export default function BudgetReportPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedQuarter, setSelectedQuarter] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [budgetData, setBudgetData] = useState<DepartmentBudget[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.expenseBudgets<any[]>();
+        const mapped: DepartmentBudget[] = (raw || []).map((b) => {
+          const budget = Number(b.budgetAmount ?? 0);
+          const spent = Number(b.spentAmount ?? 0);
+          const pending = Number(b.pendingAmount ?? 0);
+          const available = Number(b.availableAmount ?? budget - spent - pending);
+          const util = Number(
+            b.utilizationPercent ?? (budget > 0 ? Math.round((spent / budget) * 100) : 0),
+          );
+          const breakdown = Array.isArray(b.categoryBreakdown)
+            ? b.categoryBreakdown.map((c: any) => ({
+                category: c.category ?? '',
+                spent: Number(c.spent ?? 0),
+                budget: Number(c.budget ?? 0),
+              }))
+            : [];
+          return {
+            department: b.department ?? '',
+            budgetAmount: budget,
+            spentAmount: spent,
+            pendingAmount: pending,
+            availableAmount: available,
+            utilizationPercent: util,
+            categoryBreakdown: breakdown,
+          };
+        });
+        if (!cancelled) setBudgetData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load expense budgets');
+          setBudgetData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockBudgetData: DepartmentBudget[] = [
     {
@@ -100,10 +152,10 @@ export default function BudgetReportPage() {
 
   const filteredData = useMemo(() => {
     if (selectedDepartment === 'all') {
-      return mockBudgetData;
+      return budgetData;
     }
-    return mockBudgetData.filter(d => d.department === selectedDepartment);
-  }, [selectedDepartment]);
+    return budgetData.filter(d => d.department === selectedDepartment);
+  }, [selectedDepartment, budgetData]);
 
   const totals = useMemo(() => {
     return filteredData.reduce(
@@ -211,6 +263,19 @@ export default function BudgetReportPage() {
         </button>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading budget data…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+
       {/* Overall Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-sm border border-purple-200 p-3">
@@ -298,7 +363,7 @@ export default function BudgetReportPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               <option value="all">All Departments</option>
-              {mockBudgetData.map(dept => (
+              {budgetData.map(dept => (
                 <option key={dept.department} value={dept.department}>{dept.department}</option>
               ))}
             </select>

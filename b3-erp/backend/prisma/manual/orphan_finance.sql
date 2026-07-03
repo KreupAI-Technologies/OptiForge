@@ -228,3 +228,24 @@ CREATE TABLE IF NOT EXISTS "cash_flow_transactions" (
   CONSTRAINT "UQ_cash_flow_transactions_number" UNIQUE ("transactionNumber")
 );
 CREATE INDEX IF NOT EXISTS "IDX_cash_flow_transactions_date" ON "cash_flow_transactions" ("transactionDate");
+
+-- ============================================================================
+-- finance/advanced-features page — enterprise feature toggle registry
+-- Additive only. Backs AdvancedFeature entity (finance_advanced_features).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "finance_advanced_features" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default',
+  "feature_key" varchar(100) NOT NULL,
+  "name" varchar(255) NOT NULL,
+  "description" text NULL,
+  "category" varchar(50) NULL,
+  "is_enabled" boolean NOT NULL DEFAULT true,
+  "sort_order" integer NOT NULL DEFAULT 0,
+  "config" jsonb NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_advanced_features" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_advanced_features_company"
+  ON "finance_advanced_features" ("company_id", "sort_order");

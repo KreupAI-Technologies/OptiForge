@@ -1,9 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, Plus, Edit, Trash2, Sun, Moon, Sunrise, Sunset, Users, Coffee, CheckCircle, AlertCircle } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { CreateShiftModal } from '@/components/hr/CreateShiftModal';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const SHIFT_TYPES = ['day', 'night', 'morning', 'evening', 'flexible', 'rotational'];
+
+function normalizeShiftType(raw: string): Shift['type'] {
+  const t = (raw || '').toLowerCase();
+  if (SHIFT_TYPES.includes(t)) return t as Shift['type'];
+  if (t.includes('night')) return 'night';
+  if (t.includes('rotat')) return 'rotational';
+  if (t.includes('flex') || t === 'general') return 'flexible';
+  return 'day';
+}
+
+function trimTime(t?: string): string {
+  if (!t) return '';
+  const parts = t.split(':');
+  return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : t;
+}
+
+function mapWorkingDays(raw: any): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((d) => {
+    const n = Number(d);
+    return Number.isFinite(n) && DAY_NAMES[n] ? DAY_NAMES[n] : String(d);
+  });
+}
 
 interface Shift {
   id: string;
@@ -26,6 +53,50 @@ interface Shift {
 export default function ShiftMasterPage() {
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.shifts<any[]>();
+        const mapped: Shift[] = (raw || []).map((s) => ({
+          id: s.id,
+          name: s.name ?? '',
+          code: s.code ?? '',
+          type: normalizeShiftType(s.type),
+          startTime: trimTime(s.startTime),
+          endTime: trimTime(s.endTime),
+          breakDuration: Math.round(Number(s.breakHours ?? 0) * 60),
+          workingHours: Number(s.workingHours ?? 0),
+          gracePeriod: Number(s.graceMinutes ?? 0),
+          overtimeEligible: Boolean(s.allowOvertime),
+          nightShiftAllowance:
+            Boolean(s.isNightShift) || Number(s.nightShiftAllowance ?? 0) > 0,
+          assignedEmployees: Number(s.assignedEmployees ?? 0),
+          status: (s.status ?? '').toLowerCase() === 'inactive' ? 'inactive' : 'active',
+          daysApplicable: mapWorkingDays(s.workingDays),
+          createdDate: s.createdAt ?? '',
+        }));
+        if (!cancelled) setShifts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load shifts');
+          setShifts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockShifts: Shift[] = [
     {
@@ -105,10 +176,10 @@ export default function ShiftMasterPage() {
   };
 
   const stats = {
-    total: mockShifts.length,
-    active: mockShifts.filter(s => s.status === 'active').length,
-    totalEmployees: mockShifts.reduce((sum, s) => sum + s.assignedEmployees, 0),
-    withAllowance: mockShifts.filter(s => s.nightShiftAllowance).length
+    total: shifts.length,
+    active: shifts.filter(s => s.status === 'active').length,
+    totalEmployees: shifts.reduce((sum, s) => sum + s.assignedEmployees, 0),
+    withAllowance: shifts.filter(s => s.nightShiftAllowance).length
   };
 
   return (
@@ -120,6 +191,19 @@ export default function ShiftMasterPage() {
         </h1>
         <p className="text-gray-600 mt-2">Define and manage work shift templates</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading shifts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -177,7 +261,7 @@ export default function ShiftMasterPage() {
 
       {/* Shifts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {mockShifts.map((shift) => (
+        {shifts.map((shift) => (
           <div
             key={shift.id}
             className={`bg-gradient-to-br ${getTypeColor(shift.type)} rounded-lg shadow-sm border-2 p-3 hover:shadow-md transition-all`}

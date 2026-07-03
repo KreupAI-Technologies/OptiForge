@@ -1,7 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle, Search, Clock, AlertCircle, FileText, Download } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+const POLICY_CATEGORIES = ['code_of_conduct', 'compliance', 'safety', 'hr', 'it_security', 'other'] as const;
+const ACK_VIAS = ['digital_signature', 'email', 'in_person'] as const;
+const ACK_STATUSES = ['pending', 'acknowledged', 'overdue'] as const;
 
 interface PolicyAcknowledgment {
   id: string;
@@ -27,6 +32,52 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [acknowledgments, setAcknowledgments] = useState<PolicyAcknowledgment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.policyAcknowledgments<any[]>();
+        const mapped: PolicyAcknowledgment[] = (raw || []).map((a) => ({
+          id: a.id,
+          employeeId: a.employeeId ?? '',
+          employeeName: a.employeeName ?? '',
+          department: a.department ?? '',
+          designation: a.designation ?? '',
+          policyName: a.policyName ?? '',
+          policyVersion: a.policyVersion ?? '',
+          policyCategory: POLICY_CATEGORIES.includes(a.policyCategory)
+            ? a.policyCategory
+            : 'other',
+          assignedDate: a.assignedDate ?? '',
+          dueDate: a.dueDate ?? '',
+          acknowledgmentDate: a.acknowledgmentDate ?? undefined,
+          status: ACK_STATUSES.includes(a.status) ? a.status : 'pending',
+          acknowledgedVia: ACK_VIAS.includes(a.acknowledgedVia) ? a.acknowledgedVia : null,
+          remindersSent: Number(a.remindersSent ?? 0),
+          lastReminderDate: a.lastReminderDate ?? undefined,
+          remarks: a.remarks ?? undefined,
+        }));
+        if (!cancelled) setAcknowledgments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load acknowledgments');
+          setAcknowledgments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const mockAcknowledgments: PolicyAcknowledgment[] = [
     {
@@ -165,7 +216,7 @@ export default function Page() {
   ];
 
   const filteredAcknowledgments = useMemo(() => {
-    return mockAcknowledgments.filter(ack => {
+    return acknowledgments.filter(ack => {
       const matchesSearch = ack.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            ack.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            ack.policyName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -174,13 +225,13 @@ export default function Page() {
       const matchesDepartment = selectedDepartment === 'all' || ack.department === selectedDepartment;
       return matchesSearch && matchesStatus && matchesCategory && matchesDepartment;
     });
-  }, [searchTerm, selectedStatus, selectedCategory, selectedDepartment, mockAcknowledgments]);
+  }, [searchTerm, selectedStatus, selectedCategory, selectedDepartment, acknowledgments]);
 
   const stats = {
-    total: mockAcknowledgments.length,
-    acknowledged: mockAcknowledgments.filter(a => a.status === 'acknowledged').length,
-    pending: mockAcknowledgments.filter(a => a.status === 'pending').length,
-    overdue: mockAcknowledgments.filter(a => a.status === 'overdue').length
+    total: acknowledgments.length,
+    acknowledged: acknowledgments.filter(a => a.status === 'acknowledged').length,
+    pending: acknowledgments.filter(a => a.status === 'pending').length,
+    overdue: acknowledgments.filter(a => a.status === 'overdue').length
   };
 
   const statusColors = {
@@ -220,6 +271,19 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Track employee acknowledgment of company policies</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading acknowledgments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

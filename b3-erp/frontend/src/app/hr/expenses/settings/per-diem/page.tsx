@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { MapPin, DollarSign, Calendar, Globe, Plus, Edit, Trash2, Copy, XCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
 
@@ -33,6 +34,59 @@ export default function Page() {
   const [selectedRate, setSelectedRate] = useState<PerDiemRate | null>(null);
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [rates, setRates] = useState<PerDiemRate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await HrPagesService.perDiemRates<any[]>();
+        const mapped: PerDiemRate[] = (raw || []).map((r) => {
+          const accommodation = Number(r.accommodationRate ?? 0);
+          const meals = Number(r.mealsRate ?? 0);
+          const incidentals = Number(r.incidentalsRate ?? 0);
+          const transport = Number(r.transportRate ?? 0);
+          const total = Number(r.totalDailyRate ?? accommodation + meals + incidentals + transport);
+          return {
+            id: r.id,
+            locationName: r.locationName ?? '',
+            locationType: r.locationType === 'international' ? 'international' : 'domestic',
+            country: r.country ?? undefined,
+            state: r.state ?? undefined,
+            city: r.city ?? undefined,
+            currency: r.currency ?? 'INR',
+            accommodationRate: accommodation,
+            mealsRate: meals,
+            incidentalsRate: incidentals,
+            transportRate: transport,
+            totalDailyRate: total,
+            effectiveFrom: r.effectiveFrom ?? '',
+            effectiveTo: r.effectiveTo ?? undefined,
+            status: r.status === 'inactive' ? 'inactive' : 'active',
+            notes: r.notes ?? undefined,
+            createdDate: r.createdAt ?? '',
+            lastModified: r.updatedAt ?? '',
+          };
+        });
+        if (!cancelled) setRates(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load per-diem rates');
+          setRates([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -167,20 +221,23 @@ export default function Page() {
   ];
 
   const filteredRates = useMemo(() => {
-    return mockRates.filter(rate => {
+    return rates.filter(rate => {
       const matchesType = selectedType === 'all' || rate.locationType === selectedType;
       const matchesStatus = selectedStatus === 'all' || rate.status === selectedStatus;
       return matchesType && matchesStatus;
     });
-  }, [selectedType, selectedStatus]);
+  }, [selectedType, selectedStatus, rates]);
 
+  const domesticInr = rates.filter(r => r.locationType === 'domestic' && r.currency === 'INR');
   const stats = {
-    totalRates: mockRates.length,
-    activeRates: mockRates.filter(r => r.status === 'active').length,
-    domesticRates: mockRates.filter(r => r.locationType === 'domestic').length,
-    internationalRates: mockRates.filter(r => r.locationType === 'international').length,
-    avgDomesticRate: Math.round(mockRates.filter(r => r.locationType === 'domestic' && r.currency === 'INR').reduce((sum, r) => sum + r.totalDailyRate, 0) / mockRates.filter(r => r.locationType === 'domestic' && r.currency === 'INR').length),
-    currenciesUsed: new Set(mockRates.map(r => r.currency)).size
+    totalRates: rates.length,
+    activeRates: rates.filter(r => r.status === 'active').length,
+    domesticRates: rates.filter(r => r.locationType === 'domestic').length,
+    internationalRates: rates.filter(r => r.locationType === 'international').length,
+    avgDomesticRate: domesticInr.length
+      ? Math.round(domesticInr.reduce((sum, r) => sum + r.totalDailyRate, 0) / domesticInr.length)
+      : 0,
+    currenciesUsed: new Set(rates.map(r => r.currency)).size
   };
 
   const resetForm = () => {
@@ -384,6 +441,19 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Manage daily allowance rates for business travel</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading per-diem rates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
