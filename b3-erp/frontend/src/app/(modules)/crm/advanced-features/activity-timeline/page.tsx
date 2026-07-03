@@ -1,79 +1,72 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageToolbar, ConfirmDialog } from '@/components/ui';
 import { CollaborativeTimeline } from '@/components/crm';
 import type { TimelineActivity } from '@/components/crm';
 import { CommentModal, type Comment } from '@/components/modals';
 import { ArrowLeft } from 'lucide-react';
-
-const mockTimelineActivities: TimelineActivity[] = [
-  {
-    id: '1',
-    type: 'email',
-    title: 'Sent proposal and pricing',
-    description: 'Sent comprehensive proposal with custom pricing for 500+ user licenses',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    user: { id: '1', name: 'Sarah Johnson', role: 'Account Executive' },
-    metadata: {
-      recipients: 'john.smith@techcorp.com, procurement@techcorp.com',
-      subject: 'Custom Enterprise Proposal - TechCorp',
-    },
-    attachments: [
-      { name: 'Proposal_TechCorp_2025.pdf', url: '#', type: 'PDF' },
-      { name: 'Pricing_Sheet.xlsx', url: '#', type: 'Excel' },
-    ],
-    comments: [
-      {
-        id: 'c1',
-        user: { id: '2', name: 'Mike Chen', role: 'Sales Manager' },
-        text: 'Great proposal! Make sure to follow up in 48 hours.',
-        timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      },
-    ],
-    likes: ['2', '3'],
-  },
-  {
-    id: '2',
-    type: 'meeting',
-    title: 'Product demo with decision makers',
-    description: 'Conducted 90-minute product demonstration for C-level executives',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    user: { id: '1', name: 'Sarah Johnson', role: 'Account Executive' },
-    metadata: {
-      attendees: 'John Smith (CTO), Jane Doe (CFO), Internal: Sarah, Mike',
-      duration: '90 minutes',
-      outcome: 'Positive - requesting POC',
-    },
-    likes: ['1', '2', '3', '4'],
-  },
-  {
-    id: '3',
-    type: 'call',
-    title: 'Discovery call completed',
-    description: 'Initial discovery call to understand requirements and pain points',
-    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    user: { id: '1', name: 'Sarah Johnson', role: 'Account Executive' },
-    metadata: {
-      duration: '45 minutes',
-      keyPoints: 'Looking to replace legacy CRM, 500+ users, Q4 timeline',
-    },
-  },
-  {
-    id: '4',
-    type: 'task',
-    title: 'Prepare custom POC environment',
-    description: 'Set up demo environment with customer-specific data',
-    timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    user: { id: '3', name: 'David Park', role: 'Solutions Engineer' },
-    status: 'completed',
-  },
-];
+import { crmService } from '@/services/crm.service';
 
 export default function ActivityTimelinePage() {
   const router = useRouter();
+  const [timelineActivities, setTimelineActivities] = useState<TimelineActivity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const normalizeType = (t: string): TimelineActivity['type'] => {
+      const v = (t ?? '').toLowerCase();
+      if (
+        v === 'email' ||
+        v === 'call' ||
+        v === 'meeting' ||
+        v === 'note' ||
+        v === 'task' ||
+        v === 'status_change' ||
+        v === 'assignment' ||
+        v === 'document' ||
+        v === 'video_call'
+      ) {
+        return v;
+      }
+      return 'note';
+    };
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.activities.getAll()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: TimelineActivity[] = list.map((a) => ({
+          id: String(a?.id ?? ''),
+          type: normalizeType(a?.type),
+          title: a?.subject ?? '',
+          description: a?.description ?? '',
+          timestamp: a?.createdAt ?? a?.dueDate ?? a?.startDate ?? '',
+          user: {
+            id: String(a?.assignedToId ?? ''),
+            name: a?.assignedToName ?? '',
+          },
+        }));
+        if (!cancelled) setTimelineActivities(mapped);
+      } catch (err) {
+        if (!cancelled) setLoadError('Failed to load activity timeline. Please try again.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentActivityId, setCurrentActivityId] = useState<string | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -122,6 +115,18 @@ export default function ActivityTimelinePage() {
           Back to Advanced Features
         </button>
 
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+
         <div className="bg-white rounded-lg border border-gray-200 p-3">
           <h2 className="text-xl font-bold text-gray-900 mb-2">Collaborative Activity Timeline</h2>
           <p className="text-gray-600 mb-2">
@@ -129,7 +134,7 @@ export default function ActivityTimelinePage() {
             collaboration.
           </p>
           <CollaborativeTimeline
-            activities={mockTimelineActivities}
+            activities={timelineActivities}
             currentUser={{ id: '2', name: 'Mike Chen' }}
             teamMembers={[
               { id: '1', name: 'Sarah Johnson', role: 'Account Executive' },

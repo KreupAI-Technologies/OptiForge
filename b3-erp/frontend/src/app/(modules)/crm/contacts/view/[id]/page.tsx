@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   Edit,
@@ -182,14 +183,68 @@ const contactTypeColors = {
   technical: 'bg-orange-100 text-orange-700',
 };
 
+const contactTypes = ['primary', 'secondary', 'billing', 'technical'] as const;
+const contactStatuses = ['active', 'inactive', 'pending'] as const;
+
 export default function ViewContactPage() {
   const router = useRouter();
   const params = useParams();
-  const contactId = params.id as string;
-  const contact = mockContact; // In real app, fetch by contactId
+  const contactId = params?.id as string;
   const { addToast } = useToast();
 
+  const [contact, setContact] = useState<Contact>(mockContact);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<'overview' | 'communication' | 'details'>('overview');
+
+  useEffect(() => {
+    if (!contactId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await crmService.contacts.getById(contactId);
+        if (!cancelled && data) {
+          const rawType = String((data as any).contactType ?? '').toLowerCase();
+          const contactType = (contactTypes as readonly string[]).includes(rawType)
+            ? (rawType as Contact['contactType'])
+            : 'primary';
+          const rawStatus = String((data as any).status ?? '').toLowerCase();
+          const isActiveFlag = (data as any).isActive;
+          const status = (contactStatuses as readonly string[]).includes(rawStatus)
+            ? (rawStatus as Contact['status'])
+            : isActiveFlag === false
+              ? 'inactive'
+              : 'active';
+          setContact({
+            id: String(data.id ?? contactId),
+            salutation: (data as any).salutation ?? '',
+            firstName: data.firstName ?? '',
+            lastName: data.lastName ?? '',
+            title: data.position ?? (data as any).title ?? '',
+            department: data.department ?? '',
+            email: data.email ?? '',
+            phone: data.phone ?? '',
+            mobile: data.mobile ?? '',
+            company: data.customerName ?? (data as any).company ?? (data as any).companyName ?? '',
+            contactType,
+            status,
+            lastContact: data.lastContactDate ?? (data as any).lastContact ?? data.updatedAt ?? '',
+            createdAt: data.createdAt ?? '',
+          });
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [contactId]);
 
   // Handler functions for contact actions
   const handleSendEmail = () => {
@@ -254,6 +309,17 @@ export default function ViewContactPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

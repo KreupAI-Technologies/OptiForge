@@ -549,10 +549,53 @@ export const crmService = {
 
     getStats: () => request<any>('/crm/interactions-v2/stats'),
 
+    // v2 (Prisma) single-record fetch: GET /crm/interactions-v2/:id
+    getById: (id: string) => request<any>(`/crm/interactions-v2/${id}`),
+
     // Legacy TypeORM-backed interactions controller (GET /crm/interactions).
     // Returns a bare array of raw interaction records.
     getAllLegacy: (filters?: { type?: string; customerId?: string; contactId?: string; opportunityId?: string }) =>
       request<any[]>(`/crm/interactions${buildQueryParams(filters || {})}`),
+
+    // Legacy TypeORM-backed single-record fetch: GET /crm/interactions/:id
+    getByIdLegacy: (id: string) => request<any>(`/crm/interactions/${id}`),
+  },
+
+  // ===========================
+  // LEADS (TypeORM-backed: /crm/leads)
+  // ===========================
+  leads: {
+    getAll: (filters?: { search?: string; status?: string; source?: string; assignedToId?: string }) =>
+      request<any[]>(`/crm/leads${buildQueryParams(filters || {})}`),
+
+    getById: (id: string) => request<any>(`/crm/leads/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/leads', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/leads/${id}`, { method: 'DELETE' }),
+
+    getStats: () => request<any>('/crm/leads/stats'),
+  },
+
+  // ===========================
+  // PRICING RULES (TypeORM-backed: /crm/pricing-rules)
+  // ===========================
+  pricingRules: {
+    getAll: () => request<any[]>('/crm/pricing-rules'),
+
+    getById: (id: string) => request<any>(`/crm/pricing-rules/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/pricing-rules', { method: 'POST', body: JSON.stringify(data) }),
+
+    update: (id: string, data: any) =>
+      request<any>(`/crm/pricing-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    delete: (id: string) => request<void>(`/crm/pricing-rules/${id}`, { method: 'DELETE' }),
   },
 
   // ===========================

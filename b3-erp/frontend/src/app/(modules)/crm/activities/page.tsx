@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, CheckSquare, Calendar, Phone, Mail, Users, Clock, TrendingUp, Target, AlertCircle, CheckCircle, XCircle, BarChart3, PieChart, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { crmService } from '@/services/crm.service';
 
 interface ActivityStats {
   type: string;
@@ -85,104 +86,6 @@ const activityStats: ActivityStats[] = [
   },
 ];
 
-const mockRecentActivities: RecentActivity[] = [
-  {
-    id: '1',
-    type: 'task',
-    title: 'Follow up with TechCorp on proposal',
-    description: 'Send detailed pricing breakdown and timeline',
-    assignedTo: 'Sarah Johnson',
-    relatedTo: 'TechCorp Global Inc.',
-    status: 'overdue',
-    priority: 'high',
-    dueDate: '2024-10-18T15:00:00',
-  },
-  {
-    id: '2',
-    type: 'meeting',
-    title: 'Product Demo - Enterprise Solutions',
-    description: 'Demonstrate new features to potential client',
-    assignedTo: 'Michael Chen',
-    relatedTo: 'Enterprise Solutions Ltd.',
-    status: 'scheduled',
-    priority: 'high',
-    dueDate: '2024-10-21T14:00:00',
-    duration: 60,
-  },
-  {
-    id: '3',
-    type: 'call',
-    title: 'Discovery Call - FinanceHub',
-    description: 'Understand requirements and pain points',
-    assignedTo: 'Emily Rodriguez',
-    relatedTo: 'FinanceHub International',
-    status: 'completed',
-    priority: 'medium',
-    dueDate: '2024-10-20T10:00:00',
-    completedDate: '2024-10-20T10:35:00',
-    duration: 35,
-  },
-  {
-    id: '4',
-    type: 'email',
-    title: 'Contract Review Request',
-    description: 'Send updated contract for legal review',
-    assignedTo: 'David Martinez',
-    relatedTo: 'GlobalMfg Corp',
-    status: 'pending',
-    priority: 'high',
-    dueDate: '2024-10-21T09:00:00',
-  },
-  {
-    id: '5',
-    type: 'task',
-    title: 'Prepare Q4 sales presentation',
-    description: 'Create slides and gather metrics',
-    assignedTo: 'Sarah Johnson',
-    relatedTo: 'Internal',
-    status: 'pending',
-    priority: 'medium',
-    dueDate: '2024-10-22T17:00:00',
-  },
-  {
-    id: '6',
-    type: 'meeting',
-    title: 'Weekly Team Sync',
-    description: 'Review pipeline and goals',
-    assignedTo: 'Team',
-    relatedTo: 'Internal',
-    status: 'completed',
-    priority: 'low',
-    dueDate: '2024-10-20T09:00:00',
-    completedDate: '2024-10-20T10:00:00',
-    duration: 60,
-  },
-  {
-    id: '7',
-    type: 'call',
-    title: 'Follow-up Call - StartupTech',
-    description: 'Discuss pricing and next steps',
-    assignedTo: 'Michael Chen',
-    relatedTo: 'StartupTech Inc.',
-    status: 'pending',
-    priority: 'medium',
-    dueDate: '2024-10-21T11:00:00',
-    duration: 30,
-  },
-  {
-    id: '8',
-    type: 'email',
-    title: 'Monthly Newsletter',
-    description: 'Send product updates to customer list',
-    assignedTo: 'Emily Rodriguez',
-    relatedTo: 'Marketing',
-    status: 'completed',
-    priority: 'low',
-    dueDate: '2024-10-19T12:00:00',
-    completedDate: '2024-10-19T11:45:00',
-  },
-];
-
 const mockTeamMembers: TeamMember[] = [
   {
     id: '1',
@@ -235,9 +138,66 @@ const mockTeamMembers: TeamMember[] = [
 ];
 
 export default function ActivitiesPage() {
-  const [activities] = useState<RecentActivity[]>(mockRecentActivities);
+  const [activities, setActivities] = useState<RecentActivity[]>([]);
   const [teamMembers] = useState<TeamMember[]>(mockTeamMembers);
   const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month'>('week');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const normalizeType = (t: string): RecentActivity['type'] => {
+      const v = (t ?? '').toLowerCase();
+      if (v === 'meeting' || v === 'call' || v === 'email' || v === 'task') return v;
+      return 'task';
+    };
+
+    const normalizePriority = (p: string): RecentActivity['priority'] => {
+      const v = (p ?? '').toLowerCase();
+      if (v === 'high' || v === 'medium' || v === 'low') return v;
+      return 'medium';
+    };
+
+    const normalizeStatus = (s: string, completedDate?: string): RecentActivity['status'] => {
+      if (completedDate) return 'completed';
+      const v = (s ?? '').toLowerCase();
+      if (v === 'completed' || v === 'pending' || v === 'overdue' || v === 'scheduled') return v;
+      return 'pending';
+    };
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.activities.getAll()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: RecentActivity[] = list.map((a) => ({
+          id: String(a?.id ?? ''),
+          type: normalizeType(a?.type),
+          title: a?.subject ?? '',
+          description: a?.description ?? '',
+          assignedTo: a?.assignedToName ?? '',
+          relatedTo: a?.customerName ?? '',
+          status: normalizeStatus(a?.status, a?.completedDate),
+          priority: normalizePriority(a?.priority),
+          dueDate: a?.dueDate ?? a?.startDate ?? a?.createdAt ?? '',
+          completedDate: a?.completedDate ?? undefined,
+          duration: a?.duration ?? undefined,
+        }));
+        if (!cancelled) setActivities(mapped);
+      } catch (err) {
+        if (!cancelled) setLoadError('Failed to load activities. Please try again.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -314,6 +274,17 @@ export default function ActivitiesPage() {
 
   return (
     <div className="p-8">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-3">
           <div>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Users, Phone, Mail, CheckSquare, Clock, MapPin } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface CalendarEvent {
   id: string;
@@ -15,65 +16,70 @@ interface CalendarEvent {
   color: string;
 }
 
-const mockEvents: CalendarEvent[] = [
-  {
-    id: '1',
-    title: 'Product Demo - Enterprise Solutions',
-    type: 'meeting',
-    start: '2024-10-21T14:00:00',
-    end: '2024-10-21T15:00:00',
-    attendees: ['Michael Chen', 'John Anderson', 'Lisa Thompson'],
-    location: 'Zoom Meeting',
-    description: 'Demonstrate new features to potential enterprise client',
-    color: 'purple',
-  },
-  {
-    id: '2',
-    title: 'Discovery Call - FinanceHub',
-    type: 'call',
-    start: '2024-10-21T11:00:00',
-    end: '2024-10-21T11:30:00',
-    attendees: ['Emily Rodriguez', 'Elizabeth Wilson'],
-    description: 'Understand requirements and pain points',
-    color: 'green',
-  },
-  {
-    id: '3',
-    title: 'Follow up with TechCorp on proposal',
-    type: 'task',
-    start: '2024-10-21T15:00:00',
-    end: '2024-10-21T16:00:00',
-    description: 'Send detailed pricing breakdown',
-    color: 'blue',
-  },
-  {
-    id: '4',
-    title: 'Weekly Team Sync',
-    type: 'meeting',
-    start: '2024-10-22T09:00:00',
-    end: '2024-10-22T10:00:00',
-    attendees: ['Sarah Johnson', 'Michael Chen', 'Emily Rodriguez', 'David Martinez'],
-    location: 'Conference Room A',
-    description: 'Review pipeline and weekly goals',
-    color: 'purple',
-  },
-  {
-    id: '5',
-    title: 'Q4 Planning Meeting',
-    type: 'meeting',
-    start: '2024-10-23T14:00:00',
-    end: '2024-10-23T16:00:00',
-    attendees: ['Leadership Team'],
-    location: 'Board Room',
-    description: 'Strategic planning for Q4 initiatives',
-    color: 'purple',
-  },
-];
-
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events] = useState<CalendarEvent[]>(mockEvents);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [view, setView] = useState<'month' | 'week' | 'day'>('week');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const normalizeType = (t: string): CalendarEvent['type'] => {
+      const v = (t ?? '').toLowerCase();
+      if (v === 'meeting' || v === 'call' || v === 'email' || v === 'task') return v;
+      return 'task';
+    };
+
+    const colorForType = (t: CalendarEvent['type']): string => {
+      switch (t) {
+        case 'meeting':
+          return 'purple';
+        case 'call':
+          return 'green';
+        case 'email':
+          return 'orange';
+        default:
+          return 'blue';
+      }
+    };
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.activities.getAll()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: CalendarEvent[] = list.map((a) => {
+          const type = normalizeType(a?.type);
+          const start = a?.startDate ?? a?.dueDate ?? a?.createdAt ?? '';
+          const end = a?.endDate ?? start;
+          return {
+            id: String(a?.id ?? ''),
+            title: a?.subject ?? '',
+            type,
+            start,
+            end,
+            attendees: a?.assignedToName ? [a.assignedToName] : [],
+            location: a?.location ?? undefined,
+            description: a?.description ?? '',
+            color: colorForType(type),
+          };
+        });
+        if (!cancelled) setEvents(mapped);
+      } catch (err) {
+        if (!cancelled) setLoadError('Failed to load calendar events. Please try again.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -154,6 +160,17 @@ export default function CalendarPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         {/* View Toggle & Navigation */}
         <div className="flex justify-between items-center mb-3">

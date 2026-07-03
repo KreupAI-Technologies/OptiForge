@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit, Mail, Phone, Building2, User, Calendar, TrendingUp, Globe, Clock, CheckCircle, MessageSquare, FileText, PhoneCall, Video, Activity, ArrowRight, Circle, Trash2, MoreVertical } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Lead {
   id: string;
@@ -178,14 +179,60 @@ const statusColors = {
   lost: 'bg-red-100 text-red-700',
 };
 
+const leadStatuses = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
+
 export default function ViewLeadPage() {
   const router = useRouter();
   const params = useParams();
-  const leadId = params.id as string;
-  const lead = mockLead; // In real app, fetch by leadId
+  const leadId = params?.id as string;
   const { addToast } = useToast();
 
+  const [lead, setLead] = useState<Lead>(mockLead);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'details'>('overview');
+
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await crmService.leads.getById(leadId);
+        if (!cancelled && data) {
+          const rawStatus = String(data.status ?? '').toLowerCase();
+          const status = (leadStatuses as readonly string[]).includes(rawStatus)
+            ? (rawStatus as Lead['status'])
+            : 'new';
+          const firstName = data.firstName ?? '';
+          const lastName = data.lastName ?? '';
+          const composedName = `${firstName} ${lastName}`.trim();
+          setLead({
+            id: String(data.id ?? leadId),
+            name: data.name ?? composedName ?? '',
+            company: data.company ?? data.companyName ?? data.customerName ?? '',
+            email: data.email ?? '',
+            phone: data.phone ?? data.mobile ?? '',
+            status,
+            source: data.source ?? data.leadSource ?? '',
+            value: Number(data.value ?? data.estimatedValue ?? data.dealValue ?? 0) || 0,
+            assignedTo: data.assignedTo ?? data.owner ?? data.assignedToName ?? '',
+            createdAt: data.createdAt ?? data.createdDate ?? '',
+            lastContact: data.lastContact ?? data.lastContactDate ?? data.updatedAt ?? '',
+          });
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId]);
 
   // Handler functions for lead actions
   const handleSendEmail = () => {
@@ -241,6 +288,17 @@ export default function ViewLeadPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
 import { exportToCsv } from '@/lib/export';
+import { crmService } from '@/services/crm.service';
 
 interface Customer {
   id: string;
@@ -141,10 +142,57 @@ export default function SegmentDetailPage() {
   const { addToast } = useToast();
   const segmentId = params.id as string;
 
-  const [segment] = useState<SegmentDetails>(mockSegment);
+  const [segment, setSegment] = useState<SegmentDetails>(mockSegment);
   const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!segmentId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await crmService.customerSegments.getById(segmentId);
+        if (!cancelled && data) {
+          const rawCriteria = (data as any)?.criteria;
+          let criteria: string[] = [];
+          if (Array.isArray(rawCriteria)) {
+            criteria = rawCriteria.map((c: any) =>
+              typeof c === 'string' ? c : (c?.label ?? c?.description ?? JSON.stringify(c))
+            );
+          }
+          const rawStatus = String((data as any)?.status ?? '').toLowerCase();
+          const mappedStatus: SegmentDetails['status'] = rawStatus === 'inactive' ? 'inactive' : 'active';
+
+          const mapped: SegmentDetails = {
+            id: String((data as any)?.id ?? segmentId),
+            name: (data as any)?.name ?? '',
+            description: (data as any)?.description ?? '',
+            customerCount: Number((data as any)?.customerCount ?? (data as any)?.memberCount ?? 0),
+            totalRevenue: Number((data as any)?.totalRevenue ?? 0),
+            avgOrderValue: Number((data as any)?.avgOrderValue ?? 0),
+            growthRate: Number((data as any)?.growthRate ?? 0),
+            createdDate: (data as any)?.createdDate ?? (data as any)?.createdAt ?? '',
+            lastUpdated: (data as any)?.lastUpdated ?? (data as any)?.updatedAt ?? '',
+            criteria,
+            status: mappedStatus,
+          };
+          setSegment(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [segmentId]);
 
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch =
@@ -191,6 +239,18 @@ export default function SegmentDetailPage() {
           <ArrowLeft className="h-5 w-5 mr-2" />
           Back to Segments
         </button>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <div>

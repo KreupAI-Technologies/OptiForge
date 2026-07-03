@@ -1,84 +1,154 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageToolbar, ConfirmDialog } from '@/components/ui';
 import { AccountHierarchyTree } from '@/components/crm';
 import type { AccountNode } from '@/components/crm';
 import { AccountLinkModal, type AccountLink } from '@/components/modals';
 import { ArrowLeft } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
-const mockAccountHierarchy: AccountNode = {
-  id: '1',
-  name: 'TechCorp Global Inc.',
-  type: 'parent',
-  industry: 'Technology',
-  location: 'San Francisco, CA',
-  contactPerson: 'John Smith',
-  email: 'john.smith@techcorp.com',
-  phone: '+1 (415) 555-0100',
-  website: 'www.techcorp.com',
-  employees: 25000,
-  annualRevenue: 5000000000,
-  accountValue: 12500000,
-  activeContracts: 8,
-  relationshipStart: '2020-01-15',
-  status: 'active',
-  children: [
-    {
-      id: '2',
-      name: 'TechCorp Europe GmbH',
-      type: 'subsidiary',
-      industry: 'Technology',
-      location: 'Berlin, Germany',
-      contactPerson: 'Anna Schmidt',
-      email: 'anna.schmidt@techcorp.de',
-      phone: '+49 30 555-0200',
-      employees: 5000,
-      annualRevenue: 800000000,
-      accountValue: 2800000,
-      activeContracts: 3,
-      relationshipStart: '2020-06-10',
-      status: 'active',
-      children: [
-        {
-          id: '3',
-          name: 'TechCorp Berlin Office',
-          type: 'branch',
-          location: 'Berlin, Germany',
-          contactPerson: 'Klaus Weber',
-          email: 'klaus.weber@techcorp.de',
-          phone: '+49 30 555-0201',
-          employees: 1200,
-          accountValue: 850000,
-          activeContracts: 1,
-          relationshipStart: '2021-03-15',
-          status: 'active',
-        },
-      ],
-    },
-    {
-      id: '4',
-      name: 'TechCorp Asia Pacific Ltd.',
-      type: 'subsidiary',
-      location: 'Singapore',
-      contactPerson: 'Wei Chen',
-      email: 'wei.chen@techcorp.sg',
-      phone: '+65 6555 0400',
-      employees: 3500,
-      annualRevenue: 600000000,
-      accountValue: 1950000,
-      activeContracts: 2,
-      relationshipStart: '2021-02-20',
-      status: 'active',
-    },
-  ],
-};
+const VALID_TYPES: AccountNode['type'][] = ['parent', 'subsidiary', 'branch', 'division', 'partner'];
+const VALID_STATUS: AccountNode['status'][] = ['active', 'inactive', 'pending'];
+
+function mapType(raw: any): AccountNode['type'] {
+  const t = String(raw ?? '').toLowerCase();
+  return (VALID_TYPES.includes(t as AccountNode['type']) ? t : 'parent') as AccountNode['type'];
+}
+
+function mapStatus(raw: any): AccountNode['status'] {
+  const s = String(raw ?? '').toLowerCase();
+  return (VALID_STATUS.includes(s as AccountNode['status']) ? s : 'active') as AccountNode['status'];
+}
+
+function toNode(c: any): AccountNode & { __parentId?: string | null } {
+  return {
+    id: String(c?.id ?? c?._id ?? c?.customerId ?? ''),
+    name: c?.name ?? c?.customerName ?? c?.companyName ?? 'Unnamed Account',
+    type: mapType(c?.type ?? c?.accountType ?? c?.relationshipType),
+    industry: c?.industry ?? undefined,
+    location: c?.location ?? c?.address ?? c?.city ?? c?.country ?? '',
+    contactPerson: c?.contactPerson ?? c?.primaryContact ?? c?.contactName ?? '',
+    email: c?.email ?? c?.contactEmail ?? '',
+    phone: c?.phone ?? c?.contactPhone ?? c?.mobile ?? '',
+    website: c?.website ?? undefined,
+    employees: c?.employees != null ? Number(c.employees) : undefined,
+    annualRevenue: c?.annualRevenue != null ? Number(c.annualRevenue) : undefined,
+    accountValue: Number(c?.accountValue ?? c?.value ?? c?.revenue ?? 0),
+    activeContracts: Number(c?.activeContracts ?? c?.contracts ?? 0),
+    relationshipStart: c?.relationshipStart ?? c?.createdAt ?? c?.since ?? '',
+    status: mapStatus(c?.status),
+    children: Array.isArray(c?.children) ? c.children.map(toNode) : undefined,
+    __parentId:
+      c?.parentId ?? c?.parent?.id ?? c?.parentCustomerId ?? (typeof c?.parent === 'string' ? c.parent : null),
+  };
+}
+
+/**
+ * Build a tree from customer records. If the data already contains nested
+ * `children`, that structure is preserved. Otherwise a tree is assembled from
+ * flat data via parentId references.
+ */
+function buildTree(raw: any[]): AccountNode | null {
+  const list = Array.isArray(raw) ? raw : [];
+  if (list.length === 0) return null;
+
+  const nodes = list.map(toNode);
+
+  // If any node already has children, treat input as already-nested: return roots.
+  const hasNested = nodes.some((n) => Array.isArray(n.children) && n.children.length > 0);
+  if (hasNested) {
+    const roots = nodes.filter((n) => !n.__parentId);
+    return wrap(roots.length > 0 ? roots : nodes);
+  }
+
+  // Flat -> tree via parentId.
+  const byId = new Map<string, AccountNode & { __parentId?: string | null }>();
+  nodes.forEach((n) => {
+    n.children = [];
+    byId.set(n.id, n);
+  });
+
+  const roots: AccountNode[] = [];
+  nodes.forEach((n) => {
+    const pid = n.__parentId ? String(n.__parentId) : null;
+    if (pid && byId.has(pid)) {
+      const parent = byId.get(pid)!;
+      (parent.children as AccountNode[]).push(n);
+    } else {
+      roots.push(n);
+    }
+  });
+
+  return wrap(roots);
+}
+
+/** Ensure a single root node; if multiple roots exist, wrap them under a synthetic parent. */
+function wrap(roots: AccountNode[]): AccountNode | null {
+  if (roots.length === 0) return null;
+  if (roots.length === 1) return roots[0];
+  return {
+    id: 'root',
+    name: 'All Accounts',
+    type: 'parent',
+    location: '',
+    contactPerson: '',
+    email: '',
+    phone: '',
+    accountValue: roots.reduce((sum, r) => sum + (Number(r.accountValue) || 0), 0),
+    activeContracts: roots.reduce((sum, r) => sum + (Number(r.activeContracts) || 0), 0),
+    relationshipStart: '',
+    status: 'active',
+    children: roots,
+  };
+}
 
 export default function AccountHierarchyPage() {
   const router = useRouter();
   const [showAccountLinkModal, setShowAccountLinkModal] = useState(false);
   const [currentAccountId, setCurrentAccountId] = useState<string | undefined>();
+  const [rootAccount, setRootAccount] = useState<AccountNode | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        let data: any[] = [];
+        try {
+          const res = await crmService.customers.getHierarchy();
+          data = Array.isArray(res) ? res : [];
+        } catch {
+          data = [];
+        }
+
+        // Fall back to flat customer list if hierarchy endpoint returned nothing.
+        if (data.length === 0) {
+          const res = await crmService.customers.getAll();
+          data = Array.isArray(res) ? res : [];
+        }
+
+        if (cancelled) return;
+        setRootAccount(buildTree(data));
+      } catch (err: any) {
+        if (cancelled) return;
+        setLoadError(err?.message ?? 'Failed to load account hierarchy.');
+        setRootAccount(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAddChild = (id: string) => {
     console.log('Adding child to account:', id);
@@ -115,21 +185,39 @@ export default function AccountHierarchyPage() {
           Back to Advanced Features
         </button>
 
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+
         <div className="bg-white rounded-lg border border-gray-200 p-3">
           <h2 className="text-xl font-bold text-gray-900 mb-2">Account Hierarchy Visualization</h2>
           <p className="text-gray-600 mb-2">
             Visual representation of parent companies, subsidiaries, branches, and divisions with full
             contact and financial details.
           </p>
-          <AccountHierarchyTree
-            rootAccount={mockAccountHierarchy}
-            onAddChild={handleAddChild}
-            onEdit={handleEditAccount}
-            onView={handleViewAccount}
-            onLink={handleLinkAccount}
-            showActions={true}
-            expandAll={false}
-          />
+          {rootAccount ? (
+            <AccountHierarchyTree
+              rootAccount={rootAccount}
+              onAddChild={handleAddChild}
+              onEdit={handleEditAccount}
+              onView={handleViewAccount}
+              onLink={handleLinkAccount}
+              showActions={true}
+              expandAll={false}
+            />
+          ) : (
+            !isLoading && (
+              <div className="py-8 text-center text-sm text-gray-500">No account hierarchy data available.</div>
+            )
+          )}
         </div>
       </div>
 

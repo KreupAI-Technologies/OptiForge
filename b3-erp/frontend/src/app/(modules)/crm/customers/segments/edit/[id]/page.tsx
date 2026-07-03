@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface CriteriaRule {
   id: string;
@@ -93,6 +94,63 @@ export default function EditSegmentPage() {
   const [formData, setFormData] = useState<SegmentFormData>(mockSegmentData);
   const [estimatedCount, setEstimatedCount] = useState(156);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!segmentId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await crmService.customerSegments.getById(segmentId);
+        if (!cancelled && data) {
+          const rawStatus = String((data as any)?.status ?? '').toLowerCase();
+          const mappedStatus: SegmentFormData['status'] = rawStatus === 'inactive' ? 'inactive' : 'active';
+
+          const rawCriteria = (data as any)?.criteria;
+          let criteria: CriteriaRule[] = [];
+          if (Array.isArray(rawCriteria)) {
+            criteria = rawCriteria.map((c: any, idx: number) => {
+              if (c && typeof c === 'object') {
+                return {
+                  id: String(c.id ?? idx + 1),
+                  field: String(c.field ?? 'company_size'),
+                  operator: String(c.operator ?? 'greater_than'),
+                  value: c.value != null ? String(c.value) : '',
+                };
+              }
+              return {
+                id: String(idx + 1),
+                field: 'company_size',
+                operator: 'greater_than',
+                value: typeof c === 'string' ? c : '',
+              };
+            });
+          }
+
+          const mapped: SegmentFormData = {
+            name: (data as any)?.name ?? '',
+            description: (data as any)?.description ?? '',
+            status: mappedStatus,
+            criteria,
+          };
+          setFormData(mapped);
+          const count = Number((data as any)?.customerCount ?? (data as any)?.memberCount);
+          if (Number.isFinite(count)) setEstimatedCount(count);
+          setHasUnsavedChanges(false);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [segmentId]);
 
   const handleFieldChange = (field: keyof SegmentFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -173,6 +231,18 @@ export default function EditSegmentPage() {
           <ArrowLeft className="h-5 w-5 mr-2" />
           Back to Segment
         </button>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <div>

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, X, Mail, Users, Activity, BarChart3, Calendar } from 'lucide-react';
 import Link from 'next/link';
+import { crmService } from '@/services/crm.service';
 
 interface Campaign {
   id: string;
@@ -111,26 +112,96 @@ export default function CampaignEditPage() {
   const params = useParams();
   const campaignId = params?.id as string;
 
-  // Find campaign by ID
-  const existingCampaign = mockCampaigns.find(c => c.id === campaignId);
+  const [existingCampaign, setExistingCampaign] = useState<Campaign | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    name: existingCampaign?.name || '',
-    type: existingCampaign?.type || 'email',
-    status: existingCampaign?.status || 'draft',
-    description: existingCampaign?.description || '',
-    startDate: existingCampaign?.startDate || '',
-    endDate: existingCampaign?.endDate || '',
-    budget: existingCampaign?.budget || 0,
-    audience: existingCampaign?.audience || 0,
-    owner: existingCampaign?.owner || '',
-    goals: existingCampaign?.goals || [''],
-    channels: existingCampaign?.channels || ['']
+    name: '',
+    type: 'email' as Campaign['type'],
+    status: 'draft' as Campaign['status'],
+    description: '',
+    startDate: '',
+    endDate: '',
+    budget: 0,
+    audience: 0,
+    owner: '',
+    goals: [''] as string[],
+    channels: [''] as string[]
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  if (!existingCampaign) {
+  useEffect(() => {
+    if (!campaignId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await crmService.campaigns.getById(campaignId);
+        if (!cancelled) {
+          const allowedTypes = ['email', 'social', 'webinar', 'content', 'event'];
+          const rawType = String((data as any)?.type ?? '').toLowerCase();
+          const mappedType = (allowedTypes.includes(rawType) ? rawType : 'email') as Campaign['type'];
+
+          const allowedStatuses = ['draft', 'scheduled', 'active', 'paused', 'completed'];
+          const rawStatus = String((data as any)?.status ?? '').toLowerCase();
+          const mappedStatus = (allowedStatuses.includes(rawStatus) ? rawStatus : 'draft') as Campaign['status'];
+
+          const goals = (data as any)?.objective ? [String((data as any).objective)] : [''];
+          const channels = Array.isArray((data as any)?.tags) && (data as any).tags.length > 0
+            ? (data as any).tags.map((t: any) => String(t))
+            : [''];
+
+          const mapped: Campaign = {
+            id: String((data as any)?.id ?? campaignId),
+            name: (data as any)?.name ?? '',
+            type: mappedType,
+            status: mappedStatus,
+            startDate: (data as any)?.startDate ?? '',
+            endDate: (data as any)?.endDate ?? undefined,
+            budget: Number((data as any)?.budget ?? 0),
+            spent: Number((data as any)?.actualCost ?? 0),
+            audience: Number((data as any)?.totalLeads ?? 0),
+            sent: Number((data as any)?.totalLeads ?? 0),
+            delivered: Number((data as any)?.totalLeads ?? 0),
+            opened: 0,
+            clicked: 0,
+            converted: Number((data as any)?.convertedLeads ?? 0),
+            revenue: Number((data as any)?.actualRevenue ?? 0),
+            owner: (data as any)?.assignedToName ?? '',
+            description: (data as any)?.description ?? undefined,
+            goals: goals.filter((g) => g !== ''),
+            channels: channels.filter((c: string) => c !== ''),
+          };
+          setExistingCampaign(mapped);
+          setFormData({
+            name: mapped.name ?? '',
+            type: mapped.type,
+            status: mapped.status,
+            description: mapped.description ?? '',
+            startDate: mapped.startDate ?? '',
+            endDate: mapped.endDate ?? '',
+            budget: Number(mapped.budget ?? 0),
+            audience: Number(mapped.audience ?? 0),
+            owner: mapped.owner ?? '',
+            goals: goals.length > 0 ? goals : [''],
+            channels: channels.length > 0 ? channels : [''],
+          });
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
+
+  if (!isLoading && !loadError && !existingCampaign) {
     return (
       <div className="p-8">
         <div className="text-center">
@@ -274,6 +345,18 @@ export default function CampaignEditPage() {
           </div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -558,37 +641,37 @@ export default function CampaignEditPage() {
               <div className="space-y-2">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Amount Spent</p>
-                  <p className="text-xl font-bold text-blue-600">${existingCampaign.spent.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-blue-600">${(existingCampaign?.spent ?? 0).toLocaleString()}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Total Revenue</p>
-                  <p className="text-xl font-bold text-green-600">${existingCampaign.revenue.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-green-600">${(existingCampaign?.revenue ?? 0).toLocaleString()}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Conversions</p>
-                  <p className="text-xl font-bold text-gray-900">{existingCampaign.converted}</p>
+                  <p className="text-xl font-bold text-gray-900">{existingCampaign?.converted ?? 0}</p>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <p className="text-sm text-gray-500 mb-1">Messages Sent</p>
-                  <p className="text-lg font-semibold text-gray-900">{existingCampaign.sent.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-gray-900">{(existingCampaign?.sent ?? 0).toLocaleString()}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Delivered</p>
-                  <p className="text-lg font-semibold text-gray-900">{existingCampaign.delivered.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-gray-900">{(existingCampaign?.delivered ?? 0).toLocaleString()}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Opened</p>
-                  <p className="text-lg font-semibold text-gray-900">{existingCampaign.opened.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-gray-900">{(existingCampaign?.opened ?? 0).toLocaleString()}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Clicked</p>
-                  <p className="text-lg font-semibold text-gray-900">{existingCampaign.clicked.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-gray-900">{(existingCampaign?.clicked ?? 0).toLocaleString()}</p>
                 </div>
               </div>
             </div>

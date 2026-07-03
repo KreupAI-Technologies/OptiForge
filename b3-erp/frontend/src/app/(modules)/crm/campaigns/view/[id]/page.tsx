@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit, Trash2, Mail, Users, TrendingUp, Target, Calendar, DollarSign, BarChart3, Play, Pause, CheckCircle, ExternalLink, Clock, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Campaign {
   id: string;
@@ -113,11 +114,62 @@ export default function CampaignViewPage() {
   const campaignId = params?.id as string;
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Find campaign by ID
-  const campaign = mockCampaigns.find(c => c.id === campaignId);
+  useEffect(() => {
+    if (!campaignId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await crmService.campaigns.getById(campaignId);
+        if (!cancelled) {
+          const allowedTypes = ['email', 'social', 'webinar', 'content', 'event'];
+          const rawType = String((data as any)?.type ?? '').toLowerCase();
+          const mappedType = (allowedTypes.includes(rawType) ? rawType : 'email') as Campaign['type'];
 
-  if (!campaign) {
+          const allowedStatuses = ['draft', 'scheduled', 'active', 'paused', 'completed'];
+          const rawStatus = String((data as any)?.status ?? '').toLowerCase();
+          const mappedStatus = (allowedStatuses.includes(rawStatus) ? rawStatus : 'draft') as Campaign['status'];
+
+          const mapped: Campaign = {
+            id: String((data as any)?.id ?? campaignId),
+            name: (data as any)?.name ?? '',
+            type: mappedType,
+            status: mappedStatus,
+            startDate: (data as any)?.startDate ?? '',
+            endDate: (data as any)?.endDate ?? undefined,
+            budget: Number((data as any)?.budget ?? 0),
+            spent: Number((data as any)?.actualCost ?? 0),
+            audience: Number((data as any)?.totalLeads ?? 0),
+            sent: Number((data as any)?.totalLeads ?? 0),
+            delivered: Number((data as any)?.totalLeads ?? 0),
+            opened: 0,
+            clicked: 0,
+            converted: Number((data as any)?.convertedLeads ?? 0),
+            revenue: Number((data as any)?.actualRevenue ?? 0),
+            owner: (data as any)?.assignedToName ?? '',
+            description: (data as any)?.description ?? undefined,
+            goals: (data as any)?.objective ? [String((data as any).objective)] : [],
+            channels: Array.isArray((data as any)?.tags) ? (data as any).tags.map((t: any) => String(t)) : [],
+          };
+          setCampaign(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
+
+  if (!isLoading && !loadError && !campaign) {
     return (
       <div className="p-8">
         <div className="text-center">
@@ -127,6 +179,24 @@ export default function CampaignViewPage() {
             Return to Campaigns
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (isLoading || loadError || !campaign) {
+    return (
+      <div className="p-8">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
       </div>
     );
   }
@@ -206,11 +276,12 @@ export default function CampaignViewPage() {
 
   const handleStatusToggle = () => {
     // This would update the status in a real application
-    if (campaign.status === 'active') {
-      campaign.status = 'paused';
-    } else if (campaign.status === 'paused') {
-      campaign.status = 'active';
-    }
+    setCampaign((prev) => {
+      if (!prev) return prev;
+      if (prev.status === 'active') return { ...prev, status: 'paused' };
+      if (prev.status === 'paused') return { ...prev, status: 'active' };
+      return prev;
+    });
   };
 
   const roi = calculateROI(campaign.revenue, campaign.spent);

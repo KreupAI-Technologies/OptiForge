@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   Edit,
@@ -123,14 +124,72 @@ const outcomeColors = {
   follow_up_required: 'bg-yellow-100 text-yellow-700',
 };
 
+const interactionTypes = ['call', 'email', 'meeting', 'site_visit', 'support', 'complaint', 'feedback'] as const;
+const interactionOutcomes = ['positive', 'neutral', 'negative', 'follow_up_required'] as const;
+
 export default function ViewInteractionPage() {
   const router = useRouter();
   const params = useParams();
-  const interactionId = params.id as string;
-  const interaction = mockInteraction;
+  const interactionId = params?.id as string;
   const { addToast } = useToast();
 
+  const [interaction, setInteraction] = useState<Interaction>(mockInteraction);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<'details' | 'activities'>('details');
+
+  useEffect(() => {
+    if (!interactionId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        let data: any;
+        try {
+          data = await crmService.interactions.getById(interactionId);
+        } catch (primaryErr) {
+          data = await crmService.interactions.getByIdLegacy(interactionId);
+        }
+        if (!cancelled && data) {
+          const rawType = String(data.type ?? '').toLowerCase();
+          const type = (interactionTypes as readonly string[]).includes(rawType)
+            ? (rawType as Interaction['type'])
+            : 'call';
+          const rawOutcome = String(data.outcome ?? '').toLowerCase();
+          const outcome = (interactionOutcomes as readonly string[]).includes(rawOutcome)
+            ? (rawOutcome as Interaction['outcome'])
+            : 'neutral';
+          setInteraction({
+            id: String(data.id ?? interactionId),
+            type,
+            customer: data.customer ?? data.customerName ?? data.company ?? '',
+            contactPerson: data.contactPerson ?? data.contactName ?? '',
+            subject: data.subject ?? data.title ?? '',
+            description: data.description ?? data.notes ?? '',
+            performedBy: data.performedBy ?? data.createdBy ?? data.owner ?? '',
+            dateTime: data.dateTime ?? data.date ?? data.interactionDate ?? data.createdAt ?? '',
+            duration: data.duration ?? '',
+            outcome,
+            location: data.location ?? undefined,
+            followUpRequired: Boolean(data.followUpRequired ?? data.followUp ?? false),
+            followUpDate: data.followUpDate ?? undefined,
+            assignedTo: data.assignedTo ?? undefined,
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            participants: Array.isArray(data.participants) ? data.participants : [],
+          });
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [interactionId]);
 
   const TypeIcon = typeIcons[interaction.type];
 
@@ -168,6 +227,17 @@ export default function ViewInteractionPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button
