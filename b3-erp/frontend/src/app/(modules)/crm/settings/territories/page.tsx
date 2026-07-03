@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   MapPin,
   Users,
@@ -76,315 +77,69 @@ export default function TerritoriesPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [territories, setTerritories] = useState<Territory[]>([
-    {
-      id: 'TER-001',
-      name: 'North America East',
-      code: 'NAE',
-      type: 'geographic',
-      status: 'active',
-      region: 'Americas',
-      description: 'Eastern United States and Eastern Canada coverage',
-      assignedTo: {
-        name: 'Sarah Johnson',
-        avatar: 'SJ',
-        role: 'Regional Sales Director'
-      },
-      coverage: {
-        countries: ['United States', 'Canada'],
-        states: ['New York', 'Massachusetts', 'Pennsylvania', 'New Jersey', 'Connecticut', 'Vermont'],
-        cities: ['New York', 'Boston', 'Philadelphia', 'Toronto', 'Montreal']
-      },
-      performance: {
-        accounts: 156,
-        activeOpportunities: 42,
-        revenue: 8450000,
-        quota: 10000000,
-        quotaAttainment: 84.5,
-        avgDealSize: 125000,
-        winRate: 68
-      },
-      growth: {
-        accountsChange: 12,
-        revenueChange: 15.3
-      },
-      metrics: {
-        totalLeads: 324,
-        convertedLeads: 156,
-        customerSatisfaction: 4.6
-      },
-      createdAt: '2024-01-15',
-      lastModified: '2025-10-15'
-    },
-    {
-      id: 'TER-002',
-      name: 'North America West',
-      code: 'NAW',
-      type: 'geographic',
-      status: 'active',
-      region: 'Americas',
-      description: 'Western United States and Western Canada coverage',
-      assignedTo: {
-        name: 'Michael Chen',
-        avatar: 'MC',
-        role: 'Regional Sales Director'
-      },
-      coverage: {
-        countries: ['United States', 'Canada'],
-        states: ['California', 'Washington', 'Oregon', 'Nevada', 'Arizona', 'British Columbia'],
-        cities: ['San Francisco', 'Los Angeles', 'Seattle', 'Vancouver', 'San Diego']
-      },
-      performance: {
-        accounts: 189,
-        activeOpportunities: 58,
-        revenue: 12300000,
-        quota: 12000000,
-        quotaAttainment: 102.5,
-        avgDealSize: 145000,
-        winRate: 72
-      },
-      growth: {
-        accountsChange: 18,
-        revenueChange: 22.7
-      },
-      metrics: {
-        totalLeads: 412,
-        convertedLeads: 189,
-        customerSatisfaction: 4.8
-      },
-      createdAt: '2024-01-15',
-      lastModified: '2025-10-18'
-    },
-    {
-      id: 'TER-003',
-      name: 'EMEA - Western Europe',
-      code: 'EMEA-WE',
-      type: 'geographic',
-      status: 'active',
-      region: 'EMEA',
-      description: 'Western European markets including UK, France, Germany',
-      assignedTo: {
-        name: 'Emily Rodriguez',
-        avatar: 'ER',
-        role: 'EMEA Sales Director'
-      },
-      coverage: {
-        countries: ['United Kingdom', 'France', 'Germany', 'Netherlands', 'Belgium', 'Ireland'],
-        cities: ['London', 'Paris', 'Berlin', 'Amsterdam', 'Dublin']
-      },
-      performance: {
-        accounts: 134,
-        activeOpportunities: 38,
-        revenue: 6780000,
-        quota: 8000000,
-        quotaAttainment: 84.8,
-        avgDealSize: 98000,
-        winRate: 64
-      },
-      growth: {
-        accountsChange: 15,
-        revenueChange: 18.5
-      },
-      metrics: {
-        totalLeads: 267,
-        convertedLeads: 134,
-        customerSatisfaction: 4.5
-      },
-      createdAt: '2024-02-10',
-      lastModified: '2025-10-12'
-    },
-    {
-      id: 'TER-004',
-      name: 'Enterprise Technology',
-      code: 'ENT-TECH',
-      type: 'industry',
-      status: 'active',
-      region: 'Global',
-      description: 'Enterprise technology companies across all regions',
-      assignedTo: {
-        name: 'David Park',
-        avatar: 'DP',
-        role: 'Enterprise Account Director'
-      },
-      coverage: {
-        industries: ['Software', 'Cloud Services', 'IT Infrastructure', 'SaaS', 'Cybersecurity'],
-        accountSizes: ['Enterprise (1000+ employees)']
-      },
-      performance: {
-        accounts: 87,
-        activeOpportunities: 31,
-        revenue: 9850000,
-        quota: 9000000,
-        quotaAttainment: 109.4,
-        avgDealSize: 285000,
-        winRate: 75
-      },
-      growth: {
-        accountsChange: 8,
-        revenueChange: 28.4
-      },
-      metrics: {
-        totalLeads: 145,
-        convertedLeads: 87,
-        customerSatisfaction: 4.7
-      },
-      createdAt: '2024-03-01',
-      lastModified: '2025-10-20'
-    },
-    {
-      id: 'TER-005',
-      name: 'Financial Services - Americas',
-      code: 'FIN-AM',
-      type: 'industry',
-      status: 'active',
-      region: 'Americas',
-      description: 'Banking, insurance, and financial institutions in Americas',
-      assignedTo: {
-        name: 'Jennifer Martinez',
-        avatar: 'JM',
-        role: 'Financial Services Lead'
-      },
-      coverage: {
-        countries: ['United States', 'Canada', 'Mexico', 'Brazil'],
-        industries: ['Banking', 'Insurance', 'Investment Management', 'FinTech'],
-        accountSizes: ['Mid-Market (250-1000)', 'Enterprise (1000+)']
-      },
-      performance: {
-        accounts: 64,
-        activeOpportunities: 22,
-        revenue: 7250000,
-        quota: 7500000,
-        quotaAttainment: 96.7,
-        avgDealSize: 195000,
-        winRate: 71
-      },
-      growth: {
-        accountsChange: 6,
-        revenueChange: 12.8
-      },
-      metrics: {
-        totalLeads: 118,
-        convertedLeads: 64,
-        customerSatisfaction: 4.6
-      },
-      createdAt: '2024-03-15',
-      lastModified: '2025-10-19'
-    },
-    {
-      id: 'TER-006',
-      name: 'Asia Pacific',
-      code: 'APAC',
-      type: 'geographic',
-      status: 'active',
-      region: 'Asia Pacific',
-      description: 'Asia Pacific region including Australia and Southeast Asia',
-      assignedTo: {
-        name: 'Kevin Wong',
-        avatar: 'KW',
-        role: 'APAC Sales Director'
-      },
-      coverage: {
-        countries: ['Australia', 'Singapore', 'Japan', 'South Korea', 'India', 'New Zealand'],
-        cities: ['Sydney', 'Singapore', 'Tokyo', 'Seoul', 'Mumbai', 'Auckland']
-      },
-      performance: {
-        accounts: 112,
-        activeOpportunities: 35,
-        revenue: 5640000,
-        quota: 7000000,
-        quotaAttainment: 80.6,
-        avgDealSize: 87000,
-        winRate: 62
-      },
-      growth: {
-        accountsChange: 22,
-        revenueChange: 31.5
-      },
-      metrics: {
-        totalLeads: 298,
-        convertedLeads: 112,
-        customerSatisfaction: 4.4
-      },
-      createdAt: '2024-04-01',
-      lastModified: '2025-10-17'
-    },
-    {
-      id: 'TER-007',
-      name: 'SMB - North America',
-      code: 'SMB-NA',
-      type: 'account_size',
-      status: 'active',
-      region: 'Americas',
-      description: 'Small and medium businesses across North America',
-      assignedTo: {
-        name: 'Alex Thompson',
-        avatar: 'AT',
-        role: 'SMB Sales Manager'
-      },
-      coverage: {
-        countries: ['United States', 'Canada'],
-        accountSizes: ['Small Business (1-50)', 'Mid-Market (50-250)']
-      },
-      performance: {
-        accounts: 342,
-        activeOpportunities: 89,
-        revenue: 4120000,
-        quota: 5000000,
-        quotaAttainment: 82.4,
-        avgDealSize: 28000,
-        winRate: 58
-      },
-      growth: {
-        accountsChange: 34,
-        revenueChange: 8.6
-      },
-      metrics: {
-        totalLeads: 687,
-        convertedLeads: 342,
-        customerSatisfaction: 4.3
-      },
-      createdAt: '2024-05-10',
-      lastModified: '2025-10-16'
-    },
-    {
-      id: 'TER-008',
-      name: 'Healthcare & Life Sciences',
-      code: 'HLS',
-      type: 'industry',
-      status: 'active',
-      region: 'Global',
-      description: 'Healthcare providers, pharma, and medical device companies',
-      assignedTo: {
-        name: 'Dr. Lisa Anderson',
-        avatar: 'LA',
-        role: 'Healthcare Vertical Lead'
-      },
-      coverage: {
-        industries: ['Hospitals & Healthcare', 'Pharmaceuticals', 'Medical Devices', 'Biotech', 'Health Insurance'],
-        accountSizes: ['Mid-Market (250-1000)', 'Enterprise (1000+)']
-      },
-      performance: {
-        accounts: 76,
-        activeOpportunities: 28,
-        revenue: 6890000,
-        quota: 6500000,
-        quotaAttainment: 106.0,
-        avgDealSize: 165000,
-        winRate: 69
-      },
-      growth: {
-        accountsChange: 9,
-        revenueChange: 16.2
-      },
-      metrics: {
-        totalLeads: 152,
-        convertedLeads: 76,
-        customerSatisfaction: 4.7
-      },
-      createdAt: '2024-06-01',
-      lastModified: '2025-10-14'
-    }
-  ]);
+  const [territories, setTerritories] = useState<Territory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (GET /crm/territories) returns a sparse SalesTerritory ORM
+        // shape (id/name/country/state/city/assignedUserId/priority/isActive).
+        // Map it defensively onto this page's richer Territory model, filling
+        // absent analytics with safe defaults so the UI never crashes.
+        const raw = (await crmService.territories.getAll()) as any[];
+        const mapped: Territory[] = (Array.isArray(raw) ? raw : []).map((t) => {
+          const countries = [t?.country].filter(Boolean) as string[];
+          const states = [t?.state].filter(Boolean) as string[];
+          const cities = [t?.city].filter(Boolean) as string[];
+          return {
+            id: String(t?.id ?? ''),
+            name: t?.name ?? 'Unnamed Territory',
+            code: (t?.name ?? '').toString().slice(0, 6).toUpperCase() || '—',
+            type: 'geographic',
+            status: (t?.isActive ?? true) ? 'active' : 'inactive',
+            region: t?.country ?? '—',
+            description: [t?.city, t?.state, t?.country].filter(Boolean).join(', '),
+            assignedTo: {
+              name: t?.assignedUserId ?? 'Unassigned',
+              avatar: (t?.assignedUserId ?? 'NA').toString().slice(0, 2).toUpperCase(),
+              role: t?.assignedTeamId ? 'Team' : 'Owner',
+            },
+            coverage: { countries, states, cities },
+            performance: {
+              accounts: 0,
+              activeOpportunities: 0,
+              revenue: 0,
+              quota: 0,
+              quotaAttainment: 0,
+              avgDealSize: 0,
+              winRate: 0,
+            },
+            growth: { accountsChange: 0, revenueChange: 0 },
+            metrics: { totalLeads: 0, convertedLeads: 0, customerSatisfaction: 0 },
+            createdAt: t?.createdAt ? String(t.createdAt).slice(0, 10) : '',
+            lastModified: t?.updatedAt ? String(t.updatedAt).slice(0, 10) : '',
+          };
+        });
+        if (!cancelled) setTerritories(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load territories');
+          setTerritories([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredTerritories = territories.filter(territory => {
     const matchesSearch = territory.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -421,7 +176,7 @@ export default function TerritoriesPage() {
     },
     {
       label: 'Avg Quota Attainment',
-      value: Math.round(territories.reduce((sum, t) => sum + t.performance.quotaAttainment, 0) / territories.length) + '%',
+      value: (territories.length ? Math.round(territories.reduce((sum, t) => sum + t.performance.quotaAttainment, 0) / territories.length) : 0) + '%',
       change: territories.filter(t => t.performance.quotaAttainment >= 100).length + ' over quota',
       icon: Target,
       color: 'from-orange-500 to-orange-600'
@@ -509,6 +264,23 @@ export default function TerritoriesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2  space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading territories…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && territories.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No territories found.
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-end">
         <button

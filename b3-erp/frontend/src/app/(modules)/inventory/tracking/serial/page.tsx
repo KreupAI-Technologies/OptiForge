@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Filter, QrCode, Download, Plus, Edit2, Eye, AlertCircle } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface SerialProduct {
   serialNumber: string;
@@ -21,117 +22,65 @@ interface SerialProduct {
 
 export default function SerialTrackingPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<SerialProduct[]>([
-    {
-      serialNumber: 'SN-MK-2024-001',
-      productId: 'KIT-OVEN-5000',
-      productName: 'Commercial Kitchen Oven 5000W',
-      category: 'Kitchen Equipment',
-      batchNumber: 'BATCH-2024-JAN-001',
-      manufacturingDate: '2024-01-05',
-      warrantyExpiry: '2026-01-05',
-      warrantyStatus: 'Active',
-      location: 'Warehouse A - Section 2',
-      status: 'Deployed',
-      customerName: 'ABC Restaurant Pvt Ltd',
-      lastServiceDate: '2024-01-20'
-    },
-    {
-      serialNumber: 'SN-MK-2024-002',
-      productId: 'KIT-OVEN-5000',
-      productName: 'Commercial Kitchen Oven 5000W',
-      category: 'Kitchen Equipment',
-      batchNumber: 'BATCH-2024-JAN-001',
-      manufacturingDate: '2024-01-05',
-      warrantyExpiry: '2025-01-05',
-      warrantyStatus: 'Expiring Soon',
-      location: 'Warehouse A - Section 2',
-      status: 'In Stock',
-      lastServiceDate: '2023-12-15'
-    },
-    {
-      serialNumber: 'SN-MK-2024-003',
-      productId: 'KIT-GRILL-3000',
-      productName: 'Industrial Grill System 3000W',
-      category: 'Kitchen Equipment',
-      batchNumber: 'BATCH-2024-JAN-002',
-      manufacturingDate: '2024-01-08',
-      warrantyExpiry: '2024-12-08',
-      warrantyStatus: 'Expired',
-      location: 'Warehouse B - Section 1',
-      status: 'In Repair',
-      customerName: 'XYZ Catering Services',
-      lastServiceDate: '2024-01-10'
-    },
-    {
-      serialNumber: 'SN-MK-2024-004',
-      productId: 'KIT-FRYER-2000',
-      productName: 'Deep Fryer Unit 2000W',
-      category: 'Kitchen Equipment',
-      batchNumber: 'BATCH-2024-JAN-003',
-      manufacturingDate: '2024-01-12',
-      warrantyExpiry: '2026-01-12',
-      warrantyStatus: 'Active',
-      location: 'Warehouse A - Section 3',
-      status: 'Deployed',
-      customerName: 'Fast Food Chain India',
-      lastServiceDate: '2024-01-18'
-    },
-    {
-      serialNumber: 'SN-MK-2024-005',
-      productId: 'KIT-MIXER-1500',
-      productName: 'Industrial Mixer 1500W',
-      category: 'Mixing Equipment',
-      batchNumber: 'BATCH-2024-JAN-004',
-      manufacturingDate: '2024-01-15',
-      warrantyExpiry: '2026-01-15',
-      warrantyStatus: 'Active',
-      location: 'Warehouse C - Section 1',
-      status: 'In Stock',
-      lastServiceDate: '2024-01-15'
-    },
-    {
-      serialNumber: 'SN-MK-2024-006',
-      productId: 'KIT-WARMER-800',
-      productName: 'Food Warmer Cabinet 800W',
-      category: 'Food Service',
-      batchNumber: 'BATCH-2024-FEB-001',
-      manufacturingDate: '2024-02-01',
-      warrantyExpiry: '2027-02-01',
-      warrantyStatus: 'Active',
-      location: 'Warehouse A - Section 1',
-      status: 'Deployed',
-      customerName: 'Hotel Grand India',
-      lastServiceDate: '2024-01-25'
-    },
-    {
-      serialNumber: 'SN-MK-2024-007',
-      productId: 'KIT-COOLER-1200',
-      productName: 'Display Cooler 1200L',
-      category: 'Cooling Equipment',
-      batchNumber: 'BATCH-2024-FEB-002',
-      manufacturingDate: '2024-02-03',
-      warrantyExpiry: '2025-02-03',
-      warrantyStatus: 'Expiring Soon',
-      location: 'Warehouse B - Section 2',
-      status: 'Deployed',
-      customerName: 'Fresh Mart Supermarket',
-      lastServiceDate: '2024-01-22'
-    },
-    {
-      serialNumber: 'SN-MK-2024-008',
-      productId: 'KIT-SLICER-500',
-      productName: 'Automatic Slicer 500W',
-      category: 'Cutting Equipment',
-      batchNumber: 'BATCH-2024-FEB-003',
-      manufacturingDate: '2024-02-05',
-      warrantyExpiry: '2026-02-05',
-      warrantyStatus: 'Active',
-      location: 'Warehouse C - Section 2',
-      status: 'In Stock',
-      lastServiceDate: '2024-02-05'
-    }
-  ]);
+  const [products, setProducts] = useState<SerialProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (serialNumber/itemId/itemName/batchNumber/
+        // manufacturingDate/warrantyEndDate/locationName/status/customerName/
+        // lastServiceDate); map it to the page's SerialProduct model.
+        const raw = (await inventoryService.getSerialNumbers()) as any[];
+        const statusMap: Record<string, SerialProduct['status']> = {
+          Available: 'In Stock', IN_STOCK: 'In Stock', 'In Stock': 'In Stock',
+          Sold: 'Deployed', Issued: 'Deployed', Installed: 'Deployed', Deployed: 'Deployed',
+          UnderRepair: 'In Repair', 'In Repair': 'In Repair', InRepair: 'In Repair',
+          Retired: 'Retired', Scrapped: 'Retired',
+        };
+        const toDate = (d: any): string => (d ? String(d).split('T')[0] : '');
+        const warrantyStatus = (endDate: any, isUnderWarranty: any): SerialProduct['warrantyStatus'] => {
+          if (!endDate) return isUnderWarranty ? 'Active' : 'Expired';
+          const end = new Date(endDate).getTime();
+          const now = Date.now();
+          if (isNaN(end)) return 'Active';
+          if (end < now) return 'Expired';
+          const days = (end - now) / (1000 * 60 * 60 * 24);
+          return days <= 60 ? 'Expiring Soon' : 'Active';
+        };
+        const mapped: SerialProduct[] = raw.map((s) => ({
+          serialNumber: s.serialNumber ?? '',
+          productId: s.itemCode ?? s.itemId ?? '',
+          productName: s.itemName ?? s.itemCode ?? '',
+          category: s.category ?? '-',
+          batchNumber: s.batchNumber ?? '-',
+          manufacturingDate: toDate(s.manufacturingDate),
+          warrantyExpiry: toDate(s.warrantyEndDate),
+          warrantyStatus: warrantyStatus(s.warrantyEndDate, s.isUnderWarranty),
+          location: s.locationName ?? s.warehouseName ?? '-',
+          status: statusMap[s.status] ?? 'In Stock',
+          customerName: s.customerName ?? undefined,
+          lastServiceDate: toDate(s.lastServiceDate) || undefined,
+        }));
+        if (!cancelled) setProducts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load serial numbers');
+          setProducts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -205,6 +154,24 @@ export default function SerialTrackingPage() {
             <p className="text-2xl font-bold text-blue-600">{products.filter(p => p.status === 'Deployed').length}</p>
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading serial numbers…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && products.length === 0 && (
+          <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            No serial numbers found.
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg border border-slate-200 p-3 mb-3">

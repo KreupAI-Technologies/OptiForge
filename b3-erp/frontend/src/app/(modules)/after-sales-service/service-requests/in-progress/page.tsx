@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ServiceRequestService } from '@/services/service-request.service';
 import {
   Settings,
   Clock,
@@ -78,336 +79,84 @@ const InProgressServiceRequestsPage = () => {
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const serviceRequests: ServiceRequest[] = [
-    {
-      id: '1',
-      ticketNumber: 'SR-2024-0009',
-      customer: {
-        name: 'Mark Johnson',
-        company: 'Industrial Solutions Inc.',
-        phone: '+1-555-0190',
-        email: 'mark.johnson@indsol.com',
-        address: '190 Industrial Park, Detroit, MI 48202'
-      },
-      product: {
-        name: 'Robotic Welding Station',
-        model: 'RWS-2000',
-        serialNumber: 'RWS-2000-2023-045',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Robotic arm calibration drift',
-        description: 'Robotic arm positioning accuracy has decreased over past month. Welding points are off by 2-3mm requiring manual adjustments.',
-        category: 'Calibration',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'In Progress',
-      assignedTo: 'Alex Chen',
-      assignedTeam: 'Robotics Team',
-      createdDate: '2024-01-10T09:00:00Z',
-      startedDate: '2024-01-11T08:30:00Z',
-      expectedResolution: '2024-01-16T17:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '1d 15h 30m',
-      progressPercentage: 65,
-      currentStep: 'Recalibrating XY axis positioning',
-      tags: ['Robotics', 'Calibration', 'Precision'],
-      attachments: 4,
-      lastUpdate: '2024-01-15T14:30:00Z',
-      contactPreference: 'Phone',
-      estimatedHours: 24,
-      actualHours: 16,
-      partsRequired: ['Servo Motor Encoder', 'Position Sensor']
-    },
-    {
-      id: '2',
-      ticketNumber: 'SR-2024-0010',
-      customer: {
-        name: 'Sarah Mitchell',
-        company: 'PackTech Automation',
-        phone: '+1-555-0287',
-        email: 'sarah.mitchell@packtech.com',
-        address: '287 Automation Blvd, Phoenix, AZ 85001'
-      },
-      product: {
-        name: 'Packaging Line Controller',
-        model: 'PLC-3000',
-        serialNumber: 'PLC-3000-2022-178',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'PLC communication errors',
-        description: 'Intermittent communication failures between main PLC and remote I/O modules causing production line stops.',
-        category: 'Electronics',
-        priority: 'Critical',
-        severity: 'Critical'
-      },
-      status: 'Diagnostic',
-      assignedTo: 'Maria Rodriguez',
-      assignedTeam: 'Electronics Team',
-      createdDate: '2024-01-12T11:15:00Z',
-      startedDate: '2024-01-12T13:00:00Z',
-      expectedResolution: '2024-01-15T16:00:00Z',
-      slaStatus: 'At Risk',
-      timeRemaining: '6h 30m',
-      progressPercentage: 40,
-      currentStep: 'Testing network infrastructure',
-      tags: ['PLC', 'Communication', 'Network'],
-      attachments: 6,
-      lastUpdate: '2024-01-15T11:00:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 16,
-      actualHours: 12,
-      partsRequired: ['Network Switch', 'Ethernet Cables']
-    },
-    {
-      id: '3',
-      ticketNumber: 'SR-2024-0011',
-      customer: {
-        name: 'Robert Davis',
-        company: 'MetalWorks Pro',
-        phone: '+1-555-0356',
-        email: 'robert.davis@metalworks.com',
-        address: '356 Steel Avenue, Pittsburgh, PA 15219'
-      },
-      product: {
-        name: 'CNC Plasma Cutter',
-        model: 'CPC-1500',
-        serialNumber: 'CPC-1500-2023-089',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Plasma torch replacement needed',
-        description: 'Plasma torch showing signs of wear with reduced cutting quality and increased consumable usage.',
-        category: 'Maintenance',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Waiting Parts',
-      assignedTo: 'Tom Wilson',
-      assignedTeam: 'Field Service',
-      createdDate: '2024-01-08T14:20:00Z',
-      startedDate: '2024-01-09T09:00:00Z',
-      expectedResolution: '2024-01-17T12:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '2d 21h 30m',
-      progressPercentage: 25,
-      currentStep: 'Waiting for torch assembly delivery',
-      tags: ['Plasma', 'Torch', 'Replacement'],
-      attachments: 2,
-      lastUpdate: '2024-01-15T10:00:00Z',
-      contactPreference: 'Phone',
-      estimatedHours: 8,
-      actualHours: 3,
-      partsRequired: ['Plasma Torch Assembly', 'Consumable Kit']
-    },
-    {
-      id: '4',
-      ticketNumber: 'SR-2024-0012',
-      customer: {
-        name: 'Jennifer Adams',
-        company: 'FoodTech Systems',
-        phone: '+1-555-0423',
-        email: 'jennifer.adams@foodtech.com',
-        address: '423 Food Processing Way, Chicago, IL 60616'
-      },
-      product: {
-        name: 'Conveyor Control System',
-        model: 'CCS-800',
-        serialNumber: 'CCS-800-2023-134',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Variable frequency drive malfunction',
-        description: 'VFD showing fault codes and causing erratic conveyor speeds affecting production throughput.',
-        category: 'Electronics',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Testing',
-      assignedTo: 'Lisa Park',
-      assignedTeam: 'Electronics Team',
-      createdDate: '2024-01-11T16:45:00Z',
-      startedDate: '2024-01-12T08:00:00Z',
-      expectedResolution: '2024-01-16T14:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '22h 30m',
-      progressPercentage: 80,
-      currentStep: 'Testing VFD replacement under load',
-      tags: ['VFD', 'Motor Control', 'Testing'],
-      attachments: 3,
-      lastUpdate: '2024-01-15T13:15:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 12,
-      actualHours: 10,
-      partsRequired: ['VFD Unit', 'Control Cables']
-    },
-    {
-      id: '5',
-      ticketNumber: 'SR-2024-0013',
-      customer: {
-        name: 'Michael Brown',
-        company: 'Precision Manufacturing',
-        phone: '+1-555-0512',
-        email: 'michael.brown@precision.com',
-        address: '512 Precision Drive, San Jose, CA 95112'
-      },
-      product: {
-        name: 'Coordinate Measuring Machine',
-        model: 'CMM-400',
-        serialNumber: 'CMM-400-2022-267',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Software license expired',
-        description: 'Measurement software license has expired preventing use of advanced measuring functions.',
-        category: 'Software',
-        priority: 'Medium',
-        severity: 'Major'
-      },
-      status: 'On Hold',
-      assignedTo: 'David Lee',
-      assignedTeam: 'Software Team',
-      createdDate: '2024-01-13T10:30:00Z',
-      startedDate: '2024-01-13T11:00:00Z',
-      expectedResolution: '2024-01-18T16:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '3d 1h 30m',
-      progressPercentage: 15,
-      currentStep: 'Waiting for license approval from vendor',
-      tags: ['Software', 'License', 'CMM'],
-      attachments: 1,
-      lastUpdate: '2024-01-15T09:00:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 4,
-      actualHours: 1,
-      partsRequired: []
-    },
-    {
-      id: '6',
-      ticketNumber: 'SR-2024-0014',
-      customer: {
-        name: 'Amanda Taylor',
-        company: 'TextileCorp Industries',
-        phone: '+1-555-0634',
-        email: 'amanda.taylor@textilecorp.com',
-        address: '634 Textile Street, Charlotte, NC 28201'
-      },
-      product: {
-        name: 'Industrial Dyeing Machine',
-        model: 'IDM-1200',
-        serialNumber: 'IDM-1200-2023-156',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Temperature control system failure',
-        description: 'Temperature sensors providing inconsistent readings causing poor dye quality and batch rejections.',
-        category: 'Electronics',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'In Progress',
-      assignedTo: 'Carlos Santos',
-      assignedTeam: 'Field Service',
-      createdDate: '2024-01-09T12:00:00Z',
-      startedDate: '2024-01-10T07:30:00Z',
-      expectedResolution: '2024-01-16T15:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '23h 30m',
-      progressPercentage: 70,
-      currentStep: 'Installing new temperature sensors',
-      tags: ['Temperature', 'Sensors', 'Dyeing'],
-      attachments: 5,
-      lastUpdate: '2024-01-15T15:30:00Z',
-      contactPreference: 'WhatsApp',
-      estimatedHours: 20,
-      actualHours: 14,
-      partsRequired: ['Temperature Sensors', 'Control Module']
-    },
-    {
-      id: '7',
-      ticketNumber: 'SR-2024-0015',
-      customer: {
-        name: 'Kevin Zhang',
-        company: 'AutoAssembly Tech',
-        phone: '+1-555-0745',
-        email: 'kevin.zhang@autoassembly.com',
-        address: '745 Assembly Line Rd, Toledo, OH 43601'
-      },
-      product: {
-        name: 'Pneumatic Assembly Station',
-        model: 'PAS-600',
-        serialNumber: 'PAS-600-2023-203',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Air pressure fluctuations',
-        description: 'Pneumatic system experiencing pressure drops during peak operation affecting assembly precision.',
-        category: 'Pneumatic',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Diagnostic',
-      assignedTo: 'Rachel Green',
-      assignedTeam: 'Mechanical Team',
-      createdDate: '2024-01-14T15:30:00Z',
-      startedDate: '2024-01-15T08:00:00Z',
-      expectedResolution: '2024-01-19T12:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '3d 21h 30m',
-      progressPercentage: 30,
-      currentStep: 'Checking air compressor capacity',
-      tags: ['Pneumatic', 'Pressure', 'Assembly'],
-      attachments: 2,
-      lastUpdate: '2024-01-15T12:00:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 16,
-      actualHours: 4,
-      partsRequired: ['Pressure Regulator', 'Air Filter']
-    },
-    {
-      id: '8',
-      ticketNumber: 'SR-2024-0016',
-      customer: {
-        name: 'Patricia Moore',
-        company: 'ChemProcess Solutions',
-        phone: '+1-555-0856',
-        email: 'patricia.moore@chemprocess.com',
-        address: '856 Chemical Way, Houston, TX 77001'
-      },
-      product: {
-        name: 'Chemical Mixing Reactor',
-        model: 'CMR-2500',
-        serialNumber: 'CMR-2500-2022-089',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Agitator motor bearing replacement',
-        description: 'Motor bearings showing signs of wear with increased vibration and noise levels.',
-        category: 'Mechanical',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'In Progress',
-      assignedTo: 'James Miller',
-      assignedTeam: 'Mechanical Team',
-      createdDate: '2024-01-07T11:00:00Z',
-      startedDate: '2024-01-08T09:00:00Z',
-      expectedResolution: '2024-01-16T16:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '1d 0h 30m',
-      progressPercentage: 85,
-      currentStep: 'Final bearing installation and testing',
-      tags: ['Motor', 'Bearings', 'Agitator'],
-      attachments: 4,
-      lastUpdate: '2024-01-15T16:00:00Z',
-      contactPreference: 'Phone',
-      estimatedHours: 32,
-      actualHours: 28,
-      partsRequired: ['Motor Bearings', 'Coupling Kit']
-    }
-  ];
+  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Service returns a flat ServiceRequest shape; map it into this page's
+        // nested view model and keep only requests that are actively in progress.
+        const raw = (await ServiceRequestService.getAllServiceRequests()) as any[];
+        const priorityMap: Record<string, ServiceRequest['issue']['priority']> = {
+          'P1 - Critical': 'Critical', 'P2 - High': 'High',
+          'P3 - Medium': 'Medium', 'P4 - Low': 'Low',
+        };
+        const slaMap: Record<string, ServiceRequest['slaStatus']> = {
+          on_track: 'On Track', at_risk: 'At Risk', breached: 'Breached', met: 'On Track',
+        };
+        const mapped: ServiceRequest[] = (Array.isArray(raw) ? raw : [])
+          .filter((r) => String(r.status ?? '').toLowerCase() === 'in_progress')
+          .map((r) => ({
+            id: String(r.id ?? ''),
+            ticketNumber: r.ticketNumber ?? r.ticket_number ?? '',
+            customer: {
+              name: r.customerName ?? r.customer_name ?? '',
+              company: r.customerCompany ?? r.company ?? '',
+              phone: r.customerPhone ?? r.phone ?? '',
+              email: r.customerEmail ?? r.email ?? '',
+              address: r.customerAddress ?? r.address ?? '',
+            },
+            product: {
+              name: r.equipmentModel ?? r.equipment_model ?? r.productName ?? '',
+              model: r.equipmentModel ?? r.equipment_model ?? '',
+              serialNumber: r.serialNumber ?? r.serial_number ?? '',
+              warrantyStatus: (r.warrantyStatus as ServiceRequest['product']['warrantyStatus']) ?? 'Active',
+            },
+            issue: {
+              title: r.issueTitle ?? r.title ?? (r.issueDescription ?? r.issue_description ?? ''),
+              description: r.issueDescription ?? r.issue_description ?? '',
+              category: r.category ?? r.serviceType ?? '',
+              priority: priorityMap[r.priority] ?? 'Medium',
+              severity: (r.severity as ServiceRequest['issue']['severity']) ?? 'Minor',
+            },
+            status: 'In Progress',
+            assignedTo: r.assignedToName ?? r.assignedTo ?? '',
+            assignedTeam: r.assignedTeam ?? '',
+            createdDate: r.createdAt ?? r.created_at ?? new Date().toISOString(),
+            startedDate: r.startedAt ?? r.started_at ?? r.createdAt ?? '',
+            expectedResolution: r.resolutionDeadline ?? r.resolution_deadline ?? '',
+            slaStatus: slaMap[r.slaStatus] ?? 'On Track',
+            timeRemaining: r.timeRemaining ?? '\u2014',
+            progressPercentage: Number(r.progressPercentage ?? 0),
+            currentStep: r.currentStep ?? '',
+            tags: Array.isArray(r.tags) ? r.tags : [],
+            attachments: Number(r.attachments ?? 0),
+            lastUpdate: r.updatedAt ?? r.updated_at ?? r.createdAt ?? new Date().toISOString(),
+            contactPreference: (r.contactPreference as ServiceRequest['contactPreference']) ?? 'Email',
+            estimatedHours: Number(r.estimatedHours ?? 0),
+            actualHours: Number(r.actualHours ?? r.resolutionTime ?? 0),
+            partsRequired: Array.isArray(r.partsRequired) ? r.partsRequired : [],
+          }));
+        if (!cancelled) setServiceRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load service requests');
+          setServiceRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRequests = serviceRequests.filter(request => {
     const matchesSearch = request.ticketNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -481,6 +230,24 @@ const InProgressServiceRequestsPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">In Progress Service Requests</h1>
         <p className="text-gray-600">Monitor and manage service requests currently being worked on</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading service requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && serviceRequests.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No in-progress service requests found.
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">

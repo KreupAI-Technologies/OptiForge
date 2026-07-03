@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { WarrantyService } from '@/services/warranty.service';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -64,164 +65,76 @@ const ActiveWarrantiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<ActiveWarranty | null>(null);
 
-  const activeWarranties: ActiveWarranty[] = [
-    {
-      id: '1',
-      warrantyNumber: 'WRN-2025-00001',
-      warrantyType: 'Standard',
-      customerId: 'CUST001',
-      customerName: 'Sharma Modular Kitchens Pvt Ltd',
-      customerPhone: '+91-98765-43210',
-      customerEmail: 'contact@sharma-kitchens.com',
-      equipmentId: 'EQP-MK-2025-001',
-      equipmentModel: 'Modular Kitchen Premium SS-304',
-      productCategory: 'Modular Kitchen',
-      status: 'active',
-      startDate: '2025-01-15',
-      endDate: '2026-01-14',
-      daysRemaining: 82,
-      durationMonths: 12,
-      coverage: 'Parts & Labor',
-      claimCount: 0,
-      totalClaimValue: 0,
-      approvedClaimValue: 0,
-      remainingCoverage: 100,
-      isExtended: false,
-      riskLevel: 'Low',
-      nextMaintenanceDate: '2025-07-15'
-    },
-    {
-      id: '2',
-      warrantyNumber: 'WRN-2025-00045',
-      warrantyType: 'Extended',
-      customerId: 'CUST002',
-      customerName: 'Prestige Developers Bangalore',
-      customerPhone: '+91-98765-54321',
-      customerEmail: 'warranty@prestigegroup.com',
-      equipmentId: 'EQP-HB-2024-234',
-      equipmentModel: 'Built-in Hob 4 Burner Gas',
-      productCategory: 'Cooking Appliances',
-      status: 'active',
-      startDate: '2024-03-20',
-      endDate: '2027-03-19',
-      daysRemaining: 514,
-      durationMonths: 36,
-      coverage: 'Comprehensive',
-      claimCount: 2,
-      totalClaimValue: 28500,
-      approvedClaimValue: 25000,
-      remainingCoverage: 85,
-      isExtended: true,
-      baseWarrantyId: 'WRN-2024-00012',
-      riskLevel: 'Medium',
-      lastServiceDate: '2024-12-10',
-      nextMaintenanceDate: '2025-03-10'
-    },
-    {
-      id: '3',
-      warrantyNumber: 'WRN-2025-00123',
-      warrantyType: 'Manufacturer',
-      customerId: 'CUST003',
-      customerName: 'Urban Interiors & Designers',
-      customerPhone: '+91-98765-67890',
-      customerEmail: 'service@urbaninteriors.co.in',
-      equipmentId: 'EQP-CH-2025-067',
-      equipmentModel: 'Chimney Auto Clean 90cm',
-      productCategory: 'Kitchen Appliances',
-      status: 'active',
-      startDate: '2025-05-10',
-      endDate: '2027-05-09',
-      daysRemaining: 197,
-      durationMonths: 24,
-      coverage: 'Parts Only',
-      claimCount: 1,
-      totalClaimValue: 8500,
-      approvedClaimValue: 8500,
-      remainingCoverage: 95,
-      isExtended: false,
-      riskLevel: 'Low',
-      lastServiceDate: '2025-08-15',
-      nextMaintenanceDate: '2025-11-15'
-    },
-    {
-      id: '4',
-      warrantyNumber: 'WRN-2025-00234',
-      warrantyType: 'Extended',
-      customerId: 'CUST005',
-      customerName: 'DLF Universal Projects',
-      customerPhone: '+91-98765-11111',
-      customerEmail: 'maintenance@dlf.co.in',
-      equipmentId: 'EQP-DW-2023-890',
-      equipmentModel: 'Dishwasher 14 Place Settings',
-      productCategory: 'Kitchen Appliances',
-      status: 'active',
-      startDate: '2023-08-15',
-      endDate: '2026-08-14',
-      daysRemaining: 295,
-      durationMonths: 36,
-      coverage: 'Comprehensive',
-      claimCount: 4,
-      totalClaimValue: 67000,
-      approvedClaimValue: 58000,
-      remainingCoverage: 70,
-      isExtended: true,
-      baseWarrantyId: 'WRN-2023-00456',
-      riskLevel: 'High',
-      lastServiceDate: '2024-10-05',
-      nextMaintenanceDate: '2025-01-05'
-    },
-    {
-      id: '5',
-      warrantyNumber: 'WRN-2025-00345',
-      warrantyType: 'Dealer',
-      customerId: 'CUST006',
-      customerName: 'Signature Interiors Pune',
-      customerPhone: '+91-98765-22222',
-      customerEmail: 'support@signatureinteriors.com',
-      equipmentId: 'EQP-MK-2025-234',
-      equipmentModel: 'Modular Kitchen L-Shape',
-      productCategory: 'Modular Kitchen',
-      status: 'active',
-      startDate: '2025-04-01',
-      endDate: '2026-03-31',
-      daysRemaining: 159,
-      durationMonths: 12,
-      coverage: 'Labor Only',
-      claimCount: 0,
-      totalClaimValue: 0,
-      approvedClaimValue: 0,
-      remainingCoverage: 100,
-      isExtended: false,
-      riskLevel: 'Low',
-      nextMaintenanceDate: '2025-10-01'
-    },
-    {
-      id: '6',
-      warrantyNumber: 'WRN-2025-00456',
-      warrantyType: 'Standard',
-      customerId: 'CUST007',
-      customerName: 'Royal Homes Hyderabad',
-      customerPhone: '+91-98765-33333',
-      customerEmail: 'warranty@royalhomes.in',
-      equipmentId: 'EQP-OV-2025-123',
-      equipmentModel: 'Built-in Oven 60L Convection',
-      productCategory: 'Cooking Appliances',
-      status: 'active',
-      startDate: '2025-02-28',
-      endDate: '2026-02-27',
-      daysRemaining: 127,
-      durationMonths: 12,
-      coverage: 'Parts & Labor',
-      claimCount: 1,
-      totalClaimValue: 12000,
-      approvedClaimValue: 10000,
-      remainingCoverage: 92,
-      isExtended: false,
-      riskLevel: 'Medium',
-      lastServiceDate: '2025-09-15',
-      nextMaintenanceDate: '2025-12-28'
-    }
-  ];
+  const [activeWarranties, setActiveWarranties] = useState<ActiveWarranty[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // WarrantyService.getAllWarranties returns the flat Warranty shape; keep
+        // only active warranties and map into this page's ActiveWarranty view model.
+        const raw = (await WarrantyService.getAllWarranties()) as any[];
+        const typeMap: Record<string, ActiveWarranty['warrantyType']> = {
+          standard: 'Standard', extended: 'Extended',
+          manufacturer: 'Manufacturer', dealer: 'Dealer',
+        };
+        const coverageMap: Record<string, ActiveWarranty['coverage']> = {
+          'parts only': 'Parts Only', 'labor only': 'Labor Only',
+          'parts & labor': 'Parts & Labor', comprehensive: 'Comprehensive',
+        };
+        const dayMs = 1000 * 60 * 60 * 24;
+        const mapped: ActiveWarranty[] = (Array.isArray(raw) ? raw : [])
+          .filter((w) => String(w.status ?? '').toLowerCase() === 'active')
+          .map((w) => {
+            const end = w.endDate ?? w.end_date;
+            const daysRemaining = end
+              ? Math.max(0, Math.round((new Date(end).getTime() - Date.now()) / dayMs))
+              : 0;
+            return {
+              id: String(w.id ?? ''),
+              warrantyNumber: w.warrantyNumber ?? w.warranty_number ?? '',
+              warrantyType: typeMap[String(w.warrantyType ?? '').toLowerCase()] ?? 'Standard',
+              customerId: String(w.customerId ?? w.customer_id ?? ''),
+              customerName: w.customerName ?? w.customer_name ?? '',
+              customerPhone: w.customerPhone ?? w.phone ?? '',
+              customerEmail: w.customerEmail ?? w.email ?? '',
+              equipmentId: String(w.equipmentId ?? w.equipment_id ?? ''),
+              equipmentModel: w.equipmentModel ?? w.equipment_model ?? '',
+              productCategory: w.productCategory ?? w.category ?? '',
+              status: 'active',
+              startDate: w.startDate ?? w.start_date ?? '',
+              endDate: end ?? '',
+              daysRemaining,
+              durationMonths: Number(w.durationMonths ?? w.duration_months ?? 0),
+              coverage: coverageMap[String(w.coverage ?? '').toLowerCase()] ?? 'Parts & Labor',
+              claimCount: Number(w.claimCount ?? 0),
+              totalClaimValue: Number(w.totalClaimValue ?? 0),
+              approvedClaimValue: Number(w.approvedClaimValue ?? 0),
+              remainingCoverage: Number(w.remainingCoverage ?? 0),
+              isExtended: Boolean(w.isExtended ?? false),
+              baseWarrantyId: w.baseWarrantyId ?? undefined,
+              riskLevel: (w.riskLevel as ActiveWarranty['riskLevel']) ?? 'Low',
+              lastServiceDate: w.lastServiceDate ?? undefined,
+              nextMaintenanceDate: w.nextMaintenanceDate ?? undefined,
+            };
+          });
+        if (!cancelled) setActiveWarranties(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load warranties');
+          setActiveWarranties([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredWarranties = activeWarranties.filter(warranty => {
     const matchesSearch = warranty.warrantyNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -300,6 +213,23 @@ const ActiveWarrantiesPage = () => {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading warranties…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && activeWarranties.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No active warranties found.
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

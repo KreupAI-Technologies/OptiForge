@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Banknote,
     Search,
@@ -11,8 +11,10 @@ import {
     XCircle,
     Clock,
     Eye,
-    Calendar
+    Calendar,
+    AlertCircle
 } from 'lucide-react';
+import { AdvanceService } from '@/services/advance.service';
 
 interface AdvanceRequest {
     id: string;
@@ -39,109 +41,54 @@ export default function AdvanceRequestsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [requests, setRequests] = useState<AdvanceRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const requests: AdvanceRequest[] = [
-        {
-            id: '1',
-            requestNumber: 'ADV-2025-001',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            advanceType: 'Salary Advance',
-            requestedAmount: 50000,
-            approvedAmount: null,
-            purpose: 'Personal emergency - unexpected expenses',
-            repaymentMonths: 2,
-            emiAmount: 25000,
-            requestDate: '2025-02-01',
-            requiredDate: '2025-02-05',
-            status: 'Pending',
-            approvedBy: null,
-            monthlyGross: 90000,
-            maxEligible: 90000
-        },
-        {
-            id: '2',
-            requestNumber: 'ADV-2025-002',
-            employeeId: 'EMP010',
-            employeeName: 'Alex Kumar',
-            department: 'Sales',
-            designation: 'Sales Executive',
-            advanceType: 'Travel Advance',
-            requestedAmount: 35000,
-            approvedAmount: 35000,
-            purpose: 'Client visit to Mumbai - 5 days',
-            repaymentMonths: 1,
-            emiAmount: 35000,
-            requestDate: '2025-01-28',
-            requiredDate: '2025-02-01',
-            status: 'Disbursed',
-            approvedBy: 'Sarah Johnson',
-            monthlyGross: 62500,
-            maxEligible: 50000
-        },
-        {
-            id: '3',
-            requestNumber: 'ADV-2025-003',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            advanceType: 'Medical Advance',
-            requestedAmount: 40000,
-            approvedAmount: 40000,
-            purpose: 'Family member surgery - hospital deposit',
-            repaymentMonths: 4,
-            emiAmount: 10000,
-            requestDate: '2025-01-25',
-            requiredDate: '2025-01-26',
-            status: 'Approved',
-            approvedBy: 'Sarah Johnson',
-            monthlyGross: 67500,
-            maxEligible: 67500
-        },
-        {
-            id: '4',
-            requestNumber: 'ADV-2025-004',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            advanceType: 'Festival Advance',
-            requestedAmount: 25000,
-            approvedAmount: 25000,
-            purpose: 'Lunar New Year celebration expenses',
-            repaymentMonths: 2,
-            emiAmount: 12500,
-            requestDate: '2025-01-15',
-            requiredDate: '2025-01-25',
-            status: 'Recovered',
-            approvedBy: 'Sarah Johnson',
-            monthlyGross: 76667,
-            maxEligible: 50000
-        },
-        {
-            id: '5',
-            requestNumber: 'ADV-2025-005',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            designation: 'Machine Operator',
-            advanceType: 'Salary Advance',
-            requestedAmount: 30000,
-            approvedAmount: null,
-            purpose: 'Rent payment',
-            repaymentMonths: 3,
-            emiAmount: 10000,
-            requestDate: '2025-01-20',
-            requiredDate: '2025-01-25',
-            status: 'Rejected',
-            approvedBy: 'Sarah Johnson',
-            monthlyGross: 35000,
-            maxEligible: 35000
-        }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns { data, total } of raw SalaryAdvance ORM rows.
+                const res = (await AdvanceService.getAdvances('1')) as any;
+                const raw = (Array.isArray(res) ? res : res?.data ?? []) as any[];
+                const mapped: AdvanceRequest[] = raw.map((a) => ({
+                    id: String(a.id ?? ''),
+                    requestNumber: a.advanceNumber ?? '',
+                    employeeId: a.employeeCode ?? a.employeeId ?? '',
+                    employeeName: a.employeeName ?? a.employee?.fullName ?? a.employeeCode ?? '',
+                    department: a.department ?? a.employee?.department?.name ?? '',
+                    designation: a.designation ?? a.employee?.designation?.name ?? '',
+                    advanceType: (a.advanceType ?? 'Salary Advance') as AdvanceRequest['advanceType'],
+                    requestedAmount: Number(a.requestedAmount ?? 0),
+                    approvedAmount: a.approvedAmount != null ? Number(a.approvedAmount) : null,
+                    purpose: a.purpose ?? '',
+                    repaymentMonths: Number(a.repaymentMonths ?? 0),
+                    emiAmount: Number(a.monthlyDeduction ?? 0),
+                    requestDate: a.requestDate ?? '',
+                    requiredDate: a.requiredDate ?? a.requestDate ?? '',
+                    status: (a.status ?? 'Pending') as AdvanceRequest['status'],
+                    approvedBy: a.approvedBy ?? null,
+                    monthlyGross: Number(a.monthlyGross ?? 0),
+                    maxEligible: Number(a.maxEligible ?? 0),
+                }));
+                if (!cancelled) setRequests(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load advance requests');
+                    setRequests([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredRequests = requests.filter(request => {
         const matchesSearch = request.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -263,6 +210,24 @@ export default function AdvanceRequestsPage() {
                         </select>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-400/40 border-t-green-400" />
+                        Loading advance requests…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && requests.length === 0 && (
+                    <div className="rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-sm text-gray-400">
+                        No advance requests found.
+                    </div>
+                )}
 
                 <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
                     <div className="overflow-x-auto">

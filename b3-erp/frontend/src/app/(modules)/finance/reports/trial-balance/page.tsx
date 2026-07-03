@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   Calendar,
@@ -12,6 +12,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface TrialBalanceAccount {
   accountCode: string;
@@ -23,43 +24,59 @@ interface TrialBalanceAccount {
   closingBalance: number;
 }
 
+const TYPE_MAP: Record<string, TrialBalanceAccount['accountType']> = {
+  Asset: 'Asset', Assets: 'Asset',
+  Liability: 'Liability', Liabilities: 'Liability',
+  Equity: 'Equity',
+  Revenue: 'Revenue', Income: 'Revenue',
+  Expense: 'Expense', Expenses: 'Expense',
+};
+
+// Map a backend trial-balance report row (shape may vary) to the page model.
+function mapRow(r: any): TrialBalanceAccount {
+  return {
+    accountCode: String(r.accountCode ?? r.code ?? r.account?.accountCode ?? ''),
+    accountName: String(r.accountName ?? r.name ?? r.account?.accountName ?? ''),
+    accountType: TYPE_MAP[r.accountType ?? r.type ?? r.account?.accountType] ?? 'Asset',
+    debit: Number(r.debit ?? r.debitMovement ?? r.debitBalance ?? 0),
+    credit: Number(r.credit ?? r.creditMovement ?? r.creditBalance ?? 0),
+    openingBalance: Number(r.openingBalance ?? r.opening ?? 0),
+    closingBalance: Number(r.closingBalance ?? r.closing ?? r.balance ?? 0),
+  };
+}
+
 export default function TrialBalancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState('2025-01');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [showZeroBalances, setShowZeroBalances] = useState(false);
+  const [trialBalanceAccounts, setTrialBalanceAccounts] = useState<TrialBalanceAccount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Sample trial balance data
-  const trialBalanceAccounts: TrialBalanceAccount[] = [
-    // Assets
-    { accountCode: '1110', accountName: 'Cash & Bank', accountType: 'Asset', debit: 15750000, credit: 0, openingBalance: 14500000, closingBalance: 15750000 },
-    { accountCode: '1120', accountName: 'Accounts Receivable', accountType: 'Asset', debit: 12500000, credit: 0, openingBalance: 11000000, closingBalance: 12500000 },
-    { accountCode: '1130', accountName: 'Inventory', accountType: 'Asset', debit: 6750000, credit: 0, openingBalance: 6000000, closingBalance: 6750000 },
-    { accountCode: '1210', accountName: 'Land & Buildings', accountType: 'Asset', debit: 25000000, credit: 0, openingBalance: 25000000, closingBalance: 25000000 },
-    { accountCode: '1220', accountName: 'Plant & Machinery', accountType: 'Asset', debit: 15000000, credit: 0, openingBalance: 16000000, closingBalance: 15000000 },
-    { accountCode: '1230', accountName: 'Furniture & Fixtures', accountType: 'Asset', debit: 2500000, credit: 0, openingBalance: 2700000, closingBalance: 2500000 },
-    { accountCode: '1240', accountName: 'Vehicles', accountType: 'Asset', debit: 3000000, credit: 0, openingBalance: 3500000, closingBalance: 3000000 },
-    // Liabilities
-    { accountCode: '2110', accountName: 'Accounts Payable', accountType: 'Liability', debit: 0, credit: 8500000, openingBalance: 9000000, closingBalance: 8500000 },
-    { accountCode: '2120', accountName: 'GST Payable', accountType: 'Liability', debit: 0, credit: 2500000, openingBalance: 2200000, closingBalance: 2500000 },
-    { accountCode: '2130', accountName: 'TDS Payable', accountType: 'Liability', debit: 0, credit: 1500000, openingBalance: 1300000, closingBalance: 1500000 },
-    { accountCode: '2210', accountName: 'Term Loans', accountType: 'Liability', debit: 0, credit: 17500000, openingBalance: 18000000, closingBalance: 17500000 },
-    // Equity
-    { accountCode: '3100', accountName: 'Share Capital', accountType: 'Equity', debit: 0, credit: 20000000, openingBalance: 20000000, closingBalance: 20000000 },
-    { accountCode: '3200', accountName: 'Retained Earnings', accountType: 'Equity', debit: 0, credit: 5000000, openingBalance: 4000000, closingBalance: 5000000 },
-    // Revenue
-    { accountCode: '4100', accountName: 'Sales Revenue', accountType: 'Revenue', debit: 0, credit: 42000000, openingBalance: 0, closingBalance: 42000000 },
-    { accountCode: '4200', accountName: 'Other Income', accountType: 'Revenue', debit: 0, credit: 3000000, openingBalance: 0, closingBalance: 3000000 },
-    // Expenses
-    { accountCode: '5110', accountName: 'Raw Materials', accountType: 'Expense', debit: 15000000, credit: 0, openingBalance: 0, closingBalance: 15000000 },
-    { accountCode: '5120', accountName: 'Direct Labor', accountType: 'Expense', debit: 10000000, credit: 0, openingBalance: 0, closingBalance: 10000000 },
-    { accountCode: '5210', accountName: 'Salaries & Wages', accountType: 'Expense', debit: 6000000, credit: 0, openingBalance: 0, closingBalance: 6000000 },
-    { accountCode: '5220', accountName: 'Rent & Utilities', accountType: 'Expense', debit: 2000000, credit: 0, openingBalance: 0, closingBalance: 2000000 },
-    { accountCode: '5230', accountName: 'Marketing Expenses', accountType: 'Expense', debit: 1500000, credit: 0, openingBalance: 0, closingBalance: 1500000 },
-    { accountCode: '5240', accountName: 'Depreciation', accountType: 'Expense', debit: 1500000, credit: 0, openingBalance: 0, closingBalance: 1500000 },
-    { accountCode: '5250', accountName: 'Interest Expense', accountType: 'Expense', debit: 750000, credit: 0, openingBalance: 0, closingBalance: 750000 },
-    { accountCode: '5260', accountName: 'Professional Fees', accountType: 'Expense', debit: 500000, credit: 0, openingBalance: 0, closingBalance: 500000 }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getTrialBalanceReport()) as any[];
+        const mapped = raw.map(mapRow);
+        if (!cancelled) setTrialBalanceAccounts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load trial balance');
+          setTrialBalanceAccounts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredAccounts = trialBalanceAccounts.filter(account => {
     const matchesSearch =
@@ -106,6 +123,23 @@ export default function TrialBalancePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900 to-gray-900 p-3">
       <div className="w-full space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-indigo-400 bg-indigo-900/40 px-4 py-3 text-sm text-indigo-100">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-300 border-t-white" />
+            Loading trial balance…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-400 bg-red-900/40 px-4 py-3 text-sm text-red-100">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && trialBalanceAccounts.length === 0 && (
+          <div className="rounded-lg border border-gray-600 bg-gray-800/60 px-4 py-3 text-sm text-gray-300">
+            No trial balance data found for the selected period.
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

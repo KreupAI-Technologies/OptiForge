@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Wallet,
     Search,
@@ -16,6 +16,7 @@ import {
     AlertCircle,
     RefreshCw
 } from 'lucide-react';
+import { LoanService } from '@/services/loan.service';
 
 interface LoanRecord {
     id: string;
@@ -40,99 +41,52 @@ export default function LoansAdvancesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [loanRecords, setLoanRecords] = useState<LoanRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const loanRecords: LoanRecord[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            loanType: 'Personal Loan',
-            loanAmount: 500000,
-            outstandingAmount: 375000,
-            emiAmount: 25000,
-            tenure: 24,
-            remainingTenure: 15,
-            interestRate: 8.5,
-            disbursementDate: '2024-06-01',
-            status: 'Active',
-            nextEmiDate: '2025-02-28',
-            approvedBy: 'CEO'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            loanType: 'Salary Advance',
-            loanAmount: 50000,
-            outstandingAmount: 25000,
-            emiAmount: 12500,
-            tenure: 4,
-            remainingTenure: 2,
-            interestRate: 0,
-            disbursementDate: '2024-12-15',
-            status: 'Active',
-            nextEmiDate: '2025-02-28',
-            approvedBy: 'Sarah Johnson'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            loanType: 'Emergency Loan',
-            loanAmount: 100000,
-            outstandingAmount: 100000,
-            emiAmount: 10000,
-            tenure: 12,
-            remainingTenure: 12,
-            interestRate: 6,
-            disbursementDate: '2025-02-01',
-            status: 'Pending Approval',
-            nextEmiDate: '2025-03-28',
-            approvedBy: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            loanType: 'Festival Advance',
-            loanAmount: 30000,
-            outstandingAmount: 0,
-            emiAmount: 10000,
-            tenure: 3,
-            remainingTenure: 0,
-            interestRate: 0,
-            disbursementDate: '2024-10-15',
-            status: 'Completed',
-            nextEmiDate: '-',
-            approvedBy: 'Sarah Johnson'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            designation: 'Senior Accountant',
-            loanType: 'Housing Loan',
-            loanAmount: 2000000,
-            outstandingAmount: 1850000,
-            emiAmount: 50000,
-            tenure: 60,
-            remainingTenure: 57,
-            interestRate: 7.5,
-            disbursementDate: '2024-09-01',
-            status: 'Active',
-            nextEmiDate: '2025-02-28',
-            approvedBy: 'CEO'
-        }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns { data, total } of raw EmployeeLoan ORM rows.
+                const res = (await LoanService.getLoans('1')) as any;
+                const raw = (Array.isArray(res) ? res : res?.data ?? []) as any[];
+                const mapped: LoanRecord[] = raw.map((l) => ({
+                    id: String(l.id ?? ''),
+                    employeeId: l.employeeCode ?? l.employeeId ?? '',
+                    employeeName: l.employeeName ?? l.employee?.fullName ?? l.employeeCode ?? '',
+                    department: l.department ?? l.employee?.department?.name ?? '',
+                    designation: l.designation ?? l.employee?.designation?.name ?? '',
+                    loanType: (l.loanType?.name ?? l.loanTypeName ?? 'Personal Loan') as LoanRecord['loanType'],
+                    loanAmount: Number(l.approvedAmount ?? l.requestedAmount ?? 0),
+                    outstandingAmount: Number(l.outstandingBalance ?? 0),
+                    emiAmount: Number(l.emiAmount ?? 0),
+                    tenure: Number(l.tenureMonths ?? 0),
+                    remainingTenure: Number(l.remainingEMIs ?? 0),
+                    interestRate: Number(l.interestRate ?? 0),
+                    disbursementDate: l.disbursementDate ?? l.requestDate ?? '',
+                    status: (l.status ?? 'Pending Approval') as LoanRecord['status'],
+                    nextEmiDate: l.nextEmiDate ?? l.repaymentStartDate ?? '-',
+                    approvedBy: l.approvedBy ?? null,
+                }));
+                if (!cancelled) setLoanRecords(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load loans');
+                    setLoanRecords([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredRecords = loanRecords.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -267,6 +221,24 @@ export default function LoansAdvancesPage() {
                         </select>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/40 border-t-blue-400" />
+                        Loading loans…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && loanRecords.length === 0 && (
+                    <div className="rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-sm text-gray-400">
+                        No loans found.
+                    </div>
+                )}
 
                 <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 overflow-hidden">
                     <div className="overflow-x-auto">

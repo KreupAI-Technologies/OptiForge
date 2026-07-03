@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Clock, TrendingDown, Activity, Wrench, Zap } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { exportToCsv } from '@/lib/export';
 import {
   LogDowntimeModal, ViewDowntimeDetailsModal, EditDowntimeEventModal,
@@ -60,153 +61,69 @@ export default function DowntimeDashboardPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<DowntimeEvent | null>(null);
 
-  // Mock data for downtime events
-  const downtimeEvents: DowntimeEvent[] = [
-    {
-      id: '1',
-      eventNumber: 'DT-2025-0156',
-      equipment: 'ASSY-LINE-01 - Assembly Conveyor Line #1',
-      location: 'Assembly Department',
-      startTime: '2025-10-20 09:15',
-      endTime: null,
-      duration: 165,
-      status: 'ongoing',
-      category: 'breakdown',
-      severity: 'critical',
-      description: 'Conveyor motor failure - complete line stoppage',
-      affectedWO: ['WO-2025-1145', 'WO-2025-1147'],
-      productionLoss: 85,
-      costImpact: 425000,
-      reportedBy: 'Production Supervisor',
-      assignedTo: 'Maintenance Team Lead'
-    },
-    {
-      id: '2',
-      eventNumber: 'DT-2025-0155',
-      equipment: 'POLISH-01 - Polishing Machine #1',
-      location: 'Finishing Department',
-      startTime: '2025-10-20 08:30',
-      endTime: '2025-10-20 09:15',
-      duration: 45,
-      status: 'resolved',
-      category: 'breakdown',
-      severity: 'high',
-      description: 'Polishing wheel motor overheating - safety shutdown',
-      affectedWO: ['WO-2025-1142'],
-      productionLoss: 18,
-      costImpact: 85000,
-      reportedBy: 'Priya Singh',
-      assignedTo: 'Maintenance Technician'
-    },
-    {
-      id: '3',
-      eventNumber: 'DT-2025-0154',
-      equipment: 'CNC-CUT-01 - CNC Cutting Machine #1',
-      location: 'Cutting Department - Bay A',
-      startTime: '2025-10-20 07:00',
-      endTime: '2025-10-20 07:25',
-      duration: 25,
-      status: 'resolved',
-      category: 'changeover',
-      severity: 'low',
-      description: 'Planned tool changeover for new batch',
-      affectedWO: ['WO-2025-1135'],
-      productionLoss: 0,
-      costImpact: 0,
-      reportedBy: 'Rajesh Kumar',
-      assignedTo: null
-    },
-    {
-      id: '4',
-      eventNumber: 'DT-2025-0153',
-      equipment: 'PAINT-BOOTH-01 - Powder Coating Booth',
-      location: 'Finishing Department',
-      startTime: '2025-10-19 14:30',
-      endTime: '2025-10-19 16:45',
-      duration: 135,
-      status: 'resolved',
-      category: 'maintenance',
-      severity: 'medium',
-      description: 'Scheduled preventive maintenance - filter replacement',
-      affectedWO: ['WO-2025-1140'],
-      productionLoss: 35,
-      costImpact: 125000,
-      reportedBy: 'Maintenance Scheduler',
-      assignedTo: 'Ramesh Technician'
-    },
-    {
-      id: '5',
-      eventNumber: 'DT-2025-0152',
-      equipment: 'WELD-ST-01 - TIG Welding Station #1',
-      location: 'Welding Department - Bay B',
-      startTime: '2025-10-19 11:20',
-      endTime: '2025-10-19 12:45',
-      duration: 85,
-      status: 'resolved',
-      category: 'material-shortage',
-      severity: 'high',
-      description: 'Welding electrode stock-out - waiting for delivery',
-      affectedWO: ['WO-2025-1138'],
-      productionLoss: 65,
-      costImpact: 185000,
-      reportedBy: 'Amit Patel',
-      assignedTo: 'Warehouse Team'
-    },
-    {
-      id: '6',
-      eventNumber: 'DT-2025-0151',
-      equipment: 'LASER-CUT-02 - Laser Cutting Machine #2',
-      location: 'Cutting Department - Bay B',
-      startTime: '2025-10-19 09:00',
-      endTime: '2025-10-19 09:15',
-      duration: 15,
-      status: 'resolved',
-      category: 'power-outage',
-      severity: 'medium',
-      description: 'Brief power fluctuation - machine auto-restart',
-      affectedWO: ['WO-2025-1147'],
-      productionLoss: 8,
-      costImpact: 25000,
-      reportedBy: 'Vikram Shah',
-      assignedTo: 'Facilities Team'
-    },
-    {
-      id: '7',
-      eventNumber: 'DT-2025-0150',
-      equipment: 'CNC-CUT-01 - CNC Cutting Machine #1',
-      location: 'Cutting Department - Bay A',
-      startTime: '2025-10-18 15:40',
-      endTime: '2025-10-18 18:25',
-      duration: 165,
-      status: 'resolved',
-      category: 'quality-issue',
-      severity: 'high',
-      description: 'Dimensional non-conformance detected - machine calibration required',
-      affectedWO: ['WO-2025-1135'],
-      productionLoss: 50,
-      costImpact: 245000,
-      reportedBy: 'Quality Inspector',
-      assignedTo: 'Calibration Team'
-    },
-    {
-      id: '8',
-      eventNumber: 'DT-2025-0149',
-      equipment: 'PRESS-HYDRO-01 - Hydraulic Press Machine',
-      location: 'Forming Department',
-      startTime: '2025-10-18 13:00',
-      endTime: '2025-10-18 13:45',
-      duration: 45,
-      status: 'resolved',
-      category: 'no-operator',
-      severity: 'low',
-      description: 'Operator on extended lunch break - no backup available',
-      affectedWO: ['WO-2025-1143'],
-      productionLoss: 22,
-      costImpact: 65000,
-      reportedBy: 'Production Supervisor',
-      assignedTo: null
-    }
-  ];
+  // Downtime events loaded from the NestJS backend (production/downtime-records).
+  const [downtimeEvents, setDowntimeEvents] = useState<DowntimeEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (downtimeNumber/machineName/durationMinutes/
+        // status/downtimeType/reason/reportedBy/resolvedBy/affectedWorkOrders...).
+        const raw = (await ProductionOrphanService.getDowntimeRecords()) as any[];
+        const catMap: Record<string, DowntimeEvent['category']> = {
+          Breakdown: 'breakdown', breakdown: 'breakdown',
+          Changeover: 'changeover', changeover: 'changeover',
+          Maintenance: 'maintenance', maintenance: 'maintenance',
+          NoOperator: 'no-operator', 'no-operator': 'no-operator',
+          MaterialShortage: 'material-shortage', 'material-shortage': 'material-shortage',
+          PowerOutage: 'power-outage', 'power-outage': 'power-outage',
+          QualityIssue: 'quality-issue', 'quality-issue': 'quality-issue',
+        };
+        const mapped: DowntimeEvent[] = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => {
+          const resolved = !!(d?.endTime || d?.resolvedBy || String(d?.status).toLowerCase() === 'resolved');
+          const wos: string[] = Array.isArray(d?.affectedWorkOrders)
+            ? d.affectedWorkOrders.map((w: any) => (typeof w === 'string' ? w : (w?.workOrderNumber ?? String(w)))).filter(Boolean)
+            : (d?.workOrderId ? [d.workOrderId] : []);
+          const sev = String(d?.severity ?? '').toLowerCase();
+          return {
+            id: String(d?.id ?? i),
+            eventNumber: d?.downtimeNumber ?? '',
+            equipment: d?.machineName ?? d?.workCenterName ?? d?.machineId ?? '',
+            location: d?.workCenterName ?? d?.productionLineId ?? '',
+            startTime: d?.startTime ?? '',
+            endTime: d?.endTime ?? null,
+            duration: Number(d?.durationMinutes ?? 0),
+            status: resolved ? 'resolved' : 'ongoing',
+            category: catMap[d?.downtimeType ?? d?.category] ?? 'breakdown',
+            severity: (['critical', 'high', 'medium', 'low'].includes(sev) ? sev : 'medium') as DowntimeEvent['severity'],
+            description: d?.description ?? d?.reason ?? '',
+            affectedWO: wos,
+            productionLoss: Number(d?.lostProductionQuantity ?? 0),
+            costImpact: Number(d?.totalCost ?? 0),
+            reportedBy: d?.reportedBy ?? '',
+            assignedTo: d?.resolvedBy ?? null,
+          };
+        });
+        if (!cancelled) setDowntimeEvents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load downtime events');
+          setDowntimeEvents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock summary data
   const downtimeSummary: DowntimeSummary = {
@@ -343,6 +260,23 @@ export default function DowntimeDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading downtime events…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && downtimeEvents.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No downtime events found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

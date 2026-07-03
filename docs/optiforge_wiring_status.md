@@ -260,3 +260,278 @@ Automated wiring pass (24 module agents). **66 pages wired** to the live NestJS 
 3. **Stub actions** (Export/Print/Delete `console.log`) across modules — not yet destubbed.
 4. **Typecheck**: `next build` currently runs with `typescript.ignoreBuildErrors` — a backlog of ~250 TS errors remains to clear before removing that flag.
 5. **Auth** is already consolidated on local JWT (NestJS `/auth/login|logout|profile`, cookie-based); Keycloak deferred by decision.
+
+---
+
+## Orphan-wiring pass (agents curl-verified each endpoint)
+
+**41 additional pages wired** to existing verified endpoints. **210 pages remain truly orphan** — their backend endpoints do not exist and must be built (mostly analytics, settings, workflow-approval, and template sub-features).
+
+| Module | Newly wired | Truly orphan |
+|---|--:|--:|
+| sales | 4 | 32 |
+| cpq | 2 | 28 |
+| crm | 2 | 27 |
+| it-admin | 1 | 27 |
+| project-management | 1 | 25 |
+| support | 0 | 22 |
+| reports | 0 | 10 |
+| procurement | 1 | 9 |
+| hr | 4 | 6 |
+| common-masters | 0 | 5 |
+| estimation | 5 | 3 |
+| finance | 2 | 3 |
+| production | 5 | 3 |
+| workflow | 2 | 3 |
+| after-sales-service | 7 | 2 |
+| inventory | 3 | 2 |
+| logistics | 1 | 2 |
+| quality | 1 | 1 |
+
+### Truly-orphan pages that need net-new backend endpoints
+
+**after-sales-service** (2):
+- warranties/claims/page.tsx (no list-claims endpoint; /after-sales/warranties/claims resolves to @Get(':id') warranty lookup, only @Get('claims/:claimId') single-claim exists)
+- warranties/claims/approvals/page.tsx (same: no claims-list endpoint)
+
+**common-masters** (5):
+- state-master
+- city-master
+- grade-master
+- item-group-master
+- territory-master
+
+**cpq** (28):
+- src/app/(modules)/cpq/workflow/approvals/page.tsx
+- src/app/(modules)/cpq/workflow/discounts/page.tsx
+- src/app/(modules)/cpq/workflow/executive/page.tsx
+- src/app/(modules)/cpq/workflow/legal/page.tsx
+- src/app/(modules)/cpq/guided-selling/recommendations/page.tsx
+- src/app/(modules)/cpq/guided-selling/cross-sell/page.tsx
+- src/app/(modules)/cpq/analytics/discounts/page.tsx
+- src/app/(modules)/cpq/analytics/pricing/page.tsx
+- src/app/(modules)/cpq/analytics/products/page.tsx
+- src/app/(modules)/cpq/analytics/quotes/page.tsx
+- src/app/(modules)/cpq/analytics/sales-cycle/page.tsx
+- src/app/(modules)/cpq/analytics/win-rate/page.tsx
+- src/app/(modules)/cpq/integration/crm/page.tsx
+- src/app/(modules)/cpq/integration/erp/page.tsx
+- src/app/(modules)/cpq/integration/ecommerce/page.tsx
+- src/app/(modules)/cpq/integration/cad/page.tsx
+- src/app/(modules)/cpq/products/compatibility/page.tsx
+- src/app/(modules)/cpq/products/rules/page.tsx
+- src/app/(modules)/cpq/products/configurator/page.tsx
+- src/app/(modules)/cpq/quotes/comparison/page.tsx
+- src/app/(modules)/cpq/quotes/versions/page.tsx
+- src/app/(modules)/cpq/contracts/approvals/page.tsx
+- src/app/(modules)/cpq/contracts/execution/page.tsx
+- src/app/(modules)/cpq/contracts/generate/page.tsx
+- src/app/(modules)/cpq/settings/notifications/page.tsx
+- src/app/(modules)/cpq/settings/numbering/page.tsx
+- src/app/(modules)/cpq/settings/permissions/page.tsx
+- src/app/(modules)/cpq/advanced-features/page.tsx
+
+**crm** (27):
+- src/app/(modules)/crm/customers/page.tsx
+- src/app/(modules)/crm/activities/page.tsx
+- src/app/(modules)/crm/proposals/page.tsx
+- src/app/(modules)/crm/marketing/campaigns/page.tsx
+- src/app/(modules)/crm/marketing/email-templates/page.tsx
+- src/app/(modules)/crm/activities/calls/page.tsx
+- src/app/(modules)/crm/activities/tasks/page.tsx
+- src/app/(modules)/crm/activities/emails/page.tsx
+- src/app/(modules)/crm/activities/meetings/page.tsx
+- src/app/(modules)/crm/campaigns/templates/page.tsx
+- src/app/(modules)/crm/campaigns/performance/page.tsx
+- src/app/(modules)/crm/campaigns/email/page.tsx
+- src/app/(modules)/crm/opportunities/pipeline/page.tsx
+- src/app/(modules)/crm/opportunities/won/page.tsx
+- src/app/(modules)/crm/opportunities/lost/page.tsx
+- src/app/(modules)/crm/opportunities/forecast/page.tsx
+- src/app/(modules)/crm/quotes/templates/page.tsx
+- src/app/(modules)/crm/contracts/renewals/page.tsx
+- src/app/(modules)/crm/contracts/amendments/page.tsx
+- src/app/(modules)/crm/contracts/templates/page.tsx
+- src/app/(modules)/crm/contacts/lists/page.tsx
+- src/app/(modules)/crm/contacts/roles/page.tsx
+- src/app/(modules)/crm/customers/segments/page.tsx
+- src/app/(modules)/crm/customers/hierarchy/page.tsx
+- src/app/(modules)/crm/settings/stages/page.tsx
+- src/app/(modules)/crm/interactions/analysis/page.tsx
+- src/app/(modules)/crm/leads/scoring/page.tsx
+
+**estimation** (3):
+- src/app/(modules)/estimation/pricing/page.tsx
+- src/app/(modules)/estimation/settings/markup/page.tsx
+- src/app/(modules)/estimation/settings/workflow/page.tsx
+
+**finance** (3):
+- src/app/(modules)/finance/receivables/aging/page.tsx
+- src/app/(modules)/finance/payables/aging/page.tsx
+- src/app/(modules)/finance/analytics/financial-ratios/page.tsx
+
+**hr** (6):
+- src/app/(modules)/hr/payroll/bonus/page.tsx -> GET /hr/bonus/types & /hr/bonus/calculations both return 500
+- src/app/(modules)/hr/shifts/assignment/page.tsx -> no shift-assignment endpoint; /hr/shifts returns shift DEFINITIONS not employee assignments (semantic mismatch)
+- src/app/(modules)/hr/payroll/salary-structure/components/page.tsx -> no salary-component endpoint; /hr/salary-structures returns whole structures not component heads (mismatch)
+- src/app/(modules)/hr/expenses/travel/* and expenses/expense-management/* -> no HR controller for expenses/travel
+- src/app/(modules)/hr/payroll/statutory/* (esi, income-tax, provident-fund) -> no statutory endpoints in hr controllers
+- src/app/(modules)/hr/timesheets/* and overtime/* -> no timesheet/overtime endpoints in hr controllers
+
+**inventory** (2):
+- src/app/(modules)/inventory/warehouse/zones/page.tsx (no warehouse-zone endpoint; zones exist only as a string field on stock-locations, and the page's Zone model needs area/manager/temperature/specialRequirements/totalLocations which no endpoint provides)
+- src/app/(modules)/inventory/cycle-count/page.tsx (no cycle-count controller/endpoint exists in the inventory module; stock-adjustments only carries an isCycleCount flag, not the schedule/session/variance model the page requires)
+
+**it-admin** (27):
+- src/app/(modules)/it-admin/users/active/page.tsx
+- src/app/(modules)/it-admin/users/inactive/page.tsx
+- src/app/(modules)/it-admin/users/groups/page.tsx
+- src/app/(modules)/it-admin/roles/permissions/page.tsx
+- src/app/(modules)/it-admin/roles/policies/page.tsx
+- src/app/(modules)/it-admin/security/sessions/page.tsx
+- src/app/(modules)/it-admin/security/alerts/page.tsx
+- src/app/(modules)/it-admin/security/ip-whitelist/page.tsx
+- src/app/(modules)/it-admin/system/api/page.tsx
+- src/app/(modules)/it-admin/system/email/page.tsx
+- src/app/(modules)/it-admin/system/webhooks/page.tsx
+- src/app/(modules)/it-admin/system/notifications/page.tsx
+- src/app/(modules)/it-admin/system/integrations/page.tsx
+- src/app/(modules)/it-admin/license/page.tsx
+- src/app/(modules)/it-admin/license/features/page.tsx
+- src/app/(modules)/it-admin/license/users/page.tsx
+- src/app/(modules)/it-admin/database/backup/page.tsx
+- src/app/(modules)/it-admin/database/cleanup/page.tsx
+- src/app/(modules)/it-admin/database/export/page.tsx
+- src/app/(modules)/it-admin/database/import/page.tsx
+- src/app/(modules)/it-admin/customization/branding/page.tsx
+- src/app/(modules)/it-admin/customization/workflows/page.tsx
+- src/app/(modules)/it-admin/customization/templates/page.tsx
+- src/app/(modules)/it-admin/customization/fields/page.tsx
+- src/app/(modules)/it-admin/system/scalability/caching/page.tsx
+- src/app/(modules)/it-admin/system/scalability/sharding/page.tsx
+- src/app/(modules)/it-admin/system/scalability/load-balancing/page.tsx
+
+**logistics** (2):
+- src/app/(modules)/logistics/planning/trips/page.tsx
+- src/app/(modules)/logistics/delivery-coordination/page.tsx
+
+**procurement** (9):
+- src/app/(modules)/procurement/notifications/page.tsx
+- src/app/(modules)/procurement/bom-receipt/page.tsx
+- src/app/(modules)/procurement/vendor-performance/page.tsx
+- src/app/(modules)/procurement/orders/view/[id]/page.tsx
+- src/app/(modules)/procurement/vendors/edit/[id]/page.tsx
+- src/app/(modules)/procurement/vendors/view/[id]/page.tsx
+- src/app/(modules)/procurement/purchase-orders/create/page.tsx
+- src/app/(modules)/procurement/requisitions/view/[id]/page.tsx
+- src/app/(modules)/procurement/grn/[id]/inspect/page.tsx
+
+**production** (3):
+- src/app/(modules)/production/downtime/analysis/page.tsx (pre-aggregated MTBF/MTTR/availability analytics; no matching aggregate endpoint, downtime-records is raw)
+- src/app/(modules)/production/operations/page.tsx (production/operation returns operation-MASTER/routing records, not the page's live shop-floor work-order execution shape; semantic mismatch)
+- src/app/(modules)/production/downtime/log/page.tsx (create-form with static equipment dropdown, not a data-list mock)
+
+**project-management** (25):
+- briefings
+- change-orders
+- commissioning
+- customer-acceptance
+- deliverables
+- documents
+- installation-tracking
+- installation-tracking-enhanced
+- issues
+- labor-tracking
+- material-consumption
+- milestone-templates
+- mrp
+- profitability
+- progress
+- project-costing
+- project-types
+- quality-inspection
+- reports
+- resource-utilization
+- schedule
+- site-issues
+- site-survey
+- templates
+- wbs
+
+**quality** (1):
+- src/app/(modules)/quality/rework/page.tsx
+
+**reports** (10):
+- src/app/(modules)/reports/dashboards/page.tsx
+- src/app/(modules)/reports/analytics/page.tsx
+- src/app/(modules)/reports/custom/page.tsx
+- src/app/(modules)/reports/financial/page.tsx
+- src/app/(modules)/reports/finance/pl/page.tsx
+- src/app/(modules)/reports/sales/page.tsx
+- src/app/(modules)/reports/inventory/page.tsx
+- src/app/(modules)/reports/hr/page.tsx
+- src/app/(modules)/reports/production/page.tsx
+- src/app/(modules)/reports/quality/dashboard/page.tsx
+
+**sales** (32):
+- sales/returns/page.tsx (sales-masters/returns -> 500 Prisma table missing)
+- sales/returns/replacements/page.tsx (no endpoint / sales-masters 500)
+- sales/returns/refunds/page.tsx (no endpoint / sales-masters 500)
+- sales/pricing/lists/page.tsx (sales-masters/pricing -> 500)
+- sales/pricing/discounts/page.tsx (sales-masters/pricing -> 500)
+- sales/pricing/special/page.tsx (sales-masters/pricing -> 500)
+- sales/pricing/promotions/page.tsx (sales-masters/promotions -> 500)
+- sales/analytics/page.tsx (sales-masters/analytics -> 500)
+- sales/analytics/forecast/page.tsx (no endpoint)
+- sales/analytics/customers/page.tsx (no endpoint)
+- sales/analytics/products/page.tsx (no endpoint)
+- sales/analytics/targets/page.tsx (sales-masters/targets -> 500)
+- sales/analytics/reports/page.tsx (no endpoint)
+- sales/invoices/create/page.tsx (sales-masters/invoices -> 500)
+- sales/invoices/credit-notes/page.tsx (no endpoint / sales-masters 500)
+- sales/handover/page.tsx (no list endpoint; only order-scoped handover POST/PATCH)
+- sales/handover/package/page.tsx (no list endpoint)
+- sales/handover/pending/page.tsx (no list endpoint)
+- sales/settings/terms/page.tsx (no endpoint)
+- sales/settings/tax/page.tsx (no endpoint)
+- sales/settings/shipping/page.tsx (no endpoint)
+- sales/settings/payment-terms/page.tsx (no endpoint)
+- sales/rfp/submitted/page.tsx (no sales rfp list endpoint)
+- sales/rfp/shortlisted/page.tsx (no endpoint)
+- sales/rfp/won/page.tsx (no endpoint)
+- sales/rfp/create/page.tsx (no endpoint)
+- sales/orders/ready/page.tsx (order controller is double-prefixed @Controller('api/v1/sales/orders'); /api/v1/sales/orders -> 404 at standard FE path)
+- sales/orders/confirmed/page.tsx (orders endpoint 404 at standard path)
+- sales/orders/shipped/page.tsx (orders endpoint 404 at standard path)
+- sales/orders/production/page.tsx (orders endpoint 404 at standard path)
+- sales/orders/tracking/page.tsx (orders endpoint 404 at standard path)
+- sales/orders/create/page.tsx (form page; orders endpoint 404 at standard path)
+
+**support** (22):
+- support/tickets/page.tsx
+- support/tickets/open/page.tsx
+- support/tickets/assigned/page.tsx
+- support/tickets/resolved/page.tsx
+- support/tickets/create/page.tsx
+- support/tickets/categories/page.tsx
+- support/incidents/page.tsx
+- support/incidents/create/page.tsx
+- support/incidents/critical/page.tsx
+- support/incidents/major/page.tsx
+- support/incidents/tracking/page.tsx
+- support/knowledge/page.tsx
+- support/knowledge/faqs/page.tsx
+- support/knowledge/guides/page.tsx
+- support/knowledge/troubleshooting/page.tsx
+- support/problems/page.tsx
+- support/problems/known-errors/page.tsx
+- support/problems/rca/page.tsx
+- support/sla/settings/page.tsx
+- support/omnichannel/page.tsx
+- support/onboarding/page.tsx
+- support/page.tsx
+
+**workflow** (3):
+- src/app/(modules)/workflow/automation/page.tsx
+- src/app/(modules)/workflow/orders/[id]/page.tsx
+- src/app/(modules)/workflow/approvals/pending/page.tsx

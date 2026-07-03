@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
  Users,
  Plus,
@@ -67,19 +68,49 @@ const mockResources: Resource[] = [
  { id: '8', name: 'Neha Gupta', role: 'Project Coordinator', currentAllocation: 70, availability: 30, costRate: 2000, skills: ['Coordination', 'Documentation'] },
 ];
 
-const mockAllocations: Allocation[] = [
- { id: '1', resourceId: '1', resourceName: 'Rajesh Kumar', role: 'Project Manager', projectPhase: 'Overall Management', allocatedHours: 2080, startDate: '2024-01-15', endDate: '2024-04-30', allocation: 100 },
- { id: '2', resourceId: '2', resourceName: 'Suresh Patel', role: 'Installation Supervisor', projectPhase: 'Equipment Installation', allocatedHours: 600, startDate: '2024-03-06', endDate: '2024-03-25', allocation: 100 },
- { id: '3', resourceId: '3', resourceName: 'Ramesh Nair', role: 'Civil Engineer', projectPhase: 'Civil Work & Site Prep', allocatedHours: 200, startDate: '2024-02-15', endDate: '2024-03-05', allocation: 50 },
- { id: '4', resourceId: '4', resourceName: 'Anjali Verma', role: 'Quality Inspector', projectPhase: 'Quality Control', allocatedHours: 120, startDate: '2024-02-21', endDate: '2024-04-20', allocation: 30 },
- { id: '5', resourceId: '5', resourceName: 'Amit Patel', role: 'Electrical Engineer', projectPhase: 'Electrical Infrastructure', allocatedHours: 320, startDate: '2024-02-25', endDate: '2024-03-25', allocation: 80 },
- { id: '6', resourceId: '7', resourceName: 'Deepak Joshi', role: 'Commissioning Engineer', projectPhase: 'Testing & Commissioning', allocatedHours: 360, startDate: '2024-03-26', endDate: '2024-04-20', allocation: 90 },
-];
-
 export default function ResourceAllocationPage() {
  const [resources] = useState<Resource[]>(mockResources);
- const [allocations, setAllocations] = useState<Allocation[]>(mockAllocations);
+ const [allocations, setAllocations] = useState<Allocation[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [loadError, setLoadError] = useState<string | null>(null);
  const [searchTerm, setSearchTerm] = useState('');
+
+ useEffect(() => {
+  let cancelled = false;
+  const load = async () => {
+   setIsLoading(true);
+   setLoadError(null);
+   try {
+    // Backend returns raw project-resource ORM rows
+    // ({ userId, role, allocationPercentage, startDate, endDate }); map them
+    // onto the page's Allocation model with defensive access.
+    const raw = (await projectManagementService.listAllResources()) as any[];
+    const mapped: Allocation[] = raw.map((r, i) => ({
+     id: String(r?.id ?? i),
+     resourceId: String(r?.userId ?? r?.resourceId ?? ''),
+     resourceName: String(r?.user?.name ?? r?.resourceName ?? r?.userId ?? 'Unassigned'),
+     role: String(r?.role ?? ''),
+     projectPhase: String(r?.projectPhase ?? r?.projectId ?? ''),
+     allocatedHours: Number(r?.allocatedHours ?? 0),
+     startDate: String(r?.startDate ?? ''),
+     endDate: String(r?.endDate ?? ''),
+     allocation: Number(r?.allocationPercentage ?? r?.allocation ?? 0),
+    }));
+    if (!cancelled) setAllocations(mapped);
+   } catch (err) {
+    if (!cancelled) {
+     setLoadError(err instanceof Error ? err.message : 'Failed to load resource allocations');
+     setAllocations([]);
+    }
+   } finally {
+    if (!cancelled) setIsLoading(false);
+   }
+  };
+  load();
+  return () => {
+   cancelled = true;
+  };
+ }, []);
  const [showAddModal, setShowAddModal] = useState(false);
  const [selectedResource, setSelectedResource] = useState('');
  const [newAllocation, setNewAllocation] = useState({
@@ -260,6 +291,24 @@ export default function ResourceAllocationPage() {
     <h1 className="text-3xl font-bold text-gray-900 mb-2">Resource Allocation</h1>
     <p className="text-gray-600">Manage and allocate resources across project phases and tasks</p>
    </div>
+
+   {isLoading && (
+    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+     <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+     Loading resource allocations…
+    </div>
+   )}
+   {loadError && !isLoading && (
+    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+     <AlertCircle className="h-4 w-4" />
+     {loadError}
+    </div>
+   )}
+   {!isLoading && !loadError && allocations.length === 0 && (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+     No resource allocations found.
+    </div>
+   )}
 
    {/* Header Actions */}
    <div className="flex justify-between items-center mb-2">

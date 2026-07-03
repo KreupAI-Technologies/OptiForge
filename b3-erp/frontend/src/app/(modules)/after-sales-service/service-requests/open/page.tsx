@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ServiceRequestService } from '@/services/service-request.service';
 import {
   AlertCircle,
   Clock,
@@ -64,273 +65,80 @@ const OpenServiceRequestsPage = () => {
   const [filterSLA, setFilterSLA] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const serviceRequests: ServiceRequest[] = [
-    {
-      id: '1',
-      ticketNumber: 'SR-2024-0001',
-      customer: {
-        name: 'John Smith',
-        company: 'ABC Manufacturing Ltd.',
-        phone: '+1-555-0123',
-        email: 'john.smith@abcmfg.com',
-        address: '123 Industrial Ave, Manufacturing District, NY 10001'
-      },
-      product: {
-        name: 'Industrial Mixer Unit',
-        model: 'IMU-5000X',
-        serialNumber: 'IMU-5000X-2023-001',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Motor overheating during operation',
-        description: 'The motor overheats after 2 hours of continuous operation. Temperature gauge shows 85°C when normal operating temperature should be 45-50°C.',
-        category: 'Mechanical',
-        priority: 'Critical',
-        severity: 'Critical'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T08:30:00Z',
-      expectedResolution: '2024-01-16T17:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '18h 30m',
-      tags: ['Motor', 'Overheating', 'Critical'],
-      attachments: 3,
-      lastUpdate: '2024-01-15T09:15:00Z',
-      contactPreference: 'Phone'
-    },
-    {
-      id: '2',
-      ticketNumber: 'SR-2024-0002',
-      customer: {
-        name: 'Sarah Johnson',
-        company: 'TechPro Solutions',
-        phone: '+1-555-0456',
-        email: 'sarah.j@techpro.com',
-        address: '456 Tech Park Blvd, Silicon Valley, CA 94025'
-      },
-      product: {
-        name: 'Precision Cutting Machine',
-        model: 'PCM-3000',
-        serialNumber: 'PCM-3000-2023-045',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Calibration error affecting precision',
-        description: 'Cutting precision has decreased significantly. Measurements are off by 0.5mm consistently. Last calibration was 6 months ago.',
-        category: 'Calibration',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T10:45:00Z',
-      expectedResolution: '2024-01-17T16:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '2d 5h 15m',
-      tags: ['Calibration', 'Precision', 'Maintenance'],
-      attachments: 2,
-      lastUpdate: '2024-01-15T11:30:00Z',
-      contactPreference: 'Email'
-    },
-    {
-      id: '3',
-      ticketNumber: 'SR-2024-0003',
-      customer: {
-        name: 'Mike Wilson',
-        company: 'AutoParts Central',
-        phone: '+1-555-0789',
-        email: 'mike.wilson@autoparts.com',
-        address: '789 Auto Drive, Detroit, MI 48201'
-      },
-      product: {
-        name: 'Hydraulic Press System',
-        model: 'HPS-800',
-        serialNumber: 'HPS-800-2022-156',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Hydraulic fluid leak detected',
-        description: 'Small hydraulic fluid leak noticed near the main cylinder. System pressure has dropped by 5% over the past week.',
-        category: 'Hydraulic',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T14:20:00Z',
-      expectedResolution: '2024-01-18T12:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '2d 21h 40m',
-      tags: ['Hydraulic', 'Leak', 'Maintenance'],
-      attachments: 1,
-      lastUpdate: '2024-01-15T14:20:00Z',
-      contactPreference: 'WhatsApp'
-    },
-    {
-      id: '4',
-      ticketNumber: 'SR-2024-0004',
-      customer: {
-        name: 'Lisa Chen',
-        company: 'GreenTech Industries',
-        phone: '+1-555-0321',
-        email: 'lisa.chen@greentech.com',
-        address: '321 Eco Way, Portland, OR 97201'
-      },
-      product: {
-        name: 'Solar Panel Controller',
-        model: 'SPC-2000',
-        serialNumber: 'SPC-2000-2023-089',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Display panel not responding',
-        description: 'The main display panel is unresponsive to touch inputs. System continues to operate but cannot change settings.',
-        category: 'Electronics',
-        priority: 'Medium',
-        severity: 'Major'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T16:10:00Z',
-      expectedResolution: '2024-01-18T14:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '2d 21h 50m',
-      tags: ['Display', 'Touch', 'Electronics'],
-      attachments: 0,
-      lastUpdate: '2024-01-15T16:10:00Z',
-      contactPreference: 'Email'
-    },
-    {
-      id: '5',
-      ticketNumber: 'SR-2024-0005',
-      customer: {
-        name: 'Robert Taylor',
-        company: 'Heavy Machinery Corp',
-        phone: '+1-555-0654',
-        email: 'robert.taylor@heavymach.com',
-        address: '654 Heavy Industry Rd, Pittsburgh, PA 15201'
-      },
-      product: {
-        name: 'Conveyor Belt System',
-        model: 'CBS-1200',
-        serialNumber: 'CBS-1200-2021-234',
-        warrantyStatus: 'Expired'
-      },
-      issue: {
-        title: 'Belt alignment issues causing jams',
-        description: 'Conveyor belt frequently misaligns causing product jams. Issue occurs 3-4 times per shift affecting productivity.',
-        category: 'Mechanical',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Open',
-      createdDate: '2024-01-14T12:00:00Z',
-      expectedResolution: '2024-01-16T09:00:00Z',
-      slaStatus: 'At Risk',
-      timeRemaining: '14h 45m',
-      tags: ['Belt', 'Alignment', 'Productivity'],
-      attachments: 4,
-      lastUpdate: '2024-01-15T08:00:00Z',
-      contactPreference: 'Phone'
-    },
-    {
-      id: '6',
-      ticketNumber: 'SR-2024-0006',
-      customer: {
-        name: 'Amanda Rodriguez',
-        company: 'Food Processing Plus',
-        phone: '+1-555-0987',
-        email: 'amanda.r@foodprocessing.com',
-        address: '987 Food Ave, Chicago, IL 60601'
-      },
-      product: {
-        name: 'Food Grade Mixer',
-        model: 'FGM-400',
-        serialNumber: 'FGM-400-2023-067',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Unusual noise during mixing cycle',
-        description: 'Grinding noise heard during mixing cycle starting yesterday. Noise increases with mixing speed.',
-        category: 'Mechanical',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T11:30:00Z',
-      expectedResolution: '2024-01-17T15:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '2d 3h 30m',
-      tags: ['Noise', 'Mixing', 'Diagnosis'],
-      attachments: 1,
-      lastUpdate: '2024-01-15T11:30:00Z',
-      contactPreference: 'SMS'
-    },
-    {
-      id: '7',
-      ticketNumber: 'SR-2024-0007',
-      customer: {
-        name: 'David Kim',
-        company: 'Precision Tools Ltd',
-        phone: '+1-555-0147',
-        email: 'david.kim@precisiontools.com',
-        address: '147 Precision St, San Francisco, CA 94102'
-      },
-      product: {
-        name: 'CNC Milling Machine',
-        model: 'CNC-5000',
-        serialNumber: 'CNC-5000-2022-123',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Software update causing errors',
-        description: 'After recent software update, machine throws error codes during startup. Unable to begin operations.',
-        category: 'Software',
-        priority: 'Critical',
-        severity: 'Critical'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T07:45:00Z',
-      expectedResolution: '2024-01-15T19:00:00Z',
-      slaStatus: 'Breached',
-      timeRemaining: 'Overdue by 2h 15m',
-      tags: ['Software', 'Update', 'Error'],
-      attachments: 2,
-      lastUpdate: '2024-01-15T09:00:00Z',
-      contactPreference: 'Phone'
-    },
-    {
-      id: '8',
-      ticketNumber: 'SR-2024-0008',
-      customer: {
-        name: 'Jennifer Brown',
-        company: 'Textile Innovations',
-        phone: '+1-555-0258',
-        email: 'jennifer.brown@textile.com',
-        address: '258 Fabric Lane, Atlanta, GA 30301'
-      },
-      product: {
-        name: 'Industrial Loom',
-        model: 'IL-3000',
-        serialNumber: 'IL-3000-2023-178',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Thread tension inconsistency',
-        description: 'Thread tension varies during weaving process resulting in fabric quality issues. Problem started 3 days ago.',
-        category: 'Mechanical',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Open',
-      createdDate: '2024-01-15T13:15:00Z',
-      expectedResolution: '2024-01-17T11:00:00Z',
-      slaStatus: 'On Track',
-      timeRemaining: '1d 21h 45m',
-      tags: ['Tension', 'Quality', 'Weaving'],
-      attachments: 3,
-      lastUpdate: '2024-01-15T13:15:00Z',
-      contactPreference: 'Email'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Service returns a flat ServiceRequest shape; map it into this page's
+        // nested view model and keep only requests that are still open.
+        const raw = (await ServiceRequestService.getAllServiceRequests()) as any[];
+        const priorityMap: Record<string, ServiceRequest['issue']['priority']> = {
+          'P1 - Critical': 'Critical', 'P2 - High': 'High',
+          'P3 - Medium': 'Medium', 'P4 - Low': 'Low',
+        };
+        const slaMap: Record<string, ServiceRequest['slaStatus']> = {
+          on_track: 'On Track', at_risk: 'At Risk', breached: 'Breached', met: 'On Track',
+        };
+        const mapped: ServiceRequest[] = (Array.isArray(raw) ? raw : [])
+          .filter((r) => {
+            const s = String(r.status ?? '').toLowerCase();
+            return s === 'open' || s === 'acknowledged';
+          })
+          .map((r) => ({
+            id: String(r.id ?? ''),
+            ticketNumber: r.ticketNumber ?? r.ticket_number ?? '',
+            customer: {
+              name: r.customerName ?? r.customer_name ?? '',
+              company: r.customerCompany ?? r.company ?? '',
+              phone: r.customerPhone ?? r.phone ?? '',
+              email: r.customerEmail ?? r.email ?? '',
+              address: r.customerAddress ?? r.address ?? '',
+            },
+            product: {
+              name: r.equipmentModel ?? r.equipment_model ?? r.productName ?? '',
+              model: r.equipmentModel ?? r.equipment_model ?? '',
+              serialNumber: r.serialNumber ?? r.serial_number ?? '',
+              warrantyStatus: (r.warrantyStatus as ServiceRequest['product']['warrantyStatus']) ?? 'Active',
+            },
+            issue: {
+              title: r.issueTitle ?? r.title ?? (r.issueDescription ?? r.issue_description ?? ''),
+              description: r.issueDescription ?? r.issue_description ?? '',
+              category: r.category ?? r.serviceType ?? '',
+              priority: priorityMap[r.priority] ?? 'Medium',
+              severity: (r.severity as ServiceRequest['issue']['severity']) ?? 'Minor',
+            },
+            status: 'Open',
+            assignedTo: r.assignedToName ?? r.assignedTo ?? undefined,
+            createdDate: r.createdAt ?? r.created_at ?? new Date().toISOString(),
+            expectedResolution: r.resolutionDeadline ?? r.resolution_deadline ?? '',
+            slaStatus: slaMap[r.slaStatus] ?? 'On Track',
+            timeRemaining: r.timeRemaining ?? '—',
+            tags: Array.isArray(r.tags) ? r.tags : [],
+            attachments: Number(r.attachments ?? 0),
+            lastUpdate: r.updatedAt ?? r.updated_at ?? r.createdAt ?? new Date().toISOString(),
+            contactPreference: (r.contactPreference as ServiceRequest['contactPreference']) ?? 'Email',
+          }));
+        if (!cancelled) setServiceRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load service requests');
+          setServiceRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRequests = serviceRequests.filter(request => {
     const matchesSearch = request.ticketNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -380,6 +188,24 @@ const OpenServiceRequestsPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Open Service Requests</h1>
         <p className="text-gray-600">Manage and track all open service requests requiring attention</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading service requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && serviceRequests.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No open service requests found.
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">

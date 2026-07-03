@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingDown,
@@ -12,75 +12,63 @@ import {
   ToggleLeft,
   ToggleRight,
   Package,
-  Percent
+  Percent,
+  AlertCircle
 } from 'lucide-react'
 import { VolumeTierModal, FilterModal, VolumeTier } from '@/components/cpq/VolumePricingModals'
+import { cpqPricingService } from '@/services/cpq'
 
 export default function CPQPricingVolumePage() {
   const router = useRouter()
 
-  const [volumeTiers, setVolumeTiers] = useState<VolumeTier[]>([
-    {
-      id: 'VT-001',
-      name: 'Modular Kitchen Volume Discount',
-      category: 'Modular Kitchens',
-      tier1: { min: 1, max: 5, discount: 0 },
-      tier2: { min: 6, max: 15, discount: 10 },
-      tier3: { min: 16, max: 999, discount: 18 },
-      status: 'active',
-      applied: 234
-    },
-    {
-      id: 'VT-002',
-      name: 'Cabinet Bulk Pricing',
-      category: 'Cabinets',
-      tier1: { min: 1, max: 10, discount: 0 },
-      tier2: { min: 11, max: 25, discount: 8 },
-      tier3: { min: 26, max: 999, discount: 15 },
-      status: 'active',
-      applied: 187
-    },
-    {
-      id: 'VT-003',
-      name: 'Countertop Volume Deal',
-      category: 'Countertops',
-      tier1: { min: 1, max: 3, discount: 0 },
-      tier2: { min: 4, max: 10, discount: 12 },
-      tier3: { min: 11, max: 999, discount: 20 },
-      status: 'active',
-      applied: 156
-    },
-    {
-      id: 'VT-004',
-      name: 'Hardware Bulk Order',
-      category: 'Hardware',
-      tier1: { min: 1, max: 20, discount: 0 },
-      tier2: { min: 21, max: 50, discount: 5 },
-      tier3: { min: 51, max: 999, discount: 12 },
-      status: 'active',
-      applied: 298
-    },
-    {
-      id: 'VT-005',
-      name: 'Appliance Bundle Discount',
-      category: 'Appliances',
-      tier1: { min: 1, max: 2, discount: 0 },
-      tier2: { min: 3, max: 5, discount: 15 },
-      tier3: { min: 6, max: 999, discount: 25 },
-      status: 'active',
-      applied: 112
-    },
-    {
-      id: 'VT-006',
-      name: 'Builder Special - L-Shaped',
-      category: 'L-Shaped Kitchens',
-      tier1: { min: 1, max: 4, discount: 0 },
-      tier2: { min: 5, max: 12, discount: 12 },
-      tier3: { min: 13, max: 999, discount: 22 },
-      status: 'active',
-      applied: 89
+  const [volumeTiers, setVolumeTiers] = useState<VolumeTier[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the VolumeDiscount ORM shape (name/productCategory/
+        // tiers[]{minQuantity,maxQuantity,discountPercentage}/isActive). This page
+        // renders a fixed tier1/tier2/tier3 model, so collapse the first three
+        // tiers defensively (missing tiers become 0% brackets).
+        const raw = (await cpqPricingService.findAllVolumeDiscounts()) as any[]
+        const tierAt = (tiers: any, i: number) => {
+          const t = Array.isArray(tiers) ? tiers[i] : undefined
+          return {
+            min: Number(t?.minQuantity ?? 0),
+            max: Number(t?.maxQuantity ?? 999),
+            discount: Number(t?.discountPercentage ?? 0),
+          }
+        }
+        const mapped = (raw ?? []).map((v) => ({
+          id: v?.id ?? '',
+          name: v?.name ?? '',
+          category: v?.productCategory ?? v?.productId ?? '—',
+          tier1: tierAt(v?.tiers, 0),
+          tier2: tierAt(v?.tiers, 1),
+          tier3: tierAt(v?.tiers, 2),
+          status: v?.isActive === false ? 'inactive' : 'active',
+          applied: Number(v?.applied ?? 0),
+        })) as VolumeTier[]
+        if (!cancelled) setVolumeTiers(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load volume pricing')
+          setVolumeTiers([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -179,6 +167,23 @@ export default function CPQPricingVolumePage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading volume pricing…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && volumeTiers.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No volume pricing tiers found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

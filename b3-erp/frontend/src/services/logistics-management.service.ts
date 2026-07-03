@@ -3,6 +3,22 @@
 
 const USE_MOCK_DATA = false;
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // ============================================
 // ENUMS
 // ============================================
@@ -1364,7 +1380,32 @@ class LogisticsManagementService {
       }
       return result;
     }
-    throw new Error('API not implemented');
+    // Backend controller route: @Controller('api/logistics/gate-pass')
+    // Response envelope: { success: boolean; data: GatePass[] }
+    const res = await apiRequest<{ success?: boolean; data?: any[] }>(
+      '/api/logistics/gate-pass'
+    );
+    const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res as any) ? (res as any) : [];
+    return (rows as any[]).map((g: any) => ({
+      id: String(g?.id ?? ''),
+      gatePassCode: g?.gatePassCode ?? g?.referenceId ?? g?.gatePassNumber ?? '',
+      gatePassNumber: g?.gatePassNumber ?? g?.referenceId ?? '',
+      gatePassType: g?.gatePassType ?? g?.type ?? '',
+      passDate: g?.passDate ?? g?.createdAt ?? '',
+      passTime: g?.passTime ?? undefined,
+      vehicleNumber: g?.vehicleNumber ?? g?.vehicle ?? undefined,
+      driverName: g?.driverName ?? g?.driver ?? undefined,
+      driverPhone: g?.driverPhone ?? undefined,
+      purpose: g?.purpose ?? '',
+      approvedBy: g?.approvedBy ?? undefined,
+      approverName: g?.approverName ?? undefined,
+      status: g?.status ?? '',
+      checkInTime: g?.checkInTime ?? undefined,
+      checkOutTime: g?.checkOutTime ?? undefined,
+      expectedReturnDate: g?.expectedReturnDate ?? undefined,
+      actualReturnDate: g?.actualReturnDate ?? undefined,
+      remarks: g?.remarks ?? undefined,
+    })) as GatePass[];
   }
 
   static async getGatePassById(id: string): Promise<GatePass | null> {

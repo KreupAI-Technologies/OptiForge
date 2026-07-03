@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -15,96 +15,64 @@ import {
   Clock
 } from 'lucide-react'
 import { ContractModal, FilterModal, ContractPricing } from '@/components/cpq/ContractPricingModals'
+import { cpqPricingService } from '@/services/cpq'
 
 export default function CPQPricingContractsPage() {
   const router = useRouter()
 
-  const [contracts, setContracts] = useState<ContractPricing[]>([
-    {
-      id: 'CT-001',
-      contractName: 'Annual Supply Agreement - Prestige',
-      customerId: 'CUST-1234',
-      customerName: 'Prestige Properties Ltd',
-      contractValue: 25000000,
-      discount: 18,
-      startDate: '2024-01-01',
-      endDate: '2024-12-31',
-      status: 'active',
-      renewalDate: '2024-11-01'
-    },
-    {
-      id: 'CT-002',
-      contractName: 'Multi-Year Framework - Urban Homes',
-      customerId: 'CUST-2156',
-      customerName: 'Urban Homes Pvt Ltd',
-      contractValue: 18500000,
-      discount: 15,
-      startDate: '2023-06-01',
-      endDate: '2025-05-31',
-      status: 'active',
-      renewalDate: '2025-03-01'
-    },
-    {
-      id: 'CT-003',
-      contractName: 'Premium Partnership - Elite Builders',
-      customerId: 'CUST-3421',
-      customerName: 'Elite Builders & Developers',
-      contractValue: 32000000,
-      discount: 20,
-      startDate: '2024-03-01',
-      endDate: '2025-02-28',
-      status: 'active',
-      renewalDate: '2024-12-01'
-    },
-    {
-      id: 'CT-004',
-      contractName: 'Volume Commitment - Skyline',
-      customerId: 'CUST-4567',
-      customerName: 'Skyline Constructions',
-      contractValue: 12000000,
-      discount: 12,
-      startDate: '2024-07-01',
-      endDate: '2024-11-30',
-      status: 'expiring-soon',
-      renewalDate: '2024-10-15'
-    },
-    {
-      id: 'CT-005',
-      contractName: 'Standard Agreement - Modern Living',
-      customerId: 'CUST-5678',
-      customerName: 'Modern Living Interiors',
-      contractValue: 8500000,
-      discount: 10,
-      startDate: '2024-02-01',
-      endDate: '2024-10-15',
-      status: 'expiring-soon',
-      renewalDate: '2024-09-01'
-    },
-    {
-      id: 'CT-006',
-      contractName: 'Quarterly Supply - Habitat',
-      customerId: 'CUST-6789',
-      customerName: 'Habitat Homes',
-      contractValue: 5500000,
-      discount: 8,
-      startDate: '2024-01-01',
-      endDate: '2024-09-30',
-      status: 'expired',
-      renewalDate: '2024-08-15'
-    },
-    {
-      id: 'CT-007',
-      contractName: 'Trial Period - Green Valley',
-      customerId: 'CUST-7890',
-      customerName: 'Green Valley Builders',
-      contractValue: 3000000,
-      discount: 5,
-      startDate: '2024-04-01',
-      endDate: '2024-09-30',
-      status: 'expired',
-      renewalDate: '2024-08-01'
+  const [contracts, setContracts] = useState<ContractPricing[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns the ContractPricing ORM shape (contractNumber,
+        // discountPercentage, startDate/endDate, isActive). Collapse it into this
+        // page's display model, deriving the lifecycle status from the end date.
+        const raw = (await cpqPricingService.findAllContractPricing()) as any[]
+        const now = Date.now()
+        const soonMs = 60 * 24 * 60 * 60 * 1000 // 60 days
+        const mapped = (raw ?? []).map((c) => {
+          const endMs = c?.endDate ? new Date(c.endDate).getTime() : NaN
+          let status: ContractPricing['status'] = 'active'
+          if (c?.isActive === false) status = 'expired'
+          else if (!Number.isNaN(endMs)) {
+            if (endMs < now) status = 'expired'
+            else if (endMs - now <= soonMs) status = 'expiring-soon'
+          }
+          const toDate = (d: any) => (d ? String(d).split('T')[0] : '')
+          return {
+            id: c?.id ?? '',
+            contractName: c?.contractNumber ?? c?.contractId ?? 'Contract',
+            customerId: c?.customerId ?? '',
+            customerName: c?.customerName ?? c?.customerId ?? '',
+            contractValue: Number(c?.committedVolume ?? c?.contractPrice ?? 0),
+            discount: Number(c?.discountPercentage ?? 0),
+            startDate: toDate(c?.startDate),
+            endDate: toDate(c?.endDate),
+            status,
+            renewalDate: toDate(c?.endDate),
+          } as ContractPricing
+        })
+        if (!cancelled) setContracts(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contract pricing')
+          setContracts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -216,6 +184,23 @@ export default function CPQPricingContractsPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading contract pricing…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && contracts.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No contract pricing found.
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">

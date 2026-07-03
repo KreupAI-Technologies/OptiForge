@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle,
   ShoppingCart,
@@ -23,8 +23,10 @@ import {
   Clock,
   FileText,
   Truck,
-  CreditCard
+  CreditCard,
+  AlertCircle
 } from 'lucide-react';
+import { quotationService } from '@/services/quotation.service';
 
 interface ConvertedQuotation {
   id: string;
@@ -52,177 +54,70 @@ export default function ConvertedQuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all');
+  const [quotations, setQuotations] = useState<ConvertedQuotation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const quotations: ConvertedQuotation[] = [
-    {
-      id: 'QUO-001',
-      quotationNumber: 'QUO-2025-001',
-      salesOrderNumber: 'SO-2025-001',
-      customerName: 'Rajesh Sharma',
-      customerCompany: 'Tech Innovations Pvt Ltd',
-      customerEmail: 'rajesh@techinnovations.com',
-      customerPhone: '+91 98765 43210',
-      quotationDate: '2025-09-15',
-      convertedDate: '2025-10-01',
-      quotationAmount: 12500000,
-      finalOrderAmount: 12500000,
-      items: 8,
-      assignedTo: 'Sarah Johnson',
-      conversionDays: 16,
-      discount: 5,
-      orderStatus: 'delivered',
-      paymentStatus: 'paid',
-      deliveryDate: '2025-10-18',
-      notes: 'Fast conversion - excellent customer relationship'
-    },
-    {
-      id: 'QUO-002',
-      quotationNumber: 'QUO-2025-003',
-      salesOrderNumber: 'SO-2025-003',
-      customerName: 'Amit Kumar',
-      customerCompany: 'Industrial Automation Ltd',
-      customerEmail: 'amit@indauto.com',
-      customerPhone: '+91 97654 32109',
-      quotationDate: '2025-09-25',
-      convertedDate: '2025-10-08',
-      quotationAmount: 15600000,
-      finalOrderAmount: 15300000,
-      items: 15,
-      assignedTo: 'Emily Rodriguez',
-      conversionDays: 13,
-      discount: 8,
-      orderStatus: 'shipped',
-      paymentStatus: 'partial',
-      deliveryDate: '2025-10-22',
-      notes: 'Slight negotiation on final pricing'
-    },
-    {
-      id: 'QUO-003',
-      quotationNumber: 'QUO-2025-005',
-      salesOrderNumber: 'SO-2025-005',
-      customerName: 'Vikram Singh',
-      customerCompany: 'Engineering Works Ltd',
-      customerEmail: 'vikram@engworks.com',
-      customerPhone: '+91 99876 54321',
-      quotationDate: '2025-09-10',
-      convertedDate: '2025-09-28',
-      quotationAmount: 9800000,
-      finalOrderAmount: 9800000,
-      items: 10,
-      assignedTo: 'Jennifer Martinez',
-      conversionDays: 18,
-      discount: 6,
-      orderStatus: 'completed',
-      paymentStatus: 'paid',
-      deliveryDate: '2025-10-12',
-      notes: 'Repeat customer - smooth transaction'
-    },
-    {
-      id: 'QUO-004',
-      quotationNumber: 'QUO-2025-007',
-      salesOrderNumber: 'SO-2025-007',
-      customerName: 'Ravi Krishnan',
-      customerCompany: 'Precision Tools Ltd',
-      customerEmail: 'ravi@precisiontools.com',
-      customerPhone: '+91 97123 45678',
-      quotationDate: '2025-09-18',
-      convertedDate: '2025-10-02',
-      quotationAmount: 18900000,
-      finalOrderAmount: 18200000,
-      items: 18,
-      assignedTo: 'Sarah Johnson',
-      conversionDays: 14,
-      discount: 10,
-      orderStatus: 'processing',
-      paymentStatus: 'partial',
-      deliveryDate: '2025-10-25',
-      notes: 'Largest order - VIP handling required'
-    },
-    {
-      id: 'QUO-005',
-      quotationNumber: 'QUO-2025-009',
-      salesOrderNumber: 'SO-2025-009',
-      customerName: 'Priya Menon',
-      customerCompany: 'Manufacturing Solutions Inc',
-      customerEmail: 'priya.menon@mansol.com',
-      customerPhone: '+91 98123 45678',
-      quotationDate: '2025-09-28',
-      convertedDate: '2025-10-10',
-      quotationAmount: 11200000,
-      finalOrderAmount: 11200000,
-      items: 12,
-      assignedTo: 'Michael Chen',
-      conversionDays: 12,
-      discount: 3,
-      orderStatus: 'confirmed',
-      paymentStatus: 'pending',
-      deliveryDate: '2025-10-28',
-      notes: 'Quick decision maker - strong relationship'
-    },
-    {
-      id: 'QUO-006',
-      quotationNumber: 'QUO-2025-011',
-      salesOrderNumber: 'SO-2025-011',
-      customerName: 'Sneha Patel',
-      customerCompany: 'Global Machinery Corp',
-      customerEmail: 'sneha.p@globalmach.com',
-      customerPhone: '+91 98234 56789',
-      quotationDate: '2025-10-01',
-      convertedDate: '2025-10-12',
-      quotationAmount: 7800000,
-      finalOrderAmount: 7500000,
-      items: 9,
-      assignedTo: 'David Park',
-      conversionDays: 11,
-      discount: 4,
-      orderStatus: 'processing',
-      paymentStatus: 'partial',
-      deliveryDate: '2025-10-26',
-      notes: 'Price negotiation successful'
-    },
-    {
-      id: 'QUO-007',
-      quotationNumber: 'QUO-2025-013',
-      salesOrderNumber: 'SO-2025-013',
-      customerName: 'Anita Desai',
-      customerCompany: 'Production Systems Inc',
-      customerEmail: 'anita@prodsys.com',
-      customerPhone: '+91 98765 12345',
-      quotationDate: '2025-10-05',
-      convertedDate: '2025-10-15',
-      quotationAmount: 5600000,
-      finalOrderAmount: 5600000,
-      items: 6,
-      assignedTo: 'Alex Thompson',
-      conversionDays: 10,
-      discount: 2,
-      orderStatus: 'shipped',
-      paymentStatus: 'paid',
-      deliveryDate: '2025-10-21',
-      notes: 'Fast-track delivery requested and confirmed'
-    },
-    {
-      id: 'QUO-008',
-      quotationNumber: 'QUO-2025-015',
-      salesOrderNumber: 'SO-2025-015',
-      customerName: 'Meera Shah',
-      customerCompany: 'Industrial Supplies Co',
-      customerEmail: 'meera@indsupplies.com',
-      customerPhone: '+91 98456 78901',
-      quotationDate: '2025-10-08',
-      convertedDate: '2025-10-17',
-      quotationAmount: 8900000,
-      finalOrderAmount: 8700000,
-      items: 11,
-      assignedTo: 'Michael Chen',
-      conversionDays: 9,
-      discount: 5,
-      orderStatus: 'confirmed',
-      paymentStatus: 'pending',
-      deliveryDate: '2025-10-30',
-      notes: 'New customer - first order'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw quotation ORM rows; keep only converted
+        // quotations and map to this page's ConvertedQuotation shape.
+        const { data } = await quotationService.getAllQuotations({ status: 'Converted' as any });
+        const raw = (data ?? []) as any[];
+        const mapped: ConvertedQuotation[] = raw
+          .filter((q) => String(q?.status) === 'converted')
+          .map((q) => {
+            const qDate = q?.quotationDate ? new Date(String(q.quotationDate)) : null;
+            const cDate = q?.convertedAt
+              ? new Date(String(q.convertedAt))
+              : q?.updatedAt
+              ? new Date(String(q.updatedAt))
+              : null;
+            const conversionDays =
+              qDate && cDate
+                ? Math.max(0, Math.round((cDate.getTime() - qDate.getTime()) / (1000 * 60 * 60 * 24)))
+                : 0;
+            return {
+              id: String(q?.id ?? ''),
+              quotationNumber: q?.quotationNumber ?? '',
+              salesOrderNumber: q?.convertedToOrderNumber ?? '—',
+              customerName: q?.customerName ?? '',
+              customerCompany: q?.customerCompany ?? q?.customerName ?? '',
+              customerEmail: q?.customerEmail ?? '',
+              customerPhone: q?.customerPhone ?? '',
+              quotationDate: q?.quotationDate ? String(q.quotationDate) : '',
+              convertedDate: cDate ? cDate.toISOString() : '',
+              quotationAmount: Number(q?.totalAmount ?? 0),
+              finalOrderAmount: Number(q?.totalAmount ?? 0),
+              items: Array.isArray(q?.items) ? q.items.length : Number(q?.items ?? 0),
+              assignedTo: q?.salesPersonName ?? q?.salesPersonId ?? '—',
+              conversionDays,
+              discount: Number(q?.discountPercentage ?? 0),
+              orderStatus: 'confirmed',
+              paymentStatus: 'pending',
+              deliveryDate: undefined,
+              notes: q?.notes ?? '',
+            };
+          });
+        if (!cancelled) setQuotations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load converted quotations');
+          setQuotations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredQuotations = quotations.filter(quotation => {
     const matchesSearch = quotation.quotationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -291,6 +186,18 @@ export default function ConvertedQuotationsPage() {
   return (
     <div className="w-full h-full px-4 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading converted quotations…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           {stats.map((stat, index) => {

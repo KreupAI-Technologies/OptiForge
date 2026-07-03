@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Calendar, Package, DollarSign, TrendingUp, Clock } from 'lucide-react';
 import { ResolveShortageModal, CreateEmergencyPOModal, ViewImpactAnalysisModal } from '@/components/production/ShortageModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface MaterialShortage {
   id: string;
@@ -40,193 +41,78 @@ export default function MRPShortagePage() {
   const [isImpactOpen, setIsImpactOpen] = useState(false);
   const [selectedShortage, setSelectedShortage] = useState<MaterialShortage | null>(null);
 
-  // Mock data for material shortages
-  const shortages: MaterialShortage[] = [
-    {
-      id: '1',
-      materialCode: 'RM-BRASS-002',
-      materialName: 'Brass Rod (25mm diameter)',
-      category: 'Raw Material',
-      uom: 'meter',
-      requiredQuantity: 480,
-      availableQuantity: 120,
-      shortageQuantity: 360,
-      shortagePercentage: 75,
-      criticalityLevel: 'critical',
-      requiredDate: '2025-10-23',
-      daysUntilRequired: 3,
-      affectedWorkOrders: ['WO-2025-1138', 'WO-2025-1140'],
-      affectedWOCount: 2,
-      estimatedImpactValue: 425000,
-      suggestedAction: 'Expedite purchase order - contact alternative suppliers',
-      currentLeadTime: 10,
-      preferredSupplier: 'Metal Works Limited',
-      alternativeSuppliers: ['Brass India Co.', 'Premium Metals Ltd'],
-      lastPurchasePrice: 370,
-      status: 'expediting'
-    },
-    {
-      id: '2',
-      materialCode: 'CP-GASKET-007',
-      materialName: 'Silicone Gasket (Food Grade)',
-      category: 'Component',
-      uom: 'pcs',
-      requiredQuantity: 1450,
-      availableQuantity: 220,
-      shortageQuantity: 430,
-      shortagePercentage: 70.3,
-      criticalityLevel: 'critical',
-      requiredDate: '2025-10-24',
-      daysUntilRequired: 4,
-      affectedWorkOrders: ['WO-2025-1135', 'WO-2025-1142', 'WO-2025-1147'],
-      affectedWOCount: 3,
-      estimatedImpactValue: 385000,
-      suggestedAction: 'Emergency order required - multiple work orders at risk',
-      currentLeadTime: 5,
-      preferredSupplier: 'Silicone Tech India',
-      alternativeSuppliers: ['Gasket Solutions', 'Food Grade Components Ltd'],
-      lastPurchasePrice: 60,
-      status: 'order-placed'
-    },
-    {
-      id: '3',
-      materialCode: 'CP-MOTOR-009',
-      materialName: 'Electric Motor (250W) - Kitchen Appliance',
-      category: 'Component',
-      uom: 'pcs',
-      requiredQuantity: 185,
-      availableQuantity: 35,
-      shortageQuantity: 150,
-      shortagePercentage: 81.1,
-      criticalityLevel: 'critical',
-      requiredDate: '2025-10-22',
-      daysUntilRequired: 2,
-      affectedWorkOrders: ['WO-2025-1143'],
-      affectedWOCount: 1,
-      estimatedImpactValue: 620000,
-      suggestedAction: 'Critical shortage - production line stoppage risk',
-      currentLeadTime: 18,
-      preferredSupplier: 'Electric Motors Pvt Ltd',
-      alternativeSuppliers: ['Motor Tech India', 'Appliance Components Co.'],
-      lastPurchasePrice: 1600,
-      status: 'pending-resolution'
-    },
-    {
-      id: '4',
-      materialCode: 'RM-GRANITE-004',
-      materialName: 'Granite Slab - Black Galaxy',
-      category: 'Raw Material',
-      uom: 'sq.ft',
-      requiredQuantity: 320,
-      availableQuantity: 85,
-      shortageQuantity: 85,
-      shortagePercentage: 26.6,
-      criticalityLevel: 'high',
-      requiredDate: '2025-10-26',
-      daysUntilRequired: 6,
-      affectedWorkOrders: ['WO-2025-1145'],
-      affectedWOCount: 1,
-      estimatedImpactValue: 295000,
-      suggestedAction: 'Place purchase order - sufficient lead time available',
-      currentLeadTime: 12,
-      preferredSupplier: 'Indian Granite Suppliers',
-      alternativeSuppliers: ['Stone Masters', 'Premium Granite Ltd'],
-      lastPurchasePrice: 840,
-      status: 'order-placed'
-    },
-    {
-      id: '5',
-      materialCode: 'RM-CERAMIC-010',
-      materialName: 'Ceramic Coating Material',
-      category: 'Raw Material',
-      uom: 'liter',
-      requiredQuantity: 280,
-      availableQuantity: 95,
-      shortageQuantity: 135,
-      shortagePercentage: 48.2,
-      criticalityLevel: 'high',
-      requiredDate: '2025-10-28',
-      daysUntilRequired: 8,
-      affectedWorkOrders: ['WO-2025-1146', 'WO-2025-1148'],
-      affectedWOCount: 2,
-      estimatedImpactValue: 175000,
-      suggestedAction: 'Standard purchase order - monitor lead time',
-      currentLeadTime: 6,
-      preferredSupplier: 'Ceramic Coatings India',
-      alternativeSuppliers: ['Non-Stick Solutions', 'Coating Tech Ltd'],
-      lastPurchasePrice: 480,
-      status: 'order-placed'
-    },
-    {
-      id: '6',
-      materialCode: 'RM-SS304-001',
-      materialName: 'Stainless Steel 304 Sheet (2mm)',
-      category: 'Raw Material',
-      uom: 'kg',
-      requiredQuantity: 1250,
-      availableQuantity: 350,
-      shortageQuantity: 100,
-      shortagePercentage: 8,
-      criticalityLevel: 'medium',
-      requiredDate: '2025-10-25',
-      daysUntilRequired: 5,
-      affectedWorkOrders: ['WO-2025-1135', 'WO-2025-1142'],
-      affectedWOCount: 2,
-      estimatedImpactValue: 145000,
-      suggestedAction: 'Minor shortage - scheduled receipt covers requirement',
-      currentLeadTime: 7,
-      preferredSupplier: 'Steel India Pvt Ltd',
-      alternativeSuppliers: ['Metal Suppliers Co.', 'Steel Works Ltd'],
-      lastPurchasePrice: 550,
-      status: 'resolved'
-    },
-    {
-      id: '7',
-      materialCode: 'CP-HANDLE-005',
-      materialName: 'Chrome Plated Lever Handle',
-      category: 'Component',
-      uom: 'pcs',
-      requiredQuantity: 680,
-      availableQuantity: 180,
-      shortageQuantity: 100,
-      shortagePercentage: 14.7,
-      criticalityLevel: 'medium',
-      requiredDate: '2025-10-27',
-      daysUntilRequired: 7,
-      affectedWorkOrders: ['WO-2025-1138', 'WO-2025-1140', 'WO-2025-1142'],
-      affectedWOCount: 3,
-      estimatedImpactValue: 125000,
-      suggestedAction: 'Production order placed - internal manufacturing',
-      currentLeadTime: 8,
-      preferredSupplier: 'Internal Production',
-      alternativeSuppliers: ['Chrome Parts Ltd', 'Handle Manufacturing Co.'],
-      lastPurchasePrice: 150,
-      status: 'order-placed'
-    },
-    {
-      id: '8',
-      materialCode: 'RM-WOOD-008',
-      materialName: 'Hardwood Plywood (18mm)',
-      category: 'Raw Material',
-      uom: 'sheet',
-      requiredQuantity: 145,
-      availableQuantity: 42,
-      shortageQuantity: 53,
-      shortagePercentage: 36.6,
-      criticalityLevel: 'low',
-      requiredDate: '2025-10-30',
-      daysUntilRequired: 10,
-      affectedWorkOrders: ['WO-2025-1150'],
-      affectedWOCount: 1,
-      estimatedImpactValue: 89000,
-      suggestedAction: 'Sufficient time - place standard purchase order',
-      currentLeadTime: 11,
-      preferredSupplier: 'Premium Wood Industries',
-      alternativeSuppliers: ['Wood Suppliers Ltd', 'Timber Products Co.'],
-      lastPurchasePrice: 1350,
-      status: 'pending-resolution'
-    }
-  ];
+  // Material shortages loaded from the NestJS backend (production/shortage-records).
+  const [shortages, setShortages] = useState<MaterialShortage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (shortageNumber/itemCode/itemName/
+        // severity/status/shortageQuantity/affectedOrders...); map to page model.
+        const raw = (await ProductionOrphanService.getShortageRecords()) as any[];
+        const sevMap: Record<string, MaterialShortage['criticalityLevel']> = {
+          Critical: 'critical', critical: 'critical',
+          High: 'high', high: 'high',
+          Medium: 'medium', medium: 'medium',
+          Low: 'low', low: 'low',
+        };
+        const statusMap: Record<string, MaterialShortage['status']> = {
+          Open: 'pending-resolution', Pending: 'pending-resolution',
+          OrderPlaced: 'order-placed', 'order-placed': 'order-placed',
+          Expediting: 'expediting', expediting: 'expediting',
+          Resolved: 'resolved', resolved: 'resolved',
+        };
+        const mapped: MaterialShortage[] = (Array.isArray(raw) ? raw : []).map((s: any, i: number) => {
+          const required = Number(s?.requiredQuantity ?? 0);
+          const available = Number(s?.availableQuantity ?? 0);
+          const shortage = Number(s?.shortageQuantity ?? Math.max(required - available, 0));
+          const affected: string[] = Array.isArray(s?.affectedOrders)
+            ? s.affectedOrders.map((o: any) => o?.orderNumber ?? o?.workOrderNumber ?? String(o)).filter(Boolean)
+            : [];
+          return {
+            id: String(s?.id ?? i),
+            materialCode: s?.itemCode ?? '',
+            materialName: s?.itemName ?? '',
+            category: s?.category ?? 'Material',
+            uom: s?.uom ?? '',
+            requiredQuantity: required,
+            availableQuantity: available,
+            shortageQuantity: shortage,
+            shortagePercentage: required > 0 ? Math.round((shortage / required) * 1000) / 10 : 0,
+            criticalityLevel: sevMap[s?.severity] ?? 'medium',
+            requiredDate: s?.shortageDate ?? s?.requiredDate ?? '',
+            daysUntilRequired: 0,
+            affectedWorkOrders: affected,
+            affectedWOCount: affected.length,
+            estimatedImpactValue: Number(s?.estimatedImpactCost ?? 0),
+            suggestedAction: s?.resolutionNotes ?? '',
+            currentLeadTime: Number(s?.leadTimeDays ?? 0),
+            preferredSupplier: s?.preferredSupplier ?? '',
+            alternativeSuppliers: Array.isArray(s?.alternativeSuppliers) ? s.alternativeSuppliers : [],
+            lastPurchasePrice: Number(s?.lastPurchasePrice ?? 0),
+            status: statusMap[s?.status] ?? 'pending-resolution',
+          };
+        });
+        if (!cancelled) setShortages(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load material shortages');
+          setShortages([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredShortages = shortages.filter(shortage => {
     const criticalityMatch = filterCriticality === 'all' || shortage.criticalityLevel === filterCriticality;
@@ -291,6 +177,23 @@ export default function MRPShortagePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading material shortages…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && shortages.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No material shortages found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

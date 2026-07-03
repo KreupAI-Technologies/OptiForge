@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ServiceRequestService } from '@/services/service-request.service';
 import {
   CheckCircle,
   Clock,
@@ -97,554 +98,104 @@ const ResolvedServiceRequestsPage = () => {
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const serviceRequests: ServiceRequest[] = [
-    {
-      id: '1',
-      ticketNumber: 'SR-2024-0017',
-      customer: {
-        name: 'Thomas Anderson',
-        company: 'Matrix Manufacturing',
-        phone: '+1-555-0199',
-        email: 'thomas.anderson@matrix.com',
-        address: '199 Neo Street, City Central, NY 10001'
-      },
-      product: {
-        name: 'Automated Assembly Line',
-        model: 'AAL-3000',
-        serialNumber: 'AAL-3000-2023-067',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Sensor calibration causing misalignment',
-        description: 'Position sensors were providing incorrect readings causing assembly misalignment and quality issues.',
-        category: 'Calibration',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Resolved',
-      assignedTo: 'Sarah Johnson',
-      assignedTeam: 'Automation Team',
-      createdDate: '2024-01-05T09:00:00Z',
-      startedDate: '2024-01-05T10:30:00Z',
-      resolvedDate: '2024-01-07T15:30:00Z',
-      slaStatus: 'Met',
-      resolutionTime: '2d 5h',
-      tags: ['Sensor', 'Calibration', 'Assembly'],
-      attachments: 5,
-      lastUpdate: '2024-01-07T15:30:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 16,
-      actualHours: 14,
-      resolution: {
-        summary: 'Replaced faulty position sensors and recalibrated entire assembly line',
-        rootCause: 'Manufacturing defect in original sensor batch causing drift over time',
-        actionsTaken: [
-          'Diagnosed sensor accuracy issues',
-          'Replaced all position sensors with updated models',
-          'Performed full system recalibration',
-          'Conducted quality test runs',
-          'Updated calibration procedures'
-        ],
-        partsReplaced: ['Position Sensors (4x)', 'Calibration Module'],
-        preventiveMeasures: [
-          'Monthly calibration verification',
-          'Sensor accuracy monitoring system',
-          'Preventive replacement schedule'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 5,
-        feedback: 'Excellent service! Quick resolution and thorough explanation of the issue.',
-        wouldRecommend: true,
-        responseTime: 5,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-02-07T10:00:00Z',
-        type: 'Calibration Verification',
-        completed: false
+  const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Service returns a flat ServiceRequest shape; map it into this page's
+        // nested view model and keep only requests that are resolved/closed.
+        const raw = (await ServiceRequestService.getAllServiceRequests()) as any[];
+        const priorityMap: Record<string, ServiceRequest['issue']['priority']> = {
+          'P1 - Critical': 'Critical', 'P2 - High': 'High',
+          'P3 - Medium': 'Medium', 'P4 - Low': 'Low',
+        };
+        const slaMap: Record<string, ServiceRequest['slaStatus']> = {
+          met: 'Met', on_track: 'Met', at_risk: 'Breached', breached: 'Breached',
+        };
+        const mapped: ServiceRequest[] = (Array.isArray(raw) ? raw : [])
+          .filter((r) => {
+            const st = String(r.status ?? '').toLowerCase();
+            return st === 'resolved' || st === 'closed';
+          })
+          .map((r) => ({
+            id: String(r.id ?? ''),
+            ticketNumber: r.ticketNumber ?? r.ticket_number ?? '',
+            customer: {
+              name: r.customerName ?? r.customer_name ?? '',
+              company: r.customerCompany ?? r.company ?? '',
+              phone: r.customerPhone ?? r.phone ?? '',
+              email: r.customerEmail ?? r.email ?? '',
+              address: r.customerAddress ?? r.address ?? '',
+            },
+            product: {
+              name: r.equipmentModel ?? r.equipment_model ?? r.productName ?? '',
+              model: r.equipmentModel ?? r.equipment_model ?? '',
+              serialNumber: r.serialNumber ?? r.serial_number ?? '',
+              warrantyStatus: (r.warrantyStatus as ServiceRequest['product']['warrantyStatus']) ?? 'Active',
+            },
+            issue: {
+              title: r.issueTitle ?? r.title ?? (r.issueDescription ?? r.issue_description ?? ''),
+              description: r.issueDescription ?? r.issue_description ?? '',
+              category: r.category ?? r.serviceType ?? '',
+              priority: priorityMap[r.priority] ?? 'Medium',
+              severity: (r.severity as ServiceRequest['issue']['severity']) ?? 'Minor',
+            },
+            status: (String(r.status ?? '').toLowerCase() === 'closed' ? 'Closed' : 'Resolved') as ServiceRequest['status'],
+            assignedTo: r.assignedToName ?? r.assignedTo ?? '',
+            assignedTeam: r.assignedTeam ?? '',
+            createdDate: r.createdAt ?? r.created_at ?? new Date().toISOString(),
+            startedDate: r.startedAt ?? r.started_at ?? r.createdAt ?? '',
+            resolvedDate: r.resolvedAt ?? r.resolved_at ?? r.updatedAt ?? '',
+            slaStatus: slaMap[r.slaStatus] ?? 'Met',
+            resolutionTime: r.resolutionTime != null ? String(r.resolutionTime) : '\u2014',
+            tags: Array.isArray(r.tags) ? r.tags : [],
+            attachments: Number(r.attachments ?? 0),
+            lastUpdate: r.updatedAt ?? r.updated_at ?? r.createdAt ?? new Date().toISOString(),
+            contactPreference: (r.contactPreference as ServiceRequest['contactPreference']) ?? 'Email',
+            estimatedHours: Number(r.estimatedHours ?? 0),
+            actualHours: Number(r.actualHours ?? 0),
+            resolution: {
+              summary: r.resolutionSummary ?? r.resolution_summary ?? '',
+              rootCause: r.rootCause ?? '',
+              actionsTaken: Array.isArray(r.actionsTaken) ? r.actionsTaken : [],
+              partsReplaced: Array.isArray(r.partsReplaced) ? r.partsReplaced : [],
+              preventiveMeasures: Array.isArray(r.preventiveMeasures) ? r.preventiveMeasures : [],
+            },
+            customerSatisfaction: {
+              rating: Number(r.satisfactionRating ?? 0),
+              feedback: r.satisfactionFeedback ?? '',
+              wouldRecommend: Boolean(r.wouldRecommend ?? false),
+              responseTime: Number(r.responseTime ?? 0),
+              resolutionQuality: Number(r.resolutionQuality ?? 0),
+            },
+            followUp: {
+              scheduled: Boolean(r.followUpScheduled ?? false),
+              date: r.followUpDate ?? undefined,
+              type: r.followUpType ?? undefined,
+              completed: r.followUpCompleted ?? undefined,
+            },
+          }));
+        if (!cancelled) setServiceRequests(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load service requests');
+          setServiceRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    },
-    {
-      id: '2',
-      ticketNumber: 'SR-2024-0018',
-      customer: {
-        name: 'Elena Rodriguez',
-        company: 'GreenEnergy Solutions',
-        phone: '+1-555-0288',
-        email: 'elena.rodriguez@greenenergy.com',
-        address: '288 Solar Drive, California, CA 90210'
-      },
-      product: {
-        name: 'Solar Panel Inverter',
-        model: 'SPI-5000',
-        serialNumber: 'SPI-5000-2022-145',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Inverter efficiency degradation',
-        description: 'Power conversion efficiency dropped from 98% to 92% over 6 months of operation.',
-        category: 'Electronics',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Customer Approved',
-      assignedTo: 'Michael Chen',
-      assignedTeam: 'Electronics Team',
-      createdDate: '2024-01-03T14:20:00Z',
-      startedDate: '2024-01-04T08:00:00Z',
-      resolvedDate: '2024-01-06T17:00:00Z',
-      slaStatus: 'Exceeded',
-      resolutionTime: '2d 9h',
-      tags: ['Inverter', 'Efficiency', 'Power'],
-      attachments: 3,
-      lastUpdate: '2024-01-06T17:00:00Z',
-      contactPreference: 'Phone',
-      estimatedHours: 12,
-      actualHours: 8,
-      resolution: {
-        summary: 'Replaced aging capacitors and updated firmware to latest version',
-        rootCause: 'Electrolytic capacitors showing signs of aging reducing conversion efficiency',
-        actionsTaken: [
-          'Performed electrical diagnostics',
-          'Identified aging capacitor bank',
-          'Replaced capacitor bank with improved models',
-          'Updated firmware to v3.2.1',
-          'Verified efficiency restoration'
-        ],
-        partsReplaced: ['Capacitor Bank', 'Control Board'],
-        preventiveMeasures: [
-          'Annual capacitor health monitoring',
-          'Firmware update notifications',
-          'Environmental monitoring system'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 5,
-        feedback: 'Outstanding work! Efficiency is now even better than original specifications.',
-        wouldRecommend: true,
-        responseTime: 5,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-04-06T14:00:00Z',
-        type: 'Performance Review',
-        completed: false
-      }
-    },
-    {
-      id: '3',
-      ticketNumber: 'SR-2024-0019',
-      customer: {
-        name: 'David Park',
-        company: 'Precision Tools Corp',
-        phone: '+1-555-0367',
-        email: 'david.park@precisiontools.com',
-        address: '367 Tool Street, Detroit, MI 48201'
-      },
-      product: {
-        name: 'CNC Lathe Machine',
-        model: 'CL-2500',
-        serialNumber: 'CL-2500-2023-089',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Spindle vibration affecting precision',
-        description: 'Excessive spindle vibration causing poor surface finish and dimensional accuracy issues.',
-        category: 'Mechanical',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Closed',
-      assignedTo: 'Lisa Martinez',
-      assignedTeam: 'Mechanical Team',
-      createdDate: '2024-01-01T11:30:00Z',
-      startedDate: '2024-01-02T09:00:00Z',
-      resolvedDate: '2024-01-05T16:45:00Z',
-      slaStatus: 'Met',
-      resolutionTime: '3d 7h 45m',
-      tags: ['Spindle', 'Vibration', 'Precision'],
-      attachments: 4,
-      lastUpdate: '2024-01-05T16:45:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 24,
-      actualHours: 22,
-      resolution: {
-        summary: 'Replaced worn spindle bearings and rebalanced the spindle assembly',
-        rootCause: 'Spindle bearing wear due to high-speed operation and contamination',
-        actionsTaken: [
-          'Performed vibration analysis',
-          'Identified bearing wear patterns',
-          'Replaced spindle bearing set',
-          'Rebalanced spindle assembly',
-          'Upgraded lubrication system',
-          'Conducted precision tests'
-        ],
-        partsReplaced: ['Spindle Bearings', 'Lubrication Pump', 'Oil Filter'],
-        preventiveMeasures: [
-          'Quarterly vibration monitoring',
-          'Enhanced lubrication schedule',
-          'Contamination prevention training'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 4,
-        feedback: 'Good work overall. Machine is running smoothly now. Slightly longer than expected.',
-        wouldRecommend: true,
-        responseTime: 4,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-02-05T13:00:00Z',
-        type: 'Vibration Check',
-        completed: false
-      }
-    },
-    {
-      id: '4',
-      ticketNumber: 'SR-2024-0020',
-      customer: {
-        name: 'Rachel Green',
-        company: 'FoodSafe Processing',
-        phone: '+1-555-0434',
-        email: 'rachel.green@foodsafe.com',
-        address: '434 Food Safety Blvd, Chicago, IL 60601'
-      },
-      product: {
-        name: 'Sterilization Unit',
-        model: 'SU-1000',
-        serialNumber: 'SU-1000-2023-123',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Temperature controller malfunction',
-        description: 'Temperature controller failing to maintain consistent sterilization temperature.',
-        category: 'Electronics',
-        priority: 'Critical',
-        severity: 'Critical'
-      },
-      status: 'Resolved',
-      assignedTo: 'James Wilson',
-      assignedTeam: 'Field Service',
-      createdDate: '2023-12-28T08:00:00Z',
-      startedDate: '2023-12-28T09:30:00Z',
-      resolvedDate: '2023-12-29T14:20:00Z',
-      slaStatus: 'Met',
-      resolutionTime: '1d 4h 50m',
-      tags: ['Temperature', 'Controller', 'Sterilization'],
-      attachments: 6,
-      lastUpdate: '2023-12-29T14:20:00Z',
-      contactPreference: 'Phone',
-      estimatedHours: 8,
-      actualHours: 7,
-      resolution: {
-        summary: 'Replaced faulty temperature controller and calibrated system to FDA standards',
-        rootCause: 'Temperature controller board failure due to power surge damage',
-        actionsTaken: [
-          'Emergency response within 2 hours',
-          'Diagnosed controller board failure',
-          'Replaced temperature controller',
-          'Calibrated to FDA standards',
-          'Installed surge protection',
-          'Verified sterilization cycles'
-        ],
-        partsReplaced: ['Temperature Controller', 'Surge Protector', 'Temperature Probe'],
-        preventiveMeasures: [
-          'Power quality monitoring',
-          'Monthly calibration verification',
-          'Backup controller on standby'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 5,
-        feedback: 'Critical issue resolved quickly! Prevented production shutdown. Very professional team.',
-        wouldRecommend: true,
-        responseTime: 5,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-01-29T11:00:00Z',
-        type: 'Calibration Verification',
-        completed: true
-      }
-    },
-    {
-      id: '5',
-      ticketNumber: 'SR-2024-0021',
-      customer: {
-        name: 'Anthony Miller',
-        company: 'AutoParts Plus',
-        phone: '+1-555-0523',
-        email: 'anthony.miller@autoparts.com',
-        address: '523 Auto Lane, Toledo, OH 43604'
-      },
-      product: {
-        name: 'Hydraulic Press',
-        model: 'HP-1500',
-        serialNumber: 'HP-1500-2022-234',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Hydraulic seal leak repair',
-        description: 'Main cylinder seal leak causing pressure loss and oil contamination.',
-        category: 'Hydraulic',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Resolved',
-      assignedTo: 'Carlos Rodriguez',
-      assignedTeam: 'Hydraulic Team',
-      createdDate: '2023-12-20T13:15:00Z',
-      startedDate: '2023-12-21T08:00:00Z',
-      resolvedDate: '2023-12-23T15:30:00Z',
-      slaStatus: 'Exceeded',
-      resolutionTime: '2d 7h 30m',
-      tags: ['Hydraulic', 'Seal', 'Leak'],
-      attachments: 3,
-      lastUpdate: '2023-12-23T15:30:00Z',
-      contactPreference: 'WhatsApp',
-      estimatedHours: 12,
-      actualHours: 10,
-      resolution: {
-        summary: 'Replaced hydraulic seals and upgraded to improved seal design',
-        rootCause: 'Normal wear of hydraulic seals after 2 years of operation',
-        actionsTaken: [
-          'Drained hydraulic system',
-          'Disassembled main cylinder',
-          'Replaced all hydraulic seals',
-          'Upgraded to improved seal design',
-          'Refilled with fresh hydraulic oil',
-          'Pressure tested system'
-        ],
-        partsReplaced: ['Hydraulic Seal Kit', 'Hydraulic Oil', 'Filter Element'],
-        preventiveMeasures: [
-          'Annual seal inspection program',
-          'Oil quality monitoring',
-          'Upgraded seal specifications'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 4,
-        feedback: 'Great job! Machine is working better than before. Appreciate the upgrade.',
-        wouldRecommend: true,
-        responseTime: 4,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-03-23T10:00:00Z',
-        type: 'Preventive Maintenance',
-        completed: false
-      }
-    },
-    {
-      id: '6',
-      ticketNumber: 'SR-2024-0022',
-      customer: {
-        name: 'Nicole Taylor',
-        company: 'TextileTech Industries',
-        phone: '+1-555-0645',
-        email: 'nicole.taylor@textiletech.com',
-        address: '645 Textile Road, Charlotte, NC 28202'
-      },
-      product: {
-        name: 'Fabric Cutting Machine',
-        model: 'FCM-800',
-        serialNumber: 'FCM-800-2023-178',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Blade dullness affecting cut quality',
-        description: 'Cutting blade becoming dull resulting in frayed edges and material waste.',
-        category: 'Maintenance',
-        priority: 'Low',
-        severity: 'Minor'
-      },
-      status: 'Customer Approved',
-      assignedTo: 'Amanda Davis',
-      assignedTeam: 'Maintenance Team',
-      createdDate: '2023-12-15T16:20:00Z',
-      startedDate: '2023-12-18T09:00:00Z',
-      resolvedDate: '2023-12-18T12:30:00Z',
-      slaStatus: 'Exceeded',
-      resolutionTime: '3h 30m',
-      tags: ['Blade', 'Cutting', 'Maintenance'],
-      attachments: 2,
-      lastUpdate: '2023-12-18T12:30:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 4,
-      actualHours: 3,
-      resolution: {
-        summary: 'Replaced cutting blade and optimized cutting parameters',
-        rootCause: 'Normal blade wear after processing abrasive materials',
-        actionsTaken: [
-          'Assessed blade condition',
-          'Replaced with new cutting blade',
-          'Optimized cutting speed and pressure',
-          'Performed test cuts on various materials',
-          'Trained operator on maintenance indicators'
-        ],
-        partsReplaced: ['Cutting Blade', 'Blade Guard'],
-        preventiveMeasures: [
-          'Blade condition monitoring checklist',
-          'Material-specific cutting parameters',
-          'Operator training program'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 5,
-        feedback: 'Quick and efficient service. Cut quality is perfect now. Great training provided.',
-        wouldRecommend: true,
-        responseTime: 5,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: false
-      }
-    },
-    {
-      id: '7',
-      ticketNumber: 'SR-2024-0023',
-      customer: {
-        name: 'Robert Kim',
-        company: 'Chemical Solutions Inc',
-        phone: '+1-555-0756',
-        email: 'robert.kim@chemsol.com',
-        address: '756 Chemical Ave, Houston, TX 77002'
-      },
-      product: {
-        name: 'Chemical Reactor',
-        model: 'CR-3000',
-        serialNumber: 'CR-3000-2022-345',
-        warrantyStatus: 'Extended'
-      },
-      issue: {
-        title: 'Pressure relief valve calibration',
-        description: 'Safety pressure relief valve requiring recalibration after annual inspection.',
-        category: 'Safety',
-        priority: 'High',
-        severity: 'Major'
-      },
-      status: 'Closed',
-      assignedTo: 'Emily Johnson',
-      assignedTeam: 'Safety Team',
-      createdDate: '2023-12-10T10:00:00Z',
-      startedDate: '2023-12-11T08:30:00Z',
-      resolvedDate: '2023-12-12T16:00:00Z',
-      slaStatus: 'Met',
-      resolutionTime: '1d 7h 30m',
-      tags: ['Safety', 'Pressure', 'Calibration'],
-      attachments: 4,
-      lastUpdate: '2023-12-12T16:00:00Z',
-      contactPreference: 'Phone',
-      estimatedHours: 6,
-      actualHours: 6,
-      resolution: {
-        summary: 'Recalibrated pressure relief valve and updated safety documentation',
-        rootCause: 'Scheduled calibration required per safety regulations',
-        actionsTaken: [
-          'Performed safety lockout procedures',
-          'Removed and tested relief valve',
-          'Recalibrated to exact specifications',
-          'Reinstalled with new gaskets',
-          'Updated safety certificates',
-          'Conducted operational test'
-        ],
-        partsReplaced: ['Valve Gaskets', 'Calibration Certificate'],
-        preventiveMeasures: [
-          'Annual calibration reminder system',
-          'Safety documentation updates',
-          'Operator safety training refresh'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 5,
-        feedback: 'Perfect safety compliance service. Documentation is excellent. Very thorough.',
-        wouldRecommend: true,
-        responseTime: 5,
-        resolutionQuality: 5
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-12-12T10:00:00Z',
-        type: 'Annual Safety Inspection',
-        completed: false
-      }
-    },
-    {
-      id: '8',
-      ticketNumber: 'SR-2024-0024',
-      customer: {
-        name: 'Jessica Brown',
-        company: 'PackagingPro Systems',
-        phone: '+1-555-0867',
-        email: 'jessica.brown@packagingpro.com',
-        address: '867 Packaging Blvd, Atlanta, GA 30309'
-      },
-      product: {
-        name: 'Automated Packaging Line',
-        model: 'APL-1200',
-        serialNumber: 'APL-1200-2023-456',
-        warrantyStatus: 'Active'
-      },
-      issue: {
-        title: 'Conveyor belt misalignment',
-        description: 'Packaging conveyor belt tracking incorrectly causing jams and product damage.',
-        category: 'Mechanical',
-        priority: 'Medium',
-        severity: 'Minor'
-      },
-      status: 'Resolved',
-      assignedTo: 'Kevin Lee',
-      assignedTeam: 'Mechanical Team',
-      createdDate: '2023-12-05T14:45:00Z',
-      startedDate: '2023-12-06T09:00:00Z',
-      resolvedDate: '2023-12-07T11:15:00Z',
-      slaStatus: 'Exceeded',
-      resolutionTime: '1d 2h 15m',
-      tags: ['Conveyor', 'Belt', 'Alignment'],
-      attachments: 3,
-      lastUpdate: '2023-12-07T11:15:00Z',
-      contactPreference: 'Email',
-      estimatedHours: 8,
-      actualHours: 6,
-      resolution: {
-        summary: 'Realigned conveyor belt and adjusted tracking mechanisms',
-        rootCause: 'Belt stretching and roller wear causing tracking issues',
-        actionsTaken: [
-          'Analyzed belt tracking patterns',
-          'Adjusted roller alignment',
-          'Replaced worn tracking guides',
-          'Retensioned conveyor belt',
-          'Calibrated belt tracking system',
-          'Performed operational tests'
-        ],
-        partsReplaced: ['Tracking Guides', 'Belt Tensioner'],
-        preventiveMeasures: [
-          'Monthly belt inspection routine',
-          'Tension monitoring system',
-          'Preventive roller replacement schedule'
-        ]
-      },
-      customerSatisfaction: {
-        rating: 4,
-        feedback: 'Good service and explanation. Belt is running perfectly now. Thanks!',
-        wouldRecommend: true,
-        responseTime: 4,
-        resolutionQuality: 4
-      },
-      followUp: {
-        scheduled: true,
-        date: '2024-02-07T14:00:00Z',
-        type: 'Belt Inspection',
-        completed: false
-      }
-    }
-  ];
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRequests = serviceRequests.filter(request => {
     const matchesSearch = request.ticketNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -721,6 +272,24 @@ const ResolvedServiceRequestsPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Resolved Service Requests</h1>
         <p className="text-gray-600">View completed service requests and customer satisfaction metrics</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading service requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <Flag className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && serviceRequests.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No resolved service requests found.
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">

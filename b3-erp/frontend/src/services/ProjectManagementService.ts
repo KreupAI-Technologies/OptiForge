@@ -999,6 +999,32 @@ class ProjectManagementService {
         await apiClient.delete(`/project-resources/${id}`);
     }
 
+    // --- Raw list endpoints (no projectId filter) ---
+    // These hit the NestJS list controllers that return a bare array (not the
+    // { success, data } envelope). apiClient.get() JSON-parses the body and
+    // returns it typed as ApiResponse; for a bare array the whole parsed value
+    // IS the array, so we coerce defensively and always fall back to [].
+    private static unwrapArray(res: unknown): any[] {
+        if (Array.isArray(res)) return res as any[];
+        const data = (res as { data?: unknown })?.data;
+        return Array.isArray(data) ? (data as any[]) : [];
+    }
+
+    async listAllResources(): Promise<any[]> {
+        const res = await apiClient.get<any[]>('/project-resources');
+        return ProjectManagementService.unwrapArray(res);
+    }
+
+    async listAllMilestones(): Promise<any[]> {
+        const res = await apiClient.get<any[]>('/project-milestones');
+        return ProjectManagementService.unwrapArray(res);
+    }
+
+    async listAllTimeLogs(): Promise<any[]> {
+        const res = await apiClient.get<any[]>('/time-logs');
+        return ProjectManagementService.unwrapArray(res);
+    }
+
     // --- Budgets ---
     async getBudgets(projectId: string): Promise<ProjectBudget[]> {
         try {

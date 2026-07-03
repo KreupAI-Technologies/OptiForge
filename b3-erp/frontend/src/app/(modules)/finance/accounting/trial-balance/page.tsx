@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   Calendar, Download, Printer, Filter, ChevronDown, ChevronRight,
   CheckCircle, AlertCircle, BarChart3, Building, CreditCard, TrendingUp,
@@ -26,48 +27,64 @@ interface TrialBalance {
   hasChildren: boolean;
 }
 
-// Mock Trial Balance Data
-const mockTrialBalance: TrialBalance[] = [
-  // Assets
-  { accountCode: '1000', accountName: 'Current Assets', accountType: 'Assets', openingBalance: 1400000, openingBalanceType: 'Dr', debitMovement: 672500, creditMovement: 572500, closingBalance: 1500000, closingBalanceType: 'Dr', level: 0, hasChildren: true },
-  { accountCode: '1010', accountName: 'Cash and Cash Equivalents', accountType: 'Assets', parentCode: '1000', openingBalance: 450000, openingBalanceType: 'Dr', debitMovement: 172500, creditMovement: 122500, closingBalance: 500000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-  { accountCode: '1020', accountName: 'Accounts Receivable', accountType: 'Assets', parentCode: '1000', openingBalance: 400000, openingBalanceType: 'Dr', debitMovement: 350000, creditMovement: 300000, closingBalance: 450000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-  { accountCode: '1030', accountName: 'Inventory', accountType: 'Assets', parentCode: '1000', openingBalance: 550000, openingBalanceType: 'Dr', debitMovement: 150000, creditMovement: 150000, closingBalance: 550000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
+const TYPE_MAP: Record<string, TrialBalance['accountType']> = {
+  Asset: 'Assets', Assets: 'Assets',
+  Liability: 'Liabilities', Liabilities: 'Liabilities',
+  Equity: 'Equity',
+  Income: 'Income', Revenue: 'Income',
+  Expense: 'Expenses', Expenses: 'Expenses',
+};
 
-  { accountCode: '1500', accountName: 'Fixed Assets', accountType: 'Assets', openingBalance: 2800000, openingBalanceType: 'Dr', debitMovement: 0, creditMovement: 50000, closingBalance: 2750000, closingBalanceType: 'Dr', level: 0, hasChildren: true },
-  { accountCode: '1510', accountName: 'Property, Plant & Equipment', accountType: 'Assets', parentCode: '1500', openingBalance: 2800000, openingBalanceType: 'Dr', debitMovement: 0, creditMovement: 50000, closingBalance: 2750000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-
-  // Liabilities
-  { accountCode: '2000', accountName: 'Current Liabilities', accountType: 'Liabilities', openingBalance: 750000, openingBalanceType: 'Cr', debitMovement: 125000, creditMovement: 200000, closingBalance: 825000, closingBalanceType: 'Cr', level: 0, hasChildren: true },
-  { accountCode: '2010', accountName: 'Accounts Payable', accountType: 'Liabilities', parentCode: '2000', openingBalance: 400000, openingBalanceType: 'Cr', debitMovement: 50000, creditMovement: 100000, closingBalance: 450000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-  { accountCode: '2020', accountName: 'Statutory Liabilities', accountType: 'Liabilities', parentCode: '2000', openingBalance: 150000, openingBalanceType: 'Cr', debitMovement: 25000, creditMovement: 50000, closingBalance: 175000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-  { accountCode: '2030', accountName: 'Accrued Expenses', accountType: 'Liabilities', parentCode: '2000', openingBalance: 200000, openingBalanceType: 'Cr', debitMovement: 50000, creditMovement: 50000, closingBalance: 200000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-
-  { accountCode: '2500', accountName: 'Long-term Liabilities', accountType: 'Liabilities', openingBalance: 1500000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 0, closingBalance: 1500000, closingBalanceType: 'Cr', level: 0, hasChildren: true },
-  { accountCode: '2510', accountName: 'Term Loans', accountType: 'Liabilities', parentCode: '2500', openingBalance: 1200000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 0, closingBalance: 1200000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-  { accountCode: '2520', accountName: 'Debentures', accountType: 'Liabilities', parentCode: '2500', openingBalance: 300000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 0, closingBalance: 300000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-
-  // Equity
-  { accountCode: '3000', accountName: 'Owner\'s Equity', accountType: 'Equity', openingBalance: 2000000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 0, closingBalance: 2000000, closingBalanceType: 'Cr', level: 0, hasChildren: true },
-  { accountCode: '3010', accountName: 'Share Capital', accountType: 'Equity', parentCode: '3000', openingBalance: 1000000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 0, closingBalance: 1000000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-  { accountCode: '3020', accountName: 'Reserves and Surplus', accountType: 'Equity', parentCode: '3000', openingBalance: 1000000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 0, closingBalance: 1000000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-
-  // Income
-  { accountCode: '4000', accountName: 'Revenue', accountType: 'Income', openingBalance: 3200000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 300000, closingBalance: 3500000, closingBalanceType: 'Cr', level: 0, hasChildren: true },
-  { accountCode: '4010', accountName: 'Sales Revenue', accountType: 'Income', parentCode: '4000', openingBalance: 3000000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 200000, closingBalance: 3200000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-  { accountCode: '4020', accountName: 'Other Income', accountType: 'Income', parentCode: '4000', openingBalance: 200000, openingBalanceType: 'Cr', debitMovement: 0, creditMovement: 100000, closingBalance: 300000, closingBalanceType: 'Cr', level: 1, hasChildren: false },
-
-  // Expenses
-  { accountCode: '5000', accountName: 'Operating Expenses', accountType: 'Expenses', openingBalance: 1950000, openingBalanceType: 'Dr', debitMovement: 150000, creditMovement: 0, closingBalance: 2100000, closingBalanceType: 'Dr', level: 0, hasChildren: true },
-  { accountCode: '5010', accountName: 'Cost of Goods Sold', accountType: 'Expenses', parentCode: '5000', openingBalance: 1150000, openingBalanceType: 'Dr', debitMovement: 50000, creditMovement: 0, closingBalance: 1200000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-  { accountCode: '5020', accountName: 'Administrative Expenses', accountType: 'Expenses', parentCode: '5000', openingBalance: 380000, openingBalanceType: 'Dr', debitMovement: 20000, creditMovement: 0, closingBalance: 400000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-  { accountCode: '5030', accountName: 'Selling and Distribution Expenses', accountType: 'Expenses', parentCode: '5000', openingBalance: 270000, openingBalanceType: 'Dr', debitMovement: 30000, creditMovement: 0, closingBalance: 300000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-  { accountCode: '5040', accountName: 'Financial Expenses', accountType: 'Expenses', parentCode: '5000', openingBalance: 150000, openingBalanceType: 'Dr', debitMovement: 50000, creditMovement: 0, closingBalance: 200000, closingBalanceType: 'Dr', level: 1, hasChildren: false },
-];
+// Map the backend report `data` element (shape may vary) to the page model,
+// defensively so a partial/empty payload never throws.
+function mapTrialBalanceRow(r: any): TrialBalance {
+  const opening = Number(r.openingBalance ?? r.opening ?? 0);
+  const closing = Number(r.closingBalance ?? r.closing ?? r.balance ?? 0);
+  return {
+    accountCode: String(r.accountCode ?? r.code ?? r.account?.accountCode ?? ''),
+    accountName: String(r.accountName ?? r.name ?? r.account?.accountName ?? ''),
+    accountType: TYPE_MAP[r.accountType ?? r.type ?? r.account?.accountType] ?? 'Assets',
+    openingBalance: Math.abs(opening),
+    openingBalanceType: (r.openingBalanceType ?? (opening < 0 ? 'Cr' : 'Dr')) as 'Dr' | 'Cr',
+    debitMovement: Number(r.debitMovement ?? r.debit ?? 0),
+    creditMovement: Number(r.creditMovement ?? r.credit ?? 0),
+    closingBalance: Math.abs(closing),
+    closingBalanceType: (r.closingBalanceType ?? (closing < 0 ? 'Cr' : 'Dr')) as 'Dr' | 'Cr',
+    level: Number(r.level ?? 0),
+    parentCode: r.parentCode ?? r.parentAccountCode ?? undefined,
+    hasChildren: Boolean(r.hasChildren ?? false),
+  };
+}
 
 export default function TrialBalancePage() {
   const router = useRouter();
-  const [trialBalance] = useState<TrialBalance[]>(mockTrialBalance);
+  const [trialBalance, setTrialBalance] = useState<TrialBalance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getTrialBalanceReport()) as any[];
+        const mapped = raw.map(mapTrialBalanceRow);
+        if (!cancelled) setTrialBalance(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load trial balance');
+          setTrialBalance([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [dateFrom, setDateFrom] = useState('2025-01-01');
   const [dateTo, setDateTo] = useState('2025-10-31');
   const [groupByType, setGroupByType] = useState(true);
@@ -263,6 +280,23 @@ export default function TrialBalancePage() {
     <div className="h-screen flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full px-3 py-2">
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading trial balance…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
+          {!isLoading && !loadError && trialBalance.length === 0 && (
+            <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              No trial balance data found for the selected period.
+            </div>
+          )}
           {/* Action Bar */}
           <div className="mb-3">
             <div className="flex items-center justify-end mb-2">

@@ -352,6 +352,22 @@ class CPQPricingService {
     }
   }
 
+  // Contract Pricing
+  async findAllContractPricing(filters?: {
+    customerId?: string;
+    contractId?: string;
+    isActive?: boolean;
+  }): Promise<ContractPricing[]> {
+    const params = new URLSearchParams();
+    if (filters?.customerId) params.append('customerId', filters.customerId);
+    if (filters?.contractId) params.append('contractId', filters.contractId);
+    if (filters?.isActive !== undefined) params.append('isActive', String(filters.isActive));
+    const response = await apiClient.get<ContractPricing[]>(
+      `${this.baseUrl}/contract-pricing?${params.toString()}`,
+    );
+    return response.data;
+  }
+
   // Promotions
   async findAllPromotions(filters?: { isActive?: boolean }): Promise<PromotionalPricing[]> {
     try {

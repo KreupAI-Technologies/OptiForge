@@ -772,6 +772,27 @@ const mockPIPs: PerformanceImprovementPlan[] = [
 // ============================================================================
 
 export class PerformanceManagementService {
+  // ========== Performance Reviews (NestJS HR backend) ==========
+
+  /**
+   * Fetch performance reviews directly from the NestJS HR backend
+   * (GET /hr/performance-reviews). Returns the raw ORM rows as-is;
+   * callers should defensively map to their view model.
+   */
+  static async getHrPerformanceReviews(filters?: Record<string, string>): Promise<any[]> {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const params = new URLSearchParams(filters ?? {});
+    const qs = params.toString();
+    const response = await fetch(`${base}/hr/performance-reviews${qs ? `?${qs}` : ''}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch performance reviews (${response.status})`);
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  }
+
   // ========== Goals ==========
 
   static async getGoals(options?: {

@@ -976,6 +976,50 @@ export class WorkflowService {
 
     return this.request<WorkflowStatistics>('/api/workflow/statistics');
   }
+
+  // -------------------------------------------------------------------------
+  // Order Tracking (live) — GET /api/workflow/order-tracking
+  // -------------------------------------------------------------------------
+
+  /**
+   * Get order-tracking rows (raw ORM shape). Optionally filter by status.
+   * Backend controller: @Controller('api/workflow/order-tracking') @Get()
+   */
+  static async getOrderTracking(status?: string): Promise<any[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    const data = await this.request<any>(`/api/workflow/order-tracking${query}`);
+    return Array.isArray(data) ? data : [];
+  }
+
+  // -------------------------------------------------------------------------
+  // Task Inbox (live) — GET /api/workflow/tasks/inbox/:userId
+  // -------------------------------------------------------------------------
+
+  /**
+   * Get a user's task inbox (raw ORM shape). Backend wraps rows in
+   * { success, data }, so this unwraps to the array.
+   * Backend controller: @Controller('api/workflow/tasks') @Get('inbox/:userId')
+   */
+  static async getTaskInbox(userId: string): Promise<any[]> {
+    const res = await this.request<any>(
+      `/api/workflow/tasks/inbox/${encodeURIComponent(userId)}`
+    );
+    if (Array.isArray(res)) return res;
+    if (res && Array.isArray(res.data)) return res.data;
+    return [];
+  }
+
+  /**
+   * Get a user's task counts.
+   * Backend controller: @Controller('api/workflow/tasks') @Get('counts/:userId')
+   */
+  static async getTaskCounts(userId: string): Promise<Record<string, number>> {
+    const res = await this.request<any>(
+      `/api/workflow/tasks/counts/${encodeURIComponent(userId)}`
+    );
+    const raw = res && res.data ? res.data : res;
+    return (raw as Record<string, number>) ?? {};
+  }
 }
 
 // Export singleton instance

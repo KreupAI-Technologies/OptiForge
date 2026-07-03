@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Eye, Edit, Download, ChevronLeft, ChevronRight, Award, TrendingUp, Clock, CheckCircle, AlertCircle, Star } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 
 interface PerformanceReview {
   id: string;
@@ -24,168 +25,6 @@ interface PerformanceReview {
   reviewDate: string;
   nextReviewDate: string;
 }
-
-const mockPerformanceReviews: PerformanceReview[] = [
-  {
-    id: 'PR-001',
-    reviewId: 'REV-2025-001',
-    employeeId: 'B3-001',
-    employeeName: 'Rajesh Kumar',
-    department: 'Production',
-    reviewPeriod: 'Jan-Jun 2025',
-    reviewType: 'mid_year',
-    rating: 4.5,
-    ratingLabel: 'Exceeds Expectations',
-    status: 'completed',
-    reviewer: 'Priya Sharma',
-    goalsSet: 8,
-    goalsAchieved: 7,
-    keyAchievements: [
-      'Improved production efficiency by 15%',
-      'Reduced waste by 20%',
-      'Successfully led team of 12 workers'
-    ],
-    improvementAreas: [
-      'Time management for project deadlines',
-      'Cross-department communication'
-    ],
-    reviewDate: '2025-07-15',
-    nextReviewDate: '2026-01-15',
-  },
-  {
-    id: 'PR-002',
-    reviewId: 'REV-2025-002',
-    employeeId: 'B3-002',
-    employeeName: 'Priya Patel',
-    department: 'Engineering',
-    reviewPeriod: 'Q3 2025',
-    reviewType: 'quarterly',
-    rating: 5.0,
-    ratingLabel: 'Outstanding',
-    status: 'completed',
-    reviewer: 'Amit Desai',
-    goalsSet: 6,
-    goalsAchieved: 6,
-    keyAchievements: [
-      'Designed 3 new product prototypes',
-      'Secured 2 patents for innovative designs',
-      'Mentored 4 junior engineers',
-      'Completed advanced CAD certification'
-    ],
-    improvementAreas: [],
-    reviewDate: '2025-09-30',
-    nextReviewDate: '2025-12-31',
-  },
-  {
-    id: 'PR-003',
-    reviewId: 'REV-2025-003',
-    employeeId: 'B3-003',
-    employeeName: 'Amit Singh',
-    department: 'Sales',
-    reviewPeriod: 'Q2 2025',
-    reviewType: 'quarterly',
-    rating: 3.5,
-    ratingLabel: 'Meets Expectations',
-    status: 'in_progress',
-    reviewer: 'Neha Gupta',
-    goalsSet: 10,
-    goalsAchieved: 7,
-    keyAchievements: [
-      'Achieved 85% of quarterly sales target',
-      'Acquired 15 new clients',
-      'Improved client retention rate'
-    ],
-    improvementAreas: [
-      'Need to improve closing rate',
-      'Follow-up with leads needs attention',
-      'Product knowledge enhancement required'
-    ],
-    reviewDate: '2025-07-01',
-    nextReviewDate: '2025-10-01',
-  },
-  {
-    id: 'PR-004',
-    reviewId: 'REV-2025-004',
-    employeeId: 'B3-004',
-    employeeName: 'Sneha Reddy',
-    department: 'Quality Control',
-    reviewPeriod: 'Probation Period - 6 months',
-    reviewType: 'probation',
-    rating: 4.2,
-    ratingLabel: 'Exceeds Expectations',
-    status: 'pending',
-    reviewer: 'Rajesh Kumar',
-    goalsSet: 5,
-    goalsAchieved: 4,
-    keyAchievements: [
-      'Quick adaptation to QC procedures',
-      'Identified 12 critical defects',
-      'Completed all required certifications',
-      'Excellent attention to detail'
-    ],
-    improvementAreas: [
-      'Speed up inspection process',
-      'Learn advanced testing equipment'
-    ],
-    reviewDate: '2025-11-01',
-    nextReviewDate: '2026-05-01',
-  },
-  {
-    id: 'PR-005',
-    reviewId: 'REV-2025-005',
-    employeeId: 'B3-005',
-    employeeName: 'Vikram Malhotra',
-    department: 'IT',
-    reviewPeriod: 'Annual Review 2024-2025',
-    reviewType: 'annual',
-    rating: 4.8,
-    ratingLabel: 'Outstanding',
-    status: 'completed',
-    reviewer: 'Sanjay Verma',
-    goalsSet: 12,
-    goalsAchieved: 11,
-    keyAchievements: [
-      'Led successful ERP implementation',
-      'Reduced system downtime by 40%',
-      'Implemented cybersecurity protocols',
-      'Trained 25+ employees on new systems',
-      'Automated 8 manual processes'
-    ],
-    improvementAreas: [
-      'Delegation skills can be improved'
-    ],
-    reviewDate: '2025-06-30',
-    nextReviewDate: '2026-06-30',
-  },
-  {
-    id: 'PR-006',
-    reviewId: 'REV-2025-006',
-    employeeId: 'B3-006',
-    employeeName: 'Kavita Nair',
-    department: 'HR',
-    reviewPeriod: 'Q1 2025',
-    reviewType: 'quarterly',
-    rating: 2.8,
-    ratingLabel: 'Needs Improvement',
-    status: 'overdue',
-    reviewer: 'Deepak Joshi',
-    goalsSet: 8,
-    goalsAchieved: 4,
-    keyAchievements: [
-      'Processed 45 recruitment requests',
-      'Organized 2 employee engagement events'
-    ],
-    improvementAreas: [
-      'Missing deadlines consistently',
-      'Poor communication with candidates',
-      'Incomplete documentation',
-      'Time management issues',
-      'Need to improve HR policy knowledge'
-    ],
-    reviewDate: '2025-04-15',
-    nextReviewDate: '2025-07-15',
-  },
-];
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
@@ -243,12 +82,57 @@ const getRatingStars = (rating: number) => {
 
 export default function PerformancePage() {
   const router = useRouter();
-  const [reviews, setReviews] = useState<PerformanceReview[]>(mockPerformanceReviews);
+  const [reviews, setReviews] = useState<PerformanceReview[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend (GET /hr/performance-reviews) returns raw ORM rows; map defensively.
+        const raw = (await PerformanceManagementService.getHrPerformanceReviews()) as any[];
+        const mapped: PerformanceReview[] = raw.map((r) => ({
+          id: String(r.id ?? ''),
+          reviewId: r.reviewNumber ?? r.reviewId ?? r.code ?? String(r.id ?? ''),
+          employeeId: r.employeeCode ?? r.employeeId ?? r.employee?.employeeCode ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName ?? r.employeeCode ?? '',
+          department: r.department ?? r.employee?.department?.name ?? '',
+          reviewPeriod: r.reviewPeriod ?? r.period ?? '',
+          reviewType: (r.reviewType ?? 'annual') as PerformanceReview['reviewType'],
+          rating: Number(r.overallRating ?? r.rating ?? 0),
+          ratingLabel: r.ratingLabel ?? '',
+          status: (r.status ?? 'pending') as PerformanceReview['status'],
+          reviewer: r.reviewerName ?? r.reviewer ?? '',
+          goalsSet: Number(r.goalsSet ?? 0),
+          goalsAchieved: Number(r.goalsAchieved ?? 0),
+          keyAchievements: Array.isArray(r.keyAchievements) ? r.keyAchievements : [],
+          improvementAreas: Array.isArray(r.improvementAreas) ? r.improvementAreas : [],
+          reviewDate: r.reviewDate ?? '',
+          nextReviewDate: r.nextReviewDate ?? '',
+        }));
+        if (!cancelled) setReviews(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load performance reviews');
+          setReviews([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredReviews = reviews.filter((review) => {
     const matchesSearch =
@@ -274,7 +158,7 @@ export default function PerformancePage() {
       const reviewQuarter = Math.floor(reviewDate.getMonth() / 3);
       return r.status === 'completed' && reviewDate.getFullYear() === now.getFullYear() && reviewQuarter === currentQuarter;
     }).length,
-    avgRating: (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1),
+    avgRating: reviews.length ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : '0.0',
     highPerformers: reviews.filter((r) => r.rating >= 4.5).length,
   };
 
@@ -286,6 +170,23 @@ export default function PerformancePage() {
 
   return (
     <div className="w-full h-full px-3 py-2 w-full max-w-full">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading performance reviews…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && reviews.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No performance reviews found.
+        </div>
+      )}
       {/* Stats */}
       <div className="mb-3">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

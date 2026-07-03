@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface MaintenanceHistory {
   id: string;
@@ -42,152 +43,69 @@ export default function MaintenanceHistoryPage() {
   const [filterPeriod, setFilterPeriod] = useState('all');
   const [selectedHistory, setSelectedHistory] = useState<MaintenanceHistory | null>(null);
 
-  const maintenanceHistory: MaintenanceHistory[] = [
-    {
-      id: '1',
-      maintenanceId: 'MH-2025-089',
-      equipmentCode: 'WELD-ST-01',
-      equipmentName: 'TIG Welding Station #1',
-      maintenanceType: 'inspection',
-      startDate: '2025-10-15 08:00',
-      completionDate: '2025-10-15 10:30',
-      duration: 2.5,
-      technician: 'Ramesh Technician',
-      status: 'completed',
-      workDescription: 'Routine safety inspection, gas leak detection, and electrode condition check',
-      partsReplaced: [],
-      cost: 4500,
-      downtime: 0,
-      remarks: 'All systems operational. No issues found.',
-      nextScheduled: '2025-11-15'
-    },
-    {
-      id: '2',
-      maintenanceId: 'MH-2025-088',
-      equipmentCode: 'CNC-CUT-01',
-      equipmentName: 'CNC Cutting Machine #1',
-      maintenanceType: 'preventive',
-      startDate: '2025-10-10 07:00',
-      completionDate: '2025-10-10 13:00',
-      duration: 6,
-      technician: 'Sunil Technician',
-      status: 'completed',
-      workDescription: 'Spindle bearing lubrication, coolant system flush, and calibration check',
-      partsReplaced: ['Coolant filter', 'Drive belt'],
-      cost: 18500,
-      downtime: 6,
-      remarks: 'Replaced worn drive belt. Machine running smoothly.',
-      nextScheduled: '2025-11-10'
-    },
-    {
-      id: '3',
-      maintenanceId: 'MH-2025-087',
-      equipmentCode: 'PAINT-BOOTH-01',
-      equipmentName: 'Powder Coating Booth #1',
-      maintenanceType: 'corrective',
-      startDate: '2025-10-08 14:00',
-      completionDate: '2025-10-09 11:00',
-      duration: 21,
-      technician: 'Maintenance Team A',
-      status: 'completed',
-      workDescription: 'Filter replacement, exhaust fan motor repair, and temperature sensor calibration',
-      partsReplaced: ['Air filter set', 'Exhaust fan motor', 'Temperature sensor'],
-      cost: 45000,
-      downtime: 21,
-      remarks: 'Major overhaul completed. Booth performance improved significantly.',
-      nextScheduled: '2025-11-08'
-    },
-    {
-      id: '4',
-      maintenanceId: 'MH-2025-086',
-      equipmentCode: 'POLISH-01',
-      equipmentName: 'Polishing Machine #1',
-      maintenanceType: 'breakdown',
-      startDate: '2025-10-05 10:30',
-      completionDate: '2025-10-05 16:45',
-      duration: 6.25,
-      technician: 'Senior Tech Team',
-      status: 'completed',
-      workDescription: 'Emergency repair - motor overheating issue. Motor bearing replacement and cooling system check',
-      partsReplaced: ['Motor bearings', 'Cooling fan'],
-      cost: 32000,
-      downtime: 6.25,
-      remarks: 'Motor bearing failure due to inadequate lubrication. Preventive schedule adjusted.',
-      nextScheduled: '2025-10-20'
-    },
-    {
-      id: '5',
-      maintenanceId: 'MH-2025-085',
-      equipmentCode: 'LASER-CUT-02',
-      equipmentName: 'Laser Cutting Machine #2',
-      maintenanceType: 'preventive',
-      startDate: '2025-10-03 06:00',
-      completionDate: '2025-10-03 10:00',
-      duration: 4,
-      technician: 'Sunil Technician',
-      status: 'completed',
-      workDescription: 'Quarterly laser calibration, optical lens cleaning, and gas pressure check',
-      partsReplaced: ['Protective lens'],
-      cost: 22000,
-      downtime: 4,
-      remarks: 'Laser power optimized. Cutting quality improved.',
-      nextScheduled: '2026-01-03'
-    },
-    {
-      id: '6',
-      maintenanceId: 'MH-2025-084',
-      equipmentCode: 'PRESS-HYDRO-01',
-      equipmentName: 'Hydraulic Press Machine',
-      maintenanceType: 'corrective',
-      startDate: '2025-09-28 08:00',
-      completionDate: '2025-09-29 15:30',
-      duration: 31.5,
-      technician: 'Senior Tech Team',
-      status: 'partially-completed',
-      workDescription: 'Hydraulic seal replacement and pressure system overhaul',
-      partsReplaced: ['Main cylinder seals', 'Hydraulic oil'],
-      cost: 68000,
-      downtime: 31.5,
-      remarks: 'Seals replaced but minor leak persists. Follow-up scheduled.',
-      nextScheduled: '2025-10-15'
-    },
-    {
-      id: '7',
-      maintenanceId: 'MH-2025-083',
-      equipmentCode: 'FORK-LIFT-03',
-      equipmentName: 'Forklift #3',
-      maintenanceType: 'preventive',
-      startDate: '2025-09-25 15:00',
-      completionDate: '2025-09-25 17:00',
-      duration: 2,
-      technician: 'Fleet Technician',
-      status: 'completed',
-      workDescription: 'Monthly inspection: tire pressure check, brake system, and battery maintenance',
-      partsReplaced: [],
-      cost: 3500,
-      downtime: 0,
-      remarks: 'Routine maintenance completed. All systems OK.',
-      nextScheduled: '2025-10-25'
-    },
-    {
-      id: '8',
-      maintenanceId: 'MH-2025-082',
-      equipmentCode: 'ASSY-LINE-01',
-      equipmentName: 'Assembly Conveyor Line #1',
-      maintenanceType: 'breakdown',
-      startDate: '2025-09-20 11:30',
-      completionDate: '2025-09-21 09:00',
-      duration: 21.5,
-      technician: 'Maintenance Team Lead',
-      status: 'completed',
-      workDescription: 'Emergency repair - conveyor chain break. Chain replacement and motor alignment',
-      partsReplaced: ['Conveyor chain', 'Drive sprocket', 'Safety guards'],
-      cost: 95000,
-      downtime: 21.5,
-      remarks: 'Critical breakdown resolved. Production resumed. Chain wear monitoring recommended.',
-      nextScheduled: '2025-10-20'
-    }
-  ];
+  // Maintenance history loaded from the NestJS backend (production/maintenance-logs).
+  const [maintenanceHistory, setMaintenanceHistory] = useState<MaintenanceHistory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (equipmentCode/equipmentName/maintenanceType/
+        // startDate/endDate/status/description/partsReplaced/cost/performedBy...).
+        const raw = (await ProductionOrphanService.getMaintenanceLogs()) as any[];
+        const typeMap: Record<string, MaintenanceHistory['maintenanceType']> = {
+          Preventive: 'preventive', preventive: 'preventive',
+          Corrective: 'corrective', corrective: 'corrective',
+          Breakdown: 'breakdown', breakdown: 'breakdown',
+          Inspection: 'inspection', inspection: 'inspection',
+        };
+        const statusMap: Record<string, MaintenanceHistory['status']> = {
+          Completed: 'completed', completed: 'completed',
+          PartiallyCompleted: 'partially-completed', 'partially-completed': 'partially-completed',
+          Failed: 'failed', failed: 'failed',
+        };
+        const mapped: MaintenanceHistory[] = (Array.isArray(raw) ? raw : []).map((m: any, i: number) => {
+          const parts: string[] = Array.isArray(m?.partsReplaced)
+            ? m.partsReplaced.map((p: any) => (typeof p === 'string' ? p : (p?.name ?? p?.itemName ?? String(p)))).filter(Boolean)
+            : [];
+          return {
+            id: String(m?.id ?? i),
+            maintenanceId: m?.logNumber ?? m?.code ?? String(m?.id ?? i),
+            equipmentCode: m?.equipmentCode ?? '',
+            equipmentName: m?.equipmentName ?? '',
+            maintenanceType: typeMap[m?.maintenanceType] ?? 'preventive',
+            startDate: m?.startDate ?? m?.scheduledDate ?? '',
+            completionDate: m?.endDate ?? '',
+            duration: Number(m?.durationHours ?? 0),
+            technician: m?.performedBy ?? m?.technicianNotes ?? '',
+            status: statusMap[m?.status] ?? 'completed',
+            workDescription: m?.description ?? m?.actionTaken ?? '',
+            partsReplaced: parts,
+            cost: Number(m?.cost ?? 0),
+            downtime: Number(m?.durationHours ?? 0),
+            remarks: m?.technicianNotes ?? '',
+            nextScheduled: m?.scheduledDate ?? '',
+          };
+        });
+        if (!cancelled) setMaintenanceHistory(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load maintenance history');
+          setMaintenanceHistory([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredHistory = maintenanceHistory.filter(record => {
     const matchesSearch =
@@ -223,7 +141,7 @@ export default function MaintenanceHistoryPage() {
   const totalRecords = maintenanceHistory.length;
   const totalCost = maintenanceHistory.reduce((sum, r) => sum + r.cost, 0);
   const totalDowntime = maintenanceHistory.reduce((sum, r) => sum + r.downtime, 0);
-  const avgDuration = maintenanceHistory.reduce((sum, r) => sum + r.duration, 0) / totalRecords;
+  const avgDuration = totalRecords > 0 ? maintenanceHistory.reduce((sum, r) => sum + r.duration, 0) / totalRecords : 0;
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -254,6 +172,23 @@ export default function MaintenanceHistoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading maintenance history…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && maintenanceHistory.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No maintenance history found.
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
 import {
   Users,
   TrendingUp,
@@ -31,9 +32,14 @@ interface LaborRate {
   status: 'active' | 'inactive'
 }
 
+const SKILL_LEVELS: LaborRate['skillLevel'][] = ['trainee', 'skilled', 'expert', 'supervisor']
+
 export default function LaborRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [laborRates, setLaborRates] = useState<LaborRate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const handleAddRate = () => {
     router.push('/estimation/rates/labor/add')
@@ -47,164 +53,50 @@ export default function LaborRatesPage() {
     router.push(`/estimation/rates/labor/history/${laborId}`)
   }
 
-  const [laborRates] = useState<LaborRate[]>([
-    {
-      id: 'LAB-R-001',
-      skillCode: 'WELD-SS',
-      skillName: 'Stainless Steel Welder',
-      department: 'Sink Manufacturing',
-      skillLevel: 'skilled',
-      standardRate: 485,
-      overtimeRate: 727.5,
-      holidayRate: 970,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-002',
-      skillCode: 'MACH-CNC',
-      skillName: 'CNC Machine Operator',
-      department: 'Faucet Manufacturing',
-      skillLevel: 'expert',
-      standardRate: 515,
-      overtimeRate: 772.5,
-      holidayRate: 1030,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-003',
-      skillCode: 'POLISH-CHR',
-      skillName: 'Chrome Polishing Specialist',
-      department: 'Finishing',
-      skillLevel: 'skilled',
-      standardRate: 380,
-      overtimeRate: 570,
-      holidayRate: 760,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-004',
-      skillCode: 'ASSY-FAUCET',
-      skillName: 'Faucet Assembly Technician',
-      department: 'Faucet Manufacturing',
-      skillLevel: 'skilled',
-      standardRate: 365,
-      overtimeRate: 547.5,
-      holidayRate: 730,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-005',
-      skillCode: 'CAST-ALUM',
-      skillName: 'Aluminum Casting Operator',
-      department: 'Cookware Manufacturing',
-      skillLevel: 'skilled',
-      standardRate: 410,
-      overtimeRate: 615,
-      holidayRate: 820,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-006',
-      skillCode: 'QC-INSP',
-      skillName: 'Quality Control Inspector',
-      department: 'Quality Assurance',
-      skillLevel: 'expert',
-      standardRate: 490,
-      overtimeRate: 735,
-      holidayRate: 980,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-007',
-      skillCode: 'CARP-CAB',
-      skillName: 'Cabinet Carpenter',
-      department: 'Cabinet Manufacturing',
-      skillLevel: 'skilled',
-      standardRate: 475,
-      overtimeRate: 712.5,
-      holidayRate: 950,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-008',
-      skillCode: 'STONE-CUT',
-      skillName: 'Stone Cutting Specialist',
-      department: 'Countertop Manufacturing',
-      skillLevel: 'expert',
-      standardRate: 580,
-      overtimeRate: 870,
-      holidayRate: 1160,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-009',
-      skillCode: 'PAINT-IND',
-      skillName: 'Industrial Painter',
-      department: 'Finishing',
-      skillLevel: 'skilled',
-      standardRate: 355,
-      overtimeRate: 532.5,
-      holidayRate: 710,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-010',
-      skillCode: 'SUPV-PROD',
-      skillName: 'Production Supervisor',
-      department: 'Production',
-      skillLevel: 'supervisor',
-      standardRate: 695,
-      overtimeRate: 1042.5,
-      holidayRate: 1390,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-011',
-      skillCode: 'HELP-GEN',
-      skillName: 'General Helper',
-      department: 'All Departments',
-      skillLevel: 'trainee',
-      standardRate: 280,
-      overtimeRate: 420,
-      holidayRate: 560,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'LAB-R-012',
-      skillCode: 'ELECT-TECH',
-      skillName: 'Electrical Technician',
-      department: 'Maintenance',
-      skillLevel: 'expert',
-      standardRate: 520,
-      overtimeRate: 780,
-      holidayRate: 1040,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw ResourceRate[] (rateType=Labor); map to the page's LaborRate model.
+        const res = await estimationResourceRateService.findAllResourceRates('', {
+          rateType: 'Labor',
+        })
+        const raw = (Array.isArray(res) ? res : []) as any[]
+        const mapped: LaborRate[] = raw.map((r) => {
+          const level = String(r.subCategory ?? '').toLowerCase()
+          return {
+            id: r.id,
+            skillCode: r.code ?? '',
+            skillName: r.name ?? '',
+            department: r.category ?? '',
+            skillLevel: SKILL_LEVELS.includes(level as LaborRate['skillLevel'])
+              ? (level as LaborRate['skillLevel'])
+              : 'skilled',
+            standardRate: Number(r.standardRate ?? 0),
+            overtimeRate: Number(r.overtimeRate ?? Number(r.standardRate ?? 0) * 1.5),
+            holidayRate: Number(r.maximumRate ?? Number(r.standardRate ?? 0) * 2),
+            effectiveFrom: r.effectiveFrom ?? '',
+            lastUpdated: r.updatedAt ?? '',
+            status: r.isActive === false ? 'inactive' : 'active',
+          }
+        })
+        if (!cancelled) setLaborRates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load labor rates')
+          setLaborRates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getSkillLevelColor = (level: string) => {
     switch (level) {
@@ -233,7 +125,7 @@ export default function LaborRatesPage() {
   }
 
   const totalLabor = laborRates.length
-  const avgRate = laborRates.reduce((sum, l) => sum + l.standardRate, 0) / totalLabor
+  const avgRate = totalLabor > 0 ? laborRates.reduce((sum, l) => sum + l.standardRate, 0) / totalLabor : 0
   const expertCount = laborRates.filter(l => l.skillLevel === 'expert').length
   const supervisorCount = laborRates.filter(l => l.skillLevel === 'supervisor').length
 
@@ -272,6 +164,23 @@ export default function LaborRatesPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading labor rates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && laborRates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No labor rates found.
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

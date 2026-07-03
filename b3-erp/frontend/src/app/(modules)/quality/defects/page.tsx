@@ -25,6 +25,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { defectService } from '@/services/defect.service';
 
 interface ProjectInfo {
     id: string;
@@ -46,43 +47,36 @@ interface Defect {
     reworkAssignedTo?: string;
 }
 
-const mockDefects: Defect[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        defectType: 'Surface',
-        severity: 'Minor',
-        status: 'Resolved',
-        reportedBy: 'QC Inspector Alice',
-        reportedDate: '2025-01-22',
-        description: 'Small scratch on visible surface',
-        reworkAssignedTo: 'Finishing Team A',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-003',
-        productName: 'Cabinet Frame Assembly',
-        defectType: 'Dimensional',
-        severity: 'Critical',
-        status: 'Rework Assigned',
-        reportedBy: 'QC Inspector Bob',
-        reportedDate: '2025-01-23',
-        description: 'Door frame 2mm off specification',
-        reworkAssignedTo: 'Fabrication Team',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-004',
-        productName: 'Drawer Slide Assembly',
-        defectType: 'Assembly',
-        severity: 'Major',
-        status: 'Under Review',
-        reportedBy: 'QC Inspector Carol',
-        reportedDate: '2025-01-24',
-        description: 'Soft-close mechanism not functioning properly',
-    },
-];
+// Map raw NCR severity/status enums to the page's display labels.
+const SEVERITY_MAP: Record<string, Defect['severity']> = {
+    critical: 'Critical',
+    major: 'Major',
+    minor: 'Minor',
+};
+
+const STATUS_MAP: Record<string, Defect['status']> = {
+    draft: 'Reported',
+    open: 'Reported',
+    reported: 'Reported',
+    under_review: 'Under Review',
+    investigation: 'Under Review',
+    rework: 'Rework Assigned',
+    rework_assigned: 'Rework Assigned',
+    disposition: 'Rework Assigned',
+    closed: 'Resolved',
+    resolved: 'Resolved',
+    verified: 'Resolved',
+};
+
+const DEFECT_TYPE_MAP: Record<string, Defect['defectType']> = {
+    dimensional: 'Dimensional',
+    surface: 'Surface',
+    assembly: 'Assembly',
+    material: 'Material',
+    functional: 'Functional',
+    product: 'Material',
+    process: 'Functional',
+};
 
 export default function DefectManagementPage() {
     const router = useRouter();
@@ -132,17 +126,44 @@ export default function DefectManagementPage() {
         loadProjects();
     }, [searchParams, toast]);
 
-    // Load defects when project is selected
+    // Load defects (non-conformance records) when a project is selected.
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        let cancelled = false;
+        const loadDefects = async () => {
             setLoading(true);
-            // Simulate loading project-specific defects
-            setTimeout(() => {
-                setDefects(mockDefects);
-                setLoading(false);
-            }, 300);
-        }
-    }, [selectedProject]);
+            try {
+                // Backend returns raw NCR ORM rows; map to the page's Defect model.
+                const raw = (await defectService.getAllDefects()) as any[];
+                const mapped: Defect[] = raw.map((n) => ({
+                    id: String(n.id ?? n.ncrNumber ?? ''),
+                    woNumber: n.workOrderNumber ?? n.ncrNumber ?? '—',
+                    productName: n.itemName ?? n.itemCode ?? n.title ?? 'Unknown Item',
+                    defectType: DEFECT_TYPE_MAP[String(n.ncrType ?? '').toLowerCase()] ?? 'Material',
+                    severity: SEVERITY_MAP[String(n.severity ?? '').toLowerCase()] ?? 'Minor',
+                    status: STATUS_MAP[String(n.status ?? '').toLowerCase()] ?? 'Reported',
+                    reportedBy: n.reportedByName ?? 'Unknown',
+                    reportedDate: n.reportedDate
+                        ? String(n.reportedDate).slice(0, 10)
+                        : '',
+                    description: n.description ?? n.title ?? '',
+                }));
+                if (!cancelled) setDefects(mapped);
+            } catch (error) {
+                console.error('Failed to load defects:', error);
+                if (!cancelled) {
+                    setDefects([]);
+                    toast({ title: 'Error', description: 'Failed to load defects', variant: 'destructive' });
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        loadDefects();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedProject, toast]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
         setSelectedProject(project);
@@ -405,6 +426,12 @@ export default function DefectManagementPage() {
                                 </div>
                             ))}
                         </div>
+
+                        {filteredDefects.length === 0 && (
+                            <div className="bg-white rounded-lg border p-12 text-center text-gray-500">
+                                No defects found for this project.
+                            </div>
+                        )}
                     </>
                 )}
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,15 +8,52 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import LogisticsManagementService from '@/services/logistics-management.service';
+
+interface GatePassRow {
+    id: string;
+    type: string;
+    vehicle: string;
+    driver: string;
+    status: string;
+    checkOutTime: string | null;
+}
 
 export default function GatePassManagerPage() {
-    const [passes, setPasses] = useState([
-        { id: 'GP-001', type: 'Returnable', vehicle: 'MH-01-AB-1234', driver: 'Rajesh Kumar', status: 'Checked Out', checkOutTime: '09:30 AM' },
-        { id: 'GP-002', type: 'Non-Returnable', vehicle: 'MH-02-CD-5678', driver: 'Amit Sharma', status: 'Issued', checkOutTime: null },
-    ]);
+    const [passes, setPasses] = useState<GatePassRow[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [type, setType] = useState('returnable');
     const [vehicle, setVehicle] = useState('');
     const [driver, setDriver] = useState('');
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await LogisticsManagementService.getGatePasses();
+                if (!mounted) return;
+                const rows: GatePassRow[] = (data || []).map((g: any) => ({
+                    id: String(g?.gatePassNumber || g?.gatePassCode || g?.id || ''),
+                    type: g?.gatePassType || '-',
+                    vehicle: g?.vehicleNumber || '-',
+                    driver: g?.driverName || '-',
+                    status: g?.status || 'Issued',
+                    checkOutTime: g?.checkOutTime || null,
+                }));
+                setPasses(rows);
+            } catch (e: any) {
+                if (mounted) setError(e?.message || 'Failed to load gate passes');
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const handleCreatePass = (e: React.FormEvent) => {
         e.preventDefault();
@@ -98,7 +135,28 @@ export default function GatePassManagerPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {passes.map((pass) => (
+                            {loading && (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                                        Loading gate passes...
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {!loading && error && (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-red-600 py-6">
+                                        {error}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {!loading && !error && passes.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                                        No gate passes found.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {!loading && !error && passes.map((pass) => (
                                 <TableRow key={pass.id}>
                                     <TableCell className="font-medium">{pass.id}</TableCell>
                                     <TableCell>{pass.type}</TableCell>

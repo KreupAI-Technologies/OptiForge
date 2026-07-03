@@ -20,6 +20,7 @@ import {
   Eye,
   Bell,
 } from 'lucide-react';
+import { WorkflowService } from '@/services/workflow.service';
 
 // Order status types matching backend
 type OrderTrackingStatus =
@@ -69,110 +70,6 @@ interface WorkflowMetrics {
   completedToday: number;
 }
 
-// Mock data for demonstration
-const mockOrders: OrderTracking[] = [
-  {
-    id: '1',
-    orderId: 'ord-001',
-    orderNumber: 'SO-2024-001',
-    customerName: 'ABC Manufacturing Ltd',
-    status: 'in_production',
-    totalAmount: 125000,
-    itemCount: 5,
-    expectedDeliveryDate: '2024-12-15',
-    progress: 45,
-    events: [
-      { status: 'order_placed', timestamp: '2024-11-15T10:00:00', description: 'Order placed' },
-      { status: 'order_confirmed', timestamp: '2024-11-15T14:30:00', description: 'Order confirmed' },
-      { status: 'production_planning', timestamp: '2024-11-16T09:00:00', description: 'Production planning started' },
-      { status: 'in_production', timestamp: '2024-11-18T08:00:00', description: 'Production started' },
-    ],
-    workOrders: [
-      { workOrderNumber: 'WO-001', itemName: 'Kitchen Cabinet A', quantity: 10, status: 'in_progress' },
-      { workOrderNumber: 'WO-002', itemName: 'Kitchen Cabinet B', quantity: 5, status: 'pending' },
-    ],
-  },
-  {
-    id: '2',
-    orderId: 'ord-002',
-    orderNumber: 'SO-2024-002',
-    customerName: 'XYZ Interiors',
-    status: 'quality_check',
-    totalAmount: 85000,
-    itemCount: 3,
-    expectedDeliveryDate: '2024-12-10',
-    progress: 65,
-    events: [
-      { status: 'order_placed', timestamp: '2024-11-10T10:00:00', description: 'Order placed' },
-      { status: 'in_production', timestamp: '2024-11-12T08:00:00', description: 'Production started' },
-      { status: 'quality_check', timestamp: '2024-11-19T14:00:00', description: 'Quality check in progress' },
-    ],
-    workOrders: [
-      { workOrderNumber: 'WO-003', itemName: 'Modular Kitchen Set', quantity: 3, status: 'completed' },
-    ],
-  },
-  {
-    id: '3',
-    orderId: 'ord-003',
-    orderNumber: 'SO-2024-003',
-    customerName: 'Home Solutions Inc',
-    status: 'ready_for_dispatch',
-    totalAmount: 200000,
-    itemCount: 8,
-    expectedDeliveryDate: '2024-12-05',
-    progress: 85,
-    events: [
-      { status: 'order_placed', timestamp: '2024-11-05T10:00:00', description: 'Order placed' },
-      { status: 'ready_for_dispatch', timestamp: '2024-11-20T10:00:00', description: 'Ready for dispatch' },
-    ],
-    workOrders: [
-      { workOrderNumber: 'WO-004', itemName: 'Premium Cabinet Set', quantity: 8, status: 'completed' },
-    ],
-  },
-  {
-    id: '4',
-    orderId: 'ord-004',
-    orderNumber: 'SO-2024-004',
-    customerName: 'Elite Kitchens',
-    status: 'dispatched',
-    totalAmount: 150000,
-    itemCount: 6,
-    expectedDeliveryDate: '2024-12-08',
-    progress: 90,
-    events: [
-      { status: 'dispatched', timestamp: '2024-11-19T16:00:00', description: 'Order dispatched' },
-    ],
-    workOrders: [
-      { workOrderNumber: 'WO-005', itemName: 'Custom Kitchen', quantity: 6, status: 'completed' },
-    ],
-  },
-  {
-    id: '5',
-    orderId: 'ord-005',
-    orderNumber: 'SO-2024-005',
-    customerName: 'Modern Living',
-    status: 'order_confirmed',
-    totalAmount: 95000,
-    itemCount: 4,
-    expectedDeliveryDate: '2024-12-20',
-    progress: 15,
-    events: [
-      { status: 'order_placed', timestamp: '2024-11-20T09:00:00', description: 'Order placed' },
-      { status: 'order_confirmed', timestamp: '2024-11-20T11:00:00', description: 'Order confirmed' },
-    ],
-    workOrders: [],
-  },
-];
-
-const mockMetrics: WorkflowMetrics = {
-  totalOrders: 45,
-  inProduction: 12,
-  pendingQC: 5,
-  readyToShip: 8,
-  overdue: 2,
-  completedToday: 3,
-};
-
 // Status configuration
 const statusConfig: Record<OrderTrackingStatus, { label: string; color: string; bgColor: string; icon: React.ElementType }> = {
   order_placed: { label: 'Order Placed', color: 'text-gray-600', bgColor: 'bg-gray-100', icon: Clock },
@@ -192,11 +89,93 @@ const statusConfig: Record<OrderTrackingStatus, { label: string; color: string; 
 
 export default function WorkflowDashboardPage() {
   const router = useRouter();
-  const [orders, setOrders] = useState<OrderTracking[]>(mockOrders);
-  const [metrics, setMetrics] = useState<WorkflowMetrics>(mockMetrics);
+  const emptyMetrics: WorkflowMetrics = {
+    totalOrders: 0,
+    inProduction: 0,
+    pendingQC: 0,
+    readyToShip: 0,
+    overdue: 0,
+    completedToday: 0,
+  };
+  const [orders, setOrders] = useState<OrderTracking[]>([]);
+  const [metrics, setMetrics] = useState<WorkflowMetrics>(emptyMetrics);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadOrders = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns raw order_tracking rows; map defensively to the
+      // page's OrderTracking model.
+      const raw = (await WorkflowService.getOrderTracking()) as any[];
+      const mapped: OrderTracking[] = (raw ?? []).map((o) => {
+        const events = Array.isArray(o.events) ? o.events : [];
+        const workOrders = Array.isArray(o.workOrders) ? o.workOrders : [];
+        return {
+          id: String(o.id ?? o.orderId ?? ''),
+          orderId: o.orderId ?? o.id ?? '',
+          orderNumber: o.orderNumber ?? '',
+          customerName: o.customerName ?? '',
+          status: (o.status ?? 'order_placed') as OrderTrackingStatus,
+          totalAmount: Number(o.totalAmount ?? 0),
+          itemCount: Number(o.itemCount ?? 0),
+          expectedDeliveryDate: o.expectedDeliveryDate ?? '',
+          progress: Number(o.progress ?? 0),
+          events: events.map((e: any) => ({
+            status: e.status ?? '',
+            timestamp: e.timestamp ?? '',
+            description: e.description ?? '',
+          })),
+          workOrders: workOrders.map((w: any) => ({
+            workOrderNumber: w.workOrderNumber ?? '',
+            itemName: w.itemName ?? '',
+            quantity: Number(w.quantity ?? 0),
+            status: w.status ?? '',
+          })),
+        };
+      });
+
+      const today = new Date().toDateString();
+      const derived: WorkflowMetrics = {
+        totalOrders: mapped.length,
+        inProduction: mapped.filter((o) => o.status === 'in_production').length,
+        pendingQC: mapped.filter((o) => o.status === 'quality_check').length,
+        readyToShip: mapped.filter((o) => o.status === 'ready_for_dispatch').length,
+        overdue: mapped.filter(
+          (o) =>
+            o.expectedDeliveryDate &&
+            new Date(o.expectedDeliveryDate) < new Date() &&
+            o.status !== 'completed' &&
+            o.status !== 'delivered' &&
+            o.status !== 'cancelled',
+        ).length,
+        completedToday: mapped.filter(
+          (o) =>
+            (o.status === 'completed' || o.status === 'delivered') &&
+            o.events.some(
+              (e) => e.timestamp && new Date(e.timestamp).toDateString() === today,
+            ),
+        ).length,
+      };
+
+      setOrders(mapped);
+      setMetrics(derived);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load order tracking');
+      setOrders([]);
+      setMetrics(emptyMetrics);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter orders based on search and status
   const filteredOrders = orders.filter(order => {
@@ -207,10 +186,7 @@ export default function WorkflowDashboardPage() {
   });
 
   const handleRefresh = async () => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    await loadOrders();
   };
 
   const formatCurrency = (amount: number) => {
@@ -254,6 +230,23 @@ export default function WorkflowDashboardPage() {
       </div>
 
       <div className="w-full px-3 py-2">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading order tracking…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && orders.length === 0 && (
+          <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            No orders found.
+          </div>
+        )}
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2 mb-3">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">

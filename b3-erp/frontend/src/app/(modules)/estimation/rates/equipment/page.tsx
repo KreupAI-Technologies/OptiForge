@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
 import {
   Wrench,
   TrendingUp,
@@ -37,6 +38,50 @@ interface EquipmentRate {
 export default function EquipmentRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [equipmentRates, setEquipmentRates] = useState<EquipmentRate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw equipment rate cards; map to the page's EquipmentRate model.
+        const res = await estimationResourceRateService.findAllEquipmentRates('')
+        const raw = (Array.isArray(res) ? res : []) as any[]
+        const mapped: EquipmentRate[] = raw.map((e) => ({
+          id: e.id,
+          equipmentCode: e.code ?? '',
+          equipmentName: e.name ?? '',
+          category: e.category ?? '',
+          hourlyRate: Number(e.hourlyRate ?? 0),
+          dailyRate: Number(e.dailyRate ?? 0),
+          weeklyRate: Number(e.weeklyRate ?? 0),
+          monthlyRate: Number(e.monthlyRate ?? 0),
+          operatorIncluded: Number(e.operatorCostPerHour ?? 0) > 0,
+          fuelIncluded: Number(e.fuelCostPerHour ?? 0) > 0,
+          minimumHours: Number(e.minimumHours ?? 0),
+          effectiveFrom: e.effectiveFrom ?? '',
+          lastUpdated: e.updatedAt ?? e.createdAt ?? '',
+          status: e.isActive === false ? 'inactive' : 'active',
+        }))
+        if (!cancelled) setEquipmentRates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load equipment rates')
+          setEquipmentRates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleAddRate = () => {
     router.push('/estimation/rates/equipment/add')
@@ -49,201 +94,6 @@ export default function EquipmentRatesPage() {
   const handleViewHistory = (equipmentId: string) => {
     router.push(`/estimation/rates/equipment/history/${equipmentId}`)
   }
-
-  const [equipmentRates] = useState<EquipmentRate[]>([
-    {
-      id: 'EQ-R-001',
-      equipmentCode: 'CNC-FAU-001',
-      equipmentName: 'CNC Machine - Faucet Body Production',
-      category: 'CNC Machinery',
-      hourlyRate: 850,
-      dailyRate: 6800,
-      weeklyRate: 40800,
-      monthlyRate: 163200,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-002',
-      equipmentCode: 'WELD-SS-AUTO',
-      equipmentName: 'Automatic Welding Machine - SS Sinks',
-      category: 'Welding Equipment',
-      hourlyRate: 650,
-      dailyRate: 5200,
-      weeklyRate: 31200,
-      monthlyRate: 124800,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-003',
-      equipmentCode: 'LASER-CUT-001',
-      equipmentName: 'Laser Cutting Machine',
-      category: 'Cutting Equipment',
-      hourlyRate: 1200,
-      dailyRate: 9600,
-      weeklyRate: 57600,
-      monthlyRate: 230400,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-004',
-      equipmentCode: 'PRESS-HYD-500',
-      equipmentName: 'Hydraulic Press 500 Ton',
-      category: 'Pressing Equipment',
-      hourlyRate: 950,
-      dailyRate: 7600,
-      weeklyRate: 45600,
-      monthlyRate: 182400,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-005',
-      equipmentCode: 'POLISH-AUTO',
-      equipmentName: 'Automatic Polishing Machine',
-      category: 'Finishing Equipment',
-      hourlyRate: 550,
-      dailyRate: 4400,
-      weeklyRate: 26400,
-      monthlyRate: 105600,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-006',
-      equipmentCode: 'SPRAY-BOOTH',
-      equipmentName: 'Powder Coating Spray Booth',
-      category: 'Finishing Equipment',
-      hourlyRate: 750,
-      dailyRate: 6000,
-      weeklyRate: 36000,
-      monthlyRate: 144000,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 8,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-007',
-      equipmentCode: 'DRILL-MAG',
-      equipmentName: 'Magnetic Drilling Machine',
-      category: 'Drilling Equipment',
-      hourlyRate: 420,
-      dailyRate: 3360,
-      weeklyRate: 20160,
-      monthlyRate: 80640,
-      operatorIncluded: false,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-008',
-      equipmentCode: 'STONE-CUT-BRIDGE',
-      equipmentName: 'Bridge Saw - Stone Cutting',
-      category: 'Stone Working Equipment',
-      hourlyRate: 1100,
-      dailyRate: 8800,
-      weeklyRate: 52800,
-      monthlyRate: 211200,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-009',
-      equipmentCode: 'EDGE-POLISH',
-      equipmentName: 'Edge Polishing Machine - Countertops',
-      category: 'Stone Working Equipment',
-      hourlyRate: 680,
-      dailyRate: 5440,
-      weeklyRate: 32640,
-      monthlyRate: 130560,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-010',
-      equipmentCode: 'FORK-LIFT-3T',
-      equipmentName: 'Forklift 3 Ton Capacity',
-      category: 'Material Handling',
-      hourlyRate: 380,
-      dailyRate: 3040,
-      weeklyRate: 18240,
-      monthlyRate: 72960,
-      operatorIncluded: true,
-      fuelIncluded: true,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-011',
-      equipmentCode: 'SAW-PANEL',
-      equipmentName: 'Panel Saw - Cabinet Making',
-      category: 'Woodworking Equipment',
-      hourlyRate: 520,
-      dailyRate: 4160,
-      weeklyRate: 24960,
-      monthlyRate: 99840,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'EQ-R-012',
-      equipmentCode: 'EDGE-BAND',
-      equipmentName: 'Edge Banding Machine',
-      category: 'Woodworking Equipment',
-      hourlyRate: 450,
-      dailyRate: 3600,
-      weeklyRate: 21600,
-      monthlyRate: 86400,
-      operatorIncluded: true,
-      fuelIncluded: false,
-      minimumHours: 4,
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    }
-  ])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -259,7 +109,7 @@ export default function EquipmentRatesPage() {
   }
 
   const totalEquipment = equipmentRates.length
-  const avgHourlyRate = equipmentRates.reduce((sum, e) => sum + e.hourlyRate, 0) / totalEquipment
+  const avgHourlyRate = totalEquipment > 0 ? equipmentRates.reduce((sum, e) => sum + e.hourlyRate, 0) / totalEquipment : 0
   const activeCount = equipmentRates.filter(e => e.status === 'active').length
   const withOperator = equipmentRates.filter(e => e.operatorIncluded).length
 
@@ -298,6 +148,23 @@ export default function EquipmentRatesPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading equipment rates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && equipmentRates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No equipment rates found.
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

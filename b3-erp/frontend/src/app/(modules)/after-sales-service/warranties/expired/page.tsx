@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { WarrantyService } from '@/services/warranty.service';
 import { useRouter } from 'next/navigation';
 import {
   XCircle,
@@ -67,184 +68,79 @@ const ExpiredWarrantiesPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedWarranty, setSelectedWarranty] = useState<ExpiredWarranty | null>(null);
 
-  const expiredWarranties: ExpiredWarranty[] = [
-    {
-      id: '1',
-      warrantyNumber: 'WRN-2024-00876',
-      warrantyType: 'Standard',
-      customerId: 'CUST004',
-      customerName: 'Elite Contractors & Builders',
-      customerPhone: '+91-98765-44444',
-      customerEmail: 'warranty@elitecontractors.com',
-      equipmentId: 'EQP-OV-2024-543',
-      equipmentModel: 'Built-in Oven 60L',
-      productCategory: 'Cooking Appliances',
-      status: 'expired',
-      startDate: '2024-02-01',
-      endDate: '2025-01-31',
-      expiredDays: 35,
-      durationMonths: 12,
-      coverage: 'Parts & Labor',
-      claimCount: 3,
-      totalClaimValue: 45000,
-      approvedClaimValue: 42000,
-      finalClaimUtilization: 85,
-      isExtended: false,
-      extensionEligible: true,
-      renewalOffered: false,
-      lastServiceDate: '2024-12-15',
-      totalServiceHistory: 5,
-      customerSatisfaction: 4,
-      extensionRecommendation: 'Highly Recommended'
-    },
-    {
-      id: '2',
-      warrantyNumber: 'WRN-2023-00567',
-      warrantyType: 'Extended',
-      customerId: 'CUST007',
-      customerName: 'Royal Homes Hyderabad',
-      customerPhone: '+91-98765-55555',
-      customerEmail: 'service@royalhomes.in',
-      equipmentId: 'EQP-MW-2023-234',
-      equipmentModel: 'Microwave Convection 28L',
-      productCategory: 'Kitchen Appliances',
-      status: 'expired',
-      startDate: '2023-03-15',
-      endDate: '2024-09-14',
-      expiredDays: 129,
-      durationMonths: 18,
-      coverage: 'Comprehensive',
-      claimCount: 6,
-      totalClaimValue: 78000,
-      approvedClaimValue: 65000,
-      finalClaimUtilization: 95,
-      isExtended: true,
-      baseWarrantyId: 'WRN-2023-00123',
-      extensionEligible: false,
-      renewalOffered: true,
-      lastServiceDate: '2024-08-20',
-      totalServiceHistory: 12,
-      customerSatisfaction: 3,
-      extensionRecommendation: 'Consider'
-    },
-    {
-      id: '3',
-      warrantyNumber: 'WRN-2023-00123',
-      warrantyType: 'Manufacturer',
-      customerId: 'CUST008',
-      customerName: 'Modern Living Solutions',
-      customerPhone: '+91-98765-66666',
-      customerEmail: 'support@modernliving.co.in',
-      equipmentId: 'EQP-CH-2023-890',
-      equipmentModel: 'Chimney Island 60cm',
-      productCategory: 'Kitchen Appliances',
-      status: 'expired',
-      startDate: '2023-01-10',
-      endDate: '2024-07-09',
-      expiredDays: 167,
-      durationMonths: 18,
-      coverage: 'Parts Only',
-      claimCount: 2,
-      totalClaimValue: 25000,
-      approvedClaimValue: 22000,
-      finalClaimUtilization: 40,
-      isExtended: false,
-      extensionEligible: true,
-      renewalOffered: true,
-      lastServiceDate: '2024-06-25',
-      totalServiceHistory: 4,
-      customerSatisfaction: 5,
-      extensionRecommendation: 'Recommended'
-    },
-    {
-      id: '4',
-      warrantyNumber: 'WRN-2023-00456',
-      warrantyType: 'Dealer',
-      customerId: 'CUST009',
-      customerName: 'Premium Interiors Pune',
-      customerPhone: '+91-98765-77777',
-      customerEmail: 'warranty@premiuminteriors.com',
-      equipmentId: 'EQP-DW-2023-345',
-      equipmentModel: 'Dishwasher 12 Place Settings',
-      productCategory: 'Kitchen Appliances',
-      status: 'expired',
-      startDate: '2023-06-20',
-      endDate: '2024-06-19',
-      expiredDays: 187,
-      durationMonths: 12,
-      coverage: 'Labor Only',
-      claimCount: 1,
-      totalClaimValue: 8000,
-      approvedClaimValue: 8000,
-      finalClaimUtilization: 20,
-      isExtended: false,
-      extensionEligible: true,
-      renewalOffered: false,
-      lastServiceDate: '2024-05-30',
-      totalServiceHistory: 2,
-      customerSatisfaction: 4,
-      extensionRecommendation: 'Recommended'
-    },
-    {
-      id: '5',
-      warrantyNumber: 'WRN-2022-00234',
-      warrantyType: 'Standard',
-      customerId: 'CUST010',
-      customerName: 'Cosmos Furniture Mart',
-      customerPhone: '+91-98765-88888',
-      customerEmail: 'service@cosmos.co.in',
-      equipmentId: 'EQP-RO-2022-123',
-      equipmentModel: 'RO Water Purifier 8L',
-      productCategory: 'Water Treatment',
-      status: 'expired',
-      startDate: '2022-09-01',
-      endDate: '2023-08-31',
-      expiredDays: 418,
-      durationMonths: 12,
-      coverage: 'Parts & Labor',
-      claimCount: 8,
-      totalClaimValue: 95000,
-      approvedClaimValue: 85000,
-      finalClaimUtilization: 100,
-      isExtended: false,
-      extensionEligible: false,
-      renewalOffered: true,
-      lastServiceDate: '2023-08-15',
-      totalServiceHistory: 15,
-      customerSatisfaction: 2,
-      extensionRecommendation: 'Not Recommended'
-    },
-    {
-      id: '6',
-      warrantyNumber: 'WRN-2023-00789',
-      warrantyType: 'Extended',
-      customerId: 'CUST011',
-      customerName: 'Luxury Living Spaces',
-      customerPhone: '+91-98765-99999',
-      customerEmail: 'warranty@luxuryspaces.com',
-      equipmentId: 'EQP-HB-2023-567',
-      equipmentModel: 'Built-in Hob 5 Burner',
-      productCategory: 'Cooking Appliances',
-      status: 'expired',
-      startDate: '2023-04-15',
-      endDate: '2024-10-14',
-      expiredDays: 100,
-      durationMonths: 18,
-      coverage: 'Comprehensive',
-      claimCount: 4,
-      totalClaimValue: 52000,
-      approvedClaimValue: 48000,
-      finalClaimUtilization: 75,
-      isExtended: true,
-      baseWarrantyId: 'WRN-2023-00456',
-      extensionEligible: true,
-      renewalOffered: false,
-      lastServiceDate: '2024-09-20',
-      totalServiceHistory: 8,
-      customerSatisfaction: 5,
-      extensionRecommendation: 'Highly Recommended'
-    }
-  ];
+  const [expiredWarranties, setExpiredWarranties] = useState<ExpiredWarranty[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // WarrantyService.getAllWarranties returns the flat Warranty shape; keep
+        // only expired warranties and map into this page's ExpiredWarranty view model.
+        const raw = (await WarrantyService.getAllWarranties()) as any[];
+        const typeMap: Record<string, ExpiredWarranty['warrantyType']> = {
+          standard: 'Standard', extended: 'Extended',
+          manufacturer: 'Manufacturer', dealer: 'Dealer',
+        };
+        const coverageMap: Record<string, ExpiredWarranty['coverage']> = {
+          'parts only': 'Parts Only', 'labor only': 'Labor Only',
+          'parts & labor': 'Parts & Labor', comprehensive: 'Comprehensive',
+        };
+        const dayMs = 1000 * 60 * 60 * 24;
+        const mapped: ExpiredWarranty[] = (Array.isArray(raw) ? raw : [])
+          .filter((w) => String(w.status ?? '').toLowerCase() === 'expired')
+          .map((w) => {
+            const end = w.endDate ?? w.end_date;
+            const expiredDays = end
+              ? Math.max(0, Math.round((Date.now() - new Date(end).getTime()) / dayMs))
+              : 0;
+            return {
+              id: String(w.id ?? ''),
+              warrantyNumber: w.warrantyNumber ?? w.warranty_number ?? '',
+              warrantyType: typeMap[String(w.warrantyType ?? '').toLowerCase()] ?? 'Standard',
+              customerId: String(w.customerId ?? w.customer_id ?? ''),
+              customerName: w.customerName ?? w.customer_name ?? '',
+              customerPhone: w.customerPhone ?? w.phone ?? '',
+              customerEmail: w.customerEmail ?? w.email ?? '',
+              equipmentId: String(w.equipmentId ?? w.equipment_id ?? ''),
+              equipmentModel: w.equipmentModel ?? w.equipment_model ?? '',
+              productCategory: w.productCategory ?? w.category ?? '',
+              status: 'expired',
+              startDate: w.startDate ?? w.start_date ?? '',
+              endDate: end ?? '',
+              expiredDays,
+              durationMonths: Number(w.durationMonths ?? w.duration_months ?? 0),
+              coverage: coverageMap[String(w.coverage ?? '').toLowerCase()] ?? 'Parts & Labor',
+              claimCount: Number(w.claimCount ?? 0),
+              totalClaimValue: Number(w.totalClaimValue ?? 0),
+              approvedClaimValue: Number(w.approvedClaimValue ?? 0),
+              finalClaimUtilization: Number(w.finalClaimUtilization ?? 0),
+              isExtended: Boolean(w.isExtended ?? false),
+              baseWarrantyId: w.baseWarrantyId ?? undefined,
+              extensionEligible: Boolean(w.extensionEligible ?? false),
+              renewalOffered: Boolean(w.renewalOffered ?? false),
+              lastServiceDate: w.lastServiceDate ?? undefined,
+              totalServiceHistory: Number(w.totalServiceHistory ?? 0),
+              customerSatisfaction: w.customerSatisfaction != null ? Number(w.customerSatisfaction) : undefined,
+              extensionRecommendation: (w.extensionRecommendation as ExpiredWarranty['extensionRecommendation']) ?? 'Consider',
+            };
+          });
+        if (!cancelled) setExpiredWarranties(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load warranties');
+          setExpiredWarranties([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredWarranties = expiredWarranties.filter(warranty => {
     const matchesSearch = warranty.warrantyNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -335,6 +231,23 @@ const ExpiredWarrantiesPage = () => {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading warranties…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && expiredWarranties.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No expired warranties found.
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

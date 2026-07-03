@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, Filter, Calendar, Package, CheckCircle, Clock, AlertTriangle, Eye, ThumbsUp, ArrowRight } from 'lucide-react';
 import {
@@ -10,6 +10,7 @@ import {
   ConvertToPOModal,
   PlannedOrder as PlannedOrderType
 } from '@/components/production/PlannedOrderModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface PlannedOrder {
   id: string;
@@ -43,199 +44,76 @@ export default function MRPPlannedOrdersPage() {
   const [isConvertOpen, setIsConvertOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PlannedOrder | null>(null);
 
-  // Mock data for planned orders
-  const plannedOrders: PlannedOrder[] = [
-    {
-      id: '1',
-      plannedOrderNumber: 'PLO-2025-1001',
-      materialCode: 'RM-SS304-001',
-      materialName: 'Stainless Steel 304 Sheet (2mm)',
-      category: 'Raw Material',
-      quantity: 500,
-      uom: 'kg',
-      plannedReleaseDate: '2025-10-18',
-      plannedReceiptDate: '2025-10-25',
-      leadTimeDays: 7,
-      supplier: 'Steel India Pvt Ltd',
-      estimatedCost: 275000,
-      priority: 'high',
-      orderType: 'purchase',
-      status: 'approved',
-      sourceRequirements: ['WO-2025-1135', 'WO-2025-1142'],
-      notes: 'Urgent order for kitchen sink production'
-    },
-    {
-      id: '2',
-      plannedOrderNumber: 'PLO-2025-1002',
-      materialCode: 'RM-BRASS-002',
-      materialName: 'Brass Rod (25mm diameter)',
-      category: 'Raw Material',
-      quantity: 500,
-      uom: 'meter',
-      plannedReleaseDate: '2025-10-13',
-      plannedReceiptDate: '2025-10-23',
-      leadTimeDays: 10,
-      supplier: 'Metal Works Limited',
-      estimatedCost: 185000,
-      priority: 'urgent',
-      orderType: 'purchase',
-      status: 'pending-approval',
-      sourceRequirements: ['WO-2025-1138'],
-      notes: 'Critical shortage - expedite approval'
-    },
-    {
-      id: '3',
-      plannedOrderNumber: 'PLO-2025-1003',
-      materialCode: 'CP-HANDLE-005',
-      materialName: 'Chrome Plated Lever Handle',
-      category: 'Component',
-      quantity: 300,
-      uom: 'pcs',
-      plannedReleaseDate: '2025-10-19',
-      plannedReceiptDate: '2025-10-27',
-      leadTimeDays: 8,
-      supplier: 'Internal Production',
-      estimatedCost: 45000,
-      priority: 'medium',
-      orderType: 'production',
-      status: 'released',
-      sourceRequirements: ['WO-2025-1138', 'WO-2025-1140'],
-      notes: 'Internal manufacturing order'
-    },
-    {
-      id: '4',
-      plannedOrderNumber: 'PLO-2025-1004',
-      materialCode: 'RM-GRANITE-004',
-      materialName: 'Granite Slab - Black Galaxy',
-      category: 'Raw Material',
-      quantity: 200,
-      uom: 'sq.ft',
-      plannedReleaseDate: '2025-10-14',
-      plannedReceiptDate: '2025-10-26',
-      leadTimeDays: 12,
-      supplier: 'Indian Granite Suppliers',
-      estimatedCost: 168000,
-      priority: 'high',
-      orderType: 'purchase',
-      status: 'approved',
-      sourceRequirements: ['WO-2025-1145'],
-      notes: 'Premium quality granite for countertops'
-    },
-    {
-      id: '5',
-      plannedOrderNumber: 'PLO-2025-1005',
-      materialCode: 'CP-GASKET-007',
-      materialName: 'Silicone Gasket (Food Grade)',
-      category: 'Component',
-      quantity: 600,
-      uom: 'pcs',
-      plannedReleaseDate: '2025-10-19',
-      plannedReceiptDate: '2025-10-24',
-      leadTimeDays: 5,
-      supplier: 'Silicone Tech India',
-      estimatedCost: 36000,
-      priority: 'urgent',
-      orderType: 'purchase',
-      status: 'released',
-      sourceRequirements: ['WO-2025-1135', 'WO-2025-1142'],
-      notes: 'Food-grade certification required'
-    },
-    {
-      id: '6',
-      plannedOrderNumber: 'PLO-2025-1006',
-      materialCode: 'RM-WOOD-008',
-      materialName: 'Hardwood Plywood (18mm)',
-      category: 'Raw Material',
-      quantity: 50,
-      uom: 'sheet',
-      plannedReleaseDate: '2025-10-19',
-      plannedReceiptDate: '2025-10-30',
-      leadTimeDays: 11,
-      supplier: 'Premium Wood Industries',
-      estimatedCost: 67500,
-      priority: 'low',
-      orderType: 'purchase',
-      status: 'pending-approval',
-      sourceRequirements: ['WO-2025-1150'],
-      notes: 'For cabinet manufacturing'
-    },
-    {
-      id: '7',
-      plannedOrderNumber: 'PLO-2025-1007',
-      materialCode: 'CP-MOTOR-009',
-      materialName: 'Electric Motor (250W) - Kitchen Appliance',
-      category: 'Component',
-      quantity: 200,
-      uom: 'pcs',
-      plannedReleaseDate: '2025-10-04',
-      plannedReceiptDate: '2025-10-22',
-      leadTimeDays: 18,
-      supplier: 'Electric Motors Pvt Ltd',
-      estimatedCost: 320000,
-      priority: 'urgent',
-      orderType: 'purchase',
-      status: 'converted',
-      sourceRequirements: ['WO-2025-1143'],
-      notes: 'Converted to PO-2025-5432'
-    },
-    {
-      id: '8',
-      plannedOrderNumber: 'PLO-2025-1008',
-      materialCode: 'RM-CERAMIC-010',
-      materialName: 'Ceramic Coating Material',
-      category: 'Raw Material',
-      quantity: 100,
-      uom: 'liter',
-      plannedReleaseDate: '2025-10-22',
-      plannedReceiptDate: '2025-10-28',
-      leadTimeDays: 6,
-      supplier: 'Ceramic Coatings India',
-      estimatedCost: 48000,
-      priority: 'medium',
-      orderType: 'purchase',
-      status: 'approved',
-      sourceRequirements: ['WO-2025-1146', 'WO-2025-1148'],
-      notes: 'Non-stick coating for cookware'
-    },
-    {
-      id: '9',
-      plannedOrderNumber: 'PLO-2025-1009',
-      materialCode: 'RM-SS304-001',
-      materialName: 'Stainless Steel 304 Sheet (2mm)',
-      category: 'Raw Material',
-      quantity: 300,
-      uom: 'kg',
-      plannedReleaseDate: '2025-10-25',
-      plannedReceiptDate: '2025-11-01',
-      leadTimeDays: 7,
-      supplier: 'Warehouse Transfer',
-      estimatedCost: 0,
-      priority: 'low',
-      orderType: 'transfer',
-      status: 'pending-approval',
-      sourceRequirements: ['WO-2025-1151'],
-      notes: 'Transfer from Mumbai warehouse'
-    },
-    {
-      id: '10',
-      plannedOrderNumber: 'PLO-2025-1010',
-      materialCode: 'CP-VALVE-003',
-      materialName: 'Ceramic Disc Valve Cartridge',
-      category: 'Component',
-      quantity: 400,
-      uom: 'pcs',
-      plannedReleaseDate: '2025-10-20',
-      plannedReceiptDate: '2025-11-03',
-      leadTimeDays: 14,
-      supplier: 'Internal Production',
-      estimatedCost: 68000,
-      priority: 'medium',
-      orderType: 'production',
-      status: 'approved',
-      sourceRequirements: ['WO-2025-1152', 'WO-2025-1153'],
-      notes: 'In-house valve assembly'
-    }
-  ];
+  // Planned orders loaded from the NestJS backend (production/planned-orders).
+  const [plannedOrders, setPlannedOrders] = useState<PlannedOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (orderNumber/itemCode/itemName/quantity/
+        // uom/orderType/status/priority/estimatedCost/leadTimeDays/dueDate...).
+        const raw = (await ProductionOrphanService.getPlannedOrders()) as any[];
+        const typeMap: Record<string, PlannedOrder['orderType']> = {
+          Purchase: 'purchase', purchase: 'purchase',
+          Production: 'production', production: 'production',
+          Transfer: 'transfer', transfer: 'transfer',
+        };
+        const statusMap: Record<string, PlannedOrder['status']> = {
+          Planned: 'pending-approval', PendingApproval: 'pending-approval', 'pending-approval': 'pending-approval',
+          Approved: 'approved', approved: 'approved',
+          Firmed: 'approved', Released: 'released', released: 'released',
+          Converted: 'converted', converted: 'converted',
+        };
+        const prioMap: Record<string, PlannedOrder['priority']> = {
+          Urgent: 'urgent', urgent: 'urgent', High: 'high', high: 'high',
+          Medium: 'medium', medium: 'medium', Low: 'low', low: 'low',
+        };
+        const mapped: PlannedOrder[] = (Array.isArray(raw) ? raw : []).map((o: any, i: number) => {
+          const srcs: string[] = Array.isArray(o?.demandSources)
+            ? o.demandSources.map((s: any) => s?.referenceNumber ?? s?.workOrderNumber ?? String(s)).filter(Boolean)
+            : Array.isArray(o?.pegging)
+              ? o.pegging.map((p: any) => p?.workOrderNumber ?? String(p)).filter(Boolean)
+              : [];
+          return {
+            id: String(o?.id ?? i),
+            plannedOrderNumber: o?.orderNumber ?? '',
+            materialCode: o?.itemCode ?? '',
+            materialName: o?.itemName ?? '',
+            category: o?.category ?? 'Material',
+            quantity: Number(o?.quantity ?? 0),
+            uom: o?.uom ?? '',
+            plannedReleaseDate: o?.plannedStartDate ?? '',
+            plannedReceiptDate: o?.plannedEndDate ?? o?.dueDate ?? '',
+            leadTimeDays: Number(o?.leadTimeDays ?? 0),
+            supplier: o?.supplierName ?? o?.supplierId ?? '',
+            estimatedCost: Number(o?.estimatedCost ?? 0),
+            priority: prioMap[o?.priority] ?? 'medium',
+            orderType: typeMap[o?.orderType ?? o?.type] ?? 'purchase',
+            status: statusMap[o?.status] ?? 'pending-approval',
+            sourceRequirements: srcs,
+            notes: o?.notes ?? '',
+          };
+        });
+        if (!cancelled) setPlannedOrders(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load planned orders');
+          setPlannedOrders([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredOrders = plannedOrders.filter(order => {
     const typeMatch = filterOrderType === 'all' || order.orderType === filterOrderType;
@@ -329,6 +207,23 @@ export default function MRPPlannedOrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading planned orders…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && plannedOrders.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No planned orders found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

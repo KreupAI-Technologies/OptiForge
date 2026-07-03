@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Clock,
     CheckCircle,
@@ -11,6 +11,7 @@ import {
     User,
     ArrowRight
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
 
 interface LeaveRequest {
     id: string;
@@ -35,65 +36,57 @@ interface ApprovalStep {
 
 export default function LeaveStatusPage() {
     const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
+    const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const leaveRequests: LeaveRequest[] = [
-        {
-            id: 'LV-2025-003',
-            leaveType: 'Casual Leave',
-            startDate: '2025-02-10',
-            endDate: '2025-02-11',
-            days: 2,
-            status: 'Pending',
-            reason: 'Personal work',
-            appliedDate: '2025-02-05',
-            approvalSteps: [
-                { level: 1, approverName: 'John Smith', approverRole: 'Team Lead', status: 'Pending', date: '', remarks: '' },
-                { level: 2, approverName: 'Mary Johnson', approverRole: 'HR Manager', status: 'Pending', date: '', remarks: '' }
-            ]
-        },
-        {
-            id: 'LV-2025-005',
-            leaveType: 'Annual Leave',
-            startDate: '2025-02-15',
-            endDate: '2025-02-20',
-            days: 6,
-            status: 'Level 1 Approved',
-            reason: 'Family vacation',
-            appliedDate: '2025-02-01',
-            approvalSteps: [
-                { level: 1, approverName: 'John Smith', approverRole: 'Team Lead', status: 'Approved', date: '2025-02-02', remarks: 'Approved. Enjoy your time off!' },
-                { level: 2, approverName: 'Mary Johnson', approverRole: 'HR Manager', status: 'Pending', date: '', remarks: '' }
-            ]
-        },
-        {
-            id: 'LV-2025-006',
-            leaveType: 'Sick Leave',
-            startDate: '2025-02-08',
-            endDate: '2025-02-08',
-            days: 1,
-            status: 'Approved',
-            reason: 'Medical appointment',
-            appliedDate: '2025-02-07',
-            approvalSteps: [
-                { level: 1, approverName: 'John Smith', approverRole: 'Team Lead', status: 'Approved', date: '2025-02-07', remarks: 'Approved' },
-                { level: 2, approverName: 'Mary Johnson', approverRole: 'HR Manager', status: 'Approved', date: '2025-02-07', remarks: 'Auto-approved for single day sick leave' }
-            ]
-        },
-        {
-            id: 'LV-2025-004',
-            leaveType: 'Annual Leave',
-            startDate: '2025-02-20',
-            endDate: '2025-02-25',
-            days: 6,
-            status: 'Rejected',
-            reason: 'Travel plans',
-            appliedDate: '2025-02-01',
-            approvalSteps: [
-                { level: 1, approverName: 'John Smith', approverRole: 'Team Lead', status: 'Rejected', date: '2025-02-02', remarks: 'Project deadline conflicts. Please reschedule.' },
-                { level: 2, approverName: 'Mary Johnson', approverRole: 'HR Manager', status: 'Pending', date: '', remarks: '' }
-            ]
-        }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend (GET /hr/leave-applications) returns raw LeaveApplication rows.
+                const raw = (await LeaveService.getLeaveApplications()) as any[];
+                const mapped: LeaveRequest[] = (raw ?? []).map((la) => {
+                    const approverStep: ApprovalStep | null = la.approverName || la.approvedBy
+                        ? {
+                            level: 1,
+                            approverName: la.approverName ?? la.approvedBy ?? '',
+                            approverRole: 'Approver',
+                            status: (la.status === 'Approved' ? 'Approved'
+                                : la.status === 'Rejected' ? 'Rejected' : 'Pending') as ApprovalStep['status'],
+                            date: la.approvedAt ?? '',
+                            remarks: la.rejectionReason ?? '',
+                        }
+                        : null;
+                    return {
+                        id: String(la.applicationNumber ?? la.id ?? ''),
+                        leaveType: la.leaveTypeName ?? la.leaveType?.name ?? '',
+                        startDate: la.startDate ?? '',
+                        endDate: la.endDate ?? '',
+                        days: Number(la.totalDays ?? 0),
+                        status: (la.status ?? 'Pending') as LeaveRequest['status'],
+                        reason: la.reason ?? '',
+                        appliedDate: la.appliedAt ?? la.createdAt ?? '',
+                        approvalSteps: approverStep ? [approverStep] : [],
+                    };
+                });
+                if (!cancelled) setLeaveRequests(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load leave requests');
+                    setLeaveRequests([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -158,6 +151,24 @@ export default function LeaveStatusPage() {
                         <p className="text-3xl font-bold text-white">{stats.rejected}</p>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400/40 border-t-yellow-400" />
+                        Loading leave requests…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && leaveRequests.length === 0 && (
+                    <div className="rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-sm text-gray-400">
+                        No leave requests found.
+                    </div>
+                )}
 
                 <div className="space-y-3">
                     {leaveRequests.map((request) => (

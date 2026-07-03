@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Clock, Phone, Mail, Users, MessageSquare, FileText, Calendar, DollarSign, CheckCircle, AlertCircle, User, Building2, Search, Filter, Download } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface TimelineEvent {
   id: string;
@@ -23,204 +24,59 @@ interface TimelineEvent {
   };
 }
 
-const mockTimelineEvents: TimelineEvent[] = [
-  {
-    id: '1',
-    type: 'email',
-    title: 'Sent Proposal Email',
-    description: 'Sent comprehensive proposal including pricing, timeline, and implementation plan with 25% discount for annual commitment.',
-    timestamp: '2024-10-20T16:45:00',
-    user: 'Michael Chen',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'opportunity',
-    outcome: 'Email opened 5 times, 3 links clicked',
+const EVENT_TYPES = ['call', 'email', 'meeting', 'note', 'task', 'deal', 'status_change'] as const;
+
+function mapInteractionToEvent(raw: any): TimelineEvent {
+  const rawType = String(raw?.type ?? '').toLowerCase();
+  const type = (EVENT_TYPES as readonly string[]).includes(rawType)
+    ? (rawType as TimelineEvent['type'])
+    : 'note';
+  const durationNum = Number(raw?.duration);
+  return {
+    id: String(raw?.id ?? ''),
+    type,
+    title: raw?.subject ?? raw?.title ?? 'Interaction',
+    description: raw?.description ?? raw?.outcome ?? '',
+    timestamp: String(raw?.dateTime ?? raw?.createdAt ?? new Date().toISOString()),
+    user: raw?.performedBy ?? raw?.assignedTo ?? 'Unknown',
+    relatedTo: raw?.customer ?? raw?.contactPerson ?? raw?.relatedOpportunity ?? '—',
+    relatedType: raw?.relatedOpportunity ? 'opportunity' : 'customer',
+    outcome: raw?.outcome ?? undefined,
     metadata: {
-      attachments: 2,
+      duration: Number.isFinite(durationNum) && durationNum > 0 ? durationNum : undefined,
     },
-  },
-  {
-    id: '2',
-    type: 'call',
-    title: 'Discovery Call Completed',
-    description: 'Initial discovery call to understand pain points and requirements. Client expressed strong interest in security features.',
-    timestamp: '2024-10-20T10:00:00',
-    user: 'Emily Rodriguez',
-    relatedTo: 'FinanceHub International',
-    relatedType: 'opportunity',
-    outcome: 'Positive - Budget approved for Q4',
-    metadata: {
-      duration: 35,
-    },
-  },
-  {
-    id: '3',
-    type: 'status_change',
-    title: 'Opportunity Stage Updated',
-    description: 'Moved from Qualification to Proposal stage after successful demo and positive feedback.',
-    timestamp: '2024-10-20T09:30:00',
-    user: 'Sarah Johnson',
-    relatedTo: 'Enterprise Solutions Ltd.',
-    relatedType: 'opportunity',
-    metadata: {
-      oldStatus: 'Qualification',
-      newStatus: 'Proposal',
-    },
-  },
-  {
-    id: '4',
-    type: 'meeting',
-    title: 'Product Demo Session',
-    description: 'Demonstrated new features and capabilities to technical team. Strong interest in compliance automation features.',
-    timestamp: '2024-10-19T14:00:00',
-    user: 'Michael Chen',
-    relatedTo: 'FinServ Group',
-    relatedType: 'opportunity',
-    outcome: 'Positive - Ready to move forward pending legal review',
-    metadata: {
-      duration: 45,
-      attendees: ['Compliance Director', 'IT Manager', 'Legal Counsel'],
-    },
-  },
-  {
-    id: '5',
-    type: 'note',
-    title: 'Added Contact Note',
-    description: 'Customer mentioned they are evaluating 3 vendors. Our solution has the strongest security features. Decision expected by end of October.',
-    timestamp: '2024-10-19T11:20:00',
-    user: 'Sarah Johnson',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '6',
-    type: 'email',
-    title: 'Received Response from CTO',
-    description: 'CTO responded positively to proposal. Requested call next week to discuss implementation timeline and resource requirements.',
-    timestamp: '2024-10-19T09:15:00',
-    user: 'John Anderson',
-    relatedTo: 'Enterprise Solutions Ltd.',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '7',
-    type: 'task',
-    title: 'Completed Follow-up Task',
-    description: 'Sent detailed pricing breakdown and timeline as requested after demo. Included case studies from similar enterprise deployments.',
-    timestamp: '2024-10-18T15:30:00',
-    user: 'Emily Rodriguez',
-    relatedTo: 'GlobalManufacturing Corp',
-    relatedType: 'customer',
-  },
-  {
-    id: '8',
-    type: 'deal',
-    title: 'Deal Value Updated',
-    description: 'Updated opportunity value to reflect expanded scope including premium support and additional licenses.',
-    timestamp: '2024-10-18T14:00:00',
-    user: 'Sarah Johnson',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'opportunity',
-    metadata: {
-      dealValue: 850000,
-    },
-  },
-  {
-    id: '9',
-    type: 'meeting',
-    title: 'Weekly Team Sync',
-    description: 'Reviewed pipeline and goals. TechCorp deal moved to negotiation stage. FinanceHub scheduled for technical demo.',
-    timestamp: '2024-10-18T09:00:00',
-    user: 'Sarah Johnson',
-    relatedTo: 'Sales Team',
-    relatedType: 'customer',
-    metadata: {
-      duration: 60,
-      attendees: ['Michael Chen', 'Emily Rodriguez', 'David Martinez'],
-    },
-  },
-  {
-    id: '10',
-    type: 'call',
-    title: 'Support Call - Integration Issue',
-    description: 'Customer called about API authentication issue. Resolved during call with updated configuration.',
-    timestamp: '2024-10-17T14:30:00',
-    user: 'Support Team',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'customer',
-    outcome: 'Positive - Issue resolved',
-    metadata: {
-      duration: 25,
-    },
-  },
-  {
-    id: '11',
-    type: 'email',
-    title: 'Sent Welcome Email',
-    description: 'Sent onboarding materials and getting started guide to new customer. Included training video links and support contact.',
-    timestamp: '2024-10-17T10:00:00',
-    user: 'Customer Success',
-    relatedTo: 'StartupTech Inc.',
-    relatedType: 'customer',
-    outcome: 'Email opened 3 times, 8 links clicked',
-  },
-  {
-    id: '12',
-    type: 'status_change',
-    title: 'Lead Converted to Opportunity',
-    description: 'Lead qualified and converted to opportunity after successful discovery call. Budget confirmed at $320K.',
-    timestamp: '2024-10-16T16:00:00',
-    user: 'David Martinez',
-    relatedTo: 'Manufacturing Corp XYZ',
-    relatedType: 'opportunity',
-    metadata: {
-      oldStatus: 'Lead',
-      newStatus: 'Opportunity',
-      dealValue: 320000,
-    },
-  },
-  {
-    id: '13',
-    type: 'note',
-    title: 'Added Contact Note',
-    description: 'Spoke with procurement team. They prefer quarterly billing over annual. Will adjust proposal accordingly.',
-    timestamp: '2024-10-16T13:45:00',
-    user: 'Michael Chen',
-    relatedTo: 'FinanceHub International',
-    relatedType: 'opportunity',
-  },
-  {
-    id: '14',
-    type: 'call',
-    title: 'Cold Call - New Lead',
-    description: 'Initial outreach to qualified lead from trade show. Contact was busy but interested. Requested email with case studies.',
-    timestamp: '2024-10-15T15:00:00',
-    user: 'David Martinez',
-    relatedTo: 'Manufacturing Corp XYZ',
-    relatedType: 'lead',
-    outcome: 'Neutral - Follow-up scheduled',
-    metadata: {
-      duration: 12,
-    },
-  },
-  {
-    id: '15',
-    type: 'meeting',
-    title: 'Quarterly Business Review',
-    description: 'Reviewed usage metrics and ROI with executive sponsor. Discussed expansion opportunities for Q4.',
-    timestamp: '2024-10-15T13:00:00',
-    user: 'Sarah Johnson',
-    relatedTo: 'TechCorp Global Inc.',
-    relatedType: 'customer',
-    outcome: 'Positive - Expansion opportunity identified',
-    metadata: {
-      duration: 60,
-      attendees: ['Executive Sponsor', 'IT Director'],
-    },
-  },
-];
+  };
+}
 
 export default function InteractionsTimelinePage() {
-  const [events] = useState<TimelineEvent[]>(mockTimelineEvents);
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.interactions.getAllLegacy()) as any[];
+        const mapped = (Array.isArray(raw) ? raw : []).map(mapInteractionToEvent);
+        if (!cancelled) setEvents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load interaction timeline');
+          setEvents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'call' | 'email' | 'meeting' | 'note' | 'task' | 'deal' | 'status_change'>('all');
   const [filterRelatedType, setFilterRelatedType] = useState<'all' | 'lead' | 'opportunity' | 'customer' | 'contact'>('all');
@@ -337,6 +193,23 @@ export default function InteractionsTimelinePage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading interaction timeline…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && events.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No interactions found.
+        </div>
+      )}
       <div className="mb-8">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-8">

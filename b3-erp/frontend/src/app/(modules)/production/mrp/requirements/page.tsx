@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, RefreshCw, Filter, Calendar, Package, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface MaterialRequirement {
   id: string;
@@ -27,179 +28,64 @@ export default function MRPRequirementsPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Mock data for material requirements
-  const requirements: MaterialRequirement[] = [
-    {
-      id: '1',
-      materialCode: 'RM-SS304-001',
-      materialName: 'Stainless Steel 304 Sheet (2mm)',
-      category: 'Raw Material',
-      uom: 'kg',
-      grossRequirement: 1250,
-      scheduledReceipts: 800,
-      onHandInventory: 350,
-      netRequirement: 100,
-      plannedOrderQuantity: 500,
-      requiredDate: '2025-10-25',
-      leadTimeDays: 7,
-      safetyStock: 200,
-      status: 'planned',
-      relatedWorkOrders: ['WO-2025-1135', 'WO-2025-1142']
-    },
-    {
-      id: '2',
-      materialCode: 'RM-BRASS-002',
-      materialName: 'Brass Rod (25mm diameter)',
-      category: 'Raw Material',
-      uom: 'meter',
-      grossRequirement: 480,
-      scheduledReceipts: 0,
-      onHandInventory: 120,
-      netRequirement: 360,
-      plannedOrderQuantity: 500,
-      requiredDate: '2025-10-23',
-      leadTimeDays: 10,
-      safetyStock: 100,
-      status: 'critical',
-      relatedWorkOrders: ['WO-2025-1138']
-    },
-    {
-      id: '3',
-      materialCode: 'CP-VALVE-003',
-      materialName: 'Ceramic Disc Valve Cartridge',
-      category: 'Component',
-      uom: 'pcs',
-      grossRequirement: 850,
-      scheduledReceipts: 600,
-      onHandInventory: 420,
-      netRequirement: 0,
-      plannedOrderQuantity: 0,
-      requiredDate: '2025-10-28',
-      leadTimeDays: 14,
-      safetyStock: 150,
-      status: 'sufficient',
-      relatedWorkOrders: ['WO-2025-1138', 'WO-2025-1140']
-    },
-    {
-      id: '4',
-      materialCode: 'RM-GRANITE-004',
-      materialName: 'Granite Slab - Black Galaxy',
-      category: 'Raw Material',
-      uom: 'sq.ft',
-      grossRequirement: 320,
-      scheduledReceipts: 150,
-      onHandInventory: 85,
-      netRequirement: 85,
-      plannedOrderQuantity: 200,
-      requiredDate: '2025-10-26',
-      leadTimeDays: 12,
-      safetyStock: 50,
-      status: 'shortage',
-      relatedWorkOrders: ['WO-2025-1145']
-    },
-    {
-      id: '5',
-      materialCode: 'CP-HANDLE-005',
-      materialName: 'Chrome Plated Lever Handle',
-      category: 'Component',
-      uom: 'pcs',
-      grossRequirement: 680,
-      scheduledReceipts: 400,
-      onHandInventory: 180,
-      netRequirement: 100,
-      plannedOrderQuantity: 300,
-      requiredDate: '2025-10-27',
-      leadTimeDays: 8,
-      safetyStock: 120,
-      status: 'planned',
-      relatedWorkOrders: ['WO-2025-1138', 'WO-2025-1140', 'WO-2025-1142']
-    },
-    {
-      id: '6',
-      materialCode: 'RM-ALUMINUM-006',
-      materialName: 'Aluminum Extrusion Profile',
-      category: 'Raw Material',
-      uom: 'meter',
-      grossRequirement: 920,
-      scheduledReceipts: 1000,
-      onHandInventory: 450,
-      netRequirement: 0,
-      plannedOrderQuantity: 0,
-      requiredDate: '2025-10-29',
-      leadTimeDays: 9,
-      safetyStock: 180,
-      status: 'sufficient',
-      relatedWorkOrders: ['WO-2025-1147', 'WO-2025-1149']
-    },
-    {
-      id: '7',
-      materialCode: 'CP-GASKET-007',
-      materialName: 'Silicone Gasket (Food Grade)',
-      category: 'Component',
-      uom: 'pcs',
-      grossRequirement: 1450,
-      scheduledReceipts: 800,
-      onHandInventory: 220,
-      netRequirement: 430,
-      plannedOrderQuantity: 600,
-      requiredDate: '2025-10-24',
-      leadTimeDays: 5,
-      safetyStock: 200,
-      status: 'critical',
-      relatedWorkOrders: ['WO-2025-1135', 'WO-2025-1142', 'WO-2025-1147']
-    },
-    {
-      id: '8',
-      materialCode: 'RM-WOOD-008',
-      materialName: 'Hardwood Plywood (18mm)',
-      category: 'Raw Material',
-      uom: 'sheet',
-      grossRequirement: 145,
-      scheduledReceipts: 80,
-      onHandInventory: 42,
-      netRequirement: 23,
-      plannedOrderQuantity: 50,
-      requiredDate: '2025-10-30',
-      leadTimeDays: 11,
-      safetyStock: 20,
-      status: 'planned',
-      relatedWorkOrders: ['WO-2025-1150']
-    },
-    {
-      id: '9',
-      materialCode: 'CP-MOTOR-009',
-      materialName: 'Electric Motor (250W) - Kitchen Appliance',
-      category: 'Component',
-      uom: 'pcs',
-      grossRequirement: 185,
-      scheduledReceipts: 0,
-      onHandInventory: 35,
-      netRequirement: 150,
-      plannedOrderQuantity: 200,
-      requiredDate: '2025-10-22',
-      leadTimeDays: 18,
-      safetyStock: 30,
-      status: 'critical',
-      relatedWorkOrders: ['WO-2025-1143']
-    },
-    {
-      id: '10',
-      materialCode: 'RM-CERAMIC-010',
-      materialName: 'Ceramic Coating Material',
-      category: 'Raw Material',
-      uom: 'liter',
-      grossRequirement: 280,
-      scheduledReceipts: 150,
-      onHandInventory: 95,
-      netRequirement: 35,
-      plannedOrderQuantity: 100,
-      requiredDate: '2025-10-28',
-      leadTimeDays: 6,
-      safetyStock: 50,
-      status: 'shortage',
-      relatedWorkOrders: ['WO-2025-1146', 'WO-2025-1148']
-    }
-  ];
+  // Material requirements loaded from the NestJS backend (production/material-requirements).
+  const [requirements, setRequirements] = useState<MaterialRequirement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (itemCode/itemName/grossRequirement/
+        // netRequirement/scheduledReceipts/onHandQuantity/safetyStock...).
+        const raw = (await ProductionOrphanService.getMaterialRequirements()) as any[];
+        const statusMap: Record<string, MaterialRequirement['status']> = {
+          Sufficient: 'sufficient', sufficient: 'sufficient',
+          Shortage: 'shortage', shortage: 'shortage',
+          Critical: 'critical', critical: 'critical',
+          Planned: 'planned', planned: 'planned',
+        };
+        const mapped: MaterialRequirement[] = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => {
+          const net = Number(r?.netRequirement ?? 0);
+          const wos: string[] = Array.isArray(r?.pegging)
+            ? r.pegging.map((p: any) => p?.workOrderNumber ?? p?.sourceDocumentNumber ?? String(p)).filter(Boolean)
+            : (r?.sourceDocumentNumber ? [r.sourceDocumentNumber] : []);
+          return {
+            id: String(r?.id ?? i),
+            materialCode: r?.itemCode ?? '',
+            materialName: r?.itemName ?? '',
+            category: r?.requirementType ?? r?.category ?? 'Material',
+            uom: r?.uom ?? '',
+            grossRequirement: Number(r?.grossRequirement ?? 0),
+            scheduledReceipts: Number(r?.scheduledReceipts ?? 0),
+            onHandInventory: Number(r?.onHandQuantity ?? 0),
+            netRequirement: net,
+            plannedOrderQuantity: Number(r?.plannedOrderReceipt ?? r?.lotSizeQuantity ?? 0),
+            requiredDate: r?.requiredDate ?? '',
+            leadTimeDays: Number(r?.leadTimeDays ?? 0),
+            safetyStock: Number(r?.safetyStock ?? 0),
+            status: statusMap[r?.status] ?? (net > 0 ? 'shortage' : 'sufficient'),
+            relatedWorkOrders: wos,
+          };
+        });
+        if (!cancelled) setRequirements(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load material requirements');
+          setRequirements([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRequirements = requirements.filter(req => {
     const categoryMatch = filterCategory === 'all' || req.category === filterCategory;
@@ -232,6 +118,23 @@ export default function MRPRequirementsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading material requirements…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && requirements.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No material requirements found.
+        </div>
+      )}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

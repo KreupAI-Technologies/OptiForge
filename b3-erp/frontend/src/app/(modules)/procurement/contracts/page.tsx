@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Plus,
   Search,
@@ -54,6 +54,7 @@ import {
   TerminateContractModal,
   ContractData
 } from '@/components/procurement/ContractModals'
+import { procurementContractService } from '@/services/procurement-contract.service'
 
 interface Contract {
   id: string
@@ -106,167 +107,73 @@ interface ContractStats {
 }
 
 export default function ContractsPage() {
-  const [contracts, setContracts] = useState<Contract[]>([
-    {
-      id: '1',
-      contractNumber: 'CON-2024-001',
-      title: 'Annual IT Support and Maintenance',
-      vendorName: 'Tech Supplies Co.',
-      vendorCode: 'VEND-001',
-      type: 'maintenance',
-      status: 'active',
-      value: 250000,
-      currency: 'USD',
-      startDate: '2024-01-01',
-      endDate: '2024-12-31',
-      renewalDate: '2024-11-01',
-      department: 'IT',
-      owner: 'John Smith',
-      category: 'IT Services',
-      paymentTerms: 'Quarterly',
-      autoRenew: true,
-      renewalNotice: 60,
-      compliance: 95,
-      risk: 'low',
-      documents: [
-        { type: 'Main Contract', name: 'IT_Support_Contract_2024.pdf', uploadDate: '2023-12-15', size: '2.5 MB' },
-        { type: 'SLA', name: 'SLA_Agreement.pdf', uploadDate: '2023-12-15', size: '1.2 MB' },
-        { type: 'Amendment', name: 'Amendment_1.pdf', uploadDate: '2024-03-10', size: '0.8 MB' }
-      ],
-      milestones: [
-        { title: 'Q1 Payment', date: '2024-03-31', status: 'completed', value: 62500 },
-        { title: 'Q2 Payment', date: '2024-06-30', status: 'completed', value: 62500 },
-        { title: 'Q3 Payment', date: '2024-09-30', status: 'pending', value: 62500 },
-        { title: 'Q4 Payment', date: '2024-12-31', status: 'pending', value: 62500 }
-      ],
-      amendments: 1,
-      lastReviewDate: '2024-06-15',
-      nextReviewDate: '2024-09-15',
-      tags: ['Critical', 'Auto-Renew']
-    },
-    {
-      id: '2',
-      contractNumber: 'CON-2024-002',
-      title: 'Office Space Lease Agreement',
-      vendorName: 'Prime Properties Ltd',
-      vendorCode: 'VEND-015',
-      type: 'lease',
-      status: 'active',
-      value: 480000,
-      currency: 'USD',
-      startDate: '2023-04-01',
-      endDate: '2025-03-31',
-      renewalDate: '2025-01-01',
-      department: 'Administration',
-      owner: 'Sarah Johnson',
-      category: 'Facility',
-      paymentTerms: 'Monthly',
-      autoRenew: false,
-      renewalNotice: 90,
-      compliance: 100,
-      risk: 'low',
-      documents: [
-        { type: 'Lease Agreement', name: 'Office_Lease_2023-25.pdf', uploadDate: '2023-03-15', size: '3.8 MB' },
-        { type: 'Floor Plan', name: 'Office_Layout.pdf', uploadDate: '2023-03-15', size: '1.5 MB' }
-      ],
-      milestones: [
-        { title: 'Monthly Rent', date: '2024-01-31', status: 'completed', value: 20000 },
-        { title: 'Monthly Rent', date: '2024-02-29', status: 'pending', value: 20000 }
-      ],
-      amendments: 0,
-      lastReviewDate: '2024-01-10',
-      nextReviewDate: '2024-07-10'
-    },
-    {
-      id: '3',
-      contractNumber: 'CON-2024-003',
-      title: 'Chemical Supply Framework Agreement',
-      vendorName: 'Chemical Supplies Global',
-      vendorCode: 'VEND-005',
-      type: 'framework',
-      status: 'under_review',
-      value: 1500000,
-      currency: 'USD',
-      startDate: '2024-02-01',
-      endDate: '2026-01-31',
-      renewalDate: '2025-11-01',
-      department: 'Production',
-      owner: 'Mike Davis',
-      category: 'Raw Materials',
-      paymentTerms: 'Net 30',
-      autoRenew: true,
-      renewalNotice: 120,
-      compliance: 88,
-      risk: 'medium',
-      documents: [
-        { type: 'Framework Agreement', name: 'Chemical_Framework_2024.pdf', uploadDate: '2024-01-20', size: '4.2 MB' },
-        { type: 'Price List', name: 'Chemical_Prices_2024.xlsx', uploadDate: '2024-01-20', size: '0.5 MB' },
-        { type: 'Safety Certificates', name: 'Safety_Certs.pdf', uploadDate: '2024-01-20', size: '2.1 MB' }
-      ],
-      milestones: [
-        { title: 'Initial Order', date: '2024-02-15', status: 'completed', value: 125000 },
-        { title: 'Q2 Target', date: '2024-06-30', status: 'pending', value: 375000 }
-      ],
-      amendments: 2,
-      lastReviewDate: '2024-01-15',
-      nextReviewDate: '2024-04-15',
-      tags: ['High Value', 'Strategic']
-    },
-    {
-      id: '4',
-      contractNumber: 'CON-2024-004',
-      title: 'Logistics and Transportation Services',
-      vendorName: 'Fast Logistics Inc',
-      vendorCode: 'VEND-008',
-      type: 'service',
-      status: 'expired',
-      value: 180000,
-      currency: 'USD',
-      startDate: '2023-01-01',
-      endDate: '2023-12-31',
-      department: 'Supply Chain',
-      owner: 'Emma Wilson',
-      category: 'Logistics',
-      paymentTerms: 'Monthly',
-      autoRenew: false,
-      renewalNotice: 45,
-      compliance: 92,
-      risk: 'low',
-      documents: [
-        { type: 'Service Agreement', name: 'Logistics_Contract_2023.pdf', uploadDate: '2022-12-10', size: '2.8 MB' }
-      ],
-      milestones: [],
-      amendments: 0,
-      tags: ['Expired', 'Renewal Required']
-    },
-    {
-      id: '5',
-      contractNumber: 'CON-2024-005',
-      title: 'Non-Disclosure Agreement',
-      vendorName: 'Innovation Partners',
-      vendorCode: 'VEND-020',
-      type: 'nda',
-      status: 'active',
-      value: 0,
-      currency: 'USD',
-      startDate: '2024-01-15',
-      endDate: '2027-01-14',
-      department: 'R&D',
-      owner: 'Robert Chen',
-      category: 'Legal',
-      paymentTerms: 'N/A',
-      autoRenew: false,
-      renewalNotice: 30,
-      compliance: 100,
-      risk: 'low',
-      documents: [
-        { type: 'NDA', name: 'NDA_Innovation_2024.pdf', uploadDate: '2024-01-10', size: '0.8 MB' }
-      ],
-      milestones: [],
-      amendments: 0,
-      tags: ['Confidential', 'R&D']
+  const [contracts, setContracts] = useState<Contract[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend (NestJS vendor_contracts) returns raw ORM shape
+        // (contractType/totalValue/autoRenewal/timestamps); map to the page model.
+        const raw = (await procurementContractService.getContracts()) as any[]
+        const typeMap: Record<string, Contract['type']> = {
+          purchase: 'purchase', service: 'service', maintenance: 'maintenance',
+          lease: 'lease', nda: 'nda', framework: 'framework',
+          rate: 'framework', quantity: 'framework', value: 'framework',
+        }
+        const statusMap: Record<string, Contract['status']> = {
+          draft: 'draft', active: 'active', expired: 'expired',
+          terminated: 'terminated', renewed: 'renewed',
+          pending_approval: 'under_review', suspended: 'under_review',
+        }
+        const toDate = (v: any) => (v ? String(v).split('T')[0] : '')
+        const mapped: Contract[] = (raw || []).map((c: any) => ({
+          id: String(c?.id ?? ''),
+          contractNumber: c?.contractNumber ?? '',
+          title: c?.title ?? '',
+          vendorName: c?.vendorName ?? '',
+          vendorCode: c?.vendorCode ?? '',
+          type: typeMap[c?.contractType] ?? 'framework',
+          status: statusMap[c?.status] ?? 'draft',
+          value: Number(c?.totalValue ?? 0),
+          currency: c?.currency ?? 'INR',
+          startDate: toDate(c?.startDate),
+          endDate: toDate(c?.endDate),
+          renewalDate: c?.terminationDate ? toDate(c?.terminationDate) : undefined,
+          department: c?.department ?? '',
+          owner: c?.createdBy ?? '',
+          category: c?.category ?? '',
+          paymentTerms: c?.paymentTerms ?? '',
+          autoRenew: Boolean(c?.autoRenewal),
+          renewalNotice: Number(c?.renewalNoticeDays ?? 0),
+          compliance: Number(c?.utilizationPercentage ?? 0),
+          risk: 'low',
+          documents: Array.isArray(c?.documents) ? c.documents : [],
+          milestones: Array.isArray(c?.milestones) ? c.milestones : [],
+          amendments: Array.isArray(c?.priceRevisionHistory) ? c.priceRevisionHistory.length : 0,
+          lastReviewDate: c?.approvedAt ? toDate(c?.approvedAt) : undefined,
+          nextReviewDate: undefined,
+          tags: Array.isArray(c?.tags) ? c.tags : undefined,
+        }))
+        if (!cancelled) setContracts(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contracts')
+          setContracts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedType, setSelectedType] = useState('all')
@@ -366,6 +273,23 @@ export default function ContractsPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading contracts…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && contracts.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No contracts found.
+        </div>
+      )}
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>

@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Search, Edit2, Trash2, MapPin, Package, Layers, Grid, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Edit2, Trash2, MapPin, Package, Layers, Grid, ChevronRight, AlertCircle } from 'lucide-react';
 import {
   CreateBinModal,
   BinData
 } from '@/components/inventory/InventoryWarehouseModals';
+import { inventoryService } from '@/services/InventoryService';
 
 interface Location {
   id: string;
@@ -40,189 +41,73 @@ export default function WarehouseLocationsPage() {
   const [locationList, setLocationList] = useState<Location[]>([]);
   const [isViewBinOpen, setIsViewBinOpen] = useState(false);
 
-  // Mock warehouse locations data
-  const locations: Location[] = [
-    {
-      id: 'LOC-001',
-      code: 'A-01-R01-S01-B01',
-      name: 'Zone A - Aisle 1 - Rack 1 - Shelf 1 - Bin 1',
-      warehouse: 'Mumbai Central Warehouse',
-      zone: 'Zone A',
-      aisle: 'A-01',
-      rack: 'R01',
-      shelf: 'S01',
-      bin: 'B01',
-      locationType: 'storage',
-      capacity: 500,
-      currentOccupancy: 450,
-      utilizationPercent: 90,
-      status: 'occupied',
-      itemsStored: 12,
-      lastUpdated: '2025-10-20'
-    },
-    {
-      id: 'LOC-002',
-      code: 'A-01-R01-S02-B01',
-      name: 'Zone A - Aisle 1 - Rack 1 - Shelf 2 - Bin 1',
-      warehouse: 'Mumbai Central Warehouse',
-      zone: 'Zone A',
-      aisle: 'A-01',
-      rack: 'R01',
-      shelf: 'S02',
-      bin: 'B01',
-      locationType: 'storage',
-      capacity: 500,
-      currentOccupancy: 250,
-      utilizationPercent: 50,
-      status: 'occupied',
-      itemsStored: 6,
-      lastUpdated: '2025-10-20'
-    },
-    {
-      id: 'LOC-003',
-      code: 'A-02-R01-S01-B01',
-      name: 'Zone A - Aisle 2 - Rack 1 - Shelf 1 - Bin 1',
-      warehouse: 'Mumbai Central Warehouse',
-      zone: 'Zone A',
-      aisle: 'A-02',
-      rack: 'R01',
-      shelf: 'S01',
-      bin: 'B01',
-      locationType: 'picking',
-      capacity: 300,
-      currentOccupancy: 0,
-      utilizationPercent: 0,
-      status: 'available',
-      itemsStored: 0,
-      lastUpdated: '2025-10-19'
-    },
-    {
-      id: 'LOC-004',
-      code: 'B-01-R01-S01-B01',
-      name: 'Zone B - Aisle 1 - Rack 1 - Shelf 1 - Bin 1',
-      warehouse: 'Mumbai Central Warehouse',
-      zone: 'Zone B',
-      aisle: 'B-01',
-      rack: 'R01',
-      shelf: 'S01',
-      bin: 'B01',
-      locationType: 'storage',
-      capacity: 600,
-      currentOccupancy: 580,
-      utilizationPercent: 97,
-      status: 'occupied',
-      itemsStored: 15,
-      lastUpdated: '2025-10-20'
-    },
-    {
-      id: 'LOC-005',
-      code: 'RCV-01',
-      name: 'Receiving Dock 1',
-      warehouse: 'Mumbai Central Warehouse',
-      zone: 'Receiving Area',
-      aisle: 'RCV',
-      rack: '-',
-      shelf: '-',
-      bin: '-',
-      locationType: 'receiving',
-      capacity: 2000,
-      currentOccupancy: 450,
-      utilizationPercent: 23,
-      status: 'occupied',
-      itemsStored: 8,
-      lastUpdated: '2025-10-20'
-    },
-    {
-      id: 'LOC-006',
-      code: 'SHIP-01',
-      name: 'Shipping Dock 1',
-      warehouse: 'Mumbai Central Warehouse',
-      zone: 'Shipping Area',
-      aisle: 'SHIP',
-      rack: '-',
-      shelf: '-',
-      bin: '-',
-      locationType: 'shipping',
-      capacity: 1500,
-      currentOccupancy: 800,
-      utilizationPercent: 53,
-      status: 'occupied',
-      itemsStored: 20,
-      lastUpdated: '2025-10-20'
-    },
-    {
-      id: 'LOC-007',
-      code: 'STG-01',
-      name: 'Staging Area 1',
-      warehouse: 'Delhi Regional Hub',
-      zone: 'Staging',
-      aisle: 'STG',
-      rack: '-',
-      shelf: '-',
-      bin: '-',
-      locationType: 'staging',
-      capacity: 1000,
-      currentOccupancy: 350,
-      utilizationPercent: 35,
-      status: 'occupied',
-      itemsStored: 10,
-      lastUpdated: '2025-10-20'
-    },
-    {
-      id: 'LOC-008',
-      code: 'A-01-R02-S01-B01',
-      name: 'Zone A - Aisle 1 - Rack 2 - Shelf 1 - Bin 1',
-      warehouse: 'Delhi Regional Hub',
-      zone: 'Zone A',
-      aisle: 'A-01',
-      rack: 'R02',
-      shelf: 'S01',
-      bin: 'B01',
-      locationType: 'storage',
-      capacity: 450,
-      currentOccupancy: 0,
-      utilizationPercent: 0,
-      status: 'reserved',
-      itemsStored: 0,
-      lastUpdated: '2025-10-19'
-    },
-    {
-      id: 'LOC-009',
-      code: 'C-01-R01-S01-B01',
-      name: 'Zone C - Aisle 1 - Rack 1 - Shelf 1 - Bin 1',
-      warehouse: 'Bangalore Factory Store',
-      zone: 'Zone C',
-      aisle: 'C-01',
-      rack: 'R01',
-      shelf: 'S01',
-      bin: 'B01',
-      locationType: 'storage',
-      capacity: 550,
-      currentOccupancy: 0,
-      utilizationPercent: 0,
-      status: 'blocked',
-      itemsStored: 0,
-      lastUpdated: '2025-10-18'
-    },
-    {
-      id: 'LOC-010',
-      code: 'A-03-R01-S01-B01',
-      name: 'Zone A - Aisle 3 - Rack 1 - Shelf 1 - Bin 1',
-      warehouse: 'Bangalore Factory Store',
-      zone: 'Zone A',
-      aisle: 'A-03',
-      rack: 'R01',
-      shelf: 'S01',
-      bin: 'B01',
-      locationType: 'picking',
-      capacity: 400,
-      currentOccupancy: 320,
-      utilizationPercent: 80,
-      status: 'occupied',
-      itemsStored: 18,
-      lastUpdated: '2025-10-20'
-    }
-  ];
+  // Warehouse locations loaded from the NestJS inventory service.
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (locationCode/locationName/locationType/
+        // status/zone/aisle/rack/shelf/bin/maxCapacity/currentCapacity/
+        // utilizationPercentage/warehouseId); map it to the page's Location model.
+        const raw = (await inventoryService.getStockLocations()) as any[];
+        const typeMap: Record<string, Location['locationType']> = {
+          'Storage': 'storage', 'Storage Area': 'storage',
+          'Picking': 'picking', 'Picking Area': 'picking',
+          'Receiving': 'receiving', 'Receiving Area': 'receiving',
+          'Shipping': 'shipping', 'Dispatch Area': 'shipping', 'Shipping Area': 'shipping',
+          'Staging': 'staging', 'Staging Area': 'staging',
+        };
+        const statusMap: Record<string, Location['status']> = {
+          'Active': 'available', 'Available': 'available',
+          'Occupied': 'occupied', 'Reserved': 'reserved',
+          'Blocked': 'blocked', 'Inactive': 'blocked',
+        };
+        const mapped: Location[] = raw.map((l) => {
+          const capacity = Number(l.maxCapacity ?? 0);
+          const currentOccupancy = Number(l.currentCapacity ?? 0);
+          const utilizationPercent = l.utilizationPercentage != null
+            ? Number(l.utilizationPercentage)
+            : (capacity > 0 ? Math.round((currentOccupancy / capacity) * 100) : 0);
+          return {
+            id: l.id ?? l.locationCode ?? '',
+            code: l.locationCode ?? '',
+            name: l.locationName ?? l.locationCode ?? '',
+            warehouse: l.warehouseName ?? l.warehouseId ?? '',
+            zone: l.zone ?? '-',
+            aisle: l.aisle ?? '-',
+            rack: l.rack ?? '-',
+            shelf: l.shelf ?? '-',
+            bin: l.bin ?? '-',
+            locationType: typeMap[l.locationType] ?? 'storage',
+            capacity,
+            currentOccupancy,
+            utilizationPercent,
+            status: statusMap[l.status] ?? 'available',
+            itemsStored: Number(l.itemsStored ?? 0),
+            lastUpdated: (l.updatedAt ?? l.createdAt ?? '').toString().split('T')[0] || '',
+          };
+        });
+        if (!cancelled) setLocations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load warehouse locations');
+          setLocations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredLocations = locations.filter(loc => {
     const matchesSearch = loc.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -407,7 +292,7 @@ export default function WarehouseLocationsPage() {
             <div>
               <p className="text-sm font-medium text-orange-600">Avg Utilization</p>
               <p className="text-3xl font-bold text-orange-900 mt-1">
-                {(locations.reduce((sum, loc) => sum + loc.utilizationPercent, 0) / locations.length).toFixed(0)}%
+                {(locations.length > 0 ? locations.reduce((sum, loc) => sum + loc.utilizationPercent, 0) / locations.length : 0).toFixed(0)}%
               </p>
             </div>
             <div className="p-3 bg-orange-200 rounded-lg">
@@ -416,6 +301,24 @@ export default function WarehouseLocationsPage() {
           </div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading warehouse locations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && locations.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No warehouse locations found.
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 p-3 mb-3">

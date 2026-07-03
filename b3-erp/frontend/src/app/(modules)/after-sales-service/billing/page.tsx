@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, FileText, Send, DollarSign, AlertCircle, CheckCircle, Clock, XCircle, Download, TrendingUp, CreditCard, X, User, Calendar, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToCsv } from '@/lib/export';
+import { ServiceBillingService } from '@/services/service-billing.service';
 
 interface ServiceInvoice {
   id: string;
@@ -27,220 +28,6 @@ interface ServiceInvoice {
   overdueDays?: number;
 }
 
-const mockInvoices: ServiceInvoice[] = [
-  {
-    id: '1',
-    invoiceNumber: 'SI-2025-00123',
-    invoiceType: 'Service',
-    customerId: 'CUST001',
-    customerName: 'Sharma Modular Kitchens Pvt Ltd',
-    status: 'paid',
-    invoiceDate: '2025-10-10',
-    dueDate: '2025-10-25',
-    subtotal: 8500,
-    totalTax: 1530,
-    totalAmount: 10030,
-    paidAmount: 10030,
-    balanceAmount: 0,
-    paymentStatus: 'paid',
-    paymentTerms: 'Net 15 days',
-    serviceJobId: 'FS-2025-000456',
-  },
-  {
-    id: '2',
-    invoiceNumber: 'SI-2025-00134',
-    invoiceType: 'AMC',
-    customerId: 'CUST002',
-    customerName: 'Prestige Developers Bangalore',
-    status: 'sent',
-    invoiceDate: '2025-10-01',
-    dueDate: '2025-10-31',
-    subtotal: 312500,
-    totalTax: 56250,
-    totalAmount: 368750,
-    paidAmount: 0,
-    balanceAmount: 368750,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 30 days',
-    contractId: 'AMC-2025-0012',
-  },
-  {
-    id: '3',
-    invoiceNumber: 'SI-2025-00145',
-    invoiceType: 'Installation',
-    customerId: 'CUST003',
-    customerName: 'Urban Interiors & Designers',
-    status: 'partial_paid',
-    invoiceDate: '2025-10-05',
-    dueDate: '2025-10-20',
-    subtotal: 285000,
-    totalTax: 51300,
-    totalAmount: 336300,
-    paidAmount: 150000,
-    balanceAmount: 186300,
-    paymentStatus: 'partial',
-    paymentTerms: '50% Advance, 50% on Completion',
-  },
-  {
-    id: '4',
-    invoiceNumber: 'SI-2025-00098',
-    invoiceType: 'AMC',
-    customerId: 'CUST004',
-    customerName: 'Elite Contractors & Builders',
-    status: 'overdue',
-    invoiceDate: '2025-09-15',
-    dueDate: '2025-10-15',
-    subtotal: 45000,
-    totalTax: 8100,
-    totalAmount: 53100,
-    paidAmount: 0,
-    balanceAmount: 53100,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 30 days',
-    contractId: 'AMC-2024-0234',
-    overdueDays: 2,
-  },
-  {
-    id: '5',
-    invoiceNumber: 'SI-2025-00156',
-    invoiceType: 'Service',
-    customerId: 'CUST005',
-    customerName: 'DLF Universal Projects',
-    status: 'paid',
-    invoiceDate: '2025-10-12',
-    dueDate: '2025-10-27',
-    subtotal: 1200,
-    totalTax: 216,
-    totalAmount: 1416,
-    paidAmount: 1416,
-    balanceAmount: 0,
-    paymentStatus: 'paid',
-    paymentTerms: 'Net 15 days',
-    serviceJobId: 'FS-2025-000467',
-  },
-  {
-    id: '6',
-    invoiceNumber: 'SI-2025-00167',
-    invoiceType: 'Warranty',
-    customerId: 'CUST006',
-    customerName: 'Signature Interiors Pune',
-    status: 'sent',
-    invoiceDate: '2025-10-14',
-    dueDate: '2025-10-29',
-    subtotal: 12000,
-    totalTax: 2160,
-    totalAmount: 14160,
-    paidAmount: 0,
-    balanceAmount: 14160,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 15 days',
-  },
-  {
-    id: '7',
-    invoiceNumber: 'SI-2025-00178',
-    invoiceType: 'Parts',
-    customerId: 'CUST007',
-    customerName: 'Royal Homes Hyderabad',
-    status: 'draft',
-    invoiceDate: '2025-10-17',
-    dueDate: '2025-11-01',
-    subtotal: 3500,
-    totalTax: 630,
-    totalAmount: 4130,
-    paidAmount: 0,
-    balanceAmount: 4130,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 15 days',
-  },
-  {
-    id: '8',
-    invoiceNumber: 'SI-2025-00189',
-    invoiceType: 'Installation',
-    customerId: 'CUST008',
-    customerName: 'Modern Living Ahmedabad',
-    status: 'sent',
-    invoiceDate: '2025-10-08',
-    dueDate: '2025-10-23',
-    subtotal: 1650000,
-    totalTax: 297000,
-    totalAmount: 1947000,
-    paidAmount: 0,
-    balanceAmount: 1947000,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 15 days',
-  },
-  {
-    id: '9',
-    invoiceNumber: 'SI-2025-00112',
-    invoiceType: 'AMC',
-    customerId: 'CUST009',
-    customerName: 'Decor Studio Chennai',
-    status: 'overdue',
-    invoiceDate: '2025-09-20',
-    dueDate: '2025-10-05',
-    subtotal: 80000,
-    totalTax: 14400,
-    totalAmount: 94400,
-    paidAmount: 40000,
-    balanceAmount: 54400,
-    paymentStatus: 'partial',
-    paymentTerms: 'Net 15 days',
-    contractId: 'AMC-2025-0078',
-    overdueDays: 12,
-  },
-  {
-    id: '10',
-    invoiceNumber: 'SI-2025-00201',
-    invoiceType: 'Service',
-    customerId: 'CUST010',
-    customerName: 'Cosmos Furniture Mart',
-    status: 'paid',
-    invoiceDate: '2025-10-13',
-    dueDate: '2025-10-28',
-    subtotal: 850,
-    totalTax: 153,
-    totalAmount: 1003,
-    paidAmount: 1003,
-    balanceAmount: 0,
-    paymentStatus: 'paid',
-    paymentTerms: 'Net 15 days',
-    serviceJobId: 'FS-2025-000445',
-  },
-  {
-    id: '11',
-    invoiceNumber: 'SI-2025-00212',
-    invoiceType: 'AMC',
-    customerId: 'CUST011',
-    customerName: 'Green Valley Builders',
-    status: 'void',
-    invoiceDate: '2025-09-25',
-    dueDate: '2025-10-10',
-    subtotal: 75000,
-    totalTax: 13500,
-    totalAmount: 88500,
-    paidAmount: 0,
-    balanceAmount: 0,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 15 days',
-  },
-  {
-    id: '12',
-    invoiceNumber: 'SI-2025-00223',
-    invoiceType: 'Service',
-    customerId: 'CUST012',
-    customerName: 'Infinity Kitchen Solutions',
-    status: 'sent',
-    invoiceDate: '2025-10-16',
-    dueDate: '2025-10-31',
-    subtotal: 15000,
-    totalTax: 2700,
-    totalAmount: 17700,
-    paidAmount: 0,
-    balanceAmount: 17700,
-    paymentStatus: 'unpaid',
-    paymentTerms: 'Net 15 days',
-  },
-];
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700',
@@ -272,6 +59,57 @@ export default function ServiceBillingPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const [invoices, setInvoices] = useState<ServiceInvoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await ServiceBillingService.getAllInvoices();
+        const mapped: ServiceInvoice[] = (Array.isArray(raw) ? raw : []).map((i: any) => {
+          const total = Number(i.totalAmount ?? i.total_amount ?? 0);
+          const paid = Number(i.paidAmount ?? i.paid_amount ?? 0);
+          const balance = Number(i.balanceAmount ?? i.balance_amount ?? (total - paid));
+          const paymentStatus: ServiceInvoice['paymentStatus'] =
+            paid <= 0 ? 'unpaid' : balance > 0 ? 'partial' : 'paid';
+          return {
+            id: String(i.id ?? ''),
+            invoiceNumber: i.invoiceNumber ?? i.invoice_number ?? '',
+            invoiceType: (i.invoiceType ?? i.invoice_type ?? 'Service') as ServiceInvoice['invoiceType'],
+            customerId: String(i.customerId ?? i.customer_id ?? ''),
+            customerName: i.customerName ?? i.customer_name ?? '',
+            status: (i.status ?? 'draft') as ServiceInvoice['status'],
+            invoiceDate: i.invoiceDate ?? i.invoice_date ?? i.createdAt ?? '',
+            dueDate: i.dueDate ?? i.due_date ?? '',
+            subtotal: Number(i.subtotal ?? 0),
+            totalTax: Number(i.totalTax ?? i.total_tax ?? 0),
+            totalAmount: total,
+            paidAmount: paid,
+            balanceAmount: balance,
+            paymentStatus: (i.paymentStatus as ServiceInvoice['paymentStatus']) ?? paymentStatus,
+            paymentTerms: i.paymentTerms ?? i.payment_terms ?? '',
+            serviceJobId: i.serviceJobId ?? i.service_job_id ?? undefined,
+            contractId: i.contractId ?? i.contract_id ?? undefined,
+            overdueDays: i.overdueDays != null ? Number(i.overdueDays) : undefined,
+          };
+        });
+        if (!cancelled) setInvoices(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load invoices');
+          setInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -281,7 +119,7 @@ export default function ServiceBillingPage() {
   const itemsPerPage = 10;
 
   // Filter invoices
-  const filteredInvoices = mockInvoices.filter((invoice) => {
+  const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -299,14 +137,14 @@ export default function ServiceBillingPage() {
 
   // Calculate statistics
   const stats = {
-    totalInvoices: mockInvoices.length,
-    draftInvoices: mockInvoices.filter(i => i.status === 'draft').length,
-    sentInvoices: mockInvoices.filter(i => i.status === 'sent').length,
-    paidInvoices: mockInvoices.filter(i => i.status === 'paid').length,
-    overdueInvoices: mockInvoices.filter(i => i.status === 'overdue').length,
-    totalInvoiced: mockInvoices.reduce((sum, i) => sum + i.totalAmount, 0),
-    totalCollected: mockInvoices.reduce((sum, i) => sum + i.paidAmount, 0),
-    totalOutstanding: mockInvoices.reduce((sum, i) => sum + i.balanceAmount, 0),
+    totalInvoices: invoices.length,
+    draftInvoices: invoices.filter(i => i.status === 'draft').length,
+    sentInvoices: invoices.filter(i => i.status === 'sent').length,
+    paidInvoices: invoices.filter(i => i.status === 'paid').length,
+    overdueInvoices: invoices.filter(i => i.status === 'overdue').length,
+    totalInvoiced: invoices.reduce((sum, i) => sum + i.totalAmount, 0),
+    totalCollected: invoices.reduce((sum, i) => sum + i.paidAmount, 0),
+    totalOutstanding: invoices.reduce((sum, i) => sum + i.balanceAmount, 0),
   };
 
   const formatCurrency = (amount: number) => {
@@ -337,7 +175,7 @@ export default function ServiceBillingPage() {
   };
 
   const handleExport = () => {
-    exportToCsv('service-billing-invoices', filteredInvoices);
+    exportToCsv('service-billing-invoices', filteredInvoices as unknown as Record<string, unknown>[]);
     toast({
       title: "Report Exported",
       description: "Invoice report has been exported successfully.",
@@ -351,6 +189,24 @@ export default function ServiceBillingPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Service Billing</h1>
         <p className="text-gray-600">Manage invoices and payment tracking</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading invoices…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && invoices.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No invoices found.
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-2 mb-3">

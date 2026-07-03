@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   Settings,
   TrendingUp,
@@ -60,90 +61,65 @@ export default function AdjustmentsPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] = useState<Adjustment | null>(null);
 
-  const [adjustments, setAdjustments] = useState<Adjustment[]>([
-    {
-      id: 1,
-      adjustmentNumber: 'ADJ-2025-001',
-      date: '2025-01-15',
-      warehouse: 'Main Warehouse',
-      type: 'quantity',
-      reason: 'Physical Count Variance',
-      itemsCount: 5,
-      adjustmentValue: 25000,
-      adjustmentType: 'increase',
-      createdBy: 'John Smith',
-      status: 'approved',
-      approvedBy: 'Mike Davis',
-      approvedDate: '2025-01-16'
-    },
-    {
-      id: 2,
-      adjustmentNumber: 'ADJ-2025-002',
-      date: '2025-01-17',
-      warehouse: 'Assembly Plant',
-      type: 'write-off',
-      reason: 'Damaged Goods',
-      itemsCount: 3,
-      adjustmentValue: 45000,
-      adjustmentType: 'decrease',
-      createdBy: 'Sarah Johnson',
-      status: 'pending-approval'
-    },
-    {
-      id: 3,
-      adjustmentNumber: 'ADJ-2025-003',
-      date: '2025-01-18',
-      warehouse: 'FG Store',
-      type: 'value',
-      reason: 'Price Correction',
-      itemsCount: 8,
-      adjustmentValue: 18500,
-      adjustmentType: 'increase',
-      createdBy: 'Robert Lee',
-      status: 'approved',
-      approvedBy: 'Emily Chen',
-      approvedDate: '2025-01-19'
-    },
-    {
-      id: 4,
-      adjustmentNumber: 'ADJ-2025-004',
-      date: '2025-01-19',
-      warehouse: 'Main Warehouse',
-      type: 'quantity',
-      reason: 'System Error Correction',
-      itemsCount: 2,
-      adjustmentValue: 12000,
-      adjustmentType: 'decrease',
-      createdBy: 'Emily Chen',
-      status: 'draft'
-    },
-    {
-      id: 5,
-      adjustmentNumber: 'ADJ-2025-005',
-      date: '2025-01-20',
-      warehouse: 'Assembly Plant',
-      type: 'write-off',
-      reason: 'Obsolete Inventory',
-      itemsCount: 6,
-      adjustmentValue: 32000,
-      adjustmentType: 'decrease',
-      createdBy: 'Mike Davis',
-      status: 'pending-approval'
-    },
-    {
-      id: 6,
-      adjustmentNumber: 'ADJ-2025-006',
-      date: '2025-01-20',
-      warehouse: 'FG Store',
-      type: 'quantity',
-      reason: 'Cycle Count Adjustment',
-      itemsCount: 4,
-      adjustmentValue: 8500,
-      adjustmentType: 'increase',
-      createdBy: 'Sarah Johnson',
-      status: 'rejected'
-    }
-  ]);
+  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw ORM shape (adjustmentNumber/adjustmentDate/
+        // warehouseName/adjustmentType/status/totalAdjustmentValue/referenceType/
+        // approvedByName/approvedAt); map it to the page's Adjustment model.
+        const raw = (await inventoryService.getStockAdjustments()) as any[];
+        const typeMap: Record<string, Adjustment['type']> = {
+          Quantity: 'quantity', QUANTITY: 'quantity', 'Stock Adjustment': 'quantity',
+          Value: 'value', VALUE: 'value', Revaluation: 'value',
+          WriteOff: 'write-off', 'Write-Off': 'write-off', WRITE_OFF: 'write-off', WriteOn: 'quantity',
+        };
+        const statusMap: Record<string, Adjustment['status']> = {
+          Draft: 'draft', DRAFT: 'draft',
+          PendingApproval: 'pending-approval', PENDING_APPROVAL: 'pending-approval', Pending: 'pending-approval', Submitted: 'pending-approval',
+          Approved: 'approved', APPROVED: 'approved', Posted: 'approved',
+          Rejected: 'rejected', REJECTED: 'rejected',
+        };
+        const toDate = (d: any): string => (d ? String(d).split('T')[0] : '');
+        const mapped: Adjustment[] = raw.map((a, idx) => {
+          const total = Number(a.totalAdjustmentValue ?? 0);
+          return {
+            id: idx + 1,
+            adjustmentNumber: a.adjustmentNumber ?? '',
+            date: toDate(a.adjustmentDate),
+            warehouse: a.warehouseName ?? a.warehouseId ?? '-',
+            type: typeMap[a.adjustmentType] ?? 'quantity',
+            reason: a.referenceType ?? a.approvalRemarks ?? '-',
+            itemsCount: Number(a.itemsCount ?? (Array.isArray(a.items) ? a.items.length : 0)),
+            adjustmentValue: Math.abs(total),
+            adjustmentType: total < 0 ? 'decrease' : 'increase',
+            createdBy: a.createdByName ?? a.counterName ?? a.createdBy ?? '-',
+            status: statusMap[a.status] ?? 'draft',
+            approvedBy: a.approvedByName ?? undefined,
+            approvedDate: toDate(a.approvedAt) || undefined,
+          };
+        });
+        if (!cancelled) setAdjustments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stock adjustments');
+          setAdjustments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -374,6 +350,24 @@ export default function AdjustmentsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading stock adjustments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && adjustments.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No stock adjustments found.
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

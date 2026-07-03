@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Building2, Save, Globe, Phone, Mail, MapPin, FileText, Upload, Calendar, Users } from 'lucide-react';
+import { ArrowLeft, Building2, Save, Globe, Phone, Mail, MapPin, FileText, Upload, Calendar, Users, AlertCircle } from 'lucide-react';
+import { SystemConfigService } from '@/services/system-config.service';
 
 interface CompanySettings {
   name: string;
@@ -37,38 +38,108 @@ interface CompanySettings {
 
 export default function CompanySettingsPage() {
   const router = useRouter();
-  const [settings, setSettings] = useState<CompanySettings>({
-    name: 'B3 Manufacturing Solutions',
-    legalName: 'B3 Manufacturing Solutions Private Limited',
+  const emptySettings: CompanySettings = {
+    name: '',
+    legalName: '',
     industry: 'Manufacturing & Industrial',
-    taxId: 'GSTIN29ABCDE1234F1Z5',
-    registrationNumber: 'CIN-U74999KA2020PTC123456',
-    website: 'https://www.b3manufacturing.com',
-    email: 'contact@b3manufacturing.com',
-    phone: '+91 80 4567 8900',
-    fax: '+91 80 4567 8901',
-    address: {
-      street: '123 Industrial Area, Phase II',
-      city: 'Bangalore',
-      state: 'Karnataka',
-      zipCode: '560100',
-      country: 'India'
-    },
-    financialYear: {
-      startMonth: 'April',
-      endMonth: 'March'
-    },
+    taxId: '',
+    registrationNumber: '',
+    website: '',
+    email: '',
+    phone: '',
+    fax: '',
+    address: { street: '', city: '', state: '', zipCode: '', country: '' },
+    financialYear: { startMonth: 'April', endMonth: 'March' },
     currency: 'INR',
     timezone: 'Asia/Kolkata (UTC+05:30)',
     dateFormat: 'DD/MM/YYYY',
     timeFormat: '24-hour',
     fiscalYearStart: 'April 1',
-    employees: '250-500',
-    founded: '2020',
-    logoUrl: ''
-  });
+    employees: '201-500',
+    founded: '',
+    logoUrl: '',
+  };
 
+  const [settings, setSettings] = useState<CompanySettings>(emptySettings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const monthByNumber: Record<string, string> = {
+      '1': 'January', '2': 'February', '3': 'March', '4': 'April',
+      '5': 'May', '6': 'June', '7': 'July', '8': 'August',
+      '9': 'September', '10': 'October', '11': 'November', '12': 'December',
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns the flat system-config ORM rows (key/value pairs).
+        // Fold the company.* / regional.* / fiscal.* keys into the form model.
+        const raw = (await SystemConfigService.getAllConfigs()) as any[];
+        const byKey = new Map<string, string>(
+          (Array.isArray(raw) ? raw : []).map((c) => [c.key, c.value]),
+        );
+        const get = (k: string) => byKey.get(k) ?? '';
+
+        let addr = { line1: '', line2: '', city: '', state: '', country: '', postalCode: '' } as Record<string, string>;
+        try {
+          const parsed = JSON.parse(get('company.address') || '{}');
+          if (parsed && typeof parsed === 'object') addr = { ...addr, ...parsed };
+        } catch {
+          /* company.address may be a plain string; ignore parse errors */
+        }
+
+        const startMonthNum = get('fiscal.year_start');
+        const timeFmtRaw = get('regional.time_format'); // '12h' | '24h'
+
+        const mapped: CompanySettings = {
+          name: get('company.name') || emptySettings.name,
+          legalName: get('company.name') || emptySettings.legalName,
+          industry: emptySettings.industry,
+          taxId: get('company.gstin'),
+          registrationNumber: get('company.pan'),
+          website: emptySettings.website,
+          email: get('company.email'),
+          phone: get('company.phone'),
+          fax: emptySettings.fax,
+          address: {
+            street: [addr.line1, addr.line2].filter(Boolean).join(', '),
+            city: addr.city || '',
+            state: addr.state || '',
+            zipCode: addr.postalCode || '',
+            country: addr.country || '',
+          },
+          financialYear: {
+            startMonth: monthByNumber[startMonthNum] || emptySettings.financialYear.startMonth,
+            endMonth: emptySettings.financialYear.endMonth,
+          },
+          currency: get('regional.currency') || emptySettings.currency,
+          timezone: get('regional.timezone') || emptySettings.timezone,
+          dateFormat: get('regional.date_format') || emptySettings.dateFormat,
+          timeFormat: timeFmtRaw === '12h' ? '12-hour' : timeFmtRaw === '24h' ? '24-hour' : emptySettings.timeFormat,
+          fiscalYearStart: emptySettings.fiscalYearStart,
+          employees: emptySettings.employees,
+          founded: emptySettings.founded,
+          logoUrl: emptySettings.logoUrl,
+        };
+        if (!cancelled) setSettings(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load company settings');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (field: string, value: string) => {
     setSettings((prev) => {
@@ -128,6 +199,19 @@ export default function CompanySettingsPage() {
           </button>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading company settings…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Company Profile */}

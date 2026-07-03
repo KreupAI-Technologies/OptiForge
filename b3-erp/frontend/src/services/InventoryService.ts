@@ -135,6 +135,48 @@ class InventoryService {
         const response = await apiClient.post<{ prId: string }>(`/inventory/reorder/suggestions/${suggestionId}/create-pr`, {});
         return response.data;
     }
+
+    // Raw ORM-shaped list endpoints. Callers apply their own defensive mapping.
+    // These NestJS routes return a bare JSON array (no { data } envelope), so we
+    // unwrap defensively: accept either the array itself or a { data } wrapper.
+    private unwrapArray(response: any): any[] {
+        if (Array.isArray(response)) return response;
+        if (response && Array.isArray(response.data)) return response.data;
+        return [];
+    }
+
+    async getStockLocations(warehouseId?: string): Promise<any[]> {
+        const path = warehouseId
+            ? `/inventory/stock-locations/warehouse/${warehouseId}`
+            : '/inventory/stock-locations';
+        const response = await apiClient.get<any[]>(path);
+        return this.unwrapArray(response);
+    }
+
+    async getWarehouses(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/warehouses');
+        return this.unwrapArray(response);
+    }
+
+    async getStockTransfers(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/stock-transfers');
+        return this.unwrapArray(response);
+    }
+
+    async getStockAdjustments(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/stock-adjustments');
+        return this.unwrapArray(response);
+    }
+
+    async getSerialNumbers(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/serial-numbers');
+        return this.unwrapArray(response);
+    }
+
+    async getBatchNumbers(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/batch-numbers');
+        return this.unwrapArray(response);
+    }
 }
 
 export const inventoryService = new InventoryService();

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { estimationPricingService } from '@/services/estimation-pricing.service'
 import {
   Percent,
   TrendingUp,
@@ -46,213 +47,52 @@ interface CategoryMarkup {
 export default function PricingMarkupPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [markupRules, setMarkupRules] = useState<MarkupRule[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [markupRules] = useState<MarkupRule[]>([
-    {
-      id: 'MU-001',
-      ruleCode: 'SINK-STD',
-      ruleName: 'Standard Kitchen Sinks',
-      category: 'Kitchen Sinks',
-      subcategory: 'Standard Models',
-      costBasis: 'full-cost',
-      markupPercent: 48.0,
-      minimumPrice: 5000,
-      maximumPrice: 20000,
-      applicableRange: 'All standard sink models',
-      priority: 1,
-      status: 'active',
-      products: 8,
-      avgSellingPrice: 11250,
-      avgMargin: 32.4
-    },
-    {
-      id: 'MU-002',
-      ruleCode: 'SINK-PREM',
-      ruleName: 'Premium Kitchen Sinks',
-      category: 'Kitchen Sinks',
-      subcategory: 'Premium Models',
-      costBasis: 'full-cost',
-      markupPercent: 52.0,
-      minimumPrice: 15000,
-      maximumPrice: 50000,
-      applicableRange: 'Premium & luxury sink models',
-      priority: 1,
-      status: 'active',
-      products: 5,
-      avgSellingPrice: 28500,
-      avgMargin: 34.2
-    },
-    {
-      id: 'MU-003',
-      ruleCode: 'FAU-CHR',
-      ruleName: 'Chrome Faucets',
-      category: 'Kitchen Faucets',
-      subcategory: 'Chrome Finish',
-      costBasis: 'full-cost',
-      markupPercent: 50.6,
-      minimumPrice: 3000,
-      maximumPrice: 15000,
-      applicableRange: 'All chrome plated faucets',
-      priority: 1,
-      status: 'active',
-      products: 12,
-      avgSellingPrice: 6200,
-      avgMargin: 33.6
-    },
-    {
-      id: 'MU-004',
-      ruleCode: 'FAU-BRASS',
-      ruleName: 'Brass Faucets',
-      category: 'Kitchen Faucets',
-      subcategory: 'Brass Finish',
-      costBasis: 'full-cost',
-      markupPercent: 55.0,
-      minimumPrice: 5000,
-      maximumPrice: 25000,
-      applicableRange: 'Brass and antique finish faucets',
-      priority: 1,
-      status: 'active',
-      products: 6,
-      avgSellingPrice: 9800,
-      avgMargin: 35.5
-    },
-    {
-      id: 'MU-005',
-      ruleCode: 'CW-NS',
-      ruleName: 'Non-Stick Cookware',
-      category: 'Cookware',
-      subcategory: 'Non-Stick',
-      costBasis: 'full-cost',
-      markupPercent: 56.0,
-      minimumPrice: 800,
-      maximumPrice: 8000,
-      applicableRange: 'All non-stick coated cookware',
-      priority: 1,
-      status: 'active',
-      products: 15,
-      avgSellingPrice: 2150,
-      avgMargin: 35.9
-    },
-    {
-      id: 'MU-006',
-      ruleCode: 'CW-SS',
-      ruleName: 'Stainless Steel Cookware',
-      category: 'Cookware',
-      subcategory: 'Stainless Steel',
-      costBasis: 'full-cost',
-      markupPercent: 55.0,
-      minimumPrice: 1500,
-      maximumPrice: 12000,
-      applicableRange: 'SS cookware without coating',
-      priority: 1,
-      status: 'active',
-      products: 10,
-      avgSellingPrice: 3600,
-      avgMargin: 35.5
-    },
-    {
-      id: 'MU-007',
-      ruleCode: 'CHIM-STD',
-      ruleName: 'Standard Kitchen Chimneys',
-      category: 'Kitchen Appliances',
-      subcategory: 'Standard Chimneys',
-      costBasis: 'full-cost',
-      markupPercent: 51.4,
-      minimumPrice: 15000,
-      maximumPrice: 40000,
-      applicableRange: '60cm & 90cm standard models',
-      priority: 1,
-      status: 'active',
-      products: 8,
-      avgSellingPrice: 24500,
-      avgMargin: 33.9
-    },
-    {
-      id: 'MU-008',
-      ruleCode: 'CHIM-AUTO',
-      ruleName: 'Auto-Clean Chimneys',
-      category: 'Kitchen Appliances',
-      subcategory: 'Auto-Clean Models',
-      costBasis: 'full-cost',
-      markupPercent: 58.0,
-      minimumPrice: 25000,
-      maximumPrice: 85000,
-      applicableRange: 'Auto-clean chimney systems',
-      priority: 1,
-      status: 'active',
-      products: 5,
-      avgSellingPrice: 42000,
-      avgMargin: 36.7
-    },
-    {
-      id: 'MU-009',
-      ruleCode: 'CAB-BASE',
-      ruleName: 'Base Cabinets',
-      category: 'Kitchen Cabinets',
-      subcategory: 'Base Units',
-      costBasis: 'full-cost',
-      markupPercent: 44.5,
-      minimumPrice: 8000,
-      maximumPrice: 30000,
-      applicableRange: 'All modular base cabinets',
-      priority: 1,
-      status: 'active',
-      products: 12,
-      avgSellingPrice: 16500,
-      avgMargin: 30.8
-    },
-    {
-      id: 'MU-010',
-      ruleCode: 'CAB-WALL',
-      ruleName: 'Wall Cabinets',
-      category: 'Kitchen Cabinets',
-      subcategory: 'Wall Units',
-      costBasis: 'full-cost',
-      markupPercent: 45.3,
-      minimumPrice: 6000,
-      maximumPrice: 25000,
-      applicableRange: 'Wall mounted cabinets',
-      priority: 1,
-      status: 'active',
-      products: 10,
-      avgSellingPrice: 12800,
-      avgMargin: 31.2
-    },
-    {
-      id: 'MU-011',
-      ruleCode: 'CT-GRAN',
-      ruleName: 'Granite Countertops',
-      category: 'Countertops',
-      subcategory: 'Granite',
-      costBasis: 'full-cost',
-      markupPercent: 47.4,
-      minimumPrice: 20000,
-      maximumPrice: 80000,
-      applicableRange: 'All granite countertop slabs',
-      priority: 1,
-      status: 'active',
-      products: 8,
-      avgSellingPrice: 38500,
-      avgMargin: 32.1
-    },
-    {
-      id: 'MU-012',
-      ruleCode: 'CT-QUARTZ',
-      ruleName: 'Quartz Countertops',
-      category: 'Countertops',
-      subcategory: 'Quartz',
-      costBasis: 'full-cost',
-      markupPercent: 47.4,
-      minimumPrice: 25000,
-      maximumPrice: 90000,
-      applicableRange: 'Engineered quartz countertops',
-      priority: 1,
-      status: 'active',
-      products: 6,
-      avgSellingPrice: 41200,
-      avgMargin: 32.2
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw MarkupRule[]; map to the page's MarkupRule view model.
+        const res = await estimationPricingService.findAllMarkupRules('')
+        const raw = (Array.isArray(res) ? res : []) as any[]
+        const mapped: MarkupRule[] = raw.map((r, i) => ({
+          id: r.id,
+          ruleCode: r.code ?? `MU-${i + 1}`,
+          ruleName: r.name ?? '',
+          category: r.applyTo ?? '',
+          subcategory: '',
+          costBasis: 'full-cost',
+          markupPercent: Number(r.markupPercentage ?? 0),
+          minimumPrice: r.minAmount != null ? Number(r.minAmount) : undefined,
+          maximumPrice: r.maxAmount != null ? Number(r.maxAmount) : undefined,
+          applicableRange: r.description ?? '',
+          priority: Number(r.priority ?? 0),
+          status: r.isActive === false ? 'inactive' : 'active',
+          products: 0,
+          avgSellingPrice: 0,
+          avgMargin: 0,
+        }))
+        if (!cancelled) setMarkupRules(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load markup rules')
+          setMarkupRules([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
 
   const categoryMarkups: CategoryMarkup[] = [
     { category: 'Kitchen Sinks', defaultMarkup: 50.0, minMarkup: 45.0, maxMarkup: 55.0, products: 13, avgActualMarkup: 49.8 },
@@ -289,7 +129,7 @@ export default function PricingMarkupPage() {
   }
 
   const totalProducts = markupRules.reduce((sum, r) => sum + r.products, 0)
-  const avgMarkup = markupRules.reduce((sum, r) => sum + r.markupPercent, 0) / markupRules.length
+  const avgMarkup = markupRules.length > 0 ? markupRules.reduce((sum, r) => sum + r.markupPercent, 0) / markupRules.length : 0
   const activeRules = markupRules.filter(r => r.status === 'active').length
 
   return (
@@ -309,6 +149,23 @@ export default function PricingMarkupPage() {
           Export
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading markup rules…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && markupRules.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No markup rules found.
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

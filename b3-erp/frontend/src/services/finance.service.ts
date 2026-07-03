@@ -776,6 +776,23 @@ export class FinanceService {
     return this.request<StatutoryComplianceReport>(`/finance/reports/statutory?${new URLSearchParams(params).toString()}`);
   }
 
+  // Financial Reports
+  // Backend returns an envelope: { reportType, data: [...], generatedAt }.
+  // Returns the raw `data` array (may be empty) for the caller to transform.
+  static async getTrialBalanceReport(params?: {
+    periodId?: string;
+    asOfDate?: string;
+    includeZeroBalances?: boolean;
+  }): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.periodId) queryParams.set('periodId', params.periodId);
+    if (params?.asOfDate) queryParams.set('asOfDate', params.asOfDate);
+    if (params?.includeZeroBalances) queryParams.set('includeZeroBalances', 'true');
+    const qs = queryParams.toString();
+    const res = await this.request<any>(`/finance/reports/trial-balance${qs ? `?${qs}` : ''}`);
+    return Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+  }
+
   static async exportFinancialReport(params: {
     reportType: string;
     format: 'excel' | 'pdf';

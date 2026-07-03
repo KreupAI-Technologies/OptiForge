@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle,
   TrendingUp,
@@ -21,8 +21,10 @@ import {
   Package,
   Award,
   Clock,
-  ShoppingCart
+  ShoppingCart,
+  AlertCircle
 } from 'lucide-react';
+import { quotationService } from '@/services/quotation.service';
 
 interface ApprovedQuotation {
   id: string;
@@ -50,173 +52,58 @@ export default function ApprovedQuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [conversionFilter, setConversionFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('all');
+  const [quotations, setQuotations] = useState<ApprovedQuotation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const quotations: ApprovedQuotation[] = [
-    {
-      id: 'QUO-001',
-      quotationNumber: 'QUO-2025-001',
-      customerName: 'Rajesh Sharma',
-      customerCompany: 'Tech Innovations Pvt Ltd',
-      customerEmail: 'rajesh@techinnovations.com',
-      customerPhone: '+91 98765 43210',
-      quotationDate: '2025-09-15',
-      approvedDate: '2025-10-01',
-      validUntil: '2025-11-15',
-      totalAmount: 12500000,
-      items: 8,
-      assignedTo: 'Sarah Johnson',
-      approvedBy: 'Michael Chen',
-      conversionStatus: 'converted',
-      salesOrderNumber: 'SO-2025-001',
-      discount: 5,
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'FOB Mumbai',
-      notes: 'Priority customer - expedited processing'
-    },
-    {
-      id: 'QUO-002',
-      quotationNumber: 'QUO-2025-002',
-      customerName: 'Priya Menon',
-      customerCompany: 'Manufacturing Solutions Inc',
-      customerEmail: 'priya.menon@mansol.com',
-      customerPhone: '+91 98123 45678',
-      quotationDate: '2025-09-20',
-      approvedDate: '2025-10-05',
-      validUntil: '2025-11-20',
-      totalAmount: 8750000,
-      items: 12,
-      assignedTo: 'Michael Chen',
-      approvedBy: 'Sarah Johnson',
-      conversionStatus: 'pending_conversion',
-      discount: 3,
-      paymentTerms: 'Net 45 Days',
-      deliveryTerms: 'Ex-Works',
-      notes: 'Awaiting final purchase order from customer'
-    },
-    {
-      id: 'QUO-003',
-      quotationNumber: 'QUO-2025-003',
-      customerName: 'Amit Kumar',
-      customerCompany: 'Industrial Automation Ltd',
-      customerEmail: 'amit@indauto.com',
-      customerPhone: '+91 97654 32109',
-      quotationDate: '2025-09-25',
-      approvedDate: '2025-10-08',
-      validUntil: '2025-11-25',
-      totalAmount: 15600000,
-      items: 15,
-      assignedTo: 'Emily Rodriguez',
-      approvedBy: 'David Park',
-      conversionStatus: 'converted',
-      salesOrderNumber: 'SO-2025-003',
-      discount: 8,
-      paymentTerms: 'Net 60 Days',
-      deliveryTerms: 'CIF Delhi',
-      notes: 'Large enterprise order - VIP handling'
-    },
-    {
-      id: 'QUO-004',
-      quotationNumber: 'QUO-2025-004',
-      customerName: 'Sneha Patel',
-      customerCompany: 'Global Machinery Corp',
-      customerEmail: 'sneha.p@globalmach.com',
-      customerPhone: '+91 98234 56789',
-      quotationDate: '2025-10-01',
-      approvedDate: '2025-10-10',
-      validUntil: '2025-12-01',
-      totalAmount: 6300000,
-      items: 6,
-      assignedTo: 'David Park',
-      approvedBy: 'Emily Rodriguez',
-      conversionStatus: 'pending_conversion',
-      discount: 4,
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'FOB Chennai',
-      notes: 'Customer reviewing internal budget approval'
-    },
-    {
-      id: 'QUO-005',
-      quotationNumber: 'QUO-2025-005',
-      customerName: 'Vikram Singh',
-      customerCompany: 'Engineering Works Ltd',
-      customerEmail: 'vikram@engworks.com',
-      customerPhone: '+91 99876 54321',
-      quotationDate: '2025-09-10',
-      approvedDate: '2025-09-28',
-      validUntil: '2025-11-10',
-      totalAmount: 9800000,
-      items: 10,
-      assignedTo: 'Jennifer Martinez',
-      approvedBy: 'Michael Chen',
-      conversionStatus: 'converted',
-      salesOrderNumber: 'SO-2025-005',
-      discount: 6,
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'CFR Kolkata',
-      notes: 'Repeat customer - standard terms applied'
-    },
-    {
-      id: 'QUO-006',
-      quotationNumber: 'QUO-2025-006',
-      customerName: 'Anita Desai',
-      customerCompany: 'Production Systems Inc',
-      customerEmail: 'anita@prodsys.com',
-      customerPhone: '+91 98765 12345',
-      quotationDate: '2025-10-05',
-      approvedDate: '2025-10-12',
-      validUntil: '2025-12-05',
-      totalAmount: 4500000,
-      items: 5,
-      assignedTo: 'Alex Thompson',
-      approvedBy: 'Sarah Johnson',
-      conversionStatus: 'pending_conversion',
-      discount: 2,
-      paymentTerms: 'Net 15 Days',
-      deliveryTerms: 'Ex-Works',
-      notes: 'Fast-track delivery requested'
-    },
-    {
-      id: 'QUO-007',
-      quotationNumber: 'QUO-2025-007',
-      customerName: 'Ravi Krishnan',
-      customerCompany: 'Precision Tools Ltd',
-      customerEmail: 'ravi@precisiontools.com',
-      customerPhone: '+91 97123 45678',
-      quotationDate: '2025-09-18',
-      approvedDate: '2025-10-02',
-      validUntil: '2025-11-18',
-      totalAmount: 18900000,
-      items: 18,
-      assignedTo: 'Sarah Johnson',
-      approvedBy: 'David Park',
-      conversionStatus: 'converted',
-      salesOrderNumber: 'SO-2025-007',
-      discount: 10,
-      paymentTerms: 'Net 60 Days',
-      deliveryTerms: 'FOB Mumbai',
-      notes: 'Largest order this quarter - executive oversight'
-    },
-    {
-      id: 'QUO-008',
-      quotationNumber: 'QUO-2025-008',
-      customerName: 'Meera Shah',
-      customerCompany: 'Industrial Supplies Co',
-      customerEmail: 'meera@indsupplies.com',
-      customerPhone: '+91 98456 78901',
-      quotationDate: '2025-10-08',
-      approvedDate: '2025-10-15',
-      validUntil: '2025-12-08',
-      totalAmount: 7200000,
-      items: 9,
-      assignedTo: 'Michael Chen',
-      approvedBy: 'Emily Rodriguez',
-      conversionStatus: 'pending_conversion',
-      discount: 5,
-      paymentTerms: 'Net 45 Days',
-      deliveryTerms: 'CIF Bangalore',
-      notes: 'Waiting for logistics confirmation'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw quotation ORM rows; keep the approved/converted
+        // lifecycle statuses and map to this page's ApprovedQuotation shape.
+        const { data } = await quotationService.getAllQuotations();
+        const raw = (data ?? []) as any[];
+        const mapped: ApprovedQuotation[] = raw
+          .filter((q) => ['accepted', 'converted'].includes(String(q?.status)))
+          .map((q) => ({
+            id: String(q?.id ?? ''),
+            quotationNumber: q?.quotationNumber ?? '',
+            customerName: q?.customerName ?? '',
+            customerCompany: q?.customerCompany ?? q?.customerName ?? '',
+            customerEmail: q?.customerEmail ?? '',
+            customerPhone: q?.customerPhone ?? '',
+            quotationDate: q?.quotationDate ? String(q.quotationDate) : '',
+            approvedDate: q?.approvedAt ? String(q.approvedAt) : (q?.updatedAt ? String(q.updatedAt) : ''),
+            validUntil: q?.validUntil ? String(q.validUntil) : '',
+            totalAmount: Number(q?.totalAmount ?? 0),
+            items: Array.isArray(q?.items) ? q.items.length : Number(q?.items ?? 0),
+            assignedTo: q?.salesPersonName ?? q?.salesPersonId ?? '—',
+            approvedBy: q?.approvedBy ?? '—',
+            conversionStatus: String(q?.status) === 'converted' ? 'converted' : 'pending_conversion',
+            salesOrderNumber: q?.convertedToOrderNumber ?? undefined,
+            discount: Number(q?.discountPercentage ?? 0),
+            paymentTerms: q?.paymentTerms ?? '',
+            deliveryTerms: q?.deliveryTerms ?? '',
+            notes: q?.notes ?? '',
+          }));
+        if (!cancelled) setQuotations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load approved quotations');
+          setQuotations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredQuotations = quotations.filter(quotation => {
     const matchesSearch = quotation.quotationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -291,6 +178,18 @@ export default function ApprovedQuotationsPage() {
   return (
     <div className="w-full h-full px-4 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading approved quotations…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           {stats.map((stat, index) => {

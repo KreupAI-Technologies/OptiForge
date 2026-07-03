@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Inbox,
     CheckCircle2,
@@ -27,6 +27,29 @@ import {
     Zap
 } from 'lucide-react';
 import Link from 'next/link';
+import { WorkflowService } from '@/services/workflow.service';
+import { useAuth } from '@/context/AuthContext';
+
+// Map a backend module string to a display icon.
+const MODULE_ICONS: Record<string, React.ElementType> = {
+    procurement: ShoppingCart,
+    purchase: ShoppingCart,
+    sales: FileText,
+    crm: FileText,
+    logistics: Truck,
+    shipping: Truck,
+    hr: Users,
+    finance: DollarSign,
+    quality: ClipboardCheck,
+    inventory: Package,
+    project: ClipboardCheck,
+};
+
+const iconForModule = (module?: string): React.ElementType => {
+    if (!module) return FileText;
+    const key = module.toLowerCase();
+    return MODULE_ICONS[key] ?? FileText;
+};
 
 interface UserTask {
     id: string;
@@ -46,135 +69,92 @@ interface UserTask {
     amount?: number;
 }
 
-// Mock data for demonstration
-const mockTasks: UserTask[] = [
-    {
-        id: '1',
-        taskType: 'approval',
-        title: 'Purchase Order Approval Required',
-        description: 'PO for raw materials from ABC Suppliers - Steel plates and aluminum sheets',
-        module: 'Procurement',
-        moduleIcon: ShoppingCart,
-        moduleUrl: '/procurement/purchase-orders/PO-2024-0892',
-        referenceNumber: 'PO-2024-0892',
-        priority: 'high',
-        status: 'pending',
-        createdAt: '2024-01-22 09:30',
-        dueDate: '2024-01-23',
-        slaStatus: 'warning',
-        requester: 'John Smith',
-        amount: 45000
-    },
-    {
-        id: '2',
-        taskType: 'approval',
-        title: 'Sales Quotation Review',
-        description: 'Customer quotation for Tech Industries - Annual contract renewal',
-        module: 'Sales',
-        moduleIcon: FileText,
-        moduleUrl: '/crm/quotations/QUO-2024-1234',
-        referenceNumber: 'QUO-2024-1234',
-        priority: 'critical',
-        status: 'pending',
-        createdAt: '2024-01-22 08:15',
-        dueDate: '2024-01-22',
-        slaStatus: 'breached',
-        requester: 'Sarah Johnson',
-        amount: 125000
-    },
-    {
-        id: '3',
-        taskType: 'review',
-        title: 'Shipment Documentation Verification',
-        description: 'Export documentation for Dubai shipment - Customs clearance pending',
-        module: 'Logistics',
-        moduleIcon: Truck,
-        moduleUrl: '/logistics/shipping/outbound/SHP-2024-0567',
-        referenceNumber: 'SHP-2024-0567',
-        priority: 'high',
-        status: 'pending',
-        createdAt: '2024-01-22 07:45',
-        dueDate: '2024-01-23',
-        slaStatus: 'on-track',
-        requester: 'Mike Davis'
-    },
-    {
-        id: '4',
-        taskType: 'approval',
-        title: 'Employee Leave Request',
-        description: 'Annual leave request from Engineering Department - 5 working days',
-        module: 'HR',
-        moduleIcon: Users,
-        moduleUrl: '/hr/leave/requests/LR-2024-0234',
-        referenceNumber: 'LR-2024-0234',
-        priority: 'medium',
-        status: 'pending',
-        createdAt: '2024-01-21 16:00',
-        slaStatus: 'on-track',
-        requester: 'David Chen'
-    },
-    {
-        id: '5',
-        taskType: 'approval',
-        title: 'Invoice Payment Approval',
-        description: 'Vendor invoice for IT equipment and software licenses',
-        module: 'Finance',
-        moduleIcon: DollarSign,
-        moduleUrl: '/finance/invoices/INV-2024-3456',
-        referenceNumber: 'INV-2024-3456',
-        priority: 'high',
-        status: 'in-progress',
-        createdAt: '2024-01-21 14:30',
-        dueDate: '2024-01-24',
-        slaStatus: 'on-track',
-        requester: 'Lisa Wong',
-        amount: 78500
-    },
-    {
-        id: '6',
-        taskType: 'action',
-        title: 'Quality Inspection Report',
-        description: 'NCR resolution requires your sign-off - Batch QC-2024-089',
-        module: 'Quality',
-        moduleIcon: ClipboardCheck,
-        moduleUrl: '/quality/ncr/NCR-2024-0089',
-        referenceNumber: 'NCR-2024-0089',
-        priority: 'critical',
-        status: 'pending',
-        createdAt: '2024-01-21 11:00',
-        dueDate: '2024-01-22',
-        slaStatus: 'warning',
-        requester: 'Quality Team'
-    },
-    {
-        id: '7',
-        taskType: 'review',
-        title: 'Inventory Adjustment Review',
-        description: 'Stock count variance reconciliation for Warehouse A',
-        module: 'Inventory',
-        moduleIcon: Package,
-        moduleUrl: '/inventory/adjustments/ADJ-2024-0045',
-        referenceNumber: 'ADJ-2024-0045',
-        priority: 'low',
-        status: 'pending',
-        createdAt: '2024-01-20 09:00',
-        slaStatus: 'on-track',
-        requester: 'Warehouse Team'
-    }
-];
+interface TaskCounts {
+    total: number;
+    pending: number;
+    inProgress: number;
+    overdue: number;
+    critical: number;
+}
 
-const counts = {
-    total: 7,
-    pending: 5,
-    inProgress: 1,
-    overdue: 2,
-    critical: 2
+const EMPTY_COUNTS: TaskCounts = {
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    overdue: 0,
+    critical: 0,
 };
 
 export default function TaskInbox() {
-    const [tasks] = useState<UserTask[]>(mockTasks);
+    const { user } = useAuth();
+    const [tasks, setTasks] = useState<UserTask[]>([]);
+    const [counts, setCounts] = useState<TaskCounts>(EMPTY_COUNTS);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+        const userId = user?.id;
+        if (!userId) {
+            // No authenticated user yet; keep loading until one is available.
+            return;
+        }
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Backend returns raw UserTask rows (module/moduleUrl/referenceNumber/
+                // assignedBy/slaStatus). Map defensively to the page model.
+                const [rawTasks, rawCounts] = await Promise.all([
+                    WorkflowService.getTaskInbox(userId) as Promise<any[]>,
+                    WorkflowService.getTaskCounts(userId) as Promise<Record<string, number>>,
+                ]);
+                const mapped: UserTask[] = (rawTasks ?? []).map((t) => ({
+                    id: String(t.id ?? ''),
+                    taskType: (t.taskType ?? 'action') as UserTask['taskType'],
+                    title: t.title ?? '',
+                    description: t.description ?? '',
+                    module: t.module ?? '',
+                    moduleIcon: iconForModule(t.module),
+                    moduleUrl: t.moduleUrl ?? '#',
+                    referenceNumber: t.referenceNumber ?? '',
+                    priority: (t.priority ?? 'medium') as UserTask['priority'],
+                    status: (t.status ?? 'pending') as UserTask['status'],
+                    createdAt: t.createdAt ?? '',
+                    dueDate: t.dueDate ?? undefined,
+                    slaStatus: t.slaStatus ?? undefined,
+                    requester: t.assignedBy ?? t.requester ?? '',
+                    amount: t.metadata?.amount ?? t.amount ?? undefined,
+                }));
+                const c = rawCounts ?? {};
+                const derivedCounts: TaskCounts = {
+                    total: Number(c.total ?? 0),
+                    pending: Number(c.pending ?? 0),
+                    inProgress: Number(c.inProgress ?? 0),
+                    overdue: Number(c.overdue ?? 0),
+                    critical: Number(c.critical ?? 0),
+                };
+                if (!cancelled) {
+                    setTasks(mapped);
+                    setCounts(derivedCounts);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load task inbox');
+                    setTasks([]);
+                    setCounts(EMPTY_COUNTS);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
 
     const getPriorityStyles = (priority: string) => {
         switch (priority) {
@@ -245,6 +225,18 @@ export default function TaskInbox() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading task inbox…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertTriangle className="w-4 h-4" />
+                        {loadError}
+                    </div>
+                )}
                 {/* Stats Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                     <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Clock,
   Send,
@@ -22,6 +22,7 @@ import {
   ArrowUpRight,
   Copy
 } from 'lucide-react';
+import { quotationService } from '@/services/quotation.service';
 
 interface PendingQuotation {
   id: string;
@@ -46,149 +47,70 @@ export default function PendingQuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [quotations, setQuotations] = useState<PendingQuotation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const quotations: PendingQuotation[] = [
-    {
-      id: 'QUO-001',
-      quotationNumber: 'QUO-2025-001',
-      customerName: 'Rajesh Sharma',
-      customerCompany: 'Tech Innovations Pvt Ltd',
-      customerEmail: 'rajesh@techinnovations.com',
-      customerPhone: '+91 98765 43210',
-      quotationDate: '2025-10-15',
-      validUntil: '2025-11-15',
-      totalAmount: 12500000,
-      items: 8,
-      assignedTo: 'Sarah Johnson',
-      status: 'awaiting_response',
-      priority: 'high',
-      daysRemaining: 26,
-      lastFollowUp: '2025-10-18',
-      notes: 'Follow up scheduled for this week'
-    },
-    {
-      id: 'QUO-002',
-      quotationNumber: 'QUO-2025-002',
-      customerName: 'Priya Menon',
-      customerCompany: 'Manufacturing Solutions Inc',
-      customerEmail: 'priya.menon@mansol.com',
-      customerPhone: '+91 98123 45678',
-      quotationDate: '2025-10-18',
-      validUntil: '2025-11-18',
-      totalAmount: 8750000,
-      items: 12,
-      assignedTo: 'Michael Chen',
-      status: 'pending_send',
-      priority: 'high',
-      daysRemaining: 29,
-      notes: 'Waiting for final pricing approval'
-    },
-    {
-      id: 'QUO-003',
-      quotationNumber: 'QUO-2025-003',
-      customerName: 'Amit Kumar',
-      customerCompany: 'Industrial Automation Ltd',
-      customerEmail: 'amit@indauto.com',
-      customerPhone: '+91 97654 32109',
-      quotationDate: '2025-10-12',
-      validUntil: '2025-11-12',
-      totalAmount: 15600000,
-      items: 15,
-      assignedTo: 'Emily Rodriguez',
-      status: 'awaiting_response',
-      priority: 'medium',
-      daysRemaining: 23,
-      lastFollowUp: '2025-10-16',
-      notes: 'Customer requested technical specifications'
-    },
-    {
-      id: 'QUO-004',
-      quotationNumber: 'QUO-2025-004',
-      customerName: 'Sneha Patel',
-      customerCompany: 'Global Machinery Corp',
-      customerEmail: 'sneha.p@globalmach.com',
-      customerPhone: '+91 98234 56789',
-      quotationDate: '2025-10-19',
-      validUntil: '2025-11-19',
-      totalAmount: 6300000,
-      items: 6,
-      assignedTo: 'David Park',
-      status: 'pending_approval',
-      priority: 'medium',
-      daysRemaining: 30,
-      notes: 'Pending management approval for discount'
-    },
-    {
-      id: 'QUO-005',
-      quotationNumber: 'QUO-2025-005',
-      customerName: 'Vikram Singh',
-      customerCompany: 'Engineering Works Ltd',
-      customerEmail: 'vikram@engworks.com',
-      customerPhone: '+91 99876 54321',
-      quotationDate: '2025-10-10',
-      validUntil: '2025-11-10',
-      totalAmount: 9800000,
-      items: 10,
-      assignedTo: 'Jennifer Martinez',
-      status: 'awaiting_response',
-      priority: 'high',
-      daysRemaining: 21,
-      lastFollowUp: '2025-10-17',
-      notes: 'Urgent - competitor in play'
-    },
-    {
-      id: 'QUO-006',
-      quotationNumber: 'QUO-2025-006',
-      customerName: 'Anita Desai',
-      customerCompany: 'Production Systems Inc',
-      customerEmail: 'anita@prodsys.com',
-      customerPhone: '+91 98765 12345',
-      quotationDate: '2025-10-16',
-      validUntil: '2025-11-16',
-      totalAmount: 4500000,
-      items: 5,
-      assignedTo: 'Alex Thompson',
-      status: 'pending_send',
-      priority: 'low',
-      daysRemaining: 27,
-      notes: 'Waiting for product availability confirmation'
-    },
-    {
-      id: 'QUO-007',
-      quotationNumber: 'QUO-2025-007',
-      customerName: 'Ravi Krishnan',
-      customerCompany: 'Precision Tools Ltd',
-      customerEmail: 'ravi@precisiontools.com',
-      customerPhone: '+91 97123 45678',
-      quotationDate: '2025-10-08',
-      validUntil: '2025-11-08',
-      totalAmount: 18900000,
-      items: 18,
-      assignedTo: 'Sarah Johnson',
-      status: 'awaiting_response',
-      priority: 'high',
-      daysRemaining: 19,
-      lastFollowUp: '2025-10-15',
-      notes: 'Large order - needs executive review call'
-    },
-    {
-      id: 'QUO-008',
-      quotationNumber: 'QUO-2025-008',
-      customerName: 'Meera Shah',
-      customerCompany: 'Industrial Supplies Co',
-      customerEmail: 'meera@indsupplies.com',
-      customerPhone: '+91 98456 78901',
-      quotationDate: '2025-10-17',
-      validUntil: '2025-11-17',
-      totalAmount: 7200000,
-      items: 9,
-      assignedTo: 'Michael Chen',
-      status: 'pending_approval',
-      priority: 'low',
-      daysRemaining: 28,
-      notes: 'Standard approval process'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw quotation ORM rows; keep only the "pending"
+        // lifecycle statuses and map to this page's PendingQuotation shape.
+        const { data } = await quotationService.getAllQuotations();
+        const raw = (data ?? []) as any[];
+        const statusMap: Record<string, PendingQuotation['status']> = {
+          draft: 'pending_send',
+          sent: 'awaiting_response',
+          under_review: 'pending_approval',
+        };
+        const mapped: PendingQuotation[] = raw
+          .filter((q) => ['draft', 'sent', 'under_review'].includes(String(q?.status)))
+          .map((q) => {
+            const validUntil = q?.validUntil ? String(q.validUntil) : '';
+            const daysRemaining = validUntil
+              ? Math.max(
+                  0,
+                  Math.round(
+                    (new Date(validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+                  ),
+                )
+              : 0;
+            return {
+              id: String(q?.id ?? ''),
+              quotationNumber: q?.quotationNumber ?? '',
+              customerName: q?.customerName ?? '',
+              customerCompany: q?.customerCompany ?? q?.customerName ?? '',
+              customerEmail: q?.customerEmail ?? '',
+              customerPhone: q?.customerPhone ?? '',
+              quotationDate: q?.quotationDate ? String(q.quotationDate) : '',
+              validUntil,
+              totalAmount: Number(q?.totalAmount ?? 0),
+              items: Array.isArray(q?.items) ? q.items.length : Number(q?.items ?? 0),
+              assignedTo: q?.salesPersonName ?? q?.salesPersonId ?? '—',
+              status: statusMap[String(q?.status)] ?? 'awaiting_response',
+              priority: 'medium',
+              daysRemaining,
+              notes: q?.notes ?? '',
+            };
+          });
+        if (!cancelled) setQuotations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pending quotations');
+          setQuotations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredQuotations = quotations.filter(quotation => {
     const matchesSearch = quotation.quotationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -260,6 +182,18 @@ export default function PendingQuotationsPage() {
   return (
     <div className="w-full h-full px-4 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading pending quotations…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           {stats.map((stat, index) => {

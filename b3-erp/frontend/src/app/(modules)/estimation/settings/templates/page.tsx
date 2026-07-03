@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { estimationTemplateService } from '@/services/estimation-template.service'
 import {
   FileText,
   Edit2,
@@ -35,169 +36,62 @@ interface EstimateTemplate {
 
 export default function EstimationSettingsTemplatesPage() {
   const router = useRouter()
+  const [templates, setTemplates] = useState<EstimateTemplate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [templates] = useState<EstimateTemplate[]>([
-    {
-      id: 'TPL-001',
-      templateCode: 'MOD-KIT-STD',
-      templateName: 'Standard Modular Kitchen',
-      category: 'Modular Kitchen',
-      description: 'Standard template for 10x10 ft modular kitchen with base and wall cabinets, countertop, and sink',
-      sections: 8,
-      lineItems: 35,
-      defaultMarkup: 48,
-      usageCount: 145,
-      lastUsed: '2025-10-18',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      isDefault: true,
-      status: 'active'
-    },
-    {
-      id: 'TPL-002',
-      templateCode: 'MOD-KIT-PREM',
-      templateName: 'Premium Modular Kitchen',
-      category: 'Modular Kitchen',
-      description: 'Premium template with island, breakfast counter, premium appliances, and high-end finishes',
-      sections: 12,
-      lineItems: 58,
-      defaultMarkup: 52,
-      usageCount: 87,
-      lastUsed: '2025-10-19',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      isDefault: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-003',
-      templateCode: 'COMM-KIT',
-      templateName: 'Commercial Kitchen',
-      category: 'Commercial Kitchen',
-      description: 'Template for restaurant/commercial kitchen with industrial equipment and compliance requirements',
-      sections: 10,
-      lineItems: 45,
-      defaultMarkup: 55,
-      usageCount: 64,
-      lastUsed: '2025-10-17',
-      createdBy: 'Admin',
-      createdDate: '2024-02-10',
-      isDefault: true,
-      status: 'active'
-    },
-    {
-      id: 'TPL-004',
-      templateCode: 'L-SHAPE',
-      templateName: 'L-Shaped Kitchen',
-      category: 'L-Shaped Kitchen',
-      description: 'L-shaped layout optimized for medium-sized kitchens with efficient workflow',
-      sections: 7,
-      lineItems: 32,
-      defaultMarkup: 48,
-      usageCount: 112,
-      lastUsed: '2025-10-20',
-      createdBy: 'Amit Sharma',
-      createdDate: '2024-03-05',
-      isDefault: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-005',
-      templateCode: 'ISLAND-KIT',
-      templateName: 'Island Kitchen',
-      category: 'Island Kitchen',
-      description: 'Island kitchen with central cooking island and surrounding work areas',
-      sections: 10,
-      lineItems: 48,
-      defaultMarkup: 50,
-      usageCount: 78,
-      lastUsed: '2025-10-16',
-      createdBy: 'Neha Patel',
-      createdDate: '2024-03-20',
-      isDefault: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-006',
-      templateCode: 'PARALLEL-KIT',
-      templateName: 'Parallel Kitchen',
-      category: 'Parallel Kitchen',
-      description: 'Galley-style parallel kitchen for narrow spaces with efficient storage',
-      sections: 6,
-      lineItems: 28,
-      defaultMarkup: 47,
-      usageCount: 95,
-      lastUsed: '2025-10-15',
-      createdBy: 'Vikram Singh',
-      createdDate: '2024-04-10',
-      isDefault: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-007',
-      templateCode: 'U-SHAPE',
-      templateName: 'U-Shaped Kitchen',
-      category: 'U-Shaped Kitchen',
-      description: 'U-shaped layout with three walls of cabinets and counters',
-      sections: 9,
-      lineItems: 42,
-      defaultMarkup: 49,
-      usageCount: 89,
-      lastUsed: '2025-10-14',
-      createdBy: 'Amit Sharma',
-      createdDate: '2024-04-25',
-      isDefault: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-008',
-      templateCode: 'COMPACT-KIT',
-      templateName: 'Compact Kitchen',
-      category: 'Compact Kitchen',
-      description: 'Space-saving design for small apartments and studio units',
-      sections: 5,
-      lineItems: 22,
-      defaultMarkup: 45,
-      usageCount: 156,
-      lastUsed: '2025-10-19',
-      createdBy: 'Ravi Kumar',
-      createdDate: '2024-05-12',
-      isDefault: false,
-      status: 'active'
-    },
-    {
-      id: 'TPL-009',
-      templateCode: 'BUILDER-PKG',
-      templateName: 'Builder Package',
-      category: 'Builder Package',
-      description: 'Standard builder package for residential projects with bulk discounting',
-      sections: 6,
-      lineItems: 18,
-      defaultMarkup: 42,
-      usageCount: 43,
-      lastUsed: '2025-10-12',
-      createdBy: 'Admin',
-      createdDate: '2024-06-01',
-      isDefault: true,
-      status: 'active'
-    },
-    {
-      id: 'TPL-010',
-      templateCode: 'RENOVATION',
-      templateName: 'Kitchen Renovation',
-      category: 'Renovation',
-      description: 'Template for kitchen renovation projects including demolition and disposal',
-      sections: 9,
-      lineItems: 38,
-      defaultMarkup: 50,
-      usageCount: 67,
-      lastUsed: '2025-10-13',
-      createdBy: 'Neha Patel',
-      createdDate: '2024-07-15',
-      isDefault: false,
-      status: 'active'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw EstimateTemplate[]; map to the page's view model.
+        const raw = await estimationTemplateService.findAllTemplates()
+        const mapped: EstimateTemplate[] = (raw as any[]).map((t) => {
+          const sectionCount = Array.isArray(t.sections) ? t.sections.length : 0
+          const lineItems = Array.isArray(t.sections)
+            ? t.sections.reduce(
+                (sum: number, s: any) => sum + (Array.isArray(s?.items) ? s.items.length : 0),
+                0,
+              )
+            : 0
+          const defaultMarkup = Array.isArray(t.defaultMarkups) && t.defaultMarkups.length > 0
+            ? Number(t.defaultMarkups[0].markupPercentage ?? 0)
+            : 0
+          return {
+            id: t.id,
+            templateCode: t.id ? String(t.id).slice(0, 8).toUpperCase() : '',
+            templateName: t.name ?? '',
+            category: t.category ?? '',
+            description: t.description ?? '',
+            sections: sectionCount,
+            lineItems,
+            defaultMarkup,
+            usageCount: Number(t.usageCount ?? 0),
+            lastUsed: t.lastUsedAt ?? '',
+            createdBy: t.createdBy ?? '',
+            createdDate: t.createdAt ?? '',
+            isDefault: t.isDefault === true,
+            status: t.isActive === false ? 'archived' : 'active',
+          }
+        })
+        if (!cancelled) setTemplates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load templates')
+          setTemplates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -248,6 +142,23 @@ export default function EstimationSettingsTemplatesPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && templates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No templates found.
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

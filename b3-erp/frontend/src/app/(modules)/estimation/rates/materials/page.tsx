@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
 import {
   Package,
   TrendingUp,
@@ -40,6 +41,57 @@ interface MaterialRate {
 export default function MaterialsRatesPage() {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [materialRates, setMaterialRates] = useState<MaterialRate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Backend returns raw ResourceRate[] (rateType=Material); map to the page's MaterialRate model.
+        const res = await estimationResourceRateService.findAllResourceRates('', {
+          rateType: 'Material',
+        })
+        const raw = (Array.isArray(res) ? res : []) as any[]
+        const mapped: MaterialRate[] = raw.map((r) => {
+          const current = Number(r.standardRate ?? 0)
+          return {
+            id: r.id,
+            materialCode: r.code ?? '',
+            materialName: r.name ?? '',
+            category: r.category ?? '',
+            unit: r.unit ?? '',
+            currentRate: current,
+            previousRate: current,
+            rateChange: 0,
+            rateChangePercent: 0,
+            effectiveFrom: r.effectiveFrom ?? '',
+            supplier: r.supplierName ?? '',
+            leadTime: 0,
+            minimumOrderQty: 0,
+            lastUpdated: r.updatedAt ?? '',
+            updatedBy: '',
+            status: r.isActive === false ? 'inactive' : 'active',
+          }
+        })
+        if (!cancelled) setMaterialRates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load material rates')
+          setMaterialRates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleAddRate = () => {
     router.push('/estimation/rates/materials/add')
@@ -53,224 +105,6 @@ export default function MaterialsRatesPage() {
     exportToCsv('material-rates', materialRates)
   }
 
-  const [materialRates] = useState<MaterialRate[]>([
-    {
-      id: 'MAT-R-001',
-      materialCode: 'SS304-18G',
-      materialName: 'Stainless Steel 304 - 18 Gauge Sheet',
-      category: 'Raw Material - Sinks',
-      unit: 'SQ.FT',
-      currentRate: 195,
-      previousRate: 185,
-      rateChange: 10,
-      rateChangePercent: 5.4,
-      effectiveFrom: '2025-10-15',
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 100,
-      lastUpdated: '2025-10-15',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-002',
-      materialCode: 'BRASS-C360',
-      materialName: 'Brass C360 Rod for Faucet Bodies',
-      category: 'Raw Material - Faucets',
-      unit: 'KG',
-      currentRate: 665,
-      previousRate: 680,
-      rateChange: -15,
-      rateChangePercent: -2.2,
-      effectiveFrom: '2025-10-12',
-      supplier: 'Metals Trading Co',
-      leadTime: 5,
-      minimumOrderQty: 50,
-      lastUpdated: '2025-10-12',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-003',
-      materialCode: 'GRANITE-BLK',
-      materialName: 'Black Galaxy Granite Slab',
-      category: 'Raw Material - Countertops',
-      unit: 'SQ.FT',
-      currentRate: 425,
-      previousRate: 425,
-      rateChange: 0,
-      rateChangePercent: 0,
-      effectiveFrom: '2025-10-01',
-      supplier: 'Stone Masters Pvt Ltd',
-      leadTime: 10,
-      minimumOrderQty: 50,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-004',
-      materialCode: 'CHROME-PL',
-      materialName: 'Chrome Plating Material',
-      category: 'Finishing - Faucets',
-      unit: 'LITER',
-      currentRate: 1340,
-      previousRate: 1250,
-      rateChange: 90,
-      rateChangePercent: 7.2,
-      effectiveFrom: '2025-10-18',
-      supplier: 'Chemical Solutions Ltd',
-      leadTime: 3,
-      minimumOrderQty: 20,
-      lastUpdated: '2025-10-18',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-005',
-      materialCode: 'ALUM-CAST',
-      materialName: 'Aluminum Alloy for Cookware Casting',
-      category: 'Raw Material - Cookware',
-      unit: 'KG',
-      currentRate: 275,
-      previousRate: 285,
-      rateChange: -10,
-      rateChangePercent: -3.5,
-      effectiveFrom: '2025-10-16',
-      supplier: 'Aluminum Corp India',
-      leadTime: 4,
-      minimumOrderQty: 100,
-      lastUpdated: '2025-10-16',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-006',
-      materialCode: 'TEFLON-COAT',
-      materialName: 'Non-Stick Teflon Coating',
-      category: 'Finishing - Cookware',
-      unit: 'KG',
-      currentRate: 1920,
-      previousRate: 1850,
-      rateChange: 70,
-      rateChangePercent: 3.8,
-      effectiveFrom: '2025-10-14',
-      supplier: 'Coating Tech Pvt Ltd',
-      leadTime: 6,
-      minimumOrderQty: 25,
-      lastUpdated: '2025-10-14',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-007',
-      materialCode: 'MOTOR-1HP',
-      materialName: '1HP Motor for Kitchen Chimney',
-      category: 'Components - Appliances',
-      unit: 'PCS',
-      currentRate: 3150,
-      previousRate: 3200,
-      rateChange: -50,
-      rateChangePercent: -1.6,
-      effectiveFrom: '2025-10-13',
-      supplier: 'Motors & Drives Ltd',
-      leadTime: 12,
-      minimumOrderQty: 10,
-      lastUpdated: '2025-10-13',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-008',
-      materialCode: 'PLY-BWP',
-      materialName: 'BWP Grade Plywood for Cabinets',
-      category: 'Raw Material - Cabinets',
-      unit: 'SHEET',
-      currentRate: 1520,
-      previousRate: 1450,
-      rateChange: 70,
-      rateChangePercent: 4.8,
-      effectiveFrom: '2025-10-17',
-      supplier: 'Wood Industries Ltd',
-      leadTime: 5,
-      minimumOrderQty: 20,
-      lastUpdated: '2025-10-17',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-009',
-      materialCode: 'QUARTZ-WHT',
-      materialName: 'White Quartz Stone Slab',
-      category: 'Raw Material - Countertops',
-      unit: 'SQ.FT',
-      currentRate: 385,
-      previousRate: 385,
-      rateChange: 0,
-      rateChangePercent: 0,
-      effectiveFrom: '2025-10-01',
-      supplier: 'Stone Masters Pvt Ltd',
-      leadTime: 10,
-      minimumOrderQty: 50,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-010',
-      materialCode: 'SILICONE-SEAL',
-      materialName: 'Food Grade Silicone Sealant',
-      category: 'Components - Sinks',
-      unit: 'TUBE',
-      currentRate: 158,
-      previousRate: 145,
-      rateChange: 13,
-      rateChangePercent: 9.0,
-      effectiveFrom: '2025-10-19',
-      supplier: 'Sealants & Adhesives Co',
-      leadTime: 3,
-      minimumOrderQty: 50,
-      lastUpdated: '2025-10-19',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-011',
-      materialCode: 'RUBBER-GSKT',
-      materialName: 'EPDM Rubber Gaskets',
-      category: 'Components - Faucets',
-      unit: 'PCS',
-      currentRate: 12,
-      previousRate: 12,
-      rateChange: 0,
-      rateChangePercent: 0,
-      effectiveFrom: '2025-10-01',
-      supplier: 'Rubber Products Ltd',
-      leadTime: 4,
-      minimumOrderQty: 500,
-      lastUpdated: '2025-10-01',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    },
-    {
-      id: 'MAT-R-012',
-      materialCode: 'PAINT-ENAMEL',
-      materialName: 'Heat Resistant Enamel Paint',
-      category: 'Finishing - Appliances',
-      unit: 'LITER',
-      currentRate: 715,
-      previousRate: 680,
-      rateChange: 35,
-      rateChangePercent: 5.1,
-      effectiveFrom: '2025-10-16',
-      supplier: 'Industrial Paints Ltd',
-      leadTime: 4,
-      minimumOrderQty: 10,
-      lastUpdated: '2025-10-16',
-      updatedBy: 'Procurement Manager',
-      status: 'active'
-    }
-  ])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -292,7 +126,7 @@ export default function MaterialsRatesPage() {
   }
 
   const totalMaterials = materialRates.length
-  const avgRate = materialRates.reduce((sum, m) => sum + m.currentRate, 0) / totalMaterials
+  const avgRate = totalMaterials > 0 ? materialRates.reduce((sum, m) => sum + m.currentRate, 0) / totalMaterials : 0
   const increasedRates = materialRates.filter(m => m.rateChange > 0).length
   const decreasedRates = materialRates.filter(m => m.rateChange < 0).length
 
@@ -329,6 +163,23 @@ export default function MaterialsRatesPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading material rates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && materialRates.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No material rates found.
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

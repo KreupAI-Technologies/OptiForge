@@ -548,6 +548,11 @@ export const crmService = {
     delete: (id: string) => request<void>(`/crm/interactions-v2/${id}`, { method: 'DELETE' }),
 
     getStats: () => request<any>('/crm/interactions-v2/stats'),
+
+    // Legacy TypeORM-backed interactions controller (GET /crm/interactions).
+    // Returns a bare array of raw interaction records.
+    getAllLegacy: (filters?: { type?: string; customerId?: string; contactId?: string; opportunityId?: string }) =>
+      request<any[]>(`/crm/interactions${buildQueryParams(filters || {})}`),
   },
 
   // ===========================
@@ -565,6 +570,18 @@ export const crmService = {
       request<any>(`/crm/sales-territories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
     delete: (id: string) => request<void>(`/crm/sales-territories/${id}`, { method: 'DELETE' }),
+  },
+
+  // ===========================
+  // TERRITORIES (TypeORM-backed sales-territory controller: GET /crm/territories)
+  // ===========================
+  territories: {
+    getAll: () => request<any[]>('/crm/territories'),
+
+    getById: (id: string) => request<any>(`/crm/territories/${id}`),
+
+    create: (data: any) =>
+      request<any>('/crm/territories', { method: 'POST', body: JSON.stringify(data) }),
   },
 
   // ===========================

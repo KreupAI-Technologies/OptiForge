@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { SparePartService } from '@/services/spare-part.service'
 import {
   Package,
   Search,
@@ -31,68 +32,48 @@ export default function SparePartsCatalog() {
   const [searchQuery, setSearchQuery] = useState('')
   const [cartCount, setCartCount] = useState(0)
 
-  const parts: SparePart[] = [
-    {
-      id: 'P-101',
-      name: 'Hydraulic Seal Kit (Series 500)',
-      partNumber: 'SK-HP500-01',
-      category: 'Seals & Gaskets',
-      price: 1250,
-      stockStatus: 'In Stock',
-      stockLevel: 45,
-      compatibility: ['HP-500', 'HP-300'],
-      leadTime: '24 Hours',
-      image: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=400'
-    },
-    {
-      id: 'P-102',
-      name: 'CNC Spindle Cooling Fan',
-      partNumber: 'FAN-CNC-350',
-      category: 'Cooling Systems',
-      price: 3400,
-      stockStatus: 'Low Stock',
-      stockLevel: 3,
-      compatibility: ['CM-350', 'CM-500'],
-      leadTime: '48 Hours',
-      image: 'https://images.unsplash.com/photo-1597733336794-12d05021d510?auto=format&fit=crop&q=80&w=400'
-    },
-    {
-      id: 'P-103',
-      name: 'Main Control Board V2.0',
-      partNumber: 'PCB-CP1000-M',
-      category: 'Electronics',
-      price: 45000,
-      stockStatus: 'In Stock',
-      stockLevel: 12,
-      compatibility: ['CP-1000'],
-      leadTime: '3-5 Days',
-      image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=400'
-    },
-    {
-      id: 'P-104',
-      name: 'Conveyor Drive Roller',
-      partNumber: 'ROL-CS200-DR',
-      category: 'Mechanical',
-      price: 8900,
-      stockStatus: 'Out of Stock',
-      stockLevel: 0,
-      compatibility: ['CS-200'],
-      leadTime: '10 Days',
-      image: 'https://images.unsplash.com/photo-1531287702811-e6ff7b9b24d3?auto=format&fit=crop&q=80&w=400'
-    },
-    {
-      id: 'P-105',
-      name: 'Emergency Stop Button Assembly',
-      partNumber: 'E-STOP-UNV',
-      category: 'Safety',
-      price: 750,
-      stockStatus: 'In Stock',
-      stockLevel: 150,
-      compatibility: ['All Series'],
-      leadTime: 'Same Day',
-      image: 'https://images.unsplash.com/photo-1517404212738-1.png'
+  const [parts, setParts] = useState<SparePart[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await SparePartService.getAllSpareParts()
+        const mapped: SparePart[] = (Array.isArray(raw) ? raw : []).map((p: any) => {
+          const stockLevel = Number(p.stockLevel ?? p.stock_level ?? 0)
+          const stockStatus: SparePart['stockStatus'] =
+            stockLevel <= 0 ? 'Out of Stock' : stockLevel < 10 ? 'Low Stock' : 'In Stock'
+          const leadDays = Number(p.leadTimeDays ?? p.lead_time_days ?? 0)
+          return {
+            id: String(p.id ?? p.partNumber ?? ''),
+            name: p.name ?? '',
+            partNumber: p.partNumber ?? p.part_number ?? '',
+            category: p.category ?? '',
+            price: Number(p.price ?? 0),
+            stockStatus,
+            stockLevel,
+            compatibility: Array.isArray(p.compatibility) ? p.compatibility : [],
+            leadTime: leadDays > 0 ? `${leadDays} days` : (p.leadTime ?? 'N/A'),
+            image: p.image ?? '',
+          }
+        })
+        if (!cancelled) setParts(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load spare parts')
+          setParts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ]
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const handleOneClickOrder = (partName: string) => {
     toast.promise(
@@ -114,6 +95,23 @@ export default function SparePartsCatalog() {
   return (
     <div className="w-full min-h-screen bg-slate-50 px-6 py-8">
       <div className="max-w-7xl mx-auto space-y-8">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading spare parts…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && parts.length === 0 && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            No spare parts found.
+          </div>
+        )}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">

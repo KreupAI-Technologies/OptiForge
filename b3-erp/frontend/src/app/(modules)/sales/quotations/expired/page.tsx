@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertCircle,
   XCircle,
@@ -23,6 +23,7 @@ import {
   RotateCcw,
   Send
 } from 'lucide-react';
+import { quotationService } from '@/services/quotation.service';
 
 interface ExpiredQuotation {
   id: string;
@@ -50,177 +51,68 @@ export default function ExpiredQuotationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [reasonFilter, setReasonFilter] = useState<string>('all');
   const [ageFilter, setAgeFilter] = useState<string>('all');
+  const [quotations, setQuotations] = useState<ExpiredQuotation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const quotations: ExpiredQuotation[] = [
-    {
-      id: 'QUO-001',
-      quotationNumber: 'QUO-2025-002',
-      customerName: 'Rajesh Kumar',
-      customerCompany: 'Manufacturing Tech Ltd',
-      customerEmail: 'rajesh@mfgtech.com',
-      customerPhone: '+91 98765 43210',
-      quotationDate: '2025-08-15',
-      validUntil: '2025-09-15',
-      expiredDate: '2025-09-15',
-      daysExpired: 35,
-      totalAmount: 8500000,
-      items: 7,
-      assignedTo: 'Sarah Johnson',
-      reason: 'no_response',
-      lastFollowUp: '2025-09-10',
-      followUpCount: 3,
-      discount: 5,
-      notes: 'Customer stopped responding after initial interest',
-      canRevive: true
-    },
-    {
-      id: 'QUO-002',
-      quotationNumber: 'QUO-2025-004',
-      customerName: 'Priya Singh',
-      customerCompany: 'Industrial Solutions Inc',
-      customerEmail: 'priya@indsol.com',
-      customerPhone: '+91 98123 45678',
-      quotationDate: '2025-08-20',
-      validUntil: '2025-09-20',
-      expiredDate: '2025-09-20',
-      daysExpired: 30,
-      totalAmount: 12300000,
-      items: 12,
-      assignedTo: 'Michael Chen',
-      reason: 'lost_to_competitor',
-      lastFollowUp: '2025-09-18',
-      followUpCount: 5,
-      discount: 8,
-      notes: 'Customer chose competitor due to lower pricing',
-      canRevive: false
-    },
-    {
-      id: 'QUO-003',
-      quotationNumber: 'QUO-2025-006',
-      customerName: 'Amit Patel',
-      customerCompany: 'Engineering Works Ltd',
-      customerEmail: 'amit@engworks.com',
-      customerPhone: '+91 97654 32109',
-      quotationDate: '2025-09-01',
-      validUntil: '2025-10-01',
-      expiredDate: '2025-10-01',
-      daysExpired: 19,
-      totalAmount: 6700000,
-      items: 8,
-      assignedTo: 'Emily Rodriguez',
-      reason: 'budget_constraints',
-      lastFollowUp: '2025-09-28',
-      followUpCount: 4,
-      discount: 3,
-      notes: 'Budget not approved for this quarter',
-      canRevive: true
-    },
-    {
-      id: 'QUO-004',
-      quotationNumber: 'QUO-2025-008',
-      customerName: 'Sneha Desai',
-      customerCompany: 'Production Systems Co',
-      customerEmail: 'sneha@prodsys.com',
-      customerPhone: '+91 98234 56789',
-      quotationDate: '2025-08-25',
-      validUntil: '2025-09-25',
-      expiredDate: '2025-09-25',
-      daysExpired: 25,
-      totalAmount: 9800000,
-      items: 10,
-      assignedTo: 'David Park',
-      reason: 'timing_issues',
-      lastFollowUp: '2025-09-22',
-      followUpCount: 2,
-      discount: 6,
-      notes: 'Project postponed to next year',
-      canRevive: true
-    },
-    {
-      id: 'QUO-005',
-      quotationNumber: 'QUO-2025-010',
-      customerName: 'Vikram Mehta',
-      customerCompany: 'Automation Industries',
-      customerEmail: 'vikram@autoinds.com',
-      customerPhone: '+91 99876 54321',
-      quotationDate: '2025-09-05',
-      validUntil: '2025-10-05',
-      expiredDate: '2025-10-05',
-      daysExpired: 15,
-      totalAmount: 15600000,
-      items: 15,
-      assignedTo: 'Jennifer Martinez',
-      reason: 'rejected',
-      lastFollowUp: '2025-10-03',
-      followUpCount: 6,
-      discount: 10,
-      notes: 'Customer decided not to proceed with project',
-      canRevive: false
-    },
-    {
-      id: 'QUO-006',
-      quotationNumber: 'QUO-2025-012',
-      customerName: 'Anita Shah',
-      customerCompany: 'Machinery Exports Ltd',
-      customerEmail: 'anita@machexp.com',
-      customerPhone: '+91 98765 12345',
-      quotationDate: '2025-09-10',
-      validUntil: '2025-10-10',
-      expiredDate: '2025-10-10',
-      daysExpired: 10,
-      totalAmount: 5400000,
-      items: 6,
-      assignedTo: 'Alex Thompson',
-      reason: 'no_response',
-      lastFollowUp: '2025-10-08',
-      followUpCount: 2,
-      discount: 2,
-      notes: 'Multiple follow-up attempts, no response',
-      canRevive: true
-    },
-    {
-      id: 'QUO-007',
-      quotationNumber: 'QUO-2025-014',
-      customerName: 'Ravi Krishnan',
-      customerCompany: 'Global Manufacturing',
-      customerEmail: 'ravi@globalmfg.com',
-      customerPhone: '+91 97123 45678',
-      quotationDate: '2025-08-28',
-      validUntil: '2025-09-28',
-      expiredDate: '2025-09-28',
-      daysExpired: 22,
-      totalAmount: 11200000,
-      items: 13,
-      assignedTo: 'Sarah Johnson',
-      reason: 'other',
-      lastFollowUp: '2025-09-25',
-      followUpCount: 3,
-      discount: 7,
-      notes: 'Internal restructuring delayed decision',
-      canRevive: true
-    },
-    {
-      id: 'QUO-008',
-      quotationNumber: 'QUO-2025-016',
-      customerName: 'Meera Reddy',
-      customerCompany: 'Tech Solutions Inc',
-      customerEmail: 'meera@techsol.com',
-      customerPhone: '+91 98456 78901',
-      quotationDate: '2025-09-12',
-      validUntil: '2025-10-12',
-      expiredDate: '2025-10-12',
-      daysExpired: 8,
-      totalAmount: 7800000,
-      items: 9,
-      assignedTo: 'Michael Chen',
-      reason: 'budget_constraints',
-      lastFollowUp: '2025-10-10',
-      followUpCount: 4,
-      discount: 4,
-      notes: 'Waiting for next fiscal year budget',
-      canRevive: true
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns raw quotation ORM rows; keep only expired
+        // quotations and map to this page's ExpiredQuotation shape.
+        const { data } = await quotationService.getAllQuotations({ status: 'Expired' as any });
+        const raw = (data ?? []) as any[];
+        const mapped: ExpiredQuotation[] = raw
+          .filter((q) => String(q?.status) === 'expired')
+          .map((q) => {
+            const validUntil = q?.validUntil ? String(q.validUntil) : '';
+            const daysExpired = validUntil
+              ? Math.max(
+                  0,
+                  Math.round((Date.now() - new Date(validUntil).getTime()) / (1000 * 60 * 60 * 24)),
+                )
+              : 0;
+            return {
+              id: String(q?.id ?? ''),
+              quotationNumber: q?.quotationNumber ?? '',
+              customerName: q?.customerName ?? '',
+              customerCompany: q?.customerCompany ?? q?.customerName ?? '',
+              customerEmail: q?.customerEmail ?? '',
+              customerPhone: q?.customerPhone ?? '',
+              quotationDate: q?.quotationDate ? String(q.quotationDate) : '',
+              validUntil,
+              expiredDate: validUntil,
+              daysExpired,
+              totalAmount: Number(q?.totalAmount ?? 0),
+              items: Array.isArray(q?.items) ? q.items.length : Number(q?.items ?? 0),
+              assignedTo: q?.salesPersonName ?? q?.salesPersonId ?? '—',
+              reason: 'no_response',
+              lastFollowUp: undefined,
+              followUpCount: 0,
+              discount: Number(q?.discountPercentage ?? 0),
+              notes: q?.notes ?? '',
+              canRevive: true,
+            };
+          });
+        if (!cancelled) setQuotations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load expired quotations');
+          setQuotations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const filteredQuotations = quotations.filter(quotation => {
     const matchesSearch = quotation.quotationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -292,6 +184,18 @@ export default function ExpiredQuotationsPage() {
   return (
     <div className="w-full h-full px-4 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading expired quotations…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           {stats.map((stat, index) => {
