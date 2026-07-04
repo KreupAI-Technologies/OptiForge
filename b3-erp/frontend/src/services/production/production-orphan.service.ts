@@ -221,4 +221,31 @@ export const ProductionOrphanService = {
 
   // GET production/skill-matrices (backs human-centric)
   getSkillMatrices: () => request<any[]>('/production/skill-matrices'),
+
+  // GET production/ergonomic-alerts (backs human-centric ergonomics view)
+  getErgonomicAlerts: () => request<any[]>('/production/ergonomic-alerts'),
+
+  // GET production/workload-assignments (backs human-centric workload view)
+  getWorkloadAssignments: () => request<any[]>('/production/workload-assignments'),
+
+  // GET production/sustainability/energy-consumption (backs sustainability energy view)
+  getEnergyConsumption: () => request<any[]>('/production/sustainability/energy-consumption'),
+
+  // GET production/sustainability/water-usage (backs sustainability water view)
+  getWaterUsage: () => request<any[]>('/production/sustainability/water-usage'),
+
+  // GET production/sustainability/carbon-footprint (backs sustainability carbon view)
+  getCarbonFootprint: () => request<any[]>('/production/sustainability/carbon-footprint'),
+
+  // GET production/sustainability/waste-records (backs sustainability waste view)
+  getWasteRecords: () => request<any[]>('/production/sustainability/waste-records'),
+
+  // GET production/sustainability/green-suppliers (backs sustainability suppliers view)
+  getGreenSuppliers: () => request<any[]>('/production/sustainability/green-suppliers'),
+
+  // GET production/mes-integrations (backs automation MES view)
+  getMesIntegrations: () => request<any[]>('/production/mes-integrations'),
+
+  // GET production/resilience/supply-chain-risks (backs supply-chain vendor-risk view)
+  getSupplyChainRisks: () => request<any[]>('/production/resilience/supply-chain-risks'),
 };
