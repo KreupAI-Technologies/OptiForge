@@ -39,8 +39,53 @@ export default function BudgetVsActualPage() {
     financial: false
   });
 
-  // Sample budget vs actual data
-  const budgetData: BudgetLine[] = [
+  const [budgetData, setBudgetData] = useState<BudgetLine[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Budget vs Actual derives each line from the budgets list
+        // (budgeted = totalBudget, actual = spent).
+        const raw = await FinanceService.getBudgets();
+        const mapped: BudgetLine[] = (Array.isArray(raw) ? raw : []).map((b: any) => {
+          const budgeted = Number(b.totalBudget ?? b.allocated ?? 0);
+          const actual = Number(b.spent ?? b.totalActualAmount ?? 0);
+          const variance = Number(b.variance ?? (budgeted - actual));
+          const variancePercent = budgeted
+            ? Number(((variance / budgeted) * 100).toFixed(2))
+            : 0;
+          return {
+            category: b.budgetType ?? b.department ?? 'Budget',
+            subcategory: b.budgetName ?? b.budgetCode ?? '',
+            budgeted,
+            actual,
+            variance,
+            variancePercent,
+            ytdBudgeted: budgeted,
+            ytdActual: actual,
+            ytdVariance: variance,
+            ytdVariancePercent: variancePercent,
+          };
+        });
+        if (!cancelled) setBudgetData(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load budget data');
+          setBudgetData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const _unusedSample: BudgetLine[] = [
     // Revenue
     {
       category: 'Revenue',

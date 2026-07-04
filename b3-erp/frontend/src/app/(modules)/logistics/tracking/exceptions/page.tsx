@@ -127,6 +127,11 @@ export default function TrackingExceptionsPage() {
 
     return (
         <div className="p-6 space-y-3 text-sm font-medium">
+            {loadError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                    {loadError}
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>

@@ -45,134 +45,23 @@ export default function TravelAdvancesPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('February 2025');
 
-    const advances: TravelAdvance[] = [
-        {
-            id: '1',
-            advanceId: 'TA-2025-001',
-            travelRequestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            purpose: 'Annual HR Conference 2025',
-            destination: 'Mumbai',
-            travelDates: 'Feb 20-23, 2025',
-            requestedAmount: 50000,
-            approvedAmount: 45000,
-            disbursedAmount: 45000,
-            settledAmount: null,
-            status: 'Disbursed',
-            requestDate: '2025-02-05',
-            disbursementDate: '2025-02-12',
-            settlementDeadline: '2025-03-08',
-            paymentMode: 'Bank Transfer',
-            remarks: ''
-        },
-        {
-            id: '2',
-            advanceId: 'TA-2025-002',
-            travelRequestId: 'TR-2025-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            purpose: 'Factory Audit - Chennai Plant',
-            destination: 'Chennai',
-            travelDates: 'Feb 25-26, 2025',
-            requestedAmount: 15000,
-            approvedAmount: 15000,
-            disbursedAmount: null,
-            settledAmount: null,
-            status: 'Approved',
-            requestDate: '2025-02-08',
-            disbursementDate: null,
-            settlementDeadline: null,
-            paymentMode: null,
-            remarks: 'Awaiting disbursement'
-        },
-        {
-            id: '3',
-            advanceId: 'TA-2025-003',
-            travelRequestId: 'TR-2025-003',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            purpose: 'Tech Summit Singapore',
-            destination: 'Singapore',
-            travelDates: 'Mar 10-15, 2025',
-            requestedAmount: 150000,
-            approvedAmount: null,
-            disbursedAmount: null,
-            settledAmount: null,
-            status: 'Requested',
-            requestDate: '2025-02-10',
-            disbursementDate: null,
-            settlementDeadline: null,
-            paymentMode: null,
-            remarks: 'Pending finance approval for international travel'
-        },
-        {
-            id: '4',
-            advanceId: 'TA-2025-004',
-            travelRequestId: 'TR-2025-004',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            purpose: 'Client Meeting - Delhi',
-            destination: 'New Delhi',
-            travelDates: 'Feb 18-19, 2025',
-            requestedAmount: 20000,
-            approvedAmount: 20000,
-            disbursedAmount: 20000,
-            settledAmount: null,
-            status: 'Disbursed',
-            requestDate: '2025-02-06',
-            disbursementDate: '2025-02-10',
-            settlementDeadline: '2025-03-04',
-            paymentMode: 'Bank Transfer',
-            remarks: ''
-        },
-        {
-            id: '5',
-            advanceId: 'TA-2025-005',
-            travelRequestId: 'TR-2025-007',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            purpose: 'Vendor Visit - Hyderabad',
-            destination: 'Hyderabad',
-            travelDates: 'Feb 1-3, 2025',
-            requestedAmount: 12000,
-            approvedAmount: 12000,
-            disbursedAmount: 12000,
-            settledAmount: 10500,
-            status: 'Settled',
-            requestDate: '2025-01-25',
-            disbursementDate: '2025-01-28',
-            settlementDeadline: '2025-02-17',
-            paymentMode: 'Bank Transfer',
-            remarks: 'Refund of ₹1,500 processed'
-        },
-        {
-            id: '6',
-            advanceId: 'TA-2025-006',
-            travelRequestId: 'TR-2025-008',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            purpose: 'Equipment Training - Pune',
-            destination: 'Pune',
-            travelDates: 'Feb 5-7, 2025',
-            requestedAmount: 18000,
-            approvedAmount: 18000,
-            disbursedAmount: 18000,
-            settledAmount: 16500,
-            status: 'Partially Settled',
-            requestDate: '2025-01-30',
-            disbursementDate: '2025-02-02',
-            settlementDeadline: '2025-02-22',
-            paymentMode: 'Bank Transfer',
-            remarks: 'Balance ₹1,500 pending with additional receipts'
-        }
-    ];
+    const [advances, setAdvances] = useState<TravelAdvance[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getTravelAdvances();
+          const mapped: TravelAdvance[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setAdvances(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setAdvances([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredAdvances = advances.filter(advance => {
         const matchesSearch = advance.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -220,6 +109,8 @@ export default function TravelAdvancesPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
