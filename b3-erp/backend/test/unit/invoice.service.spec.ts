@@ -57,9 +57,10 @@ describe('InvoiceService', () => {
 
       const result = await service.create(dto);
 
-      const createdInvoice = manager.create.mock.calls.find(
+      const createCall = manager.create.mock.calls.find(
         (c) => c[1].subtotal !== undefined,
-      )[1];
+      );
+      const createdInvoice = createCall![1];
       expect(createdInvoice.subtotal).toBe(240);
       expect(createdInvoice.taxAmount).toBe(18);
       expect(createdInvoice.totalAmount).toBe(258);

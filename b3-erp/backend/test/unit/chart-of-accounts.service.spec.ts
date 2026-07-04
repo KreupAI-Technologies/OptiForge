@@ -85,12 +85,32 @@ describe('ChartOfAccountsService', () => {
 
   describe('findAll', () => {
     it('maps rows through response DTO', async () => {
-      const qb: any = repo.createQueryBuilder();
-      qb.getMany.mockResolvedValue([baseAccount(), baseAccount({ id: 'acc-2', accountCode: '1001' })]);
+      const qb: any = {
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([baseAccount(), baseAccount({ id: 'acc-2', accountCode: '1001' })]),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
       const result = await service.findAll();
       expect(result).toHaveLength(2);
       expect(result[0].accountCode).toBe('1000');
       expect(qb.orderBy).toHaveBeenCalledWith('account.accountCode', 'ASC');
+    });
+
+    it('applies accountType and isActive filters', async () => {
+      const qb: any = {
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      await service.findAll({ accountType: 'Asset', isActive: true });
+      expect(qb.andWhere).toHaveBeenCalledWith('account.accountType = :accountType', {
+        accountType: 'Asset',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('account.isActive = :isActive', { isActive: true });
     });
   });
 
