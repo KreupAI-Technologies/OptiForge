@@ -1,5 +1,32 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+/**
+ * Result of a bulk-create (CSV import) operation.
+ */
+export interface BulkCreateResult {
+    entity: string;
+    total: number;
+    created: number;
+    skipped: number;
+    errors: { row: number; reason: string }[];
+}
+
+/**
+ * Per-entity import configuration. Maps a CSV row (already parsed into a
+ * flat string->string object) into the Prisma `create` payload, and describes
+ * how to detect an existing duplicate so imports are idempotent/safe to re-run.
+ */
+interface ImportConfig {
+    /** Prisma delegate accessor, resolved lazily so `this.prisma` is bound. */
+    model: (prisma: PrismaService) => any;
+    /** Map a raw CSV row into the create payload. Return null to skip the row. */
+    map: (row: Record<string, string>, companyId?: string) => Record<string, any> | null;
+    /** Build a Prisma `where` for duplicate detection from a mapped payload. */
+    duplicateWhere?: (data: Record<string, any>) => Record<string, any> | null;
+    /** Whether this entity is scoped to a company (companyId required). */
+    companyScoped: boolean;
+}
 
 @Injectable()
 export class CommonMastersService {
@@ -15,6 +42,328 @@ export class CommonMastersService {
             throw new NotFoundException(`${modelName} with id ${id} not found`);
         }
         return record;
+    }
+
+    // ===========================
+    // GENERIC BULK CREATE (CSV IMPORT)
+    // ===========================
+
+    /**
+     * Registry of importable master entities. Keys are the URL segment used by
+     * `POST /common-masters/:entity/bulk`. Additive only — no schema changes.
+     */
+    private readonly importConfigs: Record<string, ImportConfig> = {
+        countries: {
+            model: (p) => p.country,
+            companyScoped: false,
+            map: (r) => {
+                const code = (r.code || r.countryCode || r.iso2Code || '').trim();
+                const name = (r.name || r.countryName || '').trim();
+                if (!code || !name) return null;
+                return {
+                    code,
+                    name,
+                    phoneCode: (r.phoneCode || r.phone_code || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ code: d.code }),
+        },
+        currencies: {
+            model: (p) => p.currency,
+            companyScoped: false,
+            map: (r) => {
+                const code = (r.code || r.currencyCode || '').trim();
+                const name = (r.name || r.currencyName || '').trim();
+                if (!code || !name) return null;
+                const decimalDigits = parseInt(r.decimalDigits || '', 10);
+                return {
+                    code,
+                    name,
+                    symbol: (r.symbol || r.currencySymbol || code).trim(),
+                    decimalDigits: Number.isFinite(decimalDigits) ? decimalDigits : 2,
+                };
+            },
+            duplicateWhere: (d) => ({ code: d.code }),
+        },
+        states: {
+            model: (p) => p.state,
+            companyScoped: false,
+            map: (r) => {
+                const name = (r.name || r.stateName || '').trim();
+                const countryId = (r.countryId || r.country_id || '').trim();
+                if (!name || !countryId) return null;
+                return { name, countryId };
+            },
+            duplicateWhere: (d) => ({ name: d.name, countryId: d.countryId }),
+        },
+        cities: {
+            model: (p) => p.city,
+            companyScoped: false,
+            map: (r) => {
+                const name = (r.name || r.cityName || '').trim();
+                const stateId = (r.stateId || r.state_id || '').trim();
+                if (!name || !stateId) return null;
+                return { name, stateId };
+            },
+            duplicateWhere: (d) => ({ name: d.name, stateId: d.stateId }),
+        },
+        departments: {
+            model: (p) => p.department,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const name = (r.name || r.departmentName || '').trim();
+                if (!name) return null;
+                return {
+                    name,
+                    companyId,
+                    branchId: (r.branchId || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ name: d.name, companyId: d.companyId }),
+        },
+        designations: {
+            model: (p) => p.designation,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || '').trim();
+                const name = (r.name || r.designationName || '').trim();
+                if (!code || !name) return null;
+                const level = parseInt(r.level || '', 10);
+                return {
+                    code,
+                    name,
+                    companyId,
+                    level: Number.isFinite(level) ? level : undefined,
+                    grade: (r.grade || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+        brands: {
+            model: (p) => p.brand,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const name = (r.name || r.brandName || '').trim();
+                if (!name) return null;
+                return { name, companyId };
+            },
+            duplicateWhere: (d) => ({ name: d.name, companyId: d.companyId }),
+        },
+        'item-categories': {
+            model: (p) => p.itemCategory,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const name = (r.name || r.categoryName || '').trim();
+                if (!name) return null;
+                return { name, companyId };
+            },
+            duplicateWhere: (d) => ({ name: d.name, companyId: d.companyId }),
+        },
+        'item-groups': {
+            model: (p) => p.itemGroup,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const name = (r.name || r.groupName || '').trim();
+                const categoryId = (r.categoryId || r.category_id || '').trim();
+                if (!name || !categoryId) return null;
+                return { name, categoryId, companyId };
+            },
+            duplicateWhere: (d) => ({ name: d.name, companyId: d.companyId }),
+        },
+        'hsn-sacs': {
+            model: (p) => p.hsnSac,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || r.hsnCode || r.hsnSacCode || '').trim();
+                if (!code) return null;
+                const gst = parseFloat(r.gstPercentage || r.gst || '');
+                return {
+                    code,
+                    companyId,
+                    description: (r.description || '').trim() || undefined,
+                    gstPercentage: Number.isFinite(gst) ? gst : 0,
+                };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+        'customer-categories': {
+            model: (p) => p.customerCategory,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || '').trim();
+                const name = (r.name || r.categoryName || '').trim();
+                if (!code || !name) return null;
+                return {
+                    code,
+                    name,
+                    companyId,
+                    description: (r.description || '').trim() || undefined,
+                    classification: (r.classification || '').trim() || undefined,
+                    level: (r.level || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+        'vendor-categories': {
+            model: (p) => p.vendorCategory,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const name = (r.name || r.categoryName || '').trim();
+                if (!name) return null;
+                return {
+                    name,
+                    companyId,
+                    description: (r.description || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ name: d.name, companyId: d.companyId }),
+        },
+        'cost-centers': {
+            model: (p) => p.costCenter,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || '').trim();
+                const name = (r.name || '').trim();
+                if (!code || !name) return null;
+                return { code, name, companyId };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+        territories: {
+            model: (p) => p.territory,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || '').trim();
+                const name = (r.name || '').trim();
+                if (!code || !name) return null;
+                return { code, name, companyId };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+        uoms: {
+            model: (p) => p.uom,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || '').trim();
+                const name = (r.name || '').trim();
+                if (!code || !name) return null;
+                return { code, name, companyId };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+        taxes: {
+            model: (p) => p.tax,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const taxCode = (r.taxCode || r.code || '').trim();
+                const taxName = (r.taxName || r.name || '').trim();
+                const taxType = (r.taxType || r.type || '').trim();
+                const rate = parseFloat(r.rate || '');
+                if (!taxCode || !taxName || !taxType || !Number.isFinite(rate)) return null;
+                return {
+                    taxCode,
+                    taxName,
+                    taxType,
+                    rate,
+                    companyId,
+                    rateType: (r.rateType || 'percentage').trim(),
+                    description: (r.description || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ taxCode: d.taxCode, companyId: d.companyId }),
+        },
+        shifts: {
+            model: (p) => p.shift,
+            companyScoped: true,
+            map: (r, companyId) => {
+                const code = (r.code || '').trim();
+                const name = (r.name || '').trim();
+                if (!code || !name) return null;
+                return {
+                    code,
+                    name,
+                    companyId,
+                    startTime: (r.startTime || '').trim() || undefined,
+                    endTime: (r.endTime || '').trim() || undefined,
+                };
+            },
+            duplicateWhere: (d) => ({ code: d.code, companyId: d.companyId }),
+        },
+    };
+
+    /** List the entity keys supported by the bulk-import endpoint. */
+    getImportableEntities(): string[] {
+        return Object.keys(this.importConfigs);
+    }
+
+    /**
+     * Generic bulk create for master-data CSV import.
+     *
+     * Rows are mapped per-entity, minimally validated, and inserted. Rows that
+     * fail validation or duplicate an existing record are skipped and reported,
+     * so the whole import never aborts on a single bad row.
+     */
+    async bulkCreate(
+        entity: string,
+        rows: Record<string, string>[],
+        companyId?: string,
+    ): Promise<BulkCreateResult> {
+        const config = this.importConfigs[entity];
+        if (!config) {
+            throw new BadRequestException(
+                `Unsupported import entity '${entity}'. Supported: ${this.getImportableEntities().join(', ')}`,
+            );
+        }
+        if (!Array.isArray(rows)) {
+            throw new BadRequestException('Request body must contain an array of rows.');
+        }
+        if (config.companyScoped && !companyId) {
+            throw new BadRequestException(`companyId is required to import '${entity}'.`);
+        }
+
+        const model = config.model(this.prisma);
+        const result: BulkCreateResult = {
+            entity,
+            total: rows.length,
+            created: 0,
+            skipped: 0,
+            errors: [],
+        };
+
+        for (let i = 0; i < rows.length; i++) {
+            const rowNumber = i + 1;
+            try {
+                const data = config.map(rows[i] || {}, companyId);
+                if (!data) {
+                    result.skipped++;
+                    result.errors.push({ row: rowNumber, reason: 'Missing required field(s)' });
+                    continue;
+                }
+
+                if (config.duplicateWhere) {
+                    const where = config.duplicateWhere(data);
+                    if (where) {
+                        const existing = await model.findFirst({ where });
+                        if (existing) {
+                            result.skipped++;
+                            result.errors.push({ row: rowNumber, reason: 'Duplicate (already exists)' });
+                            continue;
+                        }
+                    }
+                }
+
+                await model.create({ data });
+                result.created++;
+            } catch (err: any) {
+                result.skipped++;
+                result.errors.push({
+                    row: rowNumber,
+                    reason: err?.message ? String(err.message).split('\n')[0] : 'Create failed',
+                });
+            }
+        }
+
+        return result;
     }
 
     // --- Currencies ---

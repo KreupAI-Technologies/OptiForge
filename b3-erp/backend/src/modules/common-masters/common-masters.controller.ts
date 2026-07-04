@@ -5,6 +5,23 @@ import { CommonMastersService } from './common-masters.service';
 export class CommonMastersController {
     constructor(private readonly commonMastersService: CommonMastersService) { }
 
+    // ===========================
+    // BULK CSV IMPORT
+    // Generic endpoint: POST /common-masters/:entity/bulk
+    // Body: { rows: Record<string,string>[], companyId?: string }
+    // (also accepts a bare array body for convenience)
+    // ===========================
+    @Post(':entity/bulk')
+    bulkImport(
+        @Param('entity') entity: string,
+        @Body() body: { rows?: Record<string, string>[]; companyId?: string } | Record<string, string>[],
+        @Query('companyId') companyIdQuery?: string,
+    ) {
+        const rows = Array.isArray(body) ? body : (body?.rows ?? []);
+        const companyId = Array.isArray(body) ? companyIdQuery : (body?.companyId ?? companyIdQuery);
+        return this.commonMastersService.bulkCreate(entity, rows, companyId);
+    }
+
     @Get('currencies')
     findAllCurrencies() {
         return this.commonMastersService.findAllCurrencies();
