@@ -43,81 +43,47 @@ export default function ProjectHoursPage() {
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [selectedMonth, setSelectedMonth] = useState('2025-01');
 
-    const projects: ProjectHours[] = [
-        {
-            id: '1',
-            projectName: 'ERP Implementation Phase 2',
-            projectCode: 'ERP-2025-001',
-            client: 'Internal',
-            status: 'Active',
-            budgetHours: 500,
-            usedHours: 285,
-            remainingHours: 215,
-            teamSize: 8,
-            startDate: '2025-01-01',
-            endDate: '2025-06-30',
-            tasks: [
-                { taskName: 'Frontend Development', assignedTo: 'Robert Martinez', hours: 120 },
-                { taskName: 'Backend Development', assignedTo: 'James Taylor', hours: 95 },
-                { taskName: 'Testing & QA', assignedTo: 'Emily Davis', hours: 45 },
-                { taskName: 'Documentation', assignedTo: 'Sarah Johnson', hours: 25 }
-            ]
-        },
-        {
-            id: '2',
-            projectName: 'Production Line Optimization',
-            projectCode: 'PROD-2025-003',
-            client: 'Internal',
-            status: 'Active',
-            budgetHours: 300,
-            usedHours: 180,
-            remainingHours: 120,
-            teamSize: 5,
-            startDate: '2025-01-15',
-            endDate: '2025-04-30',
-            tasks: [
-                { taskName: 'Analysis', assignedTo: 'Michael Chen', hours: 60 },
-                { taskName: 'Implementation', assignedTo: 'David Wilson', hours: 80 },
-                { taskName: 'Testing', assignedTo: 'Lisa Wong', hours: 40 }
-            ]
-        },
-        {
-            id: '3',
-            projectName: 'Quality Management System',
-            projectCode: 'QMS-2024-012',
-            client: 'Internal',
-            status: 'Completed',
-            budgetHours: 200,
-            usedHours: 195,
-            remainingHours: 5,
-            teamSize: 3,
-            startDate: '2024-10-01',
-            endDate: '2025-01-15',
-            tasks: [
-                { taskName: 'Process Documentation', assignedTo: 'Emily Davis', hours: 100 },
-                { taskName: 'Training', assignedTo: 'Sarah Johnson', hours: 50 },
-                { taskName: 'Audit Preparation', assignedTo: 'Anna Martin', hours: 45 }
-            ]
-        },
-        {
-            id: '4',
-            projectName: 'Client Portal Development',
-            projectCode: 'WEB-2025-002',
-            client: 'ABC Corporation',
-            status: 'Active',
-            budgetHours: 400,
-            usedHours: 85,
-            remainingHours: 315,
-            teamSize: 4,
-            startDate: '2025-01-20',
-            endDate: '2025-05-31',
-            tasks: [
-                { taskName: 'UI/UX Design', assignedTo: 'Robert Martinez', hours: 35 },
-                { taskName: 'Frontend Development', assignedTo: 'James Taylor', hours: 30 },
-                { taskName: 'API Integration', assignedTo: 'Robert Martinez', hours: 20 }
-            ]
-        }
-    ];
+    const [projects, setProjects] = useState<ProjectHours[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const res = await fetch(`${TS_API_BASE}/hr/timesheets`, { headers: { 'x-company-id': 'test' }, cache: 'no-store' });
+                if (!res.ok) throw new Error('Failed to load timesheets');
+                const raw = await res.json();
+                const mapped: ProjectHours[] = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => {
+                    const budgetHours = r?.budgetHours ?? 0;
+                    const usedHours = r?.usedHours ?? 0;
+                    return {
+                        id: String(r?.id ?? i),
+                        projectName: r?.projectName ?? '',
+                        projectCode: r?.projectCode ?? '',
+                        client: r?.client ?? '',
+                        status: (r?.status as ProjectHours['status']) ?? 'Active',
+                        budgetHours,
+                        usedHours,
+                        remainingHours: r?.remainingHours ?? Math.max(0, budgetHours - usedHours),
+                        teamSize: r?.teamSize ?? 0,
+                        startDate: r?.startDate ?? '',
+                        endDate: r?.endDate ?? '',
+                        tasks: Array.isArray(r?.tasks) ? r.tasks.map((t: any) => ({
+                            taskName: t?.taskName ?? '',
+                            assignedTo: t?.assignedTo ?? '',
+                            hours: t?.hours ?? 0,
+                        })) : [],
+                    };
+                });
+                if (!cancelled) setProjects(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setProjects([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredProjects = projects.filter(project => {
         const matchesSearch = project.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
