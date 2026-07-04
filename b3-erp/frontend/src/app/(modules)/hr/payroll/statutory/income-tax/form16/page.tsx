@@ -38,83 +38,58 @@ export default function Form16Page() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [fiscalYear] = useState('2023-24');
 
-    const form16Records: Form16Record[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            pan: 'ABCPJ1234K',
-            fiscalYear: '2023-24',
-            quartersCovered: ['Q1', 'Q2', 'Q3', 'Q4'],
-            grossSalary: 1500000,
-            taxDeducted: 115500,
-            status: 'Sent',
-            generatedDate: '2024-06-01',
-            sentDate: '2024-06-05',
-            downloadedDate: null
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            pan: 'DEFPC5678L',
-            fiscalYear: '2023-24',
-            quartersCovered: ['Q1', 'Q2', 'Q3', 'Q4'],
-            grossSalary: 800000,
-            taxDeducted: 35000,
-            status: 'Downloaded',
-            generatedDate: '2024-06-01',
-            sentDate: '2024-06-05',
-            downloadedDate: '2024-06-10'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            pan: 'GHIPD9012M',
-            fiscalYear: '2023-24',
-            quartersCovered: ['Q1', 'Q2', 'Q3', 'Q4'],
-            grossSalary: 750000,
-            taxDeducted: 12500,
-            status: 'Generated',
-            generatedDate: '2024-06-01',
-            sentDate: null,
-            downloadedDate: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            pan: 'JKLPB3456N',
-            fiscalYear: '2023-24',
-            quartersCovered: ['Q1', 'Q2', 'Q3', 'Q4'],
-            grossSalary: 1200000,
-            taxDeducted: 72500,
-            status: 'Sent',
-            generatedDate: '2024-06-01',
-            sentDate: '2024-06-05',
-            downloadedDate: null
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            pan: 'MNOPB7890O',
-            fiscalYear: '2023-24',
-            quartersCovered: ['Q3', 'Q4'],
-            grossSalary: 450000,
-            taxDeducted: 15000,
-            status: 'Pending',
-            generatedDate: null,
-            sentDate: null,
-            downloadedDate: null
-        }
-    ];
+    const [form16Records, setForm16Records] = useState<Form16Record[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Form-16 tax records live on hr/tax-records discriminated by
+                // category=form16. Backend returns a bare array; details JSON
+                // carries page-specific fields (PAN / quarters / gross salary).
+                const raw = (await HrPayrollService.getTaxRecords('form16')) as any[];
+                const statusMap: Record<string, Form16Record['status']> = {
+                    issued: 'Downloaded',
+                    approved: 'Sent',
+                    submitted: 'Generated',
+                    pending: 'Pending',
+                };
+                const mapped: Form16Record[] = (Array.isArray(raw) ? raw : []).map((r, i) => {
+                    const d = (r?.details ?? {}) as Record<string, any>;
+                    const quarters = Array.isArray(d.quartersCovered) ? d.quartersCovered : [];
+                    return {
+                        id: String(r?.id ?? i),
+                        employeeId: r?.employeeCode ?? r?.employeeId ?? '',
+                        employeeName: r?.employeeName ?? '',
+                        department: r?.department ?? '',
+                        pan: d.pan ?? '',
+                        fiscalYear: r?.financialYear ?? '',
+                        quartersCovered: quarters,
+                        grossSalary: Number(d.grossSalary ?? 0),
+                        taxDeducted: Number(r?.amount ?? d.taxDeducted ?? 0),
+                        status: statusMap[String(r?.status)] ?? 'Pending',
+                        generatedDate: d.generatedDate ?? null,
+                        sentDate: d.sentDate ?? null,
+                        downloadedDate: d.downloadedDate ?? null,
+                    };
+                });
+                if (!cancelled) setForm16Records(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load Form 16 records');
+                    setForm16Records([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredRecords = form16Records.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||

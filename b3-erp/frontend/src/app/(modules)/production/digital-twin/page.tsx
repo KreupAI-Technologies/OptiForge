@@ -220,6 +220,68 @@ export default function DigitalTwinPage() {
         // Overview - show all components in a compact layout
         return (
           <div className="space-y-3">
+            {/* Live Digital Twins — primary data list from GET /production/digital-twins */}
+            <Card>
+              <CardContent className="pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-indigo-600" />
+                  Live Digital Twins
+                </h3>
+
+                {twinsLoading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                    Loading digital twins…
+                  </div>
+                )}
+
+                {twinsError && !twinsLoading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                    <Zap className="h-4 w-4" />
+                    {twinsError}
+                  </div>
+                )}
+
+                {!twinsLoading && !twinsError && twins.length === 0 && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    No digital twins
+                  </div>
+                )}
+
+                {!twinsLoading && !twinsError && twins.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          <th className="px-3 py-2 font-medium">Name</th>
+                          <th className="px-3 py-2 font-medium">Type</th>
+                          <th className="px-3 py-2 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {twins.map((t: any, index: number) => (
+                          <tr
+                            key={t.id ?? index}
+                            className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          >
+                            <td className="px-3 py-2 font-medium text-gray-900 dark:text-white">
+                              {t.name ?? t.twinName ?? t.id ?? '—'}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                              {t.twinType ?? t.type ?? '—'}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                              {t.status ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Factory Floor and Equipment Health */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
               <div>
