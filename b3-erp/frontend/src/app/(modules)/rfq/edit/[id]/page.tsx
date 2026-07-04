@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { MasterDataService, mdLabel, MDVendor, fetchRecordById } from '@/services/master-data.service';
 import {
   ArrowLeft,
   Save,
@@ -83,8 +84,8 @@ const paymentTermsOptions = ['Advance Payment', 'Net 15 days', 'Net 30 days', 'N
 const deliveryTermsOptions = ['Door Delivery', 'Ex-Works', 'FOB', 'CIF', 'C&F'];
 const incotermsOptions = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
 
-// Mock vendors
-const mockVendors: Vendor[] = [
+// Seed vendor list — used as initial state; overwritten by live API when available
+const mockVendorsSeed: Vendor[] = [
   { id: '1', vendorId: 'V-001', vendorName: 'SKF India Ltd', category: 'Spare Parts', email: 'contact@skfindia.com', phone: '+91-22-4567-1234', rating: 4.5, selected: true },
   { id: '2', vendorId: 'V-002', vendorName: 'Greenply Industries', category: 'Raw Materials', email: 'sales@greenply.com', phone: '+91-22-4567-5678', rating: 4.3, selected: true },
   { id: '3', vendorId: 'V-003', vendorName: 'Hettich India', category: 'Hardware', email: 'info@hettich.com', phone: '+91-22-4567-9012', rating: 4.7, selected: false },
@@ -156,8 +157,40 @@ export default function EditRFQPage() {
     targetPrice: 0,
   });
 
-  const [vendors, setVendors] = useState<Vendor[]>(mockVendors);
+  const [vendors, setVendors] = useState<Vendor[]>(mockVendorsSeed);
+  const [isLoadingVendors, setIsLoadingVendors] = useState(false);
   const [vendorFilter, setVendorFilter] = useState('');
+
+  // Fetch live vendors; seed stays as fallback
+  useEffect(() => {
+    setIsLoadingVendors(true);
+    MasterDataService.getVendors().then((liveVendors) => {
+      if (liveVendors.length > 0) {
+        setVendors(
+          liveVendors.map((v: MDVendor) => ({
+            id: v.id,
+            vendorId: v.vendorCode || v.id,
+            vendorName: mdLabel.vendor(v),
+            category: v.category || '',
+            email: v.email || '',
+            phone: '',
+            rating: 0,
+            selected: false,
+          }))
+        );
+      }
+    }).finally(() => setIsLoadingVendors(false));
+  }, []);
+
+  // Fetch live record and prefill; existing mock data stays as fallback
+  useEffect(() => {
+    if (!rfqId) return;
+    fetchRecordById<RFQFormData>('/procurement/rfqs', rfqId).then((record) => {
+      if (record) {
+        setFormData((prev) => ({ ...prev, ...record }));
+      }
+    });
+  }, [rfqId]);
 
   const updateFormData = (field: keyof RFQFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -552,6 +585,7 @@ export default function EditRFQPage() {
           <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center">
             <Users className="h-6 w-6 mr-2 text-blue-600" />
             Vendor Selection ({formData.selectedVendors.length} selected)
+            {isLoadingVendors && <span className="ml-3 text-xs text-gray-400">Loading…</span>}
           </h2>
 
           <div className="mb-2">

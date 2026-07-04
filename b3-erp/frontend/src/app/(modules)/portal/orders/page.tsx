@@ -1,57 +1,110 @@
 'use client';
 
-import React from 'react';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, ChevronRight, Search, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, MapPin, ChevronRight, Search, Filter, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { PortalService } from '@/services/portal.service';
+
+interface OrderStep {
+    label: string;
+    date: string;
+    completed: boolean;
+    current?: boolean;
+}
+interface DisplayOrder {
+    id: string;
+    date: string;
+    status: string;
+    total: string;
+    items: string;
+    progress: number;
+    steps: OrderStep[];
+}
+
+// The order lifecycle maps a backend status onto a 5-step tracker.
+const STEP_LABELS = ['Order Placed', 'Confirmed', 'In Production', 'Shipped', 'Delivered'];
+
+function statusToStepIndex(status?: string): number {
+    switch ((status || '').toLowerCase()) {
+        case 'draft':
+        case 'pending':
+        case 'submitted':
+            return 0;
+        case 'confirmed':
+        case 'approved':
+            return 1;
+        case 'in_production':
+        case 'in production':
+        case 'processing':
+            return 2;
+        case 'shipped':
+        case 'dispatched':
+        case 'in_transit':
+            return 3;
+        case 'delivered':
+        case 'completed':
+        case 'closed':
+            return 4;
+        default:
+            return 1;
+    }
+}
+
+function buildSteps(status: string, orderDate: string): OrderStep[] {
+    const active = statusToStepIndex(status);
+    return STEP_LABELS.map((label, i) => ({
+        label,
+        date: i === 0 ? orderDate : '',
+        completed: i < active || i === active,
+        current: i === active,
+    }));
+}
 
 export default function PortalOrdersPage() {
-    const orders = [
-        {
-            id: 'ORD-2025-001',
-            date: 'Oct 24, 2025',
-            status: 'In Production',
-            total: '$12,500',
-            items: 'Modular Kitchen Units (x2)',
-            progress: 60,
-            steps: [
-                { label: 'Order Placed', date: 'Oct 24', completed: true },
-                { label: 'Confirmed', date: 'Oct 25', completed: true },
-                { label: 'In Production', date: 'Oct 26', completed: true, current: true },
-                { label: 'Shipped', date: 'Est. Nov 02', completed: false },
-                { label: 'Delivered', date: 'Est. Nov 05', completed: false },
-            ]
-        },
-        {
-            id: 'ORD-2025-002',
-            date: 'Oct 15, 2025',
-            status: 'Shipped',
-            total: '$4,200',
-            items: 'Wardrobe Fittings Set',
-            progress: 80,
-            steps: [
-                { label: 'Order Placed', date: 'Oct 15', completed: true },
-                { label: 'Confirmed', date: 'Oct 16', completed: true },
-                { label: 'In Production', date: 'Oct 18', completed: true },
-                { label: 'Shipped', date: 'Oct 24', completed: true, current: true },
-                { label: 'Delivered', date: 'Est. Oct 28', completed: false },
-            ]
-        },
-        {
-            id: 'ORD-2025-003',
-            date: 'Oct 01, 2025',
-            status: 'Delivered',
-            total: '$8,900',
-            items: 'Office Furniture Bulk',
-            progress: 100,
-            steps: [
-                { label: 'Order Placed', date: 'Oct 01', completed: true },
-                { label: 'Confirmed', date: 'Oct 02', completed: true },
-                { label: 'In Production', date: 'Oct 05', completed: true },
-                { label: 'Shipped', date: 'Oct 10', completed: true },
-                { label: 'Delivered', date: 'Oct 12', completed: true, current: true },
-            ]
-        }
-    ];
+    const [orders, setOrders] = useState<DisplayOrder[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await PortalService.getOrders();
+                const mapped: DisplayOrder[] = (Array.isArray(raw) ? raw : []).map((o, i) => {
+                    const status = o?.status ?? 'draft';
+                    const orderDate = o?.orderDate
+                        ? new Date(o.orderDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+                        : '';
+                    const total = Number(o?.totalAmount ?? o?.subtotal ?? 0);
+                    const itemNames = Array.isArray(o?.items)
+                        ? o.items.map((it) => it?.itemName).filter(Boolean).join(', ')
+                        : '';
+                    const active = statusToStepIndex(status);
+                    return {
+                        id: o?.orderNumber ?? o?.id ?? `ORDER-${i}`,
+                        date: orderDate,
+                        status: status.replace(/_/g, ' '),
+                        total: `${o?.currency ?? ''} ${total.toLocaleString()}`.trim(),
+                        items: itemNames || '—',
+                        progress: Math.round((active / (STEP_LABELS.length - 1)) * 100),
+                        steps: buildSteps(status, orderDate),
+                    };
+                });
+                if (!cancelled) setOrders(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load orders');
+                    setOrders([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 p-3">
@@ -83,6 +136,24 @@ export default function PortalOrdersPage() {
                     Filter Status
                 </button>
             </div>
+
+            {isLoading && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                    Loading orders…
+                </div>
+            )}
+            {loadError && !isLoading && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    {loadError}
+                </div>
+            )}
+            {!isLoading && !loadError && orders.length === 0 && (
+                <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+                    No orders found.
+                </div>
+            )}
 
             {/* Orders List */}
             <div className="space-y-3">

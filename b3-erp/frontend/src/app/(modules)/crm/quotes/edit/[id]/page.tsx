@@ -25,7 +25,7 @@ interface Quote {
   probability: number;
 }
 
-const mockQuotes: Quote[] = [
+const mockQuotesSeed: Quote[] = [
   {
     id: '1',
     quoteNumber: 'QT-2024-001',
@@ -110,7 +110,27 @@ export default function QuoteEditPage() {
   const params = useParams();
   const quoteId = params?.id as string;
 
-  const existingQuote = mockQuotes.find(q => q.id === quoteId);
+  const existingQuote = mockQuotesSeed.find(q => q.id === quoteId);
+
+  // Live customer picker — initialized empty, filled on mount
+  const [customers, setCustomers] = useState<MDCustomer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+
+  // Live employee picker for "Quote Owner" — initialized empty, filled on mount
+  const [employees, setEmployees] = useState<MDEmployee[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+
+  useEffect(() => {
+    setCustomersLoading(true);
+    MasterDataService.getCustomers().then(live => {
+      if (live.length > 0) setCustomers(live);
+    }).finally(() => setCustomersLoading(false));
+
+    setEmployeesLoading(true);
+    MasterDataService.getEmployees().then(live => {
+      if (live.length > 0) setEmployees(live);
+    }).finally(() => setEmployeesLoading(false));
+  }, []);
 
   const [formData, setFormData] = useState({
     title: existingQuote?.title || '',
@@ -121,6 +141,24 @@ export default function QuoteEditPage() {
     owner: existingQuote?.owner || '',
     probability: existingQuote?.probability || 50,
   });
+
+  // Fetch the real quote record and prefill form if found
+  useEffect(() => {
+    if (!quoteId) return;
+    fetchRecordById<Partial<Quote>>('/crm/quotes', quoteId).then(record => {
+      if (!record) return;
+      setFormData(prev => ({
+        ...prev,
+        title: record.title ?? prev.title,
+        customer: record.customer ?? prev.customer,
+        contact: record.contact ?? prev.contact,
+        status: record.status ?? prev.status,
+        validUntil: record.validUntil ?? prev.validUntil,
+        owner: record.owner ?? prev.owner,
+        probability: record.probability ?? prev.probability,
+      }));
+    });
+  }, [quoteId]);
 
   const [items, setItems] = useState<QuoteItem[]>([
     {
@@ -306,16 +344,24 @@ export default function QuoteEditPage() {
                     <label htmlFor="customer" className="block text-sm font-medium text-gray-700 mb-1">
                       Customer *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       id="customer"
                       value={formData.customer}
                       onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
                       className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                         errors.customer ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Enter customer name"
-                    />
+                      disabled={customersLoading}
+                    >
+                      <option value="">{customersLoading ? 'Loading customers…' : 'Select customer'}</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={mdLabel.customer(c)}>{mdLabel.customer(c)}</option>
+                      ))}
+                      {/* Keep existing value selectable even if not yet in live list */}
+                      {formData.customer && !customers.find(c => mdLabel.customer(c) === formData.customer) && (
+                        <option value={formData.customer}>{formData.customer}</option>
+                      )}
+                    </select>
                     {errors.customer && (
                       <p className="text-sm text-red-600 mt-1">{errors.customer}</p>
                     )}
