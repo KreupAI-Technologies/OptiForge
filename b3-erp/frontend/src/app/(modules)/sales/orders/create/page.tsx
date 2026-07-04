@@ -439,7 +439,7 @@ export default function CreateSalesOrderPage() {
                           </div>
                         </div>
                       ))}
-                      {filteredCustomers.length === 0 && (
+                      {!customersLoading && filteredCustomers.length === 0 && (
                         <div className="p-4 text-center text-gray-500">
                           No customers found
                         </div>

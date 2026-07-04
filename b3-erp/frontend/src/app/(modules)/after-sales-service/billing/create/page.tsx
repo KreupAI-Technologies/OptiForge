@@ -498,9 +498,11 @@ export default function CreateInvoicePage() {
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <p className="text-xs font-medium text-gray-700 mb-2">Customer Details</p>
                 <p className="text-sm text-gray-900">{customerName}</p>
-                <p className="text-xs text-gray-600 mt-1">
-                  GSTIN: {customers.find(c => c.id === customerId)?.gstin}
-                </p>
+                {customers.find(c => c.id === customerId)?.customerCode && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Code: {customers.find(c => c.id === customerId)?.customerCode}
+                  </p>
+                )}
               </div>
             )}
 
