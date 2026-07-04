@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   Users,
   Building,
@@ -73,7 +74,69 @@ export default function VendorManagementPage() {
     highRiskVendors: 8
   };
 
-  const vendors: Vendor[] = [
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await FinanceService.getPayables();
+        const risks = ['low', 'medium', 'high'];
+        const statuses = ['active', 'inactive', 'suspended'];
+        const mapped: Vendor[] = (Array.isArray(raw) ? raw : []).map((r: any) => {
+          const creditLimit = Number(r.creditLimit ?? 0);
+          const outstanding = Number(r.totalOutstanding ?? 0);
+          const risk = String(r.riskRating ?? '').toLowerCase();
+          const status = String(r.accountStatus ?? 'active').toLowerCase();
+          const contact = r.vendorContact ?? {};
+          return {
+            vendorId: r.vendorId ?? r.id ?? '',
+            vendorName: r.vendorName ?? '',
+            contactPerson: contact.contactPerson ?? r.contactPerson ?? '',
+            email: contact.email ?? r.email ?? '',
+            phone: contact.phone ?? r.phone ?? '',
+            address: contact.address ?? '',
+            city: contact.city ?? '',
+            state: contact.state ?? '',
+            country: contact.country ?? '',
+            creditLimit,
+            currentOutstanding: outstanding,
+            availableCredit: creditLimit - outstanding,
+            paymentTerms: r.paymentTerms ?? '',
+            averagePaymentDays: Number(r.creditPeriod ?? 0),
+            totalPurchases: Number(r.totalPurchases ?? 0),
+            onTimePaymentRate: Number(r.onTimePaymentRate ?? 0),
+            riskRating: (risks.includes(risk) ? risk : 'low') as Vendor['riskRating'],
+            vendorCategory: r.vendorCategory ?? '',
+            gstNumber: r.gstNumber ?? '',
+            panNumber: r.panNumber ?? '',
+            bankAccount: r.bankAccount ?? '',
+            ifscCode: r.ifscCode ?? '',
+            preferredPaymentMethod: r.preferredPaymentMethod ?? '',
+            lastTransactionDate: r.lastPaymentDate ? String(r.lastPaymentDate).slice(0, 10) : '',
+            accountManagerName: r.accountManagerName ?? '',
+            status: (statuses.includes(status) ? status : 'active') as Vendor['status'],
+            vendorSince: r.vendorSince ? String(r.vendorSince).slice(0, 10) : '',
+          };
+        });
+        if (!cancelled) setVendors(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load vendors');
+          setVendors([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const _unusedSample: Vendor[] = [
     {
       vendorId: 'V-001',
       vendorName: 'Tata Steel Ltd',

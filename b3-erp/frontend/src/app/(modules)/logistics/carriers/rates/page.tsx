@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, DollarSign, TrendingUp, TrendingDown, Package, Truck, MapPin, Calculator, Filter, Edit } from 'lucide-react';
 
 interface CarrierRate {
@@ -33,260 +34,43 @@ export default function CarrierRatesPage() {
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [zoneFilter, setZoneFilter] = useState<string>('all');
 
-  const carrierRates: CarrierRate[] = [
-    {
-      id: '1',
-      carrier: 'Blue Dart Express',
-      serviceType: 'express',
-      zone: 'South Zone',
-      origin: 'Chennai',
-      destination: 'Bangalore',
-      baseRate: 150,
-      perKgRate: 45,
-      fuelSurcharge: 12.5,
-      minWeight: 0.5,
-      maxWeight: 50,
-      volumetricDivisor: 5000,
-      transitTime: '1-2 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-15',
-      rateChange: 5.2
-    },
-    {
-      id: '2',
-      carrier: 'DHL Express',
-      serviceType: 'express',
-      zone: 'National',
-      origin: 'Chennai',
-      destination: 'Delhi',
-      baseRate: 280,
-      perKgRate: 65,
-      fuelSurcharge: 15.0,
-      minWeight: 0.5,
-      maxWeight: 100,
-      volumetricDivisor: 5000,
-      transitTime: '1-2 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-10',
-      rateChange: -2.3
-    },
-    {
-      id: '3',
-      carrier: 'FedEx',
-      serviceType: 'express',
-      zone: 'West Zone',
-      origin: 'Chennai',
-      destination: 'Mumbai',
-      baseRate: 250,
-      perKgRate: 58,
-      fuelSurcharge: 14.0,
-      minWeight: 0.5,
-      maxWeight: 70,
-      volumetricDivisor: 5000,
-      transitTime: '1-2 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-12',
-      rateChange: 3.8
-    },
-    {
-      id: '4',
-      carrier: 'DTDC Courier',
-      serviceType: 'standard',
-      zone: 'South Zone',
-      origin: 'Chennai',
-      destination: 'Hyderabad',
-      baseRate: 120,
-      perKgRate: 35,
-      fuelSurcharge: 10.0,
-      minWeight: 0.5,
-      maxWeight: 100,
-      volumetricDivisor: 4500,
-      transitTime: '2-3 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-18',
-      rateChange: 1.5
-    },
-    {
-      id: '5',
-      carrier: 'Indian Post',
-      serviceType: 'economy',
-      zone: 'National',
-      origin: 'Chennai',
-      destination: 'Kolkata',
-      baseRate: 80,
-      perKgRate: 22,
-      fuelSurcharge: 8.0,
-      minWeight: 0.5,
-      maxWeight: 35,
-      volumetricDivisor: 4000,
-      transitTime: '5-7 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-05',
-      rateChange: 0
-    },
-    {
-      id: '6',
-      carrier: 'Blue Dart Express',
-      serviceType: 'standard',
-      zone: 'East Zone',
-      origin: 'Chennai',
-      destination: 'Pune',
-      baseRate: 180,
-      perKgRate: 42,
-      fuelSurcharge: 11.5,
-      minWeight: 0.5,
-      maxWeight: 60,
-      volumetricDivisor: 5000,
-      transitTime: '2-3 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-20',
-      rateChange: 4.2
-    },
-    {
-      id: '7',
-      carrier: 'DHL Express',
-      serviceType: 'freight',
-      zone: 'National',
-      origin: 'Chennai',
-      destination: 'All India',
-      baseRate: 500,
-      perKgRate: 18,
-      fuelSurcharge: 16.0,
-      minWeight: 100,
-      maxWeight: 5000,
-      volumetricDivisor: 6000,
-      transitTime: '3-5 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-08',
-      rateChange: -1.8
-    },
-    {
-      id: '8',
-      carrier: 'FedEx',
-      serviceType: 'standard',
-      zone: 'South Zone',
-      origin: 'Chennai',
-      destination: 'Coimbatore',
-      baseRate: 100,
-      perKgRate: 30,
-      fuelSurcharge: 9.5,
-      minWeight: 0.5,
-      maxWeight: 50,
-      volumetricDivisor: 5000,
-      transitTime: '2-3 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-14',
-      rateChange: 2.1
-    },
-    {
-      id: '9',
-      carrier: 'DTDC Courier',
-      serviceType: 'economy',
-      zone: 'West Zone',
-      origin: 'Chennai',
-      destination: 'Ahmedabad',
-      baseRate: 95,
-      perKgRate: 28,
-      fuelSurcharge: 9.0,
-      minWeight: 0.5,
-      maxWeight: 40,
-      volumetricDivisor: 4500,
-      transitTime: '4-6 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-16',
-      rateChange: 0.8
-    },
-    {
-      id: '10',
-      carrier: 'Indian Post',
-      serviceType: 'standard',
-      zone: 'National',
-      origin: 'Chennai',
-      destination: 'Jaipur',
-      baseRate: 110,
-      perKgRate: 32,
-      fuelSurcharge: 8.5,
-      minWeight: 0.5,
-      maxWeight: 30,
-      volumetricDivisor: 4000,
-      transitTime: '4-5 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-11',
-      rateChange: -0.5
-    },
-    {
-      id: '11',
-      carrier: 'Blue Dart Express',
-      serviceType: 'freight',
-      zone: 'South Zone',
-      origin: 'Chennai',
-      destination: 'Bangalore',
-      baseRate: 450,
-      perKgRate: 15,
-      fuelSurcharge: 13.0,
-      minWeight: 100,
-      maxWeight: 3000,
-      volumetricDivisor: 6000,
-      transitTime: '2-4 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-19',
-      rateChange: 6.5
-    },
-    {
-      id: '12',
-      carrier: 'FedEx',
-      serviceType: 'economy',
-      zone: 'East Zone',
-      origin: 'Chennai',
-      destination: 'Visakhapatnam',
-      baseRate: 85,
-      perKgRate: 25,
-      fuelSurcharge: 8.0,
-      minWeight: 0.5,
-      maxWeight: 35,
-      volumetricDivisor: 4500,
-      transitTime: '4-6 days',
-      effectiveFrom: '2025-01-01',
-      effectiveTo: '2025-12-31',
-      currency: 'INR',
-      isActive: true,
-      lastUpdated: '2025-10-17',
-      rateChange: 1.2
-    }
-  ];
+  const [carrierRates, setCarrierRates] = useState<CarrierRate[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getCarrierRates();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setCarrierRates((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          carrier: r.carrier ?? '',
+          serviceType: (r.serviceType ?? 'standard') as CarrierRate['serviceType'],
+          zone: r.zone ?? '',
+          origin: r.origin ?? '',
+          destination: r.destination ?? '',
+          baseRate: Number(r.baseRate ?? 0),
+          perKgRate: Number(r.perKgRate ?? 0),
+          fuelSurcharge: Number(r.fuelSurcharge ?? 0),
+          minWeight: Number(r.minWeight ?? 0),
+          maxWeight: Number(r.maxWeight ?? 0),
+          volumetricDivisor: Number(r.volumetricDivisor ?? 5000),
+          transitTime: r.transitTime ?? '',
+          effectiveFrom: r.effectiveFrom ?? '',
+          effectiveTo: r.effectiveTo ?? '',
+          currency: r.currency ?? 'INR',
+          isActive: r.isActive !== false,
+          lastUpdated: r.lastUpdated ?? '',
+          rateChange: Number(r.rateChange ?? 0),
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load carrier rates');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const rateStats = {
     totalRates: carrierRates.length,
