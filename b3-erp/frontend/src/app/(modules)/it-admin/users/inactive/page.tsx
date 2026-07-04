@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Search, Plus, Download, Filter, MoreVertical, UserX, Mail, RotateCcw, Eye } from 'lucide-react';
+import { UserManagementService, UserStatus } from '@/services/user-management.service';
 
 interface InactiveUser {
   id: string;
@@ -16,7 +17,7 @@ interface InactiveUser {
   avatar: string;
 }
 
-const inactiveUsers: InactiveUser[] = [
+const inactiveUsersSeed: InactiveUser[] = [
   {
     id: '101',
     name: 'Arjun Verma',

@@ -40,80 +40,23 @@ export default function AnnualBonusPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [yearFilter, setYearFilter] = useState('2024-25');
 
-    const bonusRecords: AnnualBonus[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            financialYear: '2024-25',
-            grossSalary: 1650000,
-            eligibleDays: 365,
-            actualDays: 352,
-            bonusPercentage: 8.33,
-            calculatedBonus: 132660,
-            adjustments: 0,
-            finalBonus: 132660,
-            status: 'Approved',
-            approvedBy: 'CEO',
-            paidDate: null
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            financialYear: '2024-25',
-            grossSalary: 920000,
-            eligibleDays: 365,
-            actualDays: 340,
-            bonusPercentage: 8.33,
-            calculatedBonus: 71380,
-            adjustments: -2000,
-            finalBonus: 69380,
-            status: 'Paid',
-            approvedBy: 'Sarah Johnson',
-            paidDate: '2025-01-31'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            financialYear: '2024-25',
-            grossSalary: 1080000,
-            eligibleDays: 365,
-            actualDays: 365,
-            bonusPercentage: 8.33,
-            calculatedBonus: 89964,
-            adjustments: 0,
-            finalBonus: 89964,
-            status: 'Calculated',
-            approvedBy: null,
-            paidDate: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            financialYear: '2024-25',
-            grossSalary: 810000,
-            eligibleDays: 365,
-            actualDays: 280,
-            bonusPercentage: 8.33,
-            calculatedBonus: 51780,
-            adjustments: 0,
-            finalBonus: 51780,
-            status: 'Draft',
-            approvedBy: null,
-            paidDate: null
-        }
-    ];
+    const [bonusRecords, setBonusRecords] = useState<AnnualBonus[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getBonusRecordsBy('annual');
+                const mapped: AnnualBonus[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setBonusRecords(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBonusRecords([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredRecords = bonusRecords.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||

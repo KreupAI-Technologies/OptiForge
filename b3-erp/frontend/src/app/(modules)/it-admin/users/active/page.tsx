@@ -84,6 +84,54 @@ export default function ActiveUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedRole, setSelectedRole] = useState('all');
+  const [activeUsers, setActiveUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend supports a status filter (UserFilters.status); request only active users.
+        const raw = (await UserManagementService.getAllUsers({ status: 'active' as any })) as any[];
+        const list = (Array.isArray(raw) ? raw : []).filter(
+          (u: any) =>
+            (u.status ?? '').toString().toLowerCase() === 'active' ||
+            u.isActive === true ||
+            (u.status === undefined && u.isActive === undefined)
+        );
+        const mapped: User[] = list.map((u: any) => ({
+          id: (u.id ?? u.userId ?? '').toString(),
+          name: (
+            u.name ??
+            u.displayName ??
+            [u.firstName, u.lastName].filter(Boolean).join(' ') ??
+            ''
+          ).toString(),
+          email: (u.email ?? '').toString(),
+          phone: (u.phone ?? u.phoneNumber ?? '').toString(),
+          department: (u.department ?? '').toString(),
+          role: (u.role ?? u.roleName ?? u.jobTitle ?? '').toString(),
+          joinDate: (u.joinDate ?? u.createdAt ?? u.joinedAt ?? '').toString(),
+          avatar: (u.avatar ?? '👤').toString(),
+        }));
+        if (!cancelled) setActiveUsers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load users');
+          setActiveUsers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const departments = ['all', 'Operations', 'Sales', 'IT', 'HR', 'Finance', 'Marketing'];
   const roles = ['all', 'Manager', 'Executive', 'Administrator', 'Specialist', 'Analyst'];
