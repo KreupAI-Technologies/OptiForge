@@ -173,84 +173,29 @@ export default function AddPayrollPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Mock employees data
-  const allEmployees: Employee[] = [
-    {
-      id: '1',
-      employeeId: 'B3-0001',
-      name: 'Rajesh Kumar',
-      department: 'Production',
-      position: 'Production Supervisor',
-      email: 'rajesh.kumar@b3erp.com',
-      phone: '+91 98765 43210',
-      basicSalary: 45000,
-      bankName: 'HDFC Bank',
-      accountNumber: '50100123456789',
-      ifscCode: 'HDFC0001234',
-      panNumber: 'ABCDE1234F',
-      uanNumber: '101234567890',
-    },
-    {
-      id: '2',
-      employeeId: 'B3-0002',
-      name: 'Priya Sharma',
-      department: 'Quality Control',
-      position: 'QC Inspector',
-      email: 'priya.sharma@b3erp.com',
-      phone: '+91 98765 43211',
-      basicSalary: 38000,
-      bankName: 'ICICI Bank',
-      accountNumber: '50200234567890',
-      ifscCode: 'ICIC0002345',
-      panNumber: 'BCDEF2345G',
-      uanNumber: '201234567890',
-    },
-    {
-      id: '3',
-      employeeId: 'B3-0003',
-      name: 'Amit Patel',
-      department: 'Procurement',
-      position: 'Procurement Officer',
-      email: 'amit.patel@b3erp.com',
-      phone: '+91 98765 43212',
-      basicSalary: 42000,
-      bankName: 'SBI',
-      accountNumber: '50300345678901',
-      ifscCode: 'SBIN0003456',
-      panNumber: 'CDEFG3456H',
-      uanNumber: '301234567890',
-    },
-    {
-      id: '4',
-      employeeId: 'B3-0004',
-      name: 'Sunita Reddy',
-      department: 'Finance',
-      position: 'Accounts Manager',
-      email: 'sunita.reddy@b3erp.com',
-      phone: '+91 98765 43213',
-      basicSalary: 55000,
-      bankName: 'Axis Bank',
-      accountNumber: '50400456789012',
-      ifscCode: 'UTIB0004567',
-      panNumber: 'DEFGH4567I',
-      uanNumber: '401234567890',
-    },
-    {
-      id: '5',
-      employeeId: 'B3-0005',
-      name: 'Vikram Singh',
-      department: 'HR',
-      position: 'HR Executive',
-      email: 'vikram.singh@b3erp.com',
-      phone: '+91 98765 43214',
-      basicSalary: 40000,
-      bankName: 'Kotak Mahindra Bank',
-      accountNumber: '50500567890123',
-      ifscCode: 'KKBK0005678',
-      panNumber: 'EFGHI5678J',
-      uanNumber: '501234567890',
-    },
-  ];
+  useEffect(() => {
+    setEmployeesLoading(true);
+    MasterDataService.getEmployees().then((live) => {
+      if (live.length > 0) {
+        setAllEmployees(live.map((e: MDEmployee): Employee => ({
+          id: e.id,
+          employeeId: e.employeeCode || e.id,
+          name: e.fullName || [e.firstName, e.lastName].filter(Boolean).join(' ') || e.employeeCode || e.id,
+          department: e.department || '',
+          position: e.designation || '',
+          email: '',
+          phone: '',
+          basicSalary: 0,
+          bankName: '',
+          accountNumber: '',
+          ifscCode: '',
+          panNumber: '',
+          uanNumber: '',
+        })));
+      }
+      setEmployeesLoading(false);
+    });
+  }, []);
 
   const filteredEmployees = allEmployees.filter(
     (emp) =>
@@ -504,7 +449,10 @@ export default function AddPayrollPage() {
                         </div>
                       </div>
                       <div className="max-h-64 overflow-y-auto">
-                        {filteredEmployees.map((employee) => (
+                        {employeesLoading && (
+                          <div className="p-3 text-center text-gray-500 text-sm">Loading employees…</div>
+                        )}
+                        {!employeesLoading && filteredEmployees.map((employee) => (
                           <button
                             key={employee.id}
                             type="button"
