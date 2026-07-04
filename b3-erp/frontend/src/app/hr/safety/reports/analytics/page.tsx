@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   TrendingUp,
   TrendingDown,
+  AlertCircle,
   AlertTriangle,
   Calendar,
   Download,
@@ -39,6 +40,16 @@ import {
   AreaChart,
   Legend
 } from 'recharts';
+import { HrSafetyService, SafetyReport } from '@/services/hr-safety.service';
+
+interface RecentIncidentRow {
+  id: string;
+  type: string;
+  location: string;
+  date: string;
+  severity: string;
+  status: string;
+}
 
 // Mock Data
 const analyticsStats = {
@@ -84,14 +95,6 @@ const incidentsByShift = [
   { shift: 'Night (10PM-6AM)', count: 10, percentage: 21 }
 ];
 
-const recentIncidents = [
-  { id: 'INC-2024-147', type: 'Near Miss', location: 'Assembly Line C', date: '2024-01-20', severity: 'Low', status: 'Closed' },
-  { id: 'INC-2024-146', type: 'Injury', location: 'Warehouse B', date: '2024-01-19', severity: 'Medium', status: 'Under Review' },
-  { id: 'INC-2024-145', type: 'Property Damage', location: 'Maintenance Shop', date: '2024-01-18', severity: 'High', status: 'Action Required' },
-  { id: 'INC-2024-144', type: 'Near Miss', location: 'Loading Dock', date: '2024-01-17', severity: 'Low', status: 'Closed' },
-  { id: 'INC-2024-143', type: 'Injury', location: 'CNC Area', date: '2024-01-16', severity: 'Medium', status: 'Closed' }
-];
-
 const rootCauses = [
   { cause: 'Inadequate Training', count: 14, percentage: 30 },
   { cause: 'Equipment Failure', count: 11, percentage: 23 },
@@ -102,6 +105,43 @@ const rootCauses = [
 
 export default function IncidentAnalyticsPage() {
   const [dateRange, setDateRange] = useState('last6months');
+  const [recentIncidents, setRecentIncidents] = useState<RecentIncidentRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getReports('analytics');
+        const mapped: RecentIncidentRow[] = rows.map((row: SafetyReport) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            type: row.label ?? row.category ?? '',
+            location: row.department ?? meta.location ?? '',
+            date: row.period ?? row.dueDate ?? '',
+            severity: row.severity ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setRecentIncidents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load incident analytics');
+          setRecentIncidents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
@@ -135,6 +175,19 @@ export default function IncidentAnalyticsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading incident analytics…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

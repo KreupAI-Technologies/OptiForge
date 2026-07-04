@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Target,
   TrendingUp,
   TrendingDown,
+  AlertCircle,
   AlertTriangle,
   Calendar,
   Download,
@@ -41,6 +42,23 @@ import {
   Legend,
   Cell
 } from 'recharts';
+import { HrSafetyService, SafetyReport } from '@/services/hr-safety.service';
+
+interface LeadingIndicatorRow {
+  name: string;
+  current: number;
+  target: number;
+  unit: string;
+  progress: number;
+}
+
+interface LaggingIndicatorRow {
+  name: string;
+  current: number;
+  target: number;
+  yearAgo: number;
+  trend: string;
+}
 
 // Mock KPI Data
 const kpiData = {
@@ -53,21 +71,6 @@ const kpiData = {
   auditScore: { value: 92, target: 95, trend: 5, status: 'On Track' },
   incidentsClosed: { value: 87, target: 90, trend: 8, status: 'On Track' }
 };
-
-const leadingIndicators = [
-  { name: 'Safety Training Hours', current: 2450, target: 2500, unit: 'hrs', progress: 98 },
-  { name: 'Safety Observations', current: 342, target: 400, unit: '', progress: 86 },
-  { name: 'Hazard Reports Submitted', current: 128, target: 150, unit: '', progress: 85 },
-  { name: 'PPE Compliance Rate', current: 97.2, target: 100, unit: '%', progress: 97 },
-  { name: 'Equipment Inspections', current: 445, target: 480, unit: '', progress: 93 }
-];
-
-const laggingIndicators = [
-  { name: 'Lost Time Injuries', current: 3, target: 0, yearAgo: 5, trend: 'down' },
-  { name: 'Recordable Incidents', current: 8, target: 5, yearAgo: 12, trend: 'down' },
-  { name: 'First Aid Cases', current: 15, target: 10, yearAgo: 18, trend: 'down' },
-  { name: 'Days Away from Work', current: 24, target: 15, yearAgo: 38, trend: 'down' }
-];
 
 const monthlyKPITrend = [
   { month: 'Jul', trir: 2.4, ltir: 0.6, target: 2.0 },
@@ -94,6 +97,62 @@ const gaugeData = (value: number, color: string) => [
 
 export default function SafetyKPIsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('ytd');
+  const [leadingIndicators, setLeadingIndicators] = useState<LeadingIndicatorRow[]>([]);
+  const [laggingIndicators, setLaggingIndicators] = useState<LaggingIndicatorRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getReports('kpi');
+        const leading: LeadingIndicatorRow[] = [];
+        const lagging: LaggingIndicatorRow[] = [];
+        rows.forEach((row: SafetyReport) => {
+          const meta = (row.meta || {}) as any;
+          const group = (row.category ?? meta.group ?? '').toString().toLowerCase();
+          if (group === 'lagging') {
+            lagging.push({
+              name: row.label ?? '',
+              current: row.value ?? 0,
+              target: row.target ?? 0,
+              yearAgo: meta.yearAgo ?? 0,
+              trend: row.trend ?? meta.trend ?? 'down',
+            });
+          } else {
+            const current = row.value ?? 0;
+            const target = row.target ?? 0;
+            leading.push({
+              name: row.label ?? '',
+              current,
+              target,
+              unit: row.unit ?? '',
+              progress: meta.progress ?? (target > 0 ? Math.round((current / target) * 100) : 0),
+            });
+          }
+        });
+        if (!cancelled) {
+          setLeadingIndicators(leading);
+          setLaggingIndicators(lagging);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load safety KPIs');
+          setLeadingIndicators([]);
+          setLaggingIndicators([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -133,6 +192,19 @@ export default function SafetyKPIsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading safety KPIs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Primary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

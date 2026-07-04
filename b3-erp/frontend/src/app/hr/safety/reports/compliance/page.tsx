@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileCheck,
   Shield,
@@ -38,6 +38,17 @@ import {
   CartesianGrid,
   Tooltip
 } from 'recharts';
+import { HrSafetyService, SafetyReport } from '@/services/hr-safety.service';
+
+interface NonComplianceRow {
+  id: string;
+  requirement: string;
+  framework: string;
+  severity: string;
+  identified: string;
+  status: string;
+  owner: string;
+}
 
 // Mock Data
 const complianceStats = {
@@ -74,13 +85,6 @@ const upcomingDeadlines = [
   { id: 'REQ-2024-105', requirement: 'PPE Inventory Assessment', framework: 'OSHA', dueDate: '2024-03-20', daysLeft: 58, priority: 'Low' }
 ];
 
-const nonComplianceItems = [
-  { id: 'NC-2024-012', requirement: 'Confined Space Entry Permits', framework: 'OSHA', severity: 'High', identified: '2024-01-10', status: 'In Progress', owner: 'John Smith' },
-  { id: 'NC-2024-015', requirement: 'Chemical Labeling Updates', framework: 'EPA', severity: 'Medium', identified: '2024-01-12', status: 'Pending Review', owner: 'Maria Garcia' },
-  { id: 'NC-2024-018', requirement: 'Lockout/Tagout Procedures', framework: 'OSHA', severity: 'High', identified: '2024-01-15', status: 'In Progress', owner: 'Mike Ross' },
-  { id: 'NC-2024-021', requirement: 'ISO Audit Documentation', framework: 'ISO 45001', severity: 'Medium', identified: '2024-01-18', status: 'Open', owner: 'Sarah Chen' }
-];
-
 const auditHistory = [
   { date: '2024-01-15', type: 'Internal Audit', scope: 'Full Site', score: 94, findings: 3, status: 'Closed' },
   { date: '2023-11-20', type: 'External Audit', scope: 'Manufacturing', score: 92, findings: 5, status: 'Closed' },
@@ -95,6 +99,44 @@ const complianceGaugeData = [
 export default function ComplianceReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFramework, setSelectedFramework] = useState('all');
+  const [nonComplianceItems, setNonComplianceItems] = useState<NonComplianceRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getReports('compliance');
+        const mapped: NonComplianceRow[] = rows.map((row: SafetyReport) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            requirement: row.label ?? '',
+            framework: row.framework ?? '',
+            severity: row.severity ?? '',
+            identified: row.period ?? meta.identified ?? '',
+            status: row.status ?? '',
+            owner: meta.owner ?? '',
+          };
+        });
+        if (!cancelled) setNonComplianceItems(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load compliance items');
+          setNonComplianceItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
@@ -118,6 +160,19 @@ export default function ComplianceReportsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading compliance items…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Compliance Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
