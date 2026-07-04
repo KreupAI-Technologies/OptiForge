@@ -341,6 +341,12 @@ export default function TDSManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-3">
       <div className="w-full space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">Loading TDS transactions…</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

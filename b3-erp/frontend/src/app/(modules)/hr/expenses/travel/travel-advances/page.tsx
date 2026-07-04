@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     Wallet,
     Search,

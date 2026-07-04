@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
     AlertTriangle,
     Search,
@@ -32,120 +33,59 @@ const exceptionStats = {
     avgResolutionTime: '2.4 hrs'
 };
 
-const exceptions = [
-    {
-        id: 'EXC-2024-0892',
-        shipmentId: 'SHP-2024-1203',
-        type: 'Delay',
-        severity: 'Critical',
-        status: 'Open',
-        description: 'Vehicle breakdown on highway - mechanical failure',
-        location: 'NH44, near Vellore',
-        reportedAt: '2024-01-22 08:45',
-        estimatedDelay: '4 hours',
-        driver: 'Rajesh Kumar',
-        driverPhone: '+91 98765 43210',
-        customer: 'ABC Manufacturing',
-        assignedTo: 'Operations Team'
-    },
-    {
-        id: 'EXC-2024-0891',
-        shipmentId: 'SHP-2024-1198',
-        type: 'Damage',
-        severity: 'Critical',
-        status: 'In Progress',
-        description: 'Package damage reported during unloading - water damage suspected',
-        location: 'Mumbai Warehouse',
-        reportedAt: '2024-01-22 07:30',
-        estimatedDelay: 'N/A',
-        driver: 'Vijay Singh',
-        driverPhone: '+91 98765 12345',
-        customer: 'Tech Innovations LLC',
-        assignedTo: 'Quality Control'
-    },
-    {
-        id: 'EXC-2024-0890',
-        shipmentId: 'SHP-2024-1195',
-        type: 'Route Deviation',
-        severity: 'Warning',
-        status: 'Open',
-        description: 'Driver took alternate route due to road closure',
-        location: 'Pune Bypass Road',
-        reportedAt: '2024-01-22 06:15',
-        estimatedDelay: '45 minutes',
-        driver: 'Mohammed Ali',
-        driverPhone: '+91 98765 67890',
-        customer: 'Global Tech Solutions',
-        assignedTo: 'Dispatch Team'
-    },
-    {
-        id: 'EXC-2024-0889',
-        shipmentId: 'SHP-2024-1190',
-        type: 'Documentation',
-        severity: 'Warning',
-        status: 'Open',
-        description: 'Missing customs clearance documents for export shipment',
-        location: 'Jebel Ali Port',
-        reportedAt: '2024-01-21 16:00',
-        estimatedDelay: '1 day',
-        driver: 'Ahmed Hassan',
-        driverPhone: '+971 50 123 4567',
-        customer: 'Premier Industries',
-        assignedTo: 'Documentation Team'
-    },
-    {
-        id: 'EXC-2024-0888',
-        shipmentId: 'SHP-2024-1185',
-        type: 'Temperature',
-        severity: 'Critical',
-        status: 'In Progress',
-        description: 'Temperature excursion detected in refrigerated container',
-        location: 'In Transit - Dubai',
-        reportedAt: '2024-01-21 14:30',
-        estimatedDelay: 'Investigating',
-        driver: 'Suresh Patel',
-        driverPhone: '+971 50 987 6543',
-        customer: 'Pharma Solutions Ltd',
-        assignedTo: 'Cold Chain Team'
-    },
-    {
-        id: 'EXC-2024-0887',
-        shipmentId: 'SHP-2024-1180',
-        type: 'Delay',
-        severity: 'Warning',
-        status: 'Resolved',
-        description: 'Traffic congestion causing minor delay',
-        location: 'Chennai City',
-        reportedAt: '2024-01-21 12:00',
-        estimatedDelay: '30 minutes',
-        driver: 'Kumar S',
-        driverPhone: '+91 98765 11111',
-        customer: 'Al Falak Trading',
-        assignedTo: 'Operations Team',
-        resolvedAt: '2024-01-21 12:45'
-    },
-    {
-        id: 'EXC-2024-0886',
-        shipmentId: 'SHP-2024-1175',
-        type: 'Customer',
-        severity: 'Warning',
-        status: 'Resolved',
-        description: 'Customer requested delivery reschedule',
-        location: 'Customer Site - Bangalore',
-        reportedAt: '2024-01-21 10:00',
-        estimatedDelay: '1 day',
-        driver: 'Ravi T',
-        driverPhone: '+91 98765 22222',
-        customer: 'Sunrise Electronics',
-        assignedTo: 'Customer Service',
-        resolvedAt: '2024-01-21 11:30'
-    }
-];
+interface LogisticsException {
+    id: string;
+    shipmentId: string;
+    type: string;
+    severity: string;
+    status: string;
+    description: string;
+    location: string;
+    reportedAt: string;
+    estimatedDelay: string;
+    driver: string;
+    driverPhone: string;
+    customer: string;
+    assignedTo: string;
+    resolvedAt?: string;
+}
 
 export default function TrackingExceptionsPage() {
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedException, setSelectedException] = useState<typeof exceptions[0] | null>(null);
+    const [selectedException, setSelectedException] = useState<LogisticsException | null>(null);
+    const [exceptions, setExceptions] = useState<LogisticsException[]>([]);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await LogisticsService.getTrackingEvents();
+                const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+                if (cancelled) return;
+                setExceptions((list as any[]).map((r, i) => ({
+                    id: String(r.id ?? r.eventId ?? i),
+                    shipmentId: r.shipmentId ?? r.shipmentNumber ?? '',
+                    type: r.type ?? r.eventType ?? r.exceptionType ?? '',
+                    severity: r.severity ?? 'Warning',
+                    status: r.status ?? 'Open',
+                    description: r.description ?? r.notes ?? '',
+                    location: r.location ?? '',
+                    reportedAt: r.reportedAt ?? r.eventTime ?? r.timestamp ?? r.createdAt ?? '',
+                    estimatedDelay: r.estimatedDelay ?? 'N/A',
+                    driver: r.driver ?? r.driverName ?? '',
+                    driverPhone: r.driverPhone ?? '',
+                    customer: r.customer ?? r.customerName ?? '',
+                    assignedTo: r.assignedTo ?? '',
+                    resolvedAt: r.resolvedAt ?? undefined,
+                })));
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load exceptions');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const getSeverityColor = (severity: string) => {
         switch (severity) {

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   TrendingUp,
   TrendingDown,
@@ -74,13 +75,37 @@ export default function AnalyticsDashboard() {
     { status: 'Not Renewed', count: 3, value: 680000 },
   ];
 
-  const engineerPerformanceData: EngineerPerformance[] = [
-    { engineerId: 'ENG-001', engineerName: 'Rajesh Kumar', completedJobs: 45, avgResolutionTime: 14.5, customerRating: 4.8, slaCompliance: 96 },
-    { engineerId: 'ENG-002', engineerName: 'Amit Patel', completedJobs: 38, avgResolutionTime: 16.2, customerRating: 4.6, slaCompliance: 92 },
-    { engineerId: 'ENG-003', engineerName: 'Priya Singh', completedJobs: 42, avgResolutionTime: 15.8, customerRating: 4.7, slaCompliance: 94 },
-    { engineerId: 'ENG-004', engineerName: 'Suresh Reddy', completedJobs: 35, avgResolutionTime: 18.3, customerRating: 4.4, slaCompliance: 88 },
-    { engineerId: 'ENG-005', engineerName: 'Neha Sharma', completedJobs: 40, avgResolutionTime: 15.1, customerRating: 4.9, slaCompliance: 97 },
-  ];
+  // Engineer performance table loaded from the after-sales analytics endpoint.
+  const [engineerPerformanceData, setEngineerPerformanceData] = useState<EngineerPerformance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.technicians()) as any[];
+        const mapped: EngineerPerformance[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          engineerId: String(r?.employeeId ?? r?.id ?? ''),
+          engineerName: r?.name ?? '',
+          completedJobs: Number(r?.totalServices ?? r?.completedJobs ?? 0) || 0,
+          avgResolutionTime: Number(r?.avgResolutionTime ?? 0) || 0,
+          customerRating: Number(r?.rating ?? r?.customerRating ?? 0) || 0,
+          slaCompliance: Number(r?.completionRate ?? r?.slaCompliance ?? 0) || 0,
+        }));
+        if (!cancelled) setEngineerPerformanceData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load engineer performance');
+          setEngineerPerformanceData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const serviceTypeData: ServiceTypeBreakdown[] = [
     { type: 'Installation', count: 45, percentage: 22.5, revenue: 2850000 },

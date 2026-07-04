@@ -41,103 +41,23 @@ export default function RejectedExpensesPage() {
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('all');
 
-    const expenses: RejectedExpense[] = [
-        {
-            id: '1',
-            reportId: 'EXP-2025-006',
-            employeeId: 'EMP004',
-            employeeName: 'James Kumar',
-            department: 'Marketing',
-            title: 'Client Entertainment - Annual Meet',
-            type: 'Entertainment',
-            submittedDate: '2025-01-20',
-            rejectedDate: '2025-01-22',
-            rejectedBy: 'Sarah Johnson',
-            totalAmount: 15000,
-            itemCount: 2,
-            rejectionReason: 'Entertainment expense exceeds the ₹10,000 limit without prior approval. Please obtain finance director approval and resubmit.',
-            rejectionCategory: 'Policy Violation',
-            canResubmit: true,
-            resubmissionDeadline: '2025-02-20',
-            previousSubmissions: 1
-        },
-        {
-            id: '2',
-            reportId: 'EXP-2025-009',
-            employeeId: 'EMP007',
-            employeeName: 'Lisa Thompson',
-            department: 'Sales',
-            title: 'Travel Expenses - Chennai Trip',
-            type: 'Travel',
-            submittedDate: '2025-01-25',
-            rejectedDate: '2025-01-28',
-            rejectedBy: 'Jennifer Brown',
-            totalAmount: 42000,
-            itemCount: 7,
-            rejectionReason: 'Missing original receipts for hotel booking (₹18,000) and local transport (₹3,500). Please attach scanned copies of original bills.',
-            rejectionCategory: 'Missing Documentation',
-            canResubmit: true,
-            resubmissionDeadline: '2025-02-25',
-            previousSubmissions: 1
-        },
-        {
-            id: '3',
-            reportId: 'EXP-2025-011',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            title: 'Equipment Purchase - Tools',
-            type: 'Regular',
-            submittedDate: '2025-02-01',
-            rejectedDate: '2025-02-05',
-            rejectedBy: 'Sarah Johnson',
-            totalAmount: 35000,
-            itemCount: 4,
-            rejectionReason: 'Department budget for equipment exceeded for this quarter. Request deferred to Q2.',
-            rejectionCategory: 'Budget Exceeded',
-            canResubmit: false,
-            resubmissionDeadline: null,
-            previousSubmissions: 1
-        },
-        {
-            id: '4',
-            reportId: 'EXP-2025-013',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            title: 'Team Lunch - Duplicate',
-            type: 'Entertainment',
-            submittedDate: '2025-02-03',
-            rejectedDate: '2025-02-04',
-            rejectedBy: 'Jennifer Brown',
-            totalAmount: 5500,
-            itemCount: 1,
-            rejectionReason: 'This expense has already been claimed under EXP-2025-007. Please remove the duplicate entry.',
-            rejectionCategory: 'Duplicate Claim',
-            canResubmit: false,
-            resubmissionDeadline: null,
-            previousSubmissions: 2
-        },
-        {
-            id: '5',
-            reportId: 'EXP-2025-016',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            title: 'Conference Registration',
-            type: 'Training',
-            submittedDate: '2025-02-06',
-            rejectedDate: '2025-02-08',
-            rejectedBy: 'Sarah Johnson',
-            totalAmount: 25000,
-            itemCount: 1,
-            rejectionReason: 'Conference registration should be processed through the Training department budget, not as personal expense reimbursement.',
-            rejectionCategory: 'Other',
-            canResubmit: true,
-            resubmissionDeadline: '2025-03-06',
-            previousSubmissions: 1
-        }
-    ];
+    const [expenses, setExpenses] = useState<RejectedExpense[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getRejected();
+          const mapped: RejectedExpense[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setExpenses(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setExpenses([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,6 +92,8 @@ export default function RejectedExpensesPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

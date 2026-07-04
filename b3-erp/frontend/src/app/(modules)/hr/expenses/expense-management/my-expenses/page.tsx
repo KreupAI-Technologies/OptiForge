@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     Receipt,
     Search,
@@ -37,92 +38,23 @@ export default function MyExpensesPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
 
-    const expenses: Expense[] = [
-        {
-            id: '1',
-            reportId: 'EXP-2025-001',
-            title: 'January Client Visit - Mumbai',
-            type: 'Travel',
-            submittedDate: '2025-01-28',
-            totalAmount: 45000,
-            itemCount: 8,
-            status: 'Approved',
-            approver: 'Sarah Johnson',
-            approverStatus: 'Approved on Feb 2',
-            paymentDate: '2025-02-05',
-            comments: ''
-        },
-        {
-            id: '2',
-            reportId: 'EXP-2025-002',
-            title: 'Office Supplies - Q1',
-            type: 'Regular',
-            submittedDate: '2025-02-01',
-            totalAmount: 12500,
-            itemCount: 5,
-            status: 'Pending Approval',
-            approver: 'Sarah Johnson',
-            approverStatus: 'Awaiting approval',
-            paymentDate: null,
-            comments: ''
-        },
-        {
-            id: '3',
-            reportId: 'EXP-2025-003',
-            title: 'Team Dinner - Project Launch',
-            type: 'Entertainment',
-            submittedDate: '2025-02-05',
-            totalAmount: 8500,
-            itemCount: 2,
-            status: 'Submitted',
-            approver: 'Sarah Johnson',
-            approverStatus: 'Under review',
-            paymentDate: null,
-            comments: ''
-        },
-        {
-            id: '4',
-            reportId: 'EXP-2025-004',
-            title: 'Software Subscription Renewal',
-            type: 'Regular',
-            submittedDate: '2025-02-08',
-            totalAmount: 25000,
-            itemCount: 3,
-            status: 'Draft',
-            approver: '-',
-            approverStatus: 'Not submitted',
-            paymentDate: null,
-            comments: ''
-        },
-        {
-            id: '5',
-            reportId: 'EXP-2025-005',
-            title: 'Training Workshop - Delhi',
-            type: 'Travel',
-            submittedDate: '2025-01-15',
-            totalAmount: 35000,
-            itemCount: 6,
-            status: 'Paid',
-            approver: 'Sarah Johnson',
-            approverStatus: 'Approved on Jan 20',
-            paymentDate: '2025-01-25',
-            comments: ''
-        },
-        {
-            id: '6',
-            reportId: 'EXP-2025-006',
-            title: 'Client Entertainment - Exceeded Limit',
-            type: 'Entertainment',
-            submittedDate: '2025-01-20',
-            totalAmount: 15000,
-            itemCount: 2,
-            status: 'Rejected',
-            approver: 'Sarah Johnson',
-            approverStatus: 'Rejected on Jan 22',
-            paymentDate: null,
-            comments: 'Exceeds entertainment budget. Please resubmit with justification.'
-        }
-    ];
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getMyExpenses();
+          const mapped: Expense[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setExpenses(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setExpenses([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -169,6 +101,8 @@ export default function MyExpensesPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
