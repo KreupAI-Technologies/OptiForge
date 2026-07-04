@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, ToggleLeft, ToggleRight, Clock, CheckCircle, Settings, AlertTriangle, Calendar, Package, TrendingUp, Zap } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface AutoReplenishmentConfig {
   id: string;

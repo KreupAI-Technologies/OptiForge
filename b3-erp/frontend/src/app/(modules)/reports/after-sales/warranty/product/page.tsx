@@ -1,24 +1,49 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function WarrantyProductContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const claims = [
-        { id: 'CLM-2025-001', product: 'Commercial Oven XL', serial: 'SN-8821', customer: 'Bakery Delights', issue: 'Heating Element Failure', value: 3500, status: 'Approved' },
-        { id: 'CLM-2025-002', product: 'Refrigeration Unit', serial: 'SN-9912', customer: 'Fresh Foods Market', issue: 'Compressor Noise', value: 2800, status: 'Pending' },
-        { id: 'CLM-2025-003', product: 'Industrial Mixer', serial: 'SN-7734', customer: 'Cake Factory', issue: 'Motor Burnout', value: 1200, status: 'Approved' },
-        { id: 'CLM-2025-004', product: 'Commercial Oven XL', serial: 'SN-8825', customer: 'Pizza Palace', issue: 'Door Seal Leak', value: 450, status: 'Rejected' },
-        { id: 'CLM-2025-005', product: 'Steel Frame', serial: 'SN-5521', customer: 'Construction Co', issue: 'Weld Fracture', value: 5000, status: 'Approved' },
-    ];
+    const [claims, setClaims] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('after-sales/warranties');
+                const mapped = raw.map((r: any) => ({
+                    id: r.warrantyNumber ?? r.claimNumber ?? r.id,
+                    product: r.productName ?? r.itemName ?? '',
+                    serial: r.serialNumber ?? '',
+                    customer: r.customerName ?? '',
+                    issue: r.issue ?? r.description ?? '',
+                    value: Number(r.claimValue ?? r.value ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setClaims(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setClaims([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredClaims = status === 'All'
         ? claims
@@ -35,6 +60,9 @@ function WarrantyProductContent() {
                 { label: status }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Claim List</CardTitle>
@@ -76,6 +104,7 @@ function WarrantyProductContent() {
                     </table>
                 </CardContent>
             </Card>
+            </>
         </ReportDetailPage>
     );
 }

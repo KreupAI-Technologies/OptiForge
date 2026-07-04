@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Calendar, Download, TrendingUp, Package, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface PlanningItem {
   id: string;
@@ -29,152 +30,61 @@ export default function PlanningOptimizationPage() {
   const [planningHorizon, setPlanningHorizon] = useState(90);
   const [filterAction, setFilterAction] = useState('all');
 
-  const planningData: PlanningItem[] = [
-    {
-      id: '1',
-      itemCode: 'RM-001',
-      itemName: 'Steel Sheet 1mm',
-      category: 'Raw Material',
-      currentStock: 450,
-      forecastDemand: 1350,
-      plannedReceipts: 500,
-      projectedStock: -400,
-      recommendedAction: 'order',
-      orderQuantity: 900,
-      orderDate: '2025-10-25',
-      expectedDate: '2025-11-01',
-      uom: 'Sheets',
-      minLevel: 100,
-      maxLevel: 500,
-      leadTime: 7
-    },
-    {
-      id: '2',
-      itemCode: 'CP-078',
-      itemName: 'Ball Bearing 6208',
-      category: 'Component',
-      currentStock: 145,
-      forecastDemand: 630,
-      plannedReceipts: 400,
-      projectedStock: -85,
-      recommendedAction: 'order',
-      orderQuantity: 255,
-      orderDate: '2025-10-28',
-      expectedDate: '2025-11-07',
-      uom: 'Nos',
-      minLevel: 100,
-      maxLevel: 400,
-      leadTime: 10
-    },
-    {
-      id: '3',
-      itemCode: 'RM-089',
-      itemName: 'Aluminum Rod 20mm',
-      category: 'Raw Material',
-      currentStock: 78,
-      forecastDemand: 1095,
-      plannedReceipts: 0,
-      projectedStock: -1017,
-      recommendedAction: 'critical',
-      orderQuantity: 1222,
-      orderDate: '2025-10-22',
-      expectedDate: '2025-10-27',
-      uom: 'Pcs',
-      minLevel: 50,
-      maxLevel: 300,
-      leadTime: 5
-    },
-    {
-      id: '4',
-      itemCode: 'CS-023',
-      itemName: 'Cutting Oil Premium',
-      category: 'Consumable',
-      currentStock: 35,
-      forecastDemand: 450,
-      plannedReceipts: 150,
-      projectedStock: -265,
-      recommendedAction: 'order',
-      orderQuantity: 380,
-      orderDate: '2025-10-26',
-      expectedDate: '2025-10-29',
-      uom: 'Liters',
-      minLevel: 30,
-      maxLevel: 150,
-      leadTime: 3
-    },
-    {
-      id: '5',
-      itemCode: 'CP-045',
-      itemName: 'Hydraulic Cylinder',
-      category: 'Component',
-      currentStock: 12,
-      forecastDemand: 91,
-      plannedReceipts: 50,
-      projectedStock: -29,
-      recommendedAction: 'order',
-      orderQuantity: 38,
-      orderDate: '2025-11-01',
-      expectedDate: '2025-11-15',
-      uom: 'Nos',
-      minLevel: 10,
-      maxLevel: 50,
-      leadTime: 14
-    },
-    {
-      id: '6',
-      itemCode: 'RM-034',
-      itemName: 'Copper Wire 4mm',
-      category: 'Raw Material',
-      currentStock: 8,
-      forecastDemand: 180,
-      plannedReceipts: 200,
-      projectedStock: 28,
-      recommendedAction: 'adequate',
-      orderQuantity: 0,
-      orderDate: '',
-      expectedDate: '',
-      uom: 'Kg',
-      minLevel: 25,
-      maxLevel: 200,
-      leadTime: 6
-    },
-    {
-      id: '7',
-      itemCode: 'CS-056',
-      itemName: 'Grinding Wheel 180mm',
-      category: 'Consumable',
-      currentStock: 56,
-      forecastDemand: 360,
-      plannedReceipts: 180,
-      projectedStock: -124,
-      recommendedAction: 'order',
-      orderQuantity: 200,
-      orderDate: '2025-10-30',
-      expectedDate: '2025-11-03',
-      uom: 'Nos',
-      minLevel: 40,
-      maxLevel: 180,
-      leadTime: 4
-    },
-    {
-      id: '8',
-      itemCode: 'RM-112',
-      itemName: 'Brass Sheet 2mm',
-      category: 'Raw Material',
-      currentStock: 22,
-      forecastDemand: 273,
-      plannedReceipts: 150,
-      projectedStock: -101,
-      recommendedAction: 'order',
-      orderQuantity: 128,
-      orderDate: '2025-10-27',
-      expectedDate: '2025-11-04',
-      uom: 'Sheets',
-      minLevel: 30,
-      maxLevel: 150,
-      leadTime: 8
-    }
-  ];
+  // Derived from GET /inventory/reorder/suggestions (reorder plan per item).
+  const [planningData, setPlanningData] = useState<PlanningItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await inventoryService.getReorderSuggestions()) as any[];
+        const mapped: PlanningItem[] = (raw || []).map((s: any, i: number) => {
+          const currentStock = Number(s.currentStock ?? 0);
+          const reorderPoint = Number(s.reorderPoint ?? 0);
+          const orderQuantity = Number(s.suggestedQuantity ?? s.eoqQuantity ?? 0);
+          const projectedStock = currentStock - reorderPoint;
+          let action: PlanningItem['recommendedAction'];
+          if (projectedStock < 0) action = 'critical';
+          else if (s.priority === 'high' || currentStock <= reorderPoint) action = 'order';
+          else action = 'adequate';
+          return {
+            id: String(s.id ?? s.itemId ?? i),
+            itemCode: s.itemCode ?? '',
+            itemName: s.itemName ?? '',
+            category: s.category ?? s.itemCategory ?? '',
+            currentStock,
+            forecastDemand: reorderPoint,
+            plannedReceipts: 0,
+            projectedStock,
+            recommendedAction: action,
+            orderQuantity,
+            orderDate: s.orderDate ?? s.createdAt ?? '',
+            expectedDate: s.expectedDeliveryDate ?? '',
+            uom: s.uom ?? '',
+            minLevel: reorderPoint,
+            maxLevel: reorderPoint + orderQuantity,
+            leadTime: Number(s.leadTimeDays ?? 0),
+          };
+        });
+        if (!cancelled) setPlanningData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load planning data');
+          setPlanningData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = planningData.filter(item => {
     const matchesSearch = item.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -217,6 +127,16 @@ export default function PlanningOptimizationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading plan…
+        </div>
+      )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">

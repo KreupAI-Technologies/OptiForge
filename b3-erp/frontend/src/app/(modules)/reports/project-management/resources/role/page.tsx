@@ -1,25 +1,49 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function ResourceRoleContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const resources = [
-        { id: 'EMP-001', name: 'John Smith', role: 'Project Manager', project: 'Factory Automation', hours: 160, utilization: 100, status: 'Allocated' },
-        { id: 'EMP-002', name: 'Sarah Jones', role: 'System Architect', project: 'ERP Upgrade', hours: 140, utilization: 88, status: 'Allocated' },
-        { id: 'EMP-003', name: 'Mike Brown', role: 'Developer', project: 'Warehouse Expansion', hours: 120, utilization: 75, status: 'Allocated' },
-        { id: 'EMP-004', name: 'Emily Davis', role: 'QA Engineer', project: 'Quality System', hours: 160, utilization: 100, status: 'Allocated' },
-        { id: 'EMP-005', name: 'David Wilson', role: 'Developer', project: 'None', hours: 0, utilization: 0, status: 'Available' },
-        { id: 'EMP-006', name: 'Lisa Taylor', role: 'Designer', project: 'None', hours: 0, utilization: 0, status: 'Available' },
-    ];
+    const [resources, setResources] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('project-management/resource-allocations');
+                const mapped = raw.map((r: any) => ({
+                    id: r.id,
+                    name: r.resourceName ?? r.employeeName ?? '',
+                    role: r.role ?? r.designation ?? '',
+                    project: r.projectName ?? '',
+                    hours: Number(r.allocatedHours ?? r.hours ?? 0),
+                    utilization: Number(r.utilization ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setResources(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setResources([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredResources = status === 'All'
         ? resources
@@ -36,6 +60,9 @@ function ResourceRoleContent() {
                 { label: status }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Resource List</CardTitle>
@@ -81,6 +108,7 @@ function ResourceRoleContent() {
                     </table>
                 </CardContent>
             </Card>
+            </>
         </ReportDetailPage>
     );
 }

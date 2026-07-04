@@ -1,24 +1,50 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function ProjectStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const projects = [
-        { id: 'PRJ-001', name: 'Factory Automation Phase 2', budget: 2500000, actual: 2100000, progress: 85, schedule: 92, status: 'On Track', manager: 'John Doe' },
-        { id: 'PRJ-002', name: 'ERP System Upgrade', budget: 850000, actual: 920000, progress: 95, schedule: 98, status: 'Over Budget', manager: 'Jane Smith' },
-        { id: 'PRJ-003', name: 'Warehouse Expansion', budget: 1200000, actual: 1050000, progress: 88, schedule: 85, status: 'Delayed', manager: 'Mike Johnson' },
-        { id: 'PRJ-004', name: 'Quality System ISO Cert', budget: 320000, actual: 280000, progress: 75, schedule: 78, status: 'On Track', manager: 'Sarah Wilson' },
-        { id: 'PRJ-005', name: 'New Product Line Setup', budget: 1500000, actual: 200000, progress: 15, schedule: 100, status: 'On Track', manager: 'David Brown' },
-    ];
+    const [projects, setProjects] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('project-management/progress');
+                const mapped = raw.map((r: any) => ({
+                    id: r.projectCode ?? r.id,
+                    name: r.projectName ?? '',
+                    budget: Number(r.budget ?? 0),
+                    actual: Number(r.actualCost ?? 0),
+                    progress: Number(r.progressPercent ?? r.progress ?? 0),
+                    schedule: r.scheduleStatus ?? '',
+                    status: r.status ?? '',
+                    manager: r.projectManager ?? r.manager ?? '',
+                }));
+                if (!cancelled) setProjects(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setProjects([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredProjects = status === 'All'
         ? projects
@@ -35,6 +61,9 @@ function ProjectStatusContent() {
                 { label: status }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Project List</CardTitle>
@@ -78,6 +107,7 @@ function ProjectStatusContent() {
                     </table>
                 </CardContent>
             </Card>
+            </>
         </ReportDetailPage>
     );
 }

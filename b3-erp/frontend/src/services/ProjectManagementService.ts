@@ -2797,6 +2797,110 @@ class ProjectManagementService {
 
     // Commissioning activities (projects/commissioning list page)
     listCommissioning(companyId = 'default') { return this.pmList<PmCommissioningRecord>('commissioning', companyId); }
+
+    // ---------------------------------------------------------------------
+    // Top-level PROJECTS pages (b3-erp/frontend/src/app/projects/...).
+    // These endpoints return BARE JSON arrays and require the x-company-id
+    // tenant header. `projectsGet` is a projects-scoped fetch helper (kept
+    // distinct from pmList to avoid clobbering concurrent PM-module edits).
+    // ---------------------------------------------------------------------
+    private async projectsGet<T>(path: string): Promise<T[]> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return Array.isArray(data) ? (data as T[]) : [];
+        } catch (error) {
+            console.error(`Error fetching ${path}:`, error);
+            throw error;
+        }
+    }
+
+    // projects/resources & projects/resources/team -> /project-resources
+    getProjectsResourcesList() { return this.projectsGet<any>('/project-resources'); }
+
+    // projects/resources/utilization & calendar -> resource-utilization / -allocations
+    getProjectsResourceUtilization() { return this.projectsGet<any>('/project-management/resource-utilization'); }
+    getProjectsResourceAllocations() { return this.projectsGet<any>('/project-management/resource-allocations'); }
+
+    // projects/planning/gantt -> schedule (+ tasks fallback)
+    getProjectsSchedule() { return this.projectsGet<any>('/project-management/schedule'); }
+    getProjectsTasks() { return this.projectsGet<any>('/project-tasks'); }
+
+    // projects/tracking & tracking/metrics -> progress (+ project-plans)
+    getProjectsProgress() { return this.projectsGet<any>('/project-management/progress'); }
+    getProjectsProjectPlans() { return this.projectsGet<any>('/project-management/project-plans'); }
+    getProjectsMilestones() { return this.projectsGet<any>('/project-milestones'); }
+
+    // projects/tracking/status-reports -> reports
+    getProjectsReports() { return this.projectsGet<any>('/project-management/reports'); }
+
+    // ---------------------------------------------------------------------
+    // PROJECT-MANAGEMENT (modules) page wiring. Some of these endpoints
+    // return a { success, data } envelope (emergency-spares, ta-settlement,
+    // project-closure/status) while others return bare arrays. pmModuleGet
+    // normalizes both. Additive — distinct name to avoid clobbering
+    // concurrent edits to projectsGet/pmList.
+    // ---------------------------------------------------------------------
+    private async pmModuleGet<T>(path: string): Promise<T[]> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (Array.isArray(data)) return data as T[];
+            if (data && Array.isArray((data as any).data)) return (data as any).data as T[];
+            return [];
+        } catch (error) {
+            console.error(`Error fetching ${path}:`, error);
+            throw error;
+        }
+    }
+
+    private async pmModuleGetObject<T>(path: string): Promise<T | null> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (data && !Array.isArray(data) && (data as any).data !== undefined && !Array.isArray((data as any).data)) {
+                return (data as any).data as T;
+            }
+            return (data as T) ?? null;
+        } catch (error) {
+            console.error(`Error fetching ${path}:`, error);
+            throw error;
+        }
+    }
+
+    // (modules)/project-management page wiring — list endpoints
+    getEmergencySpares() { return this.pmModuleGet<any>('/api/project-management/emergency-spares'); }
+    getTaSettlementClaims() { return this.pmModuleGet<any>('/api/project-management/ta-settlement/claims'); }
+    getPmQualityInspections() { return this.pmModuleGet<any>('/project-management/quality-inspection'); }
+    getPmResourceAllocations() { return this.pmModuleGet<any>('/project-management/resource-allocations'); }
+    getPmResourceUtilization() { return this.pmModuleGet<any>('/project-management/resource-utilization'); }
+    getPmReports() { return this.pmModuleGet<any>('/project-management/reports'); }
+    getPmSiteSurveys() { return this.pmModuleGet<any>('/project-management/site-survey'); }
+    getPmInstallationTracking() { return this.pmModuleGet<any>('/project-management/installation-tracking'); }
+    getPmProgress() { return this.pmModuleGet<any>('/project-management/progress'); }
+    getPmProjectPlansRaw() { return this.pmModuleGet<any>('/project-management/project-plans'); }
+    getPmDeliverablesRaw() { return this.pmModuleGet<any>('/project-management/deliverables'); }
+    getPmBomItems() { return this.pmModuleGet<any>('/project-management/bom-items'); }
+
+    // (modules)/project-management page wiring — project-scoped (UUID) endpoints
+    getProcurementPr(projectId: string) { return this.pmModuleGet<any>(`/api/procurement/pr/${projectId}`); }
+    getProductionNesting(projectId: string) { return this.pmModuleGet<any>(`/api/production/nesting/${projectId}`); }
+    getInstallationReadiness(projectId: string) { return this.pmModuleGet<any>(`/api/logistics-installation/readiness/${projectId}`); }
+    getInstallationTasks(projectId: string) { return this.pmModuleGet<any>(`/api/logistics-installation/tasks/${projectId}`); }
+    getDesignVerificationSurveys(projectId: string) { return this.pmModuleGet<any>(`/api/design-verification/surveys/${projectId}`); }
+    getProjectClosureStatus(projectId: string) { return this.pmModuleGetObject<any>(`/api/project-closure/status/${projectId}`); }
 }
 
 export const projectManagementService = new ProjectManagementService();

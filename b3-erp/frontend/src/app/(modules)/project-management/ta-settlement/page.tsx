@@ -1,17 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TASettlement from '@/components/project-management/TASettlement';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+interface ProjectOption { id: string; name: string; }
 
 export default function TASettlementPage() {
   const [selectedProject, setSelectedProject] = useState<string>('proj-001');
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
 
-  const projects = [
-    { id: 'proj-001', name: 'Metro Rail Phase 1' },
-    { id: 'proj-002', name: 'Solar Power Plant' },
-    { id: 'proj-003', name: 'Highway Expansion' },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = await projectManagementService.getPmProjectPlansRaw();
+        const mapped: ProjectOption[] = (raw || []).map((p: any) => ({
+          id: String(p.id ?? p.projectId ?? p.projectCode ?? ''),
+          name: p.projectName ?? p.name ?? p.projectCode ?? 'Project',
+        })).filter((p: ProjectOption) => p.id);
+        if (!cancelled && mapped.length) {
+          setProjects(mapped);
+          setSelectedProject(mapped[0].id);
+        }
+      } catch {
+        if (!cancelled) setProjects([]);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="w-full py-2 space-y-3">

@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Activity, Search, Filter, Download, TrendingUp, Calendar, User, Layers } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 export default function ProgressTrackingPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,84 +28,63 @@ export default function ProgressTrackingPage() {
     budgetUsedPct: number; // 0-100
   };
 
-  const projects: Project[] = [
-    {
-      id: 'PRJ-001',
-      name: 'Kitchen Fitout - Tower A',
-      code: 'KF-A',
-      client: 'Sharma Modular Kitchens Pvt Ltd',
-      manager: 'Amit Singh',
-      startDate: '2025-08-01',
-      endDate: '2025-12-15',
-      progress: 72,
-      status: 'on_track',
-      tasksDone: 144,
-      tasksTotal: 200,
-      openRisks: 2,
-      budgetUsedPct: 68,
-    },
-    {
-      id: 'PRJ-002',
-      name: 'Luxury Villa Wardrobes',
-      code: 'LVW-09',
-      client: 'Prestige Developers Bangalore',
-      manager: 'Priya Patel',
-      startDate: '2025-07-10',
-      endDate: '2025-11-20',
-      progress: 54,
-      status: 'at_risk',
-      tasksDone: 97,
-      tasksTotal: 180,
-      openRisks: 5,
-      budgetUsedPct: 74,
-    },
-    {
-      id: 'PRJ-003',
-      name: 'Corporate Pantry Rollout',
-      code: 'CPR-14',
-      client: 'Oberoi Realty Projects',
-      manager: 'Rahul Kumar',
-      startDate: '2025-06-01',
-      endDate: '2025-10-30',
-      progress: 88,
-      status: 'on_track',
-      tasksDone: 220,
-      tasksTotal: 250,
-      openRisks: 1,
-      budgetUsedPct: 81,
-    },
-    {
-      id: 'PRJ-004',
-      name: 'Showroom Refurbishment',
-      code: 'SRF-22',
-      client: 'Urban Interiors & Designers',
-      manager: 'Amit Singh',
-      startDate: '2025-09-05',
-      endDate: '2025-12-31',
-      progress: 33,
-      status: 'delayed',
-      tasksDone: 33,
-      tasksTotal: 100,
-      openRisks: 7,
-      budgetUsedPct: 42,
-    },
-    {
-      id: 'PRJ-005',
-      name: 'Premium Kitchen Set (VIP)',
-      code: 'PKS-VIP',
-      client: 'DLF Home Solutions Limited',
-      manager: 'Sarah Williams',
-      startDate: '2025-08-20',
-      endDate: '2025-12-05',
-      progress: 96,
-      status: 'completed',
-      tasksDone: 180,
-      tasksTotal: 180,
-      openRisks: 0,
-      budgetUsedPct: 95,
-    },
-    // more mock rows
-  ];
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const normStatus = (s: any): Project['status'] => {
+      const v = String(s ?? '').toLowerCase().replace(/[\s-]/g, '_');
+      if (v === 'completed' || v === 'complete' || v === 'done') return 'completed';
+      if (v === 'at_risk' || v === 'atrisk') return 'at_risk';
+      if (v === 'delayed' || v === 'behind') return 'delayed';
+      return 'on_track';
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Prefer the progress feed; fall back to project-plans list.
+        let raw = await projectManagementService.getProjectsProgress();
+        if (!raw || raw.length === 0) {
+          raw = await projectManagementService.getProjectsProjectPlans();
+        }
+        const mapped: Project[] = (raw ?? []).map((p: any, i: number) => {
+          const tasksTotal = Number(p.tasksTotal ?? p.totalTasks ?? p.milestones ?? 0);
+          const tasksDone = Number(p.tasksDone ?? p.completedTasks ?? p.completedMilestones ?? 0);
+          return {
+            id: p.id ?? p.projectCode ?? `PRJ-${i}`,
+            name: p.projectName ?? p.name ?? 'Untitled Project',
+            code: p.projectCode ?? p.code ?? '-',
+            client: p.client ?? p.clientName ?? p.customer ?? '-',
+            manager: p.projectManager ?? p.manager ?? '-',
+            startDate: p.startDate ?? '',
+            endDate: p.endDate ?? '',
+            progress: Number(p.progressPercentage ?? p.progress ?? p.completionPercent ?? 0),
+            status: normStatus(p.status),
+            tasksDone,
+            tasksTotal,
+            openRisks: Number(p.openRisks ?? p.risks ?? 0),
+            budgetUsedPct: Number(
+              p.budgetUsedPct ??
+              (p.estimatedBudget ? Math.round((Number(p.actualBudget ?? 0) / Number(p.estimatedBudget)) * 100) : 0),
+            ),
+          };
+        });
+        if (!cancelled) setProjects(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load progress');
+          setProjects([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   const managers = useMemo(() => ['all', ...Array.from(new Set(projects.map(p => p.manager)))], [projects]);
   const filtered = useMemo(() => {
@@ -294,7 +274,13 @@ export default function ProgressTrackingPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.length === 0 && (
+              {isLoading && (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500">Loading progress...</td></tr>
+              )}
+              {!isLoading && loadError && (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-red-600">{loadError}</td></tr>
+              )}
+              {!isLoading && !loadError && pageData.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">No results</td>
                 </tr>

@@ -108,22 +108,25 @@ export default function ABCAnalysisPage() {
   };
 
   const getTotalValue = () => {
-    return abcItems.reduce((sum, item) => sum + item.annualUsageValue, 0);
+    return classSummary.A.value + classSummary.B.value + classSummary.C.value;
   };
 
   const getClassStats = (abcClass: 'A' | 'B' | 'C') => {
-    const items = abcItems.filter(item => item.abcClass === abcClass);
-    const totalValue = items.reduce((sum, item) => sum + item.annualUsageValue, 0);
-    const percentOfTotal = (totalValue / getTotalValue()) * 100;
-    return {
-      count: items.length,
-      value: totalValue,
-      percent: percentOfTotal
-    };
+    return classSummary[abcClass];
   };
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading ABC analysis…
+        </div>
+      )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">

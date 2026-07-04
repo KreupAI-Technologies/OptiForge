@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Plus, Edit, Eye, Clock, Calendar, AlertCircle, CheckCircle, Users, Settings } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import { CreatePolicyModal } from '@/components/hr/CreatePolicyModal';
@@ -22,148 +22,49 @@ export default function AttendancePoliciesPage() {
   const [selectedPolicy, setSelectedPolicy] = useState<AttendancePolicy | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const initialPolicies: AttendancePolicy[] = [
-    {
-      id: 'POL001',
-      name: 'Regular Working Hours Policy',
-      type: 'working_hours',
-      description: 'Standard working hours for production and office staff',
-      applicableTo: 'All Employees',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'Start Time', value: '09:00 AM' },
-        { key: 'End Time', value: '06:00 PM' },
-        { key: 'Break Duration', value: '1 hour' },
-        { key: 'Working Days', value: 'Monday to Saturday' },
-        { key: 'Week Off', value: 'Sunday' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-01-15'
-    },
-    {
-      id: 'POL002',
-      name: 'Flexi-Time Policy',
-      type: 'working_hours',
-      description: 'Flexible working hours for IT and senior management',
-      applicableTo: 'IT Department, Managers & Above',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'Core Hours', value: '11:00 AM to 04:00 PM' },
-        { key: 'Flexible Hours', value: '08:00 AM to 10:00 PM' },
-        { key: 'Minimum Hours/Day', value: '9 hours' },
-        { key: 'Mandatory Days', value: 'Tuesday, Wednesday, Thursday' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-02-10'
-    },
-    {
-      id: 'POL003',
-      name: 'Late Arrival Policy',
-      type: 'late_arrival',
-      description: 'Rules and penalties for late arrivals',
-      applicableTo: 'All Employees',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'Grace Period', value: '15 minutes' },
-        { key: 'Late Marks (1-3/month)', value: 'Warning' },
-        { key: 'Late Marks (4-6/month)', value: '0.5 day salary deduction' },
-        { key: 'Late Marks (>6/month)', value: '1 day salary deduction + Notice' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-01-20'
-    },
-    {
-      id: 'POL004',
-      name: 'Early Departure Policy',
-      type: 'early_departure',
-      description: 'Guidelines for early departure from work',
-      applicableTo: 'All Employees',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'Minimum Hours Required', value: '4 hours for half day' },
-        { key: 'Prior Approval', value: 'Required from reporting manager' },
-        { key: 'Without Approval', value: 'Marked as unauthorized absence' },
-        { key: 'Medical Emergency', value: 'Intimation required within 2 hours' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-01-10'
-    },
-    {
-      id: 'POL005',
-      name: 'Grace Period Policy',
-      type: 'grace_period',
-      description: 'Daily grace period for attendance marking',
-      applicableTo: 'All Employees except Security & Production',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'Check-in Grace', value: '15 minutes after shift start' },
-        { key: 'Check-out Grace', value: '15 minutes before shift end' },
-        { key: 'Break Extension', value: '5 minutes per break' },
-        { key: 'Frequency Limit', value: 'Max 10 times per month' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-03-05'
-    },
-    {
-      id: 'POL006',
-      name: 'Half-Day Attendance Policy',
-      type: 'half_day',
-      description: 'Criteria for marking half-day attendance',
-      applicableTo: 'All Employees',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'First Half', value: '09:00 AM to 01:00 PM (4 hours)' },
-        { key: 'Second Half', value: '02:00 PM to 06:00 PM (4 hours)' },
-        { key: 'Minimum Hours', value: '4 hours for half day credit' },
-        { key: 'Leave Deduction', value: '0.5 day from leave balance' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-02-28'
-    },
-    {
-      id: 'POL007',
-      name: 'Overtime Eligibility Policy',
-      type: 'overtime',
-      description: 'Rules for overtime calculation and approval',
-      applicableTo: 'Non-management Staff',
-      effectiveFrom: '2024-01-01',
-      status: 'active',
-      rules: [
-        { key: 'Minimum OT Duration', value: '1 hour beyond shift' },
-        { key: 'Prior Approval', value: 'Required from department head' },
-        { key: 'OT Rate (Weekday)', value: '1.5x hourly rate' },
-        { key: 'OT Rate (Sunday/Holiday)', value: '2x hourly rate' },
-        { key: 'Max OT per Month', value: '40 hours' }
-      ],
-      createdBy: 'HR Admin',
-      lastModified: '2024-01-25'
-    },
-    {
-      id: 'POL008',
-      name: 'Shift Rotation Policy',
-      type: 'working_hours',
-      description: 'Guidelines for shift changes and rotation',
-      applicableTo: 'Production & Security Staff',
-      effectiveFrom: '2024-01-01',
-      status: 'draft',
-      rules: [
-        { key: 'Rotation Cycle', value: 'Weekly basis' },
-        { key: 'Notice Period', value: '3 days in advance' },
-        { key: 'Consecutive Night Shifts', value: 'Maximum 5 days' },
-        { key: 'Rest Period', value: 'Minimum 12 hours between shifts' }
-      ],
-      createdBy: 'HR Manager',
-      lastModified: '2024-11-10'
-    }
-  ];
+  const [policies, setPolicies] = useState<AttendancePolicy[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [policies, setPolicies] = useState<AttendancePolicy[]>(initialPolicies);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+        const res = await fetch(`${base}/hr/attendance-policies`, {
+          headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+        });
+        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        const raw = (await res.json()) as any[];
+        const mapped: AttendancePolicy[] = raw.map((r) => ({
+          id: String(r.id),
+          name: r.name ?? '',
+          type: (r.type ?? 'working_hours') as AttendancePolicy['type'],
+          description: r.description ?? '',
+          applicableTo: r.applicableTo ?? '',
+          effectiveFrom: r.effectiveFrom ?? '',
+          status: (r.status ?? 'active') as AttendancePolicy['status'],
+          rules: Array.isArray(r.rules) ? (r.rules as { key: string; value: string }[]) : [],
+          createdBy: r.createdBy ?? '',
+          lastModified: r.lastModified ?? '',
+        }));
+        if (!cancelled) setPolicies(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load attendance policies');
+          setPolicies([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCreatePolicy = (policyData: Omit<AttendancePolicy, 'id' | 'createdBy' | 'lastModified'>) => {
     const newPolicy: AttendancePolicy = {
@@ -210,6 +111,19 @@ export default function AttendancePoliciesPage() {
         </h1>
         <p className="text-gray-600 mt-2">Configure and manage attendance rules and policies</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading attendance policies…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

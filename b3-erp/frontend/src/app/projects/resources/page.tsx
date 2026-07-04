@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { projectManagementService } from "@/services/ProjectManagementService";
 import {
   Users,
   Search,
@@ -38,16 +39,47 @@ import {
 } from "@/components/projects/ProjectResourcesModals";
 
 type Res = { id: string; name: string; role: string; dept: string; utilization: number };
-const TOP_OVER: Res[] = [
-  { id: 'E-307', name: 'Rahul Kumar', role: 'Engineer', dept: 'Engineering', utilization: 92 },
-  { id: 'E-101', name: 'Amit Singh', role: 'Project Manager', dept: 'Projects', utilization: 88 },
-  { id: 'E-512', name: 'Vikram Reddy', role: 'Developer', dept: 'IT', utilization: 86 },
-];
 
 export default function ResourceAllocationPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const list = useMemo(() => TOP_OVER, []);
+  const [resources, setResources] = useState<Res[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getProjectsResourcesList();
+        const mapped: Res[] = raw.map((r: any) => ({
+          id: r.id ?? r.userId ?? r.resourceId ?? '',
+          name: r.resourceName ?? r.userName ?? r.name ?? r.userId ?? 'Unknown',
+          role: r.role ?? r.designation ?? '-',
+          dept: r.department ?? r.dept ?? '-',
+          utilization: Number(r.utilization ?? r.allocationPercentage ?? r.allocation ?? 0),
+        }));
+        if (!cancelled) setResources(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load resources');
+          setResources([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Top overutilized: sort by utilization desc, take top rows.
+  const list = useMemo(
+    () => [...resources].sort((a, b) => b.utilization - a.utilization).slice(0, 5),
+    [resources],
+  );
 
   // Modal state
   const [showFilter, setShowFilter] = useState(false);
@@ -309,7 +341,16 @@ export default function ResourceAllocationPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {list.map(r => (
+              {isLoading && (
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">Loading resources...</td></tr>
+              )}
+              {!isLoading && loadError && (
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-red-600">{loadError}</td></tr>
+              )}
+              {!isLoading && !loadError && list.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">No resources found.</td></tr>
+              )}
+              {!isLoading && !loadError && list.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm text-gray-800">{r.name} <span className="text-gray-400">({r.id})</span></td>
                   <td className="px-4 py-3 text-sm text-gray-700">{r.role}</td>

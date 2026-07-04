@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Calendar, Search, Filter, Download, PlusCircle, Users, Clock, AlertTriangle, CheckCircle2, User, Briefcase } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type ResourceEvent = {
   id: string;

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,15 +24,37 @@ function LeadsByStatusContent() {
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All Statuses';
 
-    const leads = [
-        { id: 'LEAD-001', name: 'John Smith', company: 'Tech Solutions', source: 'Website', status: 'Qualified', value: 45000, daysInStatus: 12 },
-        { id: 'LEAD-002', name: 'Sarah Jones', company: 'Global Corp', source: 'LinkedIn', status: 'New', value: 25000, daysInStatus: 2 },
-        { id: 'LEAD-003', name: 'Mike Brown', company: 'Local Retail', source: 'Referral', status: 'Contacted', value: 15000, daysInStatus: 5 },
-        { id: 'LEAD-004', name: 'Emily Davis', company: 'Design Studio', source: 'Website', status: 'Proposal', value: 60000, daysInStatus: 8 },
-        { id: 'LEAD-005', name: 'David Wilson', company: 'BuildIt Inc', source: 'Trade Show', status: 'New', value: 80000, daysInStatus: 3 },
-        { id: 'LEAD-008', name: 'Kevin H.', company: 'Solar Edge', source: 'Organic', status: 'Qualified', value: 95000, daysInStatus: 15 },
-        { id: 'LEAD-009', name: 'Laura G.', company: 'Visionary', source: 'Referral', status: 'Contacted', value: 34000, daysInStatus: 4 },
-    ];
+    const [leads, setLeads] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('crm/leads');
+                const mapped = raw.map((r: any) => ({
+                    id: r.leadNumber ?? r.id,
+                    name: r.contactName ?? r.name ?? '',
+                    company: r.companyName ?? '',
+                    source: r.source ?? r.leadSource ?? '',
+                    status: r.status ?? '',
+                    value: Number(r.estimatedValue ?? r.value ?? 0),
+                    daysInStatus: Number(r.daysInStatus ?? 0),
+                }));
+                if (!cancelled) setLeads(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setLeads([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredLeads = status === 'All Statuses' || status === 'All' ? leads : leads.filter(l => l.status === status);
 
@@ -93,6 +116,8 @@ function LeadsByStatusContent() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+                {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
                 {/* Metrics Summary Row */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <Card className="bg-white border-gray-100 shadow-sm border-l-4 border-l-purple-500">
