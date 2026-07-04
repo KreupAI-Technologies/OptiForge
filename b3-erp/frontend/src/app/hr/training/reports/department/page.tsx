@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building,
   Search,
@@ -9,8 +9,10 @@ import {
   Users,
   Target,
   Award,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   BarChart,
   Bar,
@@ -25,16 +27,57 @@ import {
   Cell
 } from 'recharts';
 
-// Mock Data
-const departmentData = [
-  { name: 'Engineering', employees: 42, trained: 38, completionRate: 90, avgScore: 88, budget: 120000, spend: 105000, fill: '#8b5cf6' },
-  { name: 'Sales', employees: 35, trained: 28, completionRate: 80, avgScore: 82, budget: 90000, spend: 85000, fill: '#f59e0b' },
-  { name: 'Marketing', employees: 20, trained: 18, completionRate: 90, avgScore: 85, budget: 45000, spend: 38000, fill: '#ec4899' },
-  { name: 'HR & Ops', employees: 15, trained: 15, completionRate: 100, avgScore: 92, budget: 30000, spend: 22000, fill: '#3b82f6' },
-  { name: 'Product', employees: 12, trained: 10, completionRate: 83, avgScore: 86, budget: 35000, spend: 28000, fill: '#10b981' },
-];
+const DEPT_COLORS = ['#8b5cf6', '#f59e0b', '#ec4899', '#3b82f6', '#10b981'];
+
+interface DepartmentRecord {
+  name: string;
+  employees: number;
+  trained: number;
+  completionRate: number;
+  avgScore: number;
+  budget: number;
+  spend: number;
+  fill: string;
+}
 
 export default function DepartmentReportsPage() {
+  const [departmentData, setDepartmentData] = useState<DepartmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingEnrollments()) as any[];
+        const mapped: DepartmentRecord[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
+          name: r.name ?? r.department ?? r.departmentName ?? '',
+          employees: Number(r.employees ?? 0),
+          trained: Number(r.trained ?? 0),
+          completionRate: Number(r.completionRate ?? 0),
+          avgScore: Number(r.avgScore ?? 0),
+          budget: Number(r.budget ?? 0),
+          spend: Number(r.spend ?? 0),
+          fill: r.fill ?? DEPT_COLORS[i % DEPT_COLORS.length],
+        }));
+        if (!cancelled) setDepartmentData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department data');
+          setDepartmentData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);
   };
@@ -57,6 +100,19 @@ export default function DepartmentReportsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading department data…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Completion Rate Comparison */}

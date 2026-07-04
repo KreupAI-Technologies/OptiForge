@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Clock,
   Search,
   Filter,
   Download,
   Calendar,
-  BarChart as BarChartIcon
+  BarChart as BarChartIcon,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   BarChart,
   Bar,

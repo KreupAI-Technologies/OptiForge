@@ -1486,3 +1486,113 @@ CREATE TABLE IF NOT EXISTS "hr_salary_templates" (
   CONSTRAINT "PK_hr_salary_templates" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_hr_salary_templates_companyId" ON "hr_salary_templates" ("companyId");
+
+-- =====================================================================
+-- HR Safety orphan-endpoint build (shared discriminator tables). ADDITIVE ONLY.
+-- Backs /hr/safety/* pages. recordType discriminates related pages.
+-- =====================================================================
+
+-- Backs /hr/safety/risk/* (hazards, register, controls, evaluation)
+CREATE TABLE IF NOT EXISTS "hr_safety_hazards" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'hazard',
+  "code" varchar, "title" varchar, "category" varchar, "location" varchar, "department" varchar,
+  "identifiedBy" varchar, "date" varchar, "severity" varchar, "likelihood" varchar,
+  "riskLevel" varchar, "riskScore" integer, "owner" varchar, "controlMeasures" text,
+  "status" varchar NOT NULL DEFAULT 'open', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_hazards" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_hazards_companyId" ON "hr_safety_hazards" ("companyId");
+
+-- Backs /hr/safety/audits/* (schedule, inspections, findings, actions)
+CREATE TABLE IF NOT EXISTS "hr_safety_inspections" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'inspection',
+  "code" varchar, "title" varchar, "auditType" varchar, "area" varchar, "department" varchar,
+  "auditor" varchar, "scheduledDate" varchar, "completedDate" varchar, "frequency" varchar,
+  "severity" varchar, "priority" varchar, "assignedTo" varchar, "dueDate" varchar,
+  "score" integer, "findingsCount" integer, "description" text,
+  "status" varchar NOT NULL DEFAULT 'scheduled', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_inspections" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_inspections_companyId" ON "hr_safety_inspections" ("companyId");
+
+-- Backs /hr/safety/ppe/* (inventory, issuance, tracking)
+CREATE TABLE IF NOT EXISTS "hr_safety_ppe" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'stock',
+  "itemCode" varchar, "itemName" varchar, "category" varchar, "size" varchar,
+  "quantity" integer, "inStock" integer, "reorderLevel" integer,
+  "employeeId" varchar, "employeeName" varchar, "department" varchar,
+  "issuedDate" varchar, "expiryDate" varchar, "nextReplacement" varchar,
+  "condition" varchar, "supplier" varchar,
+  "status" varchar NOT NULL DEFAULT 'available', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_ppe" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_ppe_companyId" ON "hr_safety_ppe" ("companyId");
+
+-- Backs /hr/safety/emergency/* (drills, plans, contacts)
+CREATE TABLE IF NOT EXISTS "hr_safety_drills" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'drill',
+  "code" varchar, "name" varchar, "drillType" varchar, "location" varchar, "department" varchar,
+  "conductedDate" varchar, "scheduledDate" varchar, "participants" integer, "duration" varchar,
+  "coordinator" varchar, "contactName" varchar, "role" varchar, "phone" varchar,
+  "serviceType" varchar, "effectiveness" varchar, "description" text,
+  "status" varchar NOT NULL DEFAULT 'active', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_drills" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_drills_companyId" ON "hr_safety_drills" ("companyId");
+
+-- Backs /hr/safety/management/* (training, committee, policies, procedures)
+CREATE TABLE IF NOT EXISTS "hr_safety_trainings" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'training',
+  "code" varchar, "title" varchar, "category" varchar, "trainer" varchar, "department" varchar,
+  "scheduledDate" varchar, "completedDate" varchar, "participants" integer, "duration" varchar,
+  "memberName" varchar, "role" varchar, "version" varchar, "effectiveDate" varchar,
+  "reviewDate" varchar, "owner" varchar, "compliancePercent" integer, "description" text,
+  "status" varchar NOT NULL DEFAULT 'active', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_trainings" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_trainings_companyId" ON "hr_safety_trainings" ("companyId");
+
+-- Backs /hr/safety/wellness/* (checkups, programs, occupational, ergonomics)
+CREATE TABLE IF NOT EXISTS "hr_safety_wellness" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'checkup',
+  "code" varchar, "title" varchar, "category" varchar,
+  "employeeId" varchar, "employeeName" varchar, "department" varchar,
+  "scheduledDate" varchar, "completedDate" varchar, "provider" varchar, "result" varchar,
+  "riskLevel" varchar, "participants" integer, "score" integer, "exposureType" varchar,
+  "nextDue" varchar, "description" text,
+  "status" varchar NOT NULL DEFAULT 'active', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_wellness" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_wellness_companyId" ON "hr_safety_wellness" ("companyId");
+
+-- Backs /hr/safety/reports/* (analytics, kpi, compliance) — each row a metric/line
+CREATE TABLE IF NOT EXISTS "hr_safety_reports" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "recordType" varchar NOT NULL DEFAULT 'analytics',
+  "metricKey" varchar, "label" varchar, "category" varchar, "period" varchar, "department" varchar,
+  "value" numeric, "target" numeric, "unit" varchar, "trend" varchar, "framework" varchar,
+  "dueDate" varchar, "severity" varchar, "description" text,
+  "status" varchar NOT NULL DEFAULT 'active', "remarks" text, "meta" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_safety_reports" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_safety_reports_companyId" ON "hr_safety_reports" ("companyId");

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     CalendarCheck,
     Plus,
@@ -13,6 +13,7 @@ import {
     AlertCircle,
     User
 } from 'lucide-react';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface CompOffBalance {
     id: string;

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, Users, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Session {
   id: string;
@@ -18,40 +19,43 @@ interface Session {
 export default function ProgramSchedulePage() {
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [currentMonth, setCurrentMonth] = useState('April 2024');
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const sessions: Session[] = [
-    {
-      id: '1',
-      title: 'Advanced React Patterns',
-      trainer: 'Sarah Drasner',
-      date: '2024-04-10',
-      time: '10:00 AM - 12:00 PM',
-      location: 'Conference Room A',
-      attendees: 15,
-      type: 'workshop'
-    },
-    {
-      id: '2',
-      title: 'Effective Communication',
-      trainer: 'Simon Sinek',
-      date: '2024-04-12',
-      time: '02:00 PM - 04:00 PM',
-      location: 'Zoom Meeting',
-      attendees: 45,
-      type: 'webinar'
-    },
-    {
-      id: '3',
-      title: 'Security Compliance 101',
-      trainer: 'InfoSec Team',
-      date: '2024-04-12',
-      time: '02:00 PM - 03:00 PM', // Conflict
-      location: 'Training Hall',
-      attendees: 30,
-      type: 'workshop',
-      conflict: true
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingPrograms()) as any[];
+        const mapped: Session[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: String(r.id ?? ''),
+          title: r.title ?? '',
+          trainer: r.trainer ?? '',
+          date: r.date ?? '',
+          time: r.time ?? '',
+          location: r.location ?? '',
+          attendees: Number(r.attendees ?? 0),
+          type: r.type === 'webinar' ? 'webinar' : 'workshop',
+          conflict: Boolean(r.conflict),
+        }));
+        if (!cancelled) setSessions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load sessions');
+          setSessions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const calendarDays = Array.from({ length: 30 }, (_, i) => i + 1);
 
@@ -82,6 +86,19 @@ export default function ProgramSchedulePage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading sessions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {view === 'calendar' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

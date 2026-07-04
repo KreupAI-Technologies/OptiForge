@@ -1,10 +1,18 @@
 'use client';
 
-import { PieChart, Info, Scale, Users, TrendingUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { PieChart, Info, Scale, Users, TrendingUp, AlertCircle } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ComposedChart, Line
 } from 'recharts';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+interface RoleDistribution {
+  role: string;
+  avgScore: number;
+  employees: number;
+}
 
 export default function PerformanceDistributionPage() {
   const bellCurveData = [
@@ -23,13 +31,37 @@ export default function PerformanceDistributionPage() {
     { name: 'HR', low: 2, mid: 15, high: 8 },
   ];
 
-  const roleDistribution = [
-    { role: 'Junior', avgScore: 3.8, employees: 40 },
-    { role: 'Mid-Level', avgScore: 3.5, employees: 55 },
-    { role: 'Senior', avgScore: 4.2, employees: 30 },
-    { role: 'Lead', avgScore: 4.5, employees: 12 },
-    { role: 'Manager', avgScore: 4.1, employees: 8 },
-  ];
+  const [roleDistribution, setRoleDistribution] = useState<RoleDistribution[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.performanceReviews()) as any[];
+        const mapped: RoleDistribution[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          role: r.role ?? r.roleLevel ?? r.designation ?? '',
+          avgScore: Number(r.avgScore ?? r.averageScore ?? r.rating ?? 0),
+          employees: Number(r.employees ?? r.employeeCount ?? r.count ?? 0),
+        }));
+        if (!cancelled) setRoleDistribution(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load distribution');
+          setRoleDistribution([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -42,6 +74,19 @@ export default function PerformanceDistributionPage() {
           <p className="text-gray-500 mt-1">Analyze performance spread and ensure grading fairness.</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading distribution…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Bell Curve Section */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">

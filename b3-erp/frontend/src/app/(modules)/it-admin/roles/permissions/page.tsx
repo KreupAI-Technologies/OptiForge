@@ -32,7 +32,7 @@ export default function RolePermissionsPage() {
   const [selectedRole, setSelectedRole] = useState('admin');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const roles: Role[] = [
+  const fallbackRoles: Role[] = [
     {
       id: 'admin',
       name: 'System Administrator',
@@ -177,7 +177,51 @@ export default function RolePermissionsPage() {
     }
   ];
 
-  const currentRole = roles.find(r => r.id === selectedRole);
+  const [roles, setRoles] = useState<Role[]>(fallbackRoles);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await ItAdminService.getRoles();
+        const list = Array.isArray(raw) ? raw : [];
+        if (list.length > 0) {
+          const mapped: Role[] = list.map((r) => ({
+            id: String(r.id ?? r.code ?? r.name),
+            name: r.name ?? r.code ?? 'Unnamed Role',
+            description: r.description ?? '',
+            userCount: Number(r.userCount ?? 0),
+            permissions: Array.isArray(r.permissions)
+              ? (r.permissions as Permission[])
+              : [],
+          }));
+          if (!cancelled) {
+            setRoles(mapped);
+            setSelectedRole(mapped[0].id);
+          }
+        }
+        // If backend has no roles yet, keep the illustrative fallback list.
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load roles',
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const currentRole = roles.find(r => r.id === selectedRole) ?? roles[0];
   const filteredPermissions = currentRole?.permissions.filter(p =>
     p.module.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.resource.toLowerCase().includes(searchTerm.toLowerCase())
@@ -199,6 +243,8 @@ export default function RolePermissionsPage() {
         {/* Roles List */}
         <div className="bg-white rounded-xl border border-gray-200 p-3">
           <h2 className="text-lg font-bold text-gray-900 mb-2">Roles ({roles.length})</h2>
+          {isLoading && <p className="text-xs text-gray-400 mb-2">Loading roles...</p>}
+          {loadError && <p className="text-xs text-red-500 mb-2">{loadError}</p>}
           <div className="space-y-2">
             {roles.map((role) => (
               <button

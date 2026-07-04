@@ -24,19 +24,54 @@ import {
   Legend
 } from 'recharts';
 
-// Mock Data
-const initialAllocations = [
-  { id: 1, department: 'Engineering', amount: 120000, allocated: 40, spend: 45000, color: '#8b5cf6' },
-  { id: 2, department: 'Sales', amount: 90000, allocated: 30, spend: 62000, color: '#f59e0b' },
-  { id: 3, department: 'Marketing', amount: 45000, allocated: 15, spend: 12000, color: '#ec4899' },
-  { id: 4, department: 'HR & Ops', amount: 30000, allocated: 10, spend: 18000, color: '#3b82f6' },
-  { id: 5, department: 'Customer Support', amount: 15000, allocated: 5, spend: 5000, color: '#10b981' },
-];
+interface Allocation {
+  id: number | string;
+  department: string;
+  amount: number;
+  allocated: number;
+  spend: number;
+  color: string;
+}
+
+const ALLOCATION_COLORS = ['#8b5cf6', '#f59e0b', '#ec4899', '#3b82f6', '#10b981'];
 
 export default function BudgetAllocationPage() {
-  const [allocations, setAllocations] = useState(initialAllocations);
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [totalBudget, setTotalBudget] = useState(300000);
-  const [isEditing, setIsEditing] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState<number | string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.expenseBudgets()) as any[];
+        const mapped: Allocation[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
+          id: r.id ?? i,
+          department: r.department ?? r.departmentName ?? r.name ?? r.category ?? '',
+          amount: Number(r.amount ?? r.total ?? r.budget ?? 0),
+          allocated: Number(r.allocated ?? r.percentage ?? 0),
+          spend: Number(r.spend ?? r.spent ?? 0),
+          color: r.color ?? ALLOCATION_COLORS[i % ALLOCATION_COLORS.length],
+        }));
+        if (!cancelled) setAllocations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load allocations');
+          setAllocations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);
@@ -64,6 +99,19 @@ export default function BudgetAllocationPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading allocations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Total Budget Card */}
