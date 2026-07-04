@@ -107,11 +107,57 @@ export class ServiceAnalyticsService {
     },
   ];
 
+  private scheduledReports: any[] = [
+    {
+      id: 'RPT-001',
+      reportName: 'Monthly SLA Performance',
+      reportType: 'SLA Performance',
+      description: 'SLA adherence across all service requests by priority.',
+      frequency: 'Monthly',
+      format: 'PDF',
+      lastGenerated: '2026-06-30',
+      nextScheduled: '2026-07-31',
+      status: 'Active',
+      recipients: ['ops@company.com', 'quality@company.com'],
+      createdBy: 'Operations Manager',
+    },
+    {
+      id: 'RPT-002',
+      reportName: 'Weekly Revenue Analysis',
+      reportType: 'Revenue Analysis',
+      description: 'Service and AMC revenue trends week over week.',
+      frequency: 'Weekly',
+      format: 'Excel',
+      lastGenerated: '2026-06-28',
+      nextScheduled: '2026-07-05',
+      status: 'Active',
+      recipients: ['finance@company.com'],
+      createdBy: 'Finance Lead',
+    },
+    {
+      id: 'RPT-003',
+      reportName: 'Engineer Performance Scorecard',
+      reportType: 'Engineer Performance',
+      description: 'FTF rate, resolution time and ratings per engineer.',
+      frequency: 'Monthly',
+      format: 'PDF',
+      lastGenerated: '2026-06-30',
+      nextScheduled: '2026-07-31',
+      status: 'Generating',
+      recipients: ['hr@company.com'],
+      createdBy: 'Service Head',
+    },
+  ];
+
   getTechnicians(): any[] {
     return this.technicians;
   }
 
   getFtfRecords(): any[] {
     return this.ftfRecords;
+  }
+
+  getScheduledReports(): any[] {
+    return this.scheduledReports;
   }
 }

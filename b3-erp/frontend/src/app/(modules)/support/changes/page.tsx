@@ -34,8 +34,50 @@ export default function ChangeManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [selectedChange, setSelectedChange] = useState<Change | null>(null)
+  const [changes, setChanges] = useState<Change[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const changes: Change[] = [
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await supportPagesService.getScheduledChanges()) as any[];
+        const mapped: Change[] = (Array.isArray(raw) ? raw : []).map((c: any) => ({
+          id: String(c?.id ?? ''),
+          changeNumber: String(c?.changeNumber ?? ''),
+          title: String(c?.title ?? ''),
+          description: String(c?.description ?? ''),
+          type: (c?.type ?? 'Normal') as Change['type'],
+          priority: (c?.priority ?? 'Medium') as Change['priority'],
+          status: (c?.status ?? 'Draft') as Change['status'],
+          category: String(c?.category ?? ''),
+          affectedSystems: Array.isArray(c?.affectedSystems) ? c.affectedSystems.map((s: any) => String(s)) : [],
+          plannedStart: String(c?.plannedStart ?? ''),
+          plannedEnd: String(c?.plannedEnd ?? ''),
+          estimatedDowntime: String(c?.estimatedDowntime ?? ''),
+          riskLevel: (c?.riskLevel ?? 'Low') as Change['riskLevel'],
+          approvalStatus: String(c?.approvalStatus ?? ''),
+          cabApprovalRequired: Boolean(c?.cabApprovalRequired ?? false),
+          requestedBy: String(c?.requestedBy ?? ''),
+          assignedTo: String(c?.assignedTo ?? ''),
+          implementer: String(c?.implementer ?? ''),
+          backoutPlan: String(c?.backoutPlan ?? ''),
+          businessImpact: String(c?.businessImpact ?? ''),
+          createdDate: String(c?.createdDate ?? ''),
+          impactedUsers: Number(c?.impactedUsers ?? 0),
+        }));
+        if (!cancelled) setChanges(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load changes'); setChanges([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const changesSeed: Change[] = [
     {
       id: '1',
       changeNumber: 'CHG-2024-042',

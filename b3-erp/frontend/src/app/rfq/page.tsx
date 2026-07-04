@@ -316,7 +316,7 @@ export default function RFQListPage() {
         <div className="bg-gray-50 px-3 py-2 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-700">
             Showing <span className="font-medium">1</span> to <span className="font-medium">{filteredRFQs.length}</span> of{' '}
-            <span className="font-medium">{mockRFQs.length}</span> results
+            <span className="font-medium">{rfqs.length}</span> results
           </div>
           <div className="flex gap-2">
             <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">

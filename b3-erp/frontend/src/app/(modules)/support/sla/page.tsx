@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, TrendingUp, AlertTriangle, CheckCircle2, Target, Users, Calendar, ArrowUpRight, Search, Filter } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service';
 
 interface SLA {
   id: string
