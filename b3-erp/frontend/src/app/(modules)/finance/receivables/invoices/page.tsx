@@ -86,8 +86,69 @@ export default function InvoicesPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
-  // Sample invoices data
-  const invoices: Invoice[] = [
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await FinanceService.getInvoices({ invoiceType: 'Sales Invoice' });
+        const statuses = ['Draft', 'Sent', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'];
+        const mapped: Invoice[] = (Array.isArray(raw) ? raw : []).map((r: any) => {
+          const tax = Number(r.taxAmount ?? 0);
+          const rawStatus = String(r.status ?? 'Draft');
+          const status = statuses.includes(rawStatus) ? rawStatus : 'Draft';
+          const items: InvoiceItem[] = Array.isArray(r.lineItems)
+            ? r.lineItems.map((li: any) => ({
+                description: li.description ?? li.productName ?? '',
+                quantity: Number(li.quantity ?? 0),
+                rate: Number(li.unitPrice ?? 0),
+                amount: Number(li.totalAmount ?? li.amount ?? 0),
+                hsnCode: li.productCode ?? '',
+              }))
+            : [];
+          return {
+            id: r.id ?? '',
+            invoiceNumber: r.invoiceNumber ?? '',
+            invoiceDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '',
+            dueDate: r.dueDate ? String(r.dueDate).slice(0, 10) : '',
+            customerName: r.partyName ?? '',
+            customerCode: r.partyId ?? '',
+            gstin: r.gstin ?? '',
+            billToAddress: r.billingAddress ?? '',
+            items,
+            subtotal: Number(r.subtotal ?? 0),
+            cgst: Number(r.cgst ?? tax / 2),
+            sgst: Number(r.sgst ?? tax / 2),
+            igst: Number(r.igst ?? 0),
+            totalAmount: Number(r.totalAmount ?? 0),
+            paidAmount: Number(r.paidAmount ?? 0),
+            balanceAmount: Number(r.balanceAmount ?? (Number(r.totalAmount ?? 0) - Number(r.paidAmount ?? 0))),
+            status: status as Invoice['status'],
+            paymentTerms: r.paymentTerms ?? '',
+            notes: r.notes ?? undefined,
+            createdBy: r.createdBy ?? '',
+            createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+          };
+        });
+        if (!cancelled) setInvoices(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load invoices');
+          setInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const _unusedSample: Invoice[] = [
     {
       id: 'INV001',
       invoiceNumber: 'INV-2025-001',
