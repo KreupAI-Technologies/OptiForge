@@ -61,7 +61,7 @@ export default function BankAccountsPage() {
                     <h1 className="text-3xl font-bold mb-2">Bank Accounts</h1>
                     <p className="text-gray-600">Manage your bank accounts and transactions</p>
                 </div>
-                <Link href="/accounts/banks/create">
+                <Link href="/finance/banks">
                     <Button>
                         <Plus className="mr-2 h-4 w-4" />
                         Add Bank Account
@@ -115,7 +115,7 @@ export default function BankAccountsPage() {
                     <CardContent className="text-center py-12">
                         <Building2 className="mx-auto h-12 w-12 text-gray-400 mb-2" />
                         <p className="text-gray-500 mb-2">No bank accounts found</p>
-                        <Link href="/accounts/banks/create">
+                        <Link href="/finance/banks">
                             <Button>
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add Your First Account

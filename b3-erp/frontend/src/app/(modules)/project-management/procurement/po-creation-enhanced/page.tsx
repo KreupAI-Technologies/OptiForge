@@ -848,7 +848,7 @@ export default function POCreationEnhancedPage() {
           <div className="flex items-center justify-between">
             <button
               type="button"
-              onClick={() => router.push('/project-management/procurement')}
+              onClick={() => router.push('/project-management')}
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
             >
               <X className="w-5 h-5" />

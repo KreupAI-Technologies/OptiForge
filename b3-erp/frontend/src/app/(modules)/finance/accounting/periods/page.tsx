@@ -272,7 +272,7 @@ export default function FinancialPeriodsPage() {
             <div className="flex items-center justify-end mb-2">
               <div className="flex items-center gap-3">
                 <Link
-                  href="/finance/accounting/periods/create"
+                  href="/finance/accounting/periods"
                   className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />

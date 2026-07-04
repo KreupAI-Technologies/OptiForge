@@ -395,7 +395,7 @@ export default function SupportDashboard() {
             </Link>
 
             <Link
-              href="/support/knowledge-base"
+              href="/support/knowledge"
               className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg p-3 hover:from-purple-700 hover:to-indigo-700 text-left block"
             >
               <MessageSquare className="h-6 w-6 mb-2" />
@@ -404,7 +404,7 @@ export default function SupportDashboard() {
             </Link>
 
             <Link
-              href="/it-administration/monitoring/system"
+              href="/it-admin/monitoring/health"
               className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg p-3 hover:from-green-700 hover:to-emerald-700 text-left block"
             >
               <Activity className="h-6 w-6 mb-2" />

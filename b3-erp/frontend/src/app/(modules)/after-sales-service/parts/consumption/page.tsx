@@ -611,14 +611,14 @@ export default function PartsConsumptionPage() {
             Filters
           </button>
           <button
-            onClick={() => router.push('/after-sales-service/parts/consumption/record')}
+            onClick={() => router.push('/after-sales-service/parts/consumption')}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
             Record Consumption
           </button>
           <button
-            onClick={() => router.push('/reports/parts-consumption')}
+            onClick={() => router.push('/after-sales-service/parts/consumption')}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             <BarChart3 className="w-4 h-4" />

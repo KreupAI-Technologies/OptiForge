@@ -86,7 +86,7 @@ export default function BankReconciliationPage() {
             {/* Header */}
             <div className="flex justify-between items-center mb-3">
                 <div>
-                    <Link href="/accounts">
+                    <Link href="/finance/accounting">
                         <Button variant="ghost" size="sm" className="mb-2">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Accounts

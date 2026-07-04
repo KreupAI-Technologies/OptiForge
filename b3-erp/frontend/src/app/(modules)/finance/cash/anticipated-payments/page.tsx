@@ -267,7 +267,7 @@ export default function AnticipatedPaymentsPage() {
                 <p className="text-gray-600 mt-1">Schedule and track upcoming vendor payments</p>
               </div>
               <Link
-                href="/finance/cash/anticipated-payments/create"
+                href="/finance/cash/anticipated-payments"
                 className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
               >
                 <Plus className="w-5 h-5" />

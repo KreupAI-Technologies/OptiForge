@@ -635,18 +635,24 @@ export const BulkAdjustmentModal: React.FC<BulkAdjustmentModalProps> = ({
                 </label>
                 <p className="text-xs text-gray-400 mt-3">
                   Download template:{' '}
-                  <a
-                    href="/templates/adjustment-template.xlsx"
-                    download="adjustment-template.xlsx"
-                    onClick={(e) => {
-                      // In a real app, this would download an actual template file
-                      e.preventDefault();
-                      alert('Template download would start here. File: adjustment-template.xlsx');
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const csv = 'SKU,Location,Adjustment Type,Quantity,Reason\n';
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = 'adjustment-template.csv';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
                     }}
-                    className="text-purple-600 hover:underline cursor-pointer"
+                    className="text-purple-600 hover:underline cursor-pointer bg-transparent border-0 p-0"
                   >
-                    adjustment-template.xlsx
-                  </a>
+                    adjustment-template.csv
+                  </button>
                 </p>
               </div>
             </div>

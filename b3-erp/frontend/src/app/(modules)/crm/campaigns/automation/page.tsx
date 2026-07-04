@@ -78,7 +78,7 @@ export default function CampaignAutomationPage() {
 
   // Handler functions for automation actions
   const handleCreateAutomation = () => {
-    router.push('/crm/campaigns/automation/create');
+    router.push('/crm/campaigns/automation');
   };
 
   const handleViewAutomation = (automation: Automation) => {

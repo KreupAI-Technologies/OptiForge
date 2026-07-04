@@ -70,7 +70,7 @@ const defaultNavigationItems: CommandItem[] = [
 
   // Procurement
   { id: 'procurement', title: 'Procurement', subtitle: 'Purchasing management', category: 'page', href: '/procurement', icon: <Truck className="w-4 h-4" />, keywords: ['purchasing', 'vendors'] },
-  { id: 'purchase-orders', title: 'Purchase Orders', subtitle: 'View purchase orders', category: 'page', href: '/procurement/orders', icon: <Truck className="w-4 h-4" />, keywords: ['PO', 'buying'] },
+  { id: 'purchase-orders', title: 'Purchase Orders', subtitle: 'View purchase orders', category: 'page', href: '/procurement/purchase-orders', icon: <Truck className="w-4 h-4" />, keywords: ['PO', 'buying'] },
 
   // CRM
   { id: 'crm', title: 'CRM', subtitle: 'Customer relationships', category: 'page', href: '/crm', icon: <Users className="w-4 h-4" />, keywords: ['customers', 'leads'] },
@@ -78,7 +78,7 @@ const defaultNavigationItems: CommandItem[] = [
   { id: 'crm-leads', title: 'Leads', subtitle: 'Sales leads', category: 'page', href: '/crm/leads', icon: <Users className="w-4 h-4" />, keywords: ['prospects', 'opportunities'] },
 
   // Accounts
-  { id: 'accounts', title: 'Accounts', subtitle: 'Financial management', category: 'page', href: '/accounts', icon: <DollarSign className="w-4 h-4" />, keywords: ['finance', 'accounting'] },
+  { id: 'accounts', title: 'Accounts', subtitle: 'Financial management', category: 'page', href: '/crm/advanced-features/accounts', icon: <DollarSign className="w-4 h-4" />, keywords: ['finance', 'accounting'] },
   { id: 'accounts-ledger', title: 'General Ledger', subtitle: 'Account ledgers', category: 'page', href: '/accounts/ledger', icon: <DollarSign className="w-4 h-4" />, keywords: ['GL', 'books'] },
 
   // Settings

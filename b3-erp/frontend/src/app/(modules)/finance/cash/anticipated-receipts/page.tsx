@@ -229,7 +229,7 @@ export default function AnticipatedReceiptsPage() {
                 <p className="text-gray-600 mt-1">Track and manage expected customer payments</p>
               </div>
               <Link
-                href="/finance/cash/anticipated-receipts/create"
+                href="/finance/cash/anticipated-receipts"
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
               >
                 <Plus className="w-5 h-5" />

@@ -476,11 +476,11 @@ export default function EditPurchaseOrderPage() {
 
   const handleSave = () => {
     console.log('Save PO:', { poNumber, ...formData });
-    router.push('/procurement/orders');
+    router.push('/procurement/purchase-orders');
   };
 
   const handleCancel = () => {
-    router.push('/procurement/orders');
+    router.push('/procurement/purchase-orders');
   };
 
   const totals = calculateTotals();
@@ -492,7 +492,7 @@ export default function EditPurchaseOrderPage() {
           {/* Header */}
           <div className="mb-3">
             <button
-              onClick={() => router.push('/procurement/orders')}
+              onClick={() => router.push('/procurement/purchase-orders')}
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2"
             >
               <ArrowLeft className="h-5 w-5" />

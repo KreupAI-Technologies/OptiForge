@@ -510,7 +510,7 @@ export default function PartsRequisitionPage() {
             Filters
           </button>
           <button
-            onClick={() => router.push('/after-sales-service/parts/requisition/create')}
+            onClick={() => router.push('/after-sales-service/parts/requisition')}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />

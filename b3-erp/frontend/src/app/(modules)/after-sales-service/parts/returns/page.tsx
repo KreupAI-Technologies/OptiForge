@@ -691,7 +691,7 @@ export default function PartsReturnsPage() {
           </div>
           <button
             className="bg-white text-emerald-600 px-3 py-2 rounded-lg font-medium hover:bg-emerald-50 transition-colors flex items-center gap-2 shadow-md"
-            onClick={() => router.push('/after-sales-service/parts/returns/record')}
+            onClick={() => router.push('/after-sales-service/parts/returns')}
           >
             <Plus className="h-5 w-5" />
             Record Return

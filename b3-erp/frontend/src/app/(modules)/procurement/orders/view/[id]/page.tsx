@@ -485,7 +485,7 @@ export default function ViewPurchaseOrderPage() {
       {/* Header */}
       <div className="mb-3">
         <button
-          onClick={() => router.push('/procurement/orders')}
+          onClick={() => router.push('/procurement/purchase-orders')}
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2"
         >
           <ArrowLeft className="h-5 w-5" />

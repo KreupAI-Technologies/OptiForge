@@ -562,7 +562,7 @@ export default function AddPurchaseOrderPage() {
 
   const handleSaveDraft = () => {
     console.log('Save as Draft:', { poNumber, ...formData, status: 'draft' });
-    router.push('/procurement/orders');
+    router.push('/procurement/purchase-orders');
   };
 
   const handleSubmitForApproval = () => {
@@ -571,7 +571,7 @@ export default function AddPurchaseOrderPage() {
       return;
     }
     console.log('Submit for Approval:', { poNumber, ...formData, status: 'pending_approval' });
-    router.push('/procurement/orders');
+    router.push('/procurement/purchase-orders');
   };
 
   const handleSendToVendor = () => {
@@ -580,11 +580,11 @@ export default function AddPurchaseOrderPage() {
       return;
     }
     console.log('Send to Vendor:', { poNumber, ...formData, status: 'sent' });
-    router.push('/procurement/orders');
+    router.push('/procurement/purchase-orders');
   };
 
   const handleCancel = () => {
-    router.push('/procurement/orders');
+    router.push('/procurement/purchase-orders');
   };
 
   const totals = calculateTotals();
@@ -596,7 +596,7 @@ export default function AddPurchaseOrderPage() {
           {/* Header */}
           <div className="mb-3">
             <button
-              onClick={() => router.push('/procurement/orders')}
+              onClick={() => router.push('/procurement/purchase-orders')}
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-2"
             >
               <ArrowLeft className="h-5 w-5" />

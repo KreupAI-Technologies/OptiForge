@@ -282,7 +282,7 @@ export default function DashboardPage() {
                         Settings
                       </Link>
                       <Link
-                        href="/preferences"
+                        href="/notifications/preferences"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
                       >
                         Preferences

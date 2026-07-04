@@ -121,7 +121,7 @@ export default function ContractTemplatesPage() {
   };
 
   const handleCreateTemplate = () => {
-    router.push('/crm/contracts/templates/create');
+    router.push('/crm/contracts/templates');
   };
 
   const handleUseTemplate = (template: ContractTemplate) => {

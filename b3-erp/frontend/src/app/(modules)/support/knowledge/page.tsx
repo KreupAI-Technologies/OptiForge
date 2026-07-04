@@ -260,7 +260,7 @@ export default function KnowledgePage() {
         </div>
 
         <button
-          onClick={() => router.push('/support/knowledge/add')}
+          onClick={() => router.push('/support/knowledge')}
           className="flex items-center space-x-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-fit flex-shrink-0"
         >
           <Plus className="h-5 w-5" />

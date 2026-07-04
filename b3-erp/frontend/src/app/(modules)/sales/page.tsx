@@ -293,7 +293,7 @@ export default function SalesDashboard() {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Top Customers</h2>
                 <Link
-                  href="/sales/customers"
+                  href="/crm/customers"
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
                 >
                   View All

@@ -120,7 +120,7 @@ export default function UserGroupsPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push('/it-admin/users/groups/new')}
+            onClick={() => router.push('/it-admin/users/groups')}
             className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
           >
             <Plus className="w-5 h-5" />

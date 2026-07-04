@@ -457,7 +457,7 @@ export default function FinanceDashboard() {
                 </div>
               </div>
               <Link
-                href="/finance/settings"
+                href="/finance"
                 className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
               >
                 <Settings className="w-5 h-5" />
@@ -704,7 +704,7 @@ export default function FinanceDashboard() {
             <div className="bg-white rounded-xl shadow-lg p-3">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-bold text-gray-900">Recent Transactions</h2>
-                <Link href="/finance/transactions" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                <Link href="/finance/general-ledger" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
                   View All →
                 </Link>
               </div>

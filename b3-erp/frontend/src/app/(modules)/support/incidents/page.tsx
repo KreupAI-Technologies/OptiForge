@@ -253,7 +253,7 @@ export default function IncidentsPage() {
         </div>
 
         <button
-          onClick={() => router.push('/support/incidents/add')}
+          onClick={() => router.push('/support/incidents')}
           className="flex items-center space-x-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors h-fit flex-shrink-0"
         >
           <Plus className="h-5 w-5" />

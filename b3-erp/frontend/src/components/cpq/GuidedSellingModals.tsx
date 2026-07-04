@@ -234,7 +234,7 @@ export const RecommendationsModal: React.FC<RecommendationsModalProps> = ({
           <div className="text-sm text-gray-600">
             Need help deciding?{' '}
             <a
-              href="/contact-sales"
+              href="/crm/contacts"
               onClick={(e) => {
                 e.preventDefault();
                 // In a real app, this would open a contact form or navigate to contact page

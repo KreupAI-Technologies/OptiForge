@@ -109,7 +109,7 @@ export default function HelpPage() {
           </Link>
 
           <Link
-            href="/help/videos"
+            href="/help"
             className="bg-white rounded-lg shadow border border-gray-200 p-3 hover:shadow-lg transition-all text-center"
           >
             <Video className="w-12 h-12 text-red-600 mb-3" />

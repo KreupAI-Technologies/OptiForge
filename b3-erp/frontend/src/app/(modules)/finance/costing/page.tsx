@@ -154,7 +154,7 @@ export default function JobCostingListPage() {
           <p className="text-gray-600 mt-1">Track estimated vs actual costs for all manufacturing jobs</p>
         </div>
         <Link
-          href="/finance/costing/create"
+          href="/finance/costing"
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-5 h-5" />

@@ -833,7 +833,7 @@ export default function AfterSalesDashboard() {
                   Close
                 </button>
                 <button
-                  onClick={() => router.push('/after-sales-service/analytics')}
+                  onClick={() => router.push('/after-sales-service/dashboard')}
                   className="px-6 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors flex items-center gap-2"
                 >
                   View Full Analytics
