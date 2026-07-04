@@ -1,10 +1,11 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function SalesProductContent() {
     const router = useRouter();
@@ -12,12 +13,33 @@ function SalesProductContent() {
     const productId = searchParams.get('id');
     const title = productId ? `Product Sales: ${productId}` : 'Product Sales Performance';
 
-    const orders = [
-        { id: 'ORD-2025-001', date: '2025-01-15', customer: 'TechCorp Industries', quantity: 5, value: 150000, status: 'Delivered' },
-        { id: 'ORD-2025-004', date: '2025-01-18', customer: 'Global Manufacturing', quantity: 12, value: 360000, status: 'Processing' },
-        { id: 'ORD-2025-008', date: '2025-01-22', customer: 'BuildRight Construction', quantity: 3, value: 90000, status: 'Shipped' },
-        { id: 'ORD-2025-012', date: '2025-01-25', customer: 'FastTrack Logistics', quantity: 8, value: 240000, status: 'Confirmed' },
-    ];
+    const [orders, setOrders] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('api/v1/sales/orders');
+                const mapped = raw.map((r: any) => ({
+                    id: r.orderNumber ?? r.id,
+                    date: r.orderDate ?? '',
+                    customer: r.customerName ?? '',
+                    quantity: Number((r.items?.length) ?? 0),
+                    value: Number(r.totalAmount ?? r.grandTotal ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setOrders(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -30,6 +52,8 @@ function SalesProductContent() {
                 { label: 'Product' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Order History</CardTitle>

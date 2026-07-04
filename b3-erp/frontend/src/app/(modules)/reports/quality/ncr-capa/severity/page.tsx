@@ -1,23 +1,50 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function NCRBySeverityContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const severity = searchParams.get('severity') || 'High';
 
-    const ncrsData = [
-        { id: 'NCR-2025-045', title: 'Dimensional Non-Conformance', product: 'Commercial Ovens', raisedBy: 'QC Inspector 1', date: '2025-01-20', status: 'Open', capaRequired: true },
-        { id: 'NCR-2025-042', title: 'Surface Finish Issue', product: 'Refrigeration Units', raisedBy: 'QC Inspector 2', date: '2025-01-18', status: 'In Progress', capaRequired: true },
-        { id: 'NCR-2025-038', title: 'Material Defect', product: 'Industrial Mixers', raisedBy: 'QC Inspector 1', date: '2025-01-15', status: 'Closed', capaRequired: false },
-    ];
+    const [ncrsData, setNcrsData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('quality/ncr');
+                const mapped = raw.map((r: any) => ({
+                    id: r.ncrNumber ?? r.id,
+                    title: r.title ?? r.description ?? '',
+                    product: r.productName ?? r.itemName ?? '',
+                    raisedBy: r.raisedBy ?? r.reportedBy ?? '',
+                    date: r.raisedDate ?? r.createdAt ?? '',
+                    status: r.status ?? '',
+                    capaRequired: Boolean(r.capaRequired ?? false),
+                }));
+                if (!cancelled) setNcrsData(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setNcrsData([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const handleNCRClick = (ncrId: string) => {
         router.push(`/quality/ncr/${ncrId}`);
@@ -45,6 +72,8 @@ function NCRBySeverityContent() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('ncr-capa-severity', ncrsData)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Card>

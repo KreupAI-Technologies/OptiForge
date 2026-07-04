@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp,
@@ -15,6 +15,10 @@ import {
   CheckCircle,
   BarChart3
 } from 'lucide-react'
+import {
+  estimationMarkupSettingLiveService,
+  MarkupSettingRecord,
+} from '@/services/estimation-markup-setting-live.service'
 
 interface PricingMargin {
   id: string
@@ -46,222 +50,87 @@ interface CategoryMargin {
 export default function PricingMarginsPage() {
   const router = useRouter()
 
-  const [pricingMargins] = useState<PricingMargin[]>([
-    {
-      id: 'PM-001',
-      productCode: 'KIT-SS-001',
-      productName: 'Premium Undermount Kitchen Sink',
-      category: 'Kitchen Sinks',
-      costPrice: 8450,
-      sellingPrice: 12500,
-      marginAmount: 4050,
-      marginPercent: 32.4,
-      targetMargin: 30.0,
-      varianceFromTarget: 2.4,
-      competitorPrice: 13200,
-      pricePosition: 'competitive',
-      status: 'healthy',
-      volumeSold: 125,
-      revenue: 1562500
-    },
-    {
-      id: 'PM-002',
-      productCode: 'KIT-FAU-001',
-      productName: 'Premium Chrome Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      costPrice: 3850,
-      sellingPrice: 5800,
-      marginAmount: 1950,
-      marginPercent: 33.6,
-      targetMargin: 32.0,
-      varianceFromTarget: 1.6,
-      competitorPrice: 6200,
-      pricePosition: 'value',
-      status: 'healthy',
-      volumeSold: 250,
-      revenue: 1450000
-    },
-    {
-      id: 'PM-003',
-      productCode: 'KIT-CW-001',
-      productName: 'Non-Stick Aluminum Frying Pan (12")',
-      category: 'Cookware',
-      costPrice: 1250,
-      sellingPrice: 1950,
-      marginAmount: 700,
-      marginPercent: 35.9,
-      targetMargin: 35.0,
-      varianceFromTarget: 0.9,
-      competitorPrice: 1850,
-      pricePosition: 'competitive',
-      status: 'healthy',
-      volumeSold: 450,
-      revenue: 877500
-    },
-    {
-      id: 'PM-004',
-      productCode: 'KIT-CHIM-001',
-      productName: 'Auto-Clean Kitchen Chimney 90cm',
-      category: 'Kitchen Appliances',
-      costPrice: 18500,
-      sellingPrice: 28000,
-      marginAmount: 9500,
-      marginPercent: 33.9,
-      targetMargin: 35.0,
-      varianceFromTarget: -1.1,
-      competitorPrice: 27500,
-      pricePosition: 'competitive',
-      status: 'below-target',
-      volumeSold: 85,
-      revenue: 2380000
-    },
-    {
-      id: 'PM-005',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet (24" x 34")',
-      category: 'Kitchen Cabinets',
-      costPrice: 12800,
-      sellingPrice: 18500,
-      marginAmount: 5700,
-      marginPercent: 30.8,
-      targetMargin: 32.0,
-      varianceFromTarget: -1.2,
-      competitorPrice: 19200,
-      pricePosition: 'value',
-      status: 'below-target',
-      volumeSold: 95,
-      revenue: 1757500
-    },
-    {
-      id: 'PM-006',
-      productCode: 'KIT-CT-001',
-      productName: 'Black Galaxy Granite Countertop',
-      category: 'Countertops',
-      costPrice: 28500,
-      sellingPrice: 42000,
-      marginAmount: 13500,
-      marginPercent: 32.1,
-      targetMargin: 30.0,
-      varianceFromTarget: 2.1,
-      competitorPrice: 44000,
-      pricePosition: 'value',
-      status: 'healthy',
-      volumeSold: 42,
-      revenue: 1764000
-    },
-    {
-      id: 'PM-007',
-      productCode: 'KIT-SS-002',
-      productName: 'Double Bowl Kitchen Sink',
-      category: 'Kitchen Sinks',
-      costPrice: 9850,
-      sellingPrice: 14500,
-      marginAmount: 4650,
-      marginPercent: 32.1,
-      targetMargin: 30.0,
-      varianceFromTarget: 2.1,
-      competitorPrice: 15000,
-      pricePosition: 'competitive',
-      status: 'healthy',
-      volumeSold: 110,
-      revenue: 1595000
-    },
-    {
-      id: 'PM-008',
-      productCode: 'KIT-FAU-002',
-      productName: 'Pull-Down Spray Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      costPrice: 5200,
-      sellingPrice: 7800,
-      marginAmount: 2600,
-      marginPercent: 33.3,
-      targetMargin: 32.0,
-      varianceFromTarget: 1.3,
-      competitorPrice: 8500,
-      pricePosition: 'value',
-      status: 'healthy',
-      volumeSold: 180,
-      revenue: 1404000
-    },
-    {
-      id: 'PM-009',
-      productCode: 'KIT-CW-002',
-      productName: 'Stainless Steel Pressure Cooker (5L)',
-      category: 'Cookware',
-      costPrice: 2450,
-      sellingPrice: 3800,
-      marginAmount: 1350,
-      marginPercent: 35.5,
-      targetMargin: 35.0,
-      varianceFromTarget: 0.5,
-      competitorPrice: 3950,
-      pricePosition: 'competitive',
-      status: 'healthy',
-      volumeSold: 320,
-      revenue: 1216000
-    },
-    {
-      id: 'PM-010',
-      productCode: 'KIT-ACC-001',
-      productName: 'Pull-Out Kitchen Organizer',
-      category: 'Kitchen Accessories',
-      costPrice: 3200,
-      sellingPrice: 4850,
-      marginAmount: 1650,
-      marginPercent: 34.0,
-      targetMargin: 30.0,
-      varianceFromTarget: 4.0,
-      competitorPrice: 5200,
-      pricePosition: 'value',
-      status: 'healthy',
-      volumeSold: 210,
-      revenue: 1018500
-    },
-    {
-      id: 'PM-011',
-      productCode: 'KIT-CT-002',
-      productName: 'White Quartz Countertop',
-      category: 'Countertops',
-      costPrice: 26800,
-      sellingPrice: 39500,
-      marginAmount: 12700,
-      marginPercent: 32.2,
-      targetMargin: 30.0,
-      varianceFromTarget: 2.2,
-      competitorPrice: 41000,
-      pricePosition: 'competitive',
-      status: 'healthy',
-      volumeSold: 38,
-      revenue: 1501000
-    },
-    {
-      id: 'PM-012',
-      productCode: 'KIT-CAB-002',
-      productName: 'Wall Cabinet with Glass Door (30" x 30")',
-      category: 'Kitchen Cabinets',
-      costPrice: 9500,
-      sellingPrice: 13800,
-      marginAmount: 4300,
-      marginPercent: 31.2,
-      targetMargin: 32.0,
-      varianceFromTarget: -0.8,
-      competitorPrice: 14500,
-      pricePosition: 'value',
-      status: 'below-target',
-      volumeSold: 105,
-      revenue: 1449000
-    }
-  ])
+  const [pricingMargins, setPricingMargins] = useState<PricingMargin[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const categoryMargins: CategoryMargin[] = [
-    { category: 'Kitchen Sinks', products: 2, avgMargin: 32.3, targetMargin: 30.0, totalRevenue: 3157500, status: 'healthy' },
-    { category: 'Kitchen Faucets', products: 2, avgMargin: 33.5, targetMargin: 32.0, totalRevenue: 2854000, status: 'healthy' },
-    { category: 'Cookware', products: 2, avgMargin: 35.7, targetMargin: 35.0, totalRevenue: 2093500, status: 'healthy' },
-    { category: 'Kitchen Appliances', products: 1, avgMargin: 33.9, targetMargin: 35.0, totalRevenue: 2380000, status: 'below-target' },
-    { category: 'Kitchen Cabinets', products: 2, avgMargin: 31.0, targetMargin: 32.0, totalRevenue: 3206500, status: 'below-target' },
-    { category: 'Countertops', products: 2, avgMargin: 32.2, targetMargin: 30.0, totalRevenue: 3265000, status: 'healthy' },
-    { category: 'Kitchen Accessories', products: 1, avgMargin: 34.0, targetMargin: 30.0, totalRevenue: 1018500, status: 'healthy' }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Map markup-setting records (per category/subcategory) to the page's
+        // margin-row shape. defaultMarkup drives margin%, minMarkup is the target.
+        const raw = await estimationMarkupSettingLiveService.getSettings()
+        const mapped: PricingMargin[] = raw.map((m: MarkupSettingRecord) => {
+          const marginPercent = Number(m.defaultMarkup ?? 0)
+          const targetMargin = Number(m.minMarkup ?? m.defaultMarkup ?? 0)
+          const variance = marginPercent - targetMargin
+          const status: PricingMargin['status'] =
+            variance >= 0 ? 'healthy' : variance >= -2 ? 'below-target' : 'at-risk'
+          return {
+            id: m.id,
+            productCode: m.category ?? m.id,
+            productName: m.subcategory
+              ? `${m.category} — ${m.subcategory}`
+              : m.category ?? 'Category',
+            category: m.category ?? 'General',
+            costPrice: 0,
+            sellingPrice: 0,
+            marginAmount: 0,
+            marginPercent,
+            targetMargin,
+            varianceFromTarget: variance,
+            competitorPrice: 0,
+            pricePosition: 'competitive',
+            status,
+            volumeSold: 0,
+            revenue: 0,
+          }
+        })
+        if (!cancelled) setPricingMargins(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load pricing margins',
+          )
+          setPricingMargins([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Category performance is derived from the fetched per-product margin rows.
+  const categoryMargins: CategoryMargin[] = useMemo(() => {
+    const groups = new Map<string, PricingMargin[]>()
+    pricingMargins.forEach((p) => {
+      const list = groups.get(p.category) ?? []
+      list.push(p)
+      groups.set(p.category, list)
+    })
+    return Array.from(groups.entries()).map(([category, items]) => {
+      const avgMargin =
+        items.reduce((s, i) => s + i.marginPercent, 0) / items.length
+      const targetMargin =
+        items.reduce((s, i) => s + i.targetMargin, 0) / items.length
+      const totalRevenue = items.reduce((s, i) => s + i.revenue, 0)
+      return {
+        category,
+        products: items.length,
+        avgMargin,
+        targetMargin,
+        totalRevenue,
+        status: avgMargin >= targetMargin ? 'healthy' : 'below-target',
+      }
+    })
+  }, [pricingMargins])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -295,12 +164,24 @@ export default function PricingMarginsPage() {
   }
 
   const totalRevenue = pricingMargins.reduce((sum, p) => sum + p.revenue, 0)
-  const avgMargin = pricingMargins.reduce((sum, p) => sum + p.marginPercent, 0) / pricingMargins.length
+  const avgMargin = pricingMargins.length
+    ? pricingMargins.reduce((sum, p) => sum + p.marginPercent, 0) / pricingMargins.length
+    : 0
   const healthyCount = pricingMargins.filter(p => p.status === 'healthy').length
   const belowTargetCount = pricingMargins.filter(p => p.status === 'below-target').length
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+          Loading pricing margins...
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3 flex items-center justify-end gap-3">
         <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
@@ -437,6 +318,13 @@ export default function PricingMarginsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {pricingMargins.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">
+                    {isLoading ? 'Loading...' : 'No pricing margins found.'}
+                  </td>
+                </tr>
+              )}
               {pricingMargins.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">

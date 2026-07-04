@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Package,
     Search,
@@ -12,6 +12,7 @@ import {
     Truck,
     BarChart2
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface TrackingItem {
     id: string;
@@ -28,54 +29,52 @@ interface TrackingItem {
 export default function InventoryTrackingPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [items, setItems] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    // Mock Data
-    const items: TrackingItem[] = [
-        {
-            id: '1',
-            sku: 'RM-001',
-            name: 'Steel Sheets (Grade A)',
-            batchNumber: 'B2025-001',
-            location: 'Warehouse A - Zone 1',
-            quantity: 500,
-            status: 'In Stock',
-            expiryDate: '2026-01-01',
-            lastMovement: '2025-10-25 10:30 AM'
-        },
-        {
-            id: '2',
-            sku: 'EL-045',
-            name: 'Circuit Boards v2',
-            batchNumber: 'B2025-012',
-            location: 'Warehouse B - Zone 3',
-            quantity: 50,
-            status: 'Low Stock',
-            expiryDate: '2027-05-15',
-            lastMovement: '2025-10-24 02:15 PM'
-        },
-        {
-            id: '3',
-            sku: 'CH-102',
-            name: 'Industrial Solvent',
-            batchNumber: 'B2024-089',
-            location: 'Transit - Truck 4',
-            quantity: 200,
-            status: 'In Transit',
-            expiryDate: '2025-12-31',
-            lastMovement: '2025-10-26 08:00 AM'
-        },
-        {
-            id: '4',
-            sku: 'PK-003',
-            name: 'Packaging Foam',
-            batchNumber: 'B2023-156',
-            location: 'Warehouse A - Zone 4',
-            quantity: 1000,
-            status: 'Expired',
-            expiryDate: '2025-09-30',
-            lastMovement: '2025-09-01 09:00 AM'
-        }
-    ];
+    // Tracking view shows batch-tracked stock (batch number, location, expiry,
+    // movement) so it is wired to the batch-numbers endpoint.
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await inventoryService.getBatchNumbers();
+                const mapped = raw.map((b: any, idx: number) => {
+                    const qty = Number(b.availableQuantity ?? b.initialQuantity ?? 0);
+                    let status: TrackingItem['status'] = 'In Stock';
+                    if (b.isExpired || b.status === 'Expired') status = 'Expired';
+                    else if (b.status === 'Quarantine' || b.status === 'Recalled') status = 'In Transit';
+                    else if (qty <= 0) status = 'Low Stock';
+                    return {
+                        id: b.id ?? String(idx),
+                        sku: b.itemCode ?? '',
+                        name: b.itemName ?? '',
+                        batchNumber: b.batchNumber ?? '',
+                        location: b.warehouseName ?? b.locationName ?? '',
+                        quantity: qty,
+                        status,
+                        expiryDate: b.expiryDate ?? '',
+                        lastMovement: b.updatedAt ?? b.receiptDate ?? b.createdAt ?? '',
+                    };
+                });
+                if (!cancelled) setItems(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load tracking items');
+                    setItems([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredItems = items.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

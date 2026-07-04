@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -16,6 +16,7 @@ import {
   CheckCircle,
   Filter
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface ForecastPeriod {
   date: string
@@ -82,128 +83,68 @@ export default function CashFlowForecastPage() {
     }
   ]
 
-  const [forecast] = useState<ForecastPeriod[]>([
-    {
-      date: '2025-10-25',
-      openingBalance: 15750000,
-      expectedReceipts: {
-        sales: 2500000,
-        collections: 3800000,
-        otherIncome: 200000,
-        total: 6500000
-      },
-      expectedPayments: {
-        suppliers: 2800000,
-        salaries: 1500000,
-        operating: 850000,
-        capex: 500000,
-        total: 5650000
-      },
-      netCashFlow: 850000,
-      closingBalance: 16600000,
-      status: 'surplus'
-    },
-    {
-      date: '2025-11-01',
-      openingBalance: 16600000,
-      expectedReceipts: {
-        sales: 3200000,
-        collections: 4200000,
-        otherIncome: 150000,
-        total: 7550000
-      },
-      expectedPayments: {
-        suppliers: 3500000,
-        salaries: 1500000,
-        operating: 900000,
-        capex: 1000000,
-        total: 6900000
-      },
-      netCashFlow: 650000,
-      closingBalance: 17250000,
-      status: 'surplus'
-    },
-    {
-      date: '2025-11-08',
-      openingBalance: 17250000,
-      expectedReceipts: {
-        sales: 2800000,
-        collections: 3500000,
-        otherIncome: 100000,
-        total: 6400000
-      },
-      expectedPayments: {
-        suppliers: 3200000,
-        salaries: 0,
-        operating: 750000,
-        capex: 2000000,
-        total: 5950000
-      },
-      netCashFlow: 450000,
-      closingBalance: 17700000,
-      status: 'surplus'
-    },
-    {
-      date: '2025-11-15',
-      openingBalance: 17700000,
-      expectedReceipts: {
-        sales: 2200000,
-        collections: 2800000,
-        otherIncome: 50000,
-        total: 5050000
-      },
-      expectedPayments: {
-        suppliers: 4500000,
-        salaries: 1500000,
-        operating: 800000,
-        capex: 500000,
-        total: 7300000
-      },
-      netCashFlow: -2250000,
-      closingBalance: 15450000,
-      status: 'deficit'
-    },
-    {
-      date: '2025-11-22',
-      openingBalance: 15450000,
-      expectedReceipts: {
-        sales: 1800000,
-        collections: 2500000,
-        otherIncome: 80000,
-        total: 4380000
-      },
-      expectedPayments: {
-        suppliers: 2800000,
-        salaries: 0,
-        operating: 700000,
-        capex: 1500000,
-        total: 5000000
-      },
-      netCashFlow: -620000,
-      closingBalance: 14830000,
-      status: 'deficit'
-    },
-    {
-      date: '2025-11-29',
-      openingBalance: 14830000,
-      expectedReceipts: {
-        sales: 3500000,
-        collections: 4800000,
-        otherIncome: 250000,
-        total: 8550000
-      },
-      expectedPayments: {
-        suppliers: 3000000,
-        salaries: 1500000,
-        operating: 850000,
-        capex: 800000,
-        total: 6150000
-      },
-      netCashFlow: 2400000,
-      closingBalance: 17230000,
-      status: 'surplus'
+  const [forecast, setForecast] = useState<ForecastPeriod[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const res = (await FinanceService.getCashFlowReport()) as any
+        const rows: any[] = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : []
+        let running = Number(res?.openingBalance ?? res?.summary?.openingBalance ?? 0)
+        const periods: ForecastPeriod[] = rows.map((r) => {
+          const openingBalance = Number(r.openingBalance ?? running)
+          const sales = Number(r.sales ?? r.salesReceipts ?? 0)
+          const collections = Number(r.collections ?? r.arCollections ?? 0)
+          const otherIncome = Number(r.otherIncome ?? 0)
+          const receiptsTotal = Number(
+            r.totalReceipts ?? r.inflow ?? sales + collections + otherIncome,
+          )
+          const suppliers = Number(r.suppliers ?? r.supplierPayments ?? 0)
+          const salaries = Number(r.salaries ?? 0)
+          const operating = Number(r.operating ?? r.operatingExpenses ?? 0)
+          const capex = Number(r.capex ?? r.capitalExpenditure ?? 0)
+          const paymentsTotal = Number(
+            r.totalPayments ?? r.outflow ?? suppliers + salaries + operating + capex,
+          )
+          const netCashFlow = Number(r.netCashFlow ?? receiptsTotal - paymentsTotal)
+          const closingBalance = Number(r.closingBalance ?? openingBalance + netCashFlow)
+          running = closingBalance
+          const status: ForecastPeriod['status'] =
+            closingBalance < 0 ? 'critical' : netCashFlow < 0 ? 'deficit' : 'surplus'
+          return {
+            date: r.date ?? r.period ?? r.periodStart ?? '',
+            openingBalance,
+            expectedReceipts: { sales, collections, otherIncome, total: receiptsTotal },
+            expectedPayments: { suppliers, salaries, operating, capex, total: paymentsTotal },
+            netCashFlow,
+            closingBalance,
+            status,
+          }
+        })
+        if (!cancelled) setForecast(periods)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load cash flow forecast')
+          setForecast([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -227,9 +168,9 @@ export default function CashFlowForecastPage() {
     }
   }
 
-  const avgCashBalance = forecast.reduce((sum, p) => sum + p.closingBalance, 0) / forecast.length
-  const minCashBalance = Math.min(...forecast.map(p => p.closingBalance))
-  const maxCashBalance = Math.max(...forecast.map(p => p.closingBalance))
+  const currentBalance = forecast.length > 0 ? forecast[0].openingBalance : 0
+  const minCashBalance = forecast.length > 0 ? Math.min(...forecast.map(p => p.closingBalance)) : 0
+  const maxCashBalance = forecast.length > 0 ? Math.max(...forecast.map(p => p.closingBalance)) : 0
   const deficitPeriods = forecast.filter(p => p.status === 'deficit').length
 
   return (
@@ -237,6 +178,16 @@ export default function CashFlowForecastPage() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full p-3">
           <div className="w-full space-y-3">
+            {isLoading && (
+              <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
+                Loading cash flow forecast…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {loadError}
+              </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
@@ -261,7 +212,7 @@ export default function CashFlowForecastPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-blue-600">Current Balance</p>
-                    <p className="text-2xl font-bold text-blue-900 mt-1">{formatCurrency(forecast[0].openingBalance)}</p>
+                    <p className="text-2xl font-bold text-blue-900 mt-1">{formatCurrency(currentBalance)}</p>
                     <p className="text-xs text-blue-700 mt-1">As of today</p>
                   </div>
                   <DollarSign className="h-10 w-10 text-blue-600" />

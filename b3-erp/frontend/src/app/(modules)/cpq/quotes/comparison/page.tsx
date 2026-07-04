@@ -39,7 +39,7 @@ export default function CPQQuotesComparisonPage() {
   const router = useRouter()
 
   // State management
-  const [selectedQuotes, setSelectedQuotes] = useState<string[]>(['QT-2024-1234-v3', 'QT-2024-1234-v2'])
+  const [selectedQuotes, setSelectedQuotes] = useState<string[]>([])
 
   // Modal states
   const [isAddQuoteModalOpen, setIsAddQuoteModalOpen] = useState(false)
@@ -50,47 +50,53 @@ export default function CPQQuotesComparisonPage() {
   // Selected quote for details view
   const [selectedQuoteForDetails, setSelectedQuoteForDetails] = useState<QuoteForComparison | null>(null)
 
-  const quotes: QuoteForComparison[] = [
-    {
-      id: 'QT-2024-1234-v3',
-      quoteNumber: 'QT-2024-1234',
-      version: 'v3.0',
-      value: 2850000,
-      discount: 18,
-      items: 12,
-      deliveryDays: 45,
-      paymentTerms: 'Net 30',
-      warranty: '3 years',
-      validityDays: 30,
-      createdDate: '2024-10-18'
-    },
-    {
-      id: 'QT-2024-1234-v2',
-      quoteNumber: 'QT-2024-1234',
-      version: 'v2.0',
-      value: 2720000,
-      discount: 15,
-      items: 11,
-      deliveryDays: 60,
-      paymentTerms: 'Net 45',
-      warranty: '2 years',
-      validityDays: 30,
-      createdDate: '2024-10-15'
-    },
-    {
-      id: 'QT-2024-1234-v1',
-      quoteNumber: 'QT-2024-1234',
-      version: 'v1.0',
-      value: 2650000,
-      discount: 12,
-      items: 10,
-      deliveryDays: 60,
-      paymentTerms: 'Net 45',
-      warranty: '2 years',
-      validityDays: 30,
-      createdDate: '2024-10-12'
+  // Comparable quotes wired to GET /cpq/quote-versions-list. The endpoint
+  // exposes id/quoteNumber/version/customerName/value/status; delivery/payment/
+  // warranty/validity/discount/items aren't stored there, so they default.
+  const [quotes, setQuotes] = useState<QuoteForComparison[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await cpqAnalyticsLiveService.getQuoteVersions()
+        const mapped: QuoteForComparison[] = raw.map((q) => ({
+          id: String(q.id),
+          quoteNumber: q.quoteNumber || String(q.id),
+          version: q.version || 'v1.0',
+          value: Number(q.value ?? 0),
+          discount: 0,
+          items: 0,
+          deliveryDays: 0,
+          paymentTerms: '-',
+          warranty: '-',
+          validityDays: 0,
+          createdDate: (q.createdDate || '').toString().slice(0, 10),
+        }))
+        if (!cancelled) {
+          setQuotes(mapped)
+          // Pre-select the first two versions so the comparison renders.
+          setSelectedQuotes(mapped.slice(0, 2).map((q) => q.id))
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load quote versions')
+          setQuotes([])
+          setSelectedQuotes([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ]
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Handler functions
   const handleAddQuote = (quoteId: string) => {
@@ -162,7 +168,29 @@ export default function CPQQuotesComparisonPage() {
 
   const selectedQuoteObjects = selectedQuotes.map(id => quotes.find(q => q.id === id)).filter(q => q !== undefined) as QuoteForComparison[]
 
-  if (selectedQuoteObjects.length < 2) return null
+  if (isLoading) {
+    return (
+      <div className="w-full h-full px-4 py-6 text-center text-sm text-gray-500">
+        Loading quote versions...
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full px-4 py-6 text-center text-sm text-red-600">
+        {loadError}
+      </div>
+    )
+  }
+
+  if (selectedQuoteObjects.length < 2) {
+    return (
+      <div className="w-full h-full px-4 py-6 text-center text-sm text-gray-500">
+        At least two quote versions are required to compare. None available yet.
+      </div>
+    )
+  }
 
   const quote1 = selectedQuoteObjects[0]
   const quote2 = selectedQuoteObjects[1]

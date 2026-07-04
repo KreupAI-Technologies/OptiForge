@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, BarChart3, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   EquipmentAnalysisModal, CategoryTrendModal, PeriodComparisonModal,
   EquipmentAnalysisData, CategoryTrendData, PeriodComparisonData
@@ -102,71 +103,36 @@ export default function DowntimeAnalysisPage() {
   ];
 
   // Equipment-wise downtime
-  const equipmentDowntime: EquipmentDowntime[] = [
-    {
-      equipment: 'ASSY-LINE-01',
-      totalDowntime: 18.5,
-      breakdownCount: 6,
-      avgDowntimePerEvent: 3.08,
-      mtbf: 320,
-      mttr: 12.5,
-      trend: 'worsening'
-    },
-    {
-      equipment: 'POLISH-01',
-      totalDowntime: 12.8,
-      breakdownCount: 4,
-      avgDowntimePerEvent: 3.2,
-      mtbf: 380,
-      mttr: 6.8,
-      trend: 'stable'
-    },
-    {
-      equipment: 'CNC-CUT-01',
-      totalDowntime: 8.2,
-      breakdownCount: 2,
-      avgDowntimePerEvent: 4.1,
-      mtbf: 480,
-      mttr: 4.5,
-      trend: 'improving'
-    },
-    {
-      equipment: 'WELD-ST-01',
-      totalDowntime: 6.5,
-      breakdownCount: 1,
-      avgDowntimePerEvent: 6.5,
-      mtbf: 520,
-      mttr: 3.2,
-      trend: 'improving'
-    },
-    {
-      equipment: 'PAINT-BOOTH-01',
-      totalDowntime: 5.8,
-      breakdownCount: 3,
-      avgDowntimePerEvent: 1.93,
-      mtbf: 450,
-      mttr: 8.5,
-      trend: 'stable'
-    },
-    {
-      equipment: 'PRESS-HYDRO-01',
-      totalDowntime: 3.2,
-      breakdownCount: 1,
-      avgDowntimePerEvent: 3.2,
-      mtbf: 610,
-      mttr: 5.2,
-      trend: 'improving'
-    },
-    {
-      equipment: 'LASER-CUT-02',
-      totalDowntime: 2.5,
-      breakdownCount: 2,
-      avgDowntimePerEvent: 1.25,
-      mtbf: 550,
-      mttr: 4.0,
-      trend: 'stable'
-    }
-  ];
+  const [equipmentDowntime, setEquipmentDowntime] = useState<EquipmentDowntime[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getDowntimeRecords()) as any[];
+        const mapped: EquipmentDowntime[] = (raw || []).map((r: any) => {
+          const trendRaw = String(r?.trend ?? 'stable');
+          const trend: EquipmentDowntime['trend'] =
+            trendRaw === 'improving' || trendRaw === 'worsening' ? trendRaw : 'stable';
+          return {
+            equipment: String(r?.equipment ?? r?.equipmentId ?? r?.equipmentName ?? ''),
+            totalDowntime: Number(r?.totalDowntime ?? 0),
+            breakdownCount: Number(r?.breakdownCount ?? 0),
+            avgDowntimePerEvent: Number(r?.avgDowntimePerEvent ?? 0),
+            mtbf: Number(r?.mtbf ?? 0),
+            mttr: Number(r?.mttr ?? 0),
+            trend,
+          };
+        });
+        if (!cancelled) setEquipmentDowntime(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEquipmentDowntime([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Category breakdown
   const categoryBreakdown: CategoryBreakdown[] = [
@@ -323,6 +289,8 @@ export default function DowntimeAnalysisPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import {
   TrendingUp,
   FileCheck,
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 // TypeScript Interfaces
 interface UnpaidInvoice {
@@ -59,133 +60,15 @@ interface ReceivableFormData {
   internalRemarks: string;
 }
 
-// Mock Indian Customers with Credit Info
-const indianCustomers = [
-  {
-    id: 'CUST-001',
-    name: 'Sharma Modular Kitchens Pvt Ltd',
-    city: 'Mumbai',
-    category: 'Wholesale',
-    creditInfo: {
-      creditLimit: 15000000,
-      creditUsed: 5750000,
-      availableCredit: 9250000,
-      creditStatus: 'approved' as const,
-      paymentTerms: 'Net 30 days',
-      riskRating: 'medium' as const,
-    },
-    unpaidInvoices: [
-      {
-        id: '1',
-        invoiceNumber: 'INV-2025-5678',
-        invoiceDate: '2025-10-01',
-        dueDate: '2025-10-31',
-        amount: 1250000,
-        balanceAmount: 1250000,
-        agingDays: 16,
-        status: 'outstanding' as const,
-      },
-      {
-        id: '2',
-        invoiceNumber: 'INV-2025-5456',
-        invoiceDate: '2025-09-15',
-        dueDate: '2025-10-15',
-        amount: 2000000,
-        balanceAmount: 1200000,
-        agingDays: 32,
-        status: 'overdue' as const,
-      },
-    ],
-  },
-  {
-    id: 'CUST-002',
-    name: 'Royal Interiors Bangalore',
-    city: 'Bangalore',
-    category: 'Distributor',
-    creditInfo: {
-      creditLimit: 10000000,
-      creditUsed: 3500000,
-      availableCredit: 6500000,
-      creditStatus: 'approved' as const,
-      paymentTerms: 'Net 45 days',
-      riskRating: 'low' as const,
-    },
-    unpaidInvoices: [
-      {
-        id: '3',
-        invoiceNumber: 'INV-2025-5234',
-        invoiceDate: '2025-09-20',
-        dueDate: '2025-11-04',
-        amount: 1850000,
-        balanceAmount: 1850000,
-        agingDays: 27,
-        status: 'outstanding' as const,
-      },
-    ],
-  },
-  {
-    id: 'CUST-003',
-    name: 'Lifestyle Furniture Delhi',
-    city: 'New Delhi',
-    category: 'Retail',
-    creditInfo: {
-      creditLimit: 5000000,
-      creditUsed: 4200000,
-      availableCredit: 800000,
-      creditStatus: 'on_hold' as const,
-      paymentTerms: 'Net 30 days',
-      riskRating: 'high' as const,
-    },
-    unpaidInvoices: [
-      {
-        id: '4',
-        invoiceNumber: 'INV-2025-5012',
-        invoiceDate: '2025-08-25',
-        dueDate: '2025-09-24',
-        amount: 2100000,
-        balanceAmount: 2100000,
-        agingDays: 53,
-        status: 'overdue' as const,
-      },
-      {
-        id: '5',
-        invoiceNumber: 'INV-2025-4890',
-        invoiceDate: '2025-08-10',
-        dueDate: '2025-09-09',
-        amount: 2100000,
-        balanceAmount: 2100000,
-        agingDays: 68,
-        status: 'overdue' as const,
-      },
-    ],
-  },
-  {
-    id: 'CUST-004',
-    name: 'Metro Home Solutions',
-    city: 'Chennai',
-    category: 'Wholesale',
-    creditInfo: {
-      creditLimit: 12000000,
-      creditUsed: 4500000,
-      availableCredit: 7500000,
-      creditStatus: 'approved' as const,
-      paymentTerms: 'Net 30 days',
-      riskRating: 'low' as const,
-    },
-    unpaidInvoices: [
-      {
-        id: '6',
-        invoiceNumber: 'INV-2025-5345',
-        invoiceDate: '2025-10-05',
-        dueDate: '2025-11-04',
-        amount: 1650000,
-        balanceAmount: 1650000,
-        agingDays: 12,
-        status: 'outstanding' as const,
-      },
-    ],
-  },
-];
+// Customer (AR account) shape used by the customer/invoice dropdowns
+interface IndianCustomer {
+  id: string;
+  name: string;
+  city: string;
+  category: string;
+  creditInfo: CustomerCreditInfo;
+  unpaidInvoices: UnpaidInvoice[];
+}
 
 const collectionAgents = [
   'Priya Desai',
@@ -215,9 +98,67 @@ export default function AddReceivablePage() {
     internalRemarks: '',
   });
 
-  const [selectedCustomerData, setSelectedCustomerData] = useState<typeof indianCustomers[0] | null>(null);
+  const [indianCustomers, setIndianCustomers] = useState<IndianCustomer[]>([]);
+  const [selectedCustomerData, setSelectedCustomerData] = useState<IndianCustomer | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveToQueue, setSaveToQueue] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = (await FinanceService.getReceivables()) as any[];
+        const mapped: IndianCustomer[] = (raw ?? []).map((c) => {
+          const invoicesRaw: any[] = Array.isArray(c.invoices) ? c.invoices : [];
+          const unpaidInvoices: UnpaidInvoice[] = invoicesRaw
+            .filter((inv) => Number(inv.balanceAmount ?? inv.balance ?? inv.amount ?? 0) > 0)
+            .map((inv, i) => {
+              const agingDays = Number(inv.agingDays ?? 0);
+              return {
+                id: String(inv.id ?? inv.invoiceId ?? i),
+                invoiceNumber: inv.invoiceNumber ?? inv.number ?? `INV-${i}`,
+                invoiceDate: inv.invoiceDate ?? inv.date ?? '',
+                dueDate: inv.dueDate ?? '',
+                amount: Number(inv.amount ?? inv.totalAmount ?? 0),
+                balanceAmount: Number(inv.balanceAmount ?? inv.balance ?? inv.amount ?? 0),
+                agingDays,
+                status: (agingDays > 30 ? 'overdue' : 'outstanding') as UnpaidInvoice['status'],
+              };
+            });
+          const creditStatusRaw = String(c.creditStatus ?? 'approved').toLowerCase();
+          const creditStatus: CustomerCreditInfo['creditStatus'] =
+            creditStatusRaw.includes('hold') ? 'on_hold'
+              : creditStatusRaw.includes('suspend') ? 'suspended'
+              : 'approved';
+          const riskRaw = String(c.riskRating ?? 'low').toLowerCase();
+          const riskRating: CustomerCreditInfo['riskRating'] =
+            riskRaw.includes('high') ? 'high' : riskRaw.includes('med') ? 'medium' : 'low';
+          return {
+            id: c.customerId ?? c.customerCode ?? c.id,
+            name: c.customerName ?? c.name ?? '-',
+            city: c.city ?? '-',
+            category: c.customerCategory ?? '-',
+            creditInfo: {
+              creditLimit: Number(c.creditLimit ?? 0),
+              creditUsed: Number(c.creditUsed ?? 0),
+              availableCredit: Number(c.availableCredit ?? 0),
+              creditStatus,
+              paymentTerms: c.paymentTerms ?? '-',
+              riskRating,
+            },
+            unpaidInvoices,
+          };
+        });
+        if (!cancelled) setIndianCustomers(mapped);
+      } catch {
+        if (!cancelled) setIndianCustomers([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCustomerChange = (customerId: string) => {
     const customer = indianCustomers.find(c => c.id === customerId);

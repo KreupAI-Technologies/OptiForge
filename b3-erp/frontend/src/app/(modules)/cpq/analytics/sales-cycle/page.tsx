@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Clock,
   TrendingUp,
@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { cpqAnalyticsLiveService } from '@/services/cpq/cpq-analytics-live.service'
 import {
   LineChart,
   Line,
@@ -35,65 +36,89 @@ import {
 import { useRouter } from 'next/navigation'
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow'
 
+// Fixed colour palette for the conversion funnel bars (config, not data).
+const FUNNEL_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444']
+const CYCLE_TARGET_DAYS = 25
+
+interface CycleTrendRow { month: string; avgDays: number; targetDays: number; deals: number }
+interface StageDurationRow { stage: string; avgDays: number; percentage: number }
+interface ConversionFunnelRow { stage: string; value: number; name: string; fill: string }
+interface CycleBySizeRow { range: string; avgDays: number; deals: number; velocity: string }
+interface BottleneckRow { stage: string; avgDelay: number; impactedDeals: number; lostDeals: number; reason: string }
+interface VelocityByProductRow { category: string; avgDays: number; deals: number; conversionRate: number }
+
 export default function CPQAnalyticsSalesCyclePage() {
   const router = useRouter()
   const [timeRange, setTimeRange] = useState('last-6-months')
 
-  // Average sales cycle time trend
-  const cycleTrend = [
-    { month: 'Apr', avgDays: 28, targetDays: 25, deals: 58 },
-    { month: 'May', avgDays: 26, targetDays: 25, deals: 72 },
-    { month: 'Jun', avgDays: 27, targetDays: 25, deals: 81 },
-    { month: 'Jul', avgDays: 25, targetDays: 25, deals: 76 },
-    { month: 'Aug', avgDays: 23, targetDays: 25, deals: 95 },
-    { month: 'Sep', avgDays: 22, targetDays: 25, deals: 112 }
-  ]
+  // Data arrays wired to GET /cpq/analytics/dashboards/sales-cycle (aggregates
+  // cpq_quotes). cycleTrend, conversionFunnel and cycleBySize come from the
+  // endpoint. Stage/bottleneck/velocity cuts have no backing field and stay
+  // empty until the API exposes them.
+  const [cycleTrend, setCycleTrend] = useState<CycleTrendRow[]>([])
+  const [stageDuration, setStageDuration] = useState<StageDurationRow[]>([])
+  const [conversionFunnel, setConversionFunnel] = useState<ConversionFunnelRow[]>([])
+  const [cycleBySize, setCycleBySize] = useState<CycleBySizeRow[]>([])
+  const [bottlenecks, setBottlenecks] = useState<BottleneckRow[]>([])
+  const [velocityByProduct, setVelocityByProduct] = useState<VelocityByProductRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Stage duration breakdown
-  const stageDuration = [
-    { stage: 'Lead Qualification', avgDays: 3, percentage: 13.6 },
-    { stage: 'Needs Analysis', avgDays: 4, percentage: 18.2 },
-    { stage: 'Product Demo', avgDays: 2, percentage: 9.1 },
-    { stage: 'Proposal', avgDays: 5, percentage: 22.7 },
-    { stage: 'Negotiation', avgDays: 6, percentage: 27.3 },
-    { stage: 'Contract Review', avgDays: 2, percentage: 9.1 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const dash = await cpqAnalyticsLiveService.getSalesCycleDashboard()
 
-  // Conversion funnel
-  const conversionFunnel = [
-    { stage: 'Leads', value: 625, name: 'Leads', fill: '#3b82f6' },
-    { stage: 'Qualified', value: 485, name: 'Qualified', fill: '#8b5cf6' },
-    { stage: 'Proposal', value: 342, name: 'Proposal', fill: '#10b981' },
-    { stage: 'Negotiation', value: 245, name: 'Negotiation', fill: '#f59e0b' },
-    { stage: 'Won', value: 112, name: 'Won', fill: '#ef4444' }
-  ]
+        const trend: CycleTrendRow[] = (dash.cycleTrend ?? []).map((t) => ({
+          month: t.month,
+          avgDays: Number(t.avgDays || 0),
+          targetDays: CYCLE_TARGET_DAYS,
+          deals: 0,
+        }))
 
-  // Cycle time by deal size
-  const cycleBySize = [
-    { range: '< ₹2L', avgDays: 18, deals: 145, velocity: 'Fast' },
-    { range: '₹2L - ₹5L', avgDays: 22, deals: 188, velocity: 'Medium' },
-    { range: '₹5L - ₹10L', avgDays: 28, deals: 95, velocity: 'Medium' },
-    { range: '> ₹10L', avgDays: 42, deals: 66, velocity: 'Slow' }
-  ]
+        const funnel: ConversionFunnelRow[] = (dash.conversionFunnel ?? []).map((f, idx) => ({
+          stage: f.stage,
+          value: Number(f.count || 0),
+          name: f.stage,
+          fill: FUNNEL_COLORS[idx % FUNNEL_COLORS.length],
+        }))
 
-  // Bottleneck analysis
-  const bottlenecks = [
-    { stage: 'Negotiation', avgDelay: 6, impactedDeals: 45, lostDeals: 18, reason: 'Pricing discussions' },
-    { stage: 'Contract Review', avgDelay: 4, impactedDeals: 32, lostDeals: 12, reason: 'Legal approval delays' },
-    { stage: 'Proposal', avgDelay: 5, impactedDeals: 28, lostDeals: 8, reason: 'Custom requirements' },
-    { stage: 'Needs Analysis', avgDelay: 3, impactedDeals: 22, lostDeals: 5, reason: 'Stakeholder alignment' }
-  ]
+        const bySize: CycleBySizeRow[] = (dash.cycleBySize ?? []).map((c) => {
+          const days = Number(c.avgDays || 0)
+          return {
+            range: c.range,
+            avgDays: days,
+            deals: 0,
+            velocity: days <= 20 ? 'Fast' : days <= 30 ? 'Medium' : 'Slow',
+          }
+        })
 
-  // Velocity by product category
-  const velocityByProduct = [
-    { category: 'Modular Kitchens', avgDays: 24, deals: 198, conversionRate: 51.7 },
-    { category: 'Wardrobes', avgDays: 26, deals: 95, conversionRate: 40.1 },
-    { category: 'Living Room', avgDays: 22, deals: 68, conversionRate: 41.0 },
-    { category: 'Office Furniture', avgDays: 35, deals: 45, conversionRate: 32.1 },
-    { category: 'Bathroom Vanities', avgDays: 20, deals: 88, conversionRate: 44.9 }
-  ]
+        if (!cancelled) {
+          setCycleTrend(trend)
+          setConversionFunnel(funnel)
+          setCycleBySize(bySize)
+          setStageDuration([])
+          setBottlenecks([])
+          setVelocityByProduct([])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load sales cycle analytics')
+          setCycleTrend([]); setStageDuration([]); setConversionFunnel([]); setCycleBySize([])
+          setBottlenecks([]); setVelocityByProduct([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
-  // Time-to-close distribution
+  // Time-to-close distribution (not rendered; retained for reference)
   const timeDistribution = [
     { range: '< 2 weeks', count: 145, percentage: 29.4, avgValue: 2.1 },
     { range: '2-4 weeks', count: 185, percentage: 37.4, avgValue: 3.8 },
@@ -140,6 +165,13 @@ export default function CPQAnalyticsSalesCyclePage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 text-sm text-gray-500">Loading sales cycle analytics...</div>
+      )}
+      {!isLoading && loadError && (
+        <div className="mb-3 text-sm text-red-600">{loadError}</div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">

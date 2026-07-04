@@ -1,15 +1,72 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Download, Filter, X, Calendar, Check, Banknote } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockLeaveTypes, LeaveType } from '@/data/hr/leave-types';
+import { LeaveType } from '@/data/hr/leave-types';
+import { LeaveService } from '@/services/leave.service';
 import { AddLeaveTypeModal } from '@/components/hr/AddLeaveTypeModal';
 import { exportToCsv } from '@/lib/export';
 
+const ACCRUAL_MAP: Record<string, LeaveType['accrualType']> = {
+  Monthly: 'monthly',
+  Yearly: 'yearly',
+  Annual: 'yearly',
+  None: 'none',
+};
+
 export default function LeaveTypesPage() {
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(mockLeaveTypes);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LeaveService.getAllLeaveTypesRaw()) as any[];
+        const mapped: LeaveType[] = raw.map((r) => ({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          shortName: r.code,
+          description: r.description ?? '',
+          maxDaysPerYear: Number(r.maxDaysPerYear ?? 0),
+          maxConsecutiveDays: r.maxDaysPerApplication != null ? Number(r.maxDaysPerApplication) : undefined,
+          carryForward: !!r.allowCarryForward,
+          carryForwardLimit: r.maxCarryForward != null ? Number(r.maxCarryForward) : undefined,
+          encashable: !!r.allowEncashment,
+          encashmentLimit: r.maxEncashmentDays != null ? Number(r.maxEncashmentDays) : undefined,
+          paidLeave: !!r.isPaid,
+          requiresApproval: !!r.requiresApproval,
+          advanceNoticeDays: Number(r.minAdvanceNoticeDays ?? 0),
+          applicableFor: 'all',
+          color: r.color ?? 'bg-gray-100 text-gray-800 border-gray-200',
+          icon: '📅',
+          isActive: (r.status ?? 'Active') === 'Active',
+          accrualType: ACCRUAL_MAP[r.accrualType] ?? 'none',
+          accrualRate: r.accrualRate != null ? Number(r.accrualRate) : undefined,
+          createdAt: r.createdAt ?? '',
+          updatedAt: r.updatedAt ?? '',
+        }));
+        if (!cancelled) setLeaveTypes(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave types');
+          setLeaveTypes([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaidLeave, setFilterPaidLeave] = useState<string>('all');
   const [filterEncashable, setFilterEncashable] = useState<string>('all');
@@ -248,6 +305,18 @@ export default function LeaveTypesPage() {
           </button>
         </div>
       </div>
+
+      {/* Loading / Error Banners */}
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm">
+          Loading leave types…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2">

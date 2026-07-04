@@ -562,6 +562,25 @@ export class LeaveService {
   }
 
   /**
+   * Get all leave types (raw ORM shape) with company header.
+   */
+  static async getAllLeaveTypesRaw(): Promise<any[]> {
+    return this.request<any[]>('/hr/leave-types', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
+   * Get all leave applications (raw ORM shape) with company header.
+   * Backend returns [] when unseeded.
+   */
+  static async getAllLeaveApplicationsRaw(): Promise<any[]> {
+    return this.request<any[]>('/hr/leave-applications', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
    * Get all leave types
    */
   static async getLeaveTypes(): Promise<LeaveType[]> {
@@ -831,6 +850,16 @@ export class LeaveService {
     }
     return this.request<LeaveApplication>(`/hr/leave-applications/${id}/withdraw`, {
       method: 'POST',
+    });
+  }
+
+  /**
+   * Get all leave balances (raw ORM shape) with company header.
+   * Backend returns [] when unseeded.
+   */
+  static async getAllLeaveBalances(): Promise<any[]> {
+    return this.request<any[]>('/hr/leave-balances', {
+      headers: { 'x-company-id': 'test' },
     });
   }
 

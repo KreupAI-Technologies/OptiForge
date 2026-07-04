@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp,
@@ -15,6 +15,10 @@ import {
   ExternalLink,
   Award
 } from 'lucide-react'
+import {
+  estimationPricingLiveService,
+  PricingRecord,
+} from '@/services/estimation-pricing-live.service'
 
 interface CompetitivePrice {
   id: string
@@ -51,294 +55,82 @@ interface CompetitorProfile {
 export default function CompetitivePricingPage() {
   const router = useRouter()
 
-  const [competitivePrices] = useState<CompetitivePrice[]>([
-    {
-      id: 'CP-001',
-      productCode: 'KIT-SS-001',
-      productName: 'Premium Undermount Kitchen Sink',
-      category: 'Kitchen Sinks',
-      ourPrice: 12500,
-      ourCost: 8450,
-      ourMargin: 32.4,
-      competitor1: 'Nirali',
-      competitor1Price: 13200,
-      competitor1Position: 'higher',
-      competitor2: 'Carysil',
-      competitor2Price: 12800,
-      competitor2Position: 'higher',
-      competitor3: 'Franke',
-      competitor3Price: 14500,
-      competitor3Position: 'higher',
-      marketAvg: 13375,
-      priceIndex: 93.5,
-      recommendation: 'increase',
-      priceDifferential: -875,
-      status: 'underpriced'
-    },
-    {
-      id: 'CP-002',
-      productCode: 'KIT-FAU-001',
-      productName: 'Premium Chrome Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      ourPrice: 5800,
-      ourCost: 3850,
-      ourMargin: 33.6,
-      competitor1: 'Jaquar',
-      competitor1Price: 6200,
-      competitor1Position: 'higher',
-      competitor2: 'Grohe',
-      competitor2Price: 7500,
-      competitor2Position: 'higher',
-      competitor3: 'Hindware',
-      competitor3Price: 5500,
-      competitor3Position: 'lower',
-      marketAvg: 6400,
-      priceIndex: 90.6,
-      recommendation: 'maintain',
-      priceDifferential: -600,
-      status: 'competitive'
-    },
-    {
-      id: 'CP-003',
-      productCode: 'KIT-CW-001',
-      productName: 'Non-Stick Aluminum Frying Pan (12")',
-      category: 'Cookware',
-      ourPrice: 1950,
-      ourCost: 1250,
-      ourMargin: 35.9,
-      competitor1: 'Prestige',
-      competitor1Price: 1850,
-      competitor1Position: 'lower',
-      competitor2: 'Hawkins',
-      competitor2Price: 1750,
-      competitor2Position: 'lower',
-      competitor3: 'Pigeon',
-      competitor3Price: 1650,
-      competitor3Position: 'lower',
-      marketAvg: 1800,
-      priceIndex: 108.3,
-      recommendation: 'decrease',
-      priceDifferential: 150,
-      status: 'overpriced'
-    },
-    {
-      id: 'CP-004',
-      productCode: 'KIT-CHIM-001',
-      productName: 'Auto-Clean Kitchen Chimney 90cm',
-      category: 'Kitchen Appliances',
-      ourPrice: 28000,
-      ourCost: 18500,
-      ourMargin: 33.9,
-      competitor1: 'Elica',
-      competitor1Price: 29500,
-      competitor1Position: 'higher',
-      competitor2: 'Faber',
-      competitor2Price: 27500,
-      competitor2Position: 'lower',
-      competitor3: 'Glen',
-      competitor3Price: 26800,
-      competitor3Position: 'lower',
-      marketAvg: 27950,
-      priceIndex: 100.2,
-      recommendation: 'maintain',
-      priceDifferential: 50,
-      status: 'competitive'
-    },
-    {
-      id: 'CP-005',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet (24" x 34")',
-      category: 'Kitchen Cabinets',
-      ourPrice: 18500,
-      ourCost: 12800,
-      ourMargin: 30.8,
-      competitor1: 'Godrej',
-      competitor1Price: 19200,
-      competitor1Position: 'higher',
-      competitor2: 'Sleek',
-      competitor2Price: 18800,
-      competitor2Position: 'higher',
-      competitor3: 'Hafele',
-      competitor3Price: 22000,
-      competitor3Position: 'higher',
-      marketAvg: 20000,
-      priceIndex: 92.5,
-      recommendation: 'increase',
-      priceDifferential: -1500,
-      status: 'underpriced'
-    },
-    {
-      id: 'CP-006',
-      productCode: 'KIT-CT-001',
-      productName: 'Black Galaxy Granite Countertop',
-      category: 'Countertops',
-      ourPrice: 42000,
-      ourCost: 28500,
-      ourMargin: 32.1,
-      competitor1: 'Asian Granito',
-      competitor1Price: 44000,
-      competitor1Position: 'higher',
-      competitor2: 'Kajaria',
-      competitor2Price: 43500,
-      competitor2Position: 'higher',
-      competitor3: 'Somany',
-      competitor3Price: 41500,
-      competitor3Position: 'lower',
-      marketAvg: 43000,
-      priceIndex: 97.7,
-      recommendation: 'maintain',
-      priceDifferential: -1000,
-      status: 'competitive'
-    },
-    {
-      id: 'CP-007',
-      productCode: 'KIT-SS-002',
-      productName: 'Double Bowl Kitchen Sink',
-      category: 'Kitchen Sinks',
-      ourPrice: 14500,
-      ourCost: 9850,
-      ourMargin: 32.1,
-      competitor1: 'Nirali',
-      competitor1Price: 15000,
-      competitor1Position: 'higher',
-      competitor2: 'Carysil',
-      competitor2Price: 14800,
-      competitor2Position: 'higher',
-      competitor3: 'Futura',
-      competitor3Price: 13800,
-      competitor3Position: 'lower',
-      marketAvg: 14533,
-      priceIndex: 99.8,
-      recommendation: 'maintain',
-      priceDifferential: -33,
-      status: 'competitive'
-    },
-    {
-      id: 'CP-008',
-      productCode: 'KIT-FAU-002',
-      productName: 'Pull-Down Spray Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      ourPrice: 7800,
-      ourCost: 5200,
-      ourMargin: 33.3,
-      competitor1: 'Jaquar',
-      competitor1Price: 8500,
-      competitor1Position: 'higher',
-      competitor2: 'Kohler',
-      competitor2Price: 9200,
-      competitor2Position: 'higher',
-      competitor3: 'Hindware',
-      competitor3Price: 7200,
-      competitor3Position: 'lower',
-      marketAvg: 8300,
-      priceIndex: 94.0,
-      recommendation: 'increase',
-      priceDifferential: -500,
-      status: 'underpriced'
-    },
-    {
-      id: 'CP-009',
-      productCode: 'KIT-CW-002',
-      productName: 'Stainless Steel Pressure Cooker (5L)',
-      category: 'Cookware',
-      ourPrice: 3800,
-      ourCost: 2450,
-      ourMargin: 35.5,
-      competitor1: 'Prestige',
-      competitor1Price: 3950,
-      competitor1Position: 'higher',
-      competitor2: 'Hawkins',
-      competitor2Price: 3750,
-      competitor2Position: 'lower',
-      competitor3: 'Butterfly',
-      competitor3Price: 3600,
-      competitor3Position: 'lower',
-      marketAvg: 3775,
-      priceIndex: 100.7,
-      recommendation: 'maintain',
-      priceDifferential: 25,
-      status: 'competitive'
-    },
-    {
-      id: 'CP-010',
-      productCode: 'KIT-ACC-001',
-      productName: 'Pull-Out Kitchen Organizer',
-      category: 'Kitchen Accessories',
-      ourPrice: 4850,
-      ourCost: 3200,
-      ourMargin: 34.0,
-      competitor1: 'Hafele',
-      competitor1Price: 5200,
-      competitor1Position: 'higher',
-      competitor2: 'Ebco',
-      competitor2Price: 4900,
-      competitor2Position: 'higher',
-      competitor3: 'Hettich',
-      competitor3Price: 5400,
-      competitor3Position: 'higher',
-      marketAvg: 5167,
-      priceIndex: 93.9,
-      recommendation: 'increase',
-      priceDifferential: -317,
-      status: 'underpriced'
-    },
-    {
-      id: 'CP-011',
-      productCode: 'KIT-CT-002',
-      productName: 'White Quartz Countertop',
-      category: 'Countertops',
-      ourPrice: 39500,
-      ourCost: 26800,
-      ourMargin: 32.2,
-      competitor1: 'Asian Granito',
-      competitor1Price: 41000,
-      competitor1Position: 'higher',
-      competitor2: 'Caesarstone',
-      competitor2Price: 45000,
-      competitor2Position: 'higher',
-      competitor3: 'Somany',
-      competitor3Price: 38500,
-      competitor3Position: 'lower',
-      marketAvg: 41500,
-      priceIndex: 95.2,
-      recommendation: 'maintain',
-      priceDifferential: -2000,
-      status: 'competitive'
-    },
-    {
-      id: 'CP-012',
-      productCode: 'KIT-CAB-002',
-      productName: 'Wall Cabinet with Glass Door (30" x 30")',
-      category: 'Kitchen Cabinets',
-      ourPrice: 13800,
-      ourCost: 9500,
-      ourMargin: 31.2,
-      competitor1: 'Godrej',
-      competitor1Price: 14500,
-      competitor1Position: 'higher',
-      competitor2: 'Sleek',
-      competitor2Price: 14200,
-      competitor2Position: 'higher',
-      competitor3: 'Hafele',
-      competitor3Price: 16500,
-      competitor3Position: 'higher',
-      marketAvg: 15067,
-      priceIndex: 91.6,
-      recommendation: 'increase',
-      priceDifferential: -1267,
-      status: 'underpriced'
-    }
-  ])
+  const [competitivePrices, setCompetitivePrices] = useState<CompetitivePrice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const competitorProfiles: CompetitorProfile[] = [
-    { name: 'Nirali', marketShare: 18, avgPriceIndex: 105, productsTracked: 45, positioning: 'premium' },
-    { name: 'Carysil', marketShare: 15, avgPriceIndex: 103, productsTracked: 38, positioning: 'premium' },
-    { name: 'Jaquar', marketShare: 22, avgPriceIndex: 110, productsTracked: 52, positioning: 'premium' },
-    { name: 'Prestige', marketShare: 25, avgPriceIndex: 98, productsTracked: 68, positioning: 'mid-range' },
-    { name: 'Hindware', marketShare: 16, avgPriceIndex: 95, productsTracked: 42, positioning: 'mid-range' },
-    { name: 'Godrej', marketShare: 20, avgPriceIndex: 102, productsTracked: 35, positioning: 'premium' },
-    { name: 'Hafele', marketShare: 12, avgPriceIndex: 115, productsTracked: 28, positioning: 'premium' }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Map pricing records to the competitive-comparison shape. The pricing
+        // endpoint has no competitor feed, so competitor columns are neutral and
+        // the market index is anchored at 100 (parity) using our own totalPrice.
+        const raw = await estimationPricingLiveService.getPricing()
+        const mapped: CompetitivePrice[] = raw.map((p: PricingRecord) => {
+          const ourPrice = Number(p.totalPrice ?? 0)
+          const ourCost = Number(p.baseCost ?? 0)
+          const ourMargin = Number(p.actualMarginPercentage ?? p.markupPercentage ?? 0)
+          return {
+            id: p.id,
+            productCode: p.pricingNumber ?? p.id,
+            productName: p.title ?? 'Untitled Pricing',
+            category: p.category ?? p.pricingStrategy ?? 'General',
+            ourPrice,
+            ourCost,
+            ourMargin,
+            competitor1: '—',
+            competitor1Price: 0,
+            competitor1Position: 'same',
+            competitor2: '—',
+            competitor2Price: 0,
+            competitor2Position: 'same',
+            competitor3: '—',
+            competitor3Price: 0,
+            competitor3Position: 'same',
+            marketAvg: ourPrice,
+            priceIndex: 100,
+            recommendation: 'monitor',
+            priceDifferential: 0,
+            status: 'competitive',
+          }
+        })
+        if (!cancelled) setCompetitivePrices(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load competitive pricing',
+          )
+          setCompetitivePrices([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Competitor profiles are derived from named competitors present in the rows.
+  const competitorProfiles: CompetitorProfile[] = useMemo(() => {
+    const names = new Map<string, number>()
+    competitivePrices.forEach((p) => {
+      ;[p.competitor1, p.competitor2, p.competitor3].forEach((n) => {
+        if (n && n !== '—') names.set(n, (names.get(n) ?? 0) + 1)
+      })
+    })
+    return Array.from(names.entries()).map(([name, productsTracked]) => ({
+      name,
+      marketShare: 0,
+      avgPriceIndex: 100,
+      productsTracked,
+      positioning: 'mid-range' as const,
+    }))
+  }, [competitivePrices])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -381,13 +173,25 @@ export default function CompetitivePricingPage() {
     }
   }
 
-  const avgPriceIndex = competitivePrices.reduce((sum, p) => sum + p.priceIndex, 0) / competitivePrices.length
+  const avgPriceIndex = competitivePrices.length
+    ? competitivePrices.reduce((sum, p) => sum + p.priceIndex, 0) / competitivePrices.length
+    : 0
   const competitiveCount = competitivePrices.filter(p => p.status === 'competitive').length
   const underpricedCount = competitivePrices.filter(p => p.status === 'underpriced').length
   const overpricedCount = competitivePrices.filter(p => p.status === 'overpriced').length
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+          Loading competitive pricing...
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3 flex items-center justify-end gap-3">
         <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
@@ -519,6 +323,13 @@ export default function CompetitivePricingPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {competitivePrices.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
+                    {isLoading ? 'Loading...' : 'No competitive pricing found.'}
+                  </td>
+                </tr>
+              )}
               {competitivePrices.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">

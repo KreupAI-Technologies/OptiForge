@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Clock, CheckCircle, XCircle, Eye, Download, FileText, Calendar, User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import ConfirmationModal from '@/components/payroll/ConfirmationModal';
@@ -29,135 +30,29 @@ interface Expense {
 }
 
 export default function PendingExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>([
-    {
-      id: 'EXP-2025-001',
-      title: 'Business Trip to Mumbai - March 2025',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      department: 'Sales',
-      submittedDate: '2025-03-15',
-      totalAmount: 15750,
-      itemCount: 4,
-      status: 'pending',
-      items: [
-        {
-          id: '1',
-          category: 'Travel',
-          description: 'Flight ticket - Mumbai to Delhi',
-          amount: 8500,
-          date: '2025-03-10',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Accommodation',
-          description: 'Hotel stay (2 nights)',
-          amount: 4500,
-          date: '2025-03-10',
-          receipt: true
-        },
-        {
-          id: '3',
-          category: 'Meals',
-          description: 'Client dinner',
-          amount: 1750,
-          date: '2025-03-11',
-          receipt: true
-        },
-        {
-          id: '4',
-          category: 'Transport',
-          description: 'Local taxi',
-          amount: 1000,
-          date: '2025-03-12',
-          receipt: false
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.expenseClaims<any[]>();
+        if (!cancelled) setExpenses(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setExpenses([]);
         }
-      ]
-    },
-    {
-      id: 'EXP-2025-002',
-      title: 'Office Supplies - March 2025',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      department: 'Operations',
-      submittedDate: '2025-03-16',
-      totalAmount: 3200,
-      itemCount: 2,
-      status: 'pending',
-      items: [
-        {
-          id: '1',
-          category: 'Office Supplies',
-          description: 'Printer ink cartridges',
-          amount: 2400,
-          date: '2025-03-14',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Office Supplies',
-          description: 'Stationery items',
-          amount: 800,
-          date: '2025-03-14',
-          receipt: true
-        }
-      ]
-    },
-    {
-      id: 'EXP-2025-003',
-      title: 'Training Conference - Bangalore',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      department: 'Engineering',
-      submittedDate: '2025-03-17',
-      totalAmount: 22500,
-      itemCount: 5,
-      status: 'pending',
-      items: [
-        {
-          id: '1',
-          category: 'Training',
-          description: 'Conference registration fee',
-          amount: 12000,
-          date: '2025-03-08',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Travel',
-          description: 'Flight tickets',
-          amount: 6500,
-          date: '2025-03-08',
-          receipt: true
-        },
-        {
-          id: '3',
-          category: 'Accommodation',
-          description: 'Hotel (3 nights)',
-          amount: 3000,
-          date: '2025-03-08',
-          receipt: true
-        },
-        {
-          id: '4',
-          category: 'Transport',
-          description: 'Airport transfers',
-          amount: 600,
-          date: '2025-03-08',
-          receipt: false
-        },
-        {
-          id: '5',
-          category: 'Meals',
-          description: 'Food expenses',
-          amount: 400,
-          date: '2025-03-09',
-          receipt: false
-        }
-      ]
-    }
-  ]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);

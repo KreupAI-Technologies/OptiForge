@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, CheckCircle, Clock, AlertCircle, Plus, X } from 'lucide-react';
+import { PayrollService } from '@/services/payroll.service';
 
 interface PayrollCalendarEvent {
   id: string;
@@ -21,55 +22,44 @@ export default function PayrollCalendarPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<PayrollCalendarEvent | null>(null);
 
-  const initialCalendar: PayrollCalendarEvent[] = [
-    {
-      id: 'CAL-2025-12',
-      monthYear: 'December 2025',
-      cutoffDate: '2025-12-25',
-      attendanceFreeze: '2025-12-26',
-      salaryProcessing: '2025-12-27',
-      verificationDeadline: '2025-12-28',
-      approvalDeadline: '2025-12-29',
-      disbursementDate: '2025-12-30',
-      status: 'upcoming',
-      notes: 'Year-end bonuses to be included'
-    },
-    {
-      id: 'CAL-2025-11',
-      monthYear: 'November 2025',
-      cutoffDate: '2025-11-25',
-      attendanceFreeze: '2025-11-26',
-      salaryProcessing: '2025-11-27',
-      verificationDeadline: '2025-11-28',
-      approvalDeadline: '2025-11-28',
-      disbursementDate: '2025-11-29',
-      status: 'in_progress'
-    },
-    {
-      id: 'CAL-2025-10',
-      monthYear: 'October 2025',
-      cutoffDate: '2025-10-25',
-      attendanceFreeze: '2025-10-26',
-      salaryProcessing: '2025-10-27',
-      verificationDeadline: '2025-10-29',
-      approvalDeadline: '2025-10-30',
-      disbursementDate: '2025-10-31',
-      status: 'completed'
-    },
-    {
-      id: 'CAL-2025-09',
-      monthYear: 'September 2025',
-      cutoffDate: '2025-09-25',
-      attendanceFreeze: '2025-09-26',
-      salaryProcessing: '2025-09-27',
-      verificationDeadline: '2025-09-28',
-      approvalDeadline: '2025-09-29',
-      disbursementDate: '2025-09-30',
-      status: 'completed'
-    }
-  ];
+  const [calendar, setCalendar] = useState<PayrollCalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [calendar, setCalendar] = useState<PayrollCalendarEvent[]>(initialCalendar);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await PayrollService.getPayrollCalendar()) as any[];
+        const mapped: PayrollCalendarEvent[] = raw.map((r) => ({
+          id: String(r.id),
+          monthYear: r.monthYear ?? '',
+          cutoffDate: r.cutoffDate ?? '',
+          attendanceFreeze: r.attendanceFreeze ?? '',
+          salaryProcessing: r.salaryProcessing ?? '',
+          verificationDeadline: r.verificationDeadline ?? '',
+          approvalDeadline: r.approvalDeadline ?? '',
+          disbursementDate: r.disbursementDate ?? '',
+          status: (r.status ?? 'upcoming') as PayrollCalendarEvent['status'],
+          notes: r.notes ?? undefined,
+        }));
+        if (!cancelled) setCalendar(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load payroll calendar');
+          setCalendar([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAdd = () => {
     setEditingEvent(null);

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RunMRPModal, ExportMPSModal, AdjustPlanModal } from '@/components/production/MPSModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { exportToCsv } from '@/lib/export';
 import {
   Calendar,
@@ -147,218 +148,56 @@ const ProductionPlanningPage = () => {
   const [selectedProductForAdjust, setSelectedProductForAdjust] = useState<any | null>(null);
 
   // Mock Data - Master Production Schedule
-  const [mpsData, setMpsData] = useState<MPSProduct[]>([
-    {
-      id: 'MPS001',
-      productCode: 'FG-PANEL-001',
-      productName: 'LV Control Panel - 400A',
-      family: 'Control Panels',
-      planningStrategy: 'MTS',
-      abcClass: 'A',
-      uom: 'NOS',
-      leadTime: 2,
-      lotSize: 10,
-      safetyStock: 5,
-      currentInventory: 12,
-      totalDemand: 45,
-      totalPlanned: 50,
-      status: 'ok',
-      periods: [
-        {
-          periodNumber: 1,
-          startDate: '2025-10-20',
-          endDate: '2025-10-26',
-          beginningInventory: 12,
-          grossRequirements: 8,
-          scheduledReceipts: 10,
-          projectedAvailable: 14,
-          netRequirements: 0,
-          plannedOrderReleases: 0,
-          availableToPromise: 14,
-          demandBreakdown: { forecast: 5, firmOrders: 3, safetyStock: 0 },
-        },
-        {
-          periodNumber: 2,
-          startDate: '2025-10-27',
-          endDate: '2025-11-02',
-          beginningInventory: 14,
-          grossRequirements: 12,
-          scheduledReceipts: 0,
-          projectedAvailable: 2,
-          netRequirements: 8,
-          plannedOrderReleases: 10,
-          availableToPromise: 2,
-          demandBreakdown: { forecast: 7, firmOrders: 5, safetyStock: 0 },
-        },
-        {
-          periodNumber: 3,
-          startDate: '2025-11-03',
-          endDate: '2025-11-09',
-          beginningInventory: 2,
-          grossRequirements: 10,
-          scheduledReceipts: 10,
-          projectedAvailable: 2,
-          netRequirements: 3,
-          plannedOrderReleases: 10,
-          availableToPromise: 2,
-          demandBreakdown: { forecast: 6, firmOrders: 4, safetyStock: 0 },
-        },
-        {
-          periodNumber: 4,
-          startDate: '2025-11-10',
-          endDate: '2025-11-16',
-          beginningInventory: 2,
-          grossRequirements: 15,
-          scheduledReceipts: 10,
-          projectedAvailable: -3,
-          netRequirements: 8,
-          plannedOrderReleases: 10,
-          availableToPromise: -3,
-          demandBreakdown: { forecast: 8, firmOrders: 7, safetyStock: 0 },
-        },
-      ],
-    },
-    {
-      id: 'MPS002',
-      productCode: 'FG-SWITCH-002',
-      productName: 'VCB - 11kV 630A',
-      family: 'Switchgear',
-      planningStrategy: 'MTO',
-      abcClass: 'A',
-      uom: 'NOS',
-      leadTime: 3,
-      lotSize: 5,
-      safetyStock: 2,
-      currentInventory: 3,
-      totalDemand: 28,
-      totalPlanned: 30,
-      status: 'warning',
-      periods: [
-        {
-          periodNumber: 1,
-          startDate: '2025-10-20',
-          endDate: '2025-10-26',
-          beginningInventory: 3,
-          grossRequirements: 6,
-          scheduledReceipts: 5,
-          projectedAvailable: 2,
-          netRequirements: 0,
-          plannedOrderReleases: 5,
-          availableToPromise: 2,
-          demandBreakdown: { forecast: 3, firmOrders: 3, safetyStock: 0 },
-        },
-        {
-          periodNumber: 2,
-          startDate: '2025-10-27',
-          endDate: '2025-11-02',
-          beginningInventory: 2,
-          grossRequirements: 8,
-          scheduledReceipts: 5,
-          projectedAvailable: -1,
-          netRequirements: 4,
-          plannedOrderReleases: 5,
-          availableToPromise: -1,
-          demandBreakdown: { forecast: 4, firmOrders: 4, safetyStock: 0 },
-        },
-        {
-          periodNumber: 3,
-          startDate: '2025-11-03',
-          endDate: '2025-11-09',
-          beginningInventory: -1,
-          grossRequirements: 7,
-          scheduledReceipts: 5,
-          projectedAvailable: -3,
-          netRequirements: 5,
-          plannedOrderReleases: 5,
-          availableToPromise: -3,
-          demandBreakdown: { forecast: 4, firmOrders: 3, safetyStock: 0 },
-        },
-        {
-          periodNumber: 4,
-          startDate: '2025-11-10',
-          endDate: '2025-11-16',
-          beginningInventory: -3,
-          grossRequirements: 7,
-          scheduledReceipts: 5,
-          projectedAvailable: -5,
-          netRequirements: 7,
-          plannedOrderReleases: 10,
-          availableToPromise: -5,
-          demandBreakdown: { forecast: 3, firmOrders: 4, safetyStock: 0 },
-        },
-      ],
-    },
-    {
-      id: 'MPS003',
-      productCode: 'FG-TRANS-003',
-      productName: 'Transformer - 1000 KVA',
-      family: 'Transformers',
-      planningStrategy: 'ATO',
-      abcClass: 'B',
-      uom: 'NOS',
-      leadTime: 4,
-      lotSize: 2,
-      safetyStock: 1,
-      currentInventory: 2,
-      totalDemand: 12,
-      totalPlanned: 14,
-      status: 'ok',
-      periods: [
-        {
-          periodNumber: 1,
-          startDate: '2025-10-20',
-          endDate: '2025-10-26',
-          beginningInventory: 2,
-          grossRequirements: 3,
-          scheduledReceipts: 2,
-          projectedAvailable: 1,
-          netRequirements: 1,
-          plannedOrderReleases: 2,
-          availableToPromise: 1,
-          demandBreakdown: { forecast: 2, firmOrders: 1, safetyStock: 0 },
-        },
-        {
-          periodNumber: 2,
-          startDate: '2025-10-27',
-          endDate: '2025-11-02',
-          beginningInventory: 1,
-          grossRequirements: 3,
-          scheduledReceipts: 2,
-          projectedAvailable: 0,
-          netRequirements: 1,
-          plannedOrderReleases: 2,
-          availableToPromise: 0,
-          demandBreakdown: { forecast: 2, firmOrders: 1, safetyStock: 0 },
-        },
-        {
-          periodNumber: 3,
-          startDate: '2025-11-03',
-          endDate: '2025-11-09',
-          beginningInventory: 0,
-          grossRequirements: 3,
-          scheduledReceipts: 2,
-          projectedAvailable: -1,
-          netRequirements: 2,
-          plannedOrderReleases: 2,
-          availableToPromise: -1,
-          demandBreakdown: { forecast: 1, firmOrders: 2, safetyStock: 0 },
-        },
-        {
-          periodNumber: 4,
-          startDate: '2025-11-10',
-          endDate: '2025-11-16',
-          beginningInventory: -1,
-          grossRequirements: 3,
-          scheduledReceipts: 2,
-          projectedAvailable: -2,
-          netRequirements: 3,
-          plannedOrderReleases: 4,
-          availableToPromise: -2,
-          demandBreakdown: { forecast: 2, firmOrders: 1, safetyStock: 0 },
-        },
-      ],
-    },
-  ]);
+  // Master Production Schedule (live data)
+  const [mpsData, setMpsData] = useState<MPSProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getMasterSchedules()) as any[];
+        const mapped: MPSProduct[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r.id ?? `MPS-${idx + 1}`),
+          productCode: String(r.productCode ?? ''),
+          productName: String(r.productName ?? ''),
+          family: String(r.family ?? ''),
+          planningStrategy: (r.planningStrategy ?? 'MTS') as MPSProduct['planningStrategy'],
+          abcClass: (r.abcClass ?? 'C') as MPSProduct['abcClass'],
+          uom: String(r.uom ?? ''),
+          leadTime: Number(r.leadTime ?? 0),
+          lotSize: Number(r.lotSize ?? 0),
+          safetyStock: Number(r.safetyStock ?? 0),
+          currentInventory: Number(r.currentInventory ?? 0),
+          periods: (Array.isArray(r.periods) ? r.periods : []).map((p: any, pIdx: number) => ({
+            periodNumber: Number(p.periodNumber ?? pIdx + 1),
+            startDate: String(p.startDate ?? ''),
+            endDate: String(p.endDate ?? ''),
+            beginningInventory: Number(p.beginningInventory ?? 0),
+            grossRequirements: Number(p.grossRequirements ?? 0),
+            scheduledReceipts: Number(p.scheduledReceipts ?? 0),
+            projectedAvailable: Number(p.projectedAvailable ?? 0),
+            netRequirements: Number(p.netRequirements ?? 0),
+            plannedOrderReleases: Number(p.plannedOrderReleases ?? 0),
+            availableToPromise: Number(p.availableToPromise ?? 0),
+            demandBreakdown: {
+              forecast: Number(p.demandBreakdown?.forecast ?? 0),
+              firmOrders: Number(p.demandBreakdown?.firmOrders ?? 0),
+              safetyStock: Number(p.demandBreakdown?.safetyStock ?? 0),
+            },
+          })),
+          totalDemand: Number(r.totalDemand ?? 0),
+          totalPlanned: Number(r.totalPlanned ?? 0),
+          status: (r.status ?? 'ok') as MPSProduct['status'],
+        }));
+        if (!cancelled) setMpsData(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setMpsData([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock Data - Rough-Cut Capacity
   const [capacityData, setCapacityData] = useState<WorkCenterCapacity[]>([
@@ -573,6 +412,8 @@ const ProductionPlanningPage = () => {
 
   return (
     <div className="p-6 space-y-3 bg-gray-50 min-h-screen">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Header Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
         <div className="flex items-center justify-between mb-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Building,
@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Eye
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface VendorAging {
   vendorId: string;
@@ -52,131 +53,86 @@ export default function PayablesAgingPage() {
   const [expandedVendor, setExpandedVendor] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Mock data
-  const agingSummary: AgingSummary = {
-    totalOutstanding: 8750000,
-    current: 3500000,
-    days31to60: 2800000,
-    days61to90: 1450000,
-    over90days: 1000000,
-    vendorCount: 47,
-    highRiskVendors: 8
+  // Payables aging loaded from the analytics report endpoint
+  const emptySummary: AgingSummary = {
+    totalOutstanding: 0,
+    current: 0,
+    days31to60: 0,
+    days61to90: 0,
+    over90days: 0,
+    vendorCount: 0,
+    highRiskVendors: 0,
   };
+  const [agingSummary, setAgingSummary] = useState<AgingSummary>(emptySummary);
+  const [vendorAging, setVendorAging] = useState<VendorAging[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const vendorAging: VendorAging[] = [
-    {
-      vendorId: 'V-001',
-      vendorName: 'Tata Steel Ltd',
-      totalOutstanding: 1250000,
-      current: 450000,
-      days31to60: 400000,
-      days61to90: 250000,
-      over90days: 150000,
-      creditLimit: 2000000,
-      paymentTerms: 'Net 45',
-      lastPayment: '2024-02-15',
-      lastPaymentAmount: 380000,
-      contactPerson: 'Rajesh Kumar',
-      riskRating: 'medium',
-      currency: '₹'
-    },
-    {
-      vendorId: 'V-002',
-      vendorName: 'JSW Steel',
-      totalOutstanding: 980000,
-      current: 600000,
-      days31to60: 280000,
-      days61to90: 100000,
-      over90days: 0,
-      creditLimit: 1500000,
-      paymentTerms: 'Net 30',
-      lastPayment: '2024-03-01',
-      lastPaymentAmount: 520000,
-      contactPerson: 'Amit Sharma',
-      riskRating: 'low',
-      currency: '₹'
-    },
-    {
-      vendorId: 'V-003',
-      vendorName: 'Hindalco Industries',
-      totalOutstanding: 1450000,
-      current: 350000,
-      days31to60: 400000,
-      days61to90: 350000,
-      over90days: 350000,
-      creditLimit: 2500000,
-      paymentTerms: 'Net 60',
-      lastPayment: '2024-01-28',
-      lastPaymentAmount: 425000,
-      contactPerson: 'Priya Patel',
-      riskRating: 'high',
-      currency: '₹'
-    },
-    {
-      vendorId: 'V-004',
-      vendorName: 'L&T Construction',
-      totalOutstanding: 2100000,
-      current: 850000,
-      days31to60: 650000,
-      days61to90: 400000,
-      over90days: 200000,
-      creditLimit: 3000000,
-      paymentTerms: 'Net 45',
-      lastPayment: '2024-02-20',
-      lastPaymentAmount: 680000,
-      contactPerson: 'Suresh Reddy',
-      riskRating: 'medium',
-      currency: '₹'
-    },
-    {
-      vendorId: 'V-005',
-      vendorName: 'Siemens India',
-      totalOutstanding: 760000,
-      current: 560000,
-      days31to60: 200000,
-      days61to90: 0,
-      over90days: 0,
-      creditLimit: 1200000,
-      paymentTerms: 'Net 30',
-      lastPayment: '2024-03-05',
-      lastPaymentAmount: 340000,
-      contactPerson: 'Michael Schmidt',
-      riskRating: 'low',
-      currency: '₹'
-    },
-    {
-      vendorId: 'V-006',
-      vendorName: 'ABB India Ltd',
-      totalOutstanding: 1320000,
-      current: 420000,
-      days31to60: 500000,
-      days61to90: 250000,
-      over90days: 150000,
-      creditLimit: 1800000,
-      paymentTerms: 'Net 45',
-      lastPayment: '2024-02-10',
-      lastPaymentAmount: 460000,
-      contactPerson: 'Lars Andersson',
-      riskRating: 'medium',
-      currency: '₹'
-    },
-    {
-      vendorId: 'V-007',
-      vendorName: 'Schneider Electric',
-      totalOutstanding: 890000,
-      current: 270000,
-      days31to60: 370000,
-      days61to90: 100000,
-      over90days: 150000,
-      creditLimit: 1500000,
-      paymentTerms: 'Net 60',
-      lastPayment: '2024-01-18',
-      lastPaymentAmount: 390000,
-      contactPerson: 'Jean Dupont',
-      riskRating: 'high',
-      currency: '₹'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const { data, summary } = await FinanceService.getPayablesAging();
+        const rows = Array.isArray(data) ? data : [];
+        const mapped: VendorAging[] = rows.map((r: any, i: number) => {
+          const days31to60 = Number(r.days31to60 ?? r.days30to60 ?? 0);
+          const days61to90 = Number(r.days61to90 ?? r.days60to90 ?? 0);
+          const over90days = Number(
+            r.over90days ?? Number(r.days90to120 ?? 0) + Number(r.over120 ?? 0),
+          );
+          return {
+            vendorId: r.vendorId ?? r.partyId ?? r.partyCode ?? `V-${i}`,
+            vendorName: r.vendorName ?? r.partyName ?? r.name ?? '-',
+            totalOutstanding: Number(r.totalOutstanding ?? r.total ?? r.outstanding ?? 0),
+            current: Number(r.current ?? 0),
+            days31to60,
+            days61to90,
+            over90days,
+            creditLimit: Number(r.creditLimit ?? 0),
+            paymentTerms: r.paymentTerms ?? '-',
+            lastPayment: r.lastPayment ?? r.lastPaymentDate ?? '-',
+            lastPaymentAmount: Number(r.lastPaymentAmount ?? 0),
+            contactPerson: r.contactPerson ?? r.contact ?? '-',
+            riskRating: (r.riskRating ?? 'low') as VendorAging['riskRating'],
+            currency: r.currency ?? '₹',
+          };
+        });
+        const s: AgingSummary = summary
+          ? {
+              totalOutstanding: Number(summary.total ?? summary.totalOutstanding ?? 0),
+              current: Number(summary.current ?? 0),
+              days31to60: Number(summary.days30to60 ?? summary.days31to60 ?? 0),
+              days61to90: Number(summary.days60to90 ?? summary.days61to90 ?? 0),
+              over90days: Number(
+                summary.over90days ??
+                  (Number(summary.days90to120 ?? 0) + Number(summary.over120 ?? 0)),
+              ),
+              vendorCount: Number(summary.partyCount ?? summary.vendorCount ?? mapped.length),
+              highRiskVendors: mapped.filter((v) => v.riskRating === 'high').length,
+            }
+          : emptySummary;
+        if (!cancelled) {
+          setAgingSummary(s);
+          setVendorAging(mapped);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load payables aging');
+          setAgingSummary(emptySummary);
+          setVendorAging([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
@@ -208,6 +164,16 @@ export default function PayablesAgingPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full h-full px-3 py-2">
+          {isLoading && (
+            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              Loading payables aging…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
           {/* Header with Action Buttons */}
           <div className="flex justify-between items-start mb-3">
             <div>

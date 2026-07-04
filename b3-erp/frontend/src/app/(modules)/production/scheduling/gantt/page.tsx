@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Calendar,
@@ -42,178 +43,39 @@ export default function GanttChartPage() {
   const [filterStation, setFilterStation] = useState<string>('all');
   const [currentDate, setCurrentDate] = useState(new Date('2025-10-20'));
 
-  const tasks: GanttTask[] = [
-    {
-      id: '1',
-      workOrderNumber: 'WO-2025-1142',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 25,
-      unit: 'PC',
-      startDate: '2025-10-12',
-      endDate: '2025-10-24',
-      duration: 12,
-      progress: 68,
-      station: 'Polishing & Finishing',
-      team: 'Team A - Sinks',
-      dependencies: [],
-      status: 'in-progress',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      workOrderNumber: 'WO-2025-1143',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      category: 'Kitchen Appliances',
-      quantity: 15,
-      unit: 'PC',
-      startDate: '2025-10-10',
-      endDate: '2025-10-23',
-      duration: 13,
-      progress: 62,
-      station: 'Motor Assembly',
-      team: 'Team C - Appliances',
-      dependencies: [],
-      status: 'in-progress',
-      priority: 'urgent'
-    },
-    {
-      id: '3',
-      workOrderNumber: 'WO-2025-1144',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      category: 'Kitchen Cabinets',
-      quantity: 40,
-      unit: 'PC',
-      startDate: '2025-10-17',
-      endDate: '2025-11-06',
-      duration: 20,
-      progress: 0,
-      station: 'Panel Cutting',
-      team: 'Team B - Cabinets',
-      dependencies: [],
-      status: 'not-started',
-      priority: 'high'
-    },
-    {
-      id: '4',
-      workOrderNumber: 'WO-2025-1145',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      category: 'Kitchen Faucets',
-      quantity: 60,
-      unit: 'PC',
-      startDate: '2025-10-21',
-      endDate: '2025-11-02',
-      duration: 12,
-      progress: 0,
-      station: 'Body Machining',
-      team: 'Team D - Faucets',
-      dependencies: [],
-      status: 'not-started',
-      priority: 'medium'
-    },
-    {
-      id: '5',
-      workOrderNumber: 'WO-2025-1135',
-      productName: 'Professional Cookware Set - 7 Piece',
-      category: 'Cookware',
-      quantity: 50,
-      unit: 'SET',
-      startDate: '2025-10-11',
-      endDate: '2025-10-27',
-      duration: 16,
-      progress: 71,
-      station: 'Non-Stick Coating',
-      team: 'Team E - Cookware',
-      dependencies: [],
-      status: 'in-progress',
-      priority: 'high'
-    },
-    {
-      id: '6',
-      workOrderNumber: 'WO-2025-1136',
-      productName: 'Granite Countertop - Premium Black Galaxy',
-      category: 'Countertops',
-      quantity: 20,
-      unit: 'PC',
-      startDate: '2025-10-09',
-      endDate: '2025-10-25',
-      duration: 16,
-      progress: 42,
-      station: 'Edge Polishing',
-      team: 'Team F - Stone Work',
-      dependencies: [],
-      status: 'in-progress',
-      priority: 'urgent'
-    },
-    {
-      id: '7',
-      workOrderNumber: 'WO-2025-1137',
-      productName: 'Modular Kitchen Organizer Set - Premium',
-      category: 'Kitchen Accessories',
-      quantity: 80,
-      unit: 'SET',
-      startDate: '2025-10-13',
-      endDate: '2025-10-25',
-      duration: 12,
-      progress: 82,
-      station: 'Packaging',
-      team: 'Team G - Accessories',
-      dependencies: [],
-      status: 'in-progress',
-      priority: 'low'
-    },
-    {
-      id: '8',
-      workOrderNumber: 'WO-2025-1138',
-      productName: 'Undermount SS Sink - Single Bowl Large',
-      category: 'Kitchen Sinks',
-      quantity: 35,
-      unit: 'PC',
-      startDate: '2025-10-07',
-      endDate: '2025-10-22',
-      duration: 15,
-      progress: 48,
-      station: 'Welding',
-      team: 'Team A - Sinks',
-      dependencies: [],
-      status: 'delayed',
-      priority: 'high'
-    },
-    {
-      id: '9',
-      workOrderNumber: 'WO-2025-1146',
-      productName: 'Built-in Microwave Oven - 30L',
-      category: 'Kitchen Appliances',
-      quantity: 18,
-      unit: 'PC',
-      startDate: '2025-10-23',
-      endDate: '2025-11-07',
-      duration: 15,
-      progress: 0,
-      station: 'Assembly',
-      team: 'Team C - Appliances',
-      dependencies: ['2'],
-      status: 'not-started',
-      priority: 'medium'
-    },
-    {
-      id: '10',
-      workOrderNumber: 'WO-2025-1147',
-      productName: 'Granite Composite Sink - Single Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 22,
-      unit: 'PC',
-      startDate: '2025-10-24',
-      endDate: '2025-11-10',
-      duration: 17,
-      progress: 0,
-      station: 'Molding',
-      team: 'Team A - Sinks',
-      dependencies: ['1'],
-      status: 'not-started',
-      priority: 'medium'
-    }
-  ];
+  const [tasks, setTasks] = useState<GanttTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getGanttTasks()) as any[];
+        const mapped: GanttTask[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r?.id ?? idx + 1),
+          workOrderNumber: String(r?.workOrderNumber ?? ''),
+          productName: String(r?.productName ?? ''),
+          category: String(r?.category ?? ''),
+          quantity: Number(r?.quantity ?? 0),
+          unit: String(r?.unit ?? ''),
+          startDate: String(r?.startDate ?? ''),
+          endDate: String(r?.endDate ?? ''),
+          duration: Number(r?.duration ?? 0),
+          progress: Number(r?.progress ?? 0),
+          station: String(r?.station ?? ''),
+          team: String(r?.team ?? ''),
+          dependencies: Array.isArray(r?.dependencies) ? r.dependencies.map((d: any) => String(d)) : [],
+          status: (r?.status ?? 'not-started') as GanttTask['status'],
+          priority: (r?.priority ?? 'medium') as GanttTask['priority'],
+        }));
+        if (!cancelled) setTasks(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setTasks([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const stations = ['all', ...Array.from(new Set(tasks.map(t => t.station)))];
 
@@ -312,6 +174,8 @@ export default function GanttChartPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

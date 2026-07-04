@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   TrendingUp,
@@ -17,6 +17,7 @@ import {
   Eye,
   Send
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface GSTTransaction {
   id: string;
@@ -62,165 +63,84 @@ export default function GSTManagementPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
-  // Sample GST transactions
-  const gstTransactions: GSTTransaction[] = [
-    {
-      id: 'GT001',
-      date: '2025-01-15',
-      invoiceNumber: 'INV-2025-001',
-      partyName: 'ABC Corp Private Limited',
-      gstin: '29AAACC1234F1Z5',
-      transactionType: 'Sale',
-      taxableAmount: 1000000,
-      cgst: 90000,
-      sgst: 90000,
-      igst: 0,
-      cess: 0,
-      totalTax: 180000,
-      totalAmount: 1180000,
-      gstRate: 18,
-      placeOfSupply: 'Karnataka',
-      hsn: '84212100',
-      returnPeriod: '2025-01',
-      filed: true
-    },
-    {
-      id: 'GT002',
-      date: '2025-01-14',
-      invoiceNumber: 'PINV-2025-005',
-      partyName: 'XYZ Suppliers Ltd',
-      gstin: '27BBBDD5678G2Z6',
-      transactionType: 'Purchase',
-      taxableAmount: 500000,
-      cgst: 45000,
-      sgst: 45000,
-      igst: 0,
-      cess: 0,
-      totalTax: 90000,
-      totalAmount: 590000,
-      gstRate: 18,
-      placeOfSupply: 'Karnataka',
-      hsn: '72071100',
-      returnPeriod: '2025-01',
-      filed: true
-    },
-    {
-      id: 'GT003',
-      date: '2025-01-13',
-      invoiceNumber: 'INV-2025-002',
-      partyName: 'DEF Industries',
-      gstin: '06CCCEE9012H3Z7',
-      transactionType: 'Sale',
-      taxableAmount: 750000,
-      cgst: 0,
-      sgst: 0,
-      igst: 135000,
-      cess: 0,
-      totalTax: 135000,
-      totalAmount: 885000,
-      gstRate: 18,
-      placeOfSupply: 'Haryana',
-      hsn: '84213100',
-      returnPeriod: '2025-01',
-      filed: false
-    },
-    {
-      id: 'GT004',
-      date: '2025-01-12',
-      invoiceNumber: 'CN-2025-001',
-      partyName: 'ABC Corp Private Limited',
-      gstin: '29AAACC1234F1Z5',
-      transactionType: 'Sales Return',
-      taxableAmount: -50000,
-      cgst: -4500,
-      sgst: -4500,
-      igst: 0,
-      cess: 0,
-      totalTax: -9000,
-      totalAmount: -59000,
-      gstRate: 18,
-      placeOfSupply: 'Karnataka',
-      hsn: '84212100',
-      returnPeriod: '2025-01',
-      filed: false
-    },
-    {
-      id: 'GT005',
-      date: '2025-01-11',
-      invoiceNumber: 'INV-2025-003',
-      partyName: 'GHI Enterprises',
-      gstin: '33DDDFF3456I4Z8',
-      transactionType: 'Sale',
-      taxableAmount: 300000,
-      cgst: 0,
-      sgst: 0,
-      igst: 54000,
-      cess: 0,
-      totalTax: 54000,
-      totalAmount: 354000,
-      gstRate: 18,
-      placeOfSupply: 'Tamil Nadu',
-      hsn: '84801000',
-      returnPeriod: '2025-01',
-      filed: false
-    }
-  ];
+  // GST transactions + returns loaded from tax masters (tax configuration)
+  const [gstTransactions, setGstTransactions] = useState<GSTTransaction[]>([]);
+  const [gstReturns, setGstReturns] = useState<GSTReturn[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Sample GST returns
-  const gstReturns: GSTReturn[] = [
-    {
-      id: 'GR001',
-      returnType: 'GSTR-1',
-      period: 'January 2025',
-      dueDate: '2025-02-11',
-      status: 'Ready to File',
-      totalSales: 2000000,
-      totalPurchases: 0,
-      outputTax: 360000,
-      inputTax: 0,
-      netTax: 360000
-    },
-    {
-      id: 'GR002',
-      returnType: 'GSTR-3B',
-      period: 'January 2025',
-      dueDate: '2025-02-20',
-      status: 'Draft',
-      totalSales: 2000000,
-      totalPurchases: 500000,
-      outputTax: 360000,
-      inputTax: 90000,
-      netTax: 270000
-    },
-    {
-      id: 'GR003',
-      returnType: 'GSTR-1',
-      period: 'December 2024',
-      dueDate: '2025-01-11',
-      status: 'Filed',
-      filedDate: '2025-01-10',
-      arn: 'AA290125123456A',
-      totalSales: 1800000,
-      totalPurchases: 0,
-      outputTax: 324000,
-      inputTax: 0,
-      netTax: 324000
-    },
-    {
-      id: 'GR004',
-      returnType: 'GSTR-3B',
-      period: 'December 2024',
-      dueDate: '2025-01-20',
-      status: 'Filed',
-      filedDate: '2025-01-18',
-      arn: 'AA290125654321B',
-      totalSales: 1800000,
-      totalPurchases: 450000,
-      outputTax: 324000,
-      inputTax: 81000,
-      netTax: 243000
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getTaxMasters()) as any[];
+        const gstRows = (raw ?? []).filter((t) =>
+          ['CGST', 'SGST', 'IGST', 'CESS', 'GST'].includes(String(t.taxType ?? '').toUpperCase()),
+        );
+        const txns: GSTTransaction[] = gstRows.map((t, i) => {
+          const rate = Number(t.taxRate ?? 0);
+          const type = String(t.taxType ?? '').toUpperCase();
+          const isOutput = String(t.taxCategory ?? '').toLowerCase().includes('output');
+          const returnPeriod = t.effectiveFrom ? String(t.effectiveFrom).slice(0, 7) : '';
+          return {
+            id: t.id ?? `GT-${i}`,
+            date: t.effectiveFrom ?? '',
+            invoiceNumber: t.taxCode ?? '-',
+            partyName: t.taxName ?? '-',
+            gstin: t.taxCode ?? '-',
+            transactionType: isOutput ? 'Sale' : 'Purchase',
+            taxableAmount: 0,
+            cgst: type === 'CGST' ? rate : 0,
+            sgst: type === 'SGST' ? rate : 0,
+            igst: type === 'IGST' ? rate : 0,
+            cess: type === 'CESS' ? rate : 0,
+            totalTax: 0,
+            totalAmount: 0,
+            gstRate: rate,
+            placeOfSupply: '-',
+            hsn: undefined,
+            returnPeriod,
+            filed: !t.isActive ? false : Boolean(t.effectiveTo),
+          };
+        });
+        const periods = Array.from(new Set(txns.map((t) => t.returnPeriod).filter(Boolean)));
+        const returns: GSTReturn[] = periods.map((p, i) => ({
+          id: `GR-${i}`,
+          returnType: 'GSTR-3B',
+          period: p,
+          dueDate: '',
+          status: 'Draft',
+          totalSales: 0,
+          totalPurchases: 0,
+          outputTax: 0,
+          inputTax: 0,
+          netTax: 0,
+        }));
+        if (!cancelled) {
+          setGstTransactions(txns);
+          setGstReturns(returns);
+          if (txns.length > 0 && !txns.some((t) => t.returnPeriod === periodFilter)) {
+            setPeriodFilter(txns[0].returnPeriod);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load GST data');
+          setGstTransactions([]);
+          setGstReturns([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredTransactions = gstTransactions.filter(txn => {
     const matchesSearch =
@@ -367,6 +287,16 @@ export default function GSTManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 p-3">
       <div className="w-full space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+            Loading GST data…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {loadError}
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

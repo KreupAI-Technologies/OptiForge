@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, Download, FileText, Filter, Eye, Mail, Calendar, TrendingUp, Users, DollarSign, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { PayrollService } from '@/services/payroll.service';
 
 interface TaxReport {
   id: string;
@@ -545,68 +546,47 @@ export default function Page() {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
-  const reports: TaxReport[] = [
-    {
-      id: 'R001',
-      reportName: 'Monthly TDS Report',
-      period: 'August 2024',
-      generatedDate: '2024-09-01',
-      reportType: 'monthly',
-      totalEmployees: 362,
-      totalTaxDeducted: 6885000,
-      status: 'completed'
-    },
-    {
-      id: 'R002',
-      reportName: 'Quarterly Tax Summary',
-      period: 'Q1 FY 2024-25',
-      generatedDate: '2024-07-05',
-      reportType: 'quarterly',
-      totalEmployees: 362,
-      totalTaxDeducted: 20455000,
-      status: 'completed'
-    },
-    {
-      id: 'R003',
-      reportName: 'Tax Slab Analysis',
-      period: 'August 2024',
-      generatedDate: '2024-09-01',
-      reportType: 'analysis',
-      totalEmployees: 362,
-      totalTaxDeducted: 6885000,
-      status: 'completed'
-    },
-    {
-      id: 'R004',
-      reportName: 'Annual Tax Statement',
-      period: 'FY 2023-24',
-      generatedDate: '2024-04-15',
-      reportType: 'annual',
-      totalEmployees: 348,
-      totalTaxDeducted: 78560000,
-      status: 'completed'
-    },
-    {
-      id: 'R005',
-      reportName: 'Challan Summary Report',
-      period: 'August 2024',
-      generatedDate: '2024-09-01',
-      reportType: 'challan',
-      totalEmployees: 362,
-      totalTaxDeducted: 6885000,
-      status: 'completed'
-    },
-    {
-      id: 'R006',
-      reportName: 'Form 16 Generation Summary',
-      period: 'FY 2023-24',
-      generatedDate: '2024-06-10',
-      reportType: 'form16',
-      totalEmployees: 348,
-      totalTaxDeducted: 78560000,
-      status: 'completed'
-    }
-  ];
+  const [reports, setReports] = useState<TaxReport[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await PayrollService.getTaxRecords()) as any[];
+        const statusMap: Record<string, TaxReport['status']> = {
+          Completed: 'completed',
+          Pending: 'pending',
+          Error: 'error',
+        };
+        const mapped: TaxReport[] = raw.map((r) => ({
+          id: r.id,
+          reportName: r.category ?? 'Tax Record',
+          period: r.period ?? r.financialYear ?? '',
+          generatedDate: r.createdAt ? String(r.createdAt).split('T')[0] : '',
+          reportType: (r.category ?? '').toString().toLowerCase(),
+          totalEmployees: Number(r.details?.totalEmployees ?? 0),
+          totalTaxDeducted: Number(r.amount ?? 0),
+          status: statusMap[r.status] ?? 'completed',
+        }));
+        if (!cancelled) setReports(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load tax reports');
+          setReports([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleViewReport = (report: TaxReport) => {
     setSelectedReport(report);
@@ -647,6 +627,17 @@ export default function Page() {
         </h1>
         <p className="text-gray-600 mt-2">Comprehensive tax analytics, reports, and insights</p>
       </div>
+
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm mb-3">
+          Loading tax reports…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm mb-3">
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Search,
@@ -46,208 +47,42 @@ export default function ProductionSequencingPage() {
   const [sequenceMode, setSequenceMode] = useState<'manual' | 'auto'>('manual');
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
 
-  const [sequences, setSequences] = useState<SequenceItem[]>([
-    {
-      id: '1',
-      sequence: 1,
-      workOrderNumber: 'WO-2025-1143',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      category: 'Kitchen Appliances',
-      quantity: 15,
-      unit: 'PC',
-      priority: 'urgent',
-      dueDate: '2025-10-23',
-      estimatedDuration: 13,
-      setupTime: 2,
-      station: 'Motor Assembly',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 1,
-      setupCost: 5000
-    },
-    {
-      id: '2',
-      sequence: 2,
-      workOrderNumber: 'WO-2025-1142',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 25,
-      unit: 'PC',
-      priority: 'high',
-      dueDate: '2025-10-24',
-      estimatedDuration: 12,
-      setupTime: 1.5,
-      station: 'Polishing & Finishing',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 2,
-      setupCost: 3500
-    },
-    {
-      id: '3',
-      sequence: 3,
-      workOrderNumber: 'WO-2025-1136',
-      productCode: 'KIT-COUNT-001',
-      productName: 'Granite Countertop - Premium Black Galaxy',
-      category: 'Countertops',
-      quantity: 20,
-      unit: 'PC',
-      priority: 'urgent',
-      dueDate: '2025-10-25',
-      estimatedDuration: 16,
-      setupTime: 3,
-      station: 'Edge Polishing',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 1,
-      setupCost: 8000
-    },
-    {
-      id: '4',
-      sequence: 4,
-      workOrderNumber: 'WO-2025-1135',
-      productCode: 'KIT-COOK-001',
-      productName: 'Professional Cookware Set - 7 Piece',
-      category: 'Cookware',
-      quantity: 50,
-      unit: 'SET',
-      priority: 'high',
-      dueDate: '2025-10-27',
-      estimatedDuration: 16,
-      setupTime: 2.5,
-      station: 'Non-Stick Coating',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 3,
-      setupCost: 6000
-    },
-    {
-      id: '5',
-      sequence: 5,
-      workOrderNumber: 'WO-2025-1144',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      category: 'Kitchen Cabinets',
-      quantity: 40,
-      unit: 'PC',
-      priority: 'high',
-      dueDate: '2025-11-02',
-      estimatedDuration: 20,
-      setupTime: 4,
-      station: 'Panel Cutting',
-      dependencies: [],
-      materialReady: false,
-      status: 'blocked',
-      suggestedSequence: 7,
-      setupCost: 10000
-    },
-    {
-      id: '6',
-      sequence: 6,
-      workOrderNumber: 'WO-2025-1145',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      category: 'Kitchen Faucets',
-      quantity: 60,
-      unit: 'PC',
-      priority: 'medium',
-      dueDate: '2025-11-05',
-      estimatedDuration: 12,
-      setupTime: 1,
-      station: 'Body Machining',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 4,
-      setupCost: 2500
-    },
-    {
-      id: '7',
-      sequence: 7,
-      workOrderNumber: 'WO-2025-1137',
-      productCode: 'KIT-ACC-001',
-      productName: 'Modular Kitchen Organizer Set - Premium',
-      category: 'Kitchen Accessories',
-      quantity: 80,
-      unit: 'SET',
-      priority: 'low',
-      dueDate: '2025-10-30',
-      estimatedDuration: 12,
-      setupTime: 0.5,
-      station: 'Packaging',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 5,
-      setupCost: 1000
-    },
-    {
-      id: '8',
-      sequence: 8,
-      workOrderNumber: 'WO-2025-1138',
-      productCode: 'KIT-SINK-003',
-      productName: 'Undermount SS Sink - Single Bowl Large',
-      category: 'Kitchen Sinks',
-      quantity: 35,
-      unit: 'PC',
-      priority: 'high',
-      dueDate: '2025-10-22',
-      estimatedDuration: 15,
-      setupTime: 1.5,
-      station: 'Welding',
-      dependencies: [],
-      materialReady: true,
-      status: 'ready',
-      suggestedSequence: 1,
-      setupCost: 3500
-    },
-    {
-      id: '9',
-      sequence: 9,
-      workOrderNumber: 'WO-2025-1146',
-      productCode: 'KIT-APPL-002',
-      productName: 'Built-in Microwave Oven - 30L',
-      category: 'Kitchen Appliances',
-      quantity: 18,
-      unit: 'PC',
-      priority: 'medium',
-      dueDate: '2025-11-07',
-      estimatedDuration: 15,
-      setupTime: 2,
-      station: 'Assembly',
-      dependencies: ['1'],
-      materialReady: true,
-      status: 'queued',
-      suggestedSequence: 6,
-      setupCost: 5000
-    },
-    {
-      id: '10',
-      sequence: 10,
-      workOrderNumber: 'WO-2025-1147',
-      productCode: 'KIT-SINK-002',
-      productName: 'Granite Composite Sink - Single Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 22,
-      unit: 'PC',
-      priority: 'medium',
-      dueDate: '2025-11-10',
-      estimatedDuration: 17,
-      setupTime: 2.5,
-      station: 'Molding',
-      dependencies: ['2'],
-      materialReady: true,
-      status: 'queued',
-      suggestedSequence: 8,
-      setupCost: 6500
-    }
-  ]);
+  const [sequences, setSequences] = useState<SequenceItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getJobSequences()) as any[];
+        const mapped: SequenceItem[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r.id ?? idx + 1),
+          sequence: Number(r.sequence ?? idx + 1),
+          workOrderNumber: String(r.workOrderNumber ?? ''),
+          productCode: String(r.productCode ?? ''),
+          productName: String(r.productName ?? ''),
+          category: String(r.category ?? ''),
+          quantity: Number(r.quantity ?? 0),
+          unit: String(r.unit ?? ''),
+          priority: (r.priority ?? 'medium') as SequenceItem['priority'],
+          dueDate: String(r.dueDate ?? ''),
+          estimatedDuration: Number(r.estimatedDuration ?? 0),
+          setupTime: Number(r.setupTime ?? 0),
+          station: String(r.station ?? ''),
+          dependencies: Array.isArray(r.dependencies) ? r.dependencies.map(String) : [],
+          materialReady: Boolean(r.materialReady ?? false),
+          status: (r.status ?? 'queued') as SequenceItem['status'],
+          suggestedSequence: Number(r.suggestedSequence ?? idx + 1),
+          setupCost: Number(r.setupCost ?? 0),
+        }));
+        if (!cancelled) setSequences(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setSequences([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const stations = ['all', ...Array.from(new Set(sequences.map(s => s.station)))];
 
@@ -334,6 +169,8 @@ export default function ProductionSequencingPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

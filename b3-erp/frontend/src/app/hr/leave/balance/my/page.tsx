@@ -1,15 +1,96 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, TrendingUp, Clock, CheckCircle, AlertCircle, Plus, Download, History } from 'lucide-react';
-import { mockMyLeaveBalances, mockLeaveTransactions, LeaveBalance, LeaveTransaction } from '@/data/hr/leave-balances';
+import { LeaveBalance, LeaveTransaction } from '@/data/hr/leave-balances';
+import { LeaveService } from '@/services/leave.service';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+
+const MY_STATUS_MAP: Record<string, LeaveTransaction['status']> = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled',
+  WITHDRAWN: 'withdrawn',
+};
 
 export default function MyLeaveBalancePage() {
   const router = useRouter();
-  const [leaveBalances] = useState<LeaveBalance[]>(mockMyLeaveBalances);
-  const [transactions] = useState<LeaveTransaction[]>(mockLeaveTransactions);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [transactions, setTransactions] = useState<LeaveTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [rawBalances, rawApps] = await Promise.all([
+          LeaveService.getAllLeaveBalances() as Promise<any[]>,
+          LeaveService.getAllLeaveApplicationsRaw() as Promise<any[]>,
+        ]);
+        const mappedBalances: LeaveBalance[] = rawBalances.map((r) => ({
+          id: r.id,
+          employeeId: r.employeeId ?? '',
+          employeeName: r.employee?.fullName ?? r.employeeName ?? '',
+          employeeCode: r.employee?.employeeCode ?? r.employeeCode ?? '',
+          department: r.employee?.departmentName ?? r.department ?? '',
+          designation: r.employee?.designation ?? r.designation ?? '',
+          leaveTypeId: r.leaveTypeId ?? '',
+          leaveTypeCode: r.leaveType?.code ?? r.leaveTypeCode ?? '',
+          leaveTypeName: r.leaveType?.name ?? r.leaveTypeName ?? '',
+          leaveTypeIcon: '📅',
+          leaveTypeColor: r.leaveType?.color ?? 'bg-gray-100 text-gray-800',
+          totalEntitlement: Number(r.allocated ?? 0) + Number(r.openingBalance ?? 0) + Number(r.earned ?? 0),
+          opening: Number(r.openingBalance ?? 0),
+          accrued: Number(r.earned ?? r.allocated ?? 0),
+          taken: Number(r.used ?? 0),
+          pending: Number(r.pending ?? 0),
+          balance: Number(r.available ?? 0),
+          carryForward: Number(r.carriedForward ?? 0),
+          encashable: Number(r.encashed ?? 0),
+          year: Number(r.year ?? new Date().getFullYear()),
+          lastUpdated: r.updatedAt ?? '',
+        }));
+        const mappedApps: LeaveTransaction[] = rawApps.map((r) => ({
+          id: r.id,
+          employeeId: r.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName,
+          leaveTypeCode: r.leaveTypeCode ?? r.leaveType?.code ?? '',
+          leaveTypeName: r.leaveTypeName ?? r.leaveType?.name ?? '',
+          fromDate: r.startDate ?? r.fromDate ?? '',
+          toDate: r.endDate ?? r.toDate ?? '',
+          days: Number(r.totalDays ?? r.days ?? 0),
+          durationType: 'full-day',
+          reason: r.reason ?? '',
+          status: MY_STATUS_MAP[r.status] ?? 'pending',
+          appliedOn: r.appliedAt ?? r.createdAt ?? '',
+          approvedBy: r.approverName ?? r.approvedBy,
+          approvedOn: r.approvedAt,
+          hasAttachment: !!r.attachmentUrl,
+        }));
+        if (!cancelled) {
+          setLeaveBalances(mappedBalances);
+          setTransactions(mappedApps);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave balance');
+          setLeaveBalances([]);
+          setTransactions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Consistent date formatter to avoid hydration errors
   const formatDate = (dateString: string, includeYear = false) => {

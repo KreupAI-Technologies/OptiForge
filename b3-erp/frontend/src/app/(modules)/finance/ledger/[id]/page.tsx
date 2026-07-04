@@ -1,31 +1,102 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Filter } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { FinanceService } from '@/services/finance.service';
+
+interface LedgerTransaction {
+    id: string;
+    date: string;
+    description: string;
+    debit: number;
+    credit: number;
+    balance: number;
+}
 
 export default function AccountLedgerPage() {
     const params = useParams();
     const router = useRouter();
     const accountId = params.id as string;
 
-    // Mock ledger data
-    const account = {
+    const [account, setAccount] = useState<{ id: string; code: string; name: string; type: string; balance: number }>({
         id: accountId,
-        code: '1000',
-        name: 'Cash and Bank',
-        type: 'Asset',
-        balance: 2500000,
-    };
+        code: '',
+        name: '',
+        type: '',
+        balance: 0,
+    });
+    const [transactions, setTransactions] = useState<LedgerTransaction[]>([]);
+    const [totalDebits, setTotalDebits] = useState(0);
+    const [totalCredits, setTotalCredits] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const transactions = [
-        { id: 'JE-2025-045', date: '2025-01-22', description: 'Customer Payment - ABC Ltd', debit: 150000, credit: 0, balance: 2500000 },
-        { id: 'JE-2025-042', date: '2025-01-20', description: 'Vendor Payment - Steel Suppliers', debit: 0, credit: 280000, balance: 2350000 },
-        { id: 'JE-2025-038', date: '2025-01-18', description: 'Utility Bill Payment', debit: 0, credit: 12000, balance: 2630000 },
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const [accounts, txnRes] = await Promise.all([
+                    FinanceService.getChartOfAccounts() as Promise<any[]>,
+                    FinanceService.getAccountTransactions(accountId) as Promise<any>,
+                ]);
+                const match = (accounts ?? []).find((a) => a.id === accountId);
+                const typeMap: Record<string, string> = {
+                    Asset: 'Asset', Liability: 'Liability', Equity: 'Equity',
+                    Revenue: 'Income', Income: 'Income', Expense: 'Expense',
+                };
+                const rows: any[] = Array.isArray(txnRes?.transactions)
+                    ? txnRes.transactions
+                    : Array.isArray(txnRes)
+                        ? txnRes
+                        : [];
+                let running = 0;
+                const mapped: LedgerTransaction[] = rows.map((t, i) => {
+                    const debit = Number(t.debit ?? t.debitAmount ?? 0);
+                    const credit = Number(t.credit ?? t.creditAmount ?? 0);
+                    running = running + debit - credit;
+                    return {
+                        id: t.id ?? t.reference ?? t.journalEntryNumber ?? `TX-${i}`,
+                        date: t.date ?? t.transactionDate ?? t.postingDate ?? '',
+                        description: t.description ?? t.narration ?? '-',
+                        debit,
+                        credit,
+                        balance: Number(t.balance ?? t.runningBalance ?? running),
+                    };
+                });
+                if (!cancelled) {
+                    setAccount({
+                        id: accountId,
+                        code: txnRes?.accountCode ?? match?.accountCode ?? '',
+                        name: txnRes?.accountName ?? match?.accountName ?? 'Account',
+                        type: typeMap[match?.accountType] ?? String(match?.accountType ?? ''),
+                        balance: Number(
+                            match?.currentBalance ?? txnRes?.summary?.netBalance ?? 0,
+                        ),
+                    });
+                    setTransactions(mapped);
+                    setTotalDebits(Number(txnRes?.summary?.totalDebit ?? mapped.reduce((s, t) => s + t.debit, 0)));
+                    setTotalCredits(Number(txnRes?.summary?.totalCredit ?? mapped.reduce((s, t) => s + t.credit, 0)));
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load account ledger');
+                    setTransactions([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, [accountId]);
 
     return (
         <div className="w-full p-3">
@@ -41,6 +112,12 @@ export default function AccountLedgerPage() {
                     </Button>
                     <h1 className="text-3xl font-bold">{account.code} - {account.name}</h1>
                     <p className="text-gray-600">Account Ledger View</p>
+                    {isLoading && (
+                        <p className="mt-1 text-sm text-blue-600">Loading account ledger…</p>
+                    )}
+                    {loadError && !isLoading && (
+                        <p className="mt-1 text-sm text-red-600">{loadError}</p>
+                    )}
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline"><Filter className="mr-2 h-4 w-4" />Filter</Button>
@@ -58,13 +135,13 @@ export default function AccountLedgerPage() {
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Total Debits (This Month)</p>
-                        <p className="text-2xl font-bold text-green-600">₹150,000</p>
+                        <p className="text-2xl font-bold text-green-600">₹{totalDebits.toLocaleString()}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Total Credits (This Month)</p>
-                        <p className="text-2xl font-bold text-red-600">₹292,000</p>
+                        <p className="text-2xl font-bold text-red-600">₹{totalCredits.toLocaleString()}</p>
                     </CardContent>
                 </Card>
             </div>

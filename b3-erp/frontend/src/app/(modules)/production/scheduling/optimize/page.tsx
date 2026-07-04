@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Zap,
@@ -56,169 +57,63 @@ export default function ScheduleOptimizationPage() {
   const router = useRouter();
   const [selectedScenario, setSelectedScenario] = useState<string>('1');
 
-  const scenarios: OptimizationScenario[] = [
-    {
-      id: '1',
-      scenarioName: 'Minimize Total Duration',
-      objective: 'Reduce overall production time',
-      algorithm: 'Critical Path Method (CPM)',
-      status: 'completed',
-      currentMetrics: {
-        totalDuration: 45,
-        totalSetupTime: 28,
-        totalCost: 2850000,
-        resourceUtilization: 78.5,
-        onTimeDelivery: 82.0
-      },
-      optimizedMetrics: {
-        totalDuration: 38,
-        totalSetupTime: 22,
-        totalCost: 2920000,
-        resourceUtilization: 89.2,
-        onTimeDelivery: 94.0
-      },
-      improvements: {
-        durationReduction: 15.6,
-        setupTimeReduction: 21.4,
-        costSavings: -70000,
-        utilizationIncrease: 10.7,
-        deliveryImprovement: 12.0
-      },
-      parameters: [
-        { name: 'Parallel Processing', value: 85, unit: '%' },
-        { name: 'Buffer Time', value: 2, unit: 'days' }
-      ]
-    },
-    {
-      id: '2',
-      scenarioName: 'Minimize Setup Costs',
-      objective: 'Reduce machine setup and changeover costs',
-      algorithm: 'Genetic Algorithm',
-      status: 'completed',
-      currentMetrics: {
-        totalDuration: 45,
-        totalSetupTime: 28,
-        totalCost: 2850000,
-        resourceUtilization: 78.5,
-        onTimeDelivery: 82.0
-      },
-      optimizedMetrics: {
-        totalDuration: 42,
-        totalSetupTime: 18,
-        totalCost: 2650000,
-        resourceUtilization: 82.8,
-        onTimeDelivery: 88.0
-      },
-      improvements: {
-        durationReduction: 6.7,
-        setupTimeReduction: 35.7,
-        costSavings: 200000,
-        utilizationIncrease: 4.3,
-        deliveryImprovement: 6.0
-      },
-      parameters: [
-        { name: 'Similar Product Batching', value: 90, unit: '%' },
-        { name: 'Setup Sequence Optimization', value: 95, unit: '%' }
-      ]
-    },
-    {
-      id: '3',
-      scenarioName: 'Maximize Resource Utilization',
-      objective: 'Optimize labor and equipment usage',
-      algorithm: 'Linear Programming',
-      status: 'completed',
-      currentMetrics: {
-        totalDuration: 45,
-        totalSetupTime: 28,
-        totalCost: 2850000,
-        resourceUtilization: 78.5,
-        onTimeDelivery: 82.0
-      },
-      optimizedMetrics: {
-        totalDuration: 43,
-        totalSetupTime: 26,
-        totalCost: 2750000,
-        resourceUtilization: 94.5,
-        onTimeDelivery: 85.0
-      },
-      improvements: {
-        durationReduction: 4.4,
-        setupTimeReduction: 7.1,
-        costSavings: 100000,
-        utilizationIncrease: 16.0,
-        deliveryImprovement: 3.0
-      },
-      parameters: [
-        { name: 'Load Balancing', value: 92, unit: '%' },
-        { name: 'Shift Optimization', value: 88, unit: '%' }
-      ]
-    },
-    {
-      id: '4',
-      scenarioName: 'Maximize On-Time Delivery',
-      objective: 'Prioritize meeting customer deadlines',
-      algorithm: 'Earliest Due Date (EDD)',
-      status: 'ready',
-      currentMetrics: {
-        totalDuration: 45,
-        totalSetupTime: 28,
-        totalCost: 2850000,
-        resourceUtilization: 78.5,
-        onTimeDelivery: 82.0
-      },
-      optimizedMetrics: {
-        totalDuration: 46,
-        totalSetupTime: 30,
-        totalCost: 2900000,
-        resourceUtilization: 76.2,
-        onTimeDelivery: 98.0
-      },
-      improvements: {
-        durationReduction: -2.2,
-        setupTimeReduction: -7.1,
-        costSavings: -50000,
-        utilizationIncrease: -2.3,
-        deliveryImprovement: 16.0
-      },
-      parameters: [
-        { name: 'Priority Weighting', value: 100, unit: '%' },
-        { name: 'Safety Buffer', value: 3, unit: 'days' }
-      ]
-    },
-    {
-      id: '5',
-      scenarioName: 'Balanced Multi-Objective',
-      objective: 'Optimize across all metrics',
-      algorithm: 'Multi-Objective Optimization',
-      status: 'running',
-      currentMetrics: {
-        totalDuration: 45,
-        totalSetupTime: 28,
-        totalCost: 2850000,
-        resourceUtilization: 78.5,
-        onTimeDelivery: 82.0
-      },
-      optimizedMetrics: {
-        totalDuration: 40,
-        totalSetupTime: 23,
-        totalCost: 2750000,
-        resourceUtilization: 86.8,
-        onTimeDelivery: 91.0
-      },
-      improvements: {
-        durationReduction: 11.1,
-        setupTimeReduction: 17.9,
-        costSavings: 100000,
-        utilizationIncrease: 8.3,
-        deliveryImprovement: 9.0
-      },
-      parameters: [
-        { name: 'Time Weight', value: 35, unit: '%' },
-        { name: 'Cost Weight', value: 30, unit: '%' },
-        { name: 'Quality Weight', value: 35, unit: '%' }
-      ]
-    }
-  ];
+  const [scenarios, setScenarios] = useState<OptimizationScenario[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getProductionSchedules()) as any[];
+        const toMetrics = (m: any): Metrics => {
+          const totalSetupTime = Number(m?.totalSetupTime ?? m?.setupTime ?? 0);
+          return {
+            totalDuration: Number(m?.totalDuration ?? 0),
+            totalSetupTime,
+            setupTime: Number(m?.setupTime ?? totalSetupTime),
+            totalCost: Number(m?.totalCost ?? 0),
+            resourceUtilization: Number(m?.resourceUtilization ?? 0),
+            onTimeDelivery: Number(m?.onTimeDelivery ?? 0),
+          };
+        };
+        const mapped: OptimizationScenario[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r?.id ?? idx + 1),
+          scenarioName: String(r?.scenarioName ?? ''),
+          objective: String(r?.objective ?? ''),
+          algorithm: String(r?.algorithm ?? ''),
+          status: (r?.status ?? 'ready') as OptimizationScenario['status'],
+          currentMetrics: toMetrics(r?.currentMetrics),
+          optimizedMetrics: toMetrics(r?.optimizedMetrics),
+          improvements: {
+            durationReduction: Number(r?.improvements?.durationReduction ?? 0),
+            setupTimeReduction: Number(r?.improvements?.setupTimeReduction ?? 0),
+            costSavings: Number(r?.improvements?.costSavings ?? 0),
+            utilizationIncrease: Number(r?.improvements?.utilizationIncrease ?? 0),
+            deliveryImprovement: Number(r?.improvements?.deliveryImprovement ?? 0),
+          },
+          parameters: (Array.isArray(r?.parameters) ? r.parameters : []).map((p: any) => ({
+            name: String(p?.name ?? ''),
+            value: Number(p?.value ?? 0),
+            unit: String(p?.unit ?? ''),
+          })) as OptimizationParameter[],
+        }));
+        if (!cancelled) setScenarios(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+          setScenarios([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selected = scenarios.find(s => s.id === selectedScenario) || scenarios[0];
 
@@ -232,6 +127,8 @@ export default function ScheduleOptimizationPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
@@ -279,6 +176,7 @@ export default function ScheduleOptimizationPage() {
       </div>
 
       {/* Selected Scenario Details */}
+      {selected && (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <div className="flex items-center gap-3 mb-2">
           <Zap className="h-6 w-6 text-purple-600" />
@@ -399,6 +297,7 @@ export default function ScheduleOptimizationPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Action Buttons */}
       <div className="flex items-center justify-end gap-3">

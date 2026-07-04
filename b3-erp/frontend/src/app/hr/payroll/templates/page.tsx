@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { FileText, Plus, Search, Edit, Copy, Trash2, CheckCircle, Users } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { FileText, Plus, Search, Edit, Copy, Trash2, CheckCircle, Users, AlertCircle } from 'lucide-react';
+import { PayrollService } from '@/services/payroll.service';
 
 interface SalaryComponent {
   componentCode: string;
@@ -32,73 +33,45 @@ export default function PayrollTemplatesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<SalaryTemplate | null>(null);
 
-  const initialTemplates: SalaryTemplate[] = [
-    {
-      id: '1',
-      templateCode: 'TPL-MFG-A',
-      templateName: 'Manufacturing - Grade A',
-      grade: 'A',
-      employmentType: 'permanent',
-      ctcRange: '₹6-8L',
-      components: [
-        { componentCode: 'BASIC', componentName: 'Basic Salary', type: 'earning', calculationType: 'percentage', value: 50, baseComponent: 'CTC' },
-        { componentCode: 'HRA', componentName: 'HRA', type: 'earning', calculationType: 'percentage', value: 40, baseComponent: 'BASIC' },
-        { componentCode: 'DA', componentName: 'DA', type: 'earning', calculationType: 'percentage', value: 10, baseComponent: 'BASIC' },
-        { componentCode: 'CONV', componentName: 'Conveyance', type: 'earning', calculationType: 'flat', value: 1600 },
-        { componentCode: 'MED', componentName: 'Medical', type: 'earning', calculationType: 'flat', value: 1250 },
-        { componentCode: 'PF_EMP', componentName: 'PF (Employee)', type: 'deduction', calculationType: 'percentage', value: 12, baseComponent: 'BASIC' },
-        { componentCode: 'ESI_EMP', componentName: 'ESI (Employee)', type: 'deduction', calculationType: 'percentage', value: 0.75, baseComponent: 'GROSS' },
-        { componentCode: 'PT', componentName: 'Professional Tax', type: 'deduction', calculationType: 'flat', value: 200 }
-      ],
-      assignedCount: 45,
-      status: 'active',
-      createdBy: 'HR Admin',
-      createdOn: '2025-01-15'
-    },
-    {
-      id: '2',
-      templateCode: 'TPL-MFG-B',
-      templateName: 'Manufacturing - Grade B',
-      grade: 'B',
-      employmentType: 'permanent',
-      ctcRange: '₹4-6L',
-      components: [
-        { componentCode: 'BASIC', componentName: 'Basic Salary', type: 'earning', calculationType: 'percentage', value: 50, baseComponent: 'CTC' },
-        { componentCode: 'HRA', componentName: 'HRA', type: 'earning', calculationType: 'percentage', value: 40, baseComponent: 'BASIC' },
-        { componentCode: 'DA', componentName: 'DA', type: 'earning', calculationType: 'percentage', value: 10, baseComponent: 'BASIC' },
-        { componentCode: 'CONV', componentName: 'Conveyance', type: 'earning', calculationType: 'flat', value: 1600 },
-        { componentCode: 'PF_EMP', componentName: 'PF (Employee)', type: 'deduction', calculationType: 'percentage', value: 12, baseComponent: 'BASIC' },
-        { componentCode: 'ESI_EMP', componentName: 'ESI (Employee)', type: 'deduction', calculationType: 'percentage', value: 0.75, baseComponent: 'GROSS' },
-        { componentCode: 'PT', componentName: 'Professional Tax', type: 'deduction', calculationType: 'flat', value: 200 }
-      ],
-      assignedCount: 62,
-      status: 'active',
-      createdBy: 'HR Admin',
-      createdOn: '2025-01-15'
-    },
-    {
-      id: '3',
-      templateCode: 'TPL-MFG-C',
-      templateName: 'Manufacturing - Grade C',
-      grade: 'C',
-      employmentType: 'permanent',
-      ctcRange: '₹3-4L',
-      components: [
-        { componentCode: 'BASIC', componentName: 'Basic Salary', type: 'earning', calculationType: 'percentage', value: 50, baseComponent: 'CTC' },
-        { componentCode: 'HRA', componentName: 'HRA', type: 'earning', calculationType: 'percentage', value: 40, baseComponent: 'BASIC' },
-        { componentCode: 'DA', componentName: 'DA', type: 'earning', calculationType: 'percentage', value: 10, baseComponent: 'BASIC' },
-        { componentCode: 'PF_EMP', componentName: 'PF (Employee)', type: 'deduction', calculationType: 'percentage', value: 12, baseComponent: 'BASIC' },
-        { componentCode: 'ESI_EMP', componentName: 'ESI (Employee)', type: 'deduction', calculationType: 'percentage', value: 0.75, baseComponent: 'GROSS' },
-        { componentCode: 'PT', componentName: 'Professional Tax', type: 'deduction', calculationType: 'flat', value: 200 }
-      ],
-      assignedCount: 38,
-      status: 'active',
-      createdBy: 'HR Admin',
-      createdOn: '2025-01-15'
-    }
-  ];
+  const [templates, setTemplates] = useState<SalaryTemplate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [templates, setTemplates] = useState<SalaryTemplate[]>(initialTemplates);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await PayrollService.getSalaryTemplates()) as any[];
+        const mapped: SalaryTemplate[] = raw.map((r) => ({
+          id: String(r.id),
+          templateCode: r.templateCode ?? '',
+          templateName: r.templateName ?? '',
+          grade: r.grade ?? '',
+          employmentType: (r.employmentType ?? 'permanent') as SalaryTemplate['employmentType'],
+          ctcRange: r.ctcRange ?? '',
+          components: Array.isArray(r.components) ? (r.components as SalaryComponent[]) : [],
+          assignedCount: Number(r.assignedCount ?? 0),
+          status: (r.status ?? 'active') as SalaryTemplate['status'],
+          createdBy: r.createdBy ?? '',
+          createdOn: r.createdOn ?? '',
+        }));
+        if (!cancelled) setTemplates(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load salary templates');
+          setTemplates([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAdd = () => {
     setEditingTemplate(null);
@@ -172,6 +145,19 @@ export default function PayrollTemplatesPage() {
         <h1 className="text-2xl font-bold text-gray-900">Salary Templates</h1>
         <p className="text-sm text-gray-600 mt-1">Predefined salary structure templates by grade and role</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading salary templates…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">

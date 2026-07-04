@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Package,
   TrendingUp,
@@ -14,6 +14,7 @@ import {
   Download,
   Filter
 } from 'lucide-react'
+import { cpqAnalyticsLiveService } from '@/services/cpq/cpq-analytics-live.service'
 import {
   LineChart,
   Line,
@@ -32,74 +33,97 @@ import {
   ResponsiveContainer
 } from 'recharts'
 
+// Fixed colour palette for the product-mix pie (config, not data).
+const PRODUCT_MIX_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6b7280']
+
+interface ProductMixRow { category: string; value: number; percentage: number; deals: number; color: string }
+interface ProductTrendRow { month: string; kitchens: number; wardrobes: number; living: number; office: number; bathroom: number }
+interface BundleRow { name: string; popularity: number; avgValue: number; margin: number; conversionRate: number }
+interface ConfigTrendRow { feature: string; adoption: number; avgUpsell: number; deals: number }
+interface CrossSellRow { product: string; successRate: number; avgValue: number; attempts: number; conversions: number }
+interface ProfitabilityRow { category: string; revenue: number; cost: number; margin: number; deals: number; profitRatio: number }
+interface TopProductRow { name: string; revenue: number; deals: number; avgValue: number; margin: number }
+
 export default function CPQAnalyticsProductsPage() {
   const [timeRange, setTimeRange] = useState('last-6-months')
 
-  // Product mix revenue
-  const productMix = [
-    { category: 'Modular Kitchens', value: 56.2, percentage: 39.4, deals: 198, color: '#3b82f6' },
-    { category: 'Wardrobes', value: 28.5, percentage: 20.0, deals: 95, color: '#8b5cf6' },
-    { category: 'Living Room', value: 22.8, percentage: 16.0, deals: 68, color: '#10b981' },
-    { category: 'Office Furniture', value: 18.5, percentage: 13.0, deals: 45, color: '#f59e0b' },
-    { category: 'Bathroom Vanities', value: 15.2, percentage: 10.6, deals: 88, color: '#ef4444' },
-    { category: 'Others', value: 1.4, percentage: 1.0, deals: 12, color: '#6b7280' }
-  ]
+  // Data arrays wired to GET /cpq/analytics/dashboards/products. The dashboard
+  // aggregates cpq_quote_items into topProducts; product mix and profitability
+  // are derived from those same rows. Trend/bundle/config/cross-sell views have
+  // no backing field on the endpoint and stay empty until the API exposes them.
+  const [productMix, setProductMix] = useState<ProductMixRow[]>([])
+  const [productTrend, setProductTrend] = useState<ProductTrendRow[]>([])
+  const [bundles, setBundles] = useState<BundleRow[]>([])
+  const [configTrends, setConfigTrends] = useState<ConfigTrendRow[]>([])
+  const [crossSell, setCrossSell] = useState<CrossSellRow[]>([])
+  const [profitability, setProfitability] = useState<ProfitabilityRow[]>([])
+  const [topProducts, setTopProducts] = useState<TopProductRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Product performance trend
-  const productTrend = [
-    { month: 'Apr', kitchens: 8.2, wardrobes: 4.2, living: 3.5, office: 2.8, bathroom: 2.1 },
-    { month: 'May', kitchens: 9.5, wardrobes: 4.8, living: 3.8, office: 3.2, bathroom: 2.4 },
-    { month: 'Jun', kitchens: 10.2, wardrobes: 5.2, living: 4.2, office: 3.5, bathroom: 2.6 },
-    { month: 'Jul', kitchens: 9.8, wardrobes: 4.9, living: 3.9, office: 3.1, bathroom: 2.3 },
-    { month: 'Aug', kitchens: 11.5, wardrobes: 6.1, living: 4.5, office: 3.8, bathroom: 2.8 },
-    { month: 'Sep', kitchens: 12.8, wardrobes: 6.8, living: 5.2, office: 4.2, bathroom: 3.2 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const dash = await cpqAnalyticsLiveService.getProductsDashboard()
+        const rows = dash.topProducts ?? []
+        const totalRevenue = dash.metrics?.totalRevenue || rows.reduce((s, r) => s + Number(r.totalRevenue || 0), 0)
 
-  // Bundle performance
-  const bundles = [
-    { name: 'Complete Kitchen Package', popularity: 145, avgValue: 4.8, margin: 28.5, conversionRate: 62 },
-    { name: 'Master Bedroom Suite', popularity: 98, avgValue: 5.2, margin: 26.8, conversionRate: 58 },
-    { name: 'Home Office Bundle', popularity: 85, avgValue: 3.8, margin: 24.5, conversionRate: 52 },
-    { name: 'Living + Dining Combo', popularity: 72, avgValue: 6.5, margin: 27.2, conversionRate: 55 },
-    { name: 'Bathroom Essentials', popularity: 68, avgValue: 2.2, margin: 30.8, conversionRate: 65 }
-  ]
+        const top: TopProductRow[] = rows.map((r) => ({
+          name: r.name || r.productId || 'Unknown',
+          revenue: Number((Number(r.totalRevenue || 0) / 10000000).toFixed(2)), // ₹Cr
+          deals: Number(r.timesQuoted || 0),
+          avgValue: Number((Number(r.avgSellingPrice || 0) / 100000).toFixed(2)), // ₹L
+          margin: 0,
+        }))
 
-  // Configuration trends
-  const configTrends = [
-    { feature: 'Premium Finishes', adoption: 68, avgUpsell: 0.85, deals: 178 },
-    { feature: 'Soft-Close Hardware', adoption: 82, avgUpsell: 0.32, deals: 215 },
-    { feature: 'LED Lighting', adoption: 55, avgUpsell: 0.45, deals: 145 },
-    { feature: 'Smart Storage', adoption: 42, avgUpsell: 0.95, deals: 112 },
-    { feature: 'Glass Shutters', adoption: 38, avgUpsell: 0.65, deals: 98 },
-    { feature: 'Pull-Out Systems', adoption: 62, avgUpsell: 0.52, deals: 162 }
-  ]
+        const mix: ProductMixRow[] = rows.map((r, idx) => {
+          const rev = Number(r.totalRevenue || 0)
+          return {
+            category: r.name || r.productId || 'Unknown',
+            value: Number((rev / 10000000).toFixed(2)),
+            percentage: totalRevenue ? Number(((rev / totalRevenue) * 100).toFixed(1)) : 0,
+            deals: Number(r.timesQuoted || 0),
+            color: PRODUCT_MIX_COLORS[idx % PRODUCT_MIX_COLORS.length],
+          }
+        })
 
-  // Cross-sell performance
-  const crossSell = [
-    { product: 'Kitchen → Wardrobe', successRate: 45, avgValue: 3.2, attempts: 198, conversions: 89 },
-    { product: 'Wardrobe → Living Room', successRate: 38, avgValue: 4.5, attempts: 95, conversions: 36 },
-    { product: 'Living Room → Dining', successRate: 52, avgValue: 2.8, attempts: 68, conversions: 35 },
-    { product: 'Office → Storage', successRate: 42, avgValue: 1.8, attempts: 45, conversions: 19 },
-    { product: 'Bathroom → Storage', successRate: 35, avgValue: 1.2, attempts: 88, conversions: 31 }
-  ]
+        const profit: ProfitabilityRow[] = rows.map((r) => {
+          const rev = Number(r.totalRevenue || 0) / 10000000
+          return {
+            category: r.name || r.productId || 'Unknown',
+            revenue: Number(rev.toFixed(2)),
+            cost: 0,
+            margin: 0,
+            deals: Number(r.timesQuoted || 0),
+            profitRatio: 0,
+          }
+        })
 
-  // Product profitability
-  const profitability = [
-    { category: 'Modular Kitchens', revenue: 56.2, cost: 40.2, margin: 28.5, deals: 198, profitRatio: 1.4 },
-    { category: 'Wardrobes', revenue: 28.5, cost: 21.4, margin: 24.9, deals: 95, profitRatio: 1.33 },
-    { category: 'Living Room', revenue: 22.8, cost: 16.4, margin: 28.1, deals: 68, profitRatio: 1.39 },
-    { category: 'Office Furniture', revenue: 18.5, cost: 14.5, margin: 21.6, deals: 45, profitRatio: 1.28 },
-    { category: 'Bathroom Vanities', revenue: 15.2, cost: 10.5, margin: 30.9, deals: 88, profitRatio: 1.45 }
-  ]
-
-  // Top products by revenue
-  const topProducts = [
-    { name: 'L-Shaped Modular Kitchen', revenue: 18.5, deals: 52, avgValue: 3.6, margin: 28.2 },
-    { name: 'Walk-in Wardrobe System', revenue: 12.8, deals: 32, avgValue: 4.0, margin: 26.5 },
-    { name: 'Premium Office Workstation', revenue: 9.2, deals: 18, avgValue: 5.1, margin: 22.8 },
-    { name: 'Modular Living Room Unit', revenue: 8.5, deals: 28, avgValue: 3.0, margin: 27.5 },
-    { name: 'U-Shaped Kitchen Premium', revenue: 7.8, deals: 15, avgValue: 5.2, margin: 29.8 }
-  ]
+        if (!cancelled) {
+          setTopProducts(top)
+          setProductMix(mix)
+          setProfitability(profit)
+          setProductTrend([])
+          setBundles([])
+          setConfigTrends([])
+          setCrossSell([])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load product analytics')
+          setProductMix([]); setProductTrend([]); setBundles([])
+          setConfigTrends([]); setCrossSell([]); setProfitability([]); setTopProducts([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -130,6 +154,13 @@ export default function CPQAnalyticsProductsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 text-sm text-gray-500">Loading product analytics...</div>
+      )}
+      {!isLoading && loadError && (
+        <div className="mb-3 text-sm text-red-600">{loadError}</div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">

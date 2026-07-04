@@ -1,22 +1,45 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function MovementHistoryDetail() {
     const router = useRouter();
 
-    const movements = [
-        { id: 'ST-2025-001', type: 'Transfer', date: '2025-01-22', items: 2, from: 'Warehouse A', to: 'Warehouse B', status: 'Completed' },
-        { id: 'GRN-2025-089', type: 'Receipt', date: '2025-01-20', items: 5, from: 'Vendor', to: 'Warehouse A', status: 'Completed' },
-        { id: 'DO-2025-045', type: 'Delivery', date: '2025-01-18', items: 3, from: 'Warehouse B', to: 'Customer', status: 'Shipped' },
-        { id: 'ADJ-2025-012', type: 'Adjustment', date: '2025-01-15', items: 1, from: 'Warehouse A', to: 'Scrap', status: 'Approved' },
-    ];
+    const [movements, setMovements] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('inventory/stock-transfers');
+                const mapped = raw.map((r: any) => ({
+                    id: r.transferNumber ?? r.id,
+                    type: 'Transfer',
+                    date: r.transferDate ?? r.createdAt ?? '',
+                    items: Number((r.items?.length) ?? r.itemCount ?? 0),
+                    from: r.fromWarehouse ?? r.sourceWarehouse ?? '',
+                    to: r.toWarehouse ?? r.destinationWarehouse ?? '',
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setMovements(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setMovements([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -31,6 +54,8 @@ export default function MovementHistoryDetail() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('inventory-movement-history', movements)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader><CardTitle>Recent Movements</CardTitle></CardHeader>
                 <CardContent className="p-0">

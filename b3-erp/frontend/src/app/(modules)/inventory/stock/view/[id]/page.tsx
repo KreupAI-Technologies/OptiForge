@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Edit, Package, MapPin, Calendar, TrendingUp,
@@ -9,6 +9,7 @@ import {
   CheckCircle, XCircle, Activity, FileText, Download,
   PieChart, Target, Zap, ArrowRight, Box, Layers
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface StockItem {
   id: string;
@@ -92,73 +93,132 @@ export default function StockViewPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'locations' | 'activity' | 'analytics'>('overview');
 
-  // Mock data
-  const stockItem: StockItem = {
+  const defaultStockItem: StockItem = {
     id: params.id,
-    itemCode: 'RM-SS304-2MM',
-    itemName: 'Stainless Steel Sheet 304 - 2mm Thickness',
-    description: 'Premium grade 304 stainless steel sheets with 2mm thickness, 4x8 feet dimension. Corrosion resistant, suitable for food processing equipment and industrial applications.',
-    category: 'Raw Materials',
-    subCategory: 'Metal Sheets',
-    uom: 'KG',
-    hsnCode: '72193300',
-    currentStock: 2450,
-    committedStock: 850,
-    availableStock: 1600,
-    reorderLevel: 500,
-    safetyStock: 300,
-    maxLevel: 5000,
-    leadTimeDays: 15,
-    unitCost: 185.50,
-    avgCost: 182.75,
-    totalValue: 454387.50,
-    location: 'RM-A-01-AA-001',
-    warehouse: 'Main Warehouse - Pune',
-    bin: 'AA-001',
-    batchEnabled: true,
+    itemCode: '',
+    itemName: '',
+    description: '',
+    category: '',
+    subCategory: '',
+    uom: '',
+    hsnCode: '',
+    currentStock: 0,
+    committedStock: 0,
+    availableStock: 0,
+    reorderLevel: 0,
+    safetyStock: 0,
+    maxLevel: 0,
+    leadTimeDays: 0,
+    unitCost: 0,
+    avgCost: 0,
+    totalValue: 0,
+    location: '',
+    warehouse: '',
+    bin: '',
+    batchEnabled: false,
     serialEnabled: false,
     status: 'in_stock',
-    lastReceived: '2025-10-15',
-    lastIssued: '2025-10-16',
-    lastCounted: '2025-10-10',
-    createdBy: 'Rahul Sharma',
-    createdDate: '2024-01-15',
-    modifiedBy: 'Priya Patel',
-    modifiedDate: '2025-10-15'
+    lastReceived: '',
+    lastIssued: '',
+    lastCounted: '',
+    createdBy: '',
+    createdDate: '',
+    modifiedBy: '',
+    modifiedDate: '',
   };
 
-  const transactions: StockTransaction[] = [
-    { id: 'T001', date: '2025-10-16', time: '14:30', transactionType: 'issue', referenceNo: 'WO-2025-1234', quantity: -125, balanceAfter: 2450, reason: 'Material Issue to Work Order', performedBy: 'Amit Kumar' },
-    { id: 'T002', date: '2025-10-15', time: '10:15', transactionType: 'receipt', referenceNo: 'PO-2025-5678', quantity: 500, balanceAfter: 2575, reason: 'Purchase Receipt from Tata Steel', performedBy: 'Sunita Reddy' },
-    { id: 'T003', date: '2025-10-14', time: '16:45', transactionType: 'issue', referenceNo: 'WO-2025-1198', quantity: -200, balanceAfter: 2075, reason: 'Material Issue to Work Order', performedBy: 'Vikram Singh' },
-    { id: 'T004', date: '2025-10-13', time: '09:30', transactionType: 'adjustment', referenceNo: 'ADJ-2025-089', quantity: 25, balanceAfter: 2275, reason: 'Physical Count Adjustment', performedBy: 'Lakshmi Iyer', remarks: 'Cycle count variance correction' },
-    { id: 'T005', date: '2025-10-12', time: '11:20', transactionType: 'transfer_out', referenceNo: 'TRF-2025-456', quantity: -150, balanceAfter: 2250, reason: 'Transfer to Bangalore Plant', performedBy: 'Mohammed Ali' },
-    { id: 'T006', date: '2025-10-11', time: '13:50', transactionType: 'return', referenceNo: 'WO-2025-1156', quantity: 50, balanceAfter: 2400, reason: 'Excess material return from production', performedBy: 'Anjali Mehta' },
-    { id: 'T007', date: '2025-10-10', time: '08:00', transactionType: 'issue', referenceNo: 'WO-2025-1156', quantity: -300, balanceAfter: 2350, reason: 'Material Issue to Work Order', performedBy: 'Rajesh Kumar' }
-  ];
+  const [stockItem, setStockItem] = useState<StockItem>(defaultStockItem);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [stockLocations, setStockLocations] = useState<any[]>([]);
+  const [reorderHistory, setReorderHistory] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const stockLocations: StockLocation[] = [
-    { warehouse: 'Main Warehouse - Pune', zone: 'A', aisle: '01', rack: 'AA', bin: '001', quantity: 1850, lastCounted: '2025-10-10' },
-    { warehouse: 'Main Warehouse - Pune', zone: 'A', aisle: '01', rack: 'AA', bin: '002', quantity: 400, lastCounted: '2025-10-10' },
-    { warehouse: 'Auxiliary Storage - Pune', zone: 'B', aisle: '05', rack: 'CC', bin: '012', quantity: 200, lastCounted: '2025-10-08' }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [balance, locations] = await Promise.all([
+          inventoryService.getStockBalance(params.id).catch(() => null),
+          inventoryService.getStockLocations().catch(() => [] as any[]),
+        ]);
 
-  const reorderHistory: ReorderHistory[] = [
-    { id: 'RO1', poNumber: 'PO-2025-5678', supplier: 'Tata Steel Ltd', orderDate: '2025-10-05', expectedDate: '2025-10-20', quantity: 500, receivedQty: 500, status: 'received', unitPrice: 185.50 },
-    { id: 'RO2', poNumber: 'PO-2025-5234', supplier: 'JSW Steel', orderDate: '2025-09-15', expectedDate: '2025-09-30', quantity: 800, receivedQty: 800, status: 'received', unitPrice: 180.00 },
-    { id: 'RO3', poNumber: 'PO-2025-4891', supplier: 'Tata Steel Ltd', orderDate: '2025-08-20', expectedDate: '2025-09-05', quantity: 600, receivedQty: 600, status: 'received', unitPrice: 182.75 }
-  ];
+        if (balance && typeof balance === 'object') {
+          const available = Number(balance.availableQuantity ?? 0);
+          const committed = Number(balance.committedQuantity ?? 0);
+          const total = Number(balance.totalQuantity ?? available + committed);
+          const belowReorder = Boolean(balance.belowReorderLevel);
+          const status: StockItem['status'] =
+            total <= 0 ? 'out_of_stock' : belowReorder ? 'low_stock' : 'in_stock';
+          const mappedItem: StockItem = {
+            id: balance.id ?? params.id,
+            itemCode: balance.itemCode ?? '',
+            itemName: balance.itemName ?? '',
+            description: balance.description ?? '',
+            category: balance.itemCategory ?? '',
+            subCategory: balance.itemGroup ?? '',
+            uom: balance.uom ?? '',
+            hsnCode: balance.hsnCode ?? '',
+            currentStock: total,
+            committedStock: committed,
+            availableStock: Number(balance.freeQuantity ?? available),
+            reorderLevel: Number(balance.reorderLevel ?? 0),
+            safetyStock: Number(balance.safetyStock ?? 0),
+            maxLevel: Number(balance.maximumOrderQuantity ?? 0),
+            leadTimeDays: Number(balance.leadTimeDays ?? 0),
+            unitCost: Number(balance.valuationRate ?? 0),
+            avgCost: Number(balance.valuationRate ?? 0),
+            totalValue: Number(balance.stockValue ?? 0),
+            location: balance.locationName ?? '',
+            warehouse: balance.warehouseName ?? '',
+            bin: balance.locationName ?? '',
+            batchEnabled: Boolean(balance.batchNumber),
+            serialEnabled: Boolean(balance.serialNumber),
+            status,
+            lastReceived: balance.lastReceiptDate ?? '',
+            lastIssued: balance.lastIssueDate ?? '',
+            lastCounted: balance.lastCycleCountDate ?? '',
+            createdBy: balance.updatedBy ?? '',
+            createdDate: balance.createdAt ?? '',
+            modifiedBy: balance.updatedBy ?? '',
+            modifiedDate: balance.updatedAt ?? '',
+          };
+          if (!cancelled) setStockItem(mappedItem);
 
-  const activityLog: ActivityLog[] = [
-    { id: 'A001', timestamp: '2025-10-16 14:30:45', action: 'Stock Issued', user: 'Amit Kumar', details: 'Issued 125 KG to WO-2025-1234', status: 'success' },
-    { id: 'A002', timestamp: '2025-10-15 10:15:22', action: 'Stock Received', user: 'Sunita Reddy', details: 'Received 500 KG from PO-2025-5678', status: 'success' },
-    { id: 'A003', timestamp: '2025-10-15 09:45:10', action: 'Stock Updated', user: 'Priya Patel', details: 'Updated unit cost to ₹185.50', status: 'success' },
-    { id: 'A004', timestamp: '2025-10-14 16:45:33', action: 'Stock Issued', user: 'Vikram Singh', details: 'Issued 200 KG to WO-2025-1198', status: 'success' },
-    { id: 'A005', timestamp: '2025-10-13 09:30:15', action: 'Stock Adjusted', user: 'Lakshmi Iyer', details: 'Physical count adjustment +25 KG', status: 'warning' },
-    { id: 'A006', timestamp: '2025-10-12 11:20:50', action: 'Stock Transferred', user: 'Mohammed Ali', details: 'Transferred 150 KG to Bangalore Plant', status: 'success' },
-    { id: 'A007', timestamp: '2025-10-11 13:50:28', action: 'Stock Returned', user: 'Anjali Mehta', details: 'Returned 50 KG from WO-2025-1156', status: 'success' },
-    { id: 'A008', timestamp: '2025-10-10 08:00:00', action: 'Cycle Count', user: 'Inventory Team', details: 'Physical count completed: 2350 KG', status: 'success' }
-  ];
+          // Sub-arrays if the balance detail happens to carry them; else default [].
+          if (!cancelled) {
+            setTransactions(Array.isArray(balance.transactions) ? balance.transactions : []);
+            setReorderHistory(Array.isArray(balance.reorderHistory) ? balance.reorderHistory : []);
+            setActivityLog(Array.isArray(balance.activityLog) ? balance.activityLog : []);
+          }
+        }
+
+        const mappedLocations = (Array.isArray(locations) ? locations : []).map((l: any) => ({
+          warehouse: l.locationName ?? l.warehouseId ?? '',
+          zone: l.zone ?? '',
+          aisle: l.aisle ?? '',
+          rack: l.rack ?? '',
+          bin: l.bin ?? '',
+          quantity: Number(l.currentCapacity ?? 0),
+          lastCounted: l.lastStockTakeDate ?? '',
+        }));
+        if (!cancelled) setStockLocations(mappedLocations);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stock item');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -747,7 +807,7 @@ export default function StockViewPage({ params }: { params: { id: string } }) {
                 <h4 className="font-semibold text-blue-900 mb-1">Multi-Location Storage</h4>
                 <p className="text-sm text-blue-700">
                   This item is stored across {stockLocations.length} different locations for better accessibility and space optimization.
-                  Primary location holds {stockLocations[0].quantity} {stockItem.uom} ({((stockLocations[0].quantity / stockItem.currentStock) * 100).toFixed(1)}% of total stock).
+                  Primary location holds {stockLocations[0]?.quantity ?? 0} {stockItem.uom} ({stockItem.currentStock > 0 ? (((stockLocations[0]?.quantity ?? 0) / stockItem.currentStock) * 100).toFixed(1) : '0.0'}% of total stock).
                 </p>
               </div>
             </div>

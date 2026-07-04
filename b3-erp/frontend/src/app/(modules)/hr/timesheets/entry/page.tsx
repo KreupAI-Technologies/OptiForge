@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
     ClipboardList,
     Plus,
@@ -30,15 +31,29 @@ export default function TimesheetEntryPage() {
 
     const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    const [entries, setEntries] = useState<TimesheetEntry[]>([
-        { id: '1', date: '2025-01-27', project: 'ERP Implementation', task: 'Frontend Development', hours: 8, description: 'Worked on HR module dashboard', status: 'Draft' },
-        { id: '2', date: '2025-01-28', project: 'ERP Implementation', task: 'Frontend Development', hours: 7, description: 'Completed attendance management UI', status: 'Draft' },
-        { id: '3', date: '2025-01-29', project: 'Client Support', task: 'Bug Fixes', hours: 3, description: 'Fixed login issues for client ABC', status: 'Draft' },
-        { id: '4', date: '2025-01-29', project: 'ERP Implementation', task: 'Code Review', hours: 2, description: 'Reviewed pull requests', status: 'Draft' },
-        { id: '5', date: '2025-01-30', project: 'ERP Implementation', task: 'Frontend Development', hours: 8, description: 'Shift management implementation', status: 'Draft' },
-        { id: '6', date: '2025-01-31', project: 'Training', task: 'Team Meeting', hours: 2, description: 'Sprint planning meeting', status: 'Draft' },
-        { id: '7', date: '2025-01-31', project: 'ERP Implementation', task: 'Testing', hours: 4, description: 'Unit testing for attendance module', status: 'Draft' }
-    ]);
+    const [entries, setEntries] = useState<TimesheetEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true);
+        setLoadError(null);
+        try {
+          const rows = await HrPagesService.timesheets<any[]>();
+          if (!cancelled) setEntries(Array.isArray(rows) ? (rows as any) : []);
+        } catch (err) {
+          if (!cancelled) {
+            setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+            setEntries([]);
+          }
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const projects = ['ERP Implementation', 'Client Support', 'Training', 'Internal Tools', 'R&D'];
     const tasks = ['Frontend Development', 'Backend Development', 'Testing', 'Bug Fixes', 'Code Review', 'Documentation', 'Team Meeting'];

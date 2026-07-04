@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
     Send,
     Upload,
@@ -30,26 +31,29 @@ interface ExpenseItem {
 
 export default function SubmitTravelExpensePage() {
     const [selectedTrip, setSelectedTrip] = useState('TR-2025-001');
-    const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([
-        {
-            id: '1',
-            category: 'Flight',
-            description: 'Bangalore to Mumbai - IndiGo 6E 234',
-            amount: 8500,
-            date: '2025-02-20',
-            receipt: 'receipt1.pdf',
-            vendor: 'IndiGo'
-        },
-        {
-            id: '2',
-            category: 'Flight',
-            description: 'Mumbai to Bangalore - IndiGo 6E 567',
-            amount: 7800,
-            date: '2025-02-23',
-            receipt: 'receipt2.pdf',
-            vendor: 'IndiGo'
+    const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true);
+        setLoadError(null);
+        try {
+          const rows = await HrPagesService.travelRequests<any[]>();
+          if (!cancelled) setExpenseItems(Array.isArray(rows) ? (rows as any) : []);
+        } catch (err) {
+          if (!cancelled) {
+            setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+            setExpenseItems([]);
+          }
+        } finally {
+          if (!cancelled) setIsLoading(false);
         }
-    ]);
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const approvedTrips = [
         {

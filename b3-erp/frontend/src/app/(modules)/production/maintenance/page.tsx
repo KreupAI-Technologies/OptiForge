@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Wrench, Clock, AlertTriangle, CheckCircle, TrendingUp, Calendar, Package } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface EquipmentStatus {
   id: string;
@@ -36,137 +37,39 @@ export default function MaintenanceDashboardPage() {
   const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Mock data for equipment status
-  const equipmentStatus: EquipmentStatus[] = [
-    {
-      id: '1',
-      equipmentCode: 'CNC-CUT-01',
-      equipmentName: 'CNC Cutting Machine #1',
-      location: 'Cutting Department - Bay A',
-      status: 'operational',
-      utilization: 87,
-      lastMaintenance: '2025-10-05',
-      nextMaintenance: '2025-11-05',
-      daysUntilMaintenance: 16,
-      mtbf: 480,
-      mttr: 4.5,
-      breakdownCount: 2,
-      maintenanceCost: 145000,
-      criticalityLevel: 'critical'
-    },
-    {
-      id: '2',
-      equipmentCode: 'WELD-ST-01',
-      equipmentName: 'TIG Welding Station #1',
-      location: 'Welding Department - Bay B',
-      status: 'operational',
-      utilization: 92,
-      lastMaintenance: '2025-10-12',
-      nextMaintenance: '2025-11-12',
-      daysUntilMaintenance: 23,
-      mtbf: 520,
-      mttr: 3.2,
-      breakdownCount: 1,
-      maintenanceCost: 85000,
-      criticalityLevel: 'high'
-    },
-    {
-      id: '3',
-      equipmentCode: 'POLISH-01',
-      equipmentName: 'Polishing Machine #1',
-      location: 'Finishing Department',
-      status: 'maintenance',
-      utilization: 0,
-      lastMaintenance: '2025-10-20',
-      nextMaintenance: '2025-11-20',
-      daysUntilMaintenance: 31,
-      mtbf: 380,
-      mttr: 6.8,
-      breakdownCount: 4,
-      maintenanceCost: 220000,
-      criticalityLevel: 'high'
-    },
-    {
-      id: '4',
-      equipmentCode: 'PAINT-BOOTH-01',
-      equipmentName: 'Powder Coating Booth #1',
-      location: 'Finishing Department',
-      status: 'operational',
-      utilization: 78,
-      lastMaintenance: '2025-09-15',
-      nextMaintenance: '2025-10-15',
-      daysUntilMaintenance: -5,
-      mtbf: 450,
-      mttr: 8.5,
-      breakdownCount: 3,
-      maintenanceCost: 185000,
-      criticalityLevel: 'medium'
-    },
-    {
-      id: '5',
-      equipmentCode: 'PRESS-HYDRO-01',
-      equipmentName: 'Hydraulic Press Machine',
-      location: 'Forming Department',
-      status: 'operational',
-      utilization: 85,
-      lastMaintenance: '2025-10-18',
-      nextMaintenance: '2025-11-18',
-      daysUntilMaintenance: 29,
-      mtbf: 610,
-      mttr: 5.2,
-      breakdownCount: 1,
-      maintenanceCost: 125000,
-      criticalityLevel: 'critical'
-    },
-    {
-      id: '6',
-      equipmentCode: 'ASSY-LINE-01',
-      equipmentName: 'Assembly Conveyor Line #1',
-      location: 'Assembly Department',
-      status: 'breakdown',
-      utilization: 0,
-      lastMaintenance: '2025-10-10',
-      nextMaintenance: '2025-11-10',
-      daysUntilMaintenance: 21,
-      mtbf: 320,
-      mttr: 12.5,
-      breakdownCount: 6,
-      maintenanceCost: 340000,
-      criticalityLevel: 'critical'
-    },
-    {
-      id: '7',
-      equipmentCode: 'LASER-CUT-02',
-      equipmentName: 'Laser Cutting Machine #2',
-      location: 'Cutting Department - Bay B',
-      status: 'operational',
-      utilization: 65,
-      lastMaintenance: '2025-10-08',
-      nextMaintenance: '2025-11-08',
-      daysUntilMaintenance: 19,
-      mtbf: 550,
-      mttr: 4.0,
-      breakdownCount: 2,
-      maintenanceCost: 165000,
-      criticalityLevel: 'high'
-    },
-    {
-      id: '8',
-      equipmentCode: 'FORK-LIFT-03',
-      equipmentName: 'Forklift #3',
-      location: 'Warehouse',
-      status: 'idle',
-      utilization: 45,
-      lastMaintenance: '2025-10-01',
-      nextMaintenance: '2025-11-01',
-      daysUntilMaintenance: 12,
-      mtbf: 720,
-      mttr: 2.5,
-      breakdownCount: 1,
-      maintenanceCost: 45000,
-      criticalityLevel: 'low'
-    }
-  ];
+  // Equipment status (live)
+  const [equipmentStatus, setEquipmentStatus] = useState<EquipmentStatus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getMaintenanceRequests()) as any[];
+        const mapped: EquipmentStatus[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          equipmentCode: String(r.equipmentCode ?? ''),
+          equipmentName: String(r.equipmentName ?? ''),
+          location: String(r.location ?? ''),
+          status: (r.status ?? 'idle') as EquipmentStatus['status'],
+          utilization: Number(r.utilization ?? 0),
+          lastMaintenance: String(r.lastMaintenance ?? ''),
+          nextMaintenance: String(r.nextMaintenance ?? ''),
+          daysUntilMaintenance: Number(r.daysUntilMaintenance ?? 0),
+          mtbf: Number(r.mtbf ?? 0),
+          mttr: Number(r.mttr ?? 0),
+          breakdownCount: Number(r.breakdownCount ?? 0),
+          maintenanceCost: Number(r.maintenanceCost ?? 0),
+          criticalityLevel: (r.criticalityLevel ?? 'low') as EquipmentStatus['criticalityLevel'],
+        }));
+        if (!cancelled) setEquipmentStatus(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEquipmentStatus([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock data for maintenance alerts
   const maintenanceAlerts: MaintenanceAlert[] = [
@@ -276,6 +179,8 @@ export default function MaintenanceDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

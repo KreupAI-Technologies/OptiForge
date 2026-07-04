@@ -1,14 +1,79 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Building, Search, TrendingUp, Users, Calendar, AlertCircle, Download, BarChart3 } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
-import { mockDepartmentLeaveSummary, DepartmentLeaveSummary } from '@/data/hr/leave-balances';
+import { DepartmentLeaveSummary } from '@/data/hr/leave-balances';
+import { LeaveService } from '@/services/leave.service';
 import { exportToCsv } from '@/lib/export';
 
 export default function DepartmentLeaveBalancePage() {
-  const [departments] = useState<DepartmentLeaveSummary[]>(mockDepartmentLeaveSummary);
+  const [departments, setDepartments] = useState<DepartmentLeaveSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LeaveService.getAllLeaveBalances()) as any[];
+        // Aggregate raw balance rows by department into department summaries.
+        const byDept = new Map<string, DepartmentLeaveSummary>();
+        for (const r of raw) {
+          const deptName: string =
+            r.employee?.departmentName ?? r.department ?? r.departmentName ?? 'Unassigned';
+          const deptCode: string = r.employee?.departmentCode ?? deptName.slice(0, 4).toUpperCase();
+          const entitlement = Number(r.allocated ?? 0) + Number(r.openingBalance ?? 0) + Number(r.earned ?? 0);
+          const taken = Number(r.used ?? 0);
+          const pending = Number(r.pending ?? 0);
+          const balance = Number(r.available ?? 0);
+          let d = byDept.get(deptName);
+          if (!d) {
+            d = {
+              id: deptCode,
+              department: deptName,
+              departmentCode: deptCode,
+              totalEmployees: 0,
+              activeEmployees: 0,
+              onLeave: 0,
+              upcomingLeave: 0,
+              totalEntitlement: 0,
+              totalTaken: 0,
+              totalPending: 0,
+              totalBalance: 0,
+              avgUtilization: 0,
+              topLeaveType: r.leaveType?.code ?? r.leaveTypeCode ?? '-',
+              criticalCount: 0,
+            };
+            byDept.set(deptName, d);
+          }
+          d.totalEntitlement += entitlement;
+          d.totalTaken += taken;
+          d.totalPending += pending;
+          d.totalBalance += balance;
+        }
+        const mapped = Array.from(byDept.values()).map((d) => ({
+          ...d,
+          avgUtilization: d.totalEntitlement > 0 ? Math.round((d.totalTaken / d.totalEntitlement) * 100) : 0,
+        }));
+        if (!cancelled) setDepartments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department leave balances');
+          setDepartments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Filtered data
   const filteredData = useMemo(() => {
@@ -232,6 +297,18 @@ export default function DepartmentLeaveBalancePage() {
           </button>
         </div>
       </div>
+
+      {/* Loading / Error Banners */}
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm">
+          Loading department leave balances…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+          {loadError}
+        </div>
+      )}
 
       {/* Organization-wide Stats */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-2">

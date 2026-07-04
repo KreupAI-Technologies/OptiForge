@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { DollarSign, Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { DollarSign, Plus, Search, Filter, Edit, Trash2, AlertCircle } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge, { BadgeStatus } from '@/components/StatusBadge';
+import { PayrollService } from '@/services/payroll.service';
 
 interface SalaryComponent {
   id: string;
@@ -27,80 +28,45 @@ export default function ComponentsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingComponent, setEditingComponent] = useState<SalaryComponent | null>(null);
 
-  const initialComponents: SalaryComponent[] = [
-    {
-      id: '1', code: 'BASIC', name: 'Basic Salary', type: 'earning', category: 'fixed',
-      calculationType: 'flat', taxable: true, pfApplicable: true, esiApplicable: true,
-      displayOrder: 1, status: 'active'
-    },
-    {
-      id: '2', code: 'HRA', name: 'House Rent Allowance', type: 'earning', category: 'fixed',
-      calculationType: 'percentage', taxable: true, pfApplicable: false, esiApplicable: false,
-      displayOrder: 2, status: 'active'
-    },
-    {
-      id: '3', code: 'DA', name: 'Dearness Allowance', type: 'earning', category: 'fixed',
-      calculationType: 'percentage', taxable: true, pfApplicable: true, esiApplicable: true,
-      displayOrder: 3, status: 'active'
-    },
-    {
-      id: '4', code: 'CONV', name: 'Conveyance Allowance', type: 'earning', category: 'fixed',
-      calculationType: 'flat', taxable: true, pfApplicable: false, esiApplicable: false,
-      displayOrder: 4, status: 'active'
-    },
-    {
-      id: '5', code: 'MED', name: 'Medical Allowance', type: 'earning', category: 'fixed',
-      calculationType: 'flat', taxable: true, pfApplicable: false, esiApplicable: false,
-      displayOrder: 5, status: 'active'
-    },
-    {
-      id: '6', code: 'SPEC', name: 'Special Allowance', type: 'earning', category: 'variable',
-      calculationType: 'flat', taxable: true, pfApplicable: false, esiApplicable: false,
-      displayOrder: 6, status: 'active'
-    },
-    {
-      id: '7', code: 'BONUS', name: 'Performance Bonus', type: 'earning', category: 'variable',
-      calculationType: 'flat', taxable: true, pfApplicable: false, esiApplicable: false,
-      displayOrder: 7, status: 'active'
-    },
-    {
-      id: '8', code: 'OT', name: 'Overtime Pay', type: 'earning', category: 'variable',
-      calculationType: 'formula', taxable: true, pfApplicable: false, esiApplicable: false,
-      displayOrder: 8, status: 'active'
-    },
-    {
-      id: '9', code: 'PF_EMP', name: 'PF Employee Contribution', type: 'deduction', category: 'statutory',
-      calculationType: 'percentage', taxable: false, pfApplicable: true, esiApplicable: false,
-      displayOrder: 20, status: 'active'
-    },
-    {
-      id: '10', code: 'ESI_EMP', name: 'ESI Employee Contribution', type: 'deduction', category: 'statutory',
-      calculationType: 'percentage', taxable: false, pfApplicable: false, esiApplicable: true,
-      displayOrder: 21, status: 'active'
-    },
-    {
-      id: '11', code: 'PT', name: 'Professional Tax', type: 'deduction', category: 'statutory',
-      calculationType: 'flat', taxable: false, pfApplicable: false, esiApplicable: false,
-      displayOrder: 22, status: 'active'
-    },
-    {
-      id: '12', code: 'TDS', name: 'Tax Deducted at Source', type: 'deduction', category: 'statutory',
-      calculationType: 'formula', taxable: false, pfApplicable: false, esiApplicable: false,
-      displayOrder: 23, status: 'active'
-    },
-    {
-      id: '13', code: 'LOAN', name: 'Loan Recovery', type: 'deduction', category: 'variable',
-      calculationType: 'flat', taxable: false, pfApplicable: false, esiApplicable: false,
-      displayOrder: 24, status: 'active'
-    },
-    {
-      id: '14', code: 'ADV', name: 'Advance Recovery', type: 'deduction', category: 'variable',
-      calculationType: 'flat', taxable: false, pfApplicable: false, esiApplicable: false,
-      displayOrder: 25, status: 'active'
-    }
-  ];
+  const [components, setComponents] = useState<SalaryComponent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [components, setComponents] = useState<SalaryComponent[]>(initialComponents);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await PayrollService.getSalaryComponents()) as any[];
+        const mapped: SalaryComponent[] = raw.map((r) => ({
+          id: String(r.id),
+          code: r.code ?? '',
+          name: r.name ?? '',
+          type: (r.type ?? 'earning') as SalaryComponent['type'],
+          category: (r.category ?? 'fixed') as SalaryComponent['category'],
+          calculationType: (r.calculationType ?? 'flat') as SalaryComponent['calculationType'],
+          taxable: !!r.taxable,
+          pfApplicable: !!r.pfApplicable,
+          esiApplicable: !!r.esiApplicable,
+          displayOrder: Number(r.displayOrder ?? 0),
+          status: (r.status ?? 'active') as SalaryComponent['status'],
+        }));
+        if (!cancelled) setComponents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load salary components');
+          setComponents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAdd = () => {
     setEditingComponent(null);
@@ -240,6 +206,19 @@ export default function ComponentsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Configure salary components for payroll processing</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading salary components…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

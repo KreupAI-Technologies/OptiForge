@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, BarChart3, TrendingUp, TrendingDown, Calendar, FileText, Award, AlertTriangle } from 'lucide-react';
 import { ExportQualityReportModal } from '@/components/quality/QualityExportModals';
 import { exportToCsv } from '@/lib/export';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface QualityMetric {
   period: string;
@@ -50,65 +51,38 @@ export default function QualityReportsPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  // Mock data for quality metrics over time
-  const qualityMetrics: QualityMetric[] = [
-    {
-      period: 'Oct 2025',
-      totalProduced: 4850,
-      totalInspected: 4850,
-      totalPassed: 4695,
-      totalRejected: 155,
-      passRate: 96.8,
-      rejectionRate: 3.2,
-      firstPassYield: 94.5,
-      reworkCount: 112,
-      scrapCount: 43,
-      ncrCount: 8,
-      costOfQuality: 1285000
-    },
-    {
-      period: 'Sep 2025',
-      totalProduced: 4620,
-      totalInspected: 4620,
-      totalPassed: 4480,
-      totalRejected: 140,
-      passRate: 97.0,
-      rejectionRate: 3.0,
-      firstPassYield: 95.2,
-      reworkCount: 98,
-      scrapCount: 42,
-      ncrCount: 6,
-      costOfQuality: 1150000
-    },
-    {
-      period: 'Aug 2025',
-      totalProduced: 4440,
-      totalInspected: 4440,
-      totalPassed: 4250,
-      totalRejected: 190,
-      passRate: 95.7,
-      rejectionRate: 4.3,
-      firstPassYield: 93.8,
-      reworkCount: 125,
-      scrapCount: 65,
-      ncrCount: 10,
-      costOfQuality: 1520000
-    },
-    {
-      period: 'Jul 2025',
-      totalProduced: 4280,
-      totalInspected: 4280,
-      totalPassed: 4105,
-      totalRejected: 175,
-      passRate: 95.9,
-      rejectionRate: 4.1,
-      firstPassYield: 94.1,
-      reworkCount: 118,
-      scrapCount: 57,
-      ncrCount: 9,
-      costOfQuality: 1420000
-    }
-  ];
+  // Quality metrics over time (live)
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getNcrs()) as any[];
+        const mapped: QualityMetric[] = (raw || []).map((r: any) => ({
+          period: String(r.period ?? ''),
+          totalProduced: Number(r.totalProduced ?? 0),
+          totalInspected: Number(r.totalInspected ?? 0),
+          totalPassed: Number(r.totalPassed ?? 0),
+          totalRejected: Number(r.totalRejected ?? 0),
+          rejectedCount: r.rejectedCount != null ? Number(r.rejectedCount) : undefined,
+          passRate: Number(r.passRate ?? 0),
+          rejectionRate: Number(r.rejectionRate ?? 0),
+          firstPassYield: Number(r.firstPassYield ?? 0),
+          reworkCount: Number(r.reworkCount ?? 0),
+          scrapCount: Number(r.scrapCount ?? 0),
+          ncrCount: Number(r.ncrCount ?? 0),
+          costOfQuality: Number(r.costOfQuality ?? 0),
+        }));
+        if (!cancelled) setQualityMetrics(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setQualityMetrics([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock data for product-wise quality
   const productQuality: ProductQuality[] = [
@@ -254,8 +228,22 @@ export default function QualityReportsPage() {
     return filterCategory === 'all' || product.category === filterCategory;
   });
 
-  const currentMetrics = qualityMetrics[0];
-  const previousMetrics = qualityMetrics[1];
+  const emptyMetrics: QualityMetric = {
+    period: '',
+    totalProduced: 0,
+    totalInspected: 0,
+    totalPassed: 0,
+    totalRejected: 0,
+    passRate: 0,
+    rejectionRate: 0,
+    firstPassYield: 0,
+    reworkCount: 0,
+    scrapCount: 0,
+    ncrCount: 0,
+    costOfQuality: 0,
+  };
+  const currentMetrics = qualityMetrics[0] ?? emptyMetrics;
+  const previousMetrics = qualityMetrics[1] ?? emptyMetrics;
 
   const getTrendColor = (trend: string) => {
     switch (trend) {
@@ -299,6 +287,8 @@ export default function QualityReportsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

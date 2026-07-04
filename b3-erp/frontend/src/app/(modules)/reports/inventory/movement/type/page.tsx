@@ -1,10 +1,11 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function MovementTypeContent() {
     const router = useRouter();
@@ -12,13 +13,34 @@ function MovementTypeContent() {
     const type = searchParams.get('type');
     const title = type ? `Movement History: ${type}` : 'All Movement History';
 
-    const movements = [
-        { id: 'MVT-001', date: '2025-01-20', item: 'Steel Sheet 2mm', type: 'Receipt', quantity: 500, from: 'Vendor', to: 'Warehouse A' },
-        { id: 'MVT-002', date: '2025-01-21', item: 'Bolts M6', type: 'Issue', quantity: 200, from: 'Warehouse B', to: 'Assembly Line 1' },
-        { id: 'MVT-003', date: '2025-01-22', item: 'Aluminum Rod 10mm', type: 'Transfer', quantity: 100, from: 'Warehouse A', to: 'Warehouse B' },
-        { id: 'MVT-004', date: '2025-01-23', item: 'Paint - Blue', type: 'Issue', quantity: 50, from: 'Warehouse B', to: 'Paint Shop' },
-        { id: 'MVT-005', date: '2025-01-24', item: 'Gearbox Assembly', type: 'Receipt', quantity: 10, from: 'Production', to: 'Warehouse A' },
-    ];
+    const [movements, setMovements] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('inventory/stock-adjustments');
+                const mapped = raw.map((r: any) => ({
+                    id: r.adjustmentNumber ?? r.id,
+                    date: r.adjustmentDate ?? r.createdAt ?? '',
+                    item: r.itemName ?? '',
+                    type: r.adjustmentType ?? r.reason ?? '',
+                    quantity: Number(r.quantity ?? 0),
+                    from: r.fromLocation ?? '',
+                    to: r.toLocation ?? '',
+                }));
+                if (!cancelled) setMovements(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setMovements([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredMovements = type
         ? movements.filter(m => m.type === type)
@@ -35,6 +57,8 @@ function MovementTypeContent() {
                 { label: 'History' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Movement Log</CardTitle>

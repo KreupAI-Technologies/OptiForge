@@ -1,20 +1,41 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function StockLocationContent() {
     const router = useRouter();
 
-    const items = [
-        { id: 'ITEM-001', name: 'Steel Sheet 2mm', location: 'Warehouse A - Zone 1', stock: 1000, unit: 'kg' },
-        { id: 'ITEM-001', name: 'Steel Sheet 2mm', location: 'Production Floor', stock: 500, unit: 'kg' },
-        { id: 'ITEM-003', name: 'Bolts M6', location: 'Warehouse B - Shelf 4', stock: 5000, unit: 'pcs' },
-        { id: 'ITEM-005', name: 'Gearbox Assembly', location: 'Warehouse A - Zone 2', stock: 12, unit: 'pcs' },
-    ];
+    const [items, setItems] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('inventory/stock-balances');
+                const mapped = raw.map((r: any) => ({
+                    id: r.itemCode ?? r.id,
+                    name: r.itemName ?? '',
+                    location: r.warehouseName ?? r.location ?? '',
+                    stock: Number(r.quantity ?? 0),
+                    unit: r.uom ?? '',
+                }));
+                if (!cancelled) setItems(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setItems([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -27,6 +48,8 @@ function StockLocationContent() {
                 { label: 'Location' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Location Stock List</CardTitle>

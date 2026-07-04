@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Network, Plus, Edit2, Trash2, AlertCircle, Check, X, Save } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -25,140 +26,29 @@ interface ApprovalRule {
 }
 
 export default function ApprovalMatrixPage() {
-  const [rules, setRules] = useState<ApprovalRule[]>([
-    {
-      id: 'rule-1',
-      name: 'Standard Travel Expenses',
-      category: 'Travel',
-      minAmount: 0,
-      maxAmount: 10000,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: false, escalationDays: 2 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: false,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-2',
-      name: 'High-Value Travel',
-      category: 'Travel',
-      minAmount: 10001,
-      maxAmount: 50000,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: false, escalationDays: 2 },
-        { level: 2, role: 'Department Head', autoApprove: false, escalationDays: 3 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: true,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-3',
-      name: 'Premium Travel',
-      category: 'Travel',
-      minAmount: 50001,
-      maxAmount: null,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: false, escalationDays: 2 },
-        { level: 2, role: 'Department Head', autoApprove: false, escalationDays: 3 },
-        { level: 3, role: 'Finance Head', autoApprove: false, escalationDays: 5 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: true,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-4',
-      name: 'Standard Meals',
-      category: 'Meals',
-      minAmount: 0,
-      maxAmount: 2000,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: true, escalationDays: 1 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: false,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-5',
-      name: 'Entertainment',
-      category: 'Meals',
-      minAmount: 2001,
-      maxAmount: null,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: false, escalationDays: 2 },
-        { level: 2, role: 'Department Head', autoApprove: false, escalationDays: 3 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: true,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-6',
-      name: 'Office Supplies',
-      category: 'Supplies',
-      minAmount: 0,
-      maxAmount: 5000,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: true, escalationDays: 1 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: false,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-7',
-      name: 'Communication',
-      category: 'Communication',
-      minAmount: 0,
-      maxAmount: 1500,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: true, escalationDays: 1 }
-      ],
-      conditions: {
-        requireReceipt: false,
-        requireJustification: false,
-        allowSelfApproval: false
-      },
-      isActive: true
-    },
-    {
-      id: 'rule-8',
-      name: 'Other Expenses',
-      category: 'Other',
-      minAmount: 0,
-      maxAmount: 3000,
-      approvers: [
-        { level: 1, role: 'Reporting Manager', autoApprove: false, escalationDays: 2 }
-      ],
-      conditions: {
-        requireReceipt: true,
-        requireJustification: true,
-        allowSelfApproval: false
-      },
-      isActive: true
-    }
-  ]);
+  const [rules, setRules] = useState<ApprovalRule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.expenseBudgets<any[]>();
+        if (!cancelled) setRules(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRules([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);

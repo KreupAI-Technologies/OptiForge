@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
   ArrowLeft, Save, Package, Calendar, MapPin, FileText,
   Plus, Minus, AlertTriangle, Info, Search, Upload
@@ -69,12 +70,40 @@ export default function StockMovementAddPage() {
     serialNumbers: []
   });
 
-  // Mock stock items for search
-  const stockItems: StockItem[] = [
-    { itemCode: 'RM-SS304-2MM', itemName: 'Stainless Steel Sheet 304 - 2mm', category: 'Raw Materials', currentStock: 2575, uom: 'KG', unitCost: 185.50, warehouse: 'Main Warehouse - Pune', location: 'RM-A-01-AA-001', batchEnabled: true, serialEnabled: false },
-    { itemCode: 'COMP-MTR-001', itemName: 'Electric Motor 3HP 1440 RPM', category: 'Components', currentStock: 45, uom: 'PCS', unitCost: 12500.00, warehouse: 'Main Warehouse - Pune', location: 'RM-B-02-BB-005', batchEnabled: false, serialEnabled: true },
-    { itemCode: 'RM-CU-TUBE', itemName: 'Copper Tube 15mm OD', category: 'Raw Materials', currentStock: 850, uom: 'MTR', unitCost: 425.00, warehouse: 'Main Warehouse - Pune', location: 'RM-A-03-CC-008', batchEnabled: true, serialEnabled: false }
-  ];
+  // Stock items for the search picker, loaded from stock balances.
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const balances = (await inventoryService.getStockBalances()) as any[];
+        const mapped: StockItem[] = (balances || []).map((b: any) => {
+          const available = Number(b.availableQuantity ?? b.freeQuantity ?? 0);
+          const value = Number(b.stockValue ?? 0);
+          return {
+            itemCode: b.itemCode ?? '',
+            itemName: b.itemName ?? '',
+            category: b.category ?? b.itemCategory ?? '',
+            currentStock: available,
+            uom: b.uom ?? '',
+            unitCost: Number(b.unitCost ?? (available > 0 ? value / available : 0)),
+            warehouse: b.warehouseName ?? '',
+            location: b.locationName ?? '',
+            batchEnabled: Boolean(b.batchEnabled ?? false),
+            serialEnabled: Boolean(b.serialEnabled ?? false),
+          };
+        });
+        if (!cancelled) setStockItems(mapped);
+      } catch {
+        if (!cancelled) setStockItems([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const movementTypes = [
     { value: 'receipt', label: 'Receipt', description: 'Goods received into inventory' },

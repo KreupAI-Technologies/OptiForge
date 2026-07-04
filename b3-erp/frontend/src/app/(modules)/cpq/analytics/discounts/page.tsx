@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Percent,
   TrendingUp,
@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { cpqAnalyticsLiveService } from '@/services/cpq/cpq-analytics-live.service'
 import {
   LineChart,
   Line,
@@ -34,73 +35,85 @@ import {
   ResponsiveContainer
 } from 'recharts'
 
+// Fixed colour palette for the discount-distribution pie (config, not data).
+const DISCOUNT_DIST_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#991b1b']
+
+interface DiscountTrendRow { month: string; avgDiscount: number; totalDiscountValue: number; dealsWithDiscount: number }
+interface DiscountDistRow { range: string; count: number; percentage: number; color: string }
+interface DiscountByCustomerRow { type: string; avgDiscount: number; deals: number; totalValue: number; margin: number }
+interface ApprovalPatternRow { approver: string; avgDiscount: number; count: number; approved: number; rejected: number; approvalRate: number }
+interface MarginImpactRow { discountRange: string; avgMargin: number; deals: number; revenue: number }
+interface DiscountEffRow { range: string; winRate: number; lostDeals: number; wonDeals: number }
+interface DiscountByProductRow { category: string; avgDiscount: number; deals: number; totalValue: number; margin: number }
+
 export default function CPQAnalyticsDiscountsPage() {
   const [timeRange, setTimeRange] = useState('last-6-months')
 
-  // Discount trend over time
-  const discountTrend = [
-    { month: 'Apr', avgDiscount: 12.5, totalDiscountValue: 3.2, dealsWithDiscount: 50 },
-    { month: 'May', avgDiscount: 13.2, totalDiscountValue: 4.1, dealsWithDiscount: 100 },
-    { month: 'Jun', avgDiscount: 14.1, totalDiscountValue: 4.8, dealsWithDiscount: 97 },
-    { month: 'Jul', avgDiscount: 13.8, totalDiscountValue: 4.2, dealsWithDiscount: 102 },
-    { month: 'Aug', avgDiscount: 15.2, totalDiscountValue: 5.8, dealsWithDiscount: 110 },
-    { month: 'Sep', avgDiscount: 14.5, totalDiscountValue: 5.3, dealsWithDiscount: 172 }
-  ]
+  // Data arrays wired to GET /cpq/analytics/dashboards/discounts (aggregates
+  // cpq_quotes). discountTrend, discountDistribution and marginImpact come
+  // straight from the endpoint. Customer/approval/effectiveness/category cuts
+  // have no backing field and stay empty until the API exposes them.
+  const [discountTrend, setDiscountTrend] = useState<DiscountTrendRow[]>([])
+  const [discountDistribution, setDiscountDistribution] = useState<DiscountDistRow[]>([])
+  const [discountByCustomer, setDiscountByCustomer] = useState<DiscountByCustomerRow[]>([])
+  const [approvalPatterns, setApprovalPatterns] = useState<ApprovalPatternRow[]>([])
+  const [marginImpact, setMarginImpact] = useState<MarginImpactRow[]>([])
+  const [discountEffectiveness, setDiscountEffectiveness] = useState<DiscountEffRow[]>([])
+  const [discountByProduct, setDiscountByProduct] = useState<DiscountByProductRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Discount distribution
-  const discountDistribution = [
-    { range: '0%', count: 95, percentage: 35.6, color: '#10b981' },
-    { range: '1-5%', count: 68, percentage: 25.5, color: '#3b82f6' },
-    { range: '6-10%', count: 52, percentage: 19.5, color: '#8b5cf6' },
-    { range: '11-15%', count: 32, percentage: 12.0, color: '#f59e0b' },
-    { range: '16-20%', count: 15, percentage: 5.6, color: '#ef4444' },
-    { range: '> 20%', count: 5, percentage: 1.8, color: '#991b1b' }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const dash = await cpqAnalyticsLiveService.getDiscountsDashboard()
 
-  // Discount by customer type
-  const discountByCustomer = [
-    { type: 'New Customers', avgDiscount: 16.2, deals: 125, totalValue: 3.8, margin: 22.5 },
-    { type: 'Repeat Customers', avgDiscount: 12.5, deals: 185, totalValue: 5.2, margin: 26.8 },
-    { type: 'VIP Customers', avgDiscount: 8.5, deals: 92, totalValue: 2.8, margin: 30.2 },
-    { type: 'Strategic Partners', avgDiscount: 18.2, deals: 92, totalValue: 4.5, margin: 20.8 }
-  ]
+        const trend: DiscountTrendRow[] = (dash.discountTrend ?? []).map((t) => ({
+          month: t.month,
+          avgDiscount: Number(t.avgDiscount || 0),
+          totalDiscountValue: 0,
+          dealsWithDiscount: 0,
+        }))
 
-  // Approval patterns
-  const approvalPatterns = [
-    { approver: 'Sales Manager', avgDiscount: 8.2, count: 145, approved: 138, rejected: 7, approvalRate: 95.2 },
-    { approver: 'Finance Head', avgDiscount: 13.5, count: 85, approved: 72, rejected: 13, approvalRate: 84.7 },
-    { approver: 'VP Sales', avgDiscount: 18.8, count: 45, approved: 35, rejected: 10, approvalRate: 77.8 },
-    { approver: 'CEO', avgDiscount: 24.5, count: 12, approved: 8, rejected: 4, approvalRate: 66.7 }
-  ]
+        const dist: DiscountDistRow[] = (dash.discountDistribution ?? []).map((d, idx) => ({
+          range: d.range,
+          count: Number(d.count || 0),
+          percentage: Number(d.percentage || 0),
+          color: DISCOUNT_DIST_COLORS[idx % DISCOUNT_DIST_COLORS.length],
+        }))
 
-  // Margin impact
-  const marginImpact = [
-    { discountRange: '0%', avgMargin: 32.5, deals: 95, revenue: 28.5 },
-    { discountRange: '1-5%', avgMargin: 30.2, deals: 68, revenue: 22.8 },
-    { discountRange: '6-10%', avgMargin: 27.8, deals: 52, revenue: 18.5 },
-    { discountRange: '11-15%', avgMargin: 24.5, deals: 32, revenue: 12.2 },
-    { discountRange: '16-20%', avgMargin: 20.2, deals: 15, revenue: 6.8 },
-    { discountRange: '> 20%', avgMargin: 16.8, deals: 5, revenue: 2.5 }
-  ]
+        const margin: MarginImpactRow[] = (dash.marginImpact ?? []).map((m) => ({
+          discountRange: m.month,
+          avgMargin: Number(m.avgMargin || 0),
+          deals: 0,
+          revenue: 0,
+        }))
 
-  // Discount effectiveness (win rate by discount level)
-  const discountEffectiveness = [
-    { range: '0%', winRate: 58, lostDeals: 45, wonDeals: 95 },
-    { range: '1-5%', winRate: 52, lostDeals: 62, wonDeals: 68 },
-    { range: '6-10%', winRate: 45, lostDeals: 63, wonDeals: 52 },
-    { range: '11-15%', winRate: 38, lostDeals: 52, wonDeals: 32 },
-    { range: '16-20%', winRate: 32, lostDeals: 32, wonDeals: 15 },
-    { range: '> 20%', winRate: 25, lostDeals: 15, wonDeals: 5 }
-  ]
-
-  // Discount by product category
-  const discountByProduct = [
-    { category: 'Modular Kitchens', avgDiscount: 12.8, deals: 198, totalValue: 56.2, margin: 27.5 },
-    { category: 'Wardrobes', avgDiscount: 15.2, deals: 95, totalValue: 28.5, margin: 24.8 },
-    { category: 'Living Room', avgDiscount: 11.5, deals: 68, totalValue: 22.8, margin: 28.2 },
-    { category: 'Office Furniture', avgDiscount: 18.5, deals: 45, totalValue: 18.5, margin: 21.5 },
-    { category: 'Bathroom Vanities', avgDiscount: 9.2, deals: 88, totalValue: 15.2, margin: 30.8 }
-  ]
+        if (!cancelled) {
+          setDiscountTrend(trend)
+          setDiscountDistribution(dist)
+          setMarginImpact(margin)
+          setDiscountByCustomer([])
+          setApprovalPatterns([])
+          setDiscountEffectiveness([])
+          setDiscountByProduct([])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load discount analytics')
+          setDiscountTrend([]); setDiscountDistribution([]); setDiscountByCustomer([])
+          setApprovalPatterns([]); setMarginImpact([]); setDiscountEffectiveness([]); setDiscountByProduct([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -131,6 +144,13 @@ export default function CPQAnalyticsDiscountsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 text-sm text-gray-500">Loading discount analytics...</div>
+      )}
+      {!isLoading && loadError && (
+        <div className="mb-3 text-sm text-red-600">{loadError}</div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">

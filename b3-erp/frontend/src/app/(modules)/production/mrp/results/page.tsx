@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Package, Calendar, Filter, Eye } from 'lucide-react';
 import { ApproveActionModal, RejectActionModal, ViewActionDetailsModal } from '@/components/production/ActionMessageModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface MRPRunResult {
   id: string;
@@ -48,54 +49,62 @@ export default function MRPResultsPage() {
   const [isViewActionOpen, setIsViewActionOpen] = useState(false);
   const [selectedActionMessage, setSelectedActionMessage] = useState<ActionMessage | null>(null);
 
-  // Mock data for MRP runs
-  const mrpRuns: MRPRunResult[] = [
-    {
-      id: '1',
-      runNumber: 'MRP-2025-1015',
-      runDate: '2025-10-20',
-      runTime: '08:30 AM',
-      runDuration: '2m 45s',
-      planningHorizon: '90 days',
-      status: 'completed',
-      totalMaterialsAnalyzed: 487,
-      materialsWithShortages: 23,
-      plannedOrdersGenerated: 34,
-      actionMessagesCreated: 18,
-      criticalIssues: 5,
-      runBy: 'Priya Sharma'
-    },
-    {
-      id: '2',
-      runNumber: 'MRP-2025-1014',
-      runDate: '2025-10-19',
-      runTime: '08:30 AM',
-      runDuration: '2m 38s',
-      planningHorizon: '90 days',
-      status: 'completed',
-      totalMaterialsAnalyzed: 485,
-      materialsWithShortages: 19,
-      plannedOrdersGenerated: 28,
-      actionMessagesCreated: 15,
-      criticalIssues: 3,
-      runBy: 'Priya Sharma'
-    },
-    {
-      id: '3',
-      runNumber: 'MRP-2025-1013',
-      runDate: '2025-10-18',
-      runTime: '08:31 AM',
-      runDuration: '2m 52s',
-      planningHorizon: '90 days',
-      status: 'completed',
-      totalMaterialsAnalyzed: 482,
-      materialsWithShortages: 26,
-      plannedOrdersGenerated: 38,
-      actionMessagesCreated: 22,
-      criticalIssues: 7,
-      runBy: 'Priya Sharma'
-    }
-  ];
+  const [mrpRuns, setMrpRuns] = useState<MRPRunResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getMrpRuns()) as any[];
+        const mapped: MRPRunResult[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r?.id ?? idx + 1),
+          runNumber: String(r?.runNumber ?? ''),
+          runDate: String(r?.runDate ?? ''),
+          runTime: String(r?.runTime ?? ''),
+          runDuration: String(r?.runDuration ?? ''),
+          planningHorizon: String(r?.planningHorizon ?? ''),
+          status: (r?.status ?? 'completed') as MRPRunResult['status'],
+          totalMaterialsAnalyzed: Number(r?.totalMaterialsAnalyzed ?? 0),
+          materialsWithShortages: Number(r?.materialsWithShortages ?? 0),
+          plannedOrdersGenerated: Number(r?.plannedOrdersGenerated ?? 0),
+          actionMessagesCreated: Number(r?.actionMessagesCreated ?? 0),
+          criticalIssues: Number(r?.criticalIssues ?? 0),
+          runBy: String(r?.runBy ?? ''),
+        }));
+        if (!cancelled) setMrpRuns(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+          setMrpRuns([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const EMPTY_RUN: MRPRunResult = {
+    id: '',
+    runNumber: '',
+    runDate: '',
+    runTime: '',
+    runDuration: '',
+    planningHorizon: '',
+    status: 'completed',
+    totalMaterialsAnalyzed: 0,
+    materialsWithShortages: 0,
+    plannedOrdersGenerated: 0,
+    actionMessagesCreated: 0,
+    criticalIssues: 0,
+    runBy: '',
+  };
 
   // Mock data for action messages
   const [actionMessages, setActionMessages] = useState<ActionMessage[]>([
@@ -241,7 +250,7 @@ export default function MRPResultsPage() {
     }
   ]);
 
-  const currentRun = mrpRuns.find(run => run.runNumber === selectedRun) || mrpRuns[0];
+  const currentRun = mrpRuns.find(run => run.runNumber === selectedRun) ?? mrpRuns[0] ?? EMPTY_RUN;
 
   const filteredMessages = actionMessages.filter(msg => {
     const typeMatch = filterMessageType === 'all' || msg.messageType === filterMessageType;
@@ -327,6 +336,8 @@ export default function MRPResultsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

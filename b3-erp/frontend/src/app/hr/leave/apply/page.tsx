@@ -1,13 +1,100 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Send, Calendar, AlertCircle, CheckCircle, Info, X, User, Briefcase, Mail, Phone } from 'lucide-react';
-import { mockMyLeaveBalances } from '@/data/hr/leave-balances';
-import { mockLeaveTypes } from '@/data/hr/leave-types';
+import { LeaveBalance } from '@/data/hr/leave-balances';
+import { LeaveType } from '@/data/hr/leave-types';
+import { LeaveService } from '@/services/leave.service';
+
+const APPLY_ACCRUAL_MAP: Record<string, LeaveType['accrualType']> = {
+  Monthly: 'monthly',
+  Yearly: 'yearly',
+  Annual: 'yearly',
+  None: 'none',
+};
 
 export default function ApplyLeavePage() {
-  const [leaveBalances] = useState(mockMyLeaveBalances);
-  const [leaveTypes] = useState(mockLeaveTypes);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [rawTypes, rawBalances] = await Promise.all([
+          LeaveService.getAllLeaveTypesRaw() as Promise<any[]>,
+          LeaveService.getAllLeaveBalances() as Promise<any[]>,
+        ]);
+        const mappedTypes: LeaveType[] = rawTypes.map((r) => ({
+          id: r.id,
+          code: r.code,
+          name: r.name,
+          shortName: r.code,
+          description: r.description ?? '',
+          maxDaysPerYear: Number(r.maxDaysPerYear ?? 0),
+          maxConsecutiveDays: r.maxDaysPerApplication != null ? Number(r.maxDaysPerApplication) : undefined,
+          carryForward: !!r.allowCarryForward,
+          carryForwardLimit: r.maxCarryForward != null ? Number(r.maxCarryForward) : undefined,
+          encashable: !!r.allowEncashment,
+          encashmentLimit: r.maxEncashmentDays != null ? Number(r.maxEncashmentDays) : undefined,
+          paidLeave: !!r.isPaid,
+          requiresApproval: !!r.requiresApproval,
+          advanceNoticeDays: Number(r.minAdvanceNoticeDays ?? 0),
+          applicableFor: 'all',
+          color: r.color ?? 'bg-gray-100 text-gray-800 border-gray-200',
+          icon: '📅',
+          isActive: (r.status ?? 'Active') === 'Active',
+          accrualType: APPLY_ACCRUAL_MAP[r.accrualType] ?? 'none',
+          accrualRate: r.accrualRate != null ? Number(r.accrualRate) : undefined,
+          createdAt: r.createdAt ?? '',
+          updatedAt: r.updatedAt ?? '',
+        }));
+        const mappedBalances: LeaveBalance[] = rawBalances.map((r) => ({
+          id: r.id,
+          employeeId: r.employeeId ?? '',
+          employeeName: r.employee?.fullName ?? r.employeeName ?? '',
+          employeeCode: r.employee?.employeeCode ?? r.employeeCode ?? '',
+          department: r.employee?.departmentName ?? r.department ?? '',
+          designation: r.employee?.designation ?? r.designation ?? '',
+          leaveTypeId: r.leaveTypeId ?? '',
+          leaveTypeCode: r.leaveType?.code ?? r.leaveTypeCode ?? '',
+          leaveTypeName: r.leaveType?.name ?? r.leaveTypeName ?? '',
+          leaveTypeIcon: '📅',
+          leaveTypeColor: r.leaveType?.color ?? 'bg-gray-100 text-gray-800',
+          totalEntitlement: Number(r.allocated ?? 0) + Number(r.openingBalance ?? 0) + Number(r.earned ?? 0),
+          opening: Number(r.openingBalance ?? 0),
+          accrued: Number(r.earned ?? r.allocated ?? 0),
+          taken: Number(r.used ?? 0),
+          pending: Number(r.pending ?? 0),
+          balance: Number(r.available ?? 0),
+          carryForward: Number(r.carriedForward ?? 0),
+          encashable: Number(r.encashed ?? 0),
+          year: Number(r.year ?? new Date().getFullYear()),
+          lastUpdated: r.updatedAt ?? '',
+        }));
+        if (!cancelled) {
+          setLeaveTypes(mappedTypes);
+          setLeaveBalances(mappedBalances);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave data');
+          setLeaveTypes([]);
+          setLeaveBalances([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock employee data - in real app, this would come from auth/context
   const currentEmployee = {
@@ -118,6 +205,18 @@ export default function ApplyLeavePage() {
         </h1>
         <p className="text-gray-600 mt-1">Submit a new leave application for approval</p>
       </div>
+
+      {/* Loading / Error Banners */}
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm">
+          Loading leave data…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+          {loadError}
+        </div>
+      )}
 
       {/* Success Message */}
       {showSuccessMessage && (

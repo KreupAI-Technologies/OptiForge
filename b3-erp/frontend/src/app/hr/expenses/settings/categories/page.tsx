@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { List, Plus, Edit2, Trash2, X, Check, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -16,88 +17,29 @@ interface ExpenseCategory {
 }
 
 export default function ExpenseCategoriesPage() {
-  const [categories, setCategories] = useState<ExpenseCategory[]>([
-    {
-      id: 'cat-001',
-      name: 'Travel',
-      description: 'Transportation costs including flights, trains, buses, and taxis',
-      requiresReceipt: true,
-      requiresApproval: true,
-      maxAmount: 50000,
-      isActive: true,
-      usageCount: 485
-    },
-    {
-      id: 'cat-002',
-      name: 'Accommodation',
-      description: 'Hotel and lodging expenses for business travel',
-      requiresReceipt: true,
-      requiresApproval: true,
-      maxAmount: 10000,
-      isActive: true,
-      usageCount: 198
-    },
-    {
-      id: 'cat-003',
-      name: 'Meals & Entertainment',
-      description: 'Business meals, client entertainment, and team events',
-      requiresReceipt: true,
-      requiresApproval: false,
-      maxAmount: 2000,
-      isActive: true,
-      usageCount: 365
-    },
-    {
-      id: 'cat-004',
-      name: 'Fuel',
-      description: 'Fuel expenses for company or personal vehicles used for business',
-      requiresReceipt: true,
-      requiresApproval: false,
-      maxAmount: 5000,
-      isActive: true,
-      usageCount: 412
-    },
-    {
-      id: 'cat-005',
-      name: 'Office Supplies',
-      description: 'Stationery, printer supplies, and other office materials',
-      requiresReceipt: true,
-      requiresApproval: false,
-      maxAmount: 3000,
-      isActive: true,
-      usageCount: 285
-    },
-    {
-      id: 'cat-006',
-      name: 'Communication',
-      description: 'Phone, internet, and other communication expenses',
-      requiresReceipt: false,
-      requiresApproval: false,
-      maxAmount: 1500,
-      isActive: true,
-      usageCount: 325
-    },
-    {
-      id: 'cat-007',
-      name: 'Training & Development',
-      description: 'Course fees, certifications, and professional development',
-      requiresReceipt: true,
-      requiresApproval: true,
-      maxAmount: 25000,
-      isActive: true,
-      usageCount: 145
-    },
-    {
-      id: 'cat-008',
-      name: 'Subscriptions',
-      description: 'Software subscriptions and professional memberships',
-      requiresReceipt: true,
-      requiresApproval: true,
-      maxAmount: 10000,
-      isActive: false,
-      usageCount: 42
-    }
-  ]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.expenseBudgets<any[]>();
+        if (!cancelled) setCategories(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setCategories([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);

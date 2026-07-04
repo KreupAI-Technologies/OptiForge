@@ -192,6 +192,21 @@ class InventoryService {
         return this.unwrapArray(response);
     }
 
+    async getStockEntries(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/stock-entries');
+        return this.unwrapArray(response);
+    }
+
+    async getStockEntry(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/stock-entries/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getReorderItemAnalysis(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/reorder/analysis');
+        return this.unwrapArray(response);
+    }
+
     async getCapacityUtilization(): Promise<any[]> {
         const response = await apiClient.get<any[]>('/inventory/warehouses/capacity-utilization');
         return this.unwrapArray(response);
@@ -247,6 +262,17 @@ class InventoryService {
     async getBatchNumbers(): Promise<any[]> {
         const response = await apiClient.get<any[]>('/inventory/batch-numbers');
         return this.unwrapArray(response);
+    }
+
+    async getExpiringBatches(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/batch-numbers/expiring-soon');
+        return this.unwrapArray(response);
+    }
+
+    async getStockBalance(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/stock-balances/${id}`);
+        const data = (response as any)?.data ?? response;
+        return data ?? null;
     }
 
     async getAdjustmentReasons(filters?: { status?: string; reasonType?: string; search?: string }): Promise<AdjustmentReason[]> {

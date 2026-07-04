@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Layers,
@@ -16,6 +16,10 @@ import {
   PieChart,
   BarChart3
 } from 'lucide-react'
+import {
+  estimationCostEstimateLiveService,
+  CostEstimateRecord,
+} from '@/services/estimation-cost-estimate-live.service'
 
 interface CostBreakdown {
   id: string
@@ -46,226 +50,69 @@ interface CostComponent {
 export default function CostBreakdownPage() {
   const router = useRouter()
 
-  const [costBreakdowns] = useState<CostBreakdown[]>([
-    {
-      id: 'CB-001',
-      productCode: 'KIT-SS-001',
-      productName: 'Premium Undermount Kitchen Sink',
-      category: 'Kitchen Sinks',
-      totalCost: 8450,
-      materialCost: 5680,
-      laborCost: 1920,
-      overheadCost: 850,
-      materialPercent: 67.2,
-      laborPercent: 22.7,
-      overheadPercent: 10.1,
-      unitsProduced: 125,
-      costPerUnit: 8450,
-      sellingPrice: 12500,
-      profitMargin: 4050,
-      profitPercent: 32.4
-    },
-    {
-      id: 'CB-002',
-      productCode: 'KIT-FAU-001',
-      productName: 'Premium Chrome Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      totalCost: 3850,
-      materialCost: 2480,
-      laborCost: 980,
-      overheadCost: 390,
-      materialPercent: 64.4,
-      laborPercent: 25.5,
-      overheadPercent: 10.1,
-      unitsProduced: 250,
-      costPerUnit: 3850,
-      sellingPrice: 5800,
-      profitMargin: 1950,
-      profitPercent: 33.6
-    },
-    {
-      id: 'CB-003',
-      productCode: 'KIT-CW-001',
-      productName: 'Non-Stick Aluminum Frying Pan (12")',
-      category: 'Cookware',
-      totalCost: 1250,
-      materialCost: 820,
-      laborCost: 320,
-      overheadCost: 110,
-      materialPercent: 65.6,
-      laborPercent: 25.6,
-      overheadPercent: 8.8,
-      unitsProduced: 450,
-      costPerUnit: 1250,
-      sellingPrice: 1950,
-      profitMargin: 700,
-      profitPercent: 35.9
-    },
-    {
-      id: 'CB-004',
-      productCode: 'KIT-CHIM-001',
-      productName: 'Auto-Clean Kitchen Chimney 90cm',
-      category: 'Kitchen Appliances',
-      totalCost: 18500,
-      materialCost: 12800,
-      laborCost: 4200,
-      overheadCost: 1500,
-      materialPercent: 69.2,
-      laborPercent: 22.7,
-      overheadPercent: 8.1,
-      unitsProduced: 85,
-      costPerUnit: 18500,
-      sellingPrice: 28000,
-      profitMargin: 9500,
-      profitPercent: 33.9
-    },
-    {
-      id: 'CB-005',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet (24" x 34")',
-      category: 'Kitchen Cabinets',
-      totalCost: 12800,
-      materialCost: 8960,
-      laborCost: 2880,
-      overheadCost: 960,
-      materialPercent: 70.0,
-      laborPercent: 22.5,
-      overheadPercent: 7.5,
-      unitsProduced: 95,
-      costPerUnit: 12800,
-      sellingPrice: 18500,
-      profitMargin: 5700,
-      profitPercent: 30.8
-    },
-    {
-      id: 'CB-006',
-      productCode: 'KIT-CT-001',
-      productName: 'Black Galaxy Granite Countertop',
-      category: 'Countertops',
-      totalCost: 28500,
-      materialCost: 21375,
-      laborCost: 5130,
-      overheadCost: 1995,
-      materialPercent: 75.0,
-      laborPercent: 18.0,
-      overheadPercent: 7.0,
-      unitsProduced: 42,
-      costPerUnit: 28500,
-      sellingPrice: 42000,
-      profitMargin: 13500,
-      profitPercent: 32.1
-    },
-    {
-      id: 'CB-007',
-      productCode: 'KIT-SS-002',
-      productName: 'Double Bowl Kitchen Sink',
-      category: 'Kitchen Sinks',
-      totalCost: 9850,
-      materialCost: 6700,
-      laborCost: 2200,
-      overheadCost: 950,
-      materialPercent: 68.0,
-      laborPercent: 22.3,
-      overheadPercent: 9.7,
-      unitsProduced: 110,
-      costPerUnit: 9850,
-      sellingPrice: 14500,
-      profitMargin: 4650,
-      profitPercent: 32.1
-    },
-    {
-      id: 'CB-008',
-      productCode: 'KIT-FAU-002',
-      productName: 'Pull-Down Spray Kitchen Faucet',
-      category: 'Kitchen Faucets',
-      totalCost: 5200,
-      materialCost: 3380,
-      laborCost: 1350,
-      overheadCost: 470,
-      materialPercent: 65.0,
-      laborPercent: 26.0,
-      overheadPercent: 9.0,
-      unitsProduced: 180,
-      costPerUnit: 5200,
-      sellingPrice: 7800,
-      profitMargin: 2600,
-      profitPercent: 33.3
-    },
-    {
-      id: 'CB-009',
-      productCode: 'KIT-CW-002',
-      productName: 'Stainless Steel Pressure Cooker (5L)',
-      category: 'Cookware',
-      totalCost: 2450,
-      materialCost: 1715,
-      laborCost: 588,
-      overheadCost: 147,
-      materialPercent: 70.0,
-      laborPercent: 24.0,
-      overheadPercent: 6.0,
-      unitsProduced: 320,
-      costPerUnit: 2450,
-      sellingPrice: 3800,
-      profitMargin: 1350,
-      profitPercent: 35.5
-    },
-    {
-      id: 'CB-010',
-      productCode: 'KIT-ACC-001',
-      productName: 'Pull-Out Kitchen Organizer',
-      category: 'Kitchen Accessories',
-      totalCost: 3200,
-      materialCost: 2144,
-      laborCost: 832,
-      overheadCost: 224,
-      materialPercent: 67.0,
-      laborPercent: 26.0,
-      overheadPercent: 7.0,
-      unitsProduced: 210,
-      costPerUnit: 3200,
-      sellingPrice: 4850,
-      profitMargin: 1650,
-      profitPercent: 34.0
-    },
-    {
-      id: 'CB-011',
-      productCode: 'KIT-CT-002',
-      productName: 'White Quartz Countertop',
-      category: 'Countertops',
-      totalCost: 26800,
-      materialCost: 19928,
-      laborCost: 4824,
-      overheadCost: 2048,
-      materialPercent: 74.4,
-      laborPercent: 18.0,
-      overheadPercent: 7.6,
-      unitsProduced: 38,
-      costPerUnit: 26800,
-      sellingPrice: 39500,
-      profitMargin: 12700,
-      profitPercent: 32.2
-    },
-    {
-      id: 'CB-012',
-      productCode: 'KIT-CAB-002',
-      productName: 'Wall Cabinet with Glass Door (30" x 30")',
-      category: 'Kitchen Cabinets',
-      totalCost: 9500,
-      materialCost: 6650,
-      laborCost: 2185,
-      overheadCost: 665,
-      materialPercent: 70.0,
-      laborPercent: 23.0,
-      overheadPercent: 7.0,
-      unitsProduced: 105,
-      costPerUnit: 9500,
-      sellingPrice: 13800,
-      profitMargin: 4300,
-      profitPercent: 31.2
-    }
-  ])
+  const [costBreakdowns, setCostBreakdowns] = useState<CostBreakdown[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<CostBreakdown | null>(null)
 
-  const [selectedProduct, setSelectedProduct] = useState<CostBreakdown>(costBreakdowns[0])
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Map cost-estimate records to the page's per-product cost-breakdown shape.
+        const raw = await estimationCostEstimateLiveService.getEstimates()
+        const mapped: CostBreakdown[] = raw.map((e: CostEstimateRecord) => {
+          const materialCost = Number(e.materialCost ?? 0)
+          const laborCost = Number(e.laborCost ?? 0)
+          const overheadCost = Number(e.overheadCost ?? 0)
+          const totalCost = Number(
+            e.totalCost ?? materialCost + laborCost + overheadCost,
+          )
+          const denom = materialCost + laborCost + overheadCost || 1
+          const sellingPrice = Math.round(totalCost * 1.3)
+          const profitMargin = sellingPrice - totalCost
+          return {
+            id: e.id,
+            productCode: e.estimateNumber ?? e.id,
+            productName: e.title ?? 'Untitled Estimate',
+            category: e.estimateType ?? 'General',
+            totalCost,
+            materialCost,
+            laborCost,
+            overheadCost,
+            materialPercent: (materialCost / denom) * 100,
+            laborPercent: (laborCost / denom) * 100,
+            overheadPercent: (overheadCost / denom) * 100,
+            unitsProduced: Number(e.version ?? 1),
+            costPerUnit: totalCost,
+            sellingPrice,
+            profitMargin,
+            profitPercent: totalCost > 0 ? (profitMargin / totalCost) * 100 : 0,
+          }
+        })
+        if (!cancelled) {
+          setCostBreakdowns(mapped)
+          setSelectedProduct(mapped[0] ?? null)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load cost breakdowns',
+          )
+          setCostBreakdowns([])
+          setSelectedProduct(null)
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const totalMaterialCost = costBreakdowns.reduce((sum, c) => sum + (c.materialCost * c.unitsProduced), 0)
   const totalLaborCost = costBreakdowns.reduce((sum, c) => sum + (c.laborCost * c.unitsProduced), 0)
@@ -311,6 +158,17 @@ export default function CostBreakdownPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+          Loading cost breakdowns...
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -399,6 +257,12 @@ export default function CostBreakdownPage() {
             <p className="text-sm text-gray-600 mt-1">Click any product from the table below to view details</p>
           </div>
           <div className="p-6">
+            {!selectedProduct ? (
+              <div className="text-center py-10 text-sm text-gray-500">
+                No product selected.
+              </div>
+            ) : (
+            <>
             <div className="mb-2">
               <h3 className="font-semibold text-gray-900 text-lg">{selectedProduct.productName}</h3>
               <p className="text-sm text-gray-600 mt-1">{selectedProduct.productCode} - {selectedProduct.category}</p>
@@ -471,6 +335,8 @@ export default function CostBreakdownPage() {
                 </div>
               </div>
             </div>
+            </>
+            )}
           </div>
         </div>
       </div>
@@ -505,12 +371,19 @@ export default function CostBreakdownPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {costBreakdowns.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
+                    {isLoading ? 'Loading...' : 'No cost breakdowns found.'}
+                  </td>
+                </tr>
+              )}
               {costBreakdowns.map((product) => (
                 <tr
                   key={product.id}
                   onClick={() => setSelectedProduct(product)}
                   className={`hover:bg-gray-50 cursor-pointer ${
-                    selectedProduct.id === product.id ? 'bg-blue-50' : ''
+                    selectedProduct?.id === product.id ? 'bg-blue-50' : ''
                   }`}
                 >
                   <td className="px-3 py-2">

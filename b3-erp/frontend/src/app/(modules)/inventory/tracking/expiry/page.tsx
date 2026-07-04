@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, AlertTriangle, Calendar, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface ExpiryItem {
   id: string;
@@ -24,129 +25,52 @@ export default function ExpiryTrackingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [expiryItems, setExpiryItems] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const expiryItems: ExpiryItem[] = [
-    {
-      id: '1',
-      itemCode: 'CHM-008',
-      itemName: 'Cutting Fluid Concentrate',
-      batchNumber: 'BATCH-2024-156',
-      quantity: 25,
-      uom: 'Liters',
-      manufacturedDate: '2024-10-10',
-      expiryDate: '2025-10-10',
-      daysToExpiry: -11,
-      location: 'Zone D - Bin D-02-R01',
-      supplier: 'ChemSupply Co',
-      category: 'Chemicals',
-      status: 'expired'
-    },
-    {
-      id: '2',
-      itemCode: 'CP-015',
-      itemName: 'Hydraulic Oil Grade 46',
-      batchNumber: 'BATCH-2025-002',
-      quantity: 80,
-      uom: 'Liters',
-      manufacturedDate: '2025-08-20',
-      expiryDate: '2026-02-20',
-      daysToExpiry: 122,
-      location: 'Zone D - Bin D-01-R02',
-      supplier: 'LubeTech Industries',
-      category: 'Consumables',
-      status: 'warning'
-    },
-    {
-      id: '3',
-      itemCode: 'ADH-102',
-      itemName: 'Industrial Adhesive Epoxy',
-      batchNumber: 'BATCH-2025-078',
-      quantity: 15,
-      uom: 'Kg',
-      manufacturedDate: '2025-09-05',
-      expiryDate: '2025-11-05',
-      daysToExpiry: 15,
-      location: 'Zone D - Bin D-03-R01',
-      supplier: 'BondTech Solutions',
-      category: 'Chemicals',
-      status: 'critical'
-    },
-    {
-      id: '4',
-      itemCode: 'LUB-045',
-      itemName: 'Grease Lithium Complex',
-      batchNumber: 'BATCH-2025-089',
-      quantity: 50,
-      uom: 'Kg',
-      manufacturedDate: '2025-08-15',
-      expiryDate: '2025-11-20',
-      daysToExpiry: 30,
-      location: 'Zone D - Bin D-01-R03',
-      supplier: 'LubeTech Industries',
-      category: 'Consumables',
-      status: 'critical'
-    },
-    {
-      id: '5',
-      itemCode: 'SLV-023',
-      itemName: 'Solvent Degreaser',
-      batchNumber: 'BATCH-2024-234',
-      quantity: 10,
-      uom: 'Liters',
-      manufacturedDate: '2024-09-01',
-      expiryDate: '2025-09-01',
-      daysToExpiry: -50,
-      location: 'Zone D - Bin D-02-R02',
-      supplier: 'CleanChem Ltd',
-      category: 'Chemicals',
-      status: 'expired'
-    },
-    {
-      id: '6',
-      itemCode: 'PAI-067',
-      itemName: 'Industrial Paint Primer',
-      batchNumber: 'BATCH-2025-112',
-      quantity: 35,
-      uom: 'Liters',
-      manufacturedDate: '2025-07-10',
-      expiryDate: '2026-07-10',
-      daysToExpiry: 262,
-      location: 'Zone C - Bin C-01-R01',
-      supplier: 'CoatTech Industries',
-      category: 'Chemicals',
-      status: 'good'
-    },
-    {
-      id: '7',
-      itemCode: 'CLN-034',
-      itemName: 'Machine Coolant Additive',
-      batchNumber: 'BATCH-2025-145',
-      quantity: 60,
-      uom: 'Liters',
-      manufacturedDate: '2025-09-01',
-      expiryDate: '2026-03-01',
-      daysToExpiry: 131,
-      location: 'Zone D - Bin D-01-R04',
-      supplier: 'CoolTech Systems',
-      category: 'Consumables',
-      status: 'warning'
-    },
-    {
-      id: '8',
-      itemCode: 'SEA-089',
-      itemName: 'Gasket Sealant Silicone',
-      batchNumber: 'BATCH-2025-034',
-      quantity: 20,
-      uom: 'Tubes',
-      manufacturedDate: '2025-06-15',
-      expiryDate: '2025-12-15',
-      daysToExpiry: 55,
-      location: 'Zone C - Bin C-02-R01',
-      supplier: 'SealPro Industries',
-      category: 'Chemicals',
-      status: 'warning'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await inventoryService.getExpiringBatches();
+        const mapped = raw.map((b: any, idx: number) => {
+          const days = Number(b.daysToExpiry ?? 0);
+          const status: ExpiryItem['status'] =
+            b.isExpired || days < 0 ? 'expired' : days < 30 ? 'critical' : days < 120 ? 'warning' : 'good';
+          return {
+            id: b.id ?? String(idx),
+            itemCode: b.itemCode ?? '',
+            itemName: b.itemName ?? '',
+            batchNumber: b.batchNumber ?? '',
+            quantity: Number(b.availableQuantity ?? b.initialQuantity ?? 0),
+            uom: b.uom ?? '',
+            manufacturedDate: b.manufacturingDate ?? '',
+            expiryDate: b.expiryDate ?? '',
+            daysToExpiry: days,
+            location: b.warehouseName ?? b.locationName ?? '',
+            supplier: b.supplierName ?? '',
+            category: b.itemCategory ?? '',
+            status,
+          };
+        });
+        if (!cancelled) setExpiryItems(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load expiring batches');
+          setExpiryItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredItems = expiryItems.filter(item => {
     const matchesSearch = item.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||

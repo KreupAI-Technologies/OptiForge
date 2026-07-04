@@ -1,13 +1,68 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Clock, Search, Filter, X, Calendar, CheckCircle, XCircle, AlertCircle, FileText, Download, Trash2 } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockLeaveTransactions, LeaveTransaction } from '@/data/hr/leave-balances';
+import { LeaveTransaction } from '@/data/hr/leave-balances';
+import { LeaveService } from '@/services/leave.service';
+
+const STATUS_MAP: Record<string, LeaveTransaction['status']> = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled',
+  WITHDRAWN: 'withdrawn',
+};
 
 export default function LeaveStatusPage() {
-  const [transactions] = useState<LeaveTransaction[]>(mockLeaveTransactions);
+  const [transactions, setTransactions] = useState<LeaveTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LeaveService.getAllLeaveApplicationsRaw()) as any[];
+        const mapped: LeaveTransaction[] = raw.map((r) => ({
+          id: r.id,
+          employeeId: r.employeeId ?? '',
+          employeeName: r.employeeName ?? r.employee?.fullName,
+          leaveTypeCode: r.leaveTypeCode ?? r.leaveType?.code ?? '',
+          leaveTypeName: r.leaveTypeName ?? r.leaveType?.name ?? '',
+          leaveTypeIcon: r.leaveType?.color ? undefined : undefined,
+          fromDate: r.startDate ?? r.fromDate ?? '',
+          toDate: r.endDate ?? r.toDate ?? '',
+          days: Number(r.totalDays ?? r.days ?? 0),
+          durationType: 'full-day',
+          reason: r.reason ?? '',
+          status: STATUS_MAP[r.status] ?? 'pending',
+          appliedOn: r.appliedAt ?? r.createdAt ?? '',
+          approvedBy: r.approverName ?? r.approvedBy,
+          approvedOn: r.approvedAt,
+          rejectedBy: r.status === 'REJECTED' ? r.approverName ?? r.approvedBy : undefined,
+          rejectedOn: r.status === 'REJECTED' ? r.approvedAt : undefined,
+          rejectionReason: r.rejectionReason,
+          hasAttachment: !!r.attachmentUrl,
+        }));
+        if (!cancelled) setTransactions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave applications');
+          setTransactions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
@@ -232,6 +287,18 @@ export default function LeaveStatusPage() {
           </button>
         </div>
       </div>
+
+      {/* Loading / Error Banners */}
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm">
+          Loading leave applications…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm">
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2">

@@ -1,73 +1,54 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReportDetailPage from '@/components/reports/ReportDetailPage';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function PayrollByDepartmentContent() {
     const searchParams = useSearchParams();
     const department = searchParams.get('department') || 'All Departments';
 
-    // Mock data for the list
-    const payrollData = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            name: 'John Doe',
-            department: 'Production',
-            position: 'Operator',
-            gross: 5000,
-            deductions: 500,
-            net: 4500,
-            status: 'Paid',
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            name: 'Jane Smith',
-            department: 'Production',
-            position: 'Supervisor',
-            gross: 7000,
-            deductions: 800,
-            net: 6200,
-            status: 'Paid',
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            name: 'Bob Johnson',
-            department: 'Engineering',
-            position: 'Engineer',
-            gross: 8000,
-            deductions: 1000,
-            net: 7000,
-            status: 'Processing',
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            name: 'Alice Brown',
-            department: 'Sales',
-            position: 'Sales Rep',
-            gross: 6000,
-            deductions: 600,
-            net: 5400,
-            status: 'Paid',
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            name: 'Charlie Davis',
-            department: 'Production',
-            position: 'Operator',
-            gross: 4800,
-            deductions: 480,
-            net: 4320,
-            status: 'Pending',
-        },
-    ];
+    const [payrollData, setPayrollData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('hr/payrolls');
+                const mapped = raw.map((r: any) => {
+                    const gross = Number(r.grossSalary ?? r.gross ?? r.totalAmount ?? 0);
+                    const deductions = Number(r.deductions ?? r.totalDeductions ?? 0);
+                    const net = Number(r.netSalary ?? r.net ?? (gross - deductions));
+                    return {
+                        id: r.id ?? '',
+                        employeeId: r.employeeId ?? r.employeeCode ?? '',
+                        name: r.employeeName ?? r.name ?? '',
+                        department: r.department ?? '',
+                        position: r.position ?? r.designation ?? '',
+                        gross,
+                        deductions,
+                        net,
+                        status: r.status ?? '',
+                    };
+                });
+                if (!cancelled) setPayrollData(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setPayrollData([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Filter data based on department
     const filteredData = department === 'All Departments'
@@ -94,6 +75,9 @@ function PayrollByDepartmentContent() {
                 { label: department }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -134,6 +118,7 @@ function PayrollByDepartmentContent() {
                     </table>
                 </div>
             </div>
+            </>
         </ReportDetailPage>
     );
 }

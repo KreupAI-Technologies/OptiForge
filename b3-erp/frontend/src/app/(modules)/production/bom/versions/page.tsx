@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Search,
@@ -55,284 +56,45 @@ export default function BOMVersionsPage() {
   const [filterProduct, setFilterProduct] = useState('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'current' | 'previous' | 'draft' | 'obsolete'>('all');
 
-  const versions: BOMVersion[] = [
-    {
-      id: '1',
-      bomCode: 'BOM-KIT-001',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      version: 'v2.1',
-      revision: 3,
-      status: 'current',
-      totalComponents: 24,
-      totalCost: 8450,
-      laborCost: 1850,
-      totalMfgCost: 11250,
-      costChange: -580,
-      costChangePercent: -4.9,
-      changeReason: 'Supplier negotiation - reduced SS sheet cost',
-      changedBy: 'Rajesh Kumar',
-      changeDate: '2025-09-20',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-09-22',
-      effectiveFrom: '2025-09-25',
-      effectiveTo: '2026-09-25',
-      notes: 'Cost optimization without quality compromise'
-    },
-    {
-      id: '2',
-      bomCode: 'BOM-KIT-001',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      version: 'v2.0',
-      revision: 2,
-      status: 'previous',
-      totalComponents: 24,
-      totalCost: 9030,
-      laborCost: 1850,
-      totalMfgCost: 11830,
-      costChange: 320,
-      costChangePercent: 2.8,
-      changeReason: 'Added premium gasket material for better seal',
-      changedBy: 'Priya Sharma',
-      changeDate: '2025-06-10',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-06-12',
-      effectiveFrom: '2025-06-15',
-      effectiveTo: '2025-09-24',
-      notes: 'Quality improvement based on customer feedback'
-    },
-    {
-      id: '3',
-      bomCode: 'BOM-KIT-001',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      version: 'v1.5',
-      revision: 1,
-      status: 'previous',
-      totalComponents: 22,
-      totalCost: 8710,
-      laborCost: 1700,
-      totalMfgCost: 11510,
-      costChange: 0,
-      costChangePercent: 0,
-      changeReason: 'Initial production version',
-      changedBy: 'Amit Patel',
-      changeDate: '2024-12-01',
-      approvedBy: 'Production Manager',
-      approvedDate: '2024-12-03',
-      effectiveFrom: '2024-12-05',
-      effectiveTo: '2025-06-14',
-      notes: 'First mass production BOM'
-    },
-    {
-      id: '4',
-      bomCode: 'BOM-KIT-004',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      version: 'v3.0',
-      revision: 5,
-      status: 'current',
-      totalComponents: 42,
-      totalCost: 28500,
-      laborCost: 5500,
-      totalMfgCost: 36850,
-      costChange: 1850,
-      costChangePercent: 5.3,
-      changeReason: 'Upgraded motor to higher efficiency model',
-      changedBy: 'Suresh Reddy',
-      changeDate: '2025-07-10',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-07-15',
-      effectiveFrom: '2025-07-20',
-      effectiveTo: '2026-07-20',
-      notes: 'Performance upgrade - better suction power'
-    },
-    {
-      id: '5',
-      bomCode: 'BOM-KIT-004',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      version: 'v2.8',
-      revision: 4,
-      status: 'previous',
-      totalComponents: 40,
-      totalCost: 27100,
-      laborCost: 5150,
-      totalMfgCost: 35000,
-      costChange: -950,
-      costChangePercent: -2.6,
-      changeReason: 'Optimized filter assembly process',
-      changedBy: 'Vikram Singh',
-      changeDate: '2025-04-15',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-04-18',
-      effectiveFrom: '2025-04-22',
-      effectiveTo: '2025-07-19',
-      notes: 'Labor cost reduction through process improvement'
-    },
-    {
-      id: '6',
-      bomCode: 'BOM-KIT-005',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      version: 'v2.0',
-      revision: 4,
-      status: 'current',
-      totalComponents: 38,
-      totalCost: 15800,
-      laborCost: 3800,
-      totalMfgCost: 21500,
-      costChange: 780,
-      costChangePercent: 3.8,
-      changeReason: 'Switched to soft-close drawer mechanism',
-      changedBy: 'Neha Gupta',
-      changeDate: '2025-09-05',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-09-10',
-      effectiveFrom: '2025-09-15',
-      effectiveTo: '2026-09-15',
-      notes: 'Premium feature addition for market differentiation'
-    },
-    {
-      id: '7',
-      bomCode: 'BOM-KIT-005',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      version: 'v1.8',
-      revision: 3,
-      status: 'previous',
-      totalComponents: 36,
-      totalCost: 15250,
-      laborCost: 3570,
-      totalMfgCost: 20720,
-      costChange: 420,
-      costChangePercent: 2.1,
-      changeReason: 'Added moisture-resistant plywood',
-      changedBy: 'Arun Kumar',
-      changeDate: '2025-05-20',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-05-23',
-      effectiveFrom: '2025-05-28',
-      effectiveTo: '2025-09-14',
-      notes: 'Durability improvement for humid environments'
-    },
-    {
-      id: '8',
-      bomCode: 'BOM-KIT-002',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      version: 'v1.5',
-      revision: 2,
-      status: 'current',
-      totalComponents: 18,
-      totalCost: 3250,
-      laborCost: 850,
-      totalMfgCost: 4520,
-      costChange: 180,
-      costChangePercent: 4.1,
-      changeReason: 'Upgraded ceramic cartridge to premium brand',
-      changedBy: 'Priya Sharma',
-      changeDate: '2025-08-15',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-08-18',
-      effectiveFrom: '2025-08-20',
-      effectiveTo: '2026-08-20',
-      notes: 'Extended warranty support - better quality components'
-    },
-    {
-      id: '9',
-      bomCode: 'BOM-KIT-002',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      version: 'v1.2',
-      revision: 1,
-      status: 'previous',
-      totalComponents: 17,
-      totalCost: 3070,
-      laborCost: 820,
-      totalMfgCost: 4340,
-      costChange: -120,
-      costChangePercent: -2.7,
-      changeReason: 'Simplified hose assembly design',
-      changedBy: 'Meera Iyer',
-      changeDate: '2025-03-12',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-03-15',
-      effectiveFrom: '2025-03-18',
-      effectiveTo: '2025-08-19',
-      notes: 'Ease of assembly improvement'
-    },
-    {
-      id: '10',
-      bomCode: 'BOM-KIT-003',
-      productCode: 'KIT-SINK-002',
-      productName: 'Granite Composite Sink - Single Bowl',
-      version: 'v1.0',
-      revision: 1,
-      status: 'draft',
-      totalComponents: 15,
-      totalCost: 12500,
-      laborCost: 2200,
-      totalMfgCost: 15800,
-      costChange: 0,
-      costChangePercent: 0,
-      changeReason: 'New product launch - first version',
-      changedBy: 'Amit Patel',
-      changeDate: '2025-10-01',
-      approvedBy: '',
-      approvedDate: '',
-      effectiveFrom: '',
-      effectiveTo: '',
-      notes: 'Awaiting final approval for production release'
-    },
-    {
-      id: '11',
-      bomCode: 'BOM-KIT-007',
-      productCode: 'KIT-COOK-001',
-      productName: 'Professional Cookware Set - 7 Piece',
-      version: 'v1.8',
-      revision: 3,
-      status: 'current',
-      totalComponents: 28,
-      totalCost: 6800,
-      laborCost: 1400,
-      totalMfgCost: 8880,
-      costChange: -320,
-      costChangePercent: -3.5,
-      changeReason: 'Bulk purchase discount on aluminum sheets',
-      changedBy: 'Arun Kumar',
-      changeDate: '2025-09-12',
-      approvedBy: 'Production Manager',
-      approvedDate: '2025-09-15',
-      effectiveFrom: '2025-09-18',
-      effectiveTo: '2026-09-18',
-      notes: 'Annual supplier contract renewal benefits'
-    },
-    {
-      id: '12',
-      bomCode: 'BOM-KIT-011',
-      productCode: 'KIT-CAB-002',
-      productName: 'Wall Cabinet - Glass Door Double',
-      version: 'v1.0',
-      revision: 0,
-      status: 'obsolete',
-      totalComponents: 20,
-      totalCost: 8900,
-      laborCost: 2200,
-      totalMfgCost: 12200,
-      costChange: 0,
-      costChangePercent: 0,
-      changeReason: 'Product discontinued - replaced by new model',
-      changedBy: 'Arjun Menon',
-      changeDate: '2023-11-05',
-      approvedBy: 'Production Manager',
-      approvedDate: '2023-11-10',
-      effectiveFrom: '2023-11-15',
-      effectiveTo: '2024-12-31',
-      notes: 'End of life - inventory clearance completed'
-    }
-  ];
+  const [versions, setVersions] = useState<BOMVersion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getBoms()) as any[];
+        const mapped: BOMVersion[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          bomCode: r.bomCode ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          version: r.version ?? '',
+          revision: Number(r.revision ?? 0),
+          status: (r.status ?? 'draft') as BOMVersion['status'],
+          totalComponents: Number(r.totalComponents ?? 0),
+          totalCost: Number(r.totalCost ?? 0),
+          laborCost: Number(r.laborCost ?? 0),
+          totalMfgCost: Number(r.totalMfgCost ?? 0),
+          costChange: Number(r.costChange ?? 0),
+          costChangePercent: Number(r.costChangePercent ?? 0),
+          changeReason: r.changeReason ?? '',
+          changedBy: r.changedBy ?? '',
+          changeDate: r.changeDate ?? '',
+          approvedBy: r.approvedBy ?? '',
+          approvedDate: r.approvedDate ?? '',
+          effectiveFrom: r.effectiveFrom ?? '',
+          effectiveTo: r.effectiveTo ?? '',
+          notes: r.notes ?? '',
+        }));
+        if (!cancelled) setVersions(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setVersions([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const products = ['all', ...Array.from(new Set(versions.map(v => v.productCode)))];
 
@@ -440,6 +202,8 @@ export default function BOMVersionsPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

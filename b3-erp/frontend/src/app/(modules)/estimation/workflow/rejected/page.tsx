@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   XCircle,
@@ -16,6 +16,10 @@ import {
   Calendar,
   AlertTriangle
 } from 'lucide-react'
+import {
+  estimationCostEstimateLiveService,
+  CostEstimateRecord,
+} from '@/services/estimation-cost-estimate-live.service'
 
 interface RejectedEstimate {
   id: string
@@ -38,138 +42,63 @@ interface RejectedEstimate {
 export default function EstimateWorkflowRejectedPage() {
   const router = useRouter()
 
-  const [rejectedEstimates] = useState<RejectedEstimate[]>([
-    {
-      id: 'REJ-001',
-      estimateNumber: 'EST-2025-0120',
-      projectName: 'Luxury Villa Kitchen - Premium Setup',
-      customerName: 'Elite Homes Pvt Ltd',
-      category: 'Luxury Modular Kitchen',
-      estimatedValue: 5500000,
-      items: 48,
-      submittedBy: 'Amit Sharma',
-      submittedDate: '2025-10-05',
-      rejectedBy: 'Mr. Rajesh Gupta',
-      rejectedDate: '2025-10-08',
-      rejectionReason: 'Profit margin below company threshold (28.5% vs 30% required). Need to optimize material costs or revise pricing.',
-      rejectionCategory: 'margin',
-      canRevise: true,
-      revisedEstimate: 'EST-2025-0142'
-    },
-    {
-      id: 'REJ-002',
-      estimateNumber: 'EST-2025-0118',
-      projectName: 'Commercial Kitchen - Fast Food Chain',
-      customerName: 'Quick Bites Restaurants',
-      category: 'Commercial Kitchen',
-      estimatedValue: 8500000,
-      items: 52,
-      submittedBy: 'Neha Patel',
-      submittedDate: '2025-10-03',
-      rejectedBy: 'Mr. Anil Sharma',
-      rejectedDate: '2025-10-06',
-      rejectionReason: 'Pricing significantly below market rates. Risk of quality compromise. Competitor pricing analysis shows 15% underpricing.',
-      rejectionCategory: 'pricing',
-      canRevise: true
-    },
-    {
-      id: 'REJ-003',
-      estimateNumber: 'EST-2025-0122',
-      projectName: 'Modular Kitchen - Builder Package',
-      customerName: 'Rainbow Developers',
-      category: 'Builder Package',
-      estimatedValue: 18500000,
-      items: 18,
-      submittedBy: 'Vikram Singh',
-      submittedDate: '2025-10-07',
-      rejectedBy: 'Mr. Suresh Iyer',
-      rejectedDate: '2025-10-09',
-      rejectionReason: 'Scope mismatch - Missing installation and after-sales service terms. Bulk discount structure not aligned with company policy.',
-      rejectionCategory: 'scope',
-      canRevise: true,
-      revisedEstimate: 'EST-2025-0151'
-    },
-    {
-      id: 'REJ-004',
-      estimateNumber: 'EST-2025-0115',
-      projectName: 'Island Kitchen with Wine Storage',
-      customerName: 'Mr. Arvind Malhotra',
-      category: 'Island Kitchen',
-      estimatedValue: 4250000,
-      items: 42,
-      submittedBy: 'Ravi Kumar',
-      submittedDate: '2025-10-01',
-      rejectedBy: 'Ms. Priya Kapoor',
-      rejectedDate: '2025-10-03',
-      rejectionReason: 'Wine cellar cooling system specifications do not meet compliance requirements. Need certified vendor approval.',
-      rejectionCategory: 'compliance',
-      canRevise: true
-    },
-    {
-      id: 'REJ-005',
-      estimateNumber: 'EST-2025-0119',
-      projectName: 'Compact Kitchen for Studio Apartments',
-      customerName: 'Ms. Kavita Desai',
-      category: 'Compact Kitchen',
-      estimatedValue: 650000,
-      items: 16,
-      submittedBy: 'Amit Sharma',
-      submittedDate: '2025-10-04',
-      rejectedBy: 'Mr. Suresh Iyer',
-      rejectedDate: '2025-10-06',
-      rejectionReason: 'Project value too low for current capacity. Minimum project value policy is ₹8L for individual residential projects.',
-      rejectionCategory: 'other',
-      canRevise: false
-    },
-    {
-      id: 'REJ-006',
-      estimateNumber: 'EST-2025-0121',
-      projectName: 'Hotel Kitchen - Budget Property',
-      customerName: 'Economy Hotels India',
-      category: 'Institutional Kitchen',
-      estimatedValue: 6800000,
-      items: 38,
-      submittedBy: 'Neha Patel',
-      submittedDate: '2025-10-06',
-      rejectedBy: 'Mr. Rajesh Gupta',
-      rejectedDate: '2025-10-09',
-      rejectionReason: 'Margin too thin (22%) for institutional project. Requires minimum 28% margin due to extended payment terms and warranty obligations.',
-      rejectionCategory: 'margin',
-      canRevise: true
-    },
-    {
-      id: 'REJ-007',
-      estimateNumber: 'EST-2025-0116',
-      projectName: 'L-Shaped Kitchen - Contemporary Design',
-      customerName: 'Dr. Ramesh Sharma',
-      category: 'L-Shaped Kitchen',
-      estimatedValue: 2850000,
-      items: 32,
-      submittedBy: 'Vikram Singh',
-      submittedDate: '2025-10-02',
-      rejectedBy: 'Ms. Priya Kapoor',
-      rejectedDate: '2025-10-04',
-      rejectionReason: 'Custom imported hardware pricing not verified with supplier. Final pricing may increase by 8-12%.',
-      rejectionCategory: 'pricing',
-      canRevise: true
-    },
-    {
-      id: 'REJ-008',
-      estimateNumber: 'EST-2025-0117',
-      projectName: 'Parallel Kitchen with Utility Area',
-      customerName: 'Mrs. Sunita Verma',
-      category: 'Parallel Kitchen',
-      estimatedValue: 1950000,
-      items: 28,
-      submittedBy: 'Ravi Kumar',
-      submittedDate: '2025-10-02',
-      rejectedBy: 'Mr. Suresh Iyer',
-      rejectedDate: '2025-10-05',
-      rejectionReason: 'Missing electrical and plumbing scope. Estimate incomplete without civil work coordination costs.',
-      rejectionCategory: 'scope',
-      canRevise: true
+  const [rejectedEstimates, setRejectedEstimates] = useState<RejectedEstimate[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // Rejected estimates are cost-estimate records with status = Rejected.
+        const raw = await estimationCostEstimateLiveService.getEstimates({
+          status: 'Rejected',
+        })
+        const inferCategory = (
+          reason?: string,
+        ): RejectedEstimate['rejectionCategory'] => {
+          const r = (reason ?? '').toLowerCase()
+          if (r.includes('margin')) return 'margin'
+          if (r.includes('pric')) return 'pricing'
+          if (r.includes('scope')) return 'scope'
+          if (r.includes('complian')) return 'compliance'
+          return 'other'
+        }
+        const mapped: RejectedEstimate[] = raw.map((e: CostEstimateRecord) => ({
+          id: e.id,
+          estimateNumber: e.estimateNumber ?? e.id,
+          projectName: e.title ?? 'Untitled Estimate',
+          customerName: e.customerName ?? '—',
+          category: e.estimateType ?? 'General',
+          estimatedValue: Number(e.totalCost ?? 0),
+          items: Number(e.itemCount ?? (Array.isArray(e.items) ? e.items.length : 0)),
+          submittedBy: e.submittedBy ?? '—',
+          submittedDate: e.submittedAt ?? e.estimateDate ?? '',
+          rejectedBy: e.rejectedBy ?? e.approvedBy ?? '—',
+          rejectedDate: e.rejectedAt ?? e.updatedAt ?? '',
+          rejectionReason: e.rejectionReason ?? e.approvalNotes ?? '',
+          rejectionCategory: inferCategory(e.rejectionReason ?? e.approvalNotes),
+          canRevise: true,
+        }))
+        if (!cancelled) setRejectedEstimates(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load rejected estimates',
+          )
+          setRejectedEstimates([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -216,6 +145,17 @@ export default function EstimateWorkflowRejectedPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+          Loading rejected estimates...
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -313,6 +253,13 @@ export default function EstimateWorkflowRejectedPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {rejectedEstimates.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
+                    {isLoading ? 'Loading...' : 'No rejected estimates found.'}
+                  </td>
+                </tr>
+              )}
               {rejectedEstimates.map((estimate) => (
                 <tr key={estimate.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">

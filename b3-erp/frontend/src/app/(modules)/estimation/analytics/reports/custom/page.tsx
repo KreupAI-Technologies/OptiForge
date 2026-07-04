@@ -71,7 +71,7 @@ export default function CustomReportPage() {
   ]
 
   const availableFilters = [
-    { id: 'category', name: 'Kitchen Category', options: ['Modular', 'L-Shape', 'U-Shape', 'Parallel', 'Island'] },
+    { id: 'category', name: 'Kitchen Category', options: categoryOptions },
     { id: 'status', name: 'Status', options: ['Draft', 'Pending', 'Approved', 'Rejected', 'Converted'] },
     { id: 'value-range', name: 'Value Range', options: ['<50K', '50K-1L', '1L-2L', '2L-5L', '>5L'] },
     { id: 'estimator', name: 'Estimator', options: ['All', 'Rajesh Kumar', 'Priya Sharma', 'Amit Patel'] },
@@ -187,6 +187,11 @@ export default function CustomReportPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-3">
+        {loadError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
         <div className="grid grid-cols-3 gap-3">
           {/* Left Column - Configuration */}
           <div className="col-span-2 space-y-3">

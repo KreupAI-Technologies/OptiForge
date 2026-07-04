@@ -477,6 +477,15 @@ export class EmployeeService {
   }
 
   /**
+   * Get all employees (raw ORM shape) with company header.
+   */
+  static async getAllEmployeesRaw(): Promise<any[]> {
+    return this.request<any[]>('/hr/employees', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
    * Get all employees with optional filters
    */
   static async getAllEmployees(filters?: EmployeeFilters): Promise<Employee[]> {

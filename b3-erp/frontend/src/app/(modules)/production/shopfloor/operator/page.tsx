@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, Users, Clock, Award, TrendingUp, AlertCircle, CheckCircle, Package } from 'lucide-react';
 import { OperatorDetailModal, OperatorDetail } from '@/components/shopfloor/ShopFloorDetailModals';
 import { exportToCsv } from '@/lib/export';
 import { OperatorExportModal, OperatorExportConfig } from '@/components/shopfloor/ShopFloorExportModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface Operator {
   id: string;
@@ -53,249 +54,47 @@ export default function ShopFloorOperatorPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedOperator, setSelectedOperator] = useState<OperatorDetail | null>(null);
 
-  // Mock data for operators
-  const operators: Operator[] = [
-    {
-      id: '1',
-      employeeId: 'EMP-1245',
-      operatorName: 'Rajesh Kumar',
-      department: 'Cutting',
-      shift: 'morning',
-      station: 'ST-CUT-01',
-      currentWO: 'WO-2025-1135',
-      currentProduct: 'Kitchen Sink - Double Bowl',
-      status: 'active',
-      skillLevel: 'expert',
-      shiftStartTime: '08:00 AM',
-      activeHours: 3.5,
-      breakHours: 0.5,
-      todayProduced: 32,
-      todayRejected: 2,
-      todayEfficiency: 112,
-      weeklyProduced: 185,
-      weeklyRejected: 8,
-      weeklyEfficiency: 108,
-      qualityScore: 96.2,
-      certifications: ['CNC Machining', 'Safety Level 2', 'Quality Inspector'],
-      lastActivity: '2 mins ago'
-    },
-    {
-      id: '2',
-      employeeId: 'EMP-1367',
-      operatorName: 'Amit Patel',
-      department: 'Welding',
-      shift: 'morning',
-      station: 'ST-WELD-01',
-      currentWO: 'WO-2025-1138',
-      currentProduct: 'Chrome Kitchen Faucet',
-      status: 'active',
-      skillLevel: 'advanced',
-      shiftStartTime: '07:30 AM',
-      activeHours: 4.0,
-      breakHours: 0.5,
-      todayProduced: 65,
-      todayRejected: 3,
-      todayEfficiency: 118,
-      weeklyProduced: 342,
-      weeklyRejected: 12,
-      weeklyEfficiency: 115,
-      qualityScore: 97.8,
-      certifications: ['TIG Welding', 'MIG Welding', 'Safety Level 3'],
-      lastActivity: '1 min ago'
-    },
-    {
-      id: '3',
-      employeeId: 'EMP-1489',
-      operatorName: 'Priya Singh',
-      department: 'Finishing',
-      shift: 'morning',
-      station: 'ST-POLISH-01',
-      currentWO: 'WO-2025-1142',
-      currentProduct: 'Cookware Set - Non-Stick',
-      status: 'active',
-      skillLevel: 'advanced',
-      shiftStartTime: '08:45 AM',
-      activeHours: 3.2,
-      breakHours: 0.3,
-      todayProduced: 18,
-      todayRejected: 1,
-      todayEfficiency: 92,
-      weeklyProduced: 128,
-      weeklyRejected: 5,
-      weeklyEfficiency: 95,
-      qualityScore: 98.5,
-      certifications: ['Surface Finishing', 'Quality Control', 'Safety Level 2'],
-      lastActivity: '30 secs ago'
-    },
-    {
-      id: '4',
-      employeeId: 'EMP-1512',
-      operatorName: 'Suresh Reddy',
-      department: 'Assembly',
-      shift: 'morning',
-      station: 'ST-ASSY-01',
-      currentWO: 'WO-2025-1145',
-      currentProduct: 'Built-in Kitchen Chimney',
-      status: 'active',
-      skillLevel: 'expert',
-      shiftStartTime: '09:00 AM',
-      activeHours: 3.0,
-      breakHours: 0.0,
-      todayProduced: 22,
-      todayRejected: 0,
-      todayEfficiency: 105,
-      weeklyProduced: 145,
-      weeklyRejected: 2,
-      weeklyEfficiency: 102,
-      qualityScore: 99.1,
-      certifications: ['Assembly Line Lead', 'Electrical Assembly', 'Safety Level 3', 'Team Leader'],
-      lastActivity: '3 mins ago'
-    },
-    {
-      id: '5',
-      employeeId: 'EMP-1634',
-      operatorName: 'Vikram Shah',
-      department: 'Cutting',
-      shift: 'morning',
-      station: null,
-      currentWO: null,
-      currentProduct: null,
-      status: 'on-break',
-      skillLevel: 'intermediate',
-      shiftStartTime: '08:00 AM',
-      activeHours: 3.0,
-      breakHours: 1.0,
-      todayProduced: 28,
-      todayRejected: 3,
-      todayEfficiency: 88,
-      weeklyProduced: 142,
-      weeklyRejected: 15,
-      weeklyEfficiency: 89,
-      qualityScore: 90.5,
-      certifications: ['Laser Cutting', 'Safety Level 1'],
-      lastActivity: '15 mins ago'
-    },
-    {
-      id: '6',
-      employeeId: 'EMP-1758',
-      operatorName: 'Kavita Desai',
-      department: 'Quality Control',
-      shift: 'morning',
-      station: 'ST-QC-01',
-      currentWO: 'WO-2025-1140',
-      currentProduct: 'Range Hood with LED',
-      status: 'active',
-      skillLevel: 'expert',
-      shiftStartTime: '08:00 AM',
-      activeHours: 4.0,
-      breakHours: 0.0,
-      todayProduced: 20,
-      todayRejected: 2,
-      todayEfficiency: 110,
-      weeklyProduced: 118,
-      weeklyRejected: 8,
-      weeklyEfficiency: 112,
-      qualityScore: 99.5,
-      certifications: ['Quality Inspector Level 3', 'ISO 9001 Auditor', 'Safety Level 2', 'Six Sigma Green Belt'],
-      lastActivity: '1 min ago'
-    },
-    {
-      id: '7',
-      employeeId: 'EMP-1892',
-      operatorName: 'Ramesh Gupta',
-      department: 'Packaging',
-      shift: 'morning',
-      station: 'ST-PACK-01',
-      currentWO: 'WO-2025-1147',
-      currentProduct: 'Kitchen Storage Container Set',
-      status: 'active',
-      skillLevel: 'intermediate',
-      shiftStartTime: '07:45 AM',
-      activeHours: 4.2,
-      breakHours: 0.3,
-      todayProduced: 78,
-      todayRejected: 4,
-      todayEfficiency: 122,
-      weeklyProduced: 412,
-      weeklyRejected: 18,
-      weeklyEfficiency: 118,
-      qualityScore: 95.8,
-      certifications: ['Packaging Operations', 'Forklift Operator', 'Safety Level 1'],
-      lastActivity: '45 secs ago'
-    },
-    {
-      id: '8',
-      employeeId: 'EMP-2015',
-      operatorName: 'Deepak Sharma',
-      department: 'Welding',
-      shift: 'afternoon',
-      station: null,
-      currentWO: null,
-      currentProduct: null,
-      status: 'idle',
-      skillLevel: 'beginner',
-      shiftStartTime: '02:00 PM',
-      activeHours: 0.5,
-      breakHours: 0.0,
-      todayProduced: 0,
-      todayRejected: 0,
-      todayEfficiency: 0,
-      weeklyProduced: 95,
-      weeklyRejected: 12,
-      weeklyEfficiency: 78,
-      qualityScore: 85.2,
-      certifications: ['Basic Welding', 'Safety Level 1'],
-      lastActivity: '25 mins ago'
-    },
-    {
-      id: '9',
-      employeeId: 'EMP-2143',
-      operatorName: 'Sneha Kulkarni',
-      department: 'Assembly',
-      shift: 'afternoon',
-      station: 'ST-ASSY-02',
-      currentWO: 'WO-2025-1149',
-      currentProduct: 'Mixer Grinder - 750W',
-      status: 'active',
-      skillLevel: 'advanced',
-      shiftStartTime: '02:00 PM',
-      activeHours: 1.8,
-      breakHours: 0.2,
-      todayProduced: 12,
-      todayRejected: 0,
-      todayEfficiency: 115,
-      weeklyProduced: 168,
-      weeklyRejected: 4,
-      weeklyEfficiency: 110,
-      qualityScore: 98.2,
-      certifications: ['Electronic Assembly', 'Soldering Certification', 'Safety Level 2'],
-      lastActivity: '2 mins ago'
-    },
-    {
-      id: '10',
-      employeeId: 'EMP-2287',
-      operatorName: 'Mohan Das',
-      department: 'Assembly',
-      shift: 'morning',
-      station: 'ST-ASSY-01',
-      currentWO: 'WO-2025-1145',
-      currentProduct: 'Built-in Kitchen Chimney',
-      status: 'active',
-      skillLevel: 'intermediate',
-      shiftStartTime: '09:00 AM',
-      activeHours: 3.0,
-      breakHours: 0.0,
-      todayProduced: 22,
-      todayRejected: 1,
-      todayEfficiency: 98,
-      weeklyProduced: 132,
-      weeklyRejected: 6,
-      weeklyEfficiency: 95,
-      qualityScore: 94.8,
-      certifications: ['Assembly Operations', 'Safety Level 1'],
-      lastActivity: '3 mins ago'
-    }
-  ];
+  // Operators (live)
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getOperatorWorkstations()) as any[];
+        const mapped: Operator[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          employeeId: String(r.employeeId ?? ''),
+          operatorName: String(r.operatorName ?? ''),
+          department: String(r.department ?? ''),
+          shift: (r.shift ?? 'morning') as Operator['shift'],
+          station: r.station ?? null,
+          currentWO: r.currentWO ?? null,
+          currentProduct: r.currentProduct ?? null,
+          status: (r.status ?? 'offline') as Operator['status'],
+          skillLevel: (r.skillLevel ?? 'beginner') as Operator['skillLevel'],
+          shiftStartTime: String(r.shiftStartTime ?? ''),
+          activeHours: Number(r.activeHours ?? 0),
+          breakHours: Number(r.breakHours ?? 0),
+          todayProduced: Number(r.todayProduced ?? 0),
+          todayRejected: Number(r.todayRejected ?? 0),
+          todayEfficiency: Number(r.todayEfficiency ?? 0),
+          weeklyProduced: Number(r.weeklyProduced ?? 0),
+          weeklyRejected: Number(r.weeklyRejected ?? 0),
+          weeklyEfficiency: Number(r.weeklyEfficiency ?? 0),
+          qualityScore: Number(r.qualityScore ?? 0),
+          certifications: Array.isArray(r.certifications) ? r.certifications.map((c: any) => String(c)) : [],
+          lastActivity: String(r.lastActivity ?? ''),
+        }));
+        if (!cancelled) setOperators(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setOperators([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOperators = operators.filter(op => {
     const deptMatch = filterDepartment === 'all' || op.department === filterDepartment;
@@ -406,6 +205,8 @@ export default function ShopFloorOperatorPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

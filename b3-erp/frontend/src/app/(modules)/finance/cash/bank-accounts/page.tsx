@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   CreditCard,
@@ -18,6 +18,7 @@ import {
   MoreVertical,
   RefreshCw
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface BankAccount {
   id: string;
@@ -43,109 +44,56 @@ export default function BankAccountsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [accountTypeFilter, setAccountTypeFilter] = useState('all');
 
-  // Sample bank accounts data
-  const bankAccounts: BankAccount[] = [
-    {
-      id: 'BA001',
-      bankName: 'HDFC Bank',
-      accountNumber: '50200012345678',
-      accountType: 'Current',
-      branch: 'MG Road, Bangalore',
-      ifscCode: 'HDFC0001234',
-      swiftCode: 'HDFCINBB',
-      currency: 'INR',
-      currentBalance: 15750000,
-      availableBalance: 15750000,
-      status: 'Active',
-      isPrimary: true,
-      lastReconciled: '2025-01-15',
-      openingDate: '2020-03-15',
-      signatories: ['John Doe', 'Jane Smith']
-    },
-    {
-      id: 'BA002',
-      bankName: 'ICICI Bank',
-      accountNumber: '012345678901',
-      accountType: 'Current',
-      branch: 'Koramangala, Bangalore',
-      ifscCode: 'ICIC0001234',
-      swiftCode: 'ICICINBB',
-      currency: 'INR',
-      currentBalance: 8500000,
-      availableBalance: 8500000,
-      status: 'Active',
-      isPrimary: false,
-      lastReconciled: '2025-01-14',
-      openingDate: '2021-06-20',
-      signatories: ['John Doe']
-    },
-    {
-      id: 'BA003',
-      bankName: 'State Bank of India',
-      accountNumber: '30123456789',
-      accountType: 'Overdraft',
-      branch: 'HSR Layout, Bangalore',
-      ifscCode: 'SBIN0001234',
-      currency: 'INR',
-      currentBalance: 5200000,
-      availableBalance: 7200000,
-      overdraftLimit: 2000000,
-      status: 'Active',
-      isPrimary: false,
-      lastReconciled: '2025-01-10',
-      openingDate: '2019-11-10',
-      signatories: ['John Doe', 'Jane Smith', 'Robert Brown']
-    },
-    {
-      id: 'BA004',
-      bankName: 'Axis Bank',
-      accountNumber: '91234567890123',
-      accountType: 'Fixed Deposit',
-      branch: 'Indiranagar, Bangalore',
-      ifscCode: 'UTIB0001234',
-      currency: 'INR',
-      currentBalance: 10000000,
-      availableBalance: 0,
-      status: 'Active',
-      isPrimary: false,
-      lastReconciled: '2025-01-01',
-      openingDate: '2024-06-01',
-      signatories: ['Jane Smith']
-    },
-    {
-      id: 'BA005',
-      bankName: 'Kotak Mahindra Bank',
-      accountNumber: '7311234567',
-      accountType: 'Savings',
-      branch: 'Whitefield, Bangalore',
-      ifscCode: 'KKBK0001234',
-      currency: 'INR',
-      currentBalance: 1250000,
-      availableBalance: 1250000,
-      status: 'Inactive',
-      isPrimary: false,
-      lastReconciled: '2024-12-20',
-      openingDate: '2022-02-15',
-      signatories: ['Robert Brown']
-    },
-    {
-      id: 'BA006',
-      bankName: 'Standard Chartered',
-      accountNumber: '01234567890123',
-      accountType: 'Current',
-      branch: 'Richmond Road, Bangalore',
-      ifscCode: 'SCBL0036001',
-      swiftCode: 'SCBLINBB',
-      currency: 'USD',
-      currentBalance: 125000,
-      availableBalance: 125000,
-      status: 'Active',
-      isPrimary: false,
-      lastReconciled: '2025-01-12',
-      openingDate: '2023-04-10',
-      signatories: ['John Doe', 'Jane Smith']
-    }
-  ];
+  // Bank accounts loaded from the cash dashboard analytics endpoint
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const dash = (await FinanceService.getCashDashboard()) as any;
+        const rows: any[] = Array.isArray(dash?.bankAccounts)
+          ? dash.bankAccounts
+          : Array.isArray(dash?.accounts)
+            ? dash.accounts
+            : [];
+        const mapped: BankAccount[] = rows.map((a, i) => ({
+          id: a.id ?? a.accountId ?? `BA-${i}`,
+          bankName: a.bankName ?? a.name ?? a.accountName ?? '-',
+          accountNumber: a.accountNumber ?? a.number ?? '-',
+          accountType: (a.accountType ?? 'Current') as BankAccount['accountType'],
+          branch: a.branch ?? '-',
+          ifscCode: a.ifscCode ?? a.ifsc ?? '-',
+          swiftCode: a.swiftCode ?? undefined,
+          currency: a.currency ?? 'INR',
+          currentBalance: Number(a.currentBalance ?? a.balance ?? 0),
+          availableBalance: Number(a.availableBalance ?? a.currentBalance ?? a.balance ?? 0),
+          overdraftLimit: a.overdraftLimit !== undefined && a.overdraftLimit !== null ? Number(a.overdraftLimit) : undefined,
+          status: (a.status ?? 'Active') as BankAccount['status'],
+          isPrimary: Boolean(a.isPrimary),
+          lastReconciled: a.lastReconciled ?? undefined,
+          openingDate: a.openingDate ?? '',
+          signatories: Array.isArray(a.signatories) ? a.signatories : [],
+        }));
+        if (!cancelled) setBankAccounts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load bank accounts');
+          setBankAccounts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredAccounts = bankAccounts.filter(account => {
     const matchesSearch =
@@ -233,6 +181,16 @@ export default function BankAccountsPage() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full p-3">
           <div className="w-full space-y-3">
+            {isLoading && (
+              <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
+                Loading bank accounts…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {loadError}
+              </div>
+            )}
             {/* Action Bar */}
             <div className="flex items-center justify-end">
               <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-lg">

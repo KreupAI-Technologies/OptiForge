@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Search,
@@ -56,216 +57,48 @@ export default function InProgressWorkOrdersPage() {
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<InProgressWorkOrder | null>(null);
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
 
-  const inProgressOrders: InProgressWorkOrder[] = [
-    {
-      id: '1',
-      workOrderNumber: 'WO-2025-1135',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 50,
-      unit: 'PC',
-      produced: 32,
-      rejected: 2,
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0842',
-      customerName: 'Grand Towers Ltd',
-      startDate: '2025-10-12',
-      dueDate: '2025-10-24',
-      daysRemaining: 4,
-      currentStation: 'Polishing & Finishing',
-      completionPercentage: 68,
-      plannedDuration: 12,
-      actualDaysElapsed: 8,
-      assignedTeam: 'Team A - Sinks',
-      shift: 'Day Shift',
-      status: 'on-track',
-      issues: [],
-      nextMilestone: 'Quality inspection - 6 units ready'
-    },
-    {
-      id: '2',
-      workOrderNumber: 'WO-2025-1138',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      category: 'Kitchen Appliances',
-      quantity: 30,
-      unit: 'PC',
-      produced: 18,
-      rejected: 1,
-      priority: 'urgent',
-      salesOrderNumber: 'SO-2025-0845',
-      customerName: 'Prestige Homes',
-      startDate: '2025-10-10',
-      dueDate: '2025-10-23',
-      daysRemaining: 3,
-      currentStation: 'Motor Assembly',
-      completionPercentage: 62,
-      plannedDuration: 13,
-      actualDaysElapsed: 10,
-      assignedTeam: 'Team C - Appliances',
-      shift: 'Day & Night Shift',
-      status: 'at-risk',
-      issues: ['Motor supplier delay affecting 5 units', 'Overtime required to meet deadline'],
-      nextMilestone: 'Complete motor installation - 12 units pending'
-    },
-    {
-      id: '3',
-      workOrderNumber: 'WO-2025-1139',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      category: 'Kitchen Cabinets',
-      quantity: 60,
-      unit: 'PC',
-      produced: 25,
-      rejected: 3,
-      priority: 'medium',
-      salesOrderNumber: 'SO-2025-0848',
-      customerName: 'Urban Apartments',
-      startDate: '2025-10-08',
-      dueDate: '2025-10-28',
-      daysRemaining: 8,
-      currentStation: 'Cabinet Assembly',
-      completionPercentage: 45,
-      plannedDuration: 20,
-      actualDaysElapsed: 12,
-      assignedTeam: 'Team B - Cabinets',
-      shift: 'Day Shift',
-      status: 'delayed',
-      issues: ['CNC machine breakdown - 2 days lost', 'Plywood quality issues - 3 units rejected'],
-      nextMilestone: 'Complete base assembly - 35 units pending'
-    },
-    {
-      id: '4',
-      workOrderNumber: 'WO-2025-1140',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      category: 'Kitchen Faucets',
-      quantity: 100,
-      unit: 'PC',
-      produced: 78,
-      rejected: 4,
-      priority: 'medium',
-      salesOrderNumber: 'SO-2025-0850',
-      customerName: 'Kitchen Mart',
-      startDate: '2025-10-14',
-      dueDate: '2025-10-26',
-      daysRemaining: 6,
-      currentStation: 'Chrome Plating',
-      completionPercentage: 82,
-      plannedDuration: 12,
-      actualDaysElapsed: 6,
-      assignedTeam: 'Team D - Faucets',
-      shift: 'Day Shift',
-      status: 'on-track',
-      issues: [],
-      nextMilestone: 'Chrome plating batch 4 - 22 units'
-    },
-    {
-      id: '5',
-      workOrderNumber: 'WO-2025-1141',
-      productCode: 'KIT-COOK-001',
-      productName: 'Professional Cookware Set - 7 Piece',
-      category: 'Cookware',
-      quantity: 80,
-      unit: 'SET',
-      produced: 52,
-      rejected: 5,
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0852',
-      customerName: 'Chef\'s Choice Store',
-      startDate: '2025-10-11',
-      dueDate: '2025-10-27',
-      daysRemaining: 7,
-      currentStation: 'Non-Stick Coating',
-      completionPercentage: 71,
-      plannedDuration: 16,
-      actualDaysElapsed: 9,
-      assignedTeam: 'Team E - Cookware',
-      shift: 'Day Shift',
-      status: 'on-track',
-      issues: ['5 sets failed coating quality check'],
-      nextMilestone: 'Complete coating application - 28 sets pending'
-    },
-    {
-      id: '6',
-      workOrderNumber: 'WO-2025-1136',
-      productCode: 'KIT-COUNT-001',
-      productName: 'Granite Countertop - Premium Black Galaxy',
-      category: 'Countertops',
-      quantity: 20,
-      unit: 'PC',
-      produced: 8,
-      rejected: 1,
-      priority: 'urgent',
-      salesOrderNumber: 'SO-2025-0843',
-      customerName: 'Luxury Villas Co',
-      startDate: '2025-10-09',
-      dueDate: '2025-10-25',
-      daysRemaining: 5,
-      currentStation: 'Edge Polishing',
-      completionPercentage: 42,
-      plannedDuration: 16,
-      actualDaysElapsed: 11,
-      assignedTeam: 'Team F - Stone Work',
-      shift: 'Day Shift',
-      status: 'at-risk',
-      issues: ['Granite slab defects - 1 piece rejected', 'Skilled labor shortage slowing progress'],
-      nextMilestone: 'Complete edge polishing - 12 pieces pending'
-    },
-    {
-      id: '7',
-      workOrderNumber: 'WO-2025-1137',
-      productCode: 'KIT-ACC-001',
-      productName: 'Modular Kitchen Organizer Set - Premium',
-      category: 'Kitchen Accessories',
-      quantity: 120,
-      unit: 'SET',
-      produced: 95,
-      rejected: 3,
-      priority: 'low',
-      salesOrderNumber: 'SO-2025-0844',
-      customerName: 'Home Decor Plus',
-      startDate: '2025-10-13',
-      dueDate: '2025-10-30',
-      daysRemaining: 10,
-      currentStation: 'Packaging',
-      completionPercentage: 82,
-      plannedDuration: 17,
-      actualDaysElapsed: 7,
-      assignedTeam: 'Team G - Accessories',
-      shift: 'Day Shift',
-      status: 'on-track',
-      issues: [],
-      nextMilestone: 'Complete packaging - 25 sets remaining'
-    },
-    {
-      id: '8',
-      workOrderNumber: 'WO-2025-1134',
-      productCode: 'KIT-SINK-003',
-      productName: 'Undermount SS Sink - Single Bowl Large',
-      category: 'Kitchen Sinks',
-      quantity: 45,
-      unit: 'PC',
-      produced: 20,
-      rejected: 2,
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0841',
-      customerName: 'Designer Interiors',
-      startDate: '2025-10-07',
-      dueDate: '2025-10-22',
-      daysRemaining: 2,
-      currentStation: 'Welding',
-      completionPercentage: 48,
-      plannedDuration: 15,
-      actualDaysElapsed: 13,
-      assignedTeam: 'Team A - Sinks',
-      shift: 'Day & Night Shift',
-      status: 'delayed',
-      issues: ['Welding quality issues - rework needed on 5 units', 'Behind schedule by 3 days'],
-      nextMilestone: 'Complete welding - 25 units pending'
-    }
-  ];
+  const [inProgressOrders, setInProgressOrders] = useState<InProgressWorkOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
+        const mapped: InProgressWorkOrder[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          workOrderNumber: r.workOrderNumber ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          category: r.category ?? '',
+          quantity: Number(r.quantity ?? 0),
+          unit: r.unit ?? '',
+          produced: Number(r.produced ?? 0),
+          rejected: Number(r.rejected ?? 0),
+          priority: (r.priority ?? 'medium') as InProgressWorkOrder['priority'],
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          startDate: r.startDate ?? '',
+          dueDate: r.dueDate ?? '',
+          daysRemaining: Number(r.daysRemaining ?? 0),
+          currentStation: r.currentStation ?? '',
+          completionPercentage: Number(r.completionPercentage ?? 0),
+          plannedDuration: Number(r.plannedDuration ?? 0),
+          actualDaysElapsed: Number(r.actualDaysElapsed ?? 0),
+          assignedTeam: r.assignedTeam ?? '',
+          shift: r.shift ?? '',
+          status: (r.status ?? 'on-track') as InProgressWorkOrder['status'],
+          issues: Array.isArray(r.issues) ? r.issues.map((i: any) => String(i)) : [],
+          nextMilestone: r.nextMilestone ?? '',
+        }));
+        if (!cancelled) setInProgressOrders(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setInProgressOrders([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const priorities = ['all', 'urgent', 'high', 'medium', 'low'];
   const statuses = ['all', 'on-track', 'at-risk', 'delayed'];
@@ -321,6 +154,8 @@ export default function InProgressWorkOrdersPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

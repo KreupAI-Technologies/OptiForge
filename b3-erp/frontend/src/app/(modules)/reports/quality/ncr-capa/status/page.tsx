@@ -1,63 +1,47 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReportDetailPage from '@/components/reports/ReportDetailPage';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function NCRByStatusContent() {
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All Statuses';
 
-    // Mock data
-    const ncrs = [
-        {
-            id: 'NCR-2025-008',
-            issue: 'Dimensional variance',
-            severity: 'Major',
-            status: 'Open',
-            raisedBy: 'Mike Ross',
-            date: '2025-10-20',
-            age: 5
-        },
-        {
-            id: 'NCR-2025-007',
-            issue: 'Surface defect',
-            severity: 'Minor',
-            status: 'CAPA Initiated',
-            raisedBy: 'Rachel Zane',
-            date: '2025-10-17',
-            age: 8
-        },
-        {
-            id: 'NCR-2025-006',
-            issue: 'Weld quality',
-            severity: 'Critical',
-            status: 'CAPA Initiated',
-            raisedBy: 'Harvey Specter',
-            date: '2025-10-13',
-            age: 12
-        },
-        {
-            id: 'NCR-2025-005',
-            issue: 'Incorrect material',
-            severity: 'Major',
-            status: 'Closed',
-            raisedBy: 'Mike Ross',
-            date: '2025-10-10',
-            age: 15
-        },
-        {
-            id: 'NCR-2025-004',
-            issue: 'Packaging damage',
-            severity: 'Minor',
-            status: 'Closed',
-            raisedBy: 'Louis Litt',
-            date: '2025-10-05',
-            age: 20
-        },
-    ];
+    const [ncrs, setNcrs] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('quality/ncr');
+                const mapped = raw.map((r: any) => ({
+                    id: r.ncrNumber ?? r.id,
+                    issue: r.title ?? r.description ?? r.issue ?? '',
+                    severity: r.severity ?? '',
+                    status: r.status ?? '',
+                    raisedBy: r.raisedBy ?? r.reportedBy ?? '',
+                    date: r.raisedDate ?? r.createdAt ?? '',
+                    age: Number(r.age ?? r.ageInDays ?? 0),
+                }));
+                if (!cancelled) setNcrs(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setNcrs([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Filter data
     const filteredData = status === 'All Statuses'
@@ -84,6 +68,9 @@ function NCRByStatusContent() {
                 { label: status }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -126,6 +113,7 @@ function NCRByStatusContent() {
                     </table>
                 </div>
             </div>
+            </>
         </ReportDetailPage>
     );
 }

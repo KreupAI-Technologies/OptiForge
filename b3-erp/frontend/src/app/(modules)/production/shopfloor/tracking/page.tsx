@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Filter, Activity, Clock, CheckCircle, AlertTriangle, Package, Users } from 'lucide-react';
 import { StationDetailModal, WorkOrderDetailModal, StationDetail, WorkOrderDetail } from '@/components/shopfloor/ShopFloorDetailModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface WorkStation {
   id: string;
@@ -52,169 +53,43 @@ export default function ShopFloorTrackingPage() {
   const [selectedStation, setSelectedStation] = useState<StationDetail | null>(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderDetail | null>(null);
 
-  // Mock data for work stations
-  const workStations: WorkStation[] = [
-    {
-      id: '1',
-      stationCode: 'ST-CUT-01',
-      stationName: 'CNC Cutting Machine #1',
-      department: 'Cutting',
-      status: 'running',
-      currentWO: 'WO-2025-1135',
-      currentProduct: 'Kitchen Sink - Double Bowl',
-      operator: 'Rajesh Kumar',
-      startTime: '08:15 AM',
-      plannedQuantity: 50,
-      completedQuantity: 32,
-      rejectedQuantity: 2,
-      completionPercentage: 64,
-      cycleTime: 18,
-      targetCycleTime: 20,
-      efficiency: 111,
-      utilizationPercent: 87,
-      lastUpdate: '2 mins ago'
-    },
-    {
-      id: '2',
-      stationCode: 'ST-WELD-01',
-      stationName: 'Welding Station #1',
-      department: 'Welding',
-      status: 'running',
-      currentWO: 'WO-2025-1138',
-      currentProduct: 'Chrome Kitchen Faucet',
-      operator: 'Amit Patel',
-      startTime: '07:30 AM',
-      plannedQuantity: 80,
-      completedQuantity: 65,
-      rejectedQuantity: 3,
-      completionPercentage: 81,
-      cycleTime: 12,
-      targetCycleTime: 15,
-      efficiency: 125,
-      utilizationPercent: 92,
-      lastUpdate: '1 min ago'
-    },
-    {
-      id: '3',
-      stationCode: 'ST-POLISH-01',
-      stationName: 'Polishing Station #1',
-      department: 'Finishing',
-      status: 'running',
-      currentWO: 'WO-2025-1142',
-      currentProduct: 'Cookware Set - Non-Stick',
-      operator: 'Priya Singh',
-      startTime: '08:45 AM',
-      plannedQuantity: 45,
-      completedQuantity: 18,
-      rejectedQuantity: 1,
-      completionPercentage: 40,
-      cycleTime: 25,
-      targetCycleTime: 22,
-      efficiency: 88,
-      utilizationPercent: 78,
-      lastUpdate: '30 secs ago'
-    },
-    {
-      id: '4',
-      stationCode: 'ST-ASSY-01',
-      stationName: 'Assembly Line #1',
-      department: 'Assembly',
-      status: 'running',
-      currentWO: 'WO-2025-1145',
-      currentProduct: 'Built-in Kitchen Chimney',
-      operator: 'Suresh Reddy',
-      startTime: '09:00 AM',
-      plannedQuantity: 35,
-      completedQuantity: 22,
-      rejectedQuantity: 0,
-      completionPercentage: 63,
-      cycleTime: 30,
-      targetCycleTime: 28,
-      efficiency: 93,
-      utilizationPercent: 85,
-      lastUpdate: '3 mins ago'
-    },
-    {
-      id: '5',
-      stationCode: 'ST-CUT-02',
-      stationName: 'Laser Cutting Machine #2',
-      department: 'Cutting',
-      status: 'idle',
-      currentWO: null,
-      currentProduct: null,
-      operator: 'Vikram Shah',
-      startTime: null,
-      plannedQuantity: 0,
-      completedQuantity: 0,
-      rejectedQuantity: 0,
-      completionPercentage: 0,
-      cycleTime: 0,
-      targetCycleTime: 18,
-      efficiency: 0,
-      utilizationPercent: 45,
-      lastUpdate: '15 mins ago'
-    },
-    {
-      id: '6',
-      stationCode: 'ST-PAINT-01',
-      stationName: 'Powder Coating Booth #1',
-      department: 'Finishing',
-      status: 'maintenance',
-      currentWO: null,
-      currentProduct: null,
-      operator: null,
-      startTime: null,
-      plannedQuantity: 0,
-      completedQuantity: 0,
-      rejectedQuantity: 0,
-      completionPercentage: 0,
-      cycleTime: 0,
-      targetCycleTime: 35,
-      efficiency: 0,
-      utilizationPercent: 0,
-      lastUpdate: '1 hour ago'
-    },
-    {
-      id: '7',
-      stationCode: 'ST-QC-01',
-      stationName: 'Quality Inspection Station #1',
-      department: 'Quality Control',
-      status: 'running',
-      currentWO: 'WO-2025-1140',
-      currentProduct: 'Range Hood with LED',
-      operator: 'Kavita Desai',
-      startTime: '08:00 AM',
-      plannedQuantity: 25,
-      completedQuantity: 20,
-      rejectedQuantity: 2,
-      completionPercentage: 80,
-      cycleTime: 15,
-      targetCycleTime: 18,
-      efficiency: 120,
-      utilizationPercent: 88,
-      lastUpdate: '1 min ago'
-    },
-    {
-      id: '8',
-      stationCode: 'ST-PACK-01',
-      stationName: 'Packaging Line #1',
-      department: 'Packaging',
-      status: 'running',
-      currentWO: 'WO-2025-1147',
-      currentProduct: 'Kitchen Storage Container Set',
-      operator: 'Ramesh Gupta',
-      startTime: '07:45 AM',
-      plannedQuantity: 100,
-      completedQuantity: 78,
-      rejectedQuantity: 4,
-      completionPercentage: 78,
-      cycleTime: 8,
-      targetCycleTime: 10,
-      efficiency: 125,
-      utilizationPercent: 95,
-      lastUpdate: '45 secs ago'
-    }
-  ];
+  // Work stations (live)
+  const [workStations, setWorkStations] = useState<WorkStation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getShopFloorControl()) as any[];
+        const mapped: WorkStation[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          stationCode: String(r.stationCode ?? ''),
+          stationName: String(r.stationName ?? ''),
+          department: String(r.department ?? ''),
+          status: (r.status ?? 'offline') as WorkStation['status'],
+          currentWO: r.currentWO ?? null,
+          currentProduct: r.currentProduct ?? null,
+          operator: r.operator ?? null,
+          startTime: r.startTime ?? null,
+          plannedQuantity: Number(r.plannedQuantity ?? 0),
+          completedQuantity: Number(r.completedQuantity ?? 0),
+          rejectedQuantity: Number(r.rejectedQuantity ?? 0),
+          completionPercentage: Number(r.completionPercentage ?? 0),
+          cycleTime: Number(r.cycleTime ?? 0),
+          targetCycleTime: Number(r.targetCycleTime ?? 0),
+          efficiency: Number(r.efficiency ?? 0),
+          utilizationPercent: Number(r.utilizationPercent ?? 0),
+          lastUpdate: String(r.lastUpdate ?? ''),
+        }));
+        if (!cancelled) setWorkStations(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setWorkStations([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock data for active work orders
   const activeWorkOrders: ActiveWorkOrder[] = [
@@ -427,6 +302,8 @@ export default function ShopFloorTrackingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

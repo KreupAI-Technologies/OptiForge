@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, BarChart3, Download, RefreshCw, TrendingUp, Package, DollarSign, Percent } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface ABCItem {
   id: string;
@@ -27,200 +28,67 @@ export default function ABCAnalysisPage() {
   const [filterClass, setFilterClass] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
-  const abcItems: ABCItem[] = [
-    {
-      id: '1',
-      itemCode: 'CP-078',
-      itemName: 'Ball Bearing 6208',
-      category: 'Component',
-      annualUsageQty: 2555,
-      unitCost: 45,
-      annualUsageValue: 114975,
-      percentOfTotal: 18.5,
-      cumulativePercent: 18.5,
-      abcClass: 'A',
-      uom: 'Nos',
-      turnoverRate: 17.6,
-      currentStock: 145,
-      recommendedPolicy: 'Daily review, tight control'
-    },
-    {
-      id: '2',
-      itemCode: 'RM-001',
-      itemName: 'Steel Sheet 1mm',
-      category: 'Raw Material',
-      annualUsageQty: 5475,
-      unitCost: 18,
-      annualUsageValue: 98550,
-      percentOfTotal: 15.8,
-      cumulativePercent: 34.3,
-      abcClass: 'A',
-      uom: 'Sheets',
-      turnoverRate: 12.2,
-      currentStock: 450,
-      recommendedPolicy: 'Daily review, tight control'
-    },
-    {
-      id: '3',
-      itemCode: 'CP-045',
-      itemName: 'Hydraulic Cylinder',
-      category: 'Component',
-      annualUsageQty: 365,
-      unitCost: 250,
-      annualUsageValue: 91250,
-      percentOfTotal: 14.7,
-      cumulativePercent: 49.0,
-      abcClass: 'A',
-      uom: 'Nos',
-      turnoverRate: 30.4,
-      currentStock: 12,
-      recommendedPolicy: 'Daily review, tight control'
-    },
-    {
-      id: '4',
-      itemCode: 'RM-089',
-      itemName: 'Aluminum Rod 20mm',
-      category: 'Raw Material',
-      annualUsageQty: 4380,
-      unitCost: 12,
-      annualUsageValue: 52560,
-      percentOfTotal: 8.5,
-      cumulativePercent: 57.5,
-      abcClass: 'A',
-      uom: 'Pcs',
-      turnoverRate: 56.2,
-      currentStock: 78,
-      recommendedPolicy: 'Daily review, tight control'
-    },
-    {
-      id: '5',
-      itemCode: 'RM-112',
-      itemName: 'Brass Sheet 2mm',
-      category: 'Raw Material',
-      annualUsageQty: 1095,
-      unitCost: 35,
-      annualUsageValue: 38325,
-      percentOfTotal: 6.2,
-      cumulativePercent: 63.7,
-      abcClass: 'A',
-      uom: 'Sheets',
-      turnoverRate: 49.8,
-      currentStock: 22,
-      recommendedPolicy: 'Daily review, tight control'
-    },
-    {
-      id: '6',
-      itemCode: 'CS-023',
-      itemName: 'Cutting Oil Premium',
-      category: 'Consumable',
-      annualUsageQty: 1825,
-      unitCost: 15,
-      annualUsageValue: 27375,
-      percentOfTotal: 4.4,
-      cumulativePercent: 68.1,
-      abcClass: 'B',
-      uom: 'Liters',
-      turnoverRate: 52.1,
-      currentStock: 35,
-      recommendedPolicy: 'Weekly review, moderate control'
-    },
-    {
-      id: '7',
-      itemCode: 'RM-034',
-      itemName: 'Copper Wire 4mm',
-      category: 'Raw Material',
-      annualUsageQty: 730,
-      unitCost: 28,
-      annualUsageValue: 20440,
-      percentOfTotal: 3.3,
-      cumulativePercent: 71.4,
-      abcClass: 'B',
-      uom: 'Kg',
-      turnoverRate: 91.2,
-      currentStock: 8,
-      recommendedPolicy: 'Weekly review, moderate control'
-    },
-    {
-      id: '8',
-      itemCode: 'CS-056',
-      itemName: 'Grinding Wheel 180mm',
-      category: 'Consumable',
-      annualUsageQty: 1460,
-      unitCost: 8,
-      annualUsageValue: 11680,
-      percentOfTotal: 1.9,
-      cumulativePercent: 73.3,
-      abcClass: 'B',
-      uom: 'Nos',
-      turnoverRate: 26.1,
-      currentStock: 56,
-      recommendedPolicy: 'Weekly review, moderate control'
-    },
-    {
-      id: '9',
-      itemCode: 'CP-125',
-      itemName: 'Gasket Set Standard',
-      category: 'Component',
-      annualUsageQty: 912,
-      unitCost: 6.5,
-      annualUsageValue: 5928,
-      percentOfTotal: 1.0,
-      cumulativePercent: 74.3,
-      abcClass: 'B',
-      uom: 'Sets',
-      turnoverRate: 18.2,
-      currentStock: 50,
-      recommendedPolicy: 'Weekly review, moderate control'
-    },
-    {
-      id: '10',
-      itemCode: 'CS-089',
-      itemName: 'Cleaning Solvent',
-      category: 'Consumable',
-      annualUsageQty: 730,
-      unitCost: 5,
-      annualUsageValue: 3650,
-      percentOfTotal: 0.6,
-      cumulativePercent: 74.9,
-      abcClass: 'C',
-      uom: 'Liters',
-      turnoverRate: 20.8,
-      currentStock: 35,
-      recommendedPolicy: 'Monthly review, simple control'
-    },
-    {
-      id: '11',
-      itemCode: 'CS-145',
-      itemName: 'Shop Rags Box',
-      category: 'Consumable',
-      annualUsageQty: 365,
-      unitCost: 8,
-      annualUsageValue: 2920,
-      percentOfTotal: 0.5,
-      cumulativePercent: 75.4,
-      abcClass: 'C',
-      uom: 'Boxes',
-      turnoverRate: 10.4,
-      currentStock: 35,
-      recommendedPolicy: 'Monthly review, simple control'
-    },
-    {
-      id: '12',
-      itemCode: 'CP-234',
-      itemName: 'Bolt M10x40',
-      category: 'Component',
-      annualUsageQty: 5840,
-      unitCost: 0.25,
-      annualUsageValue: 1460,
-      percentOfTotal: 0.2,
-      cumulativePercent: 75.6,
-      abcClass: 'C',
-      uom: 'Nos',
-      turnoverRate: 116.8,
-      currentStock: 50,
-      recommendedPolicy: 'Monthly review, simple control'
-    }
-  ];
+  // Per-class summary from GET /inventory/stock-balances/abc-analysis.
+  // The endpoint returns aggregate buckets (count/value/percentage) rather than
+  // per-item rows, so the summary cards/chart are driven from this while the
+  // item table is populated only when item-level rows are available.
+  const [abcItems, setAbcItems] = useState<ABCItem[]>([]);
+  const [classSummary, setClassSummary] = useState<Record<'A' | 'B' | 'C', { count: number; value: number; percent: number }>>({
+    A: { count: 0, value: 0, percent: 0 },
+    B: { count: 0, value: 0, percent: 0 },
+    C: { count: 0, value: 0, percent: 0 },
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = (await inventoryService.getABCAnalysis()) as any;
+        const summary = {
+          A: { count: Number(res?.aClass?.count ?? 0), value: Number(res?.aClass?.value ?? 0), percent: Number(res?.aClass?.percentage ?? 0) },
+          B: { count: Number(res?.bClass?.count ?? 0), value: Number(res?.bClass?.value ?? 0), percent: Number(res?.bClass?.percentage ?? 0) },
+          C: { count: Number(res?.cClass?.count ?? 0), value: Number(res?.cClass?.value ?? 0), percent: Number(res?.cClass?.percentage ?? 0) },
+        };
+        // If the endpoint provides item rows, map them; otherwise keep table empty.
+        const rawItems: any[] = Array.isArray(res?.items) ? res.items : [];
+        const mapped: ABCItem[] = rawItems.map((it: any, i: number) => ({
+          id: String(it.id ?? it.itemId ?? i),
+          itemCode: it.itemCode ?? '',
+          itemName: it.itemName ?? '',
+          category: it.category ?? it.itemCategory ?? '',
+          annualUsageQty: Number(it.annualUsageQty ?? it.usageQuantity ?? 0),
+          unitCost: Number(it.unitCost ?? 0),
+          annualUsageValue: Number(it.annualUsageValue ?? it.usageValue ?? 0),
+          percentOfTotal: Number(it.percentOfTotal ?? 0),
+          cumulativePercent: Number(it.cumulativePercent ?? 0),
+          abcClass: (it.abcClass ?? it.class ?? 'C') as 'A' | 'B' | 'C',
+          uom: it.uom ?? '',
+          turnoverRate: Number(it.turnoverRate ?? 0),
+          currentStock: Number(it.currentStock ?? 0),
+          recommendedPolicy: it.recommendedPolicy ?? '',
+        }));
+        if (!cancelled) {
+          setClassSummary(summary);
+          setAbcItems(mapped);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load ABC analysis');
+          setAbcItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredItems = abcItems.filter(item => {
     const matchesSearch = item.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||

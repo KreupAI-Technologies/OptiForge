@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { inventoryService } from '@/services/InventoryService'
 import {
   Search,
   Filter,
@@ -63,135 +64,96 @@ const InventoryMovementsPage = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null)
 
-  const movements: InventoryMovement[] = [
-    {
-      id: '1',
-      movementId: 'MV-2024-001',
-      itemCode: 'RM-001',
-      itemName: 'Steel Rods 12mm',
-      movementType: 'inbound',
-      quantity: 500,
-      fromLocation: 'Supplier - ABC Steel',
-      toLocation: 'Main Warehouse',
-      date: '2024-01-15',
-      referenceDoc: 'GRN-2024-045',
-      status: 'completed',
-      initiatedBy: 'Rajesh Kumar',
-      remarks: 'Quality checked',
-      unitOfMeasure: 'Kg'
-    },
-    {
-      id: '2',
-      movementId: 'MV-2024-002',
-      itemCode: 'FG-015',
-      itemName: 'Hydraulic Pump Assembly',
-      movementType: 'outbound',
-      quantity: 25,
-      fromLocation: 'Factory Store',
-      toLocation: 'Customer - XYZ Industries',
-      date: '2024-01-16',
-      referenceDoc: 'DO-2024-128',
-      status: 'completed',
-      initiatedBy: 'Priya Sharma',
-      remarks: 'Dispatched via road',
-      unitOfMeasure: 'Pcs'
-    },
-    {
-      id: '3',
-      movementId: 'MV-2024-003',
-      itemCode: 'RM-025',
-      itemName: 'Bearing 6205',
-      movementType: 'adjustment',
-      quantity: -15,
-      fromLocation: 'Main Warehouse',
-      toLocation: 'Main Warehouse',
-      date: '2024-01-17',
-      referenceDoc: 'ADJ-2024-007',
-      status: 'pending',
-      initiatedBy: 'Amit Patel',
-      remarks: 'Stock correction after audit',
-      unitOfMeasure: 'Pcs'
-    },
-    {
-      id: '4',
-      movementId: 'MV-2024-004',
-      itemCode: 'WIP-008',
-      itemName: 'Motor Housing - Machined',
-      movementType: 'transfer',
-      quantity: 100,
-      fromLocation: 'Factory Store',
-      toLocation: 'Assembly Line A',
-      date: '2024-01-17',
-      referenceDoc: 'TR-2024-033',
-      status: 'completed',
-      initiatedBy: 'Suresh Rao',
-      remarks: 'For assembly operation',
-      unitOfMeasure: 'Pcs'
-    },
-    {
-      id: '5',
-      movementId: 'MV-2024-005',
-      itemCode: 'RM-042',
-      itemName: 'Copper Wire 2.5mm',
-      movementType: 'inbound',
-      quantity: 1000,
-      fromLocation: 'Supplier - Delta Cables',
-      toLocation: 'Regional Hub',
-      date: '2024-01-18',
-      referenceDoc: 'GRN-2024-046',
-      status: 'completed',
-      initiatedBy: 'Neha Gupta',
-      remarks: 'Bulk order received',
-      unitOfMeasure: 'Meter'
-    },
-    {
-      id: '6',
-      movementId: 'MV-2024-006',
-      itemCode: 'FG-022',
-      itemName: 'Electric Motor 5HP',
-      movementType: 'outbound',
-      quantity: 10,
-      fromLocation: 'Distribution Center',
-      toLocation: 'Customer - PQR Machinery',
-      date: '2024-01-18',
-      referenceDoc: 'DO-2024-129',
-      status: 'cancelled',
-      initiatedBy: 'Vikram Singh',
-      remarks: 'Order cancelled by customer',
-      unitOfMeasure: 'Pcs'
-    }
-  ]
+  const [movements, setMovements] = useState<InventoryMovement[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const stats = [
-    {
-      title: 'Total Movements',
-      value: '1,247',
-      change: '+12.5%',
-      trend: 'up',
-      gradient: 'from-blue-500 to-blue-600'
-    },
-    {
-      title: 'Inbound',
-      value: '456',
-      change: '+8.2%',
-      trend: 'up',
-      gradient: 'from-green-500 to-green-600'
-    },
-    {
-      title: 'Outbound',
-      value: '623',
-      change: '+15.3%',
-      trend: 'up',
-      gradient: 'from-purple-500 to-purple-600'
-    },
-    {
-      title: 'Adjusted',
-      value: '168',
-      change: '-3.1%',
-      trend: 'down',
-      gradient: 'from-orange-500 to-orange-600'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        // GET /inventory/stock-entries -> stock movements (bare array).
+        const raw = (await inventoryService.getStockEntries()) as any[]
+        const typeMap: Record<string, InventoryMovement['movementType']> = {
+          Receipt: 'inbound', Receive: 'inbound', In: 'inbound', Inbound: 'inbound', Purchase: 'inbound',
+          Issue: 'outbound', Out: 'outbound', Outbound: 'outbound', Sale: 'outbound', Dispatch: 'outbound',
+          Adjustment: 'adjustment', Adjust: 'adjustment',
+          Transfer: 'transfer',
+        }
+        const statusMap: Record<string, InventoryMovement['status']> = {
+          Completed: 'completed', Posted: 'completed', Approved: 'completed', Done: 'completed',
+          Pending: 'pending', Draft: 'pending', Submitted: 'pending',
+          Cancelled: 'cancelled', Canceled: 'cancelled', Rejected: 'cancelled',
+        }
+        const mapped: InventoryMovement[] = (raw || []).map((e: any, i: number) => ({
+          id: String(e.id ?? i),
+          movementId: e.entryNumber ?? e.movementId ?? e.documentNumber ?? e.id ?? '',
+          itemCode: e.itemCode ?? e.item?.itemCode ?? '',
+          itemName: e.itemName ?? e.item?.itemName ?? '',
+          movementType: typeMap[e.entryType ?? e.movementType ?? e.type] ?? 'adjustment',
+          quantity: Number(e.quantity ?? e.totalQuantity ?? 0),
+          fromLocation: e.fromLocation ?? e.sourceLocation ?? e.fromWarehouseName ?? '',
+          toLocation: e.toLocation ?? e.destinationLocation ?? e.toWarehouseName ?? e.warehouseName ?? '',
+          date: e.entryDate ?? e.date ?? e.createdAt ?? '',
+          referenceDoc: e.referenceNumber ?? e.referenceDoc ?? e.reference ?? '',
+          status: statusMap[e.status] ?? 'pending',
+          initiatedBy: e.createdBy ?? e.initiatedBy ?? e.createdByName ?? '',
+          remarks: e.remarks ?? e.notes ?? '',
+          unitOfMeasure: e.uom ?? e.unitOfMeasure ?? '',
+        }))
+        if (!cancelled) setMovements(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stock movements')
+          setMovements([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ]
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Derive summary stat cards from the loaded movements list.
+  const stats = useMemo(() => {
+    const count = (t: InventoryMovement['movementType']) =>
+      movements.filter((m) => m.movementType === t).length
+    return [
+      {
+        title: 'Total Movements',
+        value: movements.length.toLocaleString(),
+        change: '',
+        trend: 'up',
+        gradient: 'from-blue-500 to-blue-600'
+      },
+      {
+        title: 'Inbound',
+        value: count('inbound').toLocaleString(),
+        change: '',
+        trend: 'up',
+        gradient: 'from-green-500 to-green-600'
+      },
+      {
+        title: 'Outbound',
+        value: count('outbound').toLocaleString(),
+        change: '',
+        trend: 'up',
+        gradient: 'from-purple-500 to-purple-600'
+      },
+      {
+        title: 'Adjusted',
+        value: count('adjustment').toLocaleString(),
+        change: '',
+        trend: 'down',
+        gradient: 'from-orange-500 to-orange-600'
+      }
+    ]
+  }, [movements])
 
   const getMovementTypeColor = (type: string) => {
     const colors = {
@@ -326,6 +288,16 @@ const InventoryMovementsPage = () => {
   return (
     <div className="w-full min-h-screen px-3 py-2">
       <div className="max-w-[1600px] space-y-3">
+        {loadError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+        {isLoading && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+            Loading movements…
+          </div>
+        )}
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {stats.map((stat, index) => {

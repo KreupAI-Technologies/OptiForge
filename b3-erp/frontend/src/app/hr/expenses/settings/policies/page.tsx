@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { FileText, Edit2, Save, X, AlertCircle, Check } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -19,178 +20,29 @@ interface PolicySetting {
 }
 
 export default function ExpensePoliciesPage() {
-  const [policies, setPolicies] = useState<PolicySetting[]>([
-    {
-      id: 'general',
-      category: 'General Policies',
-      settings: [
-        {
-          id: 'submission_deadline',
-          label: 'Submission Deadline',
-          value: 30,
-          type: 'number',
-          unit: 'days',
-          description: 'Number of days within which expenses must be submitted after incurring'
-        },
-        {
-          id: 'approval_required',
-          label: 'Manager Approval Required',
-          value: true,
-          type: 'boolean',
-          description: 'Require manager approval for all expense claims'
-        },
-        {
-          id: 'auto_approve_threshold',
-          label: 'Auto-Approve Threshold',
-          value: 500,
-          type: 'number',
-          unit: '₹',
-          description: 'Expenses below this amount are auto-approved (0 to disable)'
-        },
-        {
-          id: 'receipt_mandatory_above',
-          label: 'Receipt Mandatory Above',
-          value: 500,
-          type: 'number',
-          unit: '₹',
-          description: 'Amount above which receipt attachment is mandatory'
+  const [policies, setPolicies] = useState<PolicySetting[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.expenseBudgets<any[]>();
+        if (!cancelled) setPolicies(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setPolicies([]);
         }
-      ]
-    },
-    {
-      id: 'travel',
-      category: 'Travel Policies',
-      settings: [
-        {
-          id: 'travel_pre_approval',
-          label: 'Pre-Approval Required',
-          value: true,
-          type: 'boolean',
-          description: 'Require pre-approval for all travel expenses'
-        },
-        {
-          id: 'advance_booking_days',
-          label: 'Advance Booking Period',
-          value: 15,
-          type: 'number',
-          unit: 'days',
-          description: 'Minimum days before travel for flight bookings'
-        },
-        {
-          id: 'flight_class',
-          label: 'Default Flight Class',
-          value: 'Economy',
-          type: 'select',
-          options: ['Economy', 'Premium Economy', 'Business'],
-          description: 'Standard flight class for domestic travel'
-        },
-        {
-          id: 'hotel_limit_metro',
-          label: 'Hotel Limit (Metro Cities)',
-          value: 4000,
-          type: 'number',
-          unit: '₹/night',
-          description: 'Maximum hotel expense per night in metro cities'
-        },
-        {
-          id: 'hotel_limit_others',
-          label: 'Hotel Limit (Other Cities)',
-          value: 2500,
-          type: 'number',
-          unit: '₹/night',
-          description: 'Maximum hotel expense per night in other cities'
-        }
-      ]
-    },
-    {
-      id: 'meals',
-      category: 'Meals & Entertainment',
-      settings: [
-        {
-          id: 'daily_meal_allowance',
-          label: 'Daily Meal Allowance',
-          value: 1500,
-          type: 'number',
-          unit: '₹/day',
-          description: 'Maximum daily allowance for meals during travel'
-        },
-        {
-          id: 'client_entertainment_limit',
-          label: 'Client Entertainment Limit',
-          value: 2000,
-          type: 'number',
-          unit: '₹/person',
-          description: 'Maximum amount per person for client entertainment'
-        },
-        {
-          id: 'team_event_approval',
-          label: 'Team Event Approval Required',
-          value: true,
-          type: 'boolean',
-          description: 'Require approval for team meals and events'
-        }
-      ]
-    },
-    {
-      id: 'communication',
-      category: 'Communication & Technology',
-      settings: [
-        {
-          id: 'mobile_reimbursement',
-          label: 'Monthly Mobile Reimbursement',
-          value: 800,
-          type: 'number',
-          unit: '₹/month',
-          description: 'Fixed monthly mobile reimbursement amount'
-        },
-        {
-          id: 'internet_reimbursement',
-          label: 'Monthly Internet Reimbursement',
-          value: 500,
-          type: 'number',
-          unit: '₹/month',
-          description: 'Fixed monthly internet reimbursement for remote work'
-        },
-        {
-          id: 'software_subscription_approval',
-          label: 'Software Subscription Approval',
-          value: true,
-          type: 'boolean',
-          description: 'Require approval for software subscriptions'
-        }
-      ]
-    },
-    {
-      id: 'reimbursement',
-      category: 'Reimbursement Settings',
-      settings: [
-        {
-          id: 'payment_cycle',
-          label: 'Payment Cycle',
-          value: 'Monthly',
-          type: 'select',
-          options: ['Weekly', 'Bi-weekly', 'Monthly'],
-          description: 'Frequency of expense reimbursement payments'
-        },
-        {
-          id: 'payment_date',
-          label: 'Payment Date',
-          value: 25,
-          type: 'number',
-          unit: 'day of month',
-          description: 'Day of month when reimbursements are processed'
-        },
-        {
-          id: 'minimum_reimbursement',
-          label: 'Minimum Reimbursement Amount',
-          value: 100,
-          type: 'number',
-          unit: '₹',
-          description: 'Minimum total amount required for reimbursement processing'
-        }
-      ]
-    }
-  ]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
@@ -400,6 +252,9 @@ export default function ExpensePoliciesPage() {
       </div>
 
       {/* Summary Box */}
+      {policies.length >= 5 && policies[0]?.settings?.length >= 4 &&
+        policies[1]?.settings?.length >= 4 && policies[2]?.settings?.length >= 1 &&
+        policies[3]?.settings?.length >= 1 && policies[4]?.settings?.length >= 2 && (
       <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-3">
         <h3 className="text-sm font-semibold text-purple-900 mb-2">Key Policy Highlights</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-purple-800">
@@ -429,6 +284,7 @@ export default function ExpensePoliciesPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -25,84 +25,57 @@ export default function BatchTrackingPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [batchItems, setBatchItems] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const batchItems: BatchItem[] = [
-    {
-      id: '1',
-      batchNumber: 'BATCH-2025-001',
-      itemCode: 'RM-001',
-      itemName: 'Steel Sheet 1mm',
-      quantity: 450,
-      uom: 'Sheets',
-      manufacturedDate: '2025-09-15',
-      expiryDate: '2027-09-15',
-      supplier: 'Steel Corp Ltd',
-      location: 'Zone A - Bin A-01-R01',
-      status: 'active',
-      purchaseOrder: 'PO-2025-123',
-      receivedDate: '2025-10-01'
-    },
-    {
-      id: '2',
-      batchNumber: 'BATCH-2025-002',
-      itemCode: 'CP-015',
-      itemName: 'Hydraulic Oil Grade 46',
-      quantity: 80,
-      uom: 'Liters',
-      manufacturedDate: '2025-08-20',
-      expiryDate: '2026-02-20',
-      supplier: 'LubeTech Industries',
-      location: 'Zone D - Bin D-01-R02',
-      status: 'active',
-      purchaseOrder: 'PO-2025-234',
-      receivedDate: '2025-09-10'
-    },
-    {
-      id: '3',
-      batchNumber: 'BATCH-2024-156',
-      itemCode: 'CHM-008',
-      itemName: 'Cutting Fluid Concentrate',
-      quantity: 25,
-      uom: 'Liters',
-      manufacturedDate: '2024-10-10',
-      expiryDate: '2025-10-10',
-      supplier: 'ChemSupply Co',
-      location: 'Zone D - Bin D-02-R01',
-      status: 'expired',
-      purchaseOrder: 'PO-2024-892',
-      receivedDate: '2024-11-05'
-    },
-    {
-      id: '4',
-      batchNumber: 'BATCH-2025-045',
-      itemCode: 'RM-012',
-      itemName: 'Aluminum Alloy 6061',
-      quantity: 120,
-      uom: 'Kg',
-      manufacturedDate: '2025-09-01',
-      expiryDate: 'N/A',
-      supplier: 'MetalWorks Inc',
-      location: 'Zone B - Bin B-01-R03',
-      status: 'quarantine',
-      purchaseOrder: 'PO-2025-345',
-      receivedDate: '2025-10-15'
-    },
-    {
-      id: '5',
-      batchNumber: 'BATCH-2025-067',
-      itemCode: 'CS-022',
-      itemName: 'Welding Electrodes 3.2mm',
-      quantity: 0,
-      uom: 'Kg',
-      manufacturedDate: '2025-07-15',
-      expiryDate: '2027-07-15',
-      supplier: 'WeldTech Supplies',
-      location: 'N/A',
-      status: 'depleted',
-      purchaseOrder: 'PO-2025-456',
-      receivedDate: '2025-08-20'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await inventoryService.getBatchNumbers();
+        const statusMap: Record<string, BatchItem['status']> = {
+          Active: 'active',
+          Approved: 'active',
+          Quarantine: 'quarantine',
+          Rejected: 'quarantine',
+          Recalled: 'quarantine',
+          Expired: 'expired',
+          Consumed: 'depleted',
+          Closed: 'depleted',
+        };
+        const mapped = raw.map((b: any, idx: number) => ({
+          id: b.id ?? String(idx),
+          batchNumber: b.batchNumber ?? '',
+          itemCode: b.itemCode ?? '',
+          itemName: b.itemName ?? '',
+          quantity: Number(b.availableQuantity ?? b.initialQuantity ?? 0),
+          uom: b.uom ?? '',
+          manufacturedDate: b.manufacturingDate ?? '',
+          expiryDate: b.expiryDate ?? 'N/A',
+          supplier: b.supplierName ?? '',
+          location: b.warehouseName ?? b.locationName ?? 'N/A',
+          status: statusMap[b.status] ?? 'active',
+          purchaseOrder: b.purchaseOrderNumber ?? '',
+          receivedDate: b.receiptDate ?? '',
+        }));
+        if (!cancelled) setBatchItems(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load batches');
+          setBatchItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredItems = batchItems.filter(item => {
     const matchesSearch = item.batchNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||

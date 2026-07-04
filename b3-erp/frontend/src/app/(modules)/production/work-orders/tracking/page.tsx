@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Search,
@@ -57,356 +58,52 @@ export default function WorkOrderTrackingPage() {
   const [selectedOrder, setSelectedOrder] = useState<WorkOrderTracking | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const trackingOrders: WorkOrderTracking[] = [
-    {
-      id: '1',
-      workOrderNumber: 'WO-2025-1142',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      quantity: 25,
-      unit: 'PC',
-      salesOrderNumber: 'SO-2025-0856',
-      customerName: 'Metro Builders Pvt Ltd',
-      currentStatus: 'in-progress',
-      currentStation: 'Polishing & Finishing',
-      completionPercentage: 68,
-      startDate: '2025-10-12',
-      dueDate: '2025-10-24',
-      estimatedCompletion: '2025-10-23',
-      assignedTeam: 'Team A - Sinks',
-      lastUpdate: '2025-10-20 14:30',
-      priority: 'high',
-      timeline: [
-        {
-          id: '1',
-          station: 'Material Preparation',
-          status: 'completed',
-          startTime: '2025-10-12 08:00',
-          endTime: '2025-10-12 16:00',
-          duration: 8,
-          operator: 'Ramesh P.',
-          notes: 'SS304 sheets cut to size',
-          issues: []
-        },
-        {
-          id: '2',
-          station: 'Bowl Forming',
-          status: 'completed',
-          startTime: '2025-10-13 08:00',
-          endTime: '2025-10-14 17:00',
-          duration: 33,
-          operator: 'Sunil K.',
-          notes: 'Deep drawing process completed for all 25 bowls',
-          issues: []
-        },
-        {
-          id: '3',
-          station: 'Welding Assembly',
-          status: 'completed',
-          startTime: '2025-10-15 08:00',
-          endTime: '2025-10-17 16:30',
-          duration: 56.5,
-          operator: 'Rajesh Kumar',
-          notes: 'Double bowl assembly welded',
-          issues: ['Minor rework on 2 units - welding quality']
-        },
-        {
-          id: '4',
-          station: 'Polishing & Finishing',
-          status: 'in-progress',
-          startTime: '2025-10-18 08:00',
-          endTime: '',
-          duration: 0,
-          operator: 'Prakash M.',
-          notes: 'Mirror finish polishing in progress - 17 of 25 completed',
-          issues: []
-        },
-        {
-          id: '5',
-          station: 'Quality Inspection',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '6',
-          station: 'Packaging',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        }
-      ]
-    },
-    {
-      id: '2',
-      workOrderNumber: 'WO-2025-1143',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      quantity: 15,
-      unit: 'PC',
-      salesOrderNumber: 'SO-2025-0862',
-      customerName: 'Luxury Homes Ltd',
-      currentStatus: 'in-progress',
-      currentStation: 'Motor Assembly',
-      completionPercentage: 62,
-      startDate: '2025-10-10',
-      dueDate: '2025-10-23',
-      estimatedCompletion: '2025-10-24',
-      assignedTeam: 'Team C - Appliances',
-      lastUpdate: '2025-10-20 11:15',
-      priority: 'urgent',
-      timeline: [
-        {
-          id: '1',
-          station: 'Body Fabrication',
-          status: 'completed',
-          startTime: '2025-10-10 08:00',
-          endTime: '2025-10-12 17:00',
-          duration: 57,
-          operator: 'Amit Patel',
-          notes: 'SS chimney bodies formed and welded',
-          issues: []
-        },
-        {
-          id: '2',
-          station: 'Filter Installation',
-          status: 'completed',
-          startTime: '2025-10-13 08:00',
-          endTime: '2025-10-14 15:30',
-          duration: 31.5,
-          operator: 'Priya Sharma',
-          notes: 'Auto-clean baffle filters installed',
-          issues: []
-        },
-        {
-          id: '3',
-          station: 'Motor Assembly',
-          status: 'in-progress',
-          startTime: '2025-10-15 08:00',
-          endTime: '',
-          duration: 0,
-          operator: 'Vikram Singh',
-          notes: 'High-efficiency motors being installed - 9 of 15 done',
-          issues: ['Motor supplier delay affecting 3 units']
-        },
-        {
-          id: '4',
-          station: 'Electrical Wiring',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '5',
-          station: 'Testing & QC',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '6',
-          station: 'Packaging',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        }
-      ]
-    },
-    {
-      id: '3',
-      workOrderNumber: 'WO-2025-1145',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      quantity: 60,
-      unit: 'PC',
-      salesOrderNumber: 'SO-2025-0864',
-      customerName: 'Home Essentials Store',
-      currentStatus: 'pending',
-      currentStation: 'Awaiting Start',
-      completionPercentage: 0,
-      startDate: '2025-10-21',
-      dueDate: '2025-11-05',
-      estimatedCompletion: '2025-11-04',
-      assignedTeam: 'Team D - Faucets',
-      lastUpdate: '2025-10-19 16:00',
-      priority: 'medium',
-      timeline: [
-        {
-          id: '1',
-          station: 'Body Machining',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '2',
-          station: 'Cartridge Assembly',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '3',
-          station: 'Chrome Plating',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '4',
-          station: 'Final Assembly',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '5',
-          station: 'Leak Testing',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        },
-        {
-          id: '6',
-          station: 'Packaging',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        }
-      ]
-    },
-    {
-      id: '4',
-      workOrderNumber: 'WO-2025-1135',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      quantity: 50,
-      unit: 'PC',
-      salesOrderNumber: 'SO-2025-0842',
-      customerName: 'Grand Towers Ltd',
-      currentStatus: 'quality-check',
-      currentStation: 'Quality Inspection',
-      completionPercentage: 92,
-      startDate: '2025-10-08',
-      dueDate: '2025-10-28',
-      estimatedCompletion: '2025-10-22',
-      assignedTeam: 'Team B - Cabinets',
-      lastUpdate: '2025-10-20 09:45',
-      priority: 'high',
-      timeline: [
-        {
-          id: '1',
-          station: 'Panel Cutting',
-          status: 'completed',
-          startTime: '2025-10-08 08:00',
-          endTime: '2025-10-10 17:00',
-          duration: 57,
-          operator: 'Arun Kumar',
-          notes: 'CNC cutting of plywood panels',
-          issues: []
-        },
-        {
-          id: '2',
-          station: 'Edge Banding',
-          status: 'completed',
-          startTime: '2025-10-11 08:00',
-          endTime: '2025-10-12 16:30',
-          duration: 32.5,
-          operator: 'Neha Gupta',
-          notes: 'PVC edge banding applied',
-          issues: []
-        },
-        {
-          id: '3',
-          station: 'Drawer Assembly',
-          status: 'completed',
-          startTime: '2025-10-13 08:00',
-          endTime: '2025-10-16 17:30',
-          duration: 81.5,
-          operator: 'Suresh Reddy',
-          notes: 'Soft-close drawer mechanisms installed',
-          issues: []
-        },
-        {
-          id: '4',
-          station: 'Cabinet Assembly',
-          status: 'completed',
-          startTime: '2025-10-17 08:00',
-          endTime: '2025-10-19 16:00',
-          duration: 56,
-          operator: 'Meera Iyer',
-          notes: 'Final cabinet assembly completed',
-          issues: []
-        },
-        {
-          id: '5',
-          station: 'Quality Inspection',
-          status: 'in-progress',
-          startTime: '2025-10-20 08:00',
-          endTime: '',
-          duration: 0,
-          operator: 'QC Team',
-          notes: 'Dimensional checks and finish inspection - 46 of 50 passed',
-          issues: []
-        },
-        {
-          id: '6',
-          station: 'Packaging',
-          status: 'pending',
-          startTime: '',
-          endTime: '',
-          duration: 0,
-          operator: '',
-          notes: '',
-          issues: []
-        }
-      ]
-    }
-  ];
+  const [trackingOrders, setTrackingOrders] = useState<WorkOrderTracking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
+        const mapped: WorkOrderTracking[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          workOrderNumber: r.workOrderNumber ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          quantity: Number(r.quantity ?? 0),
+          unit: r.unit ?? '',
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          currentStatus: (r.currentStatus ?? 'pending') as WorkOrderTracking['currentStatus'],
+          currentStation: r.currentStation ?? '',
+          completionPercentage: Number(r.completionPercentage ?? 0),
+          startDate: r.startDate ?? '',
+          dueDate: r.dueDate ?? '',
+          estimatedCompletion: r.estimatedCompletion ?? '',
+          assignedTeam: r.assignedTeam ?? '',
+          timeline: Array.isArray(r.timeline) ? r.timeline.map((t: any): TrackingEvent => ({
+            id: String(t.id ?? ''),
+            station: t.station ?? '',
+            status: (t.status ?? 'pending') as TrackingEvent['status'],
+            startTime: t.startTime ?? '',
+            endTime: t.endTime ?? '',
+            duration: Number(t.duration ?? 0),
+            operator: t.operator ?? '',
+            notes: t.notes ?? '',
+            issues: Array.isArray(t.issues) ? t.issues.map((i: any) => String(i)) : [],
+          })) : [],
+          lastUpdate: r.lastUpdate ?? '',
+          priority: (r.priority ?? 'medium') as WorkOrderTracking['priority'],
+        }));
+        if (!cancelled) setTrackingOrders(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setTrackingOrders([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = trackingOrders.filter(order =>
     order.workOrderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -444,6 +141,8 @@ export default function WorkOrderTrackingPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

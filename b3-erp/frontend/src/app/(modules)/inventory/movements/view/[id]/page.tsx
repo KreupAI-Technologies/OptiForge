@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
   ArrowLeft, Package, Calendar, User, FileText, MapPin,
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
@@ -63,50 +64,124 @@ export default function StockMovementViewPage({ params }: { params: { id: string
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'details' | 'documents' | 'activity' | 'analytics'>('details');
 
-  // Mock data
-  const movement: StockMovement = {
+  const emptyMovement: StockMovement = {
     id: params.id,
-    movementNumber: 'SM-2025-10-001234',
+    movementNumber: '',
     movementType: 'receipt',
-    movementDate: '2025-10-16',
-    movementTime: '14:30:45',
-    itemCode: 'RM-SS304-2MM',
-    itemName: 'Stainless Steel Sheet 304 - 2mm Thickness',
-    category: 'Raw Materials',
-    quantity: 500,
-    uom: 'KG',
-    unitCost: 185.50,
-    totalValue: 92750.00,
-    balanceBefore: 2075,
-    balanceAfter: 2575,
-    referenceType: 'Purchase Order',
-    referenceNumber: 'PO-2025-5678',
-    toLocation: 'RM-A-01-AA-001',
-    warehouse: 'Main Warehouse - Pune',
-    reason: 'Purchase Receipt from Tata Steel',
-    remarks: 'Quality inspection completed. Material meets specifications. Batch certified.',
-    batchNumber: 'BATCH-TS-2025-10-001',
-    performedBy: 'Sunita Reddy',
-    approvedBy: 'Rahul Sharma',
+    movementDate: '',
+    movementTime: '',
+    itemCode: '',
+    itemName: '',
+    category: '',
+    quantity: 0,
+    uom: '',
+    unitCost: 0,
+    totalValue: 0,
+    balanceBefore: 0,
+    balanceAfter: 0,
+    referenceType: '',
+    referenceNumber: '',
+    warehouse: '',
+    reason: '',
+    performedBy: '',
     status: 'completed',
-    createdDate: '2025-10-15 16:45:00',
-    completedDate: '2025-10-16 14:30:45',
-    documents: [
-      { id: 'D1', name: 'Purchase_Order_PO-2025-5678.pdf', type: 'PDF', size: '245 KB', uploadedBy: 'Sunita Reddy', uploadedDate: '2025-10-15 16:50' },
-      { id: 'D2', name: 'Material_Test_Certificate.pdf', type: 'PDF', size: '180 KB', uploadedBy: 'Sunita Reddy', uploadedDate: '2025-10-16 10:15' },
-      { id: 'D3', name: 'Delivery_Challan_Tata_Steel.pdf', type: 'PDF', size: '156 KB', uploadedBy: 'Sunita Reddy', uploadedDate: '2025-10-16 14:20' }
-    ]
+    createdDate: '',
+    documents: [],
   };
 
-  const activityLog: ActivityLog[] = [
-    { id: 'A1', timestamp: '2025-10-16 14:30:45', action: 'Movement Completed', user: 'Sunita Reddy', details: 'Stock movement completed and inventory updated', status: 'success' },
-    { id: 'A2', timestamp: '2025-10-16 14:25:30', action: 'Approval Granted', user: 'Rahul Sharma', details: 'Movement approved for completion', status: 'success' },
-    { id: 'A3', timestamp: '2025-10-16 14:20:15', action: 'Document Uploaded', user: 'Sunita Reddy', details: 'Delivery challan uploaded', status: 'success' },
-    { id: 'A4', timestamp: '2025-10-16 10:15:22', action: 'Document Uploaded', user: 'Sunita Reddy', details: 'Material test certificate uploaded', status: 'success' },
-    { id: 'A5', timestamp: '2025-10-16 09:00:00', action: 'Approval Requested', user: 'Sunita Reddy', details: 'Movement submitted for approval', status: 'success' },
-    { id: 'A6', timestamp: '2025-10-15 16:50:10', action: 'Document Uploaded', user: 'Sunita Reddy', details: 'Purchase order document uploaded', status: 'success' },
-    { id: 'A7', timestamp: '2025-10-15 16:45:00', action: 'Movement Created', user: 'Sunita Reddy', details: 'Stock movement record created', status: 'success' }
-  ];
+  const [movement, setMovement] = useState<StockMovement>(emptyMovement);
+  const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // GET /inventory/stock-entries/:id -> single stock movement entry.
+        const e = (await inventoryService.getStockEntry(params.id)) as any;
+        const typeMap: Record<string, StockMovement['movementType']> = {
+          Receipt: 'receipt', Receive: 'receipt', In: 'receipt', Purchase: 'receipt',
+          Issue: 'issue', Out: 'issue', Sale: 'issue',
+          TransferIn: 'transfer_in', 'Transfer In': 'transfer_in',
+          TransferOut: 'transfer_out', 'Transfer Out': 'transfer_out',
+          Transfer: 'transfer_in',
+          Adjustment: 'adjustment', Adjust: 'adjustment',
+          Return: 'return',
+        };
+        const statusMap: Record<string, StockMovement['status']> = {
+          Draft: 'draft', PendingApproval: 'pending_approval', 'Pending Approval': 'pending_approval',
+          Approved: 'approved', Completed: 'completed', Posted: 'completed', Cancelled: 'cancelled',
+        };
+        const qty = Number(e?.quantity ?? e?.totalQuantity ?? 0);
+        const unitCost = Number(e?.unitCost ?? 0);
+        const mapped: StockMovement = {
+          id: String(e?.id ?? params.id),
+          movementNumber: e?.entryNumber ?? e?.movementNumber ?? e?.documentNumber ?? '',
+          movementType: typeMap[e?.entryType ?? e?.movementType ?? e?.type] ?? 'receipt',
+          movementDate: e?.entryDate ?? e?.movementDate ?? e?.date ?? '',
+          movementTime: e?.movementTime ?? '',
+          itemCode: e?.itemCode ?? e?.item?.itemCode ?? '',
+          itemName: e?.itemName ?? e?.item?.itemName ?? '',
+          category: e?.category ?? e?.itemCategory ?? '',
+          quantity: qty,
+          uom: e?.uom ?? e?.unitOfMeasure ?? '',
+          unitCost,
+          totalValue: Number(e?.totalValue ?? qty * unitCost),
+          balanceBefore: Number(e?.balanceBefore ?? 0),
+          balanceAfter: Number(e?.balanceAfter ?? 0),
+          referenceType: e?.referenceType ?? '',
+          referenceNumber: e?.referenceNumber ?? e?.reference ?? '',
+          fromLocation: e?.fromLocation ?? e?.sourceLocation ?? undefined,
+          toLocation: e?.toLocation ?? e?.destinationLocation ?? undefined,
+          warehouse: e?.warehouseName ?? e?.warehouse ?? '',
+          reason: e?.reason ?? '',
+          remarks: e?.remarks ?? e?.notes ?? undefined,
+          batchNumber: e?.batchNumber ?? undefined,
+          serialNumbers: Array.isArray(e?.serialNumbers) ? e.serialNumbers : undefined,
+          performedBy: e?.createdBy ?? e?.performedBy ?? '',
+          approvedBy: e?.approvedBy ?? undefined,
+          status: statusMap[e?.status] ?? 'completed',
+          createdDate: e?.createdAt ?? e?.createdDate ?? '',
+          completedDate: e?.completedDate ?? e?.completedAt ?? undefined,
+          documents: Array.isArray(e?.documents) ? e.documents : [],
+        };
+        const rawLog: any[] =
+          (Array.isArray(e?.activityLog) && e.activityLog) ||
+          (Array.isArray(e?.history) && e.history) ||
+          (Array.isArray(e?.auditTrail) && e.auditTrail) ||
+          (Array.isArray(e?.lines) && e.lines) ||
+          [];
+        const log: ActivityLog[] = rawLog.map((l: any, i: number) => ({
+          id: String(l.id ?? i),
+          timestamp: l.timestamp ?? l.createdAt ?? l.date ?? '',
+          action: l.action ?? l.event ?? l.description ?? '',
+          user: l.user ?? l.performedBy ?? l.createdBy ?? '',
+          details: l.details ?? l.description ?? l.remarks ?? '',
+          status: (l.status === 'warning' || l.status === 'error') ? l.status : 'success',
+        }));
+        if (!cancelled) {
+          setMovement(mapped);
+          setActivityLog(log);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load stock movement');
+          setMovement(emptyMovement);
+          setActivityLog([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
 
   const getMovementTypeConfig = (type: string) => {
     switch (type) {
@@ -149,6 +224,16 @@ export default function StockMovementViewPage({ params }: { params: { id: string
 
   return (
     <div className="p-6 space-y-3">
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading movement…
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2">

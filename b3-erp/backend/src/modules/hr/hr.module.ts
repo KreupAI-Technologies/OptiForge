@@ -30,6 +30,20 @@ import { ExpenseBudgetService } from './services/expense-budget.service';
 import { PolicyAcknowledgmentService } from './services/policy-acknowledgment.service';
 import { TimesheetService } from './services/timesheet.service';
 
+// Attendance & Payroll config (orphan-endpoint build) — direct imports
+import { AttendancePolicy } from './entities/attendance-policy.entity';
+import { PayrollCalendarEvent } from './entities/payroll-calendar-event.entity';
+import { SalaryComponentDef } from './entities/salary-component-def.entity';
+import { SalaryTemplate } from './entities/salary-template.entity';
+import { AttendancePolicyController } from './controllers/attendance-policy.controller';
+import { PayrollCalendarEventController } from './controllers/payroll-calendar-event.controller';
+import { SalaryComponentDefController } from './controllers/salary-component-def.controller';
+import { SalaryTemplateController } from './controllers/salary-template.controller';
+import { AttendancePolicyService } from './services/attendance-policy.service';
+import { PayrollCalendarEventService } from './services/payroll-calendar-event.service';
+import { SalaryComponentDefService } from './services/salary-component-def.service';
+import { SalaryTemplateService } from './services/salary-template.service';
+
 // Shift management (orphan-endpoint build) — direct imports to avoid barrel churn
 import { ShiftAssignment } from './entities/shift-assignment.entity';
 import { ShiftRosterEntry } from './entities/shift-roster-entry.entity';
@@ -313,6 +327,10 @@ import { PrismaModule } from '../prisma/prisma.module';
       ExpenseBudget,
       PolicyAcknowledgment,
       Timesheet,
+      AttendancePolicy,
+      PayrollCalendarEvent,
+      SalaryComponentDef,
+      SalaryTemplate,
       ShiftAssignment,
       ShiftRosterEntry,
       ShiftSwap,
@@ -411,6 +429,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     ExpenseBudgetController,
     PolicyAcknowledgmentController,
     TimesheetController,
+    AttendancePolicyController,
+    PayrollCalendarEventController,
+    SalaryComponentDefController,
+    SalaryTemplateController,
     ShiftAssignmentController,
     ShiftRosterController,
     ShiftSwapController,
@@ -500,6 +522,10 @@ import { PrismaModule } from '../prisma/prisma.module';
     ExpenseBudgetService,
     PolicyAcknowledgmentService,
     TimesheetService,
+    AttendancePolicyService,
+    PayrollCalendarEventService,
+    SalaryComponentDefService,
+    SalaryTemplateService,
     ShiftAssignmentService,
     ShiftRosterService,
     ShiftSwapService,

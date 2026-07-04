@@ -1,68 +1,48 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReportDetailPage from '@/components/reports/ReportDetailPage';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function AttendanceByDepartmentContent() {
     const searchParams = useSearchParams();
     const department = searchParams.get('department') || 'All Departments';
 
-    // Mock data for the list
-    const attendanceData = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            name: 'John Doe',
-            department: 'Production',
-            checkIn: '08:55 AM',
-            checkOut: '05:00 PM',
-            status: 'Present',
-            hours: '8h 5m',
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            name: 'Jane Smith',
-            department: 'Production',
-            checkIn: '09:10 AM',
-            checkOut: '05:15 PM',
-            status: 'Late',
-            hours: '8h 5m',
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            name: 'Bob Johnson',
-            department: 'Engineering',
-            checkIn: '-',
-            checkOut: '-',
-            status: 'Absent',
-            hours: '0h',
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            name: 'Alice Brown',
-            department: 'Sales',
-            checkIn: '08:45 AM',
-            checkOut: '05:30 PM',
-            status: 'Present',
-            hours: '8h 45m',
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            name: 'Charlie Davis',
-            department: 'Production',
-            checkIn: '09:00 AM',
-            checkOut: '01:00 PM',
-            status: 'Half Day',
-            hours: '4h',
-        },
-    ];
+    const [attendanceData, setAttendanceData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('hr/attendance-records');
+                const mapped = raw.map((r: any) => ({
+                    id: r.id ?? '',
+                    employeeId: r.employeeId ?? r.employeeCode ?? '',
+                    name: r.employeeName ?? r.name ?? '',
+                    department: r.department ?? '',
+                    checkIn: r.checkIn ?? r.checkInTime ?? '-',
+                    checkOut: r.checkOut ?? r.checkOutTime ?? '-',
+                    status: r.status ?? '',
+                    hours: r.hours ?? r.workedHours ?? '',
+                }));
+                if (!cancelled) setAttendanceData(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setAttendanceData([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Filter data based on department
     const filteredData = department === 'All Departments'
@@ -90,6 +70,9 @@ function AttendanceByDepartmentContent() {
                 { label: department }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -128,6 +111,7 @@ function AttendanceByDepartmentContent() {
                     </table>
                 </div>
             </div>
+            </>
         </ReportDetailPage>
     );
 }

@@ -300,7 +300,28 @@ export default function CPQDashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {recentQuotes.map((quote) => (
+                {isLoading && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                      Loading quotes...
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && loadError && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-sm text-red-600">
+                      {loadError}
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !loadError && recentQuotes.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                      No recent quotes found
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !loadError && recentQuotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-gray-50 transition-colors cursor-pointer">
                     <td className="px-4 py-3">
                       <span className="text-sm font-medium text-blue-600">{quote.id}</span>

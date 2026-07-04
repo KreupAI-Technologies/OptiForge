@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Users,
@@ -38,102 +39,41 @@ export default function ResourceSchedulingPage() {
   const router = useRouter();
   const [filterType, setFilterType] = useState<string>('all');
 
-  const resources: ResourceAllocation[] = [
-    {
-      id: '1',
-      resourceType: 'labor',
-      resourceName: 'Team A - Sinks',
-      totalCapacity: 160,
-      allocatedCapacity: 148,
-      availableCapacity: 12,
-      utilizationPercent: 92.5,
-      assignedTo: ['WO-2025-1142', 'WO-2025-1138', 'WO-2025-1147'],
-      workOrders: 3,
-      schedule: [
-        { date: '2025-10-21', allocated: 8, capacity: 8 },
-        { date: '2025-10-22', allocated: 8, capacity: 8 },
-        { date: '2025-10-23', allocated: 8, capacity: 8 }
-      ],
-      status: 'optimal'
-    },
-    {
-      id: '2',
-      resourceType: 'equipment',
-      resourceName: 'CNC Machine - 3-Axis',
-      totalCapacity: 200,
-      allocatedCapacity: 195,
-      availableCapacity: 5,
-      utilizationPercent: 97.5,
-      assignedTo: ['WO-2025-1144', 'WO-2025-1145'],
-      workOrders: 2,
-      schedule: [
-        { date: '2025-10-21', allocated: 10, capacity: 10 },
-        { date: '2025-10-22', allocated: 10, capacity: 10 }
-      ],
-      status: 'overloaded'
-    },
-    {
-      id: '3',
-      resourceType: 'labor',
-      resourceName: 'Team C - Appliances',
-      totalCapacity: 160,
-      allocatedCapacity: 128,
-      availableCapacity: 32,
-      utilizationPercent: 80.0,
-      assignedTo: ['WO-2025-1143', 'WO-2025-1146'],
-      workOrders: 2,
-      schedule: [
-        { date: '2025-10-21', allocated: 8, capacity: 8 },
-        { date: '2025-10-22', allocated: 6, capacity: 8 }
-      ],
-      status: 'optimal'
-    },
-    {
-      id: '4',
-      resourceType: 'equipment',
-      resourceName: 'Polishing Station',
-      totalCapacity: 180,
-      allocatedCapacity: 95,
-      availableCapacity: 85,
-      utilizationPercent: 52.8,
-      assignedTo: ['WO-2025-1142', 'WO-2025-1136'],
-      workOrders: 2,
-      schedule: [
-        { date: '2025-10-21', allocated: 5, capacity: 9 },
-        { date: '2025-10-22', allocated: 5, capacity: 9 }
-      ],
-      status: 'underutilized'
-    },
-    {
-      id: '5',
-      resourceType: 'labor',
-      resourceName: 'Team B - Cabinets',
-      totalCapacity: 160,
-      allocatedCapacity: 160,
-      availableCapacity: 0,
-      utilizationPercent: 100.0,
-      assignedTo: ['WO-2025-1144'],
-      workOrders: 1,
-      schedule: [
-        { date: '2025-10-21', allocated: 8, capacity: 8 },
-        { date: '2025-10-22', allocated: 8, capacity: 8 }
-      ],
-      status: 'overloaded'
-    },
-    {
-      id: '6',
-      resourceType: 'equipment',
-      resourceName: 'Chrome Plating Tank',
-      totalCapacity: 150,
-      allocatedCapacity: 142,
-      availableCapacity: 8,
-      utilizationPercent: 94.7,
-      assignedTo: ['WO-2025-1145'],
-      workOrders: 1,
-      schedule: [],
-      status: 'optimal'
-    }
-  ];
+  const [resources, setResources] = useState<ResourceAllocation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getResourceAllocations()) as any[];
+        const mapped: ResourceAllocation[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r?.id ?? idx + 1),
+          resourceType: (r?.resourceType ?? 'labor') as ResourceAllocation['resourceType'],
+          resourceName: String(r?.resourceName ?? ''),
+          totalCapacity: Number(r?.totalCapacity ?? 0),
+          allocatedCapacity: Number(r?.allocatedCapacity ?? 0),
+          availableCapacity: Number(r?.availableCapacity ?? 0),
+          utilizationPercent: Number(r?.utilizationPercent ?? 0),
+          assignedTo: Array.isArray(r?.assignedTo) ? r.assignedTo.map((a: any) => String(a)) : [],
+          workOrders: Number(r?.workOrders ?? 0),
+          schedule: Array.isArray(r?.schedule)
+            ? r.schedule.map((s: any): DaySchedule => ({
+                date: String(s?.date ?? ''),
+                allocated: Number(s?.allocated ?? 0),
+                capacity: Number(s?.capacity ?? 0),
+              }))
+            : [],
+          status: (r?.status ?? 'optimal') as ResourceAllocation['status'],
+        }));
+        if (!cancelled) setResources(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setResources([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const types = ['all', 'labor', 'equipment', 'material'];
 
@@ -156,6 +96,8 @@ export default function ResourceSchedulingPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">

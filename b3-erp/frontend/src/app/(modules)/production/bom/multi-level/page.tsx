@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv, printCurrentView } from '@/lib/export';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Search,
@@ -52,245 +53,40 @@ export default function MultiLevelBOMPage() {
     { code: 'KIT-FAUC-001', name: 'Chrome Finish Kitchen Faucet - Single Lever' }
   ];
 
-  const bomStructure: BOMComponent[] = [
-    {
-      id: '1',
-      level: 0,
-      itemCode: 'KIT-SINK-001',
-      itemName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      category: 'Finished Product',
-      quantity: 1,
-      unit: 'PC',
-      unitCost: 11250,
-      totalCost: 11250,
-      scrapPercentage: 0,
-      leadTime: 7,
-      supplier: 'In-House',
-      hasChildren: true,
-      expanded: true,
-      children: [
-        {
-          id: '1.1',
-          level: 1,
-          itemCode: 'SUB-SINK-BOWL',
-          itemName: 'Sink Bowl Assembly',
-          category: 'Sub-Assembly',
-          quantity: 2,
-          unit: 'PC',
-          unitCost: 3200,
-          totalCost: 6400,
-          scrapPercentage: 2,
-          leadTime: 3,
-          supplier: 'In-House',
-          hasChildren: true,
-          expanded: true,
-          children: [
-            {
-              id: '1.1.1',
-              level: 2,
-              itemCode: 'RM-SS304-18G',
-              itemName: 'SS304 Steel Sheet - 18 Gauge',
-              category: 'Raw Material',
-              quantity: 2.5,
-              unit: 'Sq.Ft',
-              unitCost: 195,
-              totalCost: 975,
-              scrapPercentage: 8,
-              leadTime: 5,
-              supplier: 'Steel India',
-              hasChildren: false
-            },
-            {
-              id: '1.1.2',
-              level: 2,
-              itemCode: 'RM-GASKET',
-              itemName: 'Silicone Gasket - Food Grade',
-              category: 'Raw Material',
-              quantity: 4,
-              unit: 'Meter',
-              unitCost: 25,
-              totalCost: 100,
-              scrapPercentage: 5,
-              leadTime: 3,
-              supplier: 'Rubber Products Ltd',
-              hasChildren: false
-            },
-            {
-              id: '1.1.3',
-              level: 2,
-              itemCode: 'COMP-STRAINER',
-              itemName: 'Stainless Steel Strainer Basket',
-              category: 'Component',
-              quantity: 2,
-              unit: 'PC',
-              unitCost: 145,
-              totalCost: 290,
-              scrapPercentage: 0,
-              leadTime: 7,
-              supplier: 'Kitchen Components Co',
-              hasChildren: false
-            }
-          ]
-        },
-        {
-          id: '1.2',
-          level: 1,
-          itemCode: 'SUB-DRAIN-SYS',
-          itemName: 'Drainage System Assembly',
-          category: 'Sub-Assembly',
-          quantity: 1,
-          unit: 'SET',
-          unitCost: 850,
-          totalCost: 850,
-          scrapPercentage: 1,
-          leadTime: 2,
-          supplier: 'In-House',
-          hasChildren: true,
-          expanded: true,
-          children: [
-            {
-              id: '1.2.1',
-              level: 2,
-              itemCode: 'COMP-DRAIN-PIPE',
-              itemName: 'PVC Drain Pipe - 40mm',
-              category: 'Component',
-              quantity: 2,
-              unit: 'Meter',
-              unitCost: 85,
-              totalCost: 170,
-              scrapPercentage: 3,
-              leadTime: 2,
-              supplier: 'PVC Suppliers',
-              hasChildren: false
-            },
-            {
-              id: '1.2.2',
-              level: 2,
-              itemCode: 'COMP-DRAIN-VALVE',
-              itemName: 'Drain Control Valve - SS',
-              category: 'Component',
-              quantity: 2,
-              unit: 'PC',
-              unitCost: 180,
-              totalCost: 360,
-              scrapPercentage: 0,
-              leadTime: 5,
-              supplier: 'Valve Technologies',
-              hasChildren: false
-            },
-            {
-              id: '1.2.3',
-              level: 2,
-              itemCode: 'COMP-COUPLING',
-              itemName: 'Pipe Coupling - Brass',
-              category: 'Component',
-              quantity: 4,
-              unit: 'PC',
-              unitCost: 35,
-              totalCost: 140,
-              scrapPercentage: 0,
-              leadTime: 3,
-              supplier: 'Brass Fittings Inc',
-              hasChildren: false
-            }
-          ]
-        },
-        {
-          id: '1.3',
-          level: 1,
-          itemCode: 'SUB-MOUNT-KIT',
-          itemName: 'Mounting Hardware Kit',
-          category: 'Sub-Assembly',
-          quantity: 1,
-          unit: 'SET',
-          unitCost: 420,
-          totalCost: 420,
-          scrapPercentage: 0,
-          leadTime: 1,
-          supplier: 'In-House',
-          hasChildren: true,
-          expanded: true,
-          children: [
-            {
-              id: '1.3.1',
-              level: 2,
-              itemCode: 'COMP-BRACKET',
-              itemName: 'SS Mounting Bracket',
-              category: 'Component',
-              quantity: 4,
-              unit: 'PC',
-              unitCost: 45,
-              totalCost: 180,
-              scrapPercentage: 0,
-              leadTime: 3,
-              supplier: 'Metal Fabricators',
-              hasChildren: false
-            },
-            {
-              id: '1.3.2',
-              level: 2,
-              itemCode: 'COMP-SCREW-M6',
-              itemName: 'SS Screw M6x40mm',
-              category: 'Component',
-              quantity: 16,
-              unit: 'PC',
-              unitCost: 5,
-              totalCost: 80,
-              scrapPercentage: 2,
-              leadTime: 1,
-              supplier: 'Fasteners Direct',
-              hasChildren: false
-            },
-            {
-              id: '1.3.3',
-              level: 2,
-              itemCode: 'COMP-WASHER',
-              itemName: 'Rubber Washer - 6mm',
-              category: 'Component',
-              quantity: 16,
-              unit: 'PC',
-              unitCost: 3,
-              totalCost: 48,
-              scrapPercentage: 5,
-              leadTime: 1,
-              supplier: 'Rubber Products Ltd',
-              hasChildren: false
-            }
-          ]
-        },
-        {
-          id: '1.4',
-          level: 1,
-          itemCode: 'FINISH-CHROME',
-          itemName: 'Chrome Plating Finish',
-          category: 'Finishing',
-          quantity: 8,
-          unit: 'Sq.Ft',
-          unitCost: 120,
-          totalCost: 960,
-          scrapPercentage: 1,
-          leadTime: 2,
-          supplier: 'Chrome Solutions',
-          hasChildren: false
-        },
-        {
-          id: '1.5',
-          level: 1,
-          itemCode: 'PKG-SINK',
-          itemName: 'Sink Packaging Material',
-          category: 'Packaging',
-          quantity: 1,
-          unit: 'SET',
-          unitCost: 180,
-          totalCost: 180,
-          scrapPercentage: 0,
-          leadTime: 1,
-          supplier: 'Packaging Solutions',
-          hasChildren: false
-        }
-      ]
-    }
-  ];
+  const [bomStructure, setBomStructure] = useState<BOMComponent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const mapNode = (r: any): BOMComponent => ({
+      id: String(r.id ?? ''),
+      level: Number(r.level ?? 0),
+      itemCode: r.itemCode ?? '',
+      itemName: r.itemName ?? '',
+      category: r.category ?? '',
+      quantity: Number(r.quantity ?? 0),
+      unit: r.unit ?? '',
+      unitCost: Number(r.unitCost ?? 0),
+      totalCost: Number(r.totalCost ?? 0),
+      scrapPercentage: Number(r.scrapPercentage ?? 0),
+      leadTime: Number(r.leadTime ?? 0),
+      supplier: r.supplier ?? '',
+      hasChildren: Boolean(r.hasChildren ?? (Array.isArray(r.children) && r.children.length > 0)),
+      children: Array.isArray(r.children) ? r.children.map(mapNode) : undefined,
+      expanded: r.expanded == null ? undefined : Boolean(r.expanded),
+    });
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getBoms()) as any[];
+        const mapped: BOMComponent[] = (raw || []).map(mapNode);
+        if (!cancelled) setBomStructure(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBomStructure([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const toggleNode = (nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -434,6 +230,8 @@ export default function MultiLevelBOMPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Wallet,
   Plus,
@@ -23,6 +23,7 @@ import {
   Mail,
   Phone
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface Collection {
   id: string;
@@ -56,129 +57,63 @@ export default function CollectionsPage() {
   const [methodFilter, setMethodFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
 
-  // Sample collections data
-  const collections: Collection[] = [
-    {
-      id: 'COL001',
-      collectionNumber: 'COL-2025-001',
-      collectionDate: '2025-11-05',
-      customerName: 'Hotel Paradise Ltd',
-      customerCode: 'CUST-001',
-      paymentMethod: 'Bank Transfer',
-      bankAccount: 'HDFC Bank - *5678',
-      referenceNumber: 'UTR202511051234567',
-      invoiceNumber: 'INV-2025-001',
-      amount: 172500,
-      tdsDeducted: 3450,
-      netCollection: 169050,
-      status: 'Cleared',
-      verifiedBy: 'Sarah Collections',
-      verifiedDate: '2025-11-05',
-      clearedDate: '2025-11-05',
-      description: 'Payment received for invoice INV-2025-001',
-      costCenter: 'CC-SAL-001',
-      department: 'Sales',
-      createdBy: 'John AR',
-      createdDate: '2025-11-05',
-      followUpRequired: false,
-      collectionAgent: 'Sarah Collections'
-    },
-    {
-      id: 'COL002',
-      collectionNumber: 'COL-2025-002',
-      collectionDate: '2025-11-04',
-      customerName: 'Culinary Delights Inc',
-      customerCode: 'CUST-002',
-      paymentMethod: 'Cheque',
-      bankAccount: 'ICICI Bank - *1234',
-      referenceNumber: 'CHQ-456789',
-      invoiceNumber: 'INV-2025-002',
-      amount: 60000,
-      tdsDeducted: 1200,
-      netCollection: 58800,
-      status: 'Deposited',
-      verifiedBy: 'John AR',
-      verifiedDate: '2025-11-04',
-      description: 'Partial payment received',
-      costCenter: 'CC-SAL-001',
-      department: 'Sales',
-      createdBy: 'Sarah Collections',
-      createdDate: '2025-11-04',
-      followUpRequired: true,
-      collectionAgent: 'Sarah Collections'
-    },
-    {
-      id: 'COL003',
-      collectionNumber: 'COL-2025-003',
-      collectionDate: '2025-11-03',
-      customerName: 'City General Hospital',
-      customerCode: 'CUST-003',
-      paymentMethod: 'UPI',
-      bankAccount: 'HDFC Bank - *5678',
-      referenceNumber: 'UPI-987654321',
-      invoiceNumber: 'INV-2025-005',
-      amount: 85000,
-      tdsDeducted: 1700,
-      netCollection: 83300,
-      status: 'Cleared',
-      verifiedBy: 'Michael Collections',
-      verifiedDate: '2025-11-03',
-      clearedDate: '2025-11-03',
-      description: 'UPI payment received',
-      costCenter: 'CC-SAL-002',
-      department: 'Sales',
-      createdBy: 'John AR',
-      createdDate: '2025-11-03',
-      followUpRequired: false,
-      collectionAgent: 'Michael Collections'
-    },
-    {
-      id: 'COL004',
-      collectionNumber: 'COL-2025-004',
-      collectionDate: '2025-11-02',
-      customerName: 'Restaurant Group LLC',
-      customerCode: 'CUST-006',
-      paymentMethod: 'Bank Transfer',
-      bankAccount: 'Axis Bank - *9012',
-      referenceNumber: 'UTR202511021112233',
-      invoiceNumber: 'INV-2025-006',
-      amount: 109250,
-      tdsDeducted: 2185,
-      netCollection: 107065,
-      status: 'Pending Verification',
-      description: 'Payment received, awaiting verification',
-      costCenter: 'CC-SAL-001',
-      department: 'Sales',
-      createdBy: 'Sarah Collections',
-      createdDate: '2025-11-02',
-      followUpRequired: false,
-      collectionAgent: 'Sarah Collections'
-    },
-    {
-      id: 'COL005',
-      collectionNumber: 'COL-2025-005',
-      collectionDate: '2025-10-28',
-      customerName: 'Springfield Academy',
-      customerCode: 'CUST-004',
-      paymentMethod: 'Cheque',
-      bankAccount: 'SBI - *3456',
-      referenceNumber: 'CHQ-111222',
-      invoiceNumber: 'INV-2025-004',
-      amount: 62100,
-      tdsDeducted: 1242,
-      netCollection: 60858,
-      status: 'Bounced',
-      verifiedBy: 'John AR',
-      verifiedDate: '2025-10-28',
-      description: 'Cheque bounced - insufficient funds',
-      costCenter: 'CC-SAL-002',
-      department: 'Sales',
-      createdBy: 'Michael Collections',
-      createdDate: '2025-10-28',
-      followUpRequired: true,
-      collectionAgent: 'Michael Collections'
-    }
-  ];
+  // Collections derived from AR customer accounts (overdue / last-collection data)
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getReceivables()) as any[];
+        const mapped: Collection[] = (raw ?? []).map((c, i) => {
+          const lastAmount = Number(c.lastCollectionAmount ?? 0);
+          const overdue = Number(c.overdueAmount ?? 0);
+          const status: Collection['status'] = overdue > 0 ? 'Pending Verification' : 'Cleared';
+          return {
+            id: c.id ?? `COL-${i}`,
+            collectionNumber: c.customerCode ?? c.customerId ?? `COL-${i}`,
+            collectionDate: c.lastCollectionDate ?? '',
+            customerName: c.customerName ?? '-',
+            customerCode: c.customerCode ?? c.customerId ?? '-',
+            paymentMethod: 'Bank Transfer',
+            bankAccount: '-',
+            referenceNumber: undefined,
+            invoiceNumber: undefined,
+            amount: lastAmount,
+            tdsDeducted: 0,
+            netCollection: lastAmount,
+            status,
+            verifiedBy: undefined,
+            verifiedDate: undefined,
+            clearedDate: c.lastCollectionDate ?? undefined,
+            description: `Outstanding: ₹${Number(c.totalOutstanding ?? 0).toLocaleString()}`,
+            costCenter: undefined,
+            department: undefined,
+            createdBy: '-',
+            createdDate: c.lastCollectionDate ?? '',
+            followUpRequired: overdue > 0,
+            collectionAgent: c.collectionAgent ?? '-',
+          };
+        });
+        if (!cancelled) setCollections(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load collections');
+          setCollections([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -225,6 +160,16 @@ export default function CollectionsPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-green-50 to-emerald-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full h-full px-3 py-2">
+          {isLoading && (
+            <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              Loading collections…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
           {/* Header */}
           <div className="flex justify-between items-start mb-3">
             <div>

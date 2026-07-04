@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, TrendingUp, TrendingDown, BarChart3, Activity, Clock, Target } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface OEEMetrics {
   period: string;
@@ -34,65 +35,37 @@ export default function OEEAnalyticsPage() {
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState<string>('current-month');
 
-  // Mock OEE data over time
-  const oeeMetrics: OEEMetrics[] = [
-    {
-      period: 'Oct 2025',
-      availability: 92.5,
-      performance: 88.3,
-      quality: 96.8,
-      oee: 79.1,
-      plannedProductionTime: 640,
-      actualRunTime: 592,
-      downtime: 48,
-      idealCycleTime: 1.5,
-      totalPieces: 4850,
-      goodPieces: 4695,
-      defectPieces: 155
-    },
-    {
-      period: 'Sep 2025',
-      availability: 93.2,
-      performance: 89.5,
-      quality: 97.0,
-      oee: 80.9,
-      plannedProductionTime: 640,
-      actualRunTime: 596,
-      downtime: 44,
-      idealCycleTime: 1.5,
-      totalPieces: 4620,
-      goodPieces: 4480,
-      defectPieces: 140
-    },
-    {
-      period: 'Aug 2025',
-      availability: 91.5,
-      performance: 87.2,
-      quality: 95.7,
-      oee: 76.3,
-      plannedProductionTime: 640,
-      actualRunTime: 585,
-      downtime: 55,
-      idealCycleTime: 1.5,
-      totalPieces: 4440,
-      goodPieces: 4250,
-      defectPieces: 190
-    },
-    {
-      period: 'Jul 2025',
-      availability: 92.0,
-      performance: 88.8,
-      quality: 95.9,
-      oee: 78.3,
-      plannedProductionTime: 640,
-      actualRunTime: 589,
-      downtime: 51,
-      idealCycleTime: 1.5,
-      totalPieces: 4280,
-      goodPieces: 4105,
-      defectPieces: 175
-    }
-  ];
+  // OEE data over time (live)
+  const [oeeMetrics, setOeeMetrics] = useState<OEEMetrics[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getOeeRecords()) as any[];
+        const mapped: OEEMetrics[] = (raw || []).map((r: any) => ({
+          period: String(r.period ?? ''),
+          availability: Number(r.availability ?? 0),
+          performance: Number(r.performance ?? 0),
+          quality: Number(r.quality ?? 0),
+          oee: Number(r.oee ?? 0),
+          plannedProductionTime: Number(r.plannedProductionTime ?? 0),
+          actualRunTime: Number(r.actualRunTime ?? 0),
+          downtime: Number(r.downtime ?? 0),
+          idealCycleTime: Number(r.idealCycleTime ?? 0),
+          totalPieces: Number(r.totalPieces ?? 0),
+          goodPieces: Number(r.goodPieces ?? 0),
+          defectPieces: Number(r.defectPieces ?? 0),
+        }));
+        if (!cancelled) setOeeMetrics(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setOeeMetrics([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Equipment-wise OEE
   const equipmentOEE: EquipmentOEE[] = [
@@ -168,8 +141,22 @@ export default function OEEAnalyticsPage() {
     }
   ];
 
-  const currentMetrics = oeeMetrics[0];
-  const previousMetrics = oeeMetrics[1];
+  const emptyOee: OEEMetrics = {
+    period: '',
+    availability: 0,
+    performance: 0,
+    quality: 0,
+    oee: 0,
+    plannedProductionTime: 0,
+    actualRunTime: 0,
+    downtime: 0,
+    idealCycleTime: 0,
+    totalPieces: 0,
+    goodPieces: 0,
+    defectPieces: 0,
+  };
+  const currentMetrics = oeeMetrics[0] ?? emptyOee;
+  const previousMetrics = oeeMetrics[1] ?? emptyOee;
 
   const getTrendColor = (trend: string) => {
     switch (trend) {
@@ -202,6 +189,8 @@ export default function OEEAnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

@@ -95,6 +95,26 @@ export class HrPagesService {
     return request<T>('/hr/user-skills');
   }
 
+  // ---- Performance -------------------------------------------------------
+  static performanceGoals<T = any[]>(recordType?: string): Promise<T> {
+    return request<T>(
+      recordType
+        ? `/hr/performance-goals?recordType=${encodeURIComponent(recordType)}`
+        : '/hr/performance-goals',
+    );
+  }
+  static performanceReviews<T = any[]>(): Promise<T> {
+    return request<T>('/hr/performance-reviews');
+  }
+
+  // ---- Travel ------------------------------------------------------------
+  static travelRequests<T = any[]>(): Promise<T> {
+    return request<T>('/hr/travel-requests');
+  }
+  static travelAdvances<T = any[]>(): Promise<T> {
+    return request<T>('/hr/travel-advances');
+  }
+
   // ---- Expenses ----------------------------------------------------------
   static expenseClaims<T = any[]>(): Promise<T> {
     return request<T>('/hr/expense-claims');

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, Save, Download, Upload, Search, Filter, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { EmployeeService } from '@/services/employee.service';
 
 interface EmployeePunch {
   id: string;
@@ -25,70 +26,46 @@ export default function BulkPunchPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Mock data - in real scenario, this would be fetched based on date/department/shift
-  const [punchData, setPunchData] = useState<EmployeePunch[]>([
-    {
-      id: '1',
-      employeeCode: 'KMF2020001',
-      employeeName: 'Rajesh Kumar',
-      department: 'Production',
-      shift: 'Morning (6AM-2PM)',
-      punchIn: '06:00',
-      punchOut: '14:00',
-      breakDuration: '30',
-      workHours: 7.5,
-      status: 'present'
-    },
-    {
-      id: '2',
-      employeeCode: 'KMF2020002',
-      employeeName: 'Priya Sharma',
-      department: 'Production',
-      shift: 'Morning (6AM-2PM)',
-      punchIn: '06:15',
-      punchOut: '14:00',
-      breakDuration: '30',
-      workHours: 7.25,
-      status: 'late'
-    },
-    {
-      id: '3',
-      employeeCode: 'KMF2020003',
-      employeeName: 'Amit Patel',
-      department: 'Production',
-      shift: 'Morning (6AM-2PM)',
-      punchIn: '',
-      punchOut: '',
-      breakDuration: '0',
-      workHours: 0,
-      status: 'absent'
-    },
-    {
-      id: '4',
-      employeeCode: 'KMF2020004',
-      employeeName: 'Sunita Verma',
-      department: 'Assembly',
-      shift: 'Day (9AM-5PM)',
-      punchIn: '09:00',
-      punchOut: '17:00',
-      breakDuration: '60',
-      workHours: 7,
-      status: 'present'
-    },
-    {
-      id: '5',
-      employeeCode: 'KMF2020005',
-      employeeName: 'Deepak Singh',
-      department: 'Assembly',
-      shift: 'Day (9AM-5PM)',
-      punchIn: '09:00',
-      punchOut: '13:00',
-      breakDuration: '30',
-      workHours: 3.5,
-      status: 'half_day',
-      remarks: 'Personal emergency'
-    }
-  ]);
+  // Fetched from the live employees endpoint; each employee seeds a blank
+  // punch row that the supervisor can edit before saving.
+  const [punchData, setPunchData] = useState<EmployeePunch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await EmployeeService.getAllEmployeesRaw()) as any[];
+        const mapped: EmployeePunch[] = raw.map((r) => ({
+          id: r.id,
+          employeeCode: r.employeeCode ?? '',
+          employeeName: r.fullName ?? [r.firstName, r.lastName].filter(Boolean).join(' '),
+          department: r.departmentName ?? r.departmentId ?? '',
+          shift: r.shiftName ?? '',
+          punchIn: '',
+          punchOut: '',
+          breakDuration: '0',
+          workHours: 0,
+          status: 'absent',
+        }));
+        if (!cancelled) setPunchData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load employees');
+          setPunchData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     return punchData.filter(emp => {
@@ -190,6 +167,17 @@ export default function BulkPunchPage() {
         </h1>
         <p className="text-gray-600 mt-2">Supervisor management for hundreds of factory workers - Quick bulk entry</p>
       </div>
+
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm mb-3">
+          Loading employees…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm mb-3">
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

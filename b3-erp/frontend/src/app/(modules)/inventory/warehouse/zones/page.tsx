@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Search, Edit2, Trash2, Grid, Package, Thermometer, Shield, TrendingUp } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   ZoneData,
   BinData
 } from '@/components/inventory/InventoryWarehouseModals';
+import { inventoryService } from '@/services/InventoryService';
 
 interface Zone {
   id: string;
@@ -41,179 +42,74 @@ export default function WarehouseZonesPage() {
   const [selectedZoneIdForBin, setSelectedZoneIdForBin] = useState<string>('');
   const [zoneList, setZoneList] = useState<Zone[]>([]);
 
-  // Mock warehouse zones data
-  const zones: Zone[] = [
-    {
-      id: 'ZONE-001',
-      code: 'MUM-A',
-      name: 'Zone A - General Storage',
-      warehouse: 'Mumbai Central Warehouse',
-      zoneType: 'storage',
-      area: 5000,
-      capacity: 10000,
-      currentOccupancy: 8500,
-      utilizationPercent: 85,
-      totalLocations: 200,
-      availableLocations: 30,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Rajesh Kumar',
-      specialRequirements: ['Dry', 'Ventilated']
-    },
-    {
-      id: 'ZONE-002',
-      code: 'MUM-B',
-      name: 'Zone B - Picking Area',
-      warehouse: 'Mumbai Central Warehouse',
-      zoneType: 'picking',
-      area: 2500,
-      capacity: 5000,
-      currentOccupancy: 3200,
-      utilizationPercent: 64,
-      totalLocations: 100,
-      availableLocations: 36,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Priya Sharma',
-      specialRequirements: ['High Traffic', 'Well-lit']
-    },
-    {
-      id: 'ZONE-003',
-      code: 'MUM-C',
-      name: 'Zone C - Cold Storage',
-      warehouse: 'Mumbai Central Warehouse',
-      zoneType: 'cold-storage',
-      area: 1500,
-      capacity: 3000,
-      currentOccupancy: 2700,
-      utilizationPercent: 90,
-      totalLocations: 50,
-      availableLocations: 5,
-      temperature: 'Cold (2-8°C)',
-      status: 'active',
-      manager: 'Amit Patel',
-      specialRequirements: ['Temperature Controlled', 'Humidity Control', 'Backup Power']
-    },
-    {
-      id: 'ZONE-004',
-      code: 'MUM-RCV',
-      name: 'Receiving Zone',
-      warehouse: 'Mumbai Central Warehouse',
-      zoneType: 'receiving',
-      area: 1000,
-      capacity: 2000,
-      currentOccupancy: 450,
-      utilizationPercent: 23,
-      totalLocations: 20,
-      availableLocations: 15,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Sunita Reddy',
-      specialRequirements: ['Loading Docks', 'Inspection Area']
-    },
-    {
-      id: 'ZONE-005',
-      code: 'MUM-SHIP',
-      name: 'Shipping Zone',
-      warehouse: 'Mumbai Central Warehouse',
-      zoneType: 'shipping',
-      area: 1000,
-      capacity: 2000,
-      currentOccupancy: 800,
-      utilizationPercent: 40,
-      totalLocations: 20,
-      availableLocations: 12,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Vikram Singh',
-      specialRequirements: ['Loading Docks', 'Staging Area']
-    },
-    {
-      id: 'ZONE-006',
-      code: 'DEL-A',
-      name: 'Zone A - General Storage',
-      warehouse: 'Delhi Regional Hub',
-      zoneType: 'storage',
-      area: 4000,
-      capacity: 8000,
-      currentOccupancy: 5200,
-      utilizationPercent: 65,
-      totalLocations: 160,
-      availableLocations: 56,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Lakshmi Iyer',
-      specialRequirements: ['Dry', 'Secure']
-    },
-    {
-      id: 'ZONE-007',
-      code: 'DEL-HAZ',
-      name: 'Hazardous Materials Zone',
-      warehouse: 'Delhi Regional Hub',
-      zoneType: 'hazardous',
-      area: 800,
-      capacity: 1500,
-      currentOccupancy: 450,
-      utilizationPercent: 30,
-      totalLocations: 30,
-      availableLocations: 21,
-      temperature: 'Controlled (18-22°C)',
-      status: 'active',
-      manager: 'Mohammed Ali',
-      specialRequirements: ['Fire Suppression', 'Spill Containment', 'Safety Equipment', 'Restricted Access']
-    },
-    {
-      id: 'ZONE-008',
-      code: 'BLR-A',
-      name: 'Zone A - High Velocity',
-      warehouse: 'Bangalore Factory Store',
-      zoneType: 'storage',
-      area: 3500,
-      capacity: 7000,
-      currentOccupancy: 6440,
-      utilizationPercent: 92,
-      totalLocations: 140,
-      availableLocations: 11,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Anjali Mehta',
-      specialRequirements: ['Quick Access', 'High Turnover']
-    },
-    {
-      id: 'ZONE-009',
-      code: 'BLR-QTN',
-      name: 'Quarantine Zone',
-      warehouse: 'Bangalore Factory Store',
-      zoneType: 'quarantine',
-      area: 500,
-      capacity: 1000,
-      currentOccupancy: 150,
-      utilizationPercent: 15,
-      totalLocations: 20,
-      availableLocations: 17,
-      temperature: 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Karthik Rao',
-      specialRequirements: ['Isolated', 'Inspection Ready', 'Hold Status']
-    },
-    {
-      id: 'ZONE-010',
-      code: 'CHN-A',
-      name: 'Zone A - Distribution',
-      warehouse: 'Chennai Distribution Center',
-      zoneType: 'storage',
-      area: 4500,
-      capacity: 9000,
-      currentOccupancy: 7200,
-      utilizationPercent: 80,
-      totalLocations: 180,
-      availableLocations: 36,
-      temperature: 'Ambient (15-25°C)',
-      status: 'maintenance',
-      manager: 'Deepak Nair',
-      specialRequirements: ['Ventilated', 'Pest Control']
-    }
-  ];
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await inventoryService.getStockLocations()) as any[];
+        if (cancelled) return;
+
+        const normalizeType = (t: string): Zone['zoneType'] => {
+          const v = (t ?? '').toLowerCase();
+          if (v.includes('pick')) return 'picking';
+          if (v.includes('receiv')) return 'receiving';
+          if (v.includes('ship') || v.includes('dispatch')) return 'shipping';
+          if (v.includes('cold') || v.includes('freez')) return 'cold-storage';
+          if (v.includes('hazard')) return 'hazardous';
+          if (v.includes('quarantine') || v.includes('qc') || v.includes('reject')) return 'quarantine';
+          return 'storage';
+        };
+        const normalizeStatus = (s: string): Zone['status'] => {
+          const v = (s ?? '').toLowerCase();
+          if (v === 'inactive') return 'inactive';
+          if (v === 'maintenance') return 'maintenance';
+          return 'active';
+        };
+
+        const mapped: Zone[] = (raw ?? []).map((loc) => {
+          const capacity = Number(loc?.maxCapacity ?? 0);
+          const currentOccupancy = Number(loc?.currentCapacity ?? 0);
+          const utilizationPercent = Math.round(Number(loc?.utilizationPercentage ?? 0));
+          return {
+            id: loc?.id ?? loc?.locationCode ?? '',
+            code: loc?.locationCode ?? '',
+            name: loc?.locationName ?? loc?.locationCode ?? '',
+            warehouse: loc?.warehouseName ?? loc?.warehouseId ?? '',
+            zoneType: normalizeType(loc?.locationType),
+            area: 0,
+            capacity,
+            currentOccupancy,
+            utilizationPercent,
+            totalLocations: 0,
+            availableLocations: 0,
+            temperature: loc?.isTemperatureControlled
+              ? `Controlled (${loc?.temperatureMin ?? '?'}-${loc?.temperatureMax ?? '?'}°C)`
+              : 'Ambient',
+            status: normalizeStatus(loc?.status),
+            manager: '',
+            specialRequirements: Array.isArray(loc?.allowedItemCategories)
+              ? loc.allowedItemCategories
+              : [],
+          };
+        });
+        setZones(mapped);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load zones');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredZones = zones.filter(zone => {
     const matchesSearch = zone.code.toLowerCase().includes(searchQuery.toLowerCase()) ||

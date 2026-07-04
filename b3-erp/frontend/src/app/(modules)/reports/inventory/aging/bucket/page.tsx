@@ -1,22 +1,44 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function AgingBucketContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const bucket = searchParams.get('bucket') || 'All';
 
-    const items = [
-        { id: 'ITEM-006', name: 'Brake Pads Model X', stock: 450, value: 22500, age: 245, unit: 'pcs' },
-        { id: 'ITEM-007', name: 'Filter Cartridges', stock: 350, value: 17500, age: 198, unit: 'pcs' },
-        { id: 'ITEM-008', name: 'Bearing Sets Obsolete', stock: 125, value: 12500, age: 420, unit: 'pcs' },
-        { id: 'ITEM-009', name: 'Legacy Components', stock: 85, value: 8500, age: 385, unit: 'pcs' },
-    ];
+    const [items, setItems] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('inventory/stock-balances');
+                const mapped = raw.map((r: any) => ({
+                    id: r.itemCode ?? r.id,
+                    name: r.itemName ?? '',
+                    stock: Number(r.quantity ?? 0),
+                    value: Number(r.value ?? r.totalValue ?? 0),
+                    age: Number(r.ageDays ?? 0),
+                    unit: r.uom ?? '',
+                }));
+                if (!cancelled) setItems(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setItems([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -29,6 +51,8 @@ function AgingBucketContent() {
                 { label: bucket }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Items in {bucket}</CardTitle>

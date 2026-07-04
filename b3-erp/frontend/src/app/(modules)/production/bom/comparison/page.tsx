@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   GitCompare,
@@ -64,242 +65,40 @@ export default function BOMComparisonPage() {
     name: 'Premium SS304 Kitchen Sink - Double Bowl'
   };
 
-  const comparisons: ComponentComparison[] = [
-    {
-      id: '1',
-      itemCode: 'RM-SS304-18G',
-      itemName: 'SS304 Steel Sheet - 18 Gauge',
-      category: 'Raw Material',
-      changeType: 'cost-changed',
-      version1Quantity: 2.5,
-      version2Quantity: 2.5,
-      version1UnitCost: 195,
-      version2UnitCost: 215,
-      version1TotalCost: 487.5,
-      version2TotalCost: 537.5,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: -50,
-      costChangePercent: -9.3,
-      unit: 'Sq.Ft'
-    },
-    {
-      id: '2',
-      itemCode: 'RM-GASKET',
-      itemName: 'Silicone Gasket - Food Grade',
-      category: 'Raw Material',
-      changeType: 'both-changed',
-      version1Quantity: 4,
-      version2Quantity: 3.5,
-      version1UnitCost: 25,
-      version2UnitCost: 22,
-      version1TotalCost: 100,
-      version2TotalCost: 77,
-      quantityChange: 0.5,
-      quantityChangePercent: 14.3,
-      costChange: -23,
-      costChangePercent: -23.0,
-      unit: 'Meter'
-    },
-    {
-      id: '3',
-      itemCode: 'COMP-STRAINER',
-      itemName: 'Stainless Steel Strainer Basket',
-      category: 'Component',
-      changeType: 'unchanged',
-      version1Quantity: 2,
-      version2Quantity: 2,
-      version1UnitCost: 145,
-      version2UnitCost: 145,
-      version1TotalCost: 290,
-      version2TotalCost: 290,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: 0,
-      costChangePercent: 0,
-      unit: 'PC'
-    },
-    {
-      id: '4',
-      itemCode: 'COMP-DRAIN-PIPE',
-      itemName: 'PVC Drain Pipe - 40mm',
-      category: 'Component',
-      changeType: 'quantity-changed',
-      version1Quantity: 2,
-      version2Quantity: 2.5,
-      version1UnitCost: 85,
-      version2UnitCost: 85,
-      version1TotalCost: 170,
-      version2TotalCost: 212.5,
-      quantityChange: -0.5,
-      quantityChangePercent: -20.0,
-      costChange: -42.5,
-      costChangePercent: -20.0,
-      unit: 'Meter'
-    },
-    {
-      id: '5',
-      itemCode: 'COMP-DRAIN-VALVE',
-      itemName: 'Drain Control Valve - SS',
-      category: 'Component',
-      changeType: 'unchanged',
-      version1Quantity: 2,
-      version2Quantity: 2,
-      version1UnitCost: 180,
-      version2UnitCost: 180,
-      version1TotalCost: 360,
-      version2TotalCost: 360,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: 0,
-      costChangePercent: 0,
-      unit: 'PC'
-    },
-    {
-      id: '6',
-      itemCode: 'COMP-COUPLING',
-      itemName: 'Pipe Coupling - Brass',
-      category: 'Component',
-      changeType: 'cost-changed',
-      version1Quantity: 4,
-      version2Quantity: 4,
-      version1UnitCost: 35,
-      version2UnitCost: 38,
-      version1TotalCost: 140,
-      version2TotalCost: 152,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: -12,
-      costChangePercent: -7.9,
-      unit: 'PC'
-    },
-    {
-      id: '7',
-      itemCode: 'COMP-BRACKET',
-      itemName: 'SS Mounting Bracket',
-      category: 'Component',
-      changeType: 'unchanged',
-      version1Quantity: 4,
-      version2Quantity: 4,
-      version1UnitCost: 45,
-      version2UnitCost: 45,
-      version1TotalCost: 180,
-      version2TotalCost: 180,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: 0,
-      costChangePercent: 0,
-      unit: 'PC'
-    },
-    {
-      id: '8',
-      itemCode: 'COMP-SCREW-M6',
-      itemName: 'SS Screw M6x40mm',
-      category: 'Component',
-      changeType: 'quantity-changed',
-      version1Quantity: 16,
-      version2Quantity: 12,
-      version1UnitCost: 5,
-      version2UnitCost: 5,
-      version1TotalCost: 80,
-      version2TotalCost: 60,
-      quantityChange: 4,
-      quantityChangePercent: 33.3,
-      costChange: -20,
-      costChangePercent: -25.0,
-      unit: 'PC'
-    },
-    {
-      id: '9',
-      itemCode: 'COMP-WASHER',
-      itemName: 'Rubber Washer - 6mm',
-      category: 'Component',
-      changeType: 'quantity-changed',
-      version1Quantity: 16,
-      version2Quantity: 12,
-      version1UnitCost: 3,
-      version2UnitCost: 3,
-      version1TotalCost: 48,
-      version2TotalCost: 36,
-      quantityChange: 4,
-      quantityChangePercent: 33.3,
-      costChange: -12,
-      costChangePercent: -25.0,
-      unit: 'PC'
-    },
-    {
-      id: '10',
-      itemCode: 'FINISH-CHROME',
-      itemName: 'Chrome Plating Finish',
-      category: 'Finishing',
-      changeType: 'cost-changed',
-      version1Quantity: 8,
-      version2Quantity: 8,
-      version1UnitCost: 120,
-      version2UnitCost: 135,
-      version1TotalCost: 960,
-      version2TotalCost: 1080,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: -120,
-      costChangePercent: -11.1,
-      unit: 'Sq.Ft'
-    },
-    {
-      id: '11',
-      itemCode: 'PKG-SINK',
-      itemName: 'Sink Packaging Material',
-      category: 'Packaging',
-      changeType: 'unchanged',
-      version1Quantity: 1,
-      version2Quantity: 1,
-      version1UnitCost: 180,
-      version2UnitCost: 180,
-      version1TotalCost: 180,
-      version2TotalCost: 180,
-      quantityChange: 0,
-      quantityChangePercent: 0,
-      costChange: 0,
-      costChangePercent: 0,
-      unit: 'SET'
-    },
-    {
-      id: '12',
-      itemCode: 'COMP-SEAL-RING',
-      itemName: 'Rubber Seal Ring - Premium',
-      category: 'Component',
-      changeType: 'added',
-      version1Quantity: 2,
-      version2Quantity: null,
-      version1UnitCost: 45,
-      version2UnitCost: null,
-      version1TotalCost: 90,
-      version2TotalCost: null,
-      quantityChange: 2,
-      quantityChangePercent: 100,
-      costChange: 90,
-      costChangePercent: 100,
-      unit: 'PC'
-    },
-    {
-      id: '13',
-      itemCode: 'COMP-OLD-GASKET',
-      itemName: 'Standard Gasket - Old Model',
-      category: 'Component',
-      changeType: 'removed',
-      version1Quantity: null,
-      version2Quantity: 2,
-      version1UnitCost: null,
-      version2UnitCost: 28,
-      version1TotalCost: null,
-      version2TotalCost: 56,
-      quantityChange: -2,
-      quantityChangePercent: -100,
-      costChange: -56,
-      costChangePercent: -100,
-      unit: 'PC'
-    }
-  ];
+  const [comparisons, setComparisons] = useState<ComponentComparison[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getBoms()) as any[];
+        const mapped: ComponentComparison[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          itemCode: r.itemCode ?? '',
+          itemName: r.itemName ?? '',
+          category: r.category ?? '',
+          changeType: (r.changeType ?? 'unchanged') as ComponentComparison['changeType'],
+          version1Quantity: r.version1Quantity == null ? null : Number(r.version1Quantity),
+          version2Quantity: r.version2Quantity == null ? null : Number(r.version2Quantity),
+          version1UnitCost: r.version1UnitCost == null ? null : Number(r.version1UnitCost),
+          version2UnitCost: r.version2UnitCost == null ? null : Number(r.version2UnitCost),
+          version1TotalCost: r.version1TotalCost == null ? null : Number(r.version1TotalCost),
+          version2TotalCost: r.version2TotalCost == null ? null : Number(r.version2TotalCost),
+          quantityChange: Number(r.quantityChange ?? 0),
+          quantityChangePercent: Number(r.quantityChangePercent ?? 0),
+          costChange: Number(r.costChange ?? 0),
+          costChangePercent: Number(r.costChangePercent ?? 0),
+          unit: r.unit ?? '',
+        }));
+        if (!cancelled) setComparisons(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setComparisons([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredComparisons = filterChanges === 'changes-only'
     ? comparisons.filter(c => c.changeType !== 'unchanged')
@@ -357,6 +156,8 @@ export default function BOMComparisonPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

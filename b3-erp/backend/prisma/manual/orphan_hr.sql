@@ -1437,3 +1437,52 @@ CREATE TABLE IF NOT EXISTS "hr_timesheets" (
   CONSTRAINT "PK_hr_timesheets" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_hr_timesheets_companyId" ON "hr_timesheets" ("companyId");
+
+-- Backs /hr/attendance-policies (attendance/policies)
+CREATE TABLE IF NOT EXISTS "hr_attendance_policies" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "name" varchar, "type" varchar, "description" text, "applicableTo" varchar,
+  "effectiveFrom" varchar, "status" varchar NOT NULL DEFAULT 'active', "rules" jsonb,
+  "createdBy" varchar, "lastModified" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_attendance_policies" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_attendance_policies_companyId" ON "hr_attendance_policies" ("companyId");
+
+-- Backs /hr/payroll-calendar (payroll/calendar)
+CREATE TABLE IF NOT EXISTS "hr_payroll_calendar_events" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "monthYear" varchar, "cutoffDate" varchar, "attendanceFreeze" varchar, "salaryProcessing" varchar,
+  "verificationDeadline" varchar, "approvalDeadline" varchar, "disbursementDate" varchar,
+  "status" varchar NOT NULL DEFAULT 'upcoming', "notes" text,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_payroll_calendar_events" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_calendar_events_companyId" ON "hr_payroll_calendar_events" ("companyId");
+
+-- Backs /hr/salary-components (payroll/components)
+CREATE TABLE IF NOT EXISTS "hr_salary_components" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "code" varchar, "name" varchar, "type" varchar, "category" varchar, "calculationType" varchar,
+  "taxable" boolean NOT NULL DEFAULT false, "pfApplicable" boolean NOT NULL DEFAULT false,
+  "esiApplicable" boolean NOT NULL DEFAULT false, "displayOrder" integer NOT NULL DEFAULT 0,
+  "status" varchar NOT NULL DEFAULT 'active',
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_salary_components" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_salary_components_companyId" ON "hr_salary_components" ("companyId");
+
+-- Backs /hr/salary-templates (payroll/templates)
+CREATE TABLE IF NOT EXISTS "hr_salary_templates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "templateCode" varchar, "templateName" varchar, "grade" varchar, "employmentType" varchar,
+  "ctcRange" varchar, "components" jsonb, "assignedCount" integer NOT NULL DEFAULT 0,
+  "status" varchar NOT NULL DEFAULT 'active', "createdBy" varchar, "createdOn" varchar,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_salary_templates" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_salary_templates_companyId" ON "hr_salary_templates" ("companyId");

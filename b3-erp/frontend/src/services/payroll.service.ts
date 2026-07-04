@@ -367,6 +367,26 @@ export class PayrollService {
   }
 
   /**
+   * Get all salary structures (raw ORM shape) with company header.
+   * Backend returns [] when unseeded.
+   */
+  static async getSalaryStructures(): Promise<any[]> {
+    return this.request<any[]>('/hr/salary-structures', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
+   * Get all payroll tax records (raw ORM shape) with company header.
+   * Backend returns [] when unseeded.
+   */
+  static async getTaxRecords(): Promise<any[]> {
+    return this.request<any[]>('/hr/tax-records', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
    * Get all payrolls with filters
    */
   static async getPayrolls(filters?: PayrollFilters): Promise<Payroll[]> {
@@ -717,6 +737,34 @@ export class PayrollService {
       averageMonthlyPayroll: number;
       payrollsByStatus: Record<string, number>;
     }>('/hr/payroll/statistics');
+  }
+
+  /**
+   * Get salary component definitions (backs hr/payroll/components).
+   * Called with no query params; scoped by x-company-id header.
+   */
+  static async getSalaryComponents(): Promise<any[]> {
+    return this.request<any[]>('/hr/salary-components', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
+   * Get salary templates (backs hr/payroll/templates).
+   */
+  static async getSalaryTemplates(): Promise<any[]> {
+    return this.request<any[]>('/hr/salary-templates', {
+      headers: { 'x-company-id': 'test' },
+    });
+  }
+
+  /**
+   * Get payroll calendar events (backs hr/payroll/calendar).
+   */
+  static async getPayrollCalendar(): Promise<any[]> {
+    return this.request<any[]>('/hr/payroll-calendar', {
+      headers: { 'x-company-id': 'test' },
+    });
   }
 
   /**

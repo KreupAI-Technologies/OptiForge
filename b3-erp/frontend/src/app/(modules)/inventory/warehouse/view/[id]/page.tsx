@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Edit, Warehouse as WarehouseIcon, MapPin, Package,
@@ -8,6 +8,7 @@ import {
   CheckCircle, Phone, Mail, Calendar, Activity, Download,
   PieChart, Target, Zap, Layers, Box, TrendingDown, Eye
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface Warehouse {
   id: string;
@@ -73,68 +74,162 @@ export default function WarehouseViewPage({ params }: { params: { id: string } }
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'overview' | 'zones' | 'stock' | 'activity' | 'analytics'>('overview');
 
-  // Mock data
-  const warehouse: Warehouse = {
+  const emptyWarehouse: Warehouse = {
     id: params.id,
-    warehouseCode: 'WH-PUNE-001',
-    warehouseName: 'Main Warehouse - Pune',
+    warehouseCode: '',
+    warehouseName: '',
     warehouseType: 'main',
-    address: 'Plot No. 45, Chakan Industrial Area, Phase II',
-    city: 'Pune',
-    state: 'Maharashtra',
-    pincode: '410501',
-    country: 'India',
-    contactPerson: 'Rajesh Kulkarni',
-    contactPhone: '+91 20 2765 4321',
-    contactEmail: 'rajesh.kulkarni@company.com',
-    totalArea: 50000,
-    usedArea: 38500,
-    areaUnit: 'sq ft',
-    totalCapacity: 25000,
-    usedCapacity: 19250,
-    capacityUnit: 'pallets',
-    zones: 8,
-    aisles: 45,
-    racks: 180,
-    bins: 1440,
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    country: '',
+    contactPerson: '',
+    contactPhone: '',
+    contactEmail: '',
+    totalArea: 0,
+    usedArea: 0,
+    areaUnit: '',
+    totalCapacity: 0,
+    usedCapacity: 0,
+    capacityUnit: '',
+    zones: 0,
+    aisles: 0,
+    racks: 0,
+    bins: 0,
     status: 'active',
-    temperatureControlled: true,
-    securityEnabled: true,
-    fireSafety: true,
-    manager: 'Priya Sharma',
-    establishedDate: '2020-03-15',
-    createdBy: 'Admin',
-    createdDate: '2020-02-01'
+    temperatureControlled: false,
+    securityEnabled: false,
+    fireSafety: false,
+    manager: '',
+    establishedDate: '',
+    createdBy: '',
+    createdDate: '',
   };
 
-  const zones: ZoneInfo[] = [
-    { zone: 'A', name: 'Raw Materials - Metals', aisles: 8, capacity: 5000, utilized: 4250, itemsStored: 142, utilizationPercentage: 85.0 },
-    { zone: 'B', name: 'Raw Materials - Plastics', aisles: 6, capacity: 3000, utilized: 2100, itemsStored: 89, utilizationPercentage: 70.0 },
-    { zone: 'C', name: 'Components - Electrical', aisles: 7, capacity: 4000, utilized: 3400, itemsStored: 256, utilizationPercentage: 85.0 },
-    { zone: 'D', name: 'Components - Mechanical', aisles: 6, capacity: 3500, utilized: 2975, itemsStored: 198, utilizationPercentage: 85.0 },
-    { zone: 'E', name: 'Finished Goods', aisles: 8, capacity: 4500, utilized: 3150, itemsStored: 112, utilizationPercentage: 70.0 },
-    { zone: 'F', name: 'Packaging Materials', aisles: 4, capacity: 2000, utilized: 1400, itemsStored: 67, utilizationPercentage: 70.0 },
-    { zone: 'G', name: 'Tools & Equipment', aisles: 3, capacity: 1500, utilized: 975, itemsStored: 145, utilizationPercentage: 65.0 },
-    { zone: 'H', name: 'Quarantine & Returns', aisles: 3, capacity: 1500, utilized: 1000, itemsStored: 34, utilizationPercentage: 66.7 }
-  ];
+  const [warehouse, setWarehouse] = useState<Warehouse>(emptyWarehouse);
+  const [zones, setZones] = useState<ZoneInfo[]>([]);
+  const [stockSummary, setStockSummary] = useState<StockSummary[]>([]);
+  const [activityLog, setActivityLog] = useState<ActivityLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const stockSummary: StockSummary[] = [
-    { category: 'Raw Materials', itemCount: 285, totalQuantity: 156420, totalValue: 28956780, percentage: 42.5 },
-    { category: 'Components', itemCount: 542, totalQuantity: 89650, totalValue: 18742500, percentage: 27.5 },
-    { category: 'Finished Goods', itemCount: 156, totalQuantity: 8945, totalValue: 15680000, percentage: 23.0 },
-    { category: 'Packaging Materials', itemCount: 89, totalQuantity: 45620, totalValue: 2845000, percentage: 4.2 },
-    { category: 'Tools & Equipment', itemCount: 198, totalQuantity: 1256, totalValue: 1890000, percentage: 2.8 }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const id = params.id;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [wh, locations, summary] = await Promise.all([
+          inventoryService.getWarehouse(id),
+          inventoryService.getWarehouseLocations(id),
+          inventoryService.getWarehouseStockSummary(id),
+        ]);
+        if (cancelled) return;
 
-  const activityLog: ActivityLog[] = [
-    { id: 'A1', timestamp: '2025-10-16 16:45', action: 'Stock Receipt', user: 'Sunita Reddy', details: 'Received 500 KG of SS304 sheets - PO-2025-5678', type: 'success' },
-    { id: 'A2', timestamp: '2025-10-16 14:20', action: 'Stock Issue', user: 'Amit Kumar', details: 'Issued 125 KG to WO-2025-1234', type: 'info' },
-    { id: 'A3', timestamp: '2025-10-16 11:30', action: 'Bin Relocation', user: 'Vikram Singh', details: 'Moved items from Bin AA-001 to AA-005', type: 'info' },
-    { id: 'A4', timestamp: '2025-10-16 09:15', action: 'Cycle Count', user: 'Lakshmi Iyer', details: 'Completed cycle count for Zone A - 2 discrepancies found', type: 'warning' },
-    { id: 'A5', timestamp: '2025-10-15 17:30', action: 'Stock Transfer Out', user: 'Mohammed Ali', details: 'Transferred 150 KG to Bangalore warehouse', type: 'info' },
-    { id: 'A6', timestamp: '2025-10-15 14:50', action: 'Quality Hold', user: 'Anjali Mehta', details: 'Moved rejected items to Zone H', type: 'warning' },
-    { id: 'A7', timestamp: '2025-10-15 10:20', action: 'Stock Receipt', user: 'Sunita Reddy', details: 'Received 300 PCS motors - PO-2025-5599', type: 'success' }
-  ];
+        const typeMap: Record<string, Warehouse['warehouseType']> = {
+          'Main Warehouse': 'main',
+          'Branch Warehouse': 'auxiliary',
+          'Transit Warehouse': 'transit',
+          'External Warehouse': 'external',
+        };
+        const statusMap: Record<string, Warehouse['status']> = {
+          Active: 'active',
+          Inactive: 'inactive',
+          Maintenance: 'maintenance',
+        };
+        const totalCapacity = Number(wh?.storageCapacity ?? 0);
+        const usedCapacity = Number(wh?.currentUtilization ?? 0);
+        const totalArea = Number(wh?.totalArea ?? 0);
+
+        const mappedWarehouse: Warehouse = {
+          id: wh?.id ?? id,
+          warehouseCode: wh?.warehouseCode ?? '',
+          warehouseName: wh?.warehouseName ?? '',
+          warehouseType: typeMap[wh?.warehouseType] ?? 'main',
+          address: [wh?.addressLine1, wh?.addressLine2].filter(Boolean).join(', '),
+          city: wh?.city ?? '',
+          state: wh?.state ?? '',
+          pincode: wh?.postalCode ?? '',
+          country: wh?.country ?? '',
+          contactPerson: wh?.contactPerson ?? wh?.managerName ?? '',
+          contactPhone: wh?.phone ?? '',
+          contactEmail: wh?.email ?? '',
+          totalArea,
+          usedArea: 0,
+          areaUnit: wh?.areaUnit ?? '',
+          totalCapacity,
+          usedCapacity,
+          capacityUnit: wh?.capacityUnit ?? '',
+          zones: Array.isArray(locations) ? locations.length : 0,
+          aisles: 0,
+          racks: 0,
+          bins: 0,
+          status: statusMap[wh?.status] ?? 'active',
+          temperatureControlled:
+            wh?.temperatureMin != null || wh?.temperatureMax != null,
+          securityEnabled: Array.isArray(wh?.facilities)
+            ? wh.facilities.some((f: string) => /cctv|security/i.test(f))
+            : false,
+          fireSafety: Array.isArray(wh?.facilities)
+            ? wh.facilities.some((f: string) => /fire/i.test(f))
+            : false,
+          manager: wh?.managerName ?? '',
+          establishedDate: wh?.createdAt ? String(wh.createdAt).slice(0, 10) : '',
+          createdBy: wh?.createdBy ?? '',
+          createdDate: wh?.createdAt ? String(wh.createdAt).slice(0, 10) : '',
+        };
+        setWarehouse(mappedWarehouse);
+
+        const mappedZones: ZoneInfo[] = (Array.isArray(locations) ? locations : []).map(
+          (loc: any) => {
+            const capacity = Number(loc?.maxCapacity ?? 0);
+            const utilized = Number(loc?.currentCapacity ?? 0);
+            return {
+              zone: loc?.zone ?? loc?.locationCode ?? '',
+              name: loc?.locationName ?? loc?.locationCode ?? '',
+              aisles: Number(loc?.aisle ?? 0) || 0,
+              capacity,
+              utilized,
+              itemsStored: 0,
+              utilizationPercentage: Number(loc?.utilizationPercentage ?? 0),
+            };
+          },
+        );
+        setZones(mappedZones);
+
+        // stock-summary endpoint returns a single aggregate OBJECT; the JSX
+        // consumes stockSummary as an array (.map/.reduce), so wrap it into a
+        // one-row array matching the StockSummary shape.
+        const totalValue = Number(summary?.totalValue ?? 0);
+        const summaryRows: StockSummary[] =
+          summary && (summary.totalItems || summary.totalQuantity || summary.totalValue)
+            ? [
+                {
+                  category: summary?.warehouseName ?? mappedWarehouse.warehouseName ?? 'All Stock',
+                  itemCount: Number(summary?.totalItems ?? 0),
+                  totalQuantity: Number(summary?.totalQuantity ?? 0),
+                  totalValue,
+                  percentage: totalValue > 0 ? 100 : 0,
+                },
+              ]
+            : [];
+        setStockSummary(summaryRows);
+
+        // No activity-log endpoint available; default to empty.
+        setActivityLog([]);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load warehouse');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

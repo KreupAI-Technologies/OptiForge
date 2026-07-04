@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, TrendingUp, TrendingDown, Calendar, Package, Filter, BarChart3, Eye, Edit } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { exportToCsv } from '@/lib/export';
 import { NewForecastModal, ExportForecastModal, ForecastAnalyticsModal } from '@/components/production/DemandPlanningModals';
 
@@ -48,219 +49,44 @@ export default function DemandPlanningPage() {
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
   const [selectedForecast, setSelectedForecast] = useState<DemandForecast | null>(null);
 
-  // Mock data for demand forecasts
-  const [forecasts, setForecasts] = useState<DemandForecast[]>([
-    {
-      id: '1',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium Stainless Steel Kitchen Sink - Double Bowl',
-      category: 'Kitchen Sinks',
-      currentMonth: '2025-10',
-      currentDemand: 178,
-      forecastedDemand: 180,
-      historicalAvg: 155,
-      historicalDemand: [145, 152, 138, 165, 158, 172],
-      actualDemand: [178, 0, 0, 0, 0, 0],
-      accuracy: 94.8,
-      trend: 'up',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'exponential-smoothing',
-      seasonalityFactor: 1.15,
-      safetyStock: 45,
-      reorderPoint: 120,
-      averageLeadTime: 14,
-      uom: 'units'
-    },
-    {
-      id: '2',
-      productCode: 'KIT-FAUCET-002',
-      productName: 'Chrome Kitchen Faucet with Pull-Down Sprayer',
-      category: 'Kitchen Faucets',
-      currentMonth: '2025-10',
-      currentDemand: 315,
-      forecastedDemand: 320,
-      historicalAvg: 295,
-      historicalDemand: [285, 298, 275, 310, 295, 305],
-      actualDemand: [315, 0, 0, 0, 0, 0],
-      accuracy: 96.2,
-      trend: 'up',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'moving-average',
-      seasonalityFactor: 1.08,
-      safetyStock: 80,
-      reorderPoint: 220,
-      averageLeadTime: 10,
-      uom: 'units'
-    },
-    {
-      id: '3',
-      productCode: 'KIT-COOKWARE-003',
-      productName: 'Non-Stick Cookware Set (7 Pieces)',
-      category: 'Cookware',
-      currentMonth: '2025-10',
-      currentDemand: 402,
-      forecastedDemand: 400,
-      historicalAvg: 415,
-      historicalDemand: [420, 435, 398, 425, 410, 405],
-      actualDemand: [402, 0, 0, 0, 0, 0],
-      accuracy: 97.5,
-      trend: 'down',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'linear-regression',
-      seasonalityFactor: 0.95,
-      safetyStock: 120,
-      reorderPoint: 280,
-      averageLeadTime: 18,
-      uom: 'sets'
-    },
-    {
-      id: '4',
-      productCode: 'KIT-CABINET-004',
-      productName: 'Modular Kitchen Cabinet - Base Unit (36")',
-      category: 'Kitchen Cabinets',
-      currentMonth: '2025-10',
-      currentDemand: 194,
-      forecastedDemand: 195,
-      historicalAvg: 191,
-      historicalDemand: [185, 192, 188, 195, 190, 193],
-      actualDemand: [194, 0, 0, 0, 0, 0],
-      accuracy: 98.9,
-      trend: 'stable',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'moving-average',
-      seasonalityFactor: 1.0,
-      safetyStock: 50,
-      reorderPoint: 135,
-      averageLeadTime: 21,
-      uom: 'units'
-    },
-    {
-      id: '5',
-      productCode: 'KIT-COUNTERTOP-005',
-      productName: 'Granite Countertop - Black Galaxy (Linear Ft)',
-      category: 'Countertops',
-      currentMonth: '2025-10',
-      currentDemand: 575,
-      forecastedDemand: 580,
-      historicalAvg: 540,
-      historicalDemand: [520, 548, 512, 565, 538, 555],
-      actualDemand: [575, 0, 0, 0, 0, 0],
-      accuracy: 95.6,
-      trend: 'up',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'exponential-smoothing',
-      seasonalityFactor: 1.12,
-      safetyStock: 150,
-      reorderPoint: 400,
-      averageLeadTime: 12,
-      uom: 'linear ft'
-    },
-    {
-      id: '6',
-      productCode: 'KIT-APPLIANCE-006',
-      productName: 'Built-in Kitchen Chimney (60cm)',
-      category: 'Kitchen Appliances',
-      currentMonth: '2025-10',
-      currentDemand: 142,
-      forecastedDemand: 145,
-      historicalAvg: 130,
-      historicalDemand: [125, 132, 118, 128, 135, 140],
-      actualDemand: [142, 0, 0, 0, 0, 0],
-      accuracy: 93.1,
-      trend: 'up',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'seasonal-decomposition',
-      seasonalityFactor: 1.18,
-      safetyStock: 35,
-      reorderPoint: 95,
-      averageLeadTime: 16,
-      uom: 'units'
-    },
-    {
-      id: '7',
-      productCode: 'KIT-MIXER-007',
-      productName: 'Electric Mixer Grinder - 750W',
-      category: 'Kitchen Appliances',
-      currentMonth: '2025-10',
-      currentDemand: 688,
-      forecastedDemand: 690,
-      historicalAvg: 687,
-      historicalDemand: [680, 695, 665, 705, 690, 685],
-      actualDemand: [688, 0, 0, 0, 0, 0],
-      accuracy: 98.2,
-      trend: 'stable',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'moving-average',
-      seasonalityFactor: 1.02,
-      safetyStock: 180,
-      reorderPoint: 475,
-      averageLeadTime: 8,
-      uom: 'units'
-    },
-    {
-      id: '8',
-      productCode: 'KIT-STORAGE-008',
-      productName: 'Kitchen Storage Container Set (15 Pieces)',
-      category: 'Kitchen Accessories',
-      currentMonth: '2025-10',
-      currentDemand: 705,
-      forecastedDemand: 700,
-      historicalAvg: 786,
-      historicalDemand: [850, 820, 795, 775, 750, 725],
-      actualDemand: [705, 0, 0, 0, 0, 0],
-      accuracy: 96.8,
-      trend: 'down',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'linear-regression',
-      seasonalityFactor: 0.88,
-      safetyStock: 200,
-      reorderPoint: 480,
-      averageLeadTime: 7,
-      uom: 'sets'
-    },
-    {
-      id: '9',
-      productCode: 'KIT-HOOD-009',
-      productName: 'Range Hood with LED Lighting',
-      category: 'Kitchen Appliances',
-      currentMonth: '2025-10',
-      currentDemand: 118,
-      forecastedDemand: 115,
-      historicalAvg: 103,
-      historicalDemand: [95, 102, 88, 98, 105, 110],
-      actualDemand: [118, 0, 0, 0, 0, 0],
-      accuracy: 91.5,
-      trend: 'up',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'arima',
-      seasonalityFactor: 1.22,
-      safetyStock: 28,
-      reorderPoint: 78,
-      averageLeadTime: 15,
-      uom: 'units'
-    },
-    {
-      id: '10',
-      productCode: 'KIT-SINK-010',
-      productName: 'Undermount Kitchen Sink - Single Bowl',
-      category: 'Kitchen Sinks',
-      currentMonth: '2025-10',
-      currentDemand: 221,
-      forecastedDemand: 220,
-      historicalAvg: 218,
-      historicalDemand: [215, 225, 210, 220, 218, 222],
-      actualDemand: [221, 0, 0, 0, 0, 0],
-      accuracy: 99.1,
-      trend: 'stable',
-      lastUpdated: '2024-10-18',
-      forecastMethod: 'moving-average',
-      seasonalityFactor: 1.0,
-      safetyStock: 60,
-      reorderPoint: 155,
-      averageLeadTime: 13,
-      uom: 'units'
-    }
-  ]);
+  // Demand forecasts (live data)
+  const [forecasts, setForecasts] = useState<DemandForecast[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getDemandPlans()) as any[];
+        const mapped: DemandForecast[] = (raw || []).map((r: any, idx: number) => ({
+          id: String(r.id ?? idx + 1),
+          productCode: String(r.productCode ?? ''),
+          productName: String(r.productName ?? ''),
+          category: String(r.category ?? ''),
+          currentMonth: r.currentMonth != null ? String(r.currentMonth) : undefined,
+          currentDemand: Number(r.currentDemand ?? 0),
+          forecastedDemand: Number(r.forecastedDemand ?? 0),
+          historicalAvg: Number(r.historicalAvg ?? 0),
+          historicalDemand: Array.isArray(r.historicalDemand) ? r.historicalDemand.map(Number) : undefined,
+          actualDemand: Array.isArray(r.actualDemand) ? r.actualDemand.map(Number) : undefined,
+          accuracy: Number(r.accuracy ?? 0),
+          trend: (r.trend ?? 'stable') as DemandForecast['trend'],
+          lastUpdated: String(r.lastUpdated ?? ''),
+          forecastMethod: String(r.forecastMethod ?? 'moving-average'),
+          seasonalityFactor: Number(r.seasonalityFactor ?? 1),
+          safetyStock: Number(r.safetyStock ?? 0),
+          reorderPoint: Number(r.reorderPoint ?? 0),
+          averageLeadTime: r.averageLeadTime != null ? Number(r.averageLeadTime) : undefined,
+          uom: r.uom != null ? String(r.uom) : undefined,
+        }));
+        if (!cancelled) setForecasts(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setForecasts([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Handler functions
   const handleCreateForecast = (forecastData: Partial<DemandForecast>) => {
@@ -337,6 +163,8 @@ export default function DemandPlanningPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

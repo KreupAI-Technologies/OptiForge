@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingDown,
   Calendar,
@@ -19,6 +19,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { FinanceService } from '@/services/finance.service';
 
 interface DepreciationSchedule {
   id: string;
@@ -126,148 +127,105 @@ export default function DepreciationPage() {
     }
   };
 
-  // Sample depreciation schedules
-  const depreciationSchedules: DepreciationSchedule[] = [
-    {
-      id: 'DS001',
-      assetId: 'FA001',
-      assetName: 'Factory Building - Block A',
-      assetCode: 'BLD-2020-001',
-      category: 'Land & Building',
-      depreciationMethod: 'Straight Line',
-      purchaseValue: 50000000,
-      salvageValue: 5000000,
-      usefulLife: 30,
-      startDate: '2020-01-15',
-      endDate: '2050-01-14',
-      annualDepreciation: 1500000,
-      monthlyDepreciation: 125000,
-      accumulatedDepreciation: 7500000,
-      netBookValue: 42500000,
-      remainingLife: 25,
-      status: 'Active'
-    },
-    {
-      id: 'DS002',
-      assetId: 'FA002',
-      assetName: 'CNC Machine - DMG Mori',
-      assetCode: 'MCH-2021-005',
-      category: 'Plant & Machinery',
-      depreciationMethod: 'Written Down Value',
-      purchaseValue: 8500000,
-      salvageValue: 850000,
-      usefulLife: 10,
-      startDate: '2021-06-10',
-      endDate: '2031-06-09',
-      annualDepreciation: 680000,
-      monthlyDepreciation: 56667,
-      accumulatedDepreciation: 2720000,
-      netBookValue: 5780000,
-      remainingLife: 6.5,
-      status: 'Active'
-    },
-    {
-      id: 'DS003',
-      assetId: 'FA003',
-      assetName: 'Delivery Truck - Tata LPT 1618',
-      assetCode: 'VEH-2022-012',
-      category: 'Vehicles',
-      depreciationMethod: 'Written Down Value',
-      purchaseValue: 2200000,
-      salvageValue: 220000,
-      usefulLife: 8,
-      startDate: '2022-03-20',
-      endDate: '2030-03-19',
-      annualDepreciation: 247500,
-      monthlyDepreciation: 20625,
-      accumulatedDepreciation: 618750,
-      netBookValue: 1581250,
-      remainingLife: 5.3,
-      status: 'Active'
-    },
-    {
-      id: 'DS004',
-      assetId: 'FA004',
-      assetName: 'Dell Workstation - Precision 5820',
-      assetCode: 'COM-2023-045',
-      category: 'Computers',
-      depreciationMethod: 'Straight Line',
-      purchaseValue: 180000,
-      salvageValue: 18000,
-      usefulLife: 3,
-      startDate: '2023-08-15',
-      endDate: '2026-08-14',
-      annualDepreciation: 54000,
-      monthlyDepreciation: 4500,
-      accumulatedDepreciation: 72000,
-      netBookValue: 108000,
-      remainingLife: 1.6,
-      status: 'Active'
-    }
-  ];
+  // Depreciation schedules (derived from fixed assets) + entries, loaded from backend
+  const [depreciationSchedules, setDepreciationSchedules] = useState<DepreciationSchedule[]>([]);
+  const [depreciationEntries, setDepreciationEntries] = useState<DepreciationEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Sample depreciation entries
-  const depreciationEntries: DepreciationEntry[] = [
-    {
-      id: 'DE001',
-      date: '2025-01-31',
-      assetId: 'FA001',
-      assetName: 'Factory Building - Block A',
-      period: 'Jan 2025',
-      depreciationAmount: 125000,
-      accumulatedDepreciation: 7625000,
-      netBookValue: 42375000,
-      journalEntryId: 'JE-2025-001',
-      posted: true
-    },
-    {
-      id: 'DE002',
-      date: '2025-01-31',
-      assetId: 'FA002',
-      assetName: 'CNC Machine - DMG Mori',
-      period: 'Jan 2025',
-      depreciationAmount: 56667,
-      accumulatedDepreciation: 2776667,
-      netBookValue: 5723333,
-      journalEntryId: 'JE-2025-001',
-      posted: true
-    },
-    {
-      id: 'DE003',
-      date: '2025-01-31',
-      assetId: 'FA003',
-      assetName: 'Delivery Truck - Tata LPT 1618',
-      period: 'Jan 2025',
-      depreciationAmount: 20625,
-      accumulatedDepreciation: 639375,
-      netBookValue: 1560625,
-      journalEntryId: 'JE-2025-001',
-      posted: true
-    },
-    {
-      id: 'DE004',
-      date: '2025-01-31',
-      assetId: 'FA004',
-      assetName: 'Dell Workstation - Precision 5820',
-      period: 'Jan 2025',
-      depreciationAmount: 4500,
-      accumulatedDepreciation: 76500,
-      netBookValue: 103500,
-      posted: false
-    },
-    {
-      id: 'DE005',
-      date: '2024-12-31',
-      assetId: 'FA001',
-      assetName: 'Factory Building - Block A',
-      period: 'Dec 2024',
-      depreciationAmount: 125000,
-      accumulatedDepreciation: 7500000,
-      netBookValue: 42500000,
-      journalEntryId: 'JE-2024-012',
-      posted: true
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getFixedAssets()) as any[];
+        const methodMap: Record<string, string> = {
+          STRAIGHT_LINE: 'Straight Line',
+          WRITTEN_DOWN_VALUE: 'Written Down Value',
+          DOUBLE_DECLINING: 'Double Declining',
+          UNITS_OF_PRODUCTION: 'Units of Production',
+        };
+        const schedules: DepreciationSchedule[] = raw.map((a) => {
+          const purchaseValue = Number(a.acquisitionCost ?? 0);
+          const accumulated = Number(a.accumulatedDepreciation ?? 0);
+          const netBookValue = Number(a.netBookValue ?? purchaseValue - accumulated);
+          const usefulLife = Number(a.usefulLifeYears ?? 0);
+          const rate = Number(a.depreciationRate ?? 0);
+          const annualDepreciation =
+            rate > 0
+              ? (purchaseValue * rate) / 100
+              : usefulLife > 0
+                ? (purchaseValue - Number(a.salvageValue ?? 0)) / usefulLife
+                : 0;
+          const statusRaw = String(a.status ?? '').toUpperCase();
+          const status: DepreciationSchedule['status'] =
+            statusRaw === 'DISPOSED' || statusRaw === 'COMPLETED'
+              ? 'Completed'
+              : statusRaw === 'INACTIVE' || a.isDepreciable === false
+                ? 'Paused'
+                : 'Active';
+          return {
+            id: a.id,
+            assetId: a.id,
+            assetName: a.assetName ?? '-',
+            assetCode: a.assetCode ?? '-',
+            category: a.assetCategory ?? '-',
+            depreciationMethod: methodMap[a.depreciationMethod] ?? String(a.depreciationMethod ?? '-'),
+            purchaseValue,
+            salvageValue: Number(a.salvageValue ?? 0),
+            usefulLife,
+            startDate: a.depreciationStartDate ?? a.acquisitionDate ?? '',
+            endDate: a.nextDepreciationDate ?? '',
+            annualDepreciation,
+            monthlyDepreciation: annualDepreciation / 12,
+            accumulatedDepreciation: accumulated,
+            netBookValue,
+            remainingLife:
+              annualDepreciation > 0 ? Math.max(0, netBookValue / annualDepreciation) : 0,
+            status,
+          };
+        });
+        const entries: DepreciationEntry[] = raw
+          .filter((a) => Number(a.accumulatedDepreciation ?? 0) > 0)
+          .map((a) => ({
+            id: `DE-${a.id}`,
+            date: a.lastDepreciationDate ?? a.depreciationStartDate ?? '',
+            assetId: a.id,
+            assetName: a.assetName ?? '-',
+            period: a.lastDepreciationDate
+              ? new Date(a.lastDepreciationDate).toLocaleDateString('en-IN', {
+                  month: 'short',
+                  year: 'numeric',
+                })
+              : '-',
+            depreciationAmount:
+              (Number(a.depreciationRate ?? 0) > 0
+                ? (Number(a.acquisitionCost ?? 0) * Number(a.depreciationRate)) / 100
+                : 0) / 12,
+            accumulatedDepreciation: Number(a.accumulatedDepreciation ?? 0),
+            netBookValue: Number(a.netBookValue ?? 0),
+            posted: Boolean(a.lastDepreciationDate),
+          }));
+        if (!cancelled) {
+          setDepreciationSchedules(schedules);
+          setDepreciationEntries(entries);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load depreciation data');
+          setDepreciationSchedules([]);
+          setDepreciationEntries([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredSchedules = depreciationSchedules.filter(schedule => {
     const matchesSearch =
@@ -346,6 +304,17 @@ export default function DepreciationPage() {
                   {toast.type === 'info' && <Play className="w-5 h-5 text-blue-600" />}
                   <span className="font-medium">{toast.message}</span>
                 </div>
+              </div>
+            )}
+
+            {isLoading && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                Loading depreciation data…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {loadError}
               </div>
             )}
 

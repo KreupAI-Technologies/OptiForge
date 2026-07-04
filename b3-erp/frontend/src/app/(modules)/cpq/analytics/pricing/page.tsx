@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   DollarSign,
   TrendingUp,
@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { cpqAnalyticsLiveService } from '@/services/cpq/cpq-analytics-live.service'
 import {
   LineChart,
   Line,
@@ -32,85 +33,87 @@ import {
   ZAxis
 } from 'recharts'
 
+interface PricingDiscountTrendRow { month: string; avgDiscount: number; maxDiscount: number; minDiscount: number; margin: number }
+interface PricingMarginTrendRow { month: string; targetMargin: number; actualMargin: number; deals: number }
+interface PricingDistRow { range: string; count: number; percentage: number; avgMargin: number }
+interface PriceSensitivityRow { category: string; elasticity: number; avgDiscount: number; conversionImpact: string }
+interface CompetitivePricingRow { product: string; us: number; competitor1: number; competitor2: number; margin: number }
+interface DiscountVsDealSizeRow { dealSize: number; discount: number; won: number }
+interface PricingTierRow { tier: string; deals: number; avgDiscount: number; margin: number; conversionRate: number }
+
+const MARGIN_TARGET = 28
+
 export default function CPQAnalyticsPricingPage() {
   const [timeRange, setTimeRange] = useState('last-6-months')
 
-  // Discount trend over time
-  const discountTrend = [
-    { month: 'Apr', avgDiscount: 12.5, maxDiscount: 22, minDiscount: 0, margin: 28.5 },
-    { month: 'May', avgDiscount: 13.2, maxDiscount: 25, minDiscount: 0, margin: 27.8 },
-    { month: 'Jun', avgDiscount: 14.1, maxDiscount: 28, minDiscount: 0, margin: 26.9 },
-    { month: 'Jul', avgDiscount: 13.8, maxDiscount: 26, minDiscount: 0, margin: 27.2 },
-    { month: 'Aug', avgDiscount: 15.2, maxDiscount: 30, minDiscount: 0, margin: 25.8 },
-    { month: 'Sep', avgDiscount: 14.5, maxDiscount: 28, minDiscount: 0, margin: 26.5 }
-  ]
+  // Data arrays wired to GET /cpq/analytics/dashboards/pricing (aggregates
+  // cpq_quotes). discountTrend, marginTrend and discountDistribution come from
+  // the endpoint. Sensitivity/competitive/scatter/tier cuts have no backing
+  // field and stay empty until the API exposes them.
+  const [discountTrend, setDiscountTrend] = useState<PricingDiscountTrendRow[]>([])
+  const [marginTrend, setMarginTrend] = useState<PricingMarginTrendRow[]>([])
+  const [discountDistribution, setDiscountDistribution] = useState<PricingDistRow[]>([])
+  const [priceSensitivity, setPriceSensitivity] = useState<PriceSensitivityRow[]>([])
+  const [competitivePricing, setCompetitivePricing] = useState<CompetitivePricingRow[]>([])
+  const [discountVsDealSize, setDiscountVsDealSize] = useState<DiscountVsDealSizeRow[]>([])
+  const [pricingTiers, setPricingTiers] = useState<PricingTierRow[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Margin trend
-  const marginTrend = [
-    { month: 'Apr', targetMargin: 28, actualMargin: 28.5, deals: 145 },
-    { month: 'May', targetMargin: 28, actualMargin: 27.8, deals: 168 },
-    { month: 'Jun', targetMargin: 28, actualMargin: 26.9, deals: 192 },
-    { month: 'Jul', targetMargin: 28, actualMargin: 27.2, deals: 178 },
-    { month: 'Aug', targetMargin: 28, actualMargin: 25.8, deals: 205 },
-    { month: 'Sep', targetMargin: 28, actualMargin: 26.5, deals: 234 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const dash = await cpqAnalyticsLiveService.getPricingDashboard()
 
-  // Discount distribution
-  const discountDistribution = [
-    { range: '0%', count: 95, percentage: 35.6, avgMargin: 32.5 },
-    { range: '1-5%', count: 68, percentage: 25.5, avgMargin: 30.2 },
-    { range: '6-10%', count: 52, percentage: 19.5, avgMargin: 27.8 },
-    { range: '11-15%', count: 32, percentage: 12.0, avgMargin: 24.5 },
-    { range: '16-20%', count: 15, percentage: 5.6, avgMargin: 20.2 },
-    { range: '> 20%', count: 5, percentage: 1.8, avgMargin: 16.8 }
-  ]
+        const dTrend: PricingDiscountTrendRow[] = (dash.discountTrend ?? []).map((t) => ({
+          month: t.month,
+          avgDiscount: Number(t.avgDiscount || 0),
+          maxDiscount: 0,
+          minDiscount: 0,
+          margin: 0,
+        }))
 
-  // Price sensitivity by product category
-  const priceSensitivity = [
-    { category: 'Modular Kitchens', elasticity: -1.8, avgDiscount: 12.5, conversionImpact: 'Medium' },
-    { category: 'Wardrobes', elasticity: -2.4, avgDiscount: 15.2, conversionImpact: 'High' },
-    { category: 'Living Room', elasticity: -1.5, avgDiscount: 11.8, conversionImpact: 'Low' },
-    { category: 'Office Furniture', elasticity: -2.8, avgDiscount: 18.5, conversionImpact: 'High' },
-    { category: 'Bathroom Vanities', elasticity: -1.2, avgDiscount: 9.5, conversionImpact: 'Low' }
-  ]
+        const mTrend: PricingMarginTrendRow[] = (dash.marginTrend ?? []).map((t) => ({
+          month: t.month,
+          targetMargin: MARGIN_TARGET,
+          actualMargin: Number(t.avgMargin || 0),
+          deals: 0,
+        }))
 
-  // Competitive pricing comparison
-  const competitivePricing = [
-    { product: 'Premium Modular Kitchen', us: 420000, competitor1: 485000, competitor2: 445000, margin: 28.5 },
-    { product: 'Standard Modular Kitchen', us: 285000, competitor1: 315000, competitor2: 295000, margin: 26.8 },
-    { product: 'Walk-in Wardrobe', us: 325000, competitor1: 365000, competitor2: 345000, margin: 25.2 },
-    { product: 'Sliding Wardrobe', us: 185000, competitor1: 215000, competitor2: 195000, margin: 24.5 },
-    { product: 'Office Workstation', us: 425000, competitor1: 465000, competitor2: 455000, margin: 22.8 }
-  ]
+        // The pricing dashboard buckets discount-vs-deal-size by range; surface
+        // that as the discount distribution table/chart.
+        const dist: PricingDistRow[] = (dash.discountVsDealSize ?? []).map((d) => ({
+          range: d.range,
+          count: Number(d.count || 0),
+          percentage: 0,
+          avgMargin: 0,
+        }))
 
-  // Discount vs Deal Size scatter
-  const discountVsDealSize = [
-    { dealSize: 1.5, discount: 5, won: 1 },
-    { dealSize: 2.8, discount: 8, won: 1 },
-    { dealSize: 3.5, discount: 12, won: 1 },
-    { dealSize: 4.2, discount: 10, won: 1 },
-    { dealSize: 5.8, discount: 15, won: 1 },
-    { dealSize: 6.5, discount: 18, won: 1 },
-    { dealSize: 7.2, discount: 14, won: 1 },
-    { dealSize: 8.5, discount: 20, won: 1 },
-    { dealSize: 9.8, discount: 16, won: 1 },
-    { dealSize: 12.5, discount: 22, won: 1 },
-    { dealSize: 15.2, discount: 25, won: 1 },
-    { dealSize: 2.2, discount: 18, won: 0 },
-    { dealSize: 3.8, discount: 22, won: 0 },
-    { dealSize: 4.5, discount: 25, won: 0 },
-    { dealSize: 5.2, discount: 28, won: 0 },
-    { dealSize: 6.8, discount: 24, won: 0 },
-    { dealSize: 8.2, discount: 30, won: 0 }
-  ]
-
-  // Pricing effectiveness by tier
-  const pricingTiers = [
-    { tier: 'Premium (>₹10L)', deals: 45, avgDiscount: 18.5, margin: 22.5, conversionRate: 35 },
-    { tier: 'Mid-Range (₹5L-₹10L)', deals: 125, avgDiscount: 14.2, margin: 25.8, conversionRate: 42 },
-    { tier: 'Standard (₹2L-₹5L)', deals: 185, avgDiscount: 12.5, margin: 28.2, conversionRate: 48 },
-    { tier: 'Entry (<₹2L)', deals: 112, avgDiscount: 8.5, margin: 31.5, conversionRate: 58 }
-  ]
+        if (!cancelled) {
+          setDiscountTrend(dTrend)
+          setMarginTrend(mTrend)
+          setDiscountDistribution(dist)
+          setPriceSensitivity([])
+          setCompetitivePricing([])
+          setDiscountVsDealSize([])
+          setPricingTiers([])
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pricing analytics')
+          setDiscountTrend([]); setMarginTrend([]); setDiscountDistribution([])
+          setPriceSensitivity([]); setCompetitivePricing([]); setDiscountVsDealSize([]); setPricingTiers([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -141,6 +144,13 @@ export default function CPQAnalyticsPricingPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 text-sm text-gray-500">Loading pricing analytics...</div>
+      )}
+      {!isLoading && loadError && (
+        <div className="mb-3 text-sm text-red-600">{loadError}</div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">

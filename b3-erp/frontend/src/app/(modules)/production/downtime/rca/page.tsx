@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, AlertTriangle, CheckCircle, Clock, FileText, Users, Plus } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   CreateRCAModal, ViewRCADetailsModal, AddRootCauseModal,
   AddCorrectiveActionModal, AddPreventiveActionModal,
@@ -81,298 +82,91 @@ export default function DowntimeRCAPage() {
   const [selectedAction, setSelectedAction] = useState<any>(null);
   const [selectedActionType, setSelectedActionType] = useState<'corrective' | 'preventive'>('corrective');
 
-  // Mock RCA investigations
-  const rcaInvestigations: RCAInvestigation[] = [
-    {
-      id: '1',
-      rcaNumber: 'RCA-2025-015',
-      downtimeEvent: 'DT-2025-0156',
-      equipment: 'ASSY-LINE-01 - Assembly Conveyor Line #1',
-      incidentDate: '2025-10-20',
-      severity: 'critical',
-      status: 'investigating',
-      investigationLead: 'Maintenance Manager',
-      teamMembers: ['Maintenance Technician', 'Production Supervisor', 'Quality Engineer'],
-      problemStatement: 'Assembly conveyor line #1 experienced complete motor failure resulting in 165 minutes of unplanned downtime, affecting 2 work orders and causing production loss of 85 units valued at ₹425,000.',
-      immediateActions: [
-        'Isolated power supply to prevent safety hazards',
-        'Redirected work orders to Assembly Line #2',
-        'Ordered replacement motor from supplier',
-        'Initiated emergency maintenance protocol'
-      ],
-      rootCauses: [
-        {
-          id: '1',
-          cause: 'Motor bearing seized due to inadequate lubrication',
-          category: 'equipment',
-          whyLevel: 5,
-          contribution: 60
-        },
-        {
-          id: '2',
-          cause: 'Preventive maintenance schedule not followed consistently',
-          category: 'process',
-          whyLevel: 4,
-          contribution: 30
-        },
-        {
-          id: '3',
-          cause: 'Vibration monitoring system not detecting early warning signs',
-          category: 'equipment',
-          whyLevel: 3,
-          contribution: 10
-        }
-      ],
-      correctiveActions: [
-        {
-          id: '1',
-          action: 'Replace failed motor with new unit',
-          assignedTo: 'Maintenance Team Lead',
-          targetDate: '2025-10-22',
-          status: 'in-progress',
-          completionDate: null
-        },
-        {
-          id: '2',
-          action: 'Lubricate all conveyor motors as per specification',
-          assignedTo: 'Maintenance Technician',
-          targetDate: '2025-10-23',
-          status: 'pending',
-          completionDate: null
-        },
-        {
-          id: '3',
-          action: 'Calibrate vibration sensors on all assembly lines',
-          assignedTo: 'Instrumentation Team',
-          targetDate: '2025-10-25',
-          status: 'pending',
-          completionDate: null
-        }
-      ],
-      preventiveActions: [
-        {
-          id: '1',
-          action: 'Implement automated lubrication reminder system',
-          assignedTo: 'Maintenance Planner',
-          targetDate: '2025-11-15',
-          status: 'pending',
-          completionDate: null
-        },
-        {
-          id: '2',
-          action: 'Upgrade vibration monitoring to predictive maintenance platform',
-          assignedTo: 'Engineering Manager',
-          targetDate: '2025-12-01',
-          status: 'pending',
-          completionDate: null
-        },
-        {
-          id: '3',
-          action: 'Conduct maintenance team training on PM importance',
-          assignedTo: 'HR Training',
-          targetDate: '2025-11-10',
-          status: 'pending',
-          completionDate: null
-        }
-      ],
-      estimatedCost: 550000,
-      actualCost: null,
-      targetCloseDate: '2025-11-05',
-      actualCloseDate: null,
-      verifiedBy: null,
-      verificationDate: null
-    },
-    {
-      id: '2',
-      rcaNumber: 'RCA-2025-014',
-      downtimeEvent: 'DT-2025-0150',
-      equipment: 'CNC-CUT-01 - CNC Cutting Machine #1',
-      incidentDate: '2025-10-18',
-      severity: 'high',
-      status: 'completed',
-      investigationLead: 'Quality Manager',
-      teamMembers: ['Calibration Engineer', 'CNC Operator', 'Production Manager'],
-      problemStatement: 'CNC cutting machine #1 produced parts with dimensional non-conformance, requiring 165 minutes of calibration downtime and scrapping of 50 units valued at ₹245,000.',
-      immediateActions: [
-        'Stopped production immediately upon detection',
-        'Quarantined all parts produced in last 4 hours',
-        'Performed emergency calibration',
-        'Verified calibration with test parts'
-      ],
-      rootCauses: [
-        {
-          id: '1',
-          cause: 'Cutting tool worn beyond tolerance limits',
-          category: 'equipment',
-          whyLevel: 5,
-          contribution: 50
-        },
-        {
-          id: '2',
-          cause: 'Tool wear monitoring system deactivated by operator',
-          category: 'people',
-          whyLevel: 4,
-          contribution: 35
-        },
-        {
-          id: '3',
-          cause: 'Inadequate operator training on tool monitoring',
-          category: 'method',
-          whyLevel: 3,
-          contribution: 15
-        }
-      ],
-      correctiveActions: [
-        {
-          id: '1',
-          action: 'Replaced worn cutting tools with new set',
-          assignedTo: 'Maintenance Technician',
-          targetDate: '2025-10-18',
-          status: 'completed',
-          completionDate: '2025-10-18'
-        },
-        {
-          id: '2',
-          action: 'Recalibrated CNC machine to specifications',
-          assignedTo: 'Calibration Team',
-          targetDate: '2025-10-18',
-          status: 'completed',
-          completionDate: '2025-10-18'
-        },
-        {
-          id: '3',
-          action: 'Inspected and approved first article after calibration',
-          assignedTo: 'Quality Inspector',
-          targetDate: '2025-10-18',
-          status: 'completed',
-          completionDate: '2025-10-18'
-        }
-      ],
-      preventiveActions: [
-        {
-          id: '1',
-          action: 'Implement automatic tool wear alerts - cannot be disabled',
-          assignedTo: 'IT Department',
-          targetDate: '2025-10-25',
-          status: 'completed',
-          completionDate: '2025-10-24'
-        },
-        {
-          id: '2',
-          action: 'Conduct refresher training for all CNC operators',
-          assignedTo: 'Training Coordinator',
-          targetDate: '2025-10-30',
-          status: 'completed',
-          completionDate: '2025-10-28'
-        },
-        {
-          id: '3',
-          action: 'Update work instruction with tool monitoring mandatory step',
-          assignedTo: 'Process Engineer',
-          targetDate: '2025-10-22',
-          status: 'completed',
-          completionDate: '2025-10-21'
-        }
-      ],
-      estimatedCost: 285000,
-      actualCost: 268000,
-      targetCloseDate: '2025-10-30',
-      actualCloseDate: '2025-10-29',
-      verifiedBy: 'Operations Head',
-      verificationDate: '2025-10-29'
-    },
-    {
-      id: '3',
-      rcaNumber: 'RCA-2025-013',
-      downtimeEvent: 'DT-2025-0148',
-      equipment: 'POLISH-01 - Polishing Machine #1',
-      incidentDate: '2025-10-16',
-      severity: 'high',
-      status: 'implemented',
-      investigationLead: 'Production Manager',
-      teamMembers: ['Maintenance Supervisor', 'Safety Officer', 'Operator'],
-      problemStatement: 'Polishing machine motor overheated and triggered safety shutdown, resulting in 185 minutes of downtime and quality issues on 25 units.',
-      immediateActions: [
-        'Activated safety shutdown protocol',
-        'Allowed motor to cool down completely',
-        'Inspected motor and cooling system',
-        'Cleaned air intake filters'
-      ],
-      rootCauses: [
-        {
-          id: '1',
-          cause: 'Air intake filters clogged with dust - 80% blockage',
-          category: 'equipment',
-          whyLevel: 5,
-          contribution: 70
-        },
-        {
-          id: '2',
-          cause: 'Filter cleaning not included in daily checklist',
-          category: 'process',
-          whyLevel: 4,
-          contribution: 20
-        },
-        {
-          id: '3',
-          cause: 'Environmental dust levels higher than design specification',
-          category: 'environment',
-          whyLevel: 2,
-          contribution: 10
-        }
-      ],
-      correctiveActions: [
-        {
-          id: '1',
-          action: 'Replaced all air intake filters',
-          assignedTo: 'Maintenance Team',
-          targetDate: '2025-10-16',
-          status: 'completed',
-          completionDate: '2025-10-16'
-        },
-        {
-          id: '2',
-          action: 'Deep cleaned motor cooling system',
-          assignedTo: 'Maintenance Team',
-          targetDate: '2025-10-16',
-          status: 'completed',
-          completionDate: '2025-10-16'
-        }
-      ],
-      preventiveActions: [
-        {
-          id: '1',
-          action: 'Added daily filter inspection to operator checklist',
-          assignedTo: 'Production Supervisor',
-          targetDate: '2025-10-18',
-          status: 'completed',
-          completionDate: '2025-10-17'
-        },
-        {
-          id: '2',
-          action: 'Installed automatic filter pressure sensors with alerts',
-          assignedTo: 'Engineering Team',
-          targetDate: '2025-10-28',
-          status: 'completed',
-          completionDate: '2025-10-26'
-        },
-        {
-          id: '3',
-          action: 'Improved ventilation in finishing department',
-          assignedTo: 'Facilities Team',
-          targetDate: '2025-11-15',
-          status: 'completed',
-          completionDate: '2025-11-12'
-        }
-      ],
-      estimatedCost: 165000,
-      actualCost: 148000,
-      targetCloseDate: '2025-11-15',
-      actualCloseDate: '2025-11-12',
-      verifiedBy: 'Maintenance Manager',
-      verificationDate: '2025-11-13'
-    }
-  ];
+  // RCA investigations
+  const [rcaInvestigations, setRcaInvestigations] = useState<RCAInvestigation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getRootCauseAnalyses()) as any[];
+        const mapped: RCAInvestigation[] = (raw || []).map((r: any, idx: number) => {
+          const severityRaw = String(r?.severity ?? 'medium');
+          const severity: RCAInvestigation['severity'] =
+            severityRaw === 'critical' || severityRaw === 'high' ? severityRaw : 'medium';
+          const statusRaw = String(r?.status ?? 'open');
+          const status: RCAInvestigation['status'] =
+            statusRaw === 'investigating' || statusRaw === 'completed' || statusRaw === 'implemented'
+              ? statusRaw
+              : 'open';
+          const rootCauses: RootCause[] = (Array.isArray(r?.rootCauses) ? r.rootCauses : []).map(
+            (rc: any, i: number) => {
+              const catRaw = String(rc?.category ?? 'equipment');
+              const category: RootCause['category'] =
+                catRaw === 'process' || catRaw === 'people' || catRaw === 'material' ||
+                catRaw === 'method' || catRaw === 'environment'
+                  ? (catRaw as RootCause['category'])
+                  : 'equipment';
+              return {
+                id: String(rc?.id ?? i),
+                cause: String(rc?.cause ?? ''),
+                category,
+                whyLevel: Number(rc?.whyLevel ?? 0),
+                contribution: Number(rc?.contribution ?? 0),
+              };
+            }
+          );
+          const mapAction = (a: any, i: number): CorrectiveAction => {
+            const st = String(a?.status ?? 'pending');
+            const actionStatus: CorrectiveAction['status'] =
+              st === 'in-progress' || st === 'completed' ? st : 'pending';
+            return {
+              id: String(a?.id ?? i),
+              action: String(a?.action ?? ''),
+              assignedTo: String(a?.assignedTo ?? ''),
+              targetDate: String(a?.targetDate ?? ''),
+              status: actionStatus,
+              completionDate: a?.completionDate != null ? String(a.completionDate) : null,
+            };
+          };
+          const correctiveActions: CorrectiveAction[] = (
+            Array.isArray(r?.correctiveActions) ? r.correctiveActions : []
+          ).map(mapAction);
+          const preventiveActions: PreventiveAction[] = (
+            Array.isArray(r?.preventiveActions) ? r.preventiveActions : []
+          ).map(mapAction);
+          return {
+            id: String(r?.id ?? idx),
+            rcaNumber: String(r?.rcaNumber ?? ''),
+            downtimeEvent: String(r?.downtimeEvent ?? ''),
+            equipment: String(r?.equipment ?? ''),
+            incidentDate: String(r?.incidentDate ?? ''),
+            severity,
+            status,
+            investigationLead: String(r?.investigationLead ?? ''),
+            teamMembers: (Array.isArray(r?.teamMembers) ? r.teamMembers : []).map((m: any) => String(m)),
+            problemStatement: String(r?.problemStatement ?? ''),
+            immediateActions: (Array.isArray(r?.immediateActions) ? r.immediateActions : []).map((a: any) => String(a)),
+            rootCauses,
+            correctiveActions,
+            preventiveActions,
+            estimatedCost: Number(r?.estimatedCost ?? 0),
+            actualCost: r?.actualCost != null ? Number(r.actualCost) : null,
+            targetCloseDate: String(r?.targetCloseDate ?? ''),
+            actualCloseDate: r?.actualCloseDate != null ? String(r.actualCloseDate) : null,
+            verifiedBy: r?.verifiedBy != null ? String(r.verifiedBy) : null,
+            verificationDate: r?.verificationDate != null ? String(r.verificationDate) : null,
+          };
+        });
+        if (!cancelled) setRcaInvestigations(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRcaInvestigations([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredInvestigations = rcaInvestigations.filter(rca => {
     return filterStatus === 'all' || rca.status === filterStatus;
@@ -557,6 +351,8 @@ export default function DowntimeRCAPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">

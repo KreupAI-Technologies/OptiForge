@@ -1,69 +1,49 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ReportDetailPage from '@/components/reports/ReportDetailPage';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
 import { Star } from 'lucide-react';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function PerformanceByDepartmentContent() {
     const searchParams = useSearchParams();
     const department = searchParams.get('department') || 'All Departments';
 
-    // Mock data for the list
-    const performanceData = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            name: 'John Doe',
-            department: 'Production',
-            role: 'Operator',
-            rating: 4.5,
-            lastReview: '2025-10-15',
-            status: 'Excellent',
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            name: 'Jane Smith',
-            department: 'Production',
-            role: 'Supervisor',
-            rating: 4.8,
-            lastReview: '2025-10-15',
-            status: 'Outstanding',
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            name: 'Bob Johnson',
-            department: 'Engineering',
-            role: 'Engineer',
-            rating: 3.8,
-            lastReview: '2025-09-20',
-            status: 'Good',
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            name: 'Alice Brown',
-            department: 'Sales',
-            role: 'Sales Rep',
-            rating: 4.2,
-            lastReview: '2025-10-01',
-            status: 'Very Good',
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            name: 'Charlie Davis',
-            department: 'Production',
-            role: 'Operator',
-            rating: 3.0,
-            lastReview: '2025-08-15',
-            status: 'Average',
-        },
-    ];
+    const [performanceData, setPerformanceData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('hr/performance-reviews');
+                const mapped = raw.map((r: any) => ({
+                    id: r.id ?? '',
+                    employeeId: r.employeeId ?? r.employeeCode ?? '',
+                    name: r.employeeName ?? r.name ?? '',
+                    department: r.department ?? '',
+                    role: r.role ?? r.designation ?? '',
+                    rating: Number(r.rating ?? r.score ?? 0),
+                    lastReview: r.reviewPeriod ?? r.reviewDate ?? r.lastReview ?? '',
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setPerformanceData(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setPerformanceData([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Filter data based on department
     const filteredData = department === 'All Departments'
@@ -92,6 +72,9 @@ function PerformanceByDepartmentContent() {
                 { label: department }
             ]}
         >
+            <>
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -135,6 +118,7 @@ function PerformanceByDepartmentContent() {
                     </table>
                 </div>
             </div>
+            </>
         </ReportDetailPage>
     );
 }

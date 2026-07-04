@@ -1,20 +1,41 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function SalespersonContent() {
     const router = useRouter();
 
-    const orders = [
-        { id: 'ORD-2025-002', date: '2025-01-16', customer: 'Alpha Corp', value: 250000, status: 'Delivered' },
-        { id: 'ORD-2025-005', date: '2025-01-19', customer: 'Beta Industries', value: 180000, status: 'Shipped' },
-        { id: 'ORD-2025-009', date: '2025-01-23', customer: 'Gamma Solutions', value: 420000, status: 'Processing' },
-        { id: 'ORD-2025-015', date: '2025-01-28', customer: 'Delta Group', value: 110000, status: 'Confirmed' },
-    ];
+    const [orders, setOrders] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('api/v1/sales/orders');
+                const mapped = raw.map((r: any) => ({
+                    id: r.orderNumber ?? r.id,
+                    date: r.orderDate ?? '',
+                    customer: r.customerName ?? '',
+                    value: Number(r.totalAmount ?? r.grandTotal ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setOrders(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -27,6 +48,8 @@ function SalespersonContent() {
                 { label: 'Salesperson' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Recent Orders</CardTitle>

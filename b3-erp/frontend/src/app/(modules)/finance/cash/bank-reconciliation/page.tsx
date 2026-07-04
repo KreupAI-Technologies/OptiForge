@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   CheckCircle,
@@ -18,6 +18,7 @@ import {
   Check,
   X
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface BankTransaction {
   id: string;
@@ -49,103 +50,73 @@ export default function BankReconciliationPage() {
   const [showUnmatchedOnly, setShowUnmatchedOnly] = useState(false);
   const [activeTab, setActiveTab] = useState<'bank' | 'erp' | 'matched'>('bank');
 
-  // Sample bank statement data
-  const bankTransactions: BankTransaction[] = [
-    {
-      id: 'BT001',
-      date: '2025-01-15',
-      description: 'Customer Payment - ABC Corp',
-      reference: 'NEFT/123456',
-      debit: 0,
-      credit: 500000,
-      balance: 15750000,
-      matched: true,
-      erpTransactionId: 'ERP001'
-    },
-    {
-      id: 'BT002',
-      date: '2025-01-14',
-      description: 'Vendor Payment - XYZ Suppliers',
-      reference: 'RTGS/789012',
-      debit: 250000,
-      credit: 0,
-      balance: 15250000,
-      matched: true,
-      erpTransactionId: 'ERP002'
-    },
-    {
-      id: 'BT003',
-      date: '2025-01-13',
-      description: 'Bank Charges',
-      reference: 'CHG/2025/01',
-      debit: 1500,
-      credit: 0,
-      balance: 15500000,
-      matched: false
-    },
-    {
-      id: 'BT004',
-      date: '2025-01-12',
-      description: 'Interest Credit',
-      reference: 'INT/2025/01',
-      debit: 0,
-      credit: 25000,
-      balance: 15501500,
-      matched: false
-    },
-    {
-      id: 'BT005',
-      date: '2025-01-11',
-      description: 'Customer Payment - DEF Ltd',
-      reference: 'IMPS/456789',
-      debit: 0,
-      credit: 750000,
-      balance: 15476500,
-      matched: false
-    }
-  ];
+  // Bank + ERP transactions loaded from backend (payments + cash dashboard)
+  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
+  const [erpTransactions, setErpTransactions] = useState<ERPTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Sample ERP transactions
-  const erpTransactions: ERPTransaction[] = [
-    {
-      id: 'ERP001',
-      date: '2025-01-15',
-      description: 'Payment Received - Invoice INV-2025-001',
-      reference: 'PMT-001',
-      debit: 0,
-      credit: 500000,
-      matched: true,
-      bankTransactionId: 'BT001'
-    },
-    {
-      id: 'ERP002',
-      date: '2025-01-14',
-      description: 'Payment Made - Bill BILL-2025-001',
-      reference: 'PMT-002',
-      debit: 250000,
-      credit: 0,
-      matched: true,
-      bankTransactionId: 'BT002'
-    },
-    {
-      id: 'ERP003',
-      date: '2025-01-10',
-      description: 'Payment Received - Invoice INV-2025-002',
-      reference: 'PMT-003',
-      debit: 0,
-      credit: 300000,
-      matched: false
-    },
-    {
-      id: 'ERP004',
-      date: '2025-01-09',
-      description: 'Payment Made - Bill BILL-2025-002',
-      reference: 'PMT-004',
-      debit: 150000,
-      credit: 0,
-      matched: false
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [payments, dash] = await Promise.all([
+          FinanceService.getPayments() as Promise<any[]>,
+          FinanceService.getCashDashboard() as Promise<any>,
+        ]);
+        const bankRows: any[] = Array.isArray(dash?.transactions) ? dash.transactions : [];
+        let running = Number(dash?.stats?.currentBalance ?? 0);
+        const bank: BankTransaction[] = bankRows.map((t, i) => {
+          const debit = Number(t.debit ?? t.debitAmount ?? (t.type === 'outflow' ? t.amount : 0) ?? 0);
+          const credit = Number(t.credit ?? t.creditAmount ?? (t.type === 'inflow' ? t.amount : 0) ?? 0);
+          running = running + credit - debit;
+          return {
+            id: t.id ?? `BT-${i}`,
+            date: t.date ?? t.transactionDate ?? '',
+            description: t.description ?? t.narration ?? '-',
+            reference: t.reference ?? t.referenceNumber ?? '-',
+            debit,
+            credit,
+            balance: Number(t.balance ?? running),
+            matched: Boolean(t.matched ?? t.isMatched),
+            erpTransactionId: t.erpTransactionId ?? undefined,
+          };
+        });
+        const erp: ERPTransaction[] = (payments ?? []).map((p, i) => {
+          const isPayment = String(p.paymentType ?? p.type ?? '').toLowerCase().includes('pay');
+          const amount = Number(p.amount ?? p.netAmount ?? 0);
+          return {
+            id: p.id ?? `ERP-${i}`,
+            date: p.paymentDate ?? p.date ?? '',
+            description: p.description ?? p.narration ?? p.paymentNumber ?? '-',
+            reference: p.paymentNumber ?? p.reference ?? p.referenceNumber ?? '-',
+            debit: isPayment ? amount : 0,
+            credit: isPayment ? 0 : amount,
+            matched: Boolean(p.matched ?? p.isReconciled),
+            bankTransactionId: p.bankTransactionId ?? undefined,
+          };
+        });
+        if (!cancelled) {
+          setBankTransactions(bank);
+          setErpTransactions(erp);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load reconciliation data');
+          setBankTransactions([]);
+          setErpTransactions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const matchedTransactions = bankTransactions.filter(t => t.matched);
   const unmatchedBankTxns = bankTransactions.filter(t => !t.matched);
@@ -192,6 +163,16 @@ export default function BankReconciliationPage() {
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full p-3">
           <div className="w-full space-y-3">
+            {isLoading && (
+              <div className="rounded-lg border border-purple-500/40 bg-purple-500/10 px-4 py-3 text-sm text-purple-200">
+                Loading reconciliation data…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {loadError}
+              </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>

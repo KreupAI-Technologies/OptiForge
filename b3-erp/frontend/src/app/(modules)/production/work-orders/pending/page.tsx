@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Search,
@@ -48,238 +49,45 @@ export default function PendingWorkOrdersPage() {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const pendingOrders: PendingWorkOrder[] = [
-    {
-      id: '1',
-      workOrderNumber: 'WO-2025-1142',
-      productCode: 'KIT-SINK-001',
-      productName: 'Premium SS304 Kitchen Sink - Double Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 25,
-      unit: 'PC',
-      priority: 'urgent',
-      salesOrderNumber: 'SO-2025-0856',
-      customerName: 'Metro Builders Pvt Ltd',
-      requiredDate: '2025-10-25',
-      daysUntilDue: 5,
-      materialAvailability: 95,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 8,
-      estimatedCost: 281250,
-      createdDate: '2025-10-18',
-      createdBy: 'Production Manager',
-      blockers: ['Waiting for final quality check on raw material batch'],
-      status: 'awaiting-materials'
-    },
-    {
-      id: '2',
-      workOrderNumber: 'WO-2025-1143',
-      productCode: 'KIT-APPL-001',
-      productName: 'Auto-Clean Kitchen Chimney - 90cm',
-      category: 'Kitchen Appliances',
-      quantity: 15,
-      unit: 'PC',
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0862',
-      customerName: 'Luxury Homes Ltd',
-      requiredDate: '2025-10-28',
-      daysUntilDue: 8,
-      materialAvailability: 100,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 12,
-      estimatedCost: 552750,
-      createdDate: '2025-10-19',
-      createdBy: 'Production Manager',
-      blockers: [],
-      status: 'ready-to-start'
-    },
-    {
-      id: '3',
-      workOrderNumber: 'WO-2025-1144',
-      productCode: 'KIT-CAB-001',
-      productName: 'Modular Base Cabinet - 3 Drawer',
-      category: 'Kitchen Cabinets',
-      quantity: 40,
-      unit: 'PC',
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0858',
-      customerName: 'Skyline Apartments',
-      requiredDate: '2025-11-02',
-      daysUntilDue: 13,
-      materialAvailability: 65,
-      laborAvailable: true,
-      equipmentReady: false,
-      estimatedDuration: 18,
-      estimatedCost: 860000,
-      createdDate: '2025-10-17',
-      createdBy: 'Production Manager',
-      blockers: ['CNC Machine under maintenance', 'Plywood shipment delayed - ETA Oct 23'],
-      status: 'awaiting-materials'
-    },
-    {
-      id: '4',
-      workOrderNumber: 'WO-2025-1145',
-      productCode: 'KIT-FAUC-001',
-      productName: 'Chrome Finish Kitchen Faucet - Single Lever',
-      category: 'Kitchen Faucets',
-      quantity: 60,
-      unit: 'PC',
-      priority: 'medium',
-      salesOrderNumber: 'SO-2025-0864',
-      customerName: 'Home Essentials Store',
-      requiredDate: '2025-11-05',
-      daysUntilDue: 16,
-      materialAvailability: 100,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 10,
-      estimatedCost: 271200,
-      createdDate: '2025-10-19',
-      createdBy: 'Production Manager',
-      blockers: [],
-      status: 'ready-to-start'
-    },
-    {
-      id: '5',
-      workOrderNumber: 'WO-2025-1146',
-      productCode: 'KIT-COOK-001',
-      productName: 'Professional Cookware Set - 7 Piece',
-      category: 'Cookware',
-      quantity: 50,
-      unit: 'SET',
-      priority: 'medium',
-      salesOrderNumber: 'SO-2025-0867',
-      customerName: 'Kitchen World Retail',
-      requiredDate: '2025-11-08',
-      daysUntilDue: 19,
-      materialAvailability: 88,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 14,
-      estimatedCost: 444000,
-      createdDate: '2025-10-18',
-      createdBy: 'Production Manager',
-      blockers: ['Non-stick coating supplier delay - ETA Oct 24'],
-      status: 'awaiting-materials'
-    },
-    {
-      id: '6',
-      workOrderNumber: 'WO-2025-1147',
-      productCode: 'KIT-SINK-003',
-      productName: 'Undermount SS Sink - Single Bowl Large',
-      category: 'Kitchen Sinks',
-      quantity: 30,
-      unit: 'PC',
-      priority: 'urgent',
-      salesOrderNumber: 'SO-2025-0869',
-      customerName: 'Premium Interiors',
-      requiredDate: '2025-10-26',
-      daysUntilDue: 6,
-      materialAvailability: 100,
-      laborAvailable: false,
-      equipmentReady: true,
-      estimatedDuration: 9,
-      estimatedCost: 370500,
-      createdDate: '2025-10-19',
-      createdBy: 'Production Manager',
-      blockers: ['Skilled welders on leave - return Oct 22'],
-      status: 'on-hold'
-    },
-    {
-      id: '7',
-      workOrderNumber: 'WO-2025-1148',
-      productCode: 'KIT-COUNT-001',
-      productName: 'Granite Countertop - Premium Black Galaxy',
-      category: 'Countertops',
-      quantity: 12,
-      unit: 'PC',
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0871',
-      customerName: 'Elite Villa Projects',
-      requiredDate: '2025-11-01',
-      daysUntilDue: 12,
-      materialAvailability: 75,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 15,
-      estimatedCost: 297600,
-      createdDate: '2025-10-16',
-      createdBy: 'Production Manager',
-      blockers: ['Granite slab quality inspection pending'],
-      status: 'awaiting-approval'
-    },
-    {
-      id: '8',
-      workOrderNumber: 'WO-2025-1149',
-      productCode: 'KIT-ACC-001',
-      productName: 'Modular Kitchen Organizer Set - Premium',
-      category: 'Kitchen Accessories',
-      quantity: 80,
-      unit: 'SET',
-      priority: 'low',
-      salesOrderNumber: 'SO-2025-0873',
-      customerName: 'Urban Living Store',
-      requiredDate: '2025-11-12',
-      daysUntilDue: 23,
-      materialAvailability: 100,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 6,
-      estimatedCost: 394400,
-      createdDate: '2025-10-17',
-      createdBy: 'Production Manager',
-      blockers: [],
-      status: 'ready-to-start'
-    },
-    {
-      id: '9',
-      workOrderNumber: 'WO-2025-1150',
-      productCode: 'KIT-APPL-002',
-      productName: 'Built-in Microwave Oven - 30L',
-      category: 'Kitchen Appliances',
-      quantity: 20,
-      unit: 'PC',
-      priority: 'medium',
-      salesOrderNumber: 'SO-2025-0875',
-      customerName: 'Smart Homes Ltd',
-      requiredDate: '2025-11-06',
-      daysUntilDue: 17,
-      materialAvailability: 92,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 11,
-      estimatedCost: 492000,
-      createdDate: '2025-10-18',
-      createdBy: 'Production Manager',
-      blockers: ['Electronic components customs clearance in progress'],
-      status: 'awaiting-materials'
-    },
-    {
-      id: '10',
-      workOrderNumber: 'WO-2025-1151',
-      productCode: 'KIT-SINK-002',
-      productName: 'Granite Composite Sink - Single Bowl',
-      category: 'Kitchen Sinks',
-      quantity: 18,
-      unit: 'PC',
-      priority: 'high',
-      salesOrderNumber: 'SO-2025-0877',
-      customerName: 'Designer Kitchens Co',
-      requiredDate: '2025-10-30',
-      daysUntilDue: 10,
-      materialAvailability: 100,
-      laborAvailable: true,
-      equipmentReady: true,
-      estimatedDuration: 10,
-      estimatedCost: 284400,
-      createdDate: '2025-10-19',
-      createdBy: 'Production Manager',
-      blockers: [],
-      status: 'ready-to-start'
-    }
-  ];
+  const [pendingOrders, setPendingOrders] = useState<PendingWorkOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = (await ProductionOrphanService.getWorkOrders()) as any[];
+        const mapped: PendingWorkOrder[] = (raw || []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          workOrderNumber: r.workOrderNumber ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          category: r.category ?? '',
+          quantity: Number(r.quantity ?? 0),
+          unit: r.unit ?? '',
+          priority: (r.priority ?? 'medium') as PendingWorkOrder['priority'],
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          requiredDate: r.requiredDate ?? '',
+          daysUntilDue: Number(r.daysUntilDue ?? 0),
+          materialAvailability: Number(r.materialAvailability ?? 0),
+          laborAvailable: Boolean(r.laborAvailable ?? false),
+          equipmentReady: Boolean(r.equipmentReady ?? false),
+          estimatedDuration: Number(r.estimatedDuration ?? 0),
+          estimatedCost: Number(r.estimatedCost ?? 0),
+          createdDate: r.createdDate ?? '',
+          createdBy: r.createdBy ?? '',
+          blockers: Array.isArray(r.blockers) ? r.blockers.map((b: any) => String(b)) : [],
+          status: (r.status ?? 'awaiting-materials') as PendingWorkOrder['status'],
+        }));
+        if (!cancelled) setPendingOrders(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setPendingOrders([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const priorities = ['all', 'urgent', 'high', 'medium', 'low'];
   const statuses = ['all', 'ready-to-start', 'awaiting-materials', 'awaiting-approval', 'on-hold'];
@@ -337,6 +145,8 @@ export default function PendingWorkOrdersPage() {
 
   return (
     <div className="w-full px-3 py-2">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Inline Header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">

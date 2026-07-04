@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { UserCheck, Search, Edit, CheckCircle, Clock, AlertTriangle, Users, FileText } from 'lucide-react';
+import { PayrollService } from '@/services/payroll.service';
 
 interface EmployeeAssignment {
   id: string;
@@ -32,131 +33,60 @@ export default function PayrollAssignmentsPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<EmployeeAssignment | null>(null);
 
-  const initialAssignments: EmployeeAssignment[] = [
-    {
-      id: 'ASN-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      grade: 'A',
-      employmentType: 'permanent',
-      joiningDate: '2020-01-15',
-      templateCode: 'TPL-MFG-A',
-      templateName: 'Manufacturing - Grade A',
-      ctcAmount: 750000,
-      effectiveFrom: '2025-01-01',
-      assignedBy: 'HR Admin',
-      assignedOn: '2024-12-15',
-      status: 'active'
-    },
-    {
-      id: 'ASN-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      grade: 'B',
-      employmentType: 'permanent',
-      joiningDate: '2021-03-20',
-      templateCode: 'TPL-MFG-B',
-      templateName: 'Manufacturing - Grade B',
-      ctcAmount: 550000,
-      effectiveFrom: '2025-01-01',
-      assignedBy: 'HR Admin',
-      assignedOn: '2024-12-15',
-      status: 'active'
-    },
-    {
-      id: 'ASN-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Production Operator',
-      department: 'Production',
-      grade: 'C',
-      employmentType: 'permanent',
-      joiningDate: '2022-06-10',
-      templateCode: 'TPL-MFG-C',
-      templateName: 'Manufacturing - Grade C',
-      ctcAmount: 350000,
-      effectiveFrom: '2025-01-01',
-      assignedBy: 'HR Admin',
-      assignedOn: '2024-12-15',
-      status: 'active'
-    },
-    {
-      id: 'ASN-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      grade: 'B',
-      employmentType: 'permanent',
-      joiningDate: '2021-08-15',
-      templateCode: 'TPL-MFG-B',
-      templateName: 'Manufacturing - Grade B',
-      ctcAmount: 520000,
-      effectiveFrom: '2025-01-01',
-      assignedBy: 'HR Admin',
-      assignedOn: '2024-12-15',
-      status: 'active'
-    },
-    {
-      id: 'ASN-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      grade: 'B',
-      employmentType: 'contract',
-      joiningDate: '2024-01-10',
-      templateCode: 'TPL-MFG-B',
-      templateName: 'Manufacturing - Grade B',
-      ctcAmount: 480000,
-      effectiveFrom: '2024-01-10',
-      assignedBy: 'HR Admin',
-      assignedOn: '2024-01-08',
-      status: 'active'
-    },
-    {
-      id: 'ASN-006',
-      employeeId: 'EMP006',
-      employeeName: 'Sanjay Reddy',
-      designation: 'Production Manager',
-      department: 'Production',
-      grade: 'A',
-      employmentType: 'permanent',
-      joiningDate: '2019-05-20',
-      templateCode: 'TPL-MFG-A',
-      templateName: 'Manufacturing - Grade A',
-      ctcAmount: 720000,
-      effectiveFrom: '2025-04-01',
-      assignedBy: 'HR Admin',
-      assignedOn: '2025-03-15',
-      status: 'revised',
-      previousCTC: 680000,
-      revisionDate: '2025-04-01'
-    },
-    {
-      id: 'ASN-007',
-      employeeId: 'EMP007',
-      employeeName: 'Kavita Mehta',
-      designation: 'HR Executive',
-      department: 'HR',
-      grade: 'B',
-      employmentType: 'permanent',
-      joiningDate: '2023-02-01',
-      templateCode: 'TPL-MFG-B',
-      templateName: 'Manufacturing - Grade B',
-      ctcAmount: 500000,
-      effectiveFrom: '2025-02-01',
-      assignedBy: 'HR Manager',
-      assignedOn: '2025-01-20',
-      status: 'pending'
-    }
-  ];
+  const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [assignments, setAssignments] = useState<EmployeeAssignment[]>(initialAssignments);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Backend returns salary structures (templates), not per-employee
+        // assignments; map best-effort to the EmployeeAssignment shape.
+        const raw = (await PayrollService.getSalaryStructures()) as any[];
+        const statusMap: Record<string, EmployeeAssignment['status']> = {
+          Active: 'active',
+          Draft: 'pending',
+          Pending: 'pending',
+          Revised: 'revised',
+          Inactive: 'pending',
+        };
+        const mapped: EmployeeAssignment[] = raw.map((r) => ({
+          id: r.id,
+          employeeId: r.applicableDesignations?.[0] ?? '',
+          employeeName: r.name ?? '',
+          designation: r.applicableDesignations?.[0] ?? '',
+          department: r.applicableDepartments?.[0] ?? '',
+          grade: '',
+          employmentType:
+            (r.applicableEmployeeTypes?.[0]?.toLowerCase() as EmployeeAssignment['employmentType']) ??
+            'permanent',
+          joiningDate: r.effectiveFrom ?? '',
+          templateCode: r.code ?? '',
+          templateName: r.name ?? '',
+          ctcAmount: Number(r.ctcAmount ?? 0),
+          effectiveFrom: r.effectiveFrom ?? '',
+          assignedBy: r.createdBy ?? 'System',
+          assignedOn: r.createdAt ?? '',
+          status: statusMap[r.status] ?? 'active',
+        }));
+        if (!cancelled) setAssignments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load salary assignments');
+          setAssignments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleViewBreakdown = (assignment: EmployeeAssignment) => {
     setSelectedAssignment(assignment);
@@ -241,6 +171,17 @@ export default function PayrollAssignmentsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Salary Template Assignments</h1>
         <p className="text-sm text-gray-600 mt-1">Assign and manage salary structures for employees</p>
       </div>
+
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-2 text-sm mb-3">
+          Loading salary assignments…
+        </div>
+      )}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-2 text-sm mb-3">
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
