@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Eye,
   Search,
@@ -13,8 +13,10 @@ import {
   Download,
   Activity,
   User,
-  MapPin
+  MapPin,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
 import {
   BarChart,
   Bar,
@@ -41,62 +43,56 @@ const categoryData = [
   { name: 'Ergonomic', count: 5, color: '#3b82f6' },
 ];
 
-const hazards = [
-  {
-    id: 'HAZ-2024-012',
-    title: 'Exposed Wiring in Grinding Station',
-    category: 'Electrical',
-    location: 'Main Factory Floor',
-    identifiedBy: 'John Doe',
-    date: '2024-04-10',
-    status: 'Pending Evaluation',
-    initialSeverity: 'High'
-  },
-  {
-    id: 'HAZ-2024-011',
-    title: 'Uneven Floor Surface near Entrance',
-    category: 'Physical',
-    location: 'Warehouse Gate G1',
-    identifiedBy: 'Sarah Smith',
-    date: '2024-04-08',
-    status: 'Evaluated',
-    initialSeverity: 'Low'
-  },
-  {
-    id: 'HAZ-2024-010',
-    title: 'Poor Lighting in Chemicals Storage',
-    category: 'Environmental',
-    location: 'Hazmat Store Room',
-    identifiedBy: 'Mike Johnson',
-    date: '2024-04-05',
-    status: 'Evaluated',
-    initialSeverity: 'Medium'
-  },
-  {
-    id: 'HAZ-2024-009',
-    title: 'Repetitive Strain at Assembly Line 4',
-    category: 'Ergonomic',
-    location: 'Packaging Area',
-    identifiedBy: 'Emma Wilson',
-    date: '2024-04-02',
-    status: 'Under Review',
-    initialSeverity: 'Medium'
-  },
-  {
-    id: 'HAZ-2024-008',
-    title: 'Steam Leak in Boiler Room',
-    category: 'Thermal',
-    location: 'Utilities Block',
-    identifiedBy: 'David Lee',
-    date: '2024-03-30',
-    status: 'Critical Alert',
-    initialSeverity: 'High'
-  },
-];
+interface HazardItem {
+  id: string;
+  title: string;
+  category: string;
+  location: string;
+  identifiedBy: string;
+  date: string;
+  status: string;
+  initialSeverity: string;
+}
 
 export default function HazardsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [hazards, setHazards] = useState<HazardItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getHazards('hazard');
+        const mapped: HazardItem[] = rows.map((row: SafetyHazard) => ({
+          id: String(row.id),
+          title: row.title ?? '',
+          category: row.category ?? '',
+          location: row.location ?? '',
+          identifiedBy: row.identifiedBy ?? '',
+          date: row.date ?? '',
+          status: row.status ?? '',
+          initialSeverity: row.severity ?? '',
+        }));
+        if (!cancelled) setHazards(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load hazards');
+          setHazards([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredHazards = hazards.filter(haz => {
     const matchesSearch = haz.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,6 +117,19 @@ export default function HazardsPage() {
           Report New Hazard
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading hazards…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { HrPayrollService } from '@/services/hr-payroll.service'
 import {
   Users,
   DollarSign,
@@ -40,187 +41,61 @@ interface BonusProcessing {
   performanceRating?: 'outstanding' | 'excellent' | 'good' | 'average'
 }
 
-const mockBonusRecords: BonusProcessing[] = [
-  {
-    id: 'BON-2025-001',
-    employeeId: 'EMP001',
-    employeeName: 'Rajesh Kumar',
-    designation: 'Senior Production Manager',
-    department: 'Production',
-    bonusType: 'statutory',
-    eligibilityPeriod: 'Apr 2024 - Mar 2025',
-    workingDays: 365,
-    totalDays: 365,
-    basicSalary: 45000,
-    eligibleSalary: 540000,
-    bonusPercentage: 8.33,
-    bonusAmount: 44982,
-    tax: 4498,
-    netBonus: 40484,
-    calculatedDate: '2025-03-15',
-    status: 'approved',
-    approvedBy: 'HR Director',
-    approvedDate: '2025-03-20',
-    remarks: 'Statutory bonus - Payment of Bonus Act'
-  },
-  {
-    id: 'BON-2025-002',
-    employeeId: 'EMP002',
-    employeeName: 'Priya Sharma',
-    designation: 'Quality Control Manager',
-    department: 'Quality Assurance',
-    bonusType: 'performance',
-    eligibilityPeriod: 'Q4 FY 2024-25',
-    workingDays: 90,
-    totalDays: 90,
-    basicSalary: 42000,
-    eligibleSalary: 126000,
-    bonusPercentage: 15.0,
-    bonusAmount: 18900,
-    tax: 1890,
-    netBonus: 17010,
-    calculatedDate: '2025-03-25',
-    status: 'paid',
-    approvedBy: 'CEO',
-    approvedDate: '2025-03-26',
-    paymentDate: '2025-03-31',
-    performanceRating: 'excellent',
-    remarks: 'Q4 performance bonus - excellent rating'
-  },
-  {
-    id: 'BON-2025-003',
-    employeeId: 'EMP003',
-    employeeName: 'Amit Patel',
-    designation: 'Warehouse Supervisor',
-    department: 'Logistics',
-    bonusType: 'festive',
-    eligibilityPeriod: 'Diwali 2025',
-    workingDays: 180,
-    totalDays: 180,
-    basicSalary: 32000,
-    eligibleSalary: 192000,
-    bonusPercentage: 5.0,
-    bonusAmount: 9600,
-    tax: 960,
-    netBonus: 8640,
-    calculatedDate: '2025-10-15',
-    status: 'calculated',
-    remarks: 'Diwali bonus - 1 month basic pro-rated'
-  },
-  {
-    id: 'BON-2025-004',
-    employeeId: 'EMP004',
-    employeeName: 'Sneha Reddy',
-    designation: 'Production Supervisor',
-    department: 'Production',
-    bonusType: 'statutory',
-    eligibilityPeriod: 'Apr 2024 - Mar 2025',
-    workingDays: 300,
-    totalDays: 365,
-    basicSalary: 28000,
-    eligibleSalary: 280000,
-    bonusPercentage: 8.33,
-    bonusAmount: 19258,
-    tax: 1926,
-    netBonus: 17332,
-    calculatedDate: '2025-03-15',
-    status: 'on-hold',
-    remarks: 'On hold - Document verification pending'
-  },
-  {
-    id: 'BON-2025-005',
-    employeeId: 'EMP005',
-    employeeName: 'Vikram Singh',
-    designation: 'Maintenance Technician',
-    department: 'Maintenance',
-    bonusType: 'performance',
-    eligibilityPeriod: 'Q4 FY 2024-25',
-    workingDays: 90,
-    totalDays: 90,
-    basicSalary: 30000,
-    eligibleSalary: 90000,
-    bonusPercentage: 12.0,
-    bonusAmount: 10800,
-    tax: 1080,
-    netBonus: 9720,
-    calculatedDate: '2025-03-25',
-    status: 'approved',
-    approvedBy: 'Operations Head',
-    approvedDate: '2025-03-27',
-    performanceRating: 'good',
-    remarks: 'Q4 performance bonus - good rating'
-  },
-  {
-    id: 'BON-2025-006',
-    employeeId: 'EMP006',
-    employeeName: 'Anita Desai',
-    designation: 'HR Executive',
-    department: 'Human Resources',
-    bonusType: 'retention',
-    eligibilityPeriod: '3 Years Completion',
-    workingDays: 1095,
-    totalDays: 1095,
-    basicSalary: 35000,
-    eligibleSalary: 420000,
-    bonusPercentage: 10.0,
-    bonusAmount: 42000,
-    tax: 4200,
-    netBonus: 37800,
-    calculatedDate: '2025-05-01',
-    status: 'calculated',
-    remarks: '3-year retention bonus - 1 month basic'
-  },
-  {
-    id: 'BON-2025-007',
-    employeeId: 'EMP007',
-    employeeName: 'Rahul Verma',
-    designation: 'Accounts Manager',
-    department: 'Finance',
-    bonusType: 'performance',
-    eligibilityPeriod: 'Q4 FY 2024-25',
-    workingDays: 90,
-    totalDays: 90,
-    basicSalary: 48000,
-    eligibleSalary: 144000,
-    bonusPercentage: 20.0,
-    bonusAmount: 28800,
-    tax: 2880,
-    netBonus: 25920,
-    calculatedDate: '2025-03-25',
-    status: 'paid',
-    approvedBy: 'CFO',
-    approvedDate: '2025-03-26',
-    paymentDate: '2025-03-31',
-    performanceRating: 'outstanding',
-    remarks: 'Q4 performance bonus - outstanding rating'
-  },
-  {
-    id: 'BON-2025-008',
-    employeeId: 'EMP008',
-    employeeName: 'Meera Krishnan',
-    designation: 'Purchase Executive',
-    department: 'Purchase',
-    bonusType: 'adhoc',
-    eligibilityPeriod: 'Cost Saving Initiative',
-    workingDays: 60,
-    totalDays: 60,
-    basicSalary: 32000,
-    eligibleSalary: 64000,
-    bonusPercentage: 15.0,
-    bonusAmount: 9600,
-    tax: 960,
-    netBonus: 8640,
-    calculatedDate: '2025-02-10',
-    status: 'processed',
-    approvedBy: 'COO',
-    approvedDate: '2025-02-12',
-    remarks: 'Ad-hoc bonus - Cost reduction achievement'
-  }
-]
-
 export default function BonusProcessingPage() {
-  const [bonusRecords, setBonusRecords] = useState<BonusProcessing[]>(mockBonusRecords)
+  const [bonusRecords, setBonusRecords] = useState<BonusProcessing[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await HrPayrollService.getBonusRecords('processing')
+        const mapped: BonusProcessing[] = (Array.isArray(raw) ? raw : []).map((r: any) => {
+          const d = r.details ?? {}
+          return {
+            id: r.id ?? '',
+            employeeId: r.employeeId ?? '',
+            employeeName: r.employeeName ?? '',
+            designation: r.designation ?? d.designation ?? '',
+            department: r.department ?? d.department ?? '',
+            bonusType: (d.bonusType ?? 'performance') as BonusProcessing['bonusType'],
+            eligibilityPeriod: d.eligibilityPeriod ?? r.financialYear ?? '',
+            workingDays: Number(d.workingDays ?? 0),
+            totalDays: Number(d.totalDays ?? 0),
+            basicSalary: Number(d.basicSalary ?? 0),
+            eligibleSalary: Number(d.eligibleSalary ?? 0),
+            bonusPercentage: Number(d.bonusPercentage ?? 0),
+            bonusAmount: Number(r.bonusAmount ?? d.bonusAmount ?? 0),
+            tax: Number(d.tax ?? 0),
+            netBonus: Number(d.netBonus ?? r.bonusAmount ?? 0),
+            calculatedDate: d.calculatedDate ?? '',
+            status: (r.status ?? 'calculated') as BonusProcessing['status'],
+            approvedBy: d.approvedBy ?? undefined,
+            approvedDate: d.approvedDate ?? undefined,
+            paymentDate: d.paymentDate ?? undefined,
+            remarks: d.remarks ?? undefined,
+            performanceRating: d.performanceRating ?? undefined,
+          }
+        })
+        if (!cancelled) setBonusRecords(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load bonus records')
+          setBonusRecords([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')

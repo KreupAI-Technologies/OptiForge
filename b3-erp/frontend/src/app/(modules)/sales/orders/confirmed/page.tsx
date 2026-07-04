@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle,
   ShoppingCart,
@@ -24,6 +24,7 @@ import {
   CreditCard,
   PlayCircle
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface ConfirmedOrder {
   id: string;
@@ -51,168 +52,46 @@ export default function ConfirmedOrdersPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
 
-  const orders: ConfirmedOrder[] = [
-    {
-      id: 'SO-001',
-      orderNumber: 'SO-2025-001',
-      customerName: 'Rajesh Sharma',
-      customerCompany: 'Tech Innovations Pvt Ltd',
-      customerEmail: 'rajesh@techinnovations.com',
-      customerPhone: '+91 98765 43210',
-      orderDate: '2025-10-01',
-      confirmedDate: '2025-10-02',
-      expectedDelivery: '2025-10-22',
-      totalAmount: 12500000,
-      items: 8,
-      assignedTo: 'Sarah Johnson',
-      priority: 'high',
-      paymentStatus: 'pending',
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'FOB Mumbai',
-      shippingMethod: 'Standard Freight',
-      notes: 'Priority customer - expedited processing required'
-    },
-    {
-      id: 'SO-002',
-      orderNumber: 'SO-2025-003',
-      customerName: 'Amit Kumar',
-      customerCompany: 'Industrial Automation Ltd',
-      customerEmail: 'amit@indauto.com',
-      customerPhone: '+91 97654 32109',
-      orderDate: '2025-10-08',
-      confirmedDate: '2025-10-09',
-      expectedDelivery: '2025-10-28',
-      totalAmount: 15300000,
-      items: 15,
-      assignedTo: 'Emily Rodriguez',
-      priority: 'urgent',
-      paymentStatus: 'partial',
-      paymentTerms: 'Net 60 Days',
-      deliveryTerms: 'CIF Delhi',
-      shippingMethod: 'Express Delivery',
-      notes: 'Large enterprise order - VIP handling'
-    },
-    {
-      id: 'SO-003',
-      orderNumber: 'SO-2025-005',
-      customerName: 'Vikram Singh',
-      customerCompany: 'Engineering Works Ltd',
-      customerEmail: 'vikram@engworks.com',
-      customerPhone: '+91 99876 54321',
-      orderDate: '2025-09-28',
-      confirmedDate: '2025-09-29',
-      expectedDelivery: '2025-10-20',
-      totalAmount: 9800000,
-      items: 10,
-      assignedTo: 'Jennifer Martinez',
-      priority: 'normal',
-      paymentStatus: 'paid',
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'CFR Kolkata',
-      shippingMethod: 'Standard Freight',
-      notes: 'Repeat customer - standard processing'
-    },
-    {
-      id: 'SO-004',
-      orderNumber: 'SO-2025-007',
-      customerName: 'Ravi Krishnan',
-      customerCompany: 'Precision Tools Ltd',
-      customerEmail: 'ravi@precisiontools.com',
-      customerPhone: '+91 97123 45678',
-      orderDate: '2025-10-02',
-      confirmedDate: '2025-10-03',
-      expectedDelivery: '2025-10-25',
-      totalAmount: 18200000,
-      items: 18,
-      assignedTo: 'Sarah Johnson',
-      priority: 'urgent',
-      paymentStatus: 'partial',
-      paymentTerms: 'Net 60 Days',
-      deliveryTerms: 'FOB Mumbai',
-      shippingMethod: 'Express Delivery',
-      notes: 'Largest order this quarter - executive oversight'
-    },
-    {
-      id: 'SO-005',
-      orderNumber: 'SO-2025-009',
-      customerName: 'Priya Menon',
-      customerCompany: 'Manufacturing Solutions Inc',
-      customerEmail: 'priya.menon@mansol.com',
-      customerPhone: '+91 98123 45678',
-      orderDate: '2025-10-10',
-      confirmedDate: '2025-10-11',
-      expectedDelivery: '2025-10-30',
-      totalAmount: 11200000,
-      items: 12,
-      assignedTo: 'Michael Chen',
-      priority: 'high',
-      paymentStatus: 'pending',
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'Ex-Works',
-      shippingMethod: 'Customer Pickup',
-      notes: 'Customer will arrange own transport'
-    },
-    {
-      id: 'SO-006',
-      orderNumber: 'SO-2025-011',
-      customerName: 'Sneha Patel',
-      customerCompany: 'Global Machinery Corp',
-      customerEmail: 'sneha.p@globalmach.com',
-      customerPhone: '+91 98234 56789',
-      orderDate: '2025-10-12',
-      confirmedDate: '2025-10-13',
-      expectedDelivery: '2025-11-01',
-      totalAmount: 7500000,
-      items: 9,
-      assignedTo: 'David Park',
-      priority: 'normal',
-      paymentStatus: 'paid',
-      paymentTerms: 'Net 30 Days',
-      deliveryTerms: 'FOB Chennai',
-      shippingMethod: 'Standard Freight',
-      notes: 'Payment received in advance'
-    },
-    {
-      id: 'SO-007',
-      orderNumber: 'SO-2025-013',
-      customerName: 'Anita Desai',
-      customerCompany: 'Production Systems Inc',
-      customerEmail: 'anita@prodsys.com',
-      customerPhone: '+91 98765 12345',
-      orderDate: '2025-10-15',
-      confirmedDate: '2025-10-16',
-      expectedDelivery: '2025-10-26',
-      totalAmount: 5600000,
-      items: 6,
-      assignedTo: 'Alex Thompson',
-      priority: 'high',
-      paymentStatus: 'pending',
-      paymentTerms: 'Net 15 Days',
-      deliveryTerms: 'Ex-Works',
-      shippingMethod: 'Express Delivery',
-      notes: 'Fast-track delivery requested'
-    },
-    {
-      id: 'SO-008',
-      orderNumber: 'SO-2025-015',
-      customerName: 'Meera Shah',
-      customerCompany: 'Industrial Supplies Co',
-      customerEmail: 'meera@indsupplies.com',
-      customerPhone: '+91 98456 78901',
-      orderDate: '2025-10-17',
-      confirmedDate: '2025-10-18',
-      expectedDelivery: '2025-11-05',
-      totalAmount: 8700000,
-      items: 11,
-      assignedTo: 'Michael Chen',
-      priority: 'normal',
-      paymentStatus: 'partial',
-      paymentTerms: 'Net 45 Days',
-      deliveryTerms: 'CIF Bangalore',
-      shippingMethod: 'Standard Freight',
-      notes: 'New customer - first order'
-    }
-  ];
+  const [orders, setOrders] = useState<ConfirmedOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: ConfirmedOrder[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          orderNumber: r.orderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerCompany: r.customerCompany ?? '',
+          customerEmail: r.customerEmail ?? '',
+          customerPhone: r.customerPhone ?? '',
+          orderDate: r.orderDate ?? '',
+          confirmedDate: r.confirmedDate ?? '',
+          expectedDelivery: r.expectedDelivery ?? '',
+          totalAmount: r.totalAmount ?? 0,
+          items: r.items ?? 0,
+          assignedTo: r.assignedTo ?? '',
+          priority: (r.priority ?? 'normal') as ConfirmedOrder['priority'],
+          paymentStatus: (r.paymentStatus ?? 'pending') as ConfirmedOrder['paymentStatus'],
+          paymentTerms: r.paymentTerms ?? '',
+          deliveryTerms: r.deliveryTerms ?? '',
+          shippingMethod: r.shippingMethod ?? '',
+          notes: r.notes ?? '',
+        }));
+        if (!cancelled) setOrders(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -282,6 +161,18 @@ export default function ConfirmedOrdersPage() {
   return (
     <div className="w-full h-full px-4 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading orders…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           {stats.map((stat, index) => {

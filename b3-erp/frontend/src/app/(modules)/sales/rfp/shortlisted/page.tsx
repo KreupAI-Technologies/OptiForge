@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -25,6 +25,7 @@ import {
   MessageSquare,
   Download
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface EvaluationScore {
   criteria: string;
@@ -87,7 +88,79 @@ export default function ShortlistedRFPPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedRFP, setSelectedRFP] = useState<string | null>(null);
 
-  const rfps: ShortlistedRFP[] = [
+  const [rfps, setRfps] = useState<ShortlistedRFP[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: ShortlistedRFP[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          rfpNumber: r.rfpNumber ?? '',
+          title: r.title ?? '',
+          category: r.category ?? '',
+          issueDate: r.issueDate ?? '',
+          evaluationDate: r.evaluationDate ?? '',
+          estimatedValue: r.estimatedValue ?? 0,
+          shortlistedCount: r.shortlistedCount ?? 0,
+          totalResponses: r.totalResponses ?? 0,
+          evaluationCriteria: r.evaluationCriteria ?? [],
+          status: (r.status ?? 'evaluation_complete') as ShortlistedRFP['status'],
+          selectedVendorId: r.selectedVendorId,
+          vendors: (r.vendors ?? []).map((v: any) => ({
+            id: String(v.id ?? ''),
+            vendorName: v.vendorName ?? '',
+            contactPerson: v.contactPerson ?? '',
+            email: v.email ?? '',
+            phone: v.phone ?? '',
+            location: v.location ?? '',
+            quotedAmount: v.quotedAmount ?? 0,
+            originalEstimate: v.originalEstimate ?? 0,
+            variance: v.variance ?? 0,
+            variancePercent: v.variancePercent ?? 0,
+            deliveryTime: v.deliveryTime ?? 0,
+            paymentTerms: v.paymentTerms ?? '',
+            warranty: v.warranty ?? '',
+            rank: v.rank ?? 0,
+            totalScore: v.totalScore ?? 0,
+            maxTotalScore: v.maxTotalScore ?? 0,
+            scorePercent: v.scorePercent ?? 0,
+            evaluationScores: (v.evaluationScores ?? []).map((s: any) => ({
+              criteria: s.criteria ?? '',
+              weight: s.weight ?? 0,
+              score: s.score ?? 0,
+              maxScore: s.maxScore ?? 0,
+              weightedScore: s.weightedScore ?? 0
+            })),
+            strengths: v.strengths ?? [],
+            weaknesses: v.weaknesses ?? [],
+            pastPerformance: {
+              ordersCompleted: v.pastPerformance?.ordersCompleted ?? 0,
+              onTimeDelivery: v.pastPerformance?.onTimeDelivery ?? 0,
+              qualityRating: v.pastPerformance?.qualityRating ?? 0,
+              overallRating: v.pastPerformance?.overallRating ?? 0
+            },
+            certifications: v.certifications ?? [],
+            recommendation: (v.recommendation ?? 'recommended') as ShortlistedVendor['recommendation'],
+            notes: v.notes
+          }))
+        }));
+        if (!cancelled) setRfps(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRfps([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const _seedRfps: ShortlistedRFP[] = [
     {
       id: '1',
       rfpNumber: 'RFP-2025-001',

@@ -34,192 +34,56 @@ export default function FreightInvoicingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const invoices: FreightInvoice[] = [
-    {
-      id: '1',
-      invoiceNo: 'INV-2025-3001',
-      bookingNo: 'FB-2025-2001',
-      customerName: 'ABC Manufacturing Ltd',
-      invoiceDate: '2025-10-25',
-      dueDate: '2025-11-24',
-      baseAmount: 397700,
-      fuelSurcharge: 48500,
-      insuranceCharge: 14550,
-      handlingCharge: 24250,
-      customsCharge: 0,
-      tax: 0,
-      totalAmount: 485000,
-      paidAmount: 0,
-      balanceAmount: 485000,
-      status: 'sent',
-      paymentTerms: 'Net 30',
-      carrier: 'Maersk Line',
-      origin: 'Chennai Port',
-      destination: 'Singapore Port',
-      billOfLading: 'BL-2025-8765'
-    },
-    {
-      id: '2',
-      invoiceNo: 'INV-2025-3002',
-      bookingNo: 'FB-2025-2002',
-      customerName: 'Global Traders Inc',
-      invoiceDate: '2025-10-22',
-      dueDate: '2025-11-21',
-      baseAmount: 731800,
-      fuelSurcharge: 89000,
-      insuranceCharge: 26700,
-      handlingCharge: 44500,
-      customsCharge: 35000,
-      tax: 0,
-      totalAmount: 927000,
-      paidAmount: 927000,
-      balanceAmount: 0,
-      status: 'paid',
-      paymentTerms: 'Net 30',
-      carrier: 'Emirates SkyCargo',
-      origin: 'Mumbai Airport',
-      destination: 'Dubai Airport',
-      billOfLading: 'AWB-2025-4532'
-    },
-    {
-      id: '3',
-      invoiceNo: 'INV-2025-3003',
-      bookingNo: 'FB-2025-2003',
-      customerName: 'TechCorp Solutions',
-      invoiceDate: '2025-10-24',
-      dueDate: '2025-11-08',
-      baseAmount: 152250,
-      fuelSurcharge: 18500,
-      insuranceCharge: 5550,
-      handlingCharge: 9250,
-      customsCharge: 0,
-      tax: 0,
-      totalAmount: 185550,
-      paidAmount: 100000,
-      balanceAmount: 85550,
-      status: 'partial',
-      paymentTerms: 'Net 15',
-      carrier: 'VRL Logistics',
-      origin: 'Bangalore',
-      destination: 'Delhi',
-      billOfLading: 'LR-2025-9876'
-    },
-    {
-      id: '4',
-      invoiceNo: 'INV-2025-3004',
-      bookingNo: 'FB-2025-2004',
-      customerName: 'Precision Parts Ltd',
-      invoiceDate: '2025-10-26',
-      dueDate: '2025-11-25',
-      baseAmount: 102500,
-      fuelSurcharge: 12500,
-      insuranceCharge: 3750,
-      handlingCharge: 6250,
-      customsCharge: 0,
-      tax: 0,
-      totalAmount: 125000,
-      paidAmount: 0,
-      balanceAmount: 125000,
-      status: 'sent',
-      paymentTerms: 'Net 30',
-      carrier: 'Indian Railways',
-      origin: 'Chennai',
-      destination: 'Kolkata',
-      billOfLading: 'RR-2025-3456'
-    },
-    {
-      id: '5',
-      invoiceNo: 'INV-2025-3005',
-      bookingNo: 'FB-2025-2005',
-      customerName: 'Eastern Electronics',
-      invoiceDate: '2025-10-28',
-      dueDate: '2025-11-27',
-      baseAmount: 512500,
-      fuelSurcharge: 62500,
-      insuranceCharge: 18750,
-      handlingCharge: 31250,
-      customsCharge: 0,
-      tax: 0,
-      totalAmount: 625000,
-      paidAmount: 0,
-      balanceAmount: 625000,
-      status: 'draft',
-      paymentTerms: 'Net 30',
-      carrier: 'COSCO Shipping',
-      origin: 'Visakhapatnam Port',
-      destination: 'Hong Kong Port',
-      billOfLading: 'BL-2025-5432'
-    },
-    {
-      id: '6',
-      invoiceNo: 'INV-2025-3006',
-      bookingNo: 'FB-2025-2006',
-      customerName: 'Metro Wholesale',
-      invoiceDate: '2025-10-21',
-      dueDate: '2025-11-05',
-      baseAmount: 78000,
-      fuelSurcharge: 9500,
-      insuranceCharge: 2850,
-      handlingCharge: 4750,
-      customsCharge: 0,
-      tax: 0,
-      totalAmount: 95100,
-      paidAmount: 95100,
-      balanceAmount: 0,
-      status: 'paid',
-      paymentTerms: 'Net 15',
-      carrier: 'Gati Ltd',
-      origin: 'Hyderabad',
-      destination: 'Mumbai',
-      billOfLading: 'LR-2025-7654'
-    },
-    {
-      id: '7',
-      invoiceNo: 'INV-2025-3007',
-      bookingNo: 'FB-2025-2007',
-      customerName: 'Northern Distributors',
-      invoiceDate: '2025-10-19',
-      dueDate: '2025-10-26',
-      baseAmount: 1025000,
-      fuelSurcharge: 125000,
-      insuranceCharge: 37500,
-      handlingCharge: 62500,
-      customsCharge: 45000,
-      tax: 0,
-      totalAmount: 1295000,
-      paidAmount: 0,
-      balanceAmount: 1295000,
-      status: 'overdue',
-      paymentTerms: 'Net 7',
-      carrier: 'Lufthansa Cargo',
-      origin: 'Delhi Airport',
-      destination: 'Frankfurt Airport',
-      billOfLading: 'AWB-2025-8901'
-    },
-    {
-      id: '8',
-      invoiceNo: 'INV-2025-3008',
-      bookingNo: 'FB-2025-2008',
-      customerName: 'Coastal Enterprises',
-      invoiceDate: '2025-10-15',
-      dueDate: '2025-10-30',
-      baseAmount: 176250,
-      fuelSurcharge: 21500,
-      insuranceCharge: 6450,
-      handlingCharge: 10750,
-      customsCharge: 8500,
-      tax: 0,
-      totalAmount: 223450,
-      paidAmount: 0,
-      balanceAmount: 0,
-      status: 'cancelled',
-      paymentTerms: 'Net 15',
-      carrier: 'Sri Lanka Shipping',
-      origin: 'Kochi',
-      destination: 'Colombo',
-      billOfLading: 'BL-2025-2109'
-    }
-  ];
+  const [invoices, setInvoices] = useState<FreightInvoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getFreightCharges()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: FreightInvoice[] = list.map((r, idx) => ({
+          id: r?.id ?? String(idx + 1),
+          invoiceNo: r?.invoiceNo ?? r?.invoiceNumber ?? '',
+          bookingNo: r?.bookingNo ?? r?.bookingNumber ?? '',
+          customerName: r?.customerName ?? r?.customer ?? '',
+          invoiceDate: r?.invoiceDate ?? '',
+          dueDate: r?.dueDate ?? '',
+          baseAmount: Number(r?.baseAmount ?? 0),
+          fuelSurcharge: Number(r?.fuelSurcharge ?? 0),
+          insuranceCharge: Number(r?.insuranceCharge ?? 0),
+          handlingCharge: Number(r?.handlingCharge ?? 0),
+          customsCharge: Number(r?.customsCharge ?? 0),
+          tax: Number(r?.tax ?? 0),
+          totalAmount: Number(r?.totalAmount ?? r?.amount ?? 0),
+          paidAmount: Number(r?.paidAmount ?? 0),
+          balanceAmount: Number(r?.balanceAmount ?? 0),
+          status: (r?.status ?? 'draft') as FreightInvoice['status'],
+          paymentTerms: r?.paymentTerms ?? '',
+          carrier: r?.carrier ?? '',
+          origin: r?.origin ?? '',
+          destination: r?.destination ?? '',
+          billOfLading: r?.billOfLading ?? '',
+        }));
+        if (!cancelled) setInvoices(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load freight invoices');
+          setInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const invoiceStats = {
     total: invoices.length,
@@ -267,6 +131,19 @@ export default function FreightInvoicingPage() {
           <p className="text-sm text-gray-500 mt-1">Manage freight invoices and payments</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading freight invoices…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 mb-3">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-3 shadow-sm">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Database,
   Search,
@@ -12,6 +12,7 @@ import {
   Info,
   ChevronRight
 } from 'lucide-react';
+import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
 import {
   PieChart,
   Pie,

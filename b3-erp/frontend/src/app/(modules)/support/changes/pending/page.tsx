@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, AlertCircle, CheckCircle, XCircle, Users, Calendar, Filter, Search, Eye, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface PendingChange {
   id: string
@@ -29,169 +30,51 @@ export default function PendingChanges() {
   const [selectedStatus, setSelectedStatus] = useState<string>('All')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChange, setSelectedChange] = useState<PendingChange | null>(null)
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const pendingChanges: PendingChange[] = [
-    {
-      id: '1',
-      ticketNumber: 'CHG-2024-1245',
-      title: 'Upgrade ERP System to Version 12.5',
-      type: 'Normal',
-      category: 'Application',
-      priority: 'P1',
-      requester: 'John Smith',
-      department: 'IT Operations',
-      submittedDate: '2024-10-15',
-      implementationDate: '2024-10-28',
-      affectedSystems: 5,
-      affectedUsers: '500+',
-      status: 'CAB Review',
-      reviewers: ['Sarah Johnson', 'Mike Chen', 'David Kumar'],
-      approvals: 2,
-      rejections: 0,
-      daysWaiting: 6,
-      riskLevel: 'High'
-    },
-    {
-      id: '2',
-      ticketNumber: 'CHG-2024-1246',
-      title: 'Update Firewall Rules for New Application',
-      type: 'Normal',
-      category: 'Security',
-      priority: 'P2',
-      requester: 'Emily Davis',
-      department: 'Security',
-      submittedDate: '2024-10-18',
-      implementationDate: '2024-10-25',
-      affectedSystems: 2,
-      affectedUsers: '101-500',
-      status: 'Awaiting Approval',
-      reviewers: ['Tom Wilson', 'Anna Lee'],
-      approvals: 1,
-      rejections: 0,
-      daysWaiting: 3,
-      riskLevel: 'Medium'
-    },
-    {
-      id: '3',
-      ticketNumber: 'CHG-2024-1247',
-      title: 'Database Index Optimization',
-      type: 'Standard',
-      category: 'Database',
-      priority: 'P3',
-      requester: 'Robert Brown',
-      department: 'Database Administration',
-      submittedDate: '2024-10-19',
-      implementationDate: '2024-10-22',
-      affectedSystems: 1,
-      affectedUsers: '1-10',
-      status: 'Under Assessment',
-      reviewers: ['Lisa Chen'],
-      approvals: 0,
-      rejections: 0,
-      daysWaiting: 2,
-      riskLevel: 'Low'
-    },
-    {
-      id: '4',
-      ticketNumber: 'CHG-2024-1248',
-      title: 'Network Switch Replacement - Building A',
-      type: 'Normal',
-      category: 'Infrastructure',
-      priority: 'P2',
-      requester: 'Michael Zhang',
-      department: 'Network',
-      submittedDate: '2024-10-17',
-      implementationDate: '2024-10-26',
-      affectedSystems: 3,
-      affectedUsers: '51-100',
-      status: 'CAB Review',
-      reviewers: ['Sarah Johnson', 'Tom Wilson'],
-      approvals: 1,
-      rejections: 0,
-      daysWaiting: 4,
-      riskLevel: 'Medium'
-    },
-    {
-      id: '5',
-      ticketNumber: 'CHG-2024-1249',
-      title: 'Critical Security Patch Deployment',
-      type: 'Emergency',
-      category: 'Security',
-      priority: 'P0',
-      requester: 'Sarah Johnson',
-      department: 'Security',
-      submittedDate: '2024-10-20',
-      implementationDate: '2024-10-21',
-      affectedSystems: 8,
-      affectedUsers: 'All',
-      status: 'Pending Review',
-      reviewers: ['Mike Chen', 'Emily Davis', 'Tom Wilson'],
-      approvals: 1,
-      rejections: 0,
-      daysWaiting: 1,
-      riskLevel: 'High'
-    },
-    {
-      id: '6',
-      ticketNumber: 'CHG-2024-1250',
-      title: 'Email Server Configuration Update',
-      type: 'Normal',
-      category: 'Infrastructure',
-      priority: 'P2',
-      requester: 'James Wilson',
-      department: 'IT Operations',
-      submittedDate: '2024-10-16',
-      implementationDate: '2024-10-24',
-      affectedSystems: 2,
-      affectedUsers: 'All',
-      status: 'Awaiting Approval',
-      reviewers: ['David Kumar', 'Anna Lee'],
-      approvals: 2,
-      rejections: 0,
-      daysWaiting: 5,
-      riskLevel: 'Medium'
-    },
-    {
-      id: '7',
-      ticketNumber: 'CHG-2024-1251',
-      title: 'CRM Module Customization',
-      type: 'Normal',
-      category: 'Application',
-      priority: 'P3',
-      requester: 'Linda Martinez',
-      department: 'Application Development',
-      submittedDate: '2024-10-19',
-      implementationDate: '2024-10-27',
-      affectedSystems: 1,
-      affectedUsers: '11-50',
-      status: 'Under Assessment',
-      reviewers: ['Mike Chen'],
-      approvals: 0,
-      rejections: 0,
-      daysWaiting: 2,
-      riskLevel: 'Low'
-    },
-    {
-      id: '8',
-      ticketNumber: 'CHG-2024-1252',
-      title: 'Backup System Storage Expansion',
-      type: 'Standard',
-      category: 'Infrastructure',
-      priority: 'P3',
-      requester: 'Kevin Park',
-      department: 'IT Operations',
-      submittedDate: '2024-10-18',
-      implementationDate: '2024-10-23',
-      affectedSystems: 1,
-      affectedUsers: '1-10',
-      status: 'Awaiting Approval',
-      reviewers: ['Tom Wilson'],
-      approvals: 1,
-      rejections: 0,
-      daysWaiting: 3,
-      riskLevel: 'Low'
-    }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getScheduledChanges()
+        const mapped: PendingChange[] = raw.map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          ticketNumber: r.ticketNumber ?? r.changeNumber ?? r.code ?? '',
+          title: r.title ?? r.name ?? '',
+          type: r.type ?? 'Normal',
+          category: r.category ?? '',
+          priority: r.priority ?? 'P3',
+          requester: r.requester ?? r.requestedBy ?? '',
+          department: r.department ?? '',
+          submittedDate: r.submittedDate ?? r.createdAt ?? '',
+          implementationDate: r.implementationDate ?? r.scheduledDate ?? '',
+          affectedSystems: typeof r.affectedSystems === 'number'
+            ? r.affectedSystems
+            : Array.isArray(r.affectedSystems) ? r.affectedSystems.length : 0,
+          affectedUsers: r.affectedUsers ?? '',
+          status: r.status ?? 'Pending Review',
+          reviewers: Array.isArray(r.reviewers) ? r.reviewers : [],
+          approvals: r.approvals ?? 0,
+          rejections: r.rejections ?? 0,
+          daysWaiting: r.daysWaiting ?? 0,
+          riskLevel: r.riskLevel ?? 'Low',
+        }))
+        if (!cancelled) setPendingChanges(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setPendingChanges([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // Statistics
   const stats = {
@@ -260,6 +143,19 @@ export default function PendingChanges() {
           <p className="text-gray-600 mt-1">Changes awaiting review and approval</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading pending changes…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-6 gap-2">

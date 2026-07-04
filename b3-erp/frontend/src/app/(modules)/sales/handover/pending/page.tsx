@@ -49,161 +49,52 @@ export default function PendingHandoverPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
 
-  const pendingHandovers: PendingHandover[] = [
-    {
-      id: '1',
-      handoverNumber: 'HO-2025-001',
-      orderNumber: 'SO-2025-112',
-      customerName: 'Tata Motors Limited',
-      customerContact: 'Rajesh Kumar',
-      customerPhone: '+91 98765 43210',
-      deliveryAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      scheduledDate: '2025-10-22',
-      scheduledTime: '10:00 AM',
-      itemsCount: 15,
-      totalQuantity: 250,
-      priority: 'urgent',
-      readyForHandover: true,
-      documentsReady: true,
-      qualityCheckDone: true,
-      packagingComplete: true,
-      transportArranged: true,
-      daysUntilHandover: 2,
-      specialInstructions: 'Delivery at loading bay 3. Quality inspector must be present.'
-    },
-    {
-      id: '2',
-      handoverNumber: 'HO-2025-002',
-      orderNumber: 'SO-2025-115',
-      customerName: 'Reliance Industries',
-      customerContact: 'Amit Shah',
-      customerPhone: '+91 98765 43212',
-      deliveryAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      scheduledDate: '2025-10-23',
-      scheduledTime: '2:00 PM',
-      itemsCount: 20,
-      totalQuantity: 400,
-      priority: 'high',
-      readyForHandover: true,
-      documentsReady: true,
-      qualityCheckDone: true,
-      packagingComplete: true,
-      transportArranged: false,
-      daysUntilHandover: 3,
-      specialInstructions: 'Security clearance required. Contact site office 24 hours in advance.'
-    },
-    {
-      id: '3',
-      handoverNumber: 'HO-2025-003',
-      orderNumber: 'SO-2025-118',
-      customerName: 'Mahindra & Mahindra',
-      customerContact: 'Priya Sharma',
-      customerPhone: '+91 98765 43214',
-      deliveryAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      scheduledDate: '2025-10-25',
-      scheduledTime: '11:00 AM',
-      itemsCount: 8,
-      totalQuantity: 90,
-      priority: 'normal',
-      readyForHandover: false,
-      documentsReady: true,
-      qualityCheckDone: true,
-      packagingComplete: false,
-      transportArranged: true,
-      daysUntilHandover: 5
-    },
-    {
-      id: '4',
-      handoverNumber: 'HO-2025-004',
-      orderNumber: 'SO-2025-120',
-      customerName: 'L&T Heavy Engineering',
-      customerContact: 'Suresh Menon',
-      customerPhone: '+91 98765 43215',
-      deliveryAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      scheduledDate: '2025-10-21',
-      scheduledTime: '9:00 AM',
-      itemsCount: 12,
-      totalQuantity: 180,
-      priority: 'urgent',
-      readyForHandover: true,
-      documentsReady: true,
-      qualityCheckDone: true,
-      packagingComplete: true,
-      transportArranged: true,
-      daysUntilHandover: 1,
-      specialInstructions: 'Unloading support required. Crane available on site.'
-    },
-    {
-      id: '5',
-      handoverNumber: 'HO-2025-005',
-      orderNumber: 'SO-2025-122',
-      customerName: 'Bharat Heavy Electricals',
-      customerContact: 'Arun Verma',
-      customerPhone: '+91 98765 43216',
-      deliveryAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      scheduledDate: '2025-10-26',
-      scheduledTime: '1:00 PM',
-      itemsCount: 18,
-      totalQuantity: 320,
-      priority: 'high',
-      readyForHandover: false,
-      documentsReady: true,
-      qualityCheckDone: false,
-      packagingComplete: true,
-      transportArranged: true,
-      daysUntilHandover: 6
-    },
-    {
-      id: '6',
-      handoverNumber: 'HO-2025-006',
-      orderNumber: 'SO-2025-124',
-      customerName: 'Adani Ports',
-      customerContact: 'Karan Singh',
-      customerPhone: '+91 98765 43213',
-      deliveryAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      scheduledDate: '2025-10-24',
-      scheduledTime: '3:00 PM',
-      itemsCount: 10,
-      totalQuantity: 120,
-      priority: 'normal',
-      readyForHandover: true,
-      documentsReady: true,
-      qualityCheckDone: true,
-      packagingComplete: true,
-      transportArranged: true,
-      daysUntilHandover: 4
-    }
-  ];
+  const [pendingHandovers, setPendingHandovers] = useState<PendingHandover[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getHandovers();
+        const mapped: PendingHandover[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          handoverNumber: r.handoverNumber ?? '',
+          orderNumber: r.orderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerContact: r.customerContact ?? '',
+          customerPhone: r.customerPhone ?? '',
+          deliveryAddress: {
+            street: r.deliveryAddress?.street ?? '',
+            city: r.deliveryAddress?.city ?? '',
+            state: r.deliveryAddress?.state ?? '',
+            pincode: r.deliveryAddress?.pincode ?? ''
+          },
+          scheduledDate: r.scheduledDate ?? '',
+          scheduledTime: r.scheduledTime ?? '',
+          itemsCount: r.itemsCount ?? 0,
+          totalQuantity: r.totalQuantity ?? 0,
+          priority: (r.priority ?? 'normal') as PendingHandover['priority'],
+          readyForHandover: r.readyForHandover ?? false,
+          documentsReady: r.documentsReady ?? false,
+          qualityCheckDone: r.qualityCheckDone ?? false,
+          packagingComplete: r.packagingComplete ?? false,
+          transportArranged: r.transportArranged ?? false,
+          daysUntilHandover: r.daysUntilHandover ?? 0,
+          specialInstructions: r.specialInstructions
+        }));
+        if (!cancelled) setPendingHandovers(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setPendingHandovers([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredHandovers = pendingHandovers.filter(handover => {
     const matchesSearch =
@@ -242,6 +133,18 @@ export default function PendingHandoverPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-amber-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

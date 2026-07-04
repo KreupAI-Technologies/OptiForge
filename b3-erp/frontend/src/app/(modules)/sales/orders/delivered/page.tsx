@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -21,6 +21,7 @@ import {
   Download,
   Truck
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface DeliveredOrder {
   id: string;

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Search, Filter, RefreshCw, AlertCircle, CheckCircle, Clock, Package, TrendingDown } from 'lucide-react'
+import { salesPagesService } from '@/services/sales-pages.service';
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
