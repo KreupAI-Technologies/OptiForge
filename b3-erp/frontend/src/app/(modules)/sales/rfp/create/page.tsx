@@ -112,50 +112,21 @@ export default function CreateRFPPage() {
   const [deliveryTerms, setDeliveryTerms] = useState('');
   const [evaluationCriteria, setEvaluationCriteria] = useState('');
 
-  const availableVendors: Vendor[] = [
-    {
-      id: '1',
-      name: 'Tata Steel Limited',
-      email: 'sales@tatasteel.com',
-      contactPerson: 'Rajesh Kumar',
-      phone: '+91 98765 43210'
-    },
-    {
-      id: '2',
-      name: 'JSW Steel',
-      email: 'business@jswsteel.in',
-      contactPerson: 'Amit Sharma',
-      phone: '+91 98765 43211'
-    },
-    {
-      id: '3',
-      name: 'Hindalco Industries',
-      email: 'procurement@hindalco.com',
-      contactPerson: 'Priya Patel',
-      phone: '+91 98765 43212'
-    },
-    {
-      id: '4',
-      name: 'Bharat Forge',
-      email: 'sales@bharatforge.com',
-      contactPerson: 'Vikram Singh',
-      phone: '+91 98765 43213'
-    },
-    {
-      id: '5',
-      name: 'L&T Heavy Engineering',
-      email: 'rfp@lntheavy.com',
-      contactPerson: 'Suresh Menon',
-      phone: '+91 98765 43214'
-    },
-    {
-      id: '6',
-      name: 'Thermax Limited',
-      email: 'business@thermaxglobal.com',
-      contactPerson: 'Neha Desai',
-      phone: '+91 98765 43215'
-    }
-  ];
+  useEffect(() => {
+    setVendorsLoading(true);
+    MasterDataService.getVendors().then((live) => {
+      if (live.length > 0) {
+        setAvailableVendors(live.map((v: MDVendor): Vendor => ({
+          id: v.id,
+          name: v.vendorName || v.name || v.vendorCode || v.id,
+          email: v.email || '',
+          contactPerson: v.vendorName || v.name || '',
+          phone: '',
+        })));
+      }
+      setVendorsLoading(false);
+    });
+  }, []);
 
   const addItem = () => {
     const newItem: RFPItem = {
@@ -553,7 +524,10 @@ export default function CreateRFPPage() {
               </h2>
 
               <div className="space-y-3">
-                {availableVendors.map((vendor) => (
+                {vendorsLoading && (
+                  <div className="p-3 text-center text-gray-500 text-sm">Loading vendors…</div>
+                )}
+                {!vendorsLoading && availableVendors.map((vendor) => (
                   <div
                     key={vendor.id}
                     onClick={() => toggleVendor(vendor.id)}

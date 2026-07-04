@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { MasterDataService, MDCustomer, MDEmployee, mdLabel, fetchRecordById } from '@/services/master-data.service';
 
 interface Quote {
   id: string;

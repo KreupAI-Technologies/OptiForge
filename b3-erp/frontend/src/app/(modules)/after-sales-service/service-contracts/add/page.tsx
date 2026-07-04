@@ -290,25 +290,25 @@ export default function AddEditContractPage() {
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Type to search customer..."
+                placeholder={loadingCustomers ? 'Loading customers…' : 'Type to search customer...'}
                 required
               />
               {customerName && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {mockCustomers
-                    .filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()))
+                    .filter(c => mdLabel.customer(c).toLowerCase().includes(customerName.toLowerCase()))
                     .map(customer => (
                       <div
                         key={customer.id}
                         onClick={() => {
                           setCustomerId(customer.id);
-                          setCustomerName(customer.name);
-                          setCustomerGSTIN(customer.gstin);
+                          setCustomerName(mdLabel.customer(customer));
+                          setCustomerGSTIN(customer.customerCode ?? '');
                         }}
                         className="px-3 py-2 hover:bg-gray-50 cursor-pointer"
                       >
-                        <div className="font-medium text-gray-900">{customer.name}</div>
-                        <div className="text-xs text-gray-500">{customer.id} • GSTIN: {customer.gstin}</div>
+                        <div className="font-medium text-gray-900">{mdLabel.customer(customer)}</div>
+                        <div className="text-xs text-gray-500">{customer.id}{customer.customerCode ? ` • ${customer.customerCode}` : ''}</div>
                       </div>
                     ))}
                 </div>

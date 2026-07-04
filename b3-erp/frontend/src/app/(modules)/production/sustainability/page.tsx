@@ -126,6 +126,75 @@ export default function SustainabilityPage() {
 
       {/* Main Content */}
       <div className="p-6">
+        {/* Live Energy Consumption (primary live data list) */}
+        <div className="mb-3 bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚡</span>
+              <h3 className="text-lg font-semibold text-white">Live Energy Consumption</h3>
+            </div>
+            <span className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              {energyLoading ? 'Loading…' : `${energyRecords.length} records`}
+            </span>
+          </div>
+
+          {energyLoading && (
+            <div className="flex items-center gap-2 px-4 py-4 text-sm text-gray-400">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-600 border-t-green-500" />
+              Loading energy consumption…
+            </div>
+          )}
+
+          {energyError && !energyLoading && (
+            <div className="px-4 py-4 text-sm text-red-400">
+              {energyError}
+            </div>
+          )}
+
+          {!energyLoading && !energyError && energyRecords.length === 0 && (
+            <div className="px-4 py-4 text-sm text-gray-400">
+              No energy consumption records
+            </div>
+          )}
+
+          {!energyLoading && !energyError && energyRecords.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wider text-gray-500 border-b border-gray-800">
+                    <th className="px-4 py-2 font-medium">Zone</th>
+                    <th className="px-4 py-2 font-medium">Consumption</th>
+                    <th className="px-4 py-2 font-medium">Cost</th>
+                    <th className="px-4 py-2 font-medium">Period</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {energyRecords.map((r: any, i: number) => (
+                    <tr
+                      key={r.id ?? i}
+                      className="border-b border-gray-800/60 hover:bg-gray-800/40 transition-colors"
+                    >
+                      <td className="px-4 py-2 text-white">
+                        {r.zone ?? r.zoneName ?? r.name ?? r.id ?? '—'}
+                      </td>
+                      <td className="px-4 py-2 text-green-400">
+                        {r.consumption ?? r.kwh ?? '—'}
+                      </td>
+                      <td className="px-4 py-2 text-gray-300">
+                        {r.cost ?? '—'}
+                      </td>
+                      <td className="px-4 py-2 text-gray-400">
+                        {r.period ?? r.recordDate ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* Feature Info Card */}
         <div className="mb-3 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-700/50 rounded-xl p-3">
           <div className="flex items-start gap-2">
