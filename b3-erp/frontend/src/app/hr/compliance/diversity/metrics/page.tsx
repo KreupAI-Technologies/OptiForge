@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Users, TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, TrendingUp, BarChart3, PieChart, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface DiversityMetric {
   category: string;
@@ -26,6 +27,45 @@ interface DepartmentDiversity {
 export default function Page() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedYear, setSelectedYear] = useState('2025');
+  const [departmentDiversity, setDepartmentDiversity] = useState<DepartmentDiversity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('diversity');
+        const mapped: DepartmentDiversity[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            department: meta.department ?? row.title ?? '',
+            totalEmployees: meta.totalEmployees ?? 0,
+            male: meta.male ?? 0,
+            female: meta.female ?? 0,
+            other: meta.other ?? 0,
+            malePercentage: meta.malePercentage ?? 0,
+            femalePercentage: meta.femalePercentage ?? 0,
+            otherPercentage: meta.otherPercentage ?? 0,
+          };
+        });
+        if (!cancelled) setDepartmentDiversity(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department diversity');
+          setDepartmentDiversity([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const totalEmployees = 450;
   const targetFemalePercentage = 30;
@@ -64,17 +104,6 @@ export default function Page() {
     { category: 'Ethnicity', subcategory: 'ST', total: 23, percentage: 5.1, trend: 'up', trendValue: 0.8 }
   ];
 
-  const departmentDiversity: DepartmentDiversity[] = [
-    { department: 'Manufacturing', totalEmployees: 180, male: 148, female: 30, other: 2, malePercentage: 82.2, femalePercentage: 16.7, otherPercentage: 1.1 },
-    { department: 'IT', totalEmployees: 65, male: 52, female: 13, other: 0, malePercentage: 80.0, femalePercentage: 20.0, otherPercentage: 0 },
-    { department: 'Sales', totalEmployees: 48, male: 28, female: 20, other: 0, malePercentage: 58.3, femalePercentage: 41.7, otherPercentage: 0 },
-    { department: 'Finance', totalEmployees: 32, male: 18, female: 14, other: 0, malePercentage: 56.3, femalePercentage: 43.8, otherPercentage: 0 },
-    { department: 'HR', totalEmployees: 28, male: 10, female: 18, other: 0, malePercentage: 35.7, femalePercentage: 64.3, otherPercentage: 0 },
-    { department: 'Logistics', totalEmployees: 42, male: 35, female: 6, other: 1, malePercentage: 83.3, femalePercentage: 14.3, otherPercentage: 2.4 },
-    { department: 'Quality Assurance', totalEmployees: 35, male: 18, female: 17, other: 0, malePercentage: 51.4, femalePercentage: 48.6, otherPercentage: 0 },
-    { department: 'R&D', totalEmployees: 20, male: 9, female: 10, other: 1, malePercentage: 45.0, femalePercentage: 50.0, otherPercentage: 5.0 }
-  ];
-
   const leadershipMetrics = {
     totalLeadership: 45,
     maleLeaders: 36,
@@ -109,6 +138,19 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Comprehensive workforce diversity analytics and insights</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading department diversity…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">

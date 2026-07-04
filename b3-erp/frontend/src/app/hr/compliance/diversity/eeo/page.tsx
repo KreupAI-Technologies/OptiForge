@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Users, Download, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
 
 interface EEOCategory {
   category: string;
@@ -42,21 +43,48 @@ export default function Page() {
     { category: 'Operatives', male: 20, female: 1, other: 1, total: 22, targetFemale: 10, targetMet: false }
   ];
 
-  const hiringData2025: HiringData[] = [
-    {
-      year: '2025',
-      quarter: 'Q1',
-      totalApplications: 485,
-      maleApplicants: 312,
-      femaleApplicants: 165,
-      diverseApplicants: 108,
-      totalHired: 82,
-      maleHired: 54,
-      femaleHired: 28,
-      diverseHired: 18,
-      selectionRate: 16.9
-    }
-  ];
+  const [hiringData2025, setHiringData2025] = useState<HiringData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('diversity');
+        const mapped: HiringData[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            year: meta.year ?? '',
+            quarter: meta.quarter ?? '',
+            totalApplications: meta.totalApplications ?? 0,
+            maleApplicants: meta.maleApplicants ?? 0,
+            femaleApplicants: meta.femaleApplicants ?? 0,
+            diverseApplicants: meta.diverseApplicants ?? 0,
+            totalHired: meta.totalHired ?? 0,
+            maleHired: meta.maleHired ?? 0,
+            femaleHired: meta.femaleHired ?? 0,
+            diverseHired: meta.diverseHired ?? 0,
+            selectionRate: meta.selectionRate ?? 0,
+          };
+        });
+        if (!cancelled) setHiringData2025(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load EEO hiring data');
+          setHiringData2025([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const promotionData = {
     totalPromotions: 45,
@@ -105,6 +133,19 @@ export default function Page() {
         </h1>
         <p className="text-sm text-gray-600 mt-1">Comprehensive EEO compliance tracking and reporting</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading EEO hiring data…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">
