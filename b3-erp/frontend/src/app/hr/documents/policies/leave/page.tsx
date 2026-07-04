@@ -1,16 +1,50 @@
 'use client';
 
-import { Calendar, Download, Eye, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Download, Eye, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface PolicyTopic {
+  id: string;
+  title: string;
+  description: string;
+}
 
 export default function LeavePolicyPage() {
-  const policyTopics = [
-    { id: 1, title: 'Types of Leave', description: 'Privilege Leave, Sick Leave, Casual Leave, Maternity/Paternity Leave' },
-    { id: 2, title: 'Leave Accrual & Eligibility', description: 'Monthly accrual rates and eligibility criteria' },
-    { id: 3, title: 'Leave Application Process', description: 'How to apply for leave and approval workflow' },
-    { id: 4, title: 'Leave Encashment', description: 'Rules for encashing unused leave' },
-    { id: 5, title: 'Public Holidays', description: 'List of company-recognized public holidays' },
-    { id: 6, title: 'Compensatory Off', description: 'Comp-off policy for working on holidays/weekends' }
-  ];
+  const [policyTopics, setPolicyTopics] = useState<PolicyTopic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('policy-leave');
+        const mapped: PolicyTopic[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            description: meta.description ?? row.remarks ?? '',
+          };
+        });
+        if (!cancelled) setPolicyTopics(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load leave policy topics');
+          setPolicyTopics([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -18,6 +52,19 @@ export default function LeavePolicyPage() {
         <h1 className="text-2xl font-bold text-gray-900">Leave Policy</h1>
         <p className="text-sm text-gray-600 mt-1">Company leave guidelines and entitlements</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading leave policy topics…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border border-green-200">

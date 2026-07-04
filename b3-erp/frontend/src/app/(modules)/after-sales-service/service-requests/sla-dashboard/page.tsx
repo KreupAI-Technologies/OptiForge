@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Clock,
@@ -12,6 +12,7 @@ import {
   Filter,
   Calendar
 } from 'lucide-react';
+import { AfterSalesManagementService } from '@/services/after-sales-management.service';
 
 interface SLATicket {
   id: string;
@@ -32,113 +33,74 @@ export default function SLADashboardPage() {
   const [selectedPriority, setSelectedPriority] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
-  // Mock SLA Tickets Data
-  const allTickets: SLATicket[] = [
-    {
-      id: 'T1',
-      ticketNumber: 'SR-2025-0045',
-      customerName: 'Sharma Kitchens Pvt Ltd',
-      priority: 'P1',
-      issueTitle: 'Complete kitchen operations down - gas line failure',
-      assignedTo: 'Rajesh Kumar',
-      responseDeadline: '2025-02-17T12:30:00',
-      resolutionDeadline: '2025-02-17T16:30:00',
-      status: 'In Progress',
-      responseStatus: 'Met',
-      resolutionStatus: 'At Risk'
-    },
-    {
-      id: 'T2',
-      ticketNumber: 'SR-2025-0044',
-      customerName: 'Prestige Developers',
-      priority: 'P2',
-      issueTitle: 'Refrigerator cooling issue affecting food storage',
-      assignedTo: 'Amit Patel',
-      responseDeadline: '2025-02-17T14:00:00',
-      resolutionDeadline: '2025-02-18T10:00:00',
-      status: 'In Progress',
-      responseStatus: 'Met',
-      resolutionStatus: 'On Track'
-    },
-    {
-      id: 'T3',
-      ticketNumber: 'SR-2025-0043',
-      customerName: 'Royal Restaurant Chain',
-      priority: 'P3',
-      issueTitle: 'Deep fryer temperature inconsistency',
-      assignedTo: 'Priya Singh',
-      responseDeadline: '2025-02-17T18:00:00',
-      resolutionDeadline: '2025-02-19T10:00:00',
-      status: 'Open',
-      responseStatus: 'At Risk',
-      resolutionStatus: 'On Track'
-    },
-    {
-      id: 'T4',
-      ticketNumber: 'SR-2025-0042',
-      customerName: 'Hotel Grand Plaza',
-      priority: 'P2',
-      issueTitle: 'Walk-in freezer door seal replacement needed',
-      assignedTo: 'Suresh Reddy',
-      responseDeadline: '2025-02-17T13:00:00',
-      resolutionDeadline: '2025-02-18T09:00:00',
-      status: 'In Progress',
-      responseStatus: 'Breached',
-      resolutionStatus: 'At Risk'
-    },
-    {
-      id: 'T5',
-      ticketNumber: 'SR-2025-0041',
-      customerName: 'Green Valley Resorts',
-      priority: 'P4',
-      issueTitle: 'Routine maintenance scheduling request',
-      assignedTo: 'Neha Sharma',
-      responseDeadline: '2025-02-18T10:00:00',
-      resolutionDeadline: '2025-02-20T10:00:00',
-      status: 'Open',
-      responseStatus: 'On Track',
-      resolutionStatus: 'On Track'
-    },
-    {
-      id: 'T6',
-      ticketNumber: 'SR-2025-0040',
-      customerName: 'City Cafe Express',
-      priority: 'P1',
-      issueTitle: 'Espresso machine complete failure - no power',
-      assignedTo: 'Rajesh Kumar',
-      responseDeadline: '2025-02-17T11:00:00',
-      resolutionDeadline: '2025-02-17T15:00:00',
-      status: 'In Progress',
-      responseStatus: 'Met',
-      resolutionStatus: 'Breached'
-    },
-    {
-      id: 'T7',
-      ticketNumber: 'SR-2025-0039',
-      customerName: 'Paradise Banquet Hall',
-      priority: 'P3',
-      issueTitle: 'Oven temperature sensor replacement',
-      assignedTo: 'Amit Patel',
-      responseDeadline: '2025-02-17T16:00:00',
-      resolutionDeadline: '2025-02-19T08:00:00',
-      status: 'In Progress',
-      responseStatus: 'Met',
-      resolutionStatus: 'On Track'
-    },
-    {
-      id: 'T8',
-      ticketNumber: 'SR-2025-0038',
-      customerName: 'Spice Garden Restaurant',
-      priority: 'P2',
-      issueTitle: 'Dishwasher water pump motor failure',
-      assignedTo: 'Priya Singh',
-      responseDeadline: '2025-02-17T12:00:00',
-      resolutionDeadline: '2025-02-18T08:00:00',
-      status: 'Pending',
-      responseStatus: 'Met',
-      resolutionStatus: 'At Risk'
-    }
-  ];
+  const [allTickets, setAllTickets] = useState<SLATicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const mapPriority = (p: string): SLATicket['priority'] => {
+      switch ((p || '').toLowerCase()) {
+        case 'critical': return 'P1';
+        case 'high': return 'P2';
+        case 'medium': return 'P3';
+        case 'low': return 'P4';
+        default: return 'P3';
+      }
+    };
+    const mapStatus = (s: string): SLATicket['status'] => {
+      switch ((s || '').toLowerCase()) {
+        case 'open':
+        case 'acknowledged': return 'Open';
+        case 'in_progress':
+        case 'scheduled': return 'In Progress';
+        case 'pending_parts': return 'Pending';
+        case 'resolved':
+        case 'closed': return 'Resolved';
+        default: return 'Open';
+      }
+    };
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesManagementService.getServiceRequestsLive()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: SLATicket[] = list.map((r, idx) => {
+          const breached = !!r?.slaBreached;
+          const status = mapStatus(r?.status);
+          const isResolved = status === 'Resolved';
+          return {
+            id: r?.id ? String(r.id) : `T${idx + 1}`,
+            ticketNumber: r?.requestNumber ?? r?.requestCode ?? '',
+            customerName: r?.customerName ?? '',
+            priority: mapPriority(r?.priority),
+            issueTitle: r?.issueDescription ?? r?.issueCategory ?? '',
+            assignedTo: r?.assignedTechnician ?? r?.assignedTechnicianId ?? '',
+            responseDeadline: r?.slaResponseDue ? String(r.slaResponseDue) : '',
+            resolutionDeadline: r?.slaResolutionDue ? String(r.slaResolutionDue) : '',
+            status,
+            responseStatus: breached ? 'Breached' : (isResolved ? 'Met' : 'On Track'),
+            resolutionStatus: breached ? 'Breached' : (isResolved ? 'Met' : 'On Track'),
+          };
+        });
+        if (!cancelled) setAllTickets(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load service requests');
+          setAllTickets([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Filter tickets
   const filteredTickets = allTickets.filter(ticket => {
@@ -398,6 +360,19 @@ export default function SLADashboardPage() {
         </div>
       </div>
 
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading service requests…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4" />
+          {loadError}
+        </div>
+      )}
+
       {/* Tickets Table */}
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="px-3 py-2 border-b border-gray-200">
@@ -465,6 +440,11 @@ export default function SLADashboardPage() {
               })}
             </tbody>
           </table>
+          {!isLoading && !loadError && filteredTickets.length === 0 && (
+            <div className="px-3 py-8 text-center text-sm text-gray-600">
+              No service requests found.
+            </div>
+          )}
         </div>
       </div>
     </div>

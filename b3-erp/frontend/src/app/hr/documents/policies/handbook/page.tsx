@@ -1,22 +1,52 @@
 'use client';
 
-import { Book, Download, Eye, FileText, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Book, Download, Eye, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface HandbookSection {
+  id: string;
+  title: string;
+  pages: string;
+  lastUpdated: string;
+}
 
 export default function EmployeeHandbookPage() {
-  const handbookSections = [
-    { id: 1, title: 'Welcome & Introduction', pages: '1-5', lastUpdated: '2025-01-15' },
-    { id: 2, title: 'Company Overview & Values', pages: '6-12', lastUpdated: '2025-01-15' },
-    { id: 3, title: 'Employment Basics', pages: '13-20', lastUpdated: '2025-01-15' },
-    { id: 4, title: 'Working Hours & Attendance', pages: '21-28', lastUpdated: '2025-01-15' },
-    { id: 5, title: 'Leave & Holidays', pages: '29-38', lastUpdated: '2025-01-15' },
-    { id: 6, title: 'Compensation & Benefits', pages: '39-50', lastUpdated: '2025-01-15' },
-    { id: 7, title: 'Code of Conduct', pages: '51-62', lastUpdated: '2025-01-15' },
-    { id: 8, title: 'Health & Safety', pages: '63-70', lastUpdated: '2025-01-15' },
-    { id: 9, title: 'IT & Data Security', pages: '71-78', lastUpdated: '2025-01-15' },
-    { id: 10, title: 'Grievance Redressal', pages: '79-85', lastUpdated: '2025-01-15' },
-    { id: 11, title: 'Disciplinary Procedures', pages: '86-92', lastUpdated: '2025-01-15' },
-    { id: 12, title: 'Termination & Resignation', pages: '93-100', lastUpdated: '2025-01-15' }
-  ];
+  const [handbookSections, setHandbookSections] = useState<HandbookSection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('policy-handbook');
+        const mapped: HandbookSection[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            pages: meta.pages ?? '',
+            lastUpdated: row.uploadedOn ?? meta.lastUpdated ?? '',
+          };
+        });
+        if (!cancelled) setHandbookSections(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load handbook sections');
+          setHandbookSections([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -24,6 +54,19 @@ export default function EmployeeHandbookPage() {
         <h1 className="text-2xl font-bold text-gray-900">Employee Handbook</h1>
         <p className="text-sm text-gray-600 mt-1">Complete guide to company policies and procedures</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading handbook sections…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
