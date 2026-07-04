@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PieChart, Search, Filter, Download, TrendingUp, User, Briefcase, Clock, AlertTriangle, Users, DollarSign, Activity } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type ResourceUtilization = {
   id: string;
@@ -25,308 +26,63 @@ type ResourceUtilization = {
   revenueGenerated: number;
 };
 
-const RESOURCE_UTILIZATION: ResourceUtilization[] = [
-  {
-    id: '1',
-    resourceId: 'RES-101',
-    name: 'Amit Singh',
-    role: 'Project Manager',
-    dept: 'Projects',
-    email: 'amit.singh@company.com',
-    utilizationPct: 82,
-    billablePct: 90,
-    availableHours: 160,
-    allocatedHours: 131,
-    billableHours: 118,
-    nonBillableHours: 13,
-    activeProjects: 4,
-    efficiency: 95,
-    status: 'optimal',
-    trend: 'stable',
-    costPerHour: 2500,
-    revenueGenerated: 295000
-  },
-  {
-    id: '2',
-    resourceId: 'RES-102',
-    name: 'Priya Patel',
-    role: 'Designer',
-    dept: 'Design',
-    email: 'priya.patel@company.com',
-    utilizationPct: 75,
-    billablePct: 85,
-    availableHours: 160,
-    allocatedHours: 120,
-    billableHours: 102,
-    nonBillableHours: 18,
-    activeProjects: 3,
-    efficiency: 88,
-    status: 'optimal',
-    trend: 'improving',
-    costPerHour: 2000,
-    revenueGenerated: 204000
-  },
-  {
-    id: '3',
-    resourceId: 'RES-103',
-    name: 'Rahul Kumar',
-    role: 'Project Manager',
-    dept: 'Projects',
-    email: 'rahul.kumar@company.com',
-    utilizationPct: 92,
-    billablePct: 95,
-    availableHours: 160,
-    allocatedHours: 147,
-    billableHours: 140,
-    nonBillableHours: 7,
-    activeProjects: 5,
-    efficiency: 92,
-    status: 'over-utilized',
-    trend: 'declining',
-    costPerHour: 2500,
-    revenueGenerated: 350000
-  },
-  {
-    id: '4',
-    resourceId: 'RES-104',
-    name: 'Sara Ali',
-    role: 'Installer',
-    dept: 'Installation',
-    email: 'sara.ali@company.com',
-    utilizationPct: 48,
-    billablePct: 60,
-    availableHours: 160,
-    allocatedHours: 77,
-    billableHours: 46,
-    nonBillableHours: 31,
-    activeProjects: 2,
-    efficiency: 72,
-    status: 'under-utilized',
-    trend: 'stable',
-    costPerHour: 1500,
-    revenueGenerated: 69000
-  },
-  {
-    id: '5',
-    resourceId: 'RES-105',
-    name: 'Vikram Reddy',
-    role: 'Assembler',
-    dept: 'Production',
-    email: 'vikram.reddy@company.com',
-    utilizationPct: 78,
-    billablePct: 92,
-    availableHours: 160,
-    allocatedHours: 125,
-    billableHours: 115,
-    nonBillableHours: 10,
-    activeProjects: 3,
-    efficiency: 90,
-    status: 'optimal',
-    trend: 'improving',
-    costPerHour: 1800,
-    revenueGenerated: 207000
-  },
-  {
-    id: '6',
-    resourceId: 'RES-106',
-    name: 'Karthik Iyer',
-    role: 'Electrician',
-    dept: 'Installation',
-    email: 'karthik.iyer@company.com',
-    utilizationPct: 85,
-    billablePct: 88,
-    availableHours: 160,
-    allocatedHours: 136,
-    billableHours: 120,
-    nonBillableHours: 16,
-    activeProjects: 4,
-    efficiency: 91,
-    status: 'at-capacity',
-    trend: 'stable',
-    costPerHour: 1600,
-    revenueGenerated: 192000
-  },
-  {
-    id: '7',
-    resourceId: 'RES-107',
-    name: 'Neha Gupta',
-    role: 'Procurement Officer',
-    dept: 'Procurement',
-    email: 'neha.gupta@company.com',
-    utilizationPct: 65,
-    billablePct: 45,
-    availableHours: 160,
-    allocatedHours: 104,
-    billableHours: 47,
-    nonBillableHours: 57,
-    activeProjects: 5,
-    efficiency: 78,
-    status: 'under-utilized',
-    trend: 'improving',
-    costPerHour: 1400,
-    revenueGenerated: 65800
-  },
-  {
-    id: '8',
-    resourceId: 'RES-108',
-    name: 'Deepak Singh',
-    role: 'Finisher',
-    dept: 'Production',
-    email: 'deepak.singh@company.com',
-    utilizationPct: 88,
-    billablePct: 95,
-    availableHours: 160,
-    allocatedHours: 141,
-    billableHours: 134,
-    nonBillableHours: 7,
-    activeProjects: 4,
-    efficiency: 94,
-    status: 'over-utilized',
-    trend: 'declining',
-    costPerHour: 1700,
-    revenueGenerated: 227800
-  },
-  {
-    id: '9',
-    resourceId: 'RES-109',
-    name: 'Arjun Nair',
-    role: 'Site Engineer',
-    dept: 'Engineering',
-    email: 'arjun.nair@company.com',
-    utilizationPct: 72,
-    billablePct: 80,
-    availableHours: 160,
-    allocatedHours: 115,
-    billableHours: 92,
-    nonBillableHours: 23,
-    activeProjects: 3,
-    efficiency: 85,
-    status: 'optimal',
-    trend: 'stable',
-    costPerHour: 2200,
-    revenueGenerated: 202400
-  },
-  {
-    id: '10',
-    resourceId: 'RES-110',
-    name: 'Meera Kapoor',
-    role: 'Project Coordinator',
-    dept: 'Projects',
-    email: 'meera.kapoor@company.com',
-    utilizationPct: 55,
-    billablePct: 50,
-    availableHours: 160,
-    allocatedHours: 88,
-    billableHours: 44,
-    nonBillableHours: 44,
-    activeProjects: 4,
-    efficiency: 75,
-    status: 'under-utilized',
-    trend: 'declining',
-    costPerHour: 1300,
-    revenueGenerated: 57200
-  },
-  {
-    id: '11',
-    resourceId: 'RES-111',
-    name: 'Anjali Sharma',
-    role: 'QC Inspector',
-    dept: 'Quality',
-    email: 'anjali.sharma@company.com',
-    utilizationPct: 70,
-    billablePct: 65,
-    availableHours: 160,
-    allocatedHours: 112,
-    billableHours: 73,
-    nonBillableHours: 39,
-    activeProjects: 5,
-    efficiency: 82,
-    status: 'optimal',
-    trend: 'improving',
-    costPerHour: 1500,
-    revenueGenerated: 109500
-  },
-  {
-    id: '12',
-    resourceId: 'RES-112',
-    name: 'Suresh Kumar',
-    role: 'Safety Officer',
-    dept: 'Safety',
-    email: 'suresh.kumar@company.com',
-    utilizationPct: 60,
-    billablePct: 40,
-    availableHours: 160,
-    allocatedHours: 96,
-    billableHours: 38,
-    nonBillableHours: 58,
-    activeProjects: 6,
-    efficiency: 70,
-    status: 'under-utilized',
-    trend: 'stable',
-    costPerHour: 1600,
-    revenueGenerated: 60800
-  },
-  {
-    id: '13',
-    resourceId: 'RES-113',
-    name: 'Geeta Rao',
-    role: 'Vendor Manager',
-    dept: 'Procurement',
-    email: 'geeta.rao@company.com',
-    utilizationPct: 68,
-    billablePct: 55,
-    availableHours: 160,
-    allocatedHours: 109,
-    billableHours: 60,
-    nonBillableHours: 49,
-    activeProjects: 4,
-    efficiency: 76,
-    status: 'under-utilized',
-    trend: 'improving',
-    costPerHour: 1400,
-    revenueGenerated: 84000
-  },
-  {
-    id: '14',
-    resourceId: 'RES-114',
-    name: 'Mohammad Ali',
-    role: 'Plumber',
-    dept: 'Installation',
-    email: 'mohammad.ali@company.com',
-    utilizationPct: 80,
-    billablePct: 90,
-    availableHours: 160,
-    allocatedHours: 128,
-    billableHours: 115,
-    nonBillableHours: 13,
-    activeProjects: 3,
-    efficiency: 89,
-    status: 'optimal',
-    trend: 'stable',
-    costPerHour: 1500,
-    revenueGenerated: 172500
-  },
-  {
-    id: '15',
-    resourceId: 'RES-115',
-    name: 'Lakshmi Iyer',
-    role: 'Documentation Specialist',
-    dept: 'Administration',
-    email: 'lakshmi.iyer@company.com',
-    utilizationPct: 52,
-    billablePct: 30,
-    availableHours: 160,
-    allocatedHours: 83,
-    billableHours: 25,
-    nonBillableHours: 58,
-    activeProjects: 5,
-    efficiency: 68,
-    status: 'under-utilized',
-    trend: 'declining',
-    costPerHour: 1200,
-    revenueGenerated: 30000
-  }
-];
+const VALID_STATUSES: ResourceUtilization['status'][] = ['optimal', 'under-utilized', 'over-utilized', 'at-capacity'];
+const VALID_TRENDS: ResourceUtilization['trend'][] = ['improving', 'declining', 'stable'];
+
+// Maps a raw backend record (field names may vary; array is currently empty) into the
+// strongly-typed ResourceUtilization the UI renders. Derives values not sent by the API.
+function mapResourceUtilization(r: any, index: number): ResourceUtilization {
+  const availableHours = Number(r?.totalCapacity ?? r?.availableHours ?? r?.availability ?? 160) || 0;
+  const allocatedHours = Number(r?.allocatedHours ?? r?.actualHours ?? 0) || 0;
+  const billableHours = Number(r?.billableHours ?? 0) || 0;
+  const nonBillableHours = Number(r?.nonBillableHours ?? Math.max(allocatedHours - billableHours, 0)) || 0;
+
+  const utilizationPct = Number(
+    r?.utilization ?? r?.utilizationPct ?? (availableHours > 0 ? Math.round((allocatedHours / availableHours) * 100) : 0)
+  ) || 0;
+  const billablePct = Number(
+    r?.billablePct ?? (allocatedHours > 0 ? Math.round((billableHours / allocatedHours) * 100) : 0)
+  ) || 0;
+
+  const rawStatus = String(r?.status ?? '').toLowerCase().replace(/[_\s]+/g, '-');
+  const status: ResourceUtilization['status'] = VALID_STATUSES.includes(rawStatus as any)
+    ? (rawStatus as ResourceUtilization['status'])
+    : utilizationPct > 95
+      ? 'over-utilized'
+      : utilizationPct >= 85
+        ? 'at-capacity'
+        : utilizationPct < 60
+          ? 'under-utilized'
+          : 'optimal';
+
+  const rawTrend = String(r?.trend ?? '').toLowerCase();
+  const trend: ResourceUtilization['trend'] = VALID_TRENDS.includes(rawTrend as any)
+    ? (rawTrend as ResourceUtilization['trend'])
+    : 'stable';
+
+  const costPerHour = Number(r?.costPerHour ?? 0) || 0;
+
+  return {
+    id: String(r?.id ?? r?.resourceId ?? index + 1),
+    resourceId: String(r?.resourceId ?? r?.id ?? ''),
+    name: r?.resourceName ?? r?.name ?? '',
+    role: r?.role ?? '',
+    dept: r?.department ?? r?.dept ?? '',
+    email: r?.email ?? '',
+    utilizationPct,
+    billablePct,
+    availableHours,
+    allocatedHours,
+    billableHours,
+    nonBillableHours,
+    activeProjects: Number(r?.activeProjects ?? 0) || 0,
+    efficiency: Number(r?.efficiency ?? 0) || 0,
+    status,
+    trend,
+    costPerHour,
+    revenueGenerated: Number(r?.revenueGenerated ?? billableHours * costPerHour) || 0,
+  };
+}
 
 export default function ResourceUtilizationPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -334,25 +90,55 @@ export default function ResourceUtilizationPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
 
-  const depts = useMemo(() => ['all', ...Array.from(new Set(RESOURCE_UTILIZATION.map(r => r.dept)))], []);
-  const roles = useMemo(() => ['all', ...Array.from(new Set(RESOURCE_UTILIZATION.map(r => r.role)))], []);
+  const [resources, setResources] = useState<ResourceUtilization[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => RESOURCE_UTILIZATION.filter(r => {
-    const matchesSearch = [r.name, r.role, r.dept, r.resourceId, r.email].some(v => v.toLowerCase().includes(searchTerm.toLowerCase()));
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getProjectsResourceUtilization();
+        const mapped = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => mapResourceUtilization(r, i));
+        if (!cancelled) setResources(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setResources([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const depts = useMemo(() => ['all', ...Array.from(new Set(resources.map(r => r.dept).filter(Boolean)))], [resources]);
+  const roles = useMemo(() => ['all', ...Array.from(new Set(resources.map(r => r.role).filter(Boolean)))], [resources]);
+
+  const filtered = useMemo(() => resources.filter(r => {
+    const matchesSearch = [r.name, r.role, r.dept, r.resourceId, r.email].some(v => (v ?? '').toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesDept = deptFilter === 'all' ? true : r.dept === deptFilter;
     const matchesStatus = statusFilter === 'all' ? true : r.status === statusFilter;
     const matchesRole = roleFilter === 'all' ? true : r.role === roleFilter;
     return matchesSearch && matchesDept && matchesStatus && matchesRole;
-  }), [searchTerm, deptFilter, statusFilter, roleFilter]);
+  }), [resources, searchTerm, deptFilter, statusFilter, roleFilter]);
 
-  // Calculate aggregated stats
-  const totalResources = RESOURCE_UTILIZATION.length;
-  const avgUtilization = Math.round(RESOURCE_UTILIZATION.reduce((sum, r) => sum + r.utilizationPct, 0) / totalResources);
-  const optimalCount = RESOURCE_UTILIZATION.filter(r => r.status === 'optimal' || r.status === 'at-capacity').length;
-  const underUtilizedCount = RESOURCE_UTILIZATION.filter(r => r.status === 'under-utilized').length;
-  const overUtilizedCount = RESOURCE_UTILIZATION.filter(r => r.status === 'over-utilized').length;
-  const totalBillableHours = RESOURCE_UTILIZATION.reduce((sum, r) => sum + r.billableHours, 0);
-  const totalRevenue = RESOURCE_UTILIZATION.reduce((sum, r) => sum + r.revenueGenerated, 0);
+  // Calculate aggregated stats (derived from fetched state; divide-by-zero guarded)
+  const totalResources = resources.length;
+  const avgUtilization = totalResources === 0
+    ? 0
+    : Math.round(resources.reduce((sum, r) => sum + r.utilizationPct, 0) / totalResources);
+  const optimalCount = resources.filter(r => r.status === 'optimal' || r.status === 'at-capacity').length;
+  const underUtilizedCount = resources.filter(r => r.status === 'under-utilized').length;
+  const overUtilizedCount = resources.filter(r => r.status === 'over-utilized').length;
+  const totalBillableHours = resources.reduce((sum, r) => sum + r.billableHours, 0);
+  const totalRevenue = resources.reduce((sum, r) => sum + r.revenueGenerated, 0);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -526,7 +312,17 @@ export default function ResourceUtilizationPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {filtered.map(r => (
+              {isLoading && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">Loading resource utilization...</td>
+                </tr>
+              )}
+              {!isLoading && loadError && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-red-600">{loadError}</td>
+                </tr>
+              )}
+              {!isLoading && !loadError && filtered.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -593,7 +389,7 @@ export default function ResourceUtilizationPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {!isLoading && !loadError && filtered.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-gray-500">No resources found</td>
                 </tr>

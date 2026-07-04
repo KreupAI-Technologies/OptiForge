@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Wrench,
     Clock,
@@ -10,18 +10,55 @@ import {
     ListTodo,
     ChevronRight,
     Play,
-    Pause
+    Pause,
+    Loader2
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+interface FieldTask {
+    id: string;
+    name: string;
+    status: string;
+    progress: number;
+}
 
 export default function FieldAgentInstallerUI() {
-    const { id } = useParams() as { id: string };
+    const params = useParams();
+    const id = String(params?.id ?? '');
+    const projectId = id;
 
-    const tasks = [
-        { id: '1', name: 'Anchor Point Marking', status: 'Done', progress: 100 },
-        { id: '2', name: 'Main Chassis Assembly', status: 'In Progress', progress: 65 },
-        { id: '3', name: 'Leveling & Calibration', status: 'Todo', progress: 0 },
-    ];
+    const [tasks, setTasks] = useState<FieldTask[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            if (!projectId) { setIsLoading(false); return; }
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await projectManagementService.getInstallationTasks(projectId);
+                const mapped: FieldTask[] = (raw || []).map((r: any, idx: number) => ({
+                    id: String(r.id ?? r.taskId ?? idx + 1),
+                    name: r.name ?? r.taskName ?? r.title ?? r.activity ?? 'Untitled Task',
+                    status: r.status ?? 'Todo',
+                    progress: Number(r.progress ?? r.percentComplete ?? r.completion ?? 0),
+                }));
+                if (!cancelled) setTasks(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setTasks([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [projectId]);
 
     return (
         <div className="w-full max-w-2xl mx-auto space-y-4 px-3 py-4 bg-slate-50 min-h-screen">
@@ -35,6 +72,22 @@ export default function FieldAgentInstallerUI() {
                     <span className="text-[8px] font-black text-emerald-600 uppercase">Live Sync</span>
                 </div>
             </div>
+
+            {isLoading && (
+                <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest py-8 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading tasks...
+                </div>
+            )}
+            {loadError && !isLoading && (
+                <div className="bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl p-4 text-[10px] font-black uppercase tracking-widest">
+                    {loadError}
+                </div>
+            )}
+            {!isLoading && !loadError && tasks.length === 0 && (
+                <div className="bg-white border border-gray-100 text-slate-400 rounded-2xl p-6 text-center text-[10px] font-black uppercase tracking-widest">
+                    No installation tasks found
+                </div>
+            )}
 
             {/* Task Stream */}
             <div className="space-y-3">

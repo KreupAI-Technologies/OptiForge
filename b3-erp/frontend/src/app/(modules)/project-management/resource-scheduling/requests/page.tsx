@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   ArrowLeft,
   Check,
@@ -16,48 +17,57 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-// Mock Data
-const requests = [
-  {
-    id: 1,
-    requester: 'Sarah Jenkins',
-    role: 'Senior PM',
-    project: 'Project A - Kitchen Reno',
-    resourceType: 'Installation Lead',
-    quantity: 1,
-    startDate: '2024-06-20',
-    duration: '2 weeks',
-    status: 'Pending',
-    priority: 'High',
-  },
-  {
-    id: 2,
-    requester: 'Mike Ross',
-    role: 'Production Manager',
-    project: 'Project C - Office Fitout',
-    resourceType: 'Assembly Crew',
-    quantity: 3,
-    startDate: '2024-07-01',
-    duration: '1 month',
-    status: 'Pending',
-    priority: 'Medium',
-  },
-  {
-    id: 3,
-    requester: 'David Lee',
-    role: 'Engineering Lead',
-    project: 'Custom Fab #102',
-    resourceType: 'CAD Designer',
-    quantity: 1,
-    startDate: '2024-06-15',
-    duration: '3 days',
-    status: 'Approved',
-    priority: 'Low',
-  },
-];
+interface ResourceRequest {
+  id: number;
+  requester: string;
+  role: string;
+  project: string;
+  resourceType: string;
+  quantity: number;
+  startDate: string;
+  duration: string;
+  status: string;
+  priority: string;
+}
 
 export default function ResourceRequestsPage() {
   const router = useRouter();
+  const [requests, setRequests] = useState<ResourceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getPmResourceAllocations();
+        const mapped: ResourceRequest[] = (raw || []).map((r: any, i: number) => ({
+          id: r.id ?? i + 1,
+          requester: r.requester ?? r.requestedBy ?? r.requested_by ?? '',
+          role: r.role ?? r.requesterRole ?? '',
+          project: r.project ?? r.projectName ?? r.project_name ?? '',
+          resourceType: r.resourceType ?? r.resource_type ?? r.resource ?? '',
+          quantity: r.quantity ?? r.qty ?? 1,
+          startDate: r.startDate ?? r.start_date ?? '',
+          duration: r.duration ?? r.durationLabel ?? '',
+          status: r.status ?? 'Pending',
+          priority: r.priority ?? 'Medium',
+        }));
+        if (!cancelled) setRequests(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -85,6 +95,15 @@ export default function ResourceRequestsPage() {
       <div className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
         <div className=" space-y-3">
           {/* Requests List */}
+          {isLoading && (
+            <div className="text-sm text-gray-500 py-4">Loading requests…</div>
+          )}
+          {loadError && (
+            <div className="text-sm text-red-600 py-4">{loadError}</div>
+          )}
+          {!isLoading && !loadError && requests.length === 0 && (
+            <div className="text-sm text-gray-500 py-4">No resource requests found.</div>
+          )}
           <div className="space-y-2">
             {requests.map((request) => (
               <Card key={request.id} className="hover:shadow-md transition-shadow">

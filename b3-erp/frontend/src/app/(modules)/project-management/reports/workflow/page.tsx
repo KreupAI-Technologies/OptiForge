@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   BarChart,
   Bar,
@@ -102,8 +103,16 @@ const resourceDetails = {
   ]
 };
 
-// Mock Data
-const stageAnalysisData = [
+// Data-row shape for the main workflow stage analysis table/chart (wired to getPmReports)
+interface StageAnalysisRow {
+  stage: string;
+  planned: number;
+  actual: number;
+  variance: number;
+}
+
+// Fallback stage analysis rows, used until live data loads.
+const defaultStageAnalysisData: StageAnalysisRow[] = [
   { stage: 'Design', planned: 5, actual: 6, variance: 1 },
   { stage: 'Engineering', planned: 8, actual: 7, variance: -1 },
   { stage: 'Production', planned: 15, actual: 18, variance: 3 },
@@ -148,6 +157,46 @@ export default function ManufacturingWorkflowReportPage() {
   const router = useRouter();
   const [dateRange, setDateRange] = useState('this-month');
   const [projectType, setProjectType] = useState('all');
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [stageAnalysisData, setStageAnalysisData] = useState<StageAnalysisRow[]>(defaultStageAnalysisData);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getPmReports();
+        const mapped: StageAnalysisRow[] = (raw || []).map((r: any) => {
+          const planned = Number(r.planned ?? r.plannedDays ?? r.plannedDuration ?? 0);
+          const actual = Number(r.actual ?? r.actualDays ?? r.actualDuration ?? 0);
+          return {
+            stage: r.stage ?? r.stageName ?? r.name ?? r.phase ?? '',
+            planned,
+            actual,
+            variance: Number(r.variance ?? (actual - planned)),
+          };
+        });
+        if (!cancelled) {
+          // Only replace the fallback data when the endpoint actually returns rows,
+          // so the chart still renders while the backend DB is unseeded.
+          if (mapped.length > 0) setStageAnalysisData(mapped);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Drill-down states
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
@@ -339,7 +388,13 @@ export default function ManufacturingWorkflowReportPage() {
                 <CardDescription>Planned vs Actual time spent in each stage</CardDescription>
               </CardHeader>
               <CardContent>
+                {loadError && (
+                  <p className="text-xs text-red-600 mb-2">{loadError}</p>
+                )}
                 <div className="h-[300px]">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full text-sm text-gray-500">Loading stage analysis…</div>
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={stageAnalysisData}
@@ -359,6 +414,7 @@ export default function ManufacturingWorkflowReportPage() {
                       <Bar dataKey="actual" name="Actual Days" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
                 <p className="text-xs text-center text-gray-500 mt-2">Click on a stage to view active jobs</p>
               </CardContent>

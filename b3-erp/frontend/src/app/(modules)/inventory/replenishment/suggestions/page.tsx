@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
     ArrowLeft,
     Search,
@@ -40,60 +41,60 @@ const ReplenishmentSuggestionsPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    // Mock data matching the interface
-    const suggestions: ReplenishmentSuggestion[] = [
-        {
-            id: '1',
-            itemCode: 'RM-STEEL-001',
-            itemName: 'Steel Sheet 2mm',
-            currentStock: 150,
-            minLevel: 200,
-            maxLevel: 1000,
-            reorderPoint: 300,
-            suggestedQty: 850,
-            uom: 'Sheets',
-            location: 'WH-01-A-01',
-            supplier: 'Steel Corp India',
-            leadTime: 5,
-            avgConsumption: 25,
-            status: 'critical',
-            lastRestockDate: '2024-01-10'
-        },
-        {
-            id: '2',
-            itemCode: 'COMP-ELEC-042',
-            itemName: 'Circuit Breaker 16A',
-            currentStock: 45,
-            minLevel: 50,
-            maxLevel: 200,
-            reorderPoint: 60,
-            suggestedQty: 155,
-            uom: 'Units',
-            location: 'WH-02-B-12',
-            supplier: 'Electronix Ltd',
-            leadTime: 3,
-            avgConsumption: 8,
-            status: 'warning',
-            lastRestockDate: '2024-01-05'
-        },
-        {
-            id: '3',
-            itemCode: 'PKG-BOX-L',
-            itemName: 'Large Cardboard Box',
-            currentStock: 450,
-            minLevel: 500,
-            maxLevel: 2000,
-            reorderPoint: 600,
-            suggestedQty: 1550,
-            uom: 'Pcs',
-            location: 'WH-03-P-05',
-            supplier: 'PackIt Solutions',
-            leadTime: 2,
-            avgConsumption: 120,
-            status: 'warning',
-            lastRestockDate: '2024-01-12'
-        }
-    ];
+    // GET /inventory/reorder/suggestions -> reorder suggestions.
+    const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = (await inventoryService.getReorderSuggestions()) as any[];
+                const statusFor = (priority: string, currentStock: number, reorderPoint: number): ReplenishmentSuggestion['status'] => {
+                    if (priority === 'high' || currentStock <= reorderPoint * 0.5) return 'critical';
+                    if (priority === 'medium' || currentStock <= reorderPoint) return 'warning';
+                    return 'normal';
+                };
+                const mapped: ReplenishmentSuggestion[] = (raw || []).map((s: any, i: number) => {
+                    const currentStock = Number(s.currentStock ?? 0);
+                    const reorderPoint = Number(s.reorderPoint ?? 0);
+                    const suggestedQty = Number(s.suggestedQuantity ?? s.eoqQuantity ?? 0);
+                    return {
+                        id: String(s.id ?? i),
+                        itemCode: s.itemCode ?? '',
+                        itemName: s.itemName ?? '',
+                        currentStock,
+                        minLevel: reorderPoint,
+                        maxLevel: reorderPoint + suggestedQty,
+                        reorderPoint,
+                        suggestedQty,
+                        uom: s.uom ?? '',
+                        location: s.locationName ?? s.warehouseName ?? '',
+                        supplier: s.vendorName ?? '',
+                        leadTime: Number(s.leadTimeDays ?? 0),
+                        avgConsumption: Number(s.averageDailyDemand ?? 0),
+                        status: statusFor(String(s.priority ?? ''), currentStock, reorderPoint),
+                        lastRestockDate: s.lastRestockDate ?? '',
+                    };
+                });
+                if (!cancelled) setSuggestions(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load suggestions');
+                    setSuggestions([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredSuggestions = suggestions.filter(item => {
         const matchesSearch =
@@ -119,6 +120,16 @@ const ReplenishmentSuggestionsPage = () => {
 
     return (
         <div className="w-full h-full p-3 space-y-3">
+            {loadError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                    {loadError}
+                </div>
+            )}
+            {isLoading && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+                    Loading suggestions…
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div>

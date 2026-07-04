@@ -1,28 +1,46 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { fetchReportRows } from '@/services/reports-management.service';
 
 function ReconciliationStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const transactions = [
-        { id: 'TXN-001', date: '2025-01-20', description: 'Wire Transfer - Vendor Payment', amount: 12500, type: 'Debit', status: 'Unmatched' },
-        { id: 'TXN-002', date: '2025-01-18', description: 'Customer Deposit', amount: 8500, type: 'Credit', status: 'Unmatched' },
-        { id: 'TXN-003', date: '2025-01-15', description: 'Bank Charges', amount: -125, type: 'Debit', status: 'Unmatched' },
-        { id: 'TXN-004', date: '2025-01-12', description: 'Interest Income', amount: 450, type: 'Credit', status: 'Unmatched' },
-        { id: 'TXN-005', date: '2025-01-10', description: 'Check #1245', amount: -2850, type: 'Debit', status: 'Unmatched' },
-        { id: 'TXN-006', date: '2025-01-05', description: 'Payroll Run #24', amount: -45000, type: 'Debit', status: 'Reconciled' },
-        { id: 'TXN-007', date: '2025-01-04', description: 'Client Payment - Inv #442', amount: 12000, type: 'Credit', status: 'Reconciled' },
-        { id: 'TXN-008', date: '2025-01-02', description: 'Office Rent', amount: -3500, type: 'Debit', status: 'Reconciled' },
-    ];
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchReportRows<any>('accounts.reconciliation.status');
+                const mapped = raw.map((r: any) => ({
+                    id: r.id,
+                    date: r.date,
+                    description: r.description,
+                    amount: Number(r.amount ?? 0),
+                    type: r.type ?? '',
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setTransactions(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTransactions([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredTransactions = status === 'All'
         ? transactions
@@ -39,6 +57,8 @@ function ReconciliationStatusContent() {
                 { label: status }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Transaction List</CardTitle>

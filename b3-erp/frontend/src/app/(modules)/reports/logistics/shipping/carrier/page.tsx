@@ -1,10 +1,11 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function ShippingCarrierContent() {
     const router = useRouter();
@@ -12,12 +13,33 @@ function ShippingCarrierContent() {
     const carrierId = searchParams.get('id');
     const title = carrierId ? `Carrier: ${carrierId}` : 'Carrier Performance';
 
-    const shipments = [
-        { id: 'SHP-2025-001', date: '2025-01-15', destination: 'New York, NY', weight: '150 kg', cost: 450, status: 'Delivered' },
-        { id: 'SHP-2025-004', date: '2025-01-18', destination: 'Chicago, IL', weight: '85 kg', cost: 320, status: 'In Transit' },
-        { id: 'SHP-2025-008', date: '2025-01-22', destination: 'Los Angeles, CA', weight: '210 kg', cost: 680, status: 'Delayed' },
-        { id: 'SHP-2025-012', date: '2025-01-25', destination: 'Houston, TX', weight: '120 kg', cost: 410, status: 'Delivered' },
-    ];
+    const [shipments, setShipments] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('logistics/shipments');
+                const mapped = raw.map((r: any) => ({
+                    id: r.shipmentNumber ?? r.trackingNumber ?? r.id,
+                    date: r.shipmentDate ?? r.dispatchDate ?? '',
+                    destination: r.destination ?? r.deliveryAddress ?? '',
+                    weight: Number(r.weight ?? r.totalWeight ?? 0),
+                    cost: Number(r.freightCost ?? r.cost ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setShipments(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setShipments([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage

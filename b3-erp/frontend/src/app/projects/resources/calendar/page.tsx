@@ -26,309 +26,6 @@ type ResourceEvent = {
   notes: string;
 };
 
-const RESOURCE_EVENTS: ResourceEvent[] = [
-  {
-    id: 'EVT-001',
-    resourceId: 'RES-101',
-    resourceName: 'Sara Ali',
-    role: 'Installer',
-    department: 'Installation',
-    eventType: 'task',
-    title: 'Cabinet Installation - Tower A Unit 1502',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    startDate: '2025-10-28',
-    endDate: '2025-10-28',
-    startTime: '09:00',
-    endTime: '15:00',
-    durationHrs: 6,
-    status: 'scheduled',
-    location: 'Mumbai - Tower A',
-    billable: true,
-    notes: 'Client prefers morning slot. Access card arranged.'
-  },
-  {
-    id: 'EVT-002',
-    resourceId: 'RES-102',
-    resourceName: 'Priya Patel',
-    role: 'Designer',
-    department: 'Design',
-    eventType: 'meeting',
-    title: 'Design Review Meeting - Luxury Villa',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    startDate: '2025-10-28',
-    endDate: '2025-10-28',
-    startTime: '11:00',
-    endTime: '13:00',
-    durationHrs: 2,
-    status: 'scheduled',
-    location: 'Conference Room A',
-    billable: true,
-    notes: 'Client will present mood board.'
-  },
-  {
-    id: 'EVT-003',
-    resourceId: 'RES-103',
-    resourceName: 'Rahul Kumar',
-    role: 'Project Manager',
-    department: 'Projects',
-    eventType: 'task',
-    title: 'Site Survey - Corporate Pantry',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    startDate: '2025-10-29',
-    endDate: '2025-10-29',
-    startTime: '10:00',
-    endTime: '14:00',
-    durationHrs: 4,
-    status: 'scheduled',
-    location: 'Pune - Corporate Office',
-    billable: true,
-    notes: 'Take measurements and photos.'
-  },
-  {
-    id: 'EVT-004',
-    resourceId: 'RES-104',
-    resourceName: 'Amit Singh',
-    role: 'Project Manager',
-    department: 'Projects',
-    eventType: 'meeting',
-    title: 'Client Handover Meeting',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    startDate: '2025-10-30',
-    endDate: '2025-10-30',
-    startTime: '16:00',
-    endTime: '17:30',
-    durationHrs: 1.5,
-    status: 'scheduled',
-    location: 'Showroom',
-    billable: false,
-    notes: 'Final walkthrough with client.'
-  },
-  {
-    id: 'EVT-005',
-    resourceId: 'RES-105',
-    resourceName: 'Vikram Reddy',
-    role: 'Assembler',
-    department: 'Production',
-    eventType: 'task',
-    title: 'Wardrobe Assembly - Premium Units',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    startDate: '2025-10-31',
-    endDate: '2025-10-31',
-    startTime: '08:00',
-    endTime: '17:00',
-    durationHrs: 8,
-    status: 'scheduled',
-    location: 'Factory - Assembly Bay 3',
-    billable: true,
-    notes: 'Premium finish required. QC inspection at 16:00.'
-  },
-  {
-    id: 'EVT-006',
-    resourceId: 'RES-101',
-    resourceName: 'Sara Ali',
-    role: 'Installer',
-    department: 'Installation',
-    eventType: 'leave',
-    title: 'Planned Leave',
-    projectCode: '',
-    projectName: '',
-    startDate: '2025-11-01',
-    endDate: '2025-11-01',
-    startTime: '00:00',
-    endTime: '23:59',
-    durationHrs: 8,
-    status: 'scheduled',
-    location: 'N/A',
-    billable: false,
-    notes: 'Personal leave approved.'
-  },
-  {
-    id: 'EVT-007',
-    resourceId: 'RES-106',
-    resourceName: 'Karthik Iyer',
-    role: 'Electrician',
-    department: 'Installation',
-    eventType: 'task',
-    title: 'Electrical Wiring - Under Cabinet Lighting',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    startDate: '2025-10-28',
-    endDate: '2025-10-28',
-    startTime: '14:00',
-    endTime: '18:00',
-    durationHrs: 4,
-    status: 'scheduled',
-    location: 'Mumbai - Tower A',
-    billable: true,
-    notes: 'Coordinate with Sara for cabinet work completion.'
-  },
-  {
-    id: 'EVT-008',
-    resourceId: 'RES-107',
-    resourceName: 'Neha Gupta',
-    role: 'Procurement Officer',
-    department: 'Procurement',
-    eventType: 'meeting',
-    title: 'Vendor Meeting - Hardware Suppliers',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    startDate: '2025-10-29',
-    endDate: '2025-10-29',
-    startTime: '15:00',
-    endTime: '16:30',
-    durationHrs: 1.5,
-    status: 'scheduled',
-    location: 'Virtual - Teams',
-    billable: false,
-    notes: 'Negotiate bulk pricing for premium hinges.'
-  },
-  {
-    id: 'EVT-009',
-    resourceId: 'RES-108',
-    resourceName: 'Deepak Singh',
-    role: 'Finisher',
-    department: 'Production',
-    eventType: 'task',
-    title: 'Final Finishing & Polishing',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    startDate: '2025-10-30',
-    endDate: '2025-10-30',
-    startTime: '09:00',
-    endTime: '16:00',
-    durationHrs: 7,
-    status: 'scheduled',
-    location: 'Showroom - Display Area',
-    billable: true,
-    notes: 'Premium finish. Client inspection at 17:00.'
-  },
-  {
-    id: 'EVT-010',
-    resourceId: 'RES-102',
-    resourceName: 'Priya Patel',
-    role: 'Designer',
-    department: 'Design',
-    eventType: 'training',
-    title: '3D Design Software Training',
-    projectCode: '',
-    projectName: '',
-    startDate: '2025-10-31',
-    endDate: '2025-10-31',
-    startTime: '10:00',
-    endTime: '13:00',
-    durationHrs: 3,
-    status: 'scheduled',
-    location: 'Training Room',
-    billable: false,
-    notes: 'SketchUp advanced features training.'
-  },
-  {
-    id: 'EVT-011',
-    resourceId: 'RES-109',
-    resourceName: 'Arjun Nair',
-    role: 'Site Engineer',
-    department: 'Engineering',
-    eventType: 'task',
-    title: 'Site Measurements & Structural Assessment',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    startDate: '2025-10-28',
-    endDate: '2025-10-28',
-    startTime: '09:00',
-    endTime: '12:00',
-    durationHrs: 3,
-    status: 'completed',
-    location: 'Pune - Corporate Office',
-    billable: true,
-    notes: 'Measurements completed. Report submitted.'
-  },
-  {
-    id: 'EVT-012',
-    resourceId: 'RES-110',
-    resourceName: 'Meera Kapoor',
-    role: 'Project Coordinator',
-    department: 'Projects',
-    eventType: 'task',
-    title: 'Project Documentation & Compliance Check',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    startDate: '2025-10-29',
-    endDate: '2025-10-29',
-    startTime: '11:00',
-    endTime: '14:00',
-    durationHrs: 3,
-    status: 'scheduled',
-    location: 'Office',
-    billable: false,
-    notes: 'Verify all permits and certifications.'
-  },
-  {
-    id: 'EVT-013',
-    resourceId: 'RES-103',
-    resourceName: 'Rahul Kumar',
-    role: 'Project Manager',
-    department: 'Projects',
-    eventType: 'meeting',
-    title: 'Stakeholder Status Update',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    startDate: '2025-10-31',
-    endDate: '2025-10-31',
-    startTime: '15:00',
-    endTime: '16:00',
-    durationHrs: 1,
-    status: 'scheduled',
-    location: 'Virtual - Zoom',
-    billable: true,
-    notes: 'Present progress report and timeline updates.'
-  },
-  {
-    id: 'EVT-014',
-    resourceId: 'RES-111',
-    resourceName: 'Anjali Sharma',
-    role: 'QC Inspector',
-    department: 'Quality',
-    eventType: 'task',
-    title: 'Quality Inspection - Showroom Units',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    startDate: '2025-10-30',
-    endDate: '2025-10-30',
-    startTime: '13:00',
-    endTime: '15:00',
-    durationHrs: 2,
-    status: 'scheduled',
-    location: 'Showroom',
-    billable: false,
-    notes: 'Final QC before client handover.'
-  },
-  {
-    id: 'EVT-015',
-    resourceId: 'RES-104',
-    resourceName: 'Amit Singh',
-    role: 'Project Manager',
-    department: 'Projects',
-    eventType: 'task',
-    title: 'Risk Assessment & Mitigation Planning',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    startDate: '2025-10-28',
-    endDate: '2025-10-28',
-    startTime: '10:00',
-    endTime: '12:00',
-    durationHrs: 2,
-    status: 'completed',
-    location: 'Office',
-    billable: false,
-    notes: 'Identified 3 medium-risk items. Mitigation plan ready.'
-  }
-];
-
 export default function ResourceCalendarPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [resourceFilter, setResourceFilter] = useState<string>('all');
@@ -336,13 +33,68 @@ export default function ResourceCalendarPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [currentWeekStart, setCurrentWeekStart] = useState(new Date('2025-10-27')); // Monday
+  const [resourceEvents, setResourceEvents] = useState<ResourceEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const resources = useMemo(() => ['all', ...Array.from(new Set(RESOURCE_EVENTS.map(e => e.resourceName)))], []);
+  useEffect(() => {
+    let cancelled = false;
+    const normType = (t: any): ResourceEvent['eventType'] => {
+      const v = String(t ?? '').toLowerCase();
+      if (['task', 'meeting', 'leave', 'training', 'maintenance', 'other'].includes(v)) return v as ResourceEvent['eventType'];
+      return 'task';
+    };
+    const normStatus = (s: any): ResourceEvent['status'] => {
+      const v = String(s ?? '').toLowerCase().replace(/\s/g, '-');
+      if (['scheduled', 'in-progress', 'completed', 'cancelled'].includes(v)) return v as ResourceEvent['status'];
+      return 'scheduled';
+    };
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Resource allocations drive the calendar; each allocation becomes an event.
+        const raw = await projectManagementService.getProjectsResourceAllocations();
+        const mapped: ResourceEvent[] = (raw ?? []).map((a: any, i: number) => ({
+          id: a.id ?? `EVT-${i}`,
+          resourceId: a.resourceId ?? a.userId ?? '',
+          resourceName: a.resourceName ?? a.userName ?? a.name ?? 'Unknown',
+          role: a.role ?? '-',
+          department: a.department ?? a.dept ?? '-',
+          eventType: normType(a.eventType ?? a.type),
+          title: a.title ?? a.activity ?? a.projectPhase ?? a.projectName ?? 'Allocation',
+          projectCode: a.projectCode ?? '',
+          projectName: a.projectName ?? '',
+          startDate: (a.startDate ?? '').slice(0, 10),
+          endDate: (a.endDate ?? a.startDate ?? '').slice(0, 10),
+          startTime: a.startTime ?? '09:00',
+          endTime: a.endTime ?? '17:00',
+          durationHrs: Number(a.durationHrs ?? a.allocatedHours ?? 0),
+          status: normStatus(a.status),
+          location: a.location ?? '-',
+          billable: a.billable ?? false,
+          notes: a.notes ?? a.remarks ?? '',
+        }));
+        if (!cancelled) setResourceEvents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load resource calendar');
+          setResourceEvents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const resources = useMemo(() => ['all', ...Array.from(new Set(resourceEvents.map(e => e.resourceName)))], [resourceEvents]);
   const eventTypes = ['all', 'task', 'meeting', 'leave', 'training', 'maintenance', 'other'];
-  const departments = useMemo(() => ['all', ...Array.from(new Set(RESOURCE_EVENTS.map(e => e.department)))], []);
+  const departments = useMemo(() => ['all', ...Array.from(new Set(resourceEvents.map(e => e.department)))], [resourceEvents]);
 
   const filtered = useMemo(() => {
-    return RESOURCE_EVENTS.filter(e => {
+    return resourceEvents.filter(e => {
       const matchesSearch = [
         e.title,
         e.resourceName,
@@ -357,7 +109,7 @@ export default function ResourceCalendarPage() {
       const matchesDept = departmentFilter === 'all' ? true : e.department === departmentFilter;
       return matchesSearch && matchesResource && matchesEventType && matchesStatus && matchesDept;
     });
-  }, [searchTerm, resourceFilter, eventTypeFilter, statusFilter, departmentFilter]);
+  }, [resourceEvents, searchTerm, resourceFilter, eventTypeFilter, statusFilter, departmentFilter]);
 
   // Group events by date
   const eventsByDate = useMemo(() => {
@@ -418,13 +170,13 @@ export default function ResourceCalendarPage() {
     return date.toISOString().split('T')[0];
   };
 
-  // Calculate stats
-  const totalEvents = RESOURCE_EVENTS.length;
-  const scheduledEvents = RESOURCE_EVENTS.filter(e => e.status === 'scheduled').length;
-  const completedEvents = RESOURCE_EVENTS.filter(e => e.status === 'completed').length;
-  const totalBillableHours = RESOURCE_EVENTS.filter(e => e.billable).reduce((sum, e) => sum + e.durationHrs, 0);
-  const avgUtilization = Math.round((totalBillableHours / (totalEvents * 8)) * 100);
-  const activeResources = new Set(RESOURCE_EVENTS.map(e => e.resourceName)).size;
+  // Calculate stats (derived from fetched data)
+  const totalEvents = resourceEvents.length;
+  const scheduledEvents = resourceEvents.filter(e => e.status === 'scheduled').length;
+  const completedEvents = resourceEvents.filter(e => e.status === 'completed').length;
+  const totalBillableHours = resourceEvents.filter(e => e.billable).reduce((sum, e) => sum + e.durationHrs, 0);
+  const avgUtilization = totalEvents > 0 ? Math.round((totalBillableHours / (totalEvents * 8)) * 100) : 0;
+  const activeResources = new Set(resourceEvents.map(e => e.resourceName)).size;
 
   return (
     <div className="p-6">
@@ -611,7 +363,7 @@ export default function ResourceCalendarPage() {
             </button>
           </div>
           <div className="text-sm text-gray-600">
-            {filtered.length} events
+            {isLoading ? 'Loading...' : loadError ? <span className="text-red-600">{loadError}</span> : `${filtered.length} events`}
           </div>
         </div>
       </div>

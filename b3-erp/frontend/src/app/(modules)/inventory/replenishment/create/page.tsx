@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, X, Search, Plus, AlertCircle, Package } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface ItemOption {
   itemCode: string;
@@ -32,80 +33,41 @@ export default function CreateReplenishmentPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showItemSearch, setShowItemSearch] = useState(false);
 
-  const availableItems: ItemOption[] = [
-    {
-      itemCode: 'RM-001',
-      itemName: 'Steel Sheet 1mm',
-      currentStock: 450,
-      minLevel: 100,
-      maxLevel: 500,
-      reorderPoint: 120,
-      uom: 'Sheets',
-      location: 'Zone A - Bin A-01',
-      supplier: 'SteelCorp Industries',
-      leadTime: 7
-    },
-    {
-      itemCode: 'RM-008',
-      itemName: 'Steel Plate 5mm',
-      currentStock: 45,
-      minLevel: 100,
-      maxLevel: 500,
-      reorderPoint: 120,
-      uom: 'Sheets',
-      location: 'Zone A - Bin A-01',
-      supplier: 'SteelCorp Industries',
-      leadTime: 7
-    },
-    {
-      itemCode: 'CP-045',
-      itemName: 'Hydraulic Cylinder',
-      currentStock: 12,
-      minLevel: 10,
-      maxLevel: 50,
-      reorderPoint: 15,
-      uom: 'Nos',
-      location: 'Zone B - Bin B-03',
-      supplier: 'HydroTech Systems',
-      leadTime: 14
-    },
-    {
-      itemCode: 'RM-089',
-      itemName: 'Aluminum Rod 20mm',
-      currentStock: 78,
-      minLevel: 50,
-      maxLevel: 300,
-      reorderPoint: 75,
-      uom: 'Pcs',
-      location: 'Zone A - Bin A-04',
-      supplier: 'MetalSource Ltd',
-      leadTime: 5
-    },
-    {
-      itemCode: 'CS-023',
-      itemName: 'Cutting Oil Premium',
-      currentStock: 35,
-      minLevel: 30,
-      maxLevel: 150,
-      reorderPoint: 40,
-      uom: 'Liters',
-      location: 'Zone D - Bin D-02',
-      supplier: 'ChemSupply Co',
-      leadTime: 3
-    },
-    {
-      itemCode: 'CP-078',
-      itemName: 'Ball Bearing 6208',
-      currentStock: 145,
-      minLevel: 100,
-      maxLevel: 400,
-      reorderPoint: 120,
-      uom: 'Nos',
-      location: 'Zone B - Bin B-01',
-      supplier: 'BearingTech Industries',
-      leadTime: 10
-    }
-  ];
+  // Item picker source: GET /inventory/stock-balances.
+  const [availableItems, setAvailableItems] = useState<ItemOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const balances = (await inventoryService.getStockBalances()) as any[];
+        const mapped: ItemOption[] = (balances || []).map((b: any) => {
+          const currentStock = Number(b.availableQuantity ?? b.freeQuantity ?? 0);
+          const reorderPoint = Number(b.reorderLevel ?? 0);
+          const reorderQty = Number(b.reorderQuantity ?? 0);
+          return {
+            itemCode: b.itemCode ?? '',
+            itemName: b.itemName ?? '',
+            currentStock,
+            minLevel: reorderPoint,
+            maxLevel: reorderPoint + reorderQty,
+            reorderPoint,
+            uom: b.uom ?? '',
+            location: b.locationName ?? b.warehouseName ?? '',
+            supplier: b.supplierName ?? b.vendorName ?? '',
+            leadTime: Number(b.leadTimeDays ?? 0),
+          };
+        });
+        if (!cancelled) setAvailableItems(mapped);
+      } catch {
+        if (!cancelled) setAvailableItems([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredItems = availableItems.filter(item =>
     item.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||

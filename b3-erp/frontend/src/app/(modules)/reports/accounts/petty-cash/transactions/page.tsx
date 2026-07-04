@@ -1,11 +1,12 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function PettyCashTransactionsContent() {
     const router = useRouter();
@@ -13,14 +14,34 @@ function PettyCashTransactionsContent() {
     const type = searchParams.get('type') || 'All';
     const category = searchParams.get('category');
 
-    const transactions = [
-        { id: 'TXN-001', date: '2025-01-22', description: 'Office supplies - Stationery', amount: 125, custodian: 'Admin Dept', type: 'Disbursement', category: 'Office Supplies' },
-        { id: 'TXN-002', date: '2025-01-20', description: 'Taxi fare - Client meeting', amount: 45, custodian: 'Sales Dept', type: 'Disbursement', category: 'Travel' },
-        { id: 'TXN-003', date: '2025-01-18', description: 'Pantry items', amount: 85, custodian: 'Admin Dept', type: 'Disbursement', category: 'Pantry' },
-        { id: 'TXN-004', date: '2025-01-15', description: 'Courier charges', amount: 35, custodian: 'Logistics', type: 'Disbursement', category: 'Misc Expenses' },
-        { id: 'TXN-005', date: '2025-01-10', description: 'Cash Replenishment', amount: 3000, custodian: 'Finance', type: 'Replenishment', category: 'N/A' },
-        { id: 'TXN-006', date: '2025-01-08', description: 'Client Lunch', amount: 150, custodian: 'Sales Dept', type: 'Disbursement', category: 'Meals' },
-    ];
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('api/accounts/petty-cash');
+                const mapped = raw.map((r: any) => ({
+                    id: r.transactionNumber ?? r.id,
+                    date: r.transactionDate ?? r.date ?? '',
+                    description: r.description ?? r.particulars ?? '',
+                    amount: Number(r.amount ?? 0),
+                    custodian: r.custodian ?? r.custodianName ?? '',
+                    type: r.transactionType ?? r.type ?? '',
+                    category: r.category ?? '',
+                }));
+                if (!cancelled) setTransactions(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTransactions([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     let filteredTransactions = transactions;
 
@@ -43,6 +64,8 @@ function PettyCashTransactionsContent() {
                 { label: 'Transactions' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Transaction Log</CardTitle>

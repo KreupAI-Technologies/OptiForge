@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, Search, Filter, PlusCircle, Download, Calendar, User, CheckCircle2, Clock, AlertTriangle, TrendingUp, Eye } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type StatusReport = {
   id: string;
@@ -31,256 +32,35 @@ type StatusReport = {
   changeRequests: number;
 };
 
-const STATUS_REPORTS: StatusReport[] = [
-  {
-    id: '1',
-    reportNumber: 'RPT-2025-001',
-    title: 'Weekly Status Report - Week 43',
-    reportType: 'weekly',
-    project: 'Kitchen Fitout - Tower A',
-    projectCode: 'KF-A',
-    status: 'published',
-    period: '2025-W43',
-    author: 'Amit Singh',
-    reviewer: 'Rahul Kumar',
-    createdDate: '2025-10-21',
-    submittedDate: '2025-10-22',
-    approvedDate: '2025-10-23',
-    publishedDate: '2025-10-23',
-    overallStatus: 'on-track',
-    scheduleHealth: 'green',
-    budgetHealth: 'green',
-    qualityHealth: 'yellow',
-    summary: 'Project progressing well. Cabinet installation 75% complete. Minor quality issues identified and corrected.',
-    keyAccomplishments: ['Completed Units 1501-1510', 'Electrical rough-in approved', 'Material delivery on schedule'],
-    upcomingTasks: ['Complete Units 1511-1520', 'Schedule final inspection', 'Prepare handover documentation'],
-    risks: 2,
-    issues: 1,
-    changeRequests: 0
-  },
-  {
-    id: '2',
-    reportNumber: 'RPT-2025-002',
-    title: 'Monthly Status Report - October 2025',
-    reportType: 'monthly',
-    project: 'Luxury Villa Wardrobes',
-    projectCode: 'LVW-09',
-    status: 'approved',
-    period: 'Oct 2025',
-    author: 'Priya Patel',
-    reviewer: 'Amit Singh',
-    createdDate: '2025-10-25',
-    submittedDate: '2025-10-26',
-    approvedDate: '2025-10-27',
-    overallStatus: 'at-risk',
-    scheduleHealth: 'yellow',
-    budgetHealth: 'yellow',
-    qualityHealth: 'green',
-    summary: 'Project experiencing delays due to hardware procurement. Budget variance increasing. Quality metrics on target.',
-    keyAccomplishments: ['Design finalization approved', 'Wardrobe assembly 60% complete', 'Client satisfaction high'],
-    upcomingTasks: ['Expedite hardware delivery', 'Complete assembly', 'Schedule installation'],
-    risks: 4,
-    issues: 3,
-    changeRequests: 2
-  },
-  {
-    id: '3',
-    reportNumber: 'RPT-2025-003',
-    title: 'Milestone Report - Phase 1 Completion',
-    reportType: 'milestone',
-    project: 'Corporate Pantry Rollout',
-    projectCode: 'CPR-12',
-    status: 'published',
-    period: '2025-10-18',
-    author: 'Rahul Kumar',
-    reviewer: 'Priya Patel',
-    createdDate: '2025-10-18',
-    submittedDate: '2025-10-19',
-    approvedDate: '2025-10-20',
-    publishedDate: '2025-10-20',
-    overallStatus: 'on-track',
-    scheduleHealth: 'green',
-    budgetHealth: 'green',
-    qualityHealth: 'green',
-    summary: 'Phase 1 planning and design completed ahead of schedule. All stakeholder approvals received.',
-    keyAccomplishments: ['Site surveys completed', 'Design approvals received', 'Vendor contracts signed'],
-    upcomingTasks: ['Begin fabrication', 'Schedule deliveries', 'Coordinate installations'],
-    risks: 1,
-    issues: 0,
-    changeRequests: 0
-  },
-  {
-    id: '4',
-    reportNumber: 'RPT-2025-004',
-    title: 'Risk & Issues Report - Critical Items',
-    reportType: 'risk-issue',
-    project: 'Showroom Refurbishment',
-    projectCode: 'SR-08',
-    status: 'under-review',
-    period: '2025-W43',
-    author: 'Amit Singh',
-    reviewer: 'Rahul Kumar',
-    createdDate: '2025-10-24',
-    submittedDate: '2025-10-25',
-    overallStatus: 'critical',
-    scheduleHealth: 'red',
-    budgetHealth: 'red',
-    qualityHealth: 'yellow',
-    summary: 'Multiple critical issues impacting schedule and budget. Immediate corrective action required.',
-    keyAccomplishments: ['Risk assessment completed', 'Mitigation plans drafted', 'Stakeholder meetings held'],
-    upcomingTasks: ['Execute mitigation plans', 'Secure additional resources', 'Revise timeline'],
-    risks: 6,
-    issues: 8,
-    changeRequests: 3
-  },
-  {
-    id: '5',
-    reportNumber: 'RPT-2025-005',
-    title: 'Weekly Status Report - Week 42',
-    reportType: 'weekly',
-    project: 'Kitchen Fitout - Tower A',
-    projectCode: 'KF-A',
-    status: 'submitted',
-    period: '2025-W42',
-    author: 'Amit Singh',
-    reviewer: 'Rahul Kumar',
-    createdDate: '2025-10-14',
-    submittedDate: '2025-10-15',
-    overallStatus: 'on-track',
-    scheduleHealth: 'green',
-    budgetHealth: 'green',
-    qualityHealth: 'green',
-    summary: 'Project on track. No major issues. Team performance excellent.',
-    keyAccomplishments: ['Material procurement 100%', 'Team training completed', 'Safety audit passed'],
-    upcomingTasks: ['Begin cabinet installation', 'Coordinate with electrical team', 'Schedule inspections'],
-    risks: 1,
-    issues: 0,
-    changeRequests: 0
-  },
-  {
-    id: '6',
-    reportNumber: 'RPT-2025-006',
-    title: 'Executive Summary - Q4 2025',
-    reportType: 'executive',
-    project: 'Corporate Pantry Rollout',
-    projectCode: 'CPR-12',
-    status: 'draft',
-    period: 'Q4 2025',
-    author: 'Rahul Kumar',
-    reviewer: 'Amit Singh',
-    createdDate: '2025-10-26',
-    overallStatus: 'on-track',
-    scheduleHealth: 'green',
-    budgetHealth: 'green',
-    qualityHealth: 'green',
-    summary: 'Quarterly objectives on track. All milestones achieved. Budget performance excellent.',
-    keyAccomplishments: ['Q4 milestones achieved', 'Client satisfaction >9.0', 'Zero safety incidents'],
-    upcomingTasks: ['Q1 2026 planning', 'Budget allocation', 'Resource forecasting'],
-    risks: 2,
-    issues: 1,
-    changeRequests: 1
-  },
-  {
-    id: '7',
-    reportNumber: 'RPT-2025-007',
-    title: 'Monthly Status Report - September 2025',
-    reportType: 'monthly',
-    project: 'Luxury Villa Wardrobes',
-    projectCode: 'LVW-09',
-    status: 'published',
-    period: 'Sep 2025',
-    author: 'Priya Patel',
-    reviewer: 'Amit Singh',
-    createdDate: '2025-09-28',
-    submittedDate: '2025-09-29',
-    approvedDate: '2025-09-30',
-    publishedDate: '2025-10-01',
-    overallStatus: 'on-track',
-    scheduleHealth: 'green',
-    budgetHealth: 'green',
-    qualityHealth: 'green',
-    summary: 'Strong month with all targets met. Design finalization progressing well.',
-    keyAccomplishments: ['Design concepts approved', 'Material selections finalized', 'Manufacturing started'],
-    upcomingTasks: ['Continue manufacturing', 'Quality inspections', 'Prepare for assembly'],
-    risks: 1,
-    issues: 1,
-    changeRequests: 0
-  },
-  {
-    id: '8',
-    reportNumber: 'RPT-2025-008',
-    title: 'Milestone Report - Design Completion',
-    reportType: 'milestone',
-    project: 'Showroom Refurbishment',
-    projectCode: 'SR-08',
-    status: 'approved',
-    period: '2025-10-15',
-    author: 'Amit Singh',
-    reviewer: 'Priya Patel',
-    createdDate: '2025-10-15',
-    submittedDate: '2025-10-16',
-    approvedDate: '2025-10-17',
-    overallStatus: 'at-risk',
-    scheduleHealth: 'yellow',
-    budgetHealth: 'yellow',
-    qualityHealth: 'green',
-    summary: 'Design milestone achieved with minor delays. Budget pressures increasing.',
-    keyAccomplishments: ['Design approval received', '3D renders completed', 'Material orders placed'],
-    upcomingTasks: ['Begin demolition', 'Coordinate vendors', 'Update schedule'],
-    risks: 3,
-    issues: 2,
-    changeRequests: 1
-  },
-  {
-    id: '9',
-    reportNumber: 'RPT-2025-009',
-    title: 'Weekly Status Report - Week 41',
-    reportType: 'weekly',
-    project: 'Corporate Pantry Rollout',
-    projectCode: 'CPR-12',
-    status: 'published',
-    period: '2025-W41',
-    author: 'Rahul Kumar',
-    reviewer: 'Priya Patel',
-    createdDate: '2025-10-07',
-    submittedDate: '2025-10-08',
-    approvedDate: '2025-10-09',
-    publishedDate: '2025-10-09',
-    overallStatus: 'on-track',
-    scheduleHealth: 'green',
-    budgetHealth: 'green',
-    qualityHealth: 'green',
-    summary: 'Excellent week. Counter fabrication ahead of schedule. Quality metrics excellent.',
-    keyAccomplishments: ['Fabrication 70% complete', 'Quality inspections passed', 'Site prep completed'],
-    upcomingTasks: ['Complete fabrication', 'Schedule electrical work', 'Coordinate delivery'],
-    risks: 0,
-    issues: 0,
-    changeRequests: 0
-  },
-  {
-    id: '10',
-    reportNumber: 'RPT-2025-010',
-    title: 'Risk & Issues Report - Medium Priority',
-    reportType: 'risk-issue',
-    project: 'Luxury Villa Wardrobes',
-    projectCode: 'LVW-09',
-    status: 'draft',
-    period: '2025-W43',
-    author: 'Priya Patel',
-    reviewer: 'Rahul Kumar',
-    createdDate: '2025-10-27',
-    overallStatus: 'at-risk',
-    scheduleHealth: 'yellow',
-    budgetHealth: 'yellow',
-    qualityHealth: 'green',
-    summary: 'Tracking procurement delays and budget variance. Mitigation strategies in place.',
-    keyAccomplishments: ['Risk register updated', 'Mitigation plans created', 'Weekly reviews scheduled'],
-    upcomingTasks: ['Monitor hardware delivery', 'Track budget variance', 'Update stakeholders'],
-    risks: 3,
-    issues: 2,
-    changeRequests: 2
-  }
-];
+function mapReport(r: any, index: number): StatusReport {
+  return {
+    id: String(r?.id ?? r?.reportId ?? index + 1),
+    reportNumber: r?.reportNumber ?? r?.reportName ?? r?.number ?? `RPT-${index + 1}`,
+    title: r?.title ?? r?.reportName ?? r?.name ?? 'Untitled Report',
+    reportType: (r?.reportType ?? r?.category ?? r?.type ?? 'weekly') as StatusReport['reportType'],
+    project: r?.project ?? r?.projectName ?? r?.projectScope ?? '—',
+    projectCode: r?.projectCode ?? r?.code ?? '—',
+    status: (r?.status ?? 'draft') as StatusReport['status'],
+    period: r?.period ?? r?.frequency ?? '—',
+    author: r?.author ?? r?.generatedBy ?? '—',
+    reviewer: r?.reviewer ?? '—',
+    createdDate: r?.createdDate ?? r?.lastGenerated ?? r?.createdAt ?? '',
+    submittedDate: r?.submittedDate ?? undefined,
+    approvedDate: r?.approvedDate ?? undefined,
+    publishedDate: r?.publishedDate ?? undefined,
+    overallStatus: (r?.overallStatus ?? 'on-track') as StatusReport['overallStatus'],
+    scheduleHealth: (r?.scheduleHealth ?? 'green') as StatusReport['scheduleHealth'],
+    budgetHealth: (r?.budgetHealth ?? 'green') as StatusReport['budgetHealth'],
+    qualityHealth: (r?.qualityHealth ?? 'green') as StatusReport['qualityHealth'],
+    summary: r?.summary ?? r?.description ?? '',
+    keyAccomplishments: Array.isArray(r?.keyAccomplishments) ? r.keyAccomplishments : [],
+    upcomingTasks: Array.isArray(r?.upcomingTasks) ? r.upcomingTasks : [],
+    risks: Number(r?.risks ?? 0),
+    issues: Number(r?.issues ?? 0),
+    changeRequests: Number(r?.changeRequests ?? 0),
+  };
+}
+
 
 export default function StatusReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -290,28 +70,55 @@ export default function StatusReportsPage() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const projects = useMemo(() => ['all', ...Array.from(new Set(STATUS_REPORTS.map(r => r.projectCode)))], []);
+  const [reports, setReports] = useState<StatusReport[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getProjectsReports();
+        const mapped = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => mapReport(r, i));
+        if (!cancelled) setReports(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setReports([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const projects = useMemo(() => ['all', ...Array.from(new Set(reports.map(r => r.projectCode)))], [reports]);
   const reportTypes = ['all', 'weekly', 'monthly', 'milestone', 'risk-issue', 'executive', 'closure'];
 
   const filtered = useMemo(() => {
-    return STATUS_REPORTS.filter(r => {
+    return reports.filter(r => {
       const matchesSearch = [r.reportNumber, r.title, r.project, r.projectCode, r.author, r.period].some(v => v.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesStatus = statusFilter === 'all' ? true : r.status === statusFilter;
       const matchesType = reportTypeFilter === 'all' ? true : r.reportType === reportTypeFilter;
       const matchesProject = projectFilter === 'all' ? true : r.projectCode === projectFilter;
       return matchesSearch && matchesStatus && matchesType && matchesProject;
     });
-  }, [searchTerm, statusFilter, reportTypeFilter, projectFilter]);
+  }, [reports, searchTerm, statusFilter, reportTypeFilter, projectFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageData = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  // Calculate stats
-  const totalReports = STATUS_REPORTS.length;
-  const thisMonthReports = STATUS_REPORTS.filter(r => r.createdDate.startsWith('2025-10')).length;
-  const publishedReports = STATUS_REPORTS.filter(r => r.status === 'published').length;
-  const draftReports = STATUS_REPORTS.filter(r => r.status === 'draft').length;
-  const pendingReview = STATUS_REPORTS.filter(r => r.status === 'submitted' || r.status === 'under-review').length;
+  // Calculate stats (derived from fetched reports)
+  const monthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const totalReports = reports.length;
+  const thisMonthReports = reports.filter(r => (r.createdDate ?? '').startsWith(monthPrefix)).length;
+  const publishedReports = reports.filter(r => r.status === 'published').length;
+  const draftReports = reports.filter(r => r.status === 'draft').length;
+  const pendingReview = reports.filter(r => r.status === 'submitted' || r.status === 'under-review').length;
   const avgTurnaround = 2.3; // days
 
   const getStatusColor = (status: string) => {
@@ -568,7 +375,17 @@ export default function StatusReportsPage() {
                   </td>
                 </tr>
               ))}
-              {pageData.length === 0 && (
+              {isLoading && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">Loading reports…</td>
+                </tr>
+              )}
+              {!isLoading && loadError && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-red-600">{loadError}</td>
+                </tr>
+              )}
+              {!isLoading && !loadError && pageData.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">No reports found</td>
                 </tr>

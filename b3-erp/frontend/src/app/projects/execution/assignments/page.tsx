@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UserPlus, Search, Filter, PlusCircle, Users, Calendar, Clock, AlertTriangle, CheckCircle2, User } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type Assignment = {
   id: string;
@@ -25,334 +26,82 @@ type Assignment = {
   notes: string;
 };
 
-const ASSIGNMENTS: Assignment[] = [
-  {
-    id: '1',
-    assignmentNumber: 'ASG-1001',
-    taskCode: 'TSK-101',
-    taskName: 'Kitchen Cabinet Installation - Unit A1',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    resourceName: 'Sara Ali',
-    resourceRole: 'Installer',
-    department: 'Installation',
-    assignedBy: 'Amit Singh',
-    assignedDate: '2025-10-15',
-    startDate: '2025-10-20',
-    endDate: '2025-10-24',
-    estimatedHours: 32,
-    actualHours: 28,
-    status: 'completed',
-    priority: 'high',
-    utilizationPercent: 87,
-    notes: 'Completed ahead of schedule'
-  },
-  {
-    id: '2',
-    assignmentNumber: 'ASG-1002',
-    taskCode: 'TSK-205',
-    taskName: 'Wardrobe Design Review',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    resourceName: 'Priya Patel',
-    resourceRole: 'Designer',
-    department: 'Design',
-    assignedBy: 'Rahul Kumar',
-    assignedDate: '2025-10-18',
-    startDate: '2025-10-22',
-    endDate: '2025-10-26',
-    estimatedHours: 24,
-    actualHours: 18,
-    status: 'in-progress',
-    priority: 'high',
-    utilizationPercent: 75,
-    notes: 'Client feedback pending'
-  },
-  {
-    id: '3',
-    assignmentNumber: 'ASG-1003',
-    taskCode: 'TSK-312',
-    taskName: 'Pantry Counter Assembly',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    resourceName: 'Vikram Reddy',
-    resourceRole: 'Assembler',
-    department: 'Production',
-    assignedBy: 'Amit Singh',
-    assignedDate: '2025-10-20',
-    startDate: '2025-10-25',
-    endDate: '2025-10-29',
-    estimatedHours: 40,
-    actualHours: 35,
-    status: 'in-progress',
-    priority: 'medium',
-    utilizationPercent: 87,
-    notes: 'Material delay resolved'
-  },
-  {
-    id: '4',
-    assignmentNumber: 'ASG-1004',
-    taskCode: 'TSK-418',
-    taskName: 'Quality Inspection - Showroom Units',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    resourceName: 'Anjali Sharma',
-    resourceRole: 'QC Inspector',
-    department: 'Quality',
-    assignedBy: 'Priya Patel',
-    assignedDate: '2025-10-21',
-    startDate: '2025-10-27',
-    endDate: '2025-10-30',
-    estimatedHours: 16,
-    actualHours: 0,
-    status: 'assigned',
-    priority: 'critical',
-    utilizationPercent: 0,
-    notes: 'Awaiting unit completion'
-  },
-  {
-    id: '5',
-    assignmentNumber: 'ASG-1005',
-    taskCode: 'TSK-527',
-    taskName: 'Electrical Wiring - Kitchen Area',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    resourceName: 'Karthik Iyer',
-    resourceRole: 'Electrician',
-    department: 'Installation',
-    assignedBy: 'Rahul Kumar',
-    assignedDate: '2025-10-19',
-    startDate: '2025-10-23',
-    endDate: '2025-10-27',
-    estimatedHours: 28,
-    actualHours: 12,
-    status: 'in-progress',
-    priority: 'high',
-    utilizationPercent: 43,
-    notes: 'Site access restricted on weekends'
-  },
-  {
-    id: '6',
-    assignmentNumber: 'ASG-1006',
-    taskCode: 'TSK-634',
-    taskName: 'Material Procurement Coordination',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    resourceName: 'Neha Gupta',
-    resourceRole: 'Procurement Officer',
-    department: 'Procurement',
-    assignedBy: 'Amit Singh',
-    assignedDate: '2025-10-17',
-    startDate: '2025-10-21',
-    endDate: '2025-10-25',
-    estimatedHours: 20,
-    actualHours: 0,
-    status: 'on-hold',
-    priority: 'medium',
-    utilizationPercent: 0,
-    notes: 'Waiting for budget approval'
-  },
-  {
-    id: '7',
-    assignmentNumber: 'ASG-1007',
-    taskCode: 'TSK-741',
-    taskName: 'Site Survey & Measurements',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    resourceName: 'Arjun Nair',
-    resourceRole: 'Site Engineer',
-    department: 'Engineering',
-    assignedBy: 'Priya Patel',
-    assignedDate: '2025-10-16',
-    startDate: '2025-10-19',
-    endDate: '2025-10-21',
-    estimatedHours: 16,
-    actualHours: 16,
-    status: 'completed',
-    priority: 'high',
-    utilizationPercent: 100,
-    notes: 'Survey report submitted'
-  },
-  {
-    id: '8',
-    assignmentNumber: 'ASG-1008',
-    taskCode: 'TSK-852',
-    taskName: 'CAD Drawing Updates',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    resourceName: 'Priya Patel',
-    resourceRole: 'Designer',
-    department: 'Design',
-    assignedBy: 'Rahul Kumar',
-    assignedDate: '2025-10-22',
-    startDate: '2025-10-28',
-    endDate: '2025-11-02',
-    estimatedHours: 36,
-    actualHours: 0,
-    status: 'assigned',
-    priority: 'medium',
-    utilizationPercent: 0,
-    notes: 'Client revisions received'
-  },
-  {
-    id: '9',
-    assignmentNumber: 'ASG-1009',
-    taskCode: 'TSK-963',
-    taskName: 'Final Finishing & Polishing',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    resourceName: 'Deepak Singh',
-    resourceRole: 'Finisher',
-    department: 'Production',
-    assignedBy: 'Amit Singh',
-    assignedDate: '2025-10-20',
-    startDate: '2025-10-26',
-    endDate: '2025-10-30',
-    estimatedHours: 32,
-    actualHours: 8,
-    status: 'in-progress',
-    priority: 'high',
-    utilizationPercent: 25,
-    notes: 'Weather-dependent work'
-  },
-  {
-    id: '10',
-    assignmentNumber: 'ASG-1010',
-    taskCode: 'TSK-1074',
-    taskName: 'Hardware Installation',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    resourceName: 'Ravi Menon',
-    resourceRole: 'Installer',
-    department: 'Installation',
-    assignedBy: 'Priya Patel',
-    assignedDate: '2025-10-23',
-    startDate: '2025-10-29',
-    endDate: '2025-11-02',
-    estimatedHours: 24,
-    actualHours: 0,
-    status: 'assigned',
-    priority: 'medium',
-    utilizationPercent: 0,
-    notes: 'Hardware shipment in transit'
-  },
-  {
-    id: '11',
-    assignmentNumber: 'ASG-1011',
-    taskCode: 'TSK-1185',
-    taskName: 'Client Presentation Prep',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    resourceName: 'Meera Kapoor',
-    resourceRole: 'Project Coordinator',
-    department: 'Projects',
-    assignedBy: 'Rahul Kumar',
-    assignedDate: '2025-10-24',
-    startDate: '2025-10-30',
-    endDate: '2025-11-01',
-    estimatedHours: 12,
-    actualHours: 0,
-    status: 'assigned',
-    priority: 'low',
-    utilizationPercent: 0,
-    notes: 'Mock-up photos required'
-  },
-  {
-    id: '12',
-    assignmentNumber: 'ASG-1012',
-    taskCode: 'TSK-1296',
-    taskName: 'Safety Audit & Compliance Check',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    resourceName: 'Suresh Kumar',
-    resourceRole: 'Safety Officer',
-    department: 'Safety',
-    assignedBy: 'Amit Singh',
-    assignedDate: '2025-10-21',
-    startDate: '2025-10-24',
-    endDate: '2025-10-26',
-    estimatedHours: 16,
-    actualHours: 16,
-    status: 'completed',
-    priority: 'critical',
-    utilizationPercent: 100,
-    notes: 'All safety protocols verified'
-  },
-  {
-    id: '13',
-    assignmentNumber: 'ASG-1013',
-    taskCode: 'TSK-1307',
-    taskName: 'Vendor Coordination Meeting',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    resourceName: 'Geeta Rao',
-    resourceRole: 'Vendor Manager',
-    department: 'Procurement',
-    assignedBy: 'Priya Patel',
-    assignedDate: '2025-10-18',
-    startDate: '2025-10-22',
-    endDate: '2025-10-22',
-    estimatedHours: 4,
-    actualHours: 0,
-    status: 'reassigned',
-    priority: 'medium',
-    utilizationPercent: 0,
-    notes: 'Reassigned to Neha Gupta'
-  },
-  {
-    id: '14',
-    assignmentNumber: 'ASG-1014',
-    taskCode: 'TSK-1418',
-    taskName: 'Plumbing & Water Supply Installation',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    resourceName: 'Mohammad Ali',
-    resourceRole: 'Plumber',
-    department: 'Installation',
-    assignedBy: 'Rahul Kumar',
-    assignedDate: '2025-10-19',
-    startDate: '2025-10-23',
-    endDate: '2025-10-27',
-    estimatedHours: 28,
-    actualHours: 22,
-    status: 'in-progress',
-    priority: 'high',
-    utilizationPercent: 79,
-    notes: 'Additional fittings required'
-  },
-  {
-    id: '15',
-    assignmentNumber: 'ASG-1015',
-    taskCode: 'TSK-1529',
-    taskName: 'Documentation & Handover Prep',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    resourceName: 'Lakshmi Iyer',
-    resourceRole: 'Documentation Specialist',
-    department: 'Administration',
-    assignedBy: 'Amit Singh',
-    assignedDate: '2025-10-25',
-    startDate: '2025-11-01',
-    endDate: '2025-11-05',
-    estimatedHours: 20,
-    actualHours: 0,
-    status: 'assigned',
-    priority: 'low',
-    utilizationPercent: 0,
-    notes: 'Awaiting project completion'
-  }
-];
+const ALLOWED_STATUSES: Assignment['status'][] = ['assigned', 'in-progress', 'completed', 'on-hold', 'reassigned'];
+const ALLOWED_PRIORITIES: Assignment['priority'][] = ['critical', 'high', 'medium', 'low'];
+
+function mapAssignment(a: any, index: number): Assignment {
+  const rawStatus = String(a?.status ?? '').toLowerCase();
+  const status = (ALLOWED_STATUSES.includes(rawStatus as Assignment['status'])
+    ? rawStatus
+    : 'assigned') as Assignment['status'];
+  const rawPriority = String(a?.priority ?? '').toLowerCase();
+  const priority = (ALLOWED_PRIORITIES.includes(rawPriority as Assignment['priority'])
+    ? rawPriority
+    : 'medium') as Assignment['priority'];
+
+  return {
+    id: String(a?.id ?? a?.resourceId ?? a?.userId ?? index),
+    assignmentNumber: String(a?.assignmentNumber ?? a?.code ?? a?.id ?? `ASG-${index + 1}`),
+    taskCode: String(a?.taskCode ?? a?.taskId ?? ''),
+    taskName: String(a?.taskName ?? a?.task ?? ''),
+    projectCode: String(a?.projectCode ?? a?.projectId ?? ''),
+    projectName: String(a?.projectName ?? a?.project ?? ''),
+    resourceName: String(a?.resourceName ?? a?.assignee ?? a?.userName ?? ''),
+    resourceRole: String(a?.resourceRole ?? a?.role ?? ''),
+    department: String(a?.department ?? ''),
+    assignedBy: String(a?.assignedBy ?? ''),
+    assignedDate: String(a?.assignedDate ?? ''),
+    startDate: String(a?.startDate ?? ''),
+    endDate: String(a?.endDate ?? ''),
+    estimatedHours: Number(a?.estimatedHours ?? 0) || 0,
+    actualHours: Number(a?.actualHours ?? 0) || 0,
+    status,
+    priority,
+    utilizationPercent: Number(a?.utilizationPercent ?? a?.allocationPercentage ?? 0) || 0,
+    notes: String(a?.notes ?? '')
+  };
+}
 
 export default function TaskAssignmentsPage() {
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'in-progress' | 'completed' | 'on-hold' | 'reassigned'>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
 
-  const departments = useMemo(() => ['all', ...Array.from(new Set(ASSIGNMENTS.map(a => a.department)))], []);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getProjectsResourcesList();
+        const mapped = Array.isArray(raw) ? raw.map((a: any, i: number) => mapAssignment(a, i)) : [];
+        if (!cancelled) setAssignments(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setAssignments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const departments = useMemo(
+    () => ['all', ...Array.from(new Set(assignments.map(a => a.department).filter(Boolean)))],
+    [assignments]
+  );
 
   const filtered = useMemo(() => {
-    return ASSIGNMENTS.filter(a => {
+    return assignments.filter(a => {
       const matchesSearch = [
         a.assignmentNumber,
         a.taskCode,
@@ -368,15 +117,17 @@ export default function TaskAssignmentsPage() {
       const matchesDept = deptFilter === 'all' ? true : a.department === deptFilter;
       return matchesSearch && matchesStatus && matchesPriority && matchesDept;
     });
-  }, [searchTerm, statusFilter, priorityFilter, deptFilter]);
+  }, [assignments, searchTerm, statusFilter, priorityFilter, deptFilter]);
 
-  // Calculate stats
-  const totalAssignments = ASSIGNMENTS.length;
-  const activeAssignments = ASSIGNMENTS.filter(a => a.status === 'in-progress' || a.status === 'assigned').length;
-  const completedAssignments = ASSIGNMENTS.filter(a => a.status === 'completed').length;
-  const totalEstimated = ASSIGNMENTS.reduce((sum, a) => sum + a.estimatedHours, 0);
-  const totalActual = ASSIGNMENTS.reduce((sum, a) => sum + a.actualHours, 0);
-  const avgUtilization = Math.round(ASSIGNMENTS.reduce((sum, a) => sum + a.utilizationPercent, 0) / ASSIGNMENTS.length);
+  // Calculate stats (derived from fetched state, guarded for empty)
+  const totalAssignments = assignments.length;
+  const activeAssignments = assignments.filter(a => a.status === 'in-progress' || a.status === 'assigned').length;
+  const completedAssignments = assignments.filter(a => a.status === 'completed').length;
+  const totalEstimated = assignments.reduce((sum, a) => sum + a.estimatedHours, 0);
+  const totalActual = assignments.reduce((sum, a) => sum + a.actualHours, 0);
+  const avgUtilization = assignments.length
+    ? Math.round(assignments.reduce((sum, a) => sum + a.utilizationPercent, 0) / assignments.length)
+    : 0;
 
   return (
     <div className="p-6">
@@ -643,7 +394,11 @@ export default function TaskAssignmentsPage() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                    No assignments found
+                    {isLoading
+                      ? 'Loading assignments...'
+                      : loadError
+                      ? `Failed to load assignments: ${loadError}`
+                      : 'No assignments found'}
                   </td>
                 </tr>
               )}

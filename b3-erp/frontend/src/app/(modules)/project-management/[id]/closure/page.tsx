@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Flag,
     CheckCircle2,
@@ -12,19 +12,75 @@ import {
     ArrowRight,
     Printer,
     Download,
-    Trophy
+    Trophy,
+    Loader2,
+    ClipboardCheck
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+interface ClosureCheck {
+    id: string;
+    title: string;
+    status: string;
+    icon: React.ReactNode;
+}
+
+interface ClosureStatus {
+    snagClearance: boolean;
+    billingCleared: boolean;
+    handoverReady: boolean;
+}
 
 export default function ProjectClosureDashboard() {
-    const { id } = useParams() as { id: string };
+    const params = useParams();
+    const id = String(params?.id ?? '');
+    const projectId = id;
     const [isSigned, setIsSigned] = useState(false);
 
-    const checks = [
-        { id: '1', title: 'Snag List Clearance', status: 'Passed', icon: <Hammer className="w-4 h-4" /> },
-        { id: '2', title: 'Weight Verification', status: 'Passed', icon: <Award className="w-4 h-4" /> },
-        { id: '3', title: 'Final Billing Settlement', status: 'Passed', icon: <DollarSign className="w-4 h-4" /> },
-    ];
+    const [checks, setChecks] = useState<ClosureCheck[]>([]);
+    const [closureStatus, setClosureStatus] = useState<ClosureStatus | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await projectManagementService.getPmDeliverablesRaw();
+                const mapped: ClosureCheck[] = (raw || []).map((r: any, idx: number) => ({
+                    id: String(r.id ?? r.deliverableId ?? idx + 1),
+                    title: r.title ?? r.name ?? r.deliverable ?? r.label ?? 'Deliverable',
+                    status: r.status ?? 'Pending',
+                    icon: <ClipboardCheck className="w-4 h-4" />,
+                }));
+                if (!cancelled) setChecks(mapped);
+                if (projectId) {
+                    try {
+                        const status = await projectManagementService.getProjectClosureStatus(projectId);
+                        if (!cancelled && status) {
+                            setClosureStatus({
+                                snagClearance: !!(status.snagClearance ?? status.snagCleared ?? false),
+                                billingCleared: !!(status.billingCleared ?? status.billingComplete ?? false),
+                                handoverReady: !!(status.handoverReady ?? status.readyForHandover ?? false),
+                            });
+                        }
+                    } catch { /* closure status optional */ }
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setChecks([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [projectId]);
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-6 px-3 py-4">
@@ -60,7 +116,24 @@ export default function ProjectClosureDashboard() {
                             <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Final Verification Checklist</h2>
                         </div>
                         <div className="p-6 space-y-4">
-                            {checks.map(check => (
+                            {isLoading && (
+                                <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest py-4 justify-center">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+                                </div>
+                            )}
+                            {loadError && !isLoading && (
+                                <div className="bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl p-4 text-[10px] font-black uppercase tracking-widest">
+                                    {loadError}
+                                </div>
+                            )}
+                            {!isLoading && !loadError && checks.length === 0 && (
+                                <div className="text-slate-400 rounded-2xl p-4 text-center text-[10px] font-black uppercase tracking-widest">
+                                    No deliverables found
+                                </div>
+                            )}
+                            {checks.map(check => {
+                                const passed = /pass|complete|clear|done|approved/i.test(check.status);
+                                return (
                                 <div key={check.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-gray-50 group">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-500 transition-colors">
@@ -69,11 +142,14 @@ export default function ProjectClosureDashboard() {
                                         <span className="text-xs font-black text-slate-700 uppercase italic tracking-tight">{check.title}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[8px] font-black text-emerald-600 uppercase bg-emerald-50 px-2 py-0.5 rounded">PASSED</span>
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${passed ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>{check.status}</span>
+                                        {passed
+                                            ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                            : <AlertCircle className="w-4 h-4 text-amber-500" />}
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -81,7 +157,11 @@ export default function ProjectClosureDashboard() {
                         <div className="flex items-center justify-between relative z-10">
                             <div className="space-y-1">
                                 <h3 className="text-sm font-black uppercase italic tracking-widest">Handover Certificate</h3>
-                                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">Standard DIN-EN Form F.04</p>
+                                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">
+                                    {closureStatus
+                                        ? (closureStatus.handoverReady ? 'Ready for Handover' : 'Handover Pending')
+                                        : 'Standard DIN-EN Form F.04'}
+                                </p>
                             </div>
                             <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
                                 <Download className="w-4 h-4" />

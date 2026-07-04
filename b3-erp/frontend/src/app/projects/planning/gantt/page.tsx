@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Search, Filter, Download, ZoomIn, Calendar, AlertTriangle, Link2, Clock } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type GanttTask = {
   id: string;
@@ -22,275 +23,93 @@ type GanttTask = {
   isMilestone: boolean;
 };
 
-const GANTT_TASKS: GanttTask[] = [
-  {
-    id: '1',
-    taskCode: 'TSK-101',
-    taskName: 'Design Approval',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    phase: 'Planning',
-    startDate: '2025-10-15',
-    endDate: '2025-10-18',
-    duration: 3,
-    progress: 100,
-    status: 'completed',
-    priority: 'critical',
-    assignee: 'Priya Patel',
-    dependencies: [],
-    isMilestone: true
-  },
-  {
-    id: '2',
-    taskCode: 'TSK-102',
-    taskName: 'Material Procurement',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    phase: 'Procurement',
-    startDate: '2025-10-19',
-    endDate: '2025-10-25',
-    duration: 6,
-    progress: 80,
-    status: 'in-progress',
-    priority: 'high',
-    assignee: 'Neha Gupta',
-    dependencies: ['TSK-101'],
-    isMilestone: false
-  },
-  {
-    id: '3',
-    taskCode: 'TSK-103',
-    taskName: 'Cabinet Manufacturing',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    phase: 'Production',
-    startDate: '2025-10-26',
-    endDate: '2025-11-05',
-    duration: 10,
-    progress: 40,
-    status: 'in-progress',
-    priority: 'high',
-    assignee: 'Vikram Reddy',
-    dependencies: ['TSK-102'],
-    isMilestone: false
-  },
-  {
-    id: '4',
-    taskCode: 'TSK-104',
-    taskName: 'Site Preparation',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    phase: 'Installation',
-    startDate: '2025-10-28',
-    endDate: '2025-11-01',
-    duration: 4,
-    progress: 25,
-    status: 'in-progress',
-    priority: 'medium',
-    assignee: 'Arjun Nair',
-    dependencies: ['TSK-102'],
-    isMilestone: false
-  },
-  {
-    id: '5',
-    taskCode: 'TSK-105',
-    taskName: 'Cabinet Installation',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    phase: 'Installation',
-    startDate: '2025-11-06',
-    endDate: '2025-11-12',
-    duration: 6,
-    progress: 0,
-    status: 'not-started',
-    priority: 'high',
-    assignee: 'Sara Ali',
-    dependencies: ['TSK-103', 'TSK-104'],
-    isMilestone: false
-  },
-  {
-    id: '6',
-    taskCode: 'TSK-201',
-    taskName: 'Design Finalization',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    phase: 'Planning',
-    startDate: '2025-10-20',
-    endDate: '2025-10-24',
-    duration: 4,
-    progress: 90,
-    status: 'in-progress',
-    priority: 'high',
-    assignee: 'Priya Patel',
-    dependencies: [],
-    isMilestone: false
-  },
-  {
-    id: '7',
-    taskCode: 'TSK-202',
-    taskName: 'Hardware Selection',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    phase: 'Procurement',
-    startDate: '2025-10-25',
-    endDate: '2025-10-28',
-    duration: 3,
-    progress: 60,
-    status: 'in-progress',
-    priority: 'medium',
-    assignee: 'Neha Gupta',
-    dependencies: ['TSK-201'],
-    isMilestone: false
-  },
-  {
-    id: '8',
-    taskCode: 'TSK-203',
-    taskName: 'Wardrobe Assembly',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    phase: 'Production',
-    startDate: '2025-10-29',
-    endDate: '2025-11-08',
-    duration: 10,
-    progress: 20,
-    status: 'in-progress',
-    priority: 'high',
-    assignee: 'Vikram Reddy',
-    dependencies: ['TSK-202'],
-    isMilestone: false
-  },
-  {
-    id: '9',
-    taskCode: 'TSK-301',
-    taskName: 'Site Survey',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    phase: 'Planning',
-    startDate: '2025-10-16',
-    endDate: '2025-10-18',
-    duration: 2,
-    progress: 100,
-    status: 'completed',
-    priority: 'high',
-    assignee: 'Arjun Nair',
-    dependencies: [],
-    isMilestone: true
-  },
-  {
-    id: '10',
-    taskCode: 'TSK-302',
-    taskName: 'Counter Fabrication',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    phase: 'Production',
-    startDate: '2025-10-21',
-    endDate: '2025-10-30',
-    duration: 9,
-    progress: 70,
-    status: 'in-progress',
-    priority: 'high',
-    assignee: 'Deepak Singh',
-    dependencies: ['TSK-301'],
-    isMilestone: false
-  },
-  {
-    id: '11',
-    taskCode: 'TSK-303',
-    taskName: 'Electrical Installation',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    phase: 'Installation',
-    startDate: '2025-10-31',
-    endDate: '2025-11-05',
-    duration: 5,
-    progress: 0,
-    status: 'not-started',
-    priority: 'medium',
-    assignee: 'Karthik Iyer',
-    dependencies: ['TSK-302'],
-    isMilestone: false
-  },
-  {
-    id: '12',
-    taskCode: 'TSK-401',
-    taskName: 'Initial Assessment',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    phase: 'Planning',
-    startDate: '2025-10-22',
-    endDate: '2025-10-25',
-    duration: 3,
-    progress: 100,
-    status: 'completed',
-    priority: 'medium',
-    assignee: 'Amit Singh',
-    dependencies: [],
-    isMilestone: false
-  },
-  {
-    id: '13',
-    taskCode: 'TSK-402',
-    taskName: 'Display Unit Design',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    phase: 'Planning',
-    startDate: '2025-10-26',
-    endDate: '2025-10-31',
-    duration: 5,
-    progress: 50,
-    status: 'in-progress',
-    priority: 'high',
-    assignee: 'Priya Patel',
-    dependencies: ['TSK-401'],
-    isMilestone: false
-  },
-  {
-    id: '14',
-    taskCode: 'TSK-403',
-    taskName: 'Material Order',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    phase: 'Procurement',
-    startDate: '2025-11-01',
-    endDate: '2025-11-06',
-    duration: 5,
-    progress: 0,
-    status: 'not-started',
-    priority: 'high',
-    assignee: 'Neha Gupta',
-    dependencies: ['TSK-402'],
-    isMilestone: false
-  },
-  {
-    id: '15',
-    taskCode: 'TSK-404',
-    taskName: 'Showroom Completion',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    phase: 'Installation',
-    startDate: '2025-11-15',
-    endDate: '2025-11-15',
-    duration: 1,
-    progress: 0,
-    status: 'not-started',
-    priority: 'critical',
-    assignee: 'Amit Singh',
-    dependencies: ['TSK-403'],
-    isMilestone: true
+function toGanttTask(t: any, idx: number): GanttTask {
+  const startDate: string = String(
+    t?.startDate ?? t?.start_date ?? t?.plannedStart ?? t?.start ?? ''
+  );
+  const endDate: string = String(
+    t?.endDate ?? t?.end_date ?? t?.plannedEnd ?? t?.finish ?? t?.end ?? ''
+  );
+
+  // Derive duration in days from dates when not supplied.
+  let duration = Number(t?.duration ?? t?.durationDays ?? NaN);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    const s = startDate ? new Date(startDate).getTime() : NaN;
+    const e = endDate ? new Date(endDate).getTime() : NaN;
+    duration =
+      Number.isFinite(s) && Number.isFinite(e)
+        ? Math.max(1, Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1)
+        : 0;
   }
-];
+
+  const depsRaw = t?.dependencies ?? t?.predecessors ?? [];
+  const dependencies: string[] = Array.isArray(depsRaw)
+    ? depsRaw.map((d: any) => String(d?.taskCode ?? d?.code ?? d?.id ?? d))
+    : [];
+
+  return {
+    id: String(t?.id ?? t?.taskId ?? t?.taskCode ?? idx),
+    taskCode: String(t?.taskCode ?? t?.code ?? t?.id ?? ''),
+    taskName: String(t?.taskName ?? t?.name ?? t?.title ?? 'Untitled Task'),
+    projectCode: String(t?.projectCode ?? t?.project?.code ?? ''),
+    projectName: String(t?.projectName ?? t?.project?.name ?? ''),
+    phase: String(t?.phase ?? t?.stage ?? 'General'),
+    startDate,
+    endDate,
+    duration,
+    progress: Number(t?.progress ?? t?.completionPercent ?? t?.percentComplete ?? 0),
+    status: (t?.status ?? 'not-started') as GanttTask['status'],
+    priority: (t?.priority ?? 'medium') as GanttTask['priority'],
+    assignee: String(t?.assignee ?? t?.assignedTo ?? t?.owner ?? 'Unassigned'),
+    dependencies,
+    isMilestone: Boolean(t?.isMilestone ?? t?.milestone ?? false),
+  };
+}
 
 export default function GanttChartPage() {
+  const [ganttTasks, setGanttTasks] = useState<GanttTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        let raw: any[] = await projectManagementService.getProjectsSchedule();
+        if (!Array.isArray(raw) || raw.length === 0) {
+          // Fall back to task-based endpoint when the schedule is empty.
+          const tasks = await projectManagementService.getProjectsTasks();
+          raw = Array.isArray(tasks) ? tasks : [];
+        }
+        const mapped = raw.map((t, idx) => toGanttTask(t, idx));
+        if (!cancelled) setGanttTasks(mapped);
+      } catch (err: any) {
+        if (!cancelled) {
+          setLoadError(err?.message ?? 'Failed to load schedule');
+          setGanttTasks([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'not-started' | 'in-progress' | 'completed' | 'delayed' | 'on-hold'>('all');
   const [phaseFilter, setPhaseFilter] = useState<string>('all');
 
-  const projects = useMemo(() => ['all', ...Array.from(new Set(GANTT_TASKS.map(t => t.projectCode)))], []);
-  const phases = useMemo(() => ['all', ...Array.from(new Set(GANTT_TASKS.map(t => t.phase)))], []);
+  const projects = useMemo(() => ['all', ...Array.from(new Set(ganttTasks.map(t => t.projectCode).filter(Boolean)))], [ganttTasks]);
+  const phases = useMemo(() => ['all', ...Array.from(new Set(ganttTasks.map(t => t.phase).filter(Boolean)))], [ganttTasks]);
 
   const filtered = useMemo(() => {
-    return GANTT_TASKS.filter(t => {
+    return ganttTasks.filter(t => {
       const matchesSearch = [
         t.taskCode,
         t.taskName,
@@ -304,27 +123,45 @@ export default function GanttChartPage() {
       const matchesPhase = phaseFilter === 'all' ? true : t.phase === phaseFilter;
       return matchesSearch && matchesProject && matchesStatus && matchesPhase;
     });
-  }, [searchTerm, projectFilter, statusFilter, phaseFilter]);
+  }, [ganttTasks, searchTerm, projectFilter, statusFilter, phaseFilter]);
 
-  // Calculate date range for Gantt view (showing ~30 days)
+  // Calculate date range for Gantt view. Guard against an empty task list so
+  // the timeline axis never produces Infinity / NaN dates and crash rendering.
   const minDate = useMemo(() => {
-    const dates = GANTT_TASKS.map(t => new Date(t.startDate));
-    return new Date(Math.min(...dates.map(d => d.getTime())));
-  }, []);
+    const times = ganttTasks
+      .map(t => new Date(t.startDate).getTime())
+      .filter(n => Number.isFinite(n));
+    if (times.length === 0) {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d; // sensible default: today
+    }
+    return new Date(Math.min(...times));
+  }, [ganttTasks]);
 
   const maxDate = useMemo(() => {
-    const dates = GANTT_TASKS.map(t => new Date(t.endDate));
-    return new Date(Math.max(...dates.map(d => d.getTime())));
-  }, []);
+    const times = ganttTasks
+      .map(t => new Date(t.endDate).getTime())
+      .filter(n => Number.isFinite(n));
+    if (times.length === 0) {
+      // Default to a ~30 day window starting from minDate.
+      const d = new Date(minDate);
+      d.setDate(d.getDate() + 29);
+      return d;
+    }
+    return new Date(Math.max(...times));
+  }, [ganttTasks, minDate]);
 
   // Generate date columns (showing dates in the range)
   const dateColumns = useMemo(() => {
     const cols: Date[] = [];
     const current = new Date(minDate);
-    while (current <= maxDate) {
+    // Cap the loop to guard against bad/inverted dates producing a huge range.
+    while (current <= maxDate && cols.length < 366) {
       cols.push(new Date(current));
       current.setDate(current.getDate() + 1);
     }
+    if (cols.length === 0) cols.push(new Date(minDate));
     return cols;
   }, [minDate, maxDate]);
 
@@ -342,11 +179,11 @@ export default function GanttChartPage() {
     };
   };
 
-  // Calculate stats
-  const totalTasks = GANTT_TASKS.length;
-  const completedTasks = GANTT_TASKS.filter(t => t.status === 'completed').length;
-  const inProgressTasks = GANTT_TASKS.filter(t => t.status === 'in-progress').length;
-  const milestones = GANTT_TASKS.filter(t => t.isMilestone).length;
+  // Calculate stats from fetched state (guards empty via array methods).
+  const totalTasks = ganttTasks.length;
+  const completedTasks = ganttTasks.filter(t => t.status === 'completed').length;
+  const inProgressTasks = ganttTasks.filter(t => t.status === 'in-progress').length;
+  const milestones = ganttTasks.filter(t => t.isMilestone).length;
 
   return (
     <div className="p-6">
@@ -357,6 +194,20 @@ export default function GanttChartPage() {
         </h1>
         <p className="text-gray-600 mt-2">Visual timeline with task dependencies and progress</p>
       </div>
+
+      {/* Status banners */}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800 flex items-center gap-2">
+          <Clock className="h-4 w-4 animate-pulse" />
+          Loading schedule...
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -510,7 +361,13 @@ export default function GanttChartPage() {
                 ))}
                 {filtered.length === 0 && (
                   <div className="p-8 text-center text-gray-500 text-sm">
-                    No tasks found
+                    {isLoading
+                      ? 'Loading schedule...'
+                      : loadError
+                      ? 'Unable to load schedule'
+                      : ganttTasks.length === 0
+                      ? 'No scheduled tasks yet'
+                      : 'No tasks match your filters'}
                   </div>
                 )}
               </div>

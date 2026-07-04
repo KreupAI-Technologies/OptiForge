@@ -121,74 +121,50 @@ export default function AutoReplenishmentPage() {
     }
   ];
 
-  const logs: AutoReplenishmentLog[] = [
-    {
-      id: '1',
-      timestamp: '2025-10-21 14:30:15',
-      itemCode: 'RM-008',
-      itemName: 'Steel Plate 5mm',
-      action: 'created',
-      quantity: 455,
-      uom: 'Sheets',
-      reason: 'Stock below reorder point (45 < 120)',
-      config: 'Critical Raw Materials - Real-time'
-    },
-    {
-      id: '2',
-      timestamp: '2025-10-21 14:15:22',
-      itemCode: 'RM-034',
-      itemName: 'Copper Wire 4mm',
-      action: 'approved',
-      quantity: 192,
-      uom: 'Kg',
-      reason: 'Stock below minimum level (8 < 25)',
-      config: 'Critical Raw Materials - Real-time'
-    },
-    {
-      id: '3',
-      timestamp: '2025-10-21 13:45:08',
-      itemCode: 'FM-012',
-      itemName: 'Fastener Bolt M8',
-      action: 'created',
-      quantity: 5000,
-      uom: 'Nos',
-      reason: 'Stock below reorder point',
-      config: 'Fast-Moving Items Hourly'
-    },
-    {
-      id: '4',
-      timestamp: '2025-10-21 12:30:45',
-      itemCode: 'CP-089',
-      itemName: 'Bearing 6205-2RS',
-      action: 'skipped',
-      quantity: 0,
-      uom: 'Nos',
-      reason: 'Pending order already exists',
-      config: 'Components Daily Review'
-    },
-    {
-      id: '5',
-      timestamp: '2025-10-21 11:20:33',
-      itemCode: 'CS-067',
-      itemName: 'Grinding Wheel 150mm',
-      action: 'failed',
-      quantity: 124,
-      uom: 'Nos',
-      reason: 'Supplier not available',
-      config: 'Consumables Weekly Batch'
-    },
-    {
-      id: '6',
-      timestamp: '2025-10-21 10:15:18',
-      itemCode: 'FM-045',
-      itemName: 'Welding Rod 3.2mm',
-      action: 'approved',
-      quantity: 300,
-      uom: 'Kg',
-      reason: 'Stock below reorder point',
-      config: 'Fast-Moving Items Hourly'
-    }
-  ];
+  // Activity logs derived from GET /inventory/reorder/suggestions.
+  const [logs, setLogs] = useState<AutoReplenishmentLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await inventoryService.getReorderSuggestions()) as any[];
+        const actionMap: Record<string, AutoReplenishmentLog['action']> = {
+          suggested: 'created', pending: 'created', created: 'created',
+          approved: 'approved', ordered: 'approved',
+          skipped: 'skipped', ignored: 'skipped',
+          failed: 'failed', rejected: 'failed',
+        };
+        const mapped: AutoReplenishmentLog[] = (raw || []).map((s: any, i: number) => ({
+          id: String(s.id ?? i),
+          timestamp: s.createdAt ?? s.timestamp ?? '',
+          itemCode: s.itemCode ?? '',
+          itemName: s.itemName ?? '',
+          action: actionMap[s.status] ?? 'created',
+          quantity: Number(s.suggestedQuantity ?? s.eoqQuantity ?? 0),
+          uom: s.uom ?? '',
+          reason: s.reason ?? '',
+          config: s.vendorName ?? s.config ?? 'Reorder suggestion',
+        }));
+        if (!cancelled) setLogs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load replenishment logs');
+          setLogs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getScheduleLabel = (schedule: string) => {
     switch (schedule) {
@@ -240,6 +216,16 @@ export default function AutoReplenishmentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading replenishment logs…
+        </div>
+      )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">

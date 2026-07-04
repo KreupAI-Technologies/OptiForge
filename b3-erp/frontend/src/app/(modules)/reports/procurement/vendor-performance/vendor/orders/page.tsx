@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 import { Suspense } from 'react';
 
@@ -15,11 +16,32 @@ function VendorOrdersDetailContent() {
     const searchParams = useSearchParams();
     const vendorId = searchParams.get('id');
 
-    const orders = [
-        { id: 'PO-2025-089', date: '2025-01-22', amount: 324500, status: 'Issued', delivery: 'On Time' },
-        { id: 'PO-2025-075', date: '2024-12-15', amount: 280000, status: 'Received', delivery: 'Late' },
-        { id: 'PO-2025-062', date: '2024-11-20', amount: 150000, status: 'Received', delivery: 'On Time' },
-    ];
+    const [orders, setOrders] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('procurement/purchase-orders');
+                const mapped = raw.map((r: any) => ({
+                    id: r.poNumber ?? r.id,
+                    date: r.poDate ?? '',
+                    amount: Number(r.totalAmount ?? 0),
+                    status: r.status ?? '',
+                    delivery: r.deliveryDate ?? '',
+                }));
+                if (!cancelled) setOrders(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -34,6 +56,8 @@ function VendorOrdersDetailContent() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('vendor-performance-orders', orders)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader><CardTitle>Order History</CardTitle></CardHeader>
                 <CardContent className="p-0">

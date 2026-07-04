@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FileText,
     Download,
@@ -9,17 +9,59 @@ import {
     CheckCircle2,
     ArrowLeft,
     Layers,
-    Scissors
+    Scissors,
+    Loader2
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+interface NestingAsset {
+    id: string;
+    name: string;
+    type: string;
+    date: string;
+    status: string;
+    rev: string;
+}
 
 export default function NestingGallery() {
-    const { id } = useParams() as { id: string };
+    const params = useParams();
+    const id = String(params?.id ?? '');
+    const projectId = id;
 
-    const assets = [
-        { id: '1', name: 'Layout_Main_Panels_V3.dxf', type: 'Laser Nesting', date: '2026-02-05', status: 'Approved', rev: '3.2' },
-        { id: '2', name: 'Bending_Specs_Cabinet_A.pdf', type: 'Bending Guide', date: '2026-02-03', status: 'In Rev', rev: '1.0' },
-    ];
+    const [assets, setAssets] = useState<NestingAsset[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            if (!projectId) { setIsLoading(false); return; }
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await projectManagementService.getProductionNesting(projectId);
+                const mapped: NestingAsset[] = (raw || []).map((r: any, idx: number) => ({
+                    id: String(r.id ?? r.nestingId ?? idx + 1),
+                    name: r.name ?? r.fileName ?? r.file ?? r.title ?? 'Untitled',
+                    type: r.type ?? r.assetType ?? r.category ?? 'Laser Nesting',
+                    date: r.date ?? r.uploadedAt ?? r.createdAt ?? '',
+                    status: r.status ?? 'In Rev',
+                    rev: String(r.rev ?? r.revision ?? r.version ?? '1.0'),
+                }));
+                if (!cancelled) setAssets(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setAssets([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [projectId]);
 
     return (
         <div className="w-full space-y-4 px-3 py-4">
@@ -32,6 +74,22 @@ export default function NestingGallery() {
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Nesting & Fabrication Drawings | Phase 5.3</p>
                 </div>
             </div>
+
+            {isLoading && (
+                <div className="flex items-center gap-2 text-slate-400 text-xs font-black uppercase tracking-widest py-8 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Loading assets...
+                </div>
+            )}
+            {loadError && !isLoading && (
+                <div className="bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl p-4 text-[10px] font-black uppercase tracking-widest">
+                    {loadError}
+                </div>
+            )}
+            {!isLoading && !loadError && assets.length === 0 && (
+                <div className="bg-slate-50 border border-gray-100 text-slate-400 rounded-2xl p-6 text-center text-[10px] font-black uppercase tracking-widest">
+                    No manufacturing assets found
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {assets.map((asset) => (

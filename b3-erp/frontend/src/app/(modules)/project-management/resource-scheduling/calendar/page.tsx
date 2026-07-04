@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   ArrowLeft,
   Calendar as CalendarIcon,
@@ -25,13 +26,14 @@ const resources = [
   { id: 5, name: 'Team Alpha', role: 'Assembly Crew', department: 'Production' },
 ];
 
-const allocations = [
-  { id: 1, resourceId: 1, project: 'Project A', start: 1, duration: 5, color: 'bg-blue-500' },
-  { id: 2, resourceId: 2, project: 'Project B', start: 3, duration: 4, color: 'bg-green-500' },
-  { id: 3, resourceId: 3, project: 'Project A', start: 2, duration: 3, color: 'bg-blue-500' },
-  { id: 4, resourceId: 3, project: 'Project C', start: 6, duration: 2, color: 'bg-orange-500' },
-  { id: 5, resourceId: 5, project: 'Project B', start: 1, duration: 7, color: 'bg-green-500' },
-];
+interface Allocation {
+  id: number;
+  resourceId: number;
+  project: string;
+  start: number;
+  duration: number;
+  color: string;
+}
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const dates = Array.from({ length: 14 }, (_, i) => i + 1); // Mock 2 weeks
@@ -39,6 +41,38 @@ const dates = Array.from({ length: 14 }, (_, i) => i + 1); // Mock 2 weeks
 export default function MasterSchedulePage() {
   const router = useRouter();
   const [view, setView] = useState('2-weeks');
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getPmResourceAllocations();
+        const mapped: Allocation[] = (raw || []).map((r: any, i: number) => ({
+          id: r.id ?? i + 1,
+          resourceId: r.resourceId ?? r.resource_id ?? r.resource?.id ?? 0,
+          project: r.project ?? r.projectName ?? r.project_name ?? '',
+          start: r.start ?? r.startDay ?? 1,
+          duration: r.duration ?? r.durationDays ?? 1,
+          color: r.color ?? 'bg-blue-500',
+        }));
+        if (!cancelled) setAllocations(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setAllocations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -106,6 +140,12 @@ export default function MasterSchedulePage() {
 
       {/* Gantt Chart Area */}
       <div className="flex-1 overflow-auto p-3 sm:px-6 lg:px-8">
+        {isLoading && (
+          <div className="text-sm text-gray-500 mb-3">Loading allocations…</div>
+        )}
+        {loadError && (
+          <div className="text-sm text-red-600 mb-3">{loadError}</div>
+        )}
         <div className=" bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
           {/* Timeline Header */}
           <div className="grid grid-cols-[250px_1fr] border-b border-gray-200">

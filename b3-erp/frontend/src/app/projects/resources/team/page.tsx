@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Users, Search, Filter, PlusCircle, UserPlus, Shield, Mail } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type Member = {
   id: string;
@@ -13,24 +14,68 @@ type Member = {
   active: boolean;
 };
 
-const TEAM: Member[] = [
-  { id: 'E-101', name: 'Amit Singh', email: 'amit.singh@example.com', role: 'Project Manager', department: 'Projects', projects: 4, active: true },
-  { id: 'E-214', name: 'Priya Patel', email: 'priya.patel@example.com', role: 'Designer', department: 'Design', projects: 3, active: true },
-  { id: 'E-307', name: 'Rahul Kumar', email: 'rahul.kumar@example.com', role: 'Engineer', department: 'Engineering', projects: 5, active: true },
-  { id: 'E-118', name: 'Sara Ali', email: 'sara.ali@example.com', role: 'Installer', department: 'Installation', projects: 2, active: false },
-];
-
 export default function TeamManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all'|'active'|'inactive'>('all');
-  const depts = useMemo(() => ['all', ...Array.from(new Set(TEAM.map(t => t.department)))], []);
-  const filtered = useMemo(() => TEAM.filter(m => {
-    const matchSearch = [m.name, m.email, m.role, m.department, m.id].some(v => v.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  const [team, setTeam] = useState<Member[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await projectManagementService.getProjectsResourcesList();
+        const mapped: Member[] = (Array.isArray(rows) ? rows : []).map((r: any) => {
+          const status = (r?.status ?? '').toString().toLowerCase();
+          const active =
+            typeof r?.active === 'boolean'
+              ? r.active
+              : status
+              ? status === 'active'
+              : true;
+          return {
+            id: String(r?.id ?? r?.resourceId ?? r?.userId ?? ''),
+            name: r?.resourceName ?? r?.userName ?? r?.name ?? 'Unknown',
+            email: r?.email ?? '',
+            role: r?.role ?? r?.designation ?? '',
+            department: r?.department ?? r?.dept ?? '',
+            projects: Number(r?.projects ?? r?.projectCount ?? 0) || 0,
+            active,
+          };
+        });
+        if (!cancelled) setTeam(mapped);
+      } catch (err: any) {
+        if (!cancelled) {
+          setLoadError(err?.message ?? 'Failed to load team members');
+          setTeam([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const depts = useMemo(() => ['all', ...Array.from(new Set(team.map(t => t.department).filter(Boolean)))], [team]);
+  const filtered = useMemo(() => team.filter(m => {
+    const matchSearch = [m.name, m.email, m.role, m.department, m.id].some(v => (v ?? '').toLowerCase().includes(searchTerm.toLowerCase()));
     const matchDept = deptFilter==='all' ? true : m.department === deptFilter;
     const matchStatus = statusFilter==='all' ? true : statusFilter==='active' ? m.active : !m.active;
     return matchSearch && matchDept && matchStatus;
-  }), [searchTerm, deptFilter, statusFilter]);
+  }), [team, searchTerm, deptFilter, statusFilter]);
+
+  const totalMembers = team.length;
+  const projectManagers = useMemo(() => team.filter(m => (m.role ?? '').toLowerCase().includes('project manager')).length, [team]);
+  const activeProjects = useMemo(() => team.reduce((sum, m) => sum + (m.active ? m.projects : 0), 0), [team]);
+  const departmentCount = useMemo(() => new Set(team.map(m => m.department).filter(Boolean)).size, [team]);
 
   return (
     <div className="p-6">
@@ -74,7 +119,7 @@ export default function TeamManagementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-teal-600 text-sm font-medium">Team Members</p>
-              <p className="text-3xl font-bold text-teal-900 mt-1">68</p>
+              <p className="text-3xl font-bold text-teal-900 mt-1">{totalMembers}</p>
             </div>
             <Users className="h-12 w-12 text-teal-600 opacity-50" />
           </div>
@@ -83,7 +128,7 @@ export default function TeamManagementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-blue-600 text-sm font-medium">Project Managers</p>
-              <p className="text-3xl font-bold text-blue-900 mt-1">8</p>
+              <p className="text-3xl font-bold text-blue-900 mt-1">{projectManagers}</p>
             </div>
             <Users className="h-12 w-12 text-blue-600 opacity-50" />
           </div>
@@ -92,7 +137,7 @@ export default function TeamManagementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-600 text-sm font-medium">Active Projects</p>
-              <p className="text-3xl font-bold text-green-900 mt-1">32</p>
+              <p className="text-3xl font-bold text-green-900 mt-1">{activeProjects}</p>
             </div>
             <Users className="h-12 w-12 text-green-600 opacity-50" />
           </div>
@@ -101,7 +146,7 @@ export default function TeamManagementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-purple-600 text-sm font-medium">Departments</p>
-              <p className="text-3xl font-bold text-purple-900 mt-1">12</p>
+              <p className="text-3xl font-bold text-purple-900 mt-1">{departmentCount}</p>
             </div>
             <Users className="h-12 w-12 text-purple-600 opacity-50" />
           </div>
@@ -139,7 +184,13 @@ export default function TeamManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {filtered.map(m => (
+              {isLoading && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">Loading team members…</td></tr>
+              )}
+              {!isLoading && loadError && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-red-600">{loadError}</td></tr>
+              )}
+              {!isLoading && !loadError && filtered.map(m => (
                 <tr key={m.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="flex flex-col">
@@ -161,7 +212,7 @@ export default function TeamManagementPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.length===0 && (
+              {!isLoading && !loadError && filtered.length===0 && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No team members</td></tr>
               )}
             </tbody>

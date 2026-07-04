@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Settings, Plus, Edit, Trash2, ToggleLeft, ToggleRight, CheckCircle, AlertTriangle } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface ReplenishmentRule {
   id: string;
@@ -27,104 +28,66 @@ export default function ReplenishmentRulesPage() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const rules: ReplenishmentRule[] = [
-    {
-      id: '1',
-      ruleName: 'Critical Raw Materials - Auto Replenish',
-      description: 'Automatically create replenishment requests for critical raw materials when stock falls below reorder point',
-      category: 'Raw Materials',
-      itemFilter: 'RM-*',
-      method: 'reorder-point',
-      autoApprove: true,
-      priority: 'critical',
-      supplier: 'Any Available',
-      leadTimeDays: 7,
-      safetyStockDays: 3,
-      isActive: true,
-      createdDate: '2025-09-15',
-      lastModified: '2025-10-20'
-    },
-    {
-      id: '2',
-      ruleName: 'Components Min-Max Replenishment',
-      description: 'Maintain min-max levels for all component parts with weekly review',
-      category: 'Components',
-      itemFilter: 'CP-*',
-      method: 'min-max',
-      autoApprove: false,
-      priority: 'high',
-      supplier: 'Primary Supplier',
-      leadTimeDays: 10,
-      safetyStockDays: 5,
-      isActive: true,
-      createdDate: '2025-08-20',
-      lastModified: '2025-10-18'
-    },
-    {
-      id: '3',
-      ruleName: 'Consumables - Usage Based',
-      description: 'Replenish consumables based on average monthly consumption patterns',
-      category: 'Consumables',
-      itemFilter: 'CS-*',
-      method: 'consumption-based',
-      autoApprove: false,
-      priority: 'medium',
-      supplier: 'Multiple Suppliers',
-      leadTimeDays: 3,
-      safetyStockDays: 2,
-      isActive: true,
-      createdDate: '2025-07-10',
-      lastModified: '2025-10-15'
-    },
-    {
-      id: '4',
-      ruleName: 'High-Value Items EOQ',
-      description: 'Economic Order Quantity based replenishment for high-value items to minimize holding costs',
-      category: 'High-Value Parts',
-      itemFilter: 'HV-*',
-      method: 'economic-order-qty',
-      autoApprove: false,
-      priority: 'high',
-      supplier: 'Certified Suppliers Only',
-      leadTimeDays: 14,
-      safetyStockDays: 7,
-      isActive: true,
-      createdDate: '2025-06-05',
-      lastModified: '2025-09-28'
-    },
-    {
-      id: '5',
-      ruleName: 'Seasonal Items - Advance Planning',
-      description: 'Replenish seasonal items 60 days before peak season',
-      category: 'Seasonal',
-      itemFilter: 'SN-*',
-      method: 'consumption-based',
-      autoApprove: false,
-      priority: 'medium',
-      supplier: 'Primary Supplier',
-      leadTimeDays: 21,
-      safetyStockDays: 10,
-      isActive: false,
-      createdDate: '2025-05-12',
-      lastModified: '2025-08-30'
-    },
-    {
-      id: '6',
-      ruleName: 'Fast-Moving Items - Daily Review',
-      description: 'Daily monitoring and replenishment of fast-moving inventory items',
-      category: 'Fast-Moving',
-      itemFilter: 'FM-*',
-      method: 'reorder-point',
-      autoApprove: true,
-      priority: 'critical',
-      supplier: 'Any Available',
-      leadTimeDays: 2,
-      safetyStockDays: 1,
-      isActive: true,
-      createdDate: '2025-09-01',
-      lastModified: '2025-10-21'
-    }
-  ];
+  // Derived from GET /inventory/reorder/analysis (one rule row per analysed item).
+  const [rules, setRules] = useState<ReplenishmentRule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await inventoryService.getReorderItemAnalysis()) as any[];
+        const methodFor = (turnover: number): ReplenishmentRule['method'] => {
+          if (turnover >= 0.3) return 'reorder-point';
+          if (turnover >= 0.15) return 'min-max';
+          return 'consumption-based';
+        };
+        const priorityFor = (risk: string): ReplenishmentRule['priority'] => {
+          switch (risk) {
+            case 'high': return 'critical';
+            case 'medium': return 'high';
+            case 'low': return 'medium';
+            default: return 'low';
+          }
+        };
+        const mapped: ReplenishmentRule[] = (raw || []).map((it: any, i: number) => {
+          const turnover = Number(it.turnoverRatio ?? 0);
+          const risk = String(it.stockoutRisk ?? 'low');
+          return {
+            id: String(it.itemId ?? i),
+            ruleName: `${it.itemName ?? it.itemCode ?? 'Item'} — Reorder Rule`,
+            description: `Auto reorder rule for ${it.itemCode ?? ''} based on demand analysis.`,
+            category: it.category ?? it.itemCategory ?? '',
+            itemFilter: it.itemCode ?? '',
+            method: methodFor(turnover),
+            autoApprove: risk === 'high',
+            priority: priorityFor(risk),
+            supplier: it.vendorName ?? 'Any Available',
+            leadTimeDays: Number(it.daysOfStock ?? 0),
+            safetyStockDays: Number(it.suggestedSafetyStock ?? 0),
+            isActive: risk !== 'low',
+            createdDate: it.createdAt ?? '',
+            lastModified: it.updatedAt ?? it.createdAt ?? '',
+          };
+        });
+        if (!cancelled) setRules(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load replenishment rules');
+          setRules([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredRules = rules.filter(rule => {
     const matchesSearch = rule.ruleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -183,6 +146,16 @@ export default function ReplenishmentRulesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading rules…
+        </div>
+      )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">

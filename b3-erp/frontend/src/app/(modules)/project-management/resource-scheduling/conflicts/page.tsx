@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -17,44 +18,66 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ModalWrapper } from '@/components/ui/ModalWrapper';
 
-// Mock Data
-const conflicts = [
-  {
-    id: 1,
-    resource: 'Rajesh Kumar',
-    role: 'Project Manager',
-    type: 'Double Booking',
-    severity: 'High',
-    description: 'Scheduled for "Project A" and "Project B" simultaneously on 12th Jun.',
-    date: '2024-06-12',
-    projects: ['Project A', 'Project B'],
-  },
-  {
-    id: 2,
-    resource: 'CNC Machine 04',
-    role: 'Machinery',
-    type: 'Maintenance Overlap',
-    severity: 'Medium',
-    description: 'Scheduled maintenance overlaps with "Production Run #405".',
-    date: '2024-06-14',
-    projects: ['Production Run #405', 'Maintenance'],
-  },
-  {
-    id: 3,
-    resource: 'Assembly Team A',
-    role: 'Labor Team',
-    type: 'Overtime Limit',
-    severity: 'Low',
-    description: 'Weekly hours exceed 45 hours with current allocation.',
-    date: 'Week 24',
-    projects: ['Project C'],
-  },
-];
+interface Conflict {
+  id: number;
+  resource: string;
+  role: string;
+  type: string;
+  severity: string;
+  description: string;
+  date: string;
+  projects: string[];
+}
 
 export default function ConflictResolutionPage() {
   const router = useRouter();
   const [selectedConflict, setSelectedConflict] = useState<any>(null);
   const [showResolveModal, setShowResolveModal] = useState(false);
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getPmResourceAllocations();
+        const mapped: Conflict[] = (raw || []).map((r: any, i: number) => {
+          const projects = Array.isArray(r.projects)
+            ? r.projects
+            : [r.project ?? r.projectName ?? r.project_name].filter(Boolean);
+          return {
+            id: r.id ?? i + 1,
+            resource: r.resource ?? r.resourceName ?? r.resource_name ?? r.resource?.name ?? '',
+            role: r.role ?? r.resourceRole ?? r.resource?.role ?? '',
+            type: r.conflictType ?? r.type ?? 'Double Booking',
+            severity: r.severity ?? 'Medium',
+            description: r.description ?? '',
+            date: r.date ?? r.conflictDate ?? r.startDate ?? '',
+            projects,
+          };
+        });
+        if (!cancelled) setConflicts(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setConflicts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const severityCounts = useMemo(() => ({
+    high: conflicts.filter((c) => c.severity === 'High').length,
+    medium: conflicts.filter((c) => c.severity === 'Medium').length,
+    low: conflicts.filter((c) => c.severity === 'Low').length,
+  }), [conflicts]);
 
   const handleResolveClick = (conflict: any) => {
     setSelectedConflict(conflict);
@@ -90,7 +113,7 @@ export default function ConflictResolutionPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-red-900">High Severity</p>
-                  <h3 className="text-2xl font-bold text-red-700">1</h3>
+                  <h3 className="text-2xl font-bold text-red-700">{severityCounts.high}</h3>
                 </div>
               </CardContent>
             </Card>
@@ -101,7 +124,7 @@ export default function ConflictResolutionPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-orange-900">Medium Severity</p>
-                  <h3 className="text-2xl font-bold text-orange-700">1</h3>
+                  <h3 className="text-2xl font-bold text-orange-700">{severityCounts.medium}</h3>
                 </div>
               </CardContent>
             </Card>
@@ -112,7 +135,7 @@ export default function ConflictResolutionPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-yellow-900">Low Severity</p>
-                  <h3 className="text-2xl font-bold text-yellow-700">1</h3>
+                  <h3 className="text-2xl font-bold text-yellow-700">{severityCounts.low}</h3>
                 </div>
               </CardContent>
             </Card>
@@ -125,6 +148,15 @@ export default function ConflictResolutionPage() {
               <CardDescription>Review and take action on the following issues</CardDescription>
             </CardHeader>
             <CardContent>
+              {isLoading && (
+                <div className="text-sm text-gray-500 py-4">Loading conflicts…</div>
+              )}
+              {loadError && (
+                <div className="text-sm text-red-600 py-4">{loadError}</div>
+              )}
+              {!isLoading && !loadError && conflicts.length === 0 && (
+                <div className="text-sm text-gray-500 py-4">No conflicts found.</div>
+              )}
               <div className="space-y-2">
                 {conflicts.map((conflict) => (
                   <div key={conflict.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">

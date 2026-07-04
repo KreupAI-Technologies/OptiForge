@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 import { Suspense } from 'react';
 
@@ -16,11 +17,33 @@ function VendorPOsDetailContent() {
     const vendorId = searchParams.get('vendor') || 'all';
     const vendorName = 'Steel Suppliers Ltd'; // In real app, fetch from vendorId
 
-    const posData = [
-        { id: 'PO-2025-145', date: '2025-01-20', items: 'Steel Sheets, Aluminum Rods', amount: 450000, status: 'Approved', dueDate: '2025-02-20' },
-        { id: 'PO-2025-138', date: '2025-01-15', items: 'Steel Bars', amount: 280000, status: 'Received', dueDate: '2025-02-15' },
-        { id: 'PO-2025-125', date: '2025-01-10', items: 'Steel Sheets', amount: 320000, status: 'In Transit', dueDate: '2025-02-10' },
-    ];
+    const [posData, setPosData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('procurement/purchase-orders');
+                const mapped = raw.map((r: any) => ({
+                    id: r.poNumber ?? r.id,
+                    date: r.poDate ?? '',
+                    items: Number((r.items?.length) ?? r.itemCount ?? 0),
+                    amount: Number(r.totalAmount ?? 0),
+                    status: r.status ?? '',
+                    dueDate: r.deliveryDate ?? r.expectedDate ?? '',
+                }));
+                if (!cancelled) setPosData(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setPosData([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const handlePOClick = (poId: string) => {
         router.push(`/procurement/po/${poId}`);
@@ -50,6 +73,8 @@ function VendorPOsDetailContent() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('vendor-performance', posData)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Card>

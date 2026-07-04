@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   Users,
   Calendar,
@@ -30,15 +31,7 @@ import {
   Cell,
 } from 'recharts';
 
-// Mock Data
-const utilizationData = [
-  { name: 'Engineering', allocated: 85, available: 15 },
-  { name: 'Production', allocated: 92, available: 8 },
-  { name: 'Quality', allocated: 65, available: 35 },
-  { name: 'Logistics', allocated: 70, available: 30 },
-  { name: 'Installation', allocated: 88, available: 12 },
-];
-
+// Config: chart color/axis config for allocation pie — kept hardcoded (color map)
 const projectAllocationData = [
   { name: 'Project A', value: 35, color: '#3b82f6' },
   { name: 'Project B', value: 25, color: '#10b981' },
@@ -46,14 +39,70 @@ const projectAllocationData = [
   { name: 'Other', value: 20, color: '#6b7280' },
 ];
 
-const recentConflicts = [
-  { id: 1, resource: 'Rajesh Kumar', conflict: 'Double booked on 12th Jun', severity: 'High' },
-  { id: 2, resource: 'CNC Machine 04', conflict: 'Maintenance overlap', severity: 'Medium' },
-  { id: 3, resource: 'Assembly Team A', conflict: 'Overtime limit exceeded', severity: 'Low' },
-];
+interface UtilizationRow {
+  name: string;
+  allocated: number;
+  available: number;
+}
+
+interface ConflictRow {
+  id: number | string;
+  resource: string;
+  conflict: string;
+  severity: string;
+}
 
 export default function ResourceSchedulingDashboard() {
   const router = useRouter();
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [utilizationData, setUtilizationData] = useState<UtilizationRow[]>([]);
+  const [recentConflicts, setRecentConflicts] = useState<ConflictRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [rawAllocations, rawUtilization] = await Promise.all([
+          projectManagementService.getPmResourceAllocations(),
+          projectManagementService.getPmResourceUtilization(),
+        ]);
+        const conflicts: ConflictRow[] = (rawAllocations || []).map((r: any, idx: number) => ({
+          id: r.id ?? r.allocationId ?? idx + 1,
+          resource: r.resource ?? r.resourceName ?? r.name ?? r.employeeName ?? '',
+          conflict: r.conflict ?? r.conflictDescription ?? r.description ?? r.notes ?? '',
+          severity: r.severity ?? r.priority ?? r.level ?? 'Low',
+        }));
+        const utilization: UtilizationRow[] = (rawUtilization || []).map((r: any) => {
+          const allocated = Number(r.allocated ?? r.utilization ?? r.allocatedPercent ?? r.utilizationRate ?? 0);
+          return {
+            name: r.name ?? r.department ?? r.resourceType ?? r.team ?? '',
+            allocated,
+            available: Number(r.available ?? r.availablePercent ?? (100 - allocated)),
+          };
+        });
+        if (!cancelled) {
+          setRecentConflicts(conflicts);
+          setUtilizationData(utilization);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRecentConflicts([]);
+          setUtilizationData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -189,6 +238,11 @@ export default function ResourceSchedulingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center h-full text-sm text-gray-500">Loading utilization…</div>
+                  ) : loadError ? (
+                    <div className="flex items-center justify-center h-full text-sm text-red-600">{loadError}</div>
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={utilizationData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -203,6 +257,7 @@ export default function ResourceSchedulingDashboard() {
                       <Bar dataKey="available" name="Available %" stackId="a" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -254,7 +309,13 @@ export default function ResourceSchedulingDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {recentConflicts.map((conflict) => (
+                  {isLoading ? (
+                    <div className="p-3 text-sm text-gray-500">Loading conflicts…</div>
+                  ) : loadError ? (
+                    <div className="p-3 text-sm text-red-600">{loadError}</div>
+                  ) : recentConflicts.length === 0 ? (
+                    <div className="p-3 text-sm text-gray-500">No conflicts to display.</div>
+                  ) : recentConflicts.map((conflict) => (
                     <div key={conflict.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
                       <div className="flex items-start gap-3">
                         <div className="mt-1">

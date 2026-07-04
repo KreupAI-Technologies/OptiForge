@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
     Camera,
@@ -13,11 +13,20 @@ import {
     Trash2,
     Calendar,
     User,
-    CheckCircle2
+    CheckCircle2,
+    Loader2
 } from 'lucide-react';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+interface SurveyField {
+    label: string;
+    value: string;
+}
 
 export default function SiteAssessmentPage() {
-    const { id } = useParams() as { id: string };
+    const params = useParams();
+    const id = String(params?.id ?? '');
+    const projectId = id;
     const [activeSection, setActiveSection] = useState('dimensions');
 
     const sections = [
@@ -25,6 +34,51 @@ export default function SiteAssessmentPage() {
         { id: 'mep', label: 'Plumbing & Electrical', icon: MapPin },
         { id: 'photos', label: 'Site Photos', icon: Camera },
     ];
+
+    const [surveys, setSurveys] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            if (!projectId) { setIsLoading(false); return; }
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await projectManagementService.getDesignVerificationSurveys(projectId);
+                if (!cancelled) setSurveys(raw || []);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setSurveys([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [projectId]);
+
+    // Derive editable dimension fields from the first fetched survey (if any),
+    // otherwise fall back to the standard boundary template.
+    const dimensionFields = useMemo<SurveyField[]>(() => {
+        const first: any = surveys[0];
+        const dims = first?.dimensions ?? first?.measurements ?? first?.fields;
+        if (Array.isArray(dims) && dims.length > 0) {
+            return dims.map((d: any) => ({
+                label: d.label ?? d.name ?? 'Measurement',
+                value: String(d.value ?? d.measurement ?? ''),
+            }));
+        }
+        return [
+            { label: 'Left Wall Length (mm)', value: '' },
+            { label: 'Right Wall Length (mm)', value: '' },
+            { label: 'Ceiling Height (mm)', value: '' },
+            { label: 'Window Sill Height (mm)', value: '' },
+        ];
+    }, [surveys]);
 
     return (
         <div className="w-full bg-slate-50 min-h-screen pb-20">
@@ -82,12 +136,17 @@ export default function SiteAssessmentPage() {
                                 <Plus className="w-4 h-4 text-blue-600" />
                             </div>
                             <div className="p-4 space-y-4">
-                                {[
-                                    { label: 'Left Wall Length (mm)', value: '3450' },
-                                    { label: 'Right Wall Length (mm)', value: '3450' },
-                                    { label: 'Ceiling Height (mm)', value: '2800' },
-                                    { label: 'Window Sill Height (mm)', value: '950' },
-                                ].map((field, idx) => (
+                                {isLoading && (
+                                    <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase tracking-widest py-2 justify-center">
+                                        <Loader2 className="w-4 h-4 animate-spin" /> Loading survey...
+                                    </div>
+                                )}
+                                {loadError && !isLoading && (
+                                    <div className="bg-rose-50 border border-rose-100 text-rose-600 rounded-xl p-3 text-[10px] font-black uppercase tracking-widest">
+                                        {loadError}
+                                    </div>
+                                )}
+                                {dimensionFields.map((field, idx) => (
                                     <div key={idx} className="relative">
                                         <input
                                             type="number"

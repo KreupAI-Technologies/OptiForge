@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Search, Filter, Download, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Target, Activity } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar, Legend, Area, AreaChart } from 'recharts';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 type ProjectMetric = {
   id: string;
@@ -20,64 +21,39 @@ type ProjectMetric = {
   status: 'on-track' | 'at-risk' | 'critical';
 };
 
-const PROJECT_METRICS: ProjectMetric[] = [
-  {
-    id: '1',
-    projectCode: 'KF-A',
-    projectName: 'Kitchen Fitout - Tower A',
-    spi: 0.92,
-    cpi: 1.05,
-    qualityScore: 94,
-    defectRate: 1.2,
-    onTimeDelivery: 88,
-    customerSat: 8.5,
-    teamVelocity: 23,
-    riskScore: 35,
-    status: 'on-track'
-  },
-  {
-    id: '2',
-    projectCode: 'LVW-09',
-    projectName: 'Luxury Villa Wardrobes',
-    spi: 0.85,
-    cpi: 0.88,
-    qualityScore: 91,
-    defectRate: 2.1,
-    onTimeDelivery: 75,
-    customerSat: 7.8,
-    teamVelocity: 19,
-    riskScore: 58,
-    status: 'at-risk'
-  },
-  {
-    id: '3',
-    projectCode: 'CPR-12',
-    projectName: 'Corporate Pantry Rollout',
-    spi: 1.08,
-    cpi: 1.12,
-    qualityScore: 96,
-    defectRate: 0.8,
-    onTimeDelivery: 95,
-    customerSat: 9.2,
-    teamVelocity: 26,
-    riskScore: 18,
-    status: 'on-track'
-  },
-  {
-    id: '4',
-    projectCode: 'SR-08',
-    projectName: 'Showroom Refurbishment',
-    spi: 0.78,
-    cpi: 0.82,
-    qualityScore: 87,
-    defectRate: 3.5,
-    onTimeDelivery: 68,
-    customerSat: 7.2,
-    teamVelocity: 15,
-    riskScore: 72,
-    status: 'critical'
-  }
-];
+function toStatus(value: any): ProjectMetric['status'] {
+  const s = String(value ?? '').toLowerCase();
+  if (s.includes('critical')) return 'critical';
+  if (s.includes('risk') || s.includes('delay') || s.includes('warn')) return 'at-risk';
+  return 'on-track';
+}
+
+function mapProjectMetric(p: any, idx: number): ProjectMetric {
+  const progress = Number(p?.progressPercentage ?? p?.progress ?? p?.completionPercent ?? 0);
+  const plannedHours = Number(p?.plannedHours ?? 0);
+  const actualHours = Number(p?.actualHours ?? 0);
+  const budget = Number(p?.budget ?? 0);
+  const variance = Number(p?.variance ?? 0);
+  // Derive SPI/CPI from available fields when explicit values are absent.
+  const spi = Number(
+    p?.spi ?? (plannedHours > 0 ? actualHours / plannedHours : progress > 0 ? progress / 100 : 1)
+  );
+  const cpi = Number(p?.cpi ?? (budget > 0 ? (budget - variance) / budget : 1));
+  return {
+    id: String(p?.id ?? p?.projectId ?? idx),
+    projectCode: String(p?.projectCode ?? p?.code ?? p?.projectName ?? p?.name ?? `P-${idx + 1}`),
+    projectName: String(p?.projectName ?? p?.name ?? p?.projectCode ?? p?.code ?? `Project ${idx + 1}`),
+    spi: Number.isFinite(spi) ? spi : 0,
+    cpi: Number.isFinite(cpi) ? cpi : 0,
+    qualityScore: Number(p?.qualityScore ?? p?.quality ?? 0),
+    defectRate: Number(p?.defectRate ?? p?.defects ?? 0),
+    onTimeDelivery: Number(p?.onTimeDelivery ?? p?.onTime ?? progress),
+    customerSat: Number(p?.customerSat ?? p?.customerSatisfaction ?? 0),
+    teamVelocity: Number(p?.teamVelocity ?? p?.velocity ?? 0),
+    riskScore: Number(p?.riskScore ?? p?.risk ?? 0),
+    status: toStatus(p?.status),
+  };
+}
 
 const velocityTrendData = [
   { week: 'W34', velocity: 18, target: 20 },
@@ -121,24 +97,62 @@ export default function PerformanceMetricsPage() {
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const projects = useMemo(() => ['all', ...Array.from(new Set(PROJECT_METRICS.map(p => p.projectCode)))], []);
+  const [projectMetrics, setProjectMetrics] = useState<ProjectMetric[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        let raw = await projectManagementService.getProjectsProgress();
+        if (!Array.isArray(raw) || raw.length === 0) {
+          // Fall back to project plans so the list still populates.
+          const plans = await projectManagementService.getProjectsProjectPlans();
+          if (Array.isArray(plans) && plans.length > 0) {
+            raw = plans;
+          } else {
+            raw = Array.isArray(raw) ? raw : [];
+          }
+        }
+        const mapped = (raw as any[]).map((p: any, idx: number) => mapProjectMetric(p, idx));
+        if (!cancelled) setProjectMetrics(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load performance metrics');
+          setProjectMetrics([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const projects = useMemo(() => ['all', ...Array.from(new Set(projectMetrics.map(p => p.projectCode)))], [projectMetrics]);
 
   const filtered = useMemo(() => {
-    return PROJECT_METRICS.filter(p => {
+    return projectMetrics.filter(p => {
       const matchesSearch = [p.projectCode, p.projectName].some(v => v.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesProject = projectFilter === 'all' ? true : p.projectCode === projectFilter;
       const matchesStatus = statusFilter === 'all' ? true : p.status === statusFilter;
       return matchesSearch && matchesProject && matchesStatus;
     });
-  }, [searchTerm, projectFilter, statusFilter]);
+  }, [projectMetrics, searchTerm, projectFilter, statusFilter]);
 
-  // Calculate aggregate metrics
-  const avgSPI = (PROJECT_METRICS.reduce((sum, p) => sum + p.spi, 0) / PROJECT_METRICS.length).toFixed(2);
-  const avgCPI = (PROJECT_METRICS.reduce((sum, p) => sum + p.cpi, 0) / PROJECT_METRICS.length).toFixed(2);
-  const avgQuality = Math.round(PROJECT_METRICS.reduce((sum, p) => sum + p.qualityScore, 0) / PROJECT_METRICS.length);
-  const avgVelocity = Math.round(PROJECT_METRICS.reduce((sum, p) => sum + p.teamVelocity, 0) / PROJECT_METRICS.length);
-  const criticalCount = PROJECT_METRICS.filter(p => p.status === 'critical').length;
-  const atRiskCount = PROJECT_METRICS.filter(p => p.status === 'at-risk').length;
+  // Calculate aggregate metrics from fetched state (guard divide-by-zero).
+  const metricCount = projectMetrics.length;
+  const avgSPI = metricCount > 0 ? (projectMetrics.reduce((sum, p) => sum + p.spi, 0) / metricCount).toFixed(2) : '0.00';
+  const avgCPI = metricCount > 0 ? (projectMetrics.reduce((sum, p) => sum + p.cpi, 0) / metricCount).toFixed(2) : '0.00';
+  const avgQuality = metricCount > 0 ? Math.round(projectMetrics.reduce((sum, p) => sum + p.qualityScore, 0) / metricCount) : 0;
+  const avgVelocity = metricCount > 0 ? Math.round(projectMetrics.reduce((sum, p) => sum + p.teamVelocity, 0) / metricCount) : 0;
+  const criticalCount = projectMetrics.filter(p => p.status === 'critical').length;
+  const atRiskCount = projectMetrics.filter(p => p.status === 'at-risk').length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -173,6 +187,17 @@ export default function PerformanceMetricsPage() {
         </h1>
         <p className="text-gray-600 mt-2">Comprehensive KPIs, project performance indicators, and trend analysis</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-600">
+          Loading performance metrics…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
@@ -456,7 +481,9 @@ export default function PerformanceMetricsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">No projects found</td>
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                    {isLoading ? 'Loading projects…' : loadError ? 'Unable to load projects' : 'No projects found'}
+                  </td>
                 </tr>
               )}
             </tbody>

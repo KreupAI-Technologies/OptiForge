@@ -1,11 +1,12 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function ExpenseClaimsStatusContent() {
     const router = useRouter();
@@ -13,15 +14,34 @@ function ExpenseClaimsStatusContent() {
     const status = searchParams.get('status') || 'All';
     const category = searchParams.get('category');
 
-    const claims = [
-        { id: 'EXP-2025-001', employee: 'John Doe', dept: 'Sales', category: 'Travel', amount: 1250, date: '2025-01-20', status: 'Submitted' },
-        { id: 'EXP-2025-002', employee: 'Jane Smith', dept: 'Sales', category: 'Meals', amount: 450, date: '2025-01-18', status: 'Approved' },
-        { id: 'EXP-2025-003', employee: 'Mike Johnson', dept: 'Engineering', category: 'Office Supplies', amount: 125, date: '2025-01-15', status: 'Paid' },
-        { id: 'EXP-2025-004', employee: 'Sarah Wilson', dept: 'Marketing', category: 'Travel', amount: 2400, date: '2025-01-12', status: 'Submitted' },
-        { id: 'EXP-2025-005', employee: 'David Brown', dept: 'HR', category: 'Training', amount: 850, date: '2025-01-10', status: 'Rejected' },
-        { id: 'EXP-2025-006', employee: 'Emily Davis', dept: 'Finance', category: 'Software', amount: 1200, date: '2025-01-08', status: 'Paid' },
-        { id: 'EXP-2025-007', employee: 'Chris Lee', dept: 'IT', category: 'Hardware', amount: 3500, date: '2025-01-05', status: 'Approved' },
-    ];
+    const [claims, setClaims] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('api/accounts/expense-claims');
+                const mapped = raw.map((r: any) => ({
+                    id: r.claimNumber ?? r.id,
+                    employee: r.employeeName ?? '',
+                    dept: r.department ?? '',
+                    category: r.category ?? r.expenseType ?? '',
+                    amount: Number(r.totalAmount ?? r.amount ?? 0),
+                    date: r.claimDate ?? r.date ?? '',
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setClaims(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setClaims([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     let filteredClaims = claims;
 
@@ -44,6 +64,8 @@ function ExpenseClaimsStatusContent() {
                 { label: 'Details' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Claims List</CardTitle>
