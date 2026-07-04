@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, Download, Send, Copy, FileText, DollarSign, Calendar, User, Building2, CheckCircle, XCircle, Clock, Package, Mail, Phone, MapPin } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Download, Send, Copy, FileText, DollarSign, Calendar, User, Building2, CheckCircle, XCircle, Clock, Package, Mail, Phone, MapPin, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface Quote {
   id: string;
@@ -25,7 +26,7 @@ interface Quote {
   probability: number;
 }
 
-const mockQuotes: Quote[] = [
+const mockQuotesSeed: Quote[] = [
   {
     id: '1',
     quoteNumber: 'QT-2024-001',
@@ -157,7 +158,7 @@ interface QuoteItem {
   total: number;
 }
 
-const mockQuoteItems: QuoteItem[] = [
+const mockQuoteItemsSeed: QuoteItem[] = [
   {
     id: '1',
     product: 'Enterprise Software License',
@@ -213,14 +214,79 @@ export default function QuoteViewPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
 
-  const quote = mockQuotes.find(q => q.id === quoteId);
+  const [quote, setQuote] = useState<Quote | undefined>(undefined);
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!quoteId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw: any = await crmService.quotes.getById(quoteId);
+        if (!cancelled && raw && typeof raw === 'object') {
+          const items = Array.isArray(raw.items) ? raw.items : [];
+          setQuote({
+            id: raw.id ?? quoteId,
+            quoteNumber: raw.quoteNumber ?? raw.number ?? quoteId,
+            title: raw.title ?? '',
+            customer: raw.customerName ?? '',
+            contact: raw.contactName ?? '',
+            status: (raw.status ?? 'draft') as Quote['status'],
+            amount: Number(raw.subtotal ?? raw.amount ?? 0),
+            discount: Number(raw.discountAmount ?? 0),
+            finalAmount: Number(raw.totalAmount ?? raw.amount ?? 0),
+            validUntil: (raw.validUntil ?? '').toString().slice(0, 10),
+            createdDate: (raw.createdAt ?? '').toString().slice(0, 10),
+            sentDate: raw.sentDate ? raw.sentDate.toString().slice(0, 10) : undefined,
+            acceptedDate: raw.acceptedDate ? raw.acceptedDate.toString().slice(0, 10) : undefined,
+            owner: raw.preparedByName ?? '',
+            products: items.length,
+            probability: Number(raw.probability ?? 0),
+          });
+          setQuoteItems(
+            items.map((it: any, i: number) => ({
+              id: it.id ?? String(i),
+              product: it.product ?? it.productName ?? it.name ?? 'Item',
+              description: it.description ?? '',
+              quantity: Number(it.quantity ?? 1),
+              unitPrice: Number(it.unitPrice ?? it.price ?? 0),
+              discount: Number(it.discount ?? it.discountAmount ?? 0),
+              total: Number(it.total ?? it.lineTotal ?? 0),
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load quote');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [quoteId]);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-sm text-blue-700">Loading quote…</div>
+    );
+  }
 
   if (!quote) {
     return (
       <div className="p-8">
         <div className="text-center">
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">Quote Not Found</h2>
-          <p className="text-gray-600 mb-2">The quote you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-2">
+            {loadError ? loadError : "The quote you're looking for doesn't exist."}
+          </p>
           <Link href="/crm/quotes" className="text-blue-600 hover:underline">
             Return to Quotes
           </Link>
@@ -422,7 +488,7 @@ export default function QuoteViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-2">Quote Items</h2>
 
             <div className="space-y-2">
-              {mockQuoteItems.map((item) => (
+              {quoteItems.map((item) => (
                 <div key={item.id} className="border border-gray-200 rounded-lg p-3">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
