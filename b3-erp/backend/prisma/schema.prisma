@@ -15158,3 +15158,4595 @@ model Notification {
   @@index([isRead])
   @@map("notifications")
 }
+
+// ===================================================================
+// Orphan-endpoint tables (generated from prisma/manual/orphan_*.sql).
+// Additive: these back the net-new API endpoints so the Prisma schema
+// stays consistent with the database. Serviced at runtime via TypeORM.
+// ===================================================================
+
+model AsKnowledgeFaqs {
+  id String @id @default(uuid())
+  question String
+  answer String
+  category String
+  helpful Int
+  unhelpful Int
+  views Int
+  featured Boolean @default(false)
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("as_knowledge_faqs")
+}
+
+model AsKnowledgeManuals {
+  id String @id @default(uuid())
+  title String
+  productModel String?
+  description String?
+  category String
+  author String?
+  datePublished DateTime?
+  fileSize String?
+  format String
+  downloads Int
+  rating Float
+  views Int
+  language String
+  pages Int
+  versions Int
+  featured Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("as_knowledge_manuals")
+}
+
+model CpqApprovalItems {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  reference String?
+  title String?
+  customerName String?
+  value Float?
+  requestedBy String?
+  status String
+  priority String
+  reason String?
+  dueDate DateTime?
+  payload Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_approval_items")
+}
+
+model CpqConfigRules {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  type String
+  condition String?
+  action String?
+  priority Int
+  status String
+  affectedProducts Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_config_rules")
+}
+
+model CpqCompatibilityEntries {
+  id String @id @default(uuid())
+  companyId String
+  product1 String
+  product2 String
+  compatible Boolean @default(true)
+  reason String?
+  severity String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_compatibility_entries")
+}
+
+model CpqCrossSellRules {
+  id String @id @default(uuid())
+  companyId String
+  primaryProduct Json?
+  suggestedProduct Json?
+  relationship String
+  coOccurrenceRate Float
+  avgAdditionalRevenue Float
+  conversionRate Float
+  customersCount Int
+  totalOpportunityValue Float
+  recommendationStrength String
+  activeCampaigns Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_cross_sell_rules")
+}
+
+model CpqRecommendations {
+  id String @id @default(uuid())
+  companyId String
+  customerId String?
+  customerName String?
+  segment String?
+  productCode String?
+  productName String?
+  category String?
+  recommendationType String
+  confidenceScore Float
+  estimatedValue Float
+  reason String?
+  basedOn String?
+  priority String
+  aiGenerated Boolean @default(false)
+  acceptanceRate Float
+  expiresDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_recommendations")
+}
+
+model CpqCodeLists {
+  id String @id @default(uuid())
+  companyId String
+  listType String
+  name String
+  code String
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_code_lists")
+}
+
+model CpqIntegrationSyncLogs {
+  id String @id @default(uuid())
+  companyId String
+  system String
+  operation String?
+  records Int
+  status String
+  duration String?
+  message String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_integration_sync_logs")
+}
+
+model CpqWorkflowRequests {
+  id String @id @default(uuid())
+  companyId String
+  requestType String
+  reference String?
+  documentNumber String?
+  customerName String?
+  value Float
+  requestedBy String?
+  assignedTo String?
+  priority String?
+  status String?
+  requestDate String?
+  dueDate String?
+  payload Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_workflow_requests")
+}
+
+model CpqQuoteVersionsList {
+  id String @id @default(uuid())
+  companyId String
+  quoteNumber String?
+  version String?
+  customerName String?
+  value Float
+  changes Json?
+  changeType String
+  createdBy String?
+  createdDate String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_quote_versions_list")
+}
+
+model CpqNotificationPrefs {
+  id String @id @default(uuid())
+  companyId String
+  settingType String
+  name String?
+  subject String?
+  enabled Boolean @default(true)
+  config Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_notification_prefs")
+}
+
+model CpqPermissionRoles {
+  id String @id @default(uuid())
+  companyId String
+  name String?
+  description String?
+  usersCount Int
+  permissions Json?
+  approvalLimit Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_permission_roles")
+}
+
+model CpqIntegrationEndpoints {
+  id String @id @default(uuid())
+  companyId String
+  system String
+  name String?
+  type String?
+  status String
+  version String?
+  lastSync String?
+  recordCount Int
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_integration_endpoints")
+}
+
+model CpqConfigSteps {
+  id String @id @default(uuid())
+  companyId String
+  title String?
+  stepOrder Int
+  completed Boolean @default(false)
+  active Boolean @default(false)
+  options Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cpq_config_steps")
+}
+
+model CrmEmailTemplates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  subject String?
+  category String
+  description String?
+  previewText String?
+  content String?
+  status String
+  tags String?
+  usageCount Int
+  lastUsed String?
+  createdBy String?
+  openRate Float
+  clickRate Float
+  conversionRate Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_email_templates")
+}
+
+model CrmSocialIntegrations {
+  id String @id @default(uuid())
+  companyId String?
+  platform String
+  accountName String
+  accountHandle String?
+  connected Boolean @default(false)
+  followers Int
+  engagement Float
+  lastSync String?
+  stats Json?
+  config Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_social_integrations")
+}
+
+model CrmQuoteTemplates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  category String
+  items Int
+  estimatedValue Float
+  validityDays Int
+  usageCount Int
+  lastUsed String?
+  isFavorite Boolean @default(false)
+  tags String?
+  discount Float
+  includesTax Boolean @default(true)
+  termsPreview String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_quote_templates")
+}
+
+model CrmContractTemplates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  category String
+  defaultDuration Int
+  defaultValue Float
+  billingCycle String
+  autoRenew Boolean @default(false)
+  renewalNoticeDays Int
+  paymentTerms String?
+  clauses String?
+  usageCount Int
+  lastUsed String?
+  isFavorite Boolean @default(false)
+  tags String?
+  includesSLA Boolean @default(false)
+  includesTermination Boolean @default(false)
+  includesIPRights Boolean @default(false)
+  includesConfidentiality Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_contract_templates")
+}
+
+model CrmCampaignTemplates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  category String
+  description String?
+  subject String?
+  previewText String?
+  thumbnail String?
+  usageCount Int
+  lastUsed String?
+  isFavorite Boolean @default(false)
+  tags String?
+  contentPreview String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_campaign_templates")
+}
+
+model CrmSalesTeams {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  manager String?
+  members Int
+  status String
+  performance Json?
+  territories String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_sales_teams")
+}
+
+model CrmAssignmentRules {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  active Boolean @default(true)
+  priority Int
+  criteria Json?
+  assignees Json?
+  lastRun String?
+  totalAssignments Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_assignment_rules")
+}
+
+model CrmCustomerSegments {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  criteria String?
+  customerCount Int
+  totalRevenue Float
+  avgLifetimeValue Float
+  growthRate Float
+  color String
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_customer_segments")
+}
+
+model CrmContactLists {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  contactCount Int
+  criteria Json?
+  tags String?
+  owner String?
+  status String
+  isShared Boolean @default(false)
+  lastUsed String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_contact_lists")
+}
+
+model CrmContactRoles {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  category String
+  permissions String?
+  contactCount Int
+  influenceLevel Int
+  isDecisionMaker Boolean @default(false)
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_contact_roles")
+}
+
+model CrmActivityRecords {
+  id String @id @default(uuid())
+  companyId String?
+  type String
+  subject String
+  description String?
+  status String
+  priority String
+  relatedTo String?
+  relatedType String?
+  contactName String?
+  assignedTo String?
+  dueDate DateTime?
+  scheduledAt DateTime?
+  completedAt DateTime?
+  durationMinutes Int?
+  outcome String?
+  direction String?
+  location String?
+  meetingLink String?
+  tags String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_activity_records")
+}
+
+model CrmPipelineStageConfigs {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  pipelineType String
+  orderIndex Int
+  probability Int
+  color String
+  isWon Boolean @default(false)
+  isLost Boolean @default(false)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_pipeline_stage_configs")
+}
+
+model CrmProposals {
+  id String @id @default(uuid())
+  companyId String?
+  proposalNumber String?
+  title String
+  customer String?
+  customerCompany String?
+  contactPerson String?
+  status String
+  totalValue Float
+  sections Int
+  pages Int
+  submittedDate String?
+  viewedDate String?
+  respondedDate String?
+  validUntil String?
+  probability Int
+  assignedTo String?
+  tags String?
+  notes String?
+  attachments Int
+  lastActivity String?
+  createdDate String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_proposals")
+}
+
+model CrmEmailCampaigns {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  subject String?
+  status String
+  audience Int
+  sent Int
+  delivered Int
+  opened Int
+  clicked Int
+  bounced Int
+  unsubscribed Int
+  scheduledDate String?
+  sentDate String?
+  template String?
+  from String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_email_campaigns")
+}
+
+model CrmContractRenewals {
+  id String @id @default(uuid())
+  companyId String?
+  contractNumber String?
+  contractTitle String?
+  customer String?
+  customerCompany String?
+  contactPerson String?
+  contactEmail String?
+  contactPhone String?
+  currentValue Float
+  proposedValue Float
+  valueChange Float
+  changePercent Float
+  currentEndDate String?
+  proposedStartDate String?
+  proposedDuration Int
+  daysUntilExpiry Int
+  renewalProbability Int
+  status String
+  lastContactDate String?
+  nextFollowUpDate String?
+  assignedTo String?
+  tags String?
+  notes String?
+  autoRenew Boolean @default(false)
+  renewalNoticeSent Boolean @default(false)
+  customerResponse String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_contract_renewals")
+}
+
+model CrmContractAmendments {
+  id String @id @default(uuid())
+  companyId String?
+  amendmentNumber String?
+  contractNumber String?
+  contractTitle String?
+  customer String?
+  customerCompany String?
+  amendmentType String
+  status String
+  description String?
+  originalValue Float?
+  newValue Float?
+  valueImpact Float?
+  originalEndDate String?
+  newEndDate String?
+  effectiveDate String?
+  requestedDate String?
+  approvedDate String?
+  executedDate String?
+  requestedBy String?
+  approverName String?
+  assignedTo String?
+  priority String
+  reason String?
+  impactedClauses String?
+  requiresLegalReview Boolean @default(false)
+  requiresCustomerApproval Boolean @default(false)
+  customerApprovalStatus String?
+  internalApprovalStatus String?
+  tags String?
+  attachments Int
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_contract_amendments")
+}
+
+model CrmCampaignAutomations {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  status String
+  trigger String?
+  triggerType String
+  steps Int
+  activeContacts Int
+  completedContacts Int
+  conversionRate Float
+  avgCompletionTime String?
+  createdDate String?
+  lastTriggered String?
+  owner String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_campaign_automations")
+}
+
+model CrmApprovalWorkflows {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  active Boolean @default(true)
+  stages String?
+  conditions String?
+  totalApprovals Int
+  pending Int
+  approved Int
+  rejected Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_approval_workflows")
+}
+
+model CrmCustomFields {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  apiName String?
+  label String?
+  description String?
+  fieldType String
+  module String
+  category String
+  dataType String
+  isRequired Boolean @default(false)
+  isUnique Boolean @default(false)
+  isActive Boolean @default(true)
+  isSearchable Boolean @default(true)
+  isEditable Boolean @default(true)
+  defaultValue String?
+  helpText String?
+  validation String?
+  usage String?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_custom_fields")
+}
+
+model CrmTasks {
+  id String @id @default(uuid())
+  companyId String?
+  title String
+  description String?
+  status String
+  priority String
+  assignedToId String?
+  assignedToName String?
+  dueDate String?
+  createdById String?
+  createdByName String?
+  relatedTo String?
+  tags String?
+  comments Int
+  attachments Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_tasks")
+}
+
+model CrmPortalUsers {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  email String?
+  customer String?
+  role String?
+  status String
+  lastLogin String?
+  accessLevel String?
+  ticketsCreated Int
+  documentsAccessed Int
+  permissions String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_portal_users")
+}
+
+model CrmSocialAccounts {
+  id String @id @default(uuid())
+  companyId String?
+  platform String
+  handle String?
+  status String
+  followers Int
+  posts Int
+  engagement Float
+  leads Int
+  lastSync String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_social_accounts")
+}
+
+model CrmSavedReports {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  reportType String
+  module String?
+  category String?
+  definition String?
+  schedule String?
+  isFavorite Boolean @default(false)
+  isShared Boolean @default(false)
+  createdBy String?
+  lastRun String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("crm_saved_reports")
+}
+
+model EstimationPriceLists {
+  id String @id @default(uuid())
+  companyId String
+  priceListName String
+  description String?
+  currency String
+  effectiveFrom DateTime?
+  effectiveTo DateTime?
+  status String
+  totalItems Int
+  priceType String
+  customerSegment String?
+  lastUpdated DateTime?
+  updatedBy String?
+  averageMargin Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_price_lists")
+}
+
+model EstimationMarkupSettings {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  subcategory String?
+  defaultMarkup Float
+  minMarkup Float
+  maxMarkup Float
+  costBasis String
+  approvalRequired Boolean @default(false)
+  approvalThreshold Float
+  updatedBy String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_markup_settings")
+}
+
+model EstimationWorkflowStageSettings {
+  id String @id @default(uuid())
+  companyId String
+  stageCode String
+  stageName String
+  stageOrder Int
+  description String?
+  approverRole String?
+  approvalRequired Boolean @default(false)
+  autoAdvance Boolean @default(false)
+  notifyOnEntry Boolean @default(false)
+  notifyOnApproval Boolean @default(false)
+  maxDaysInStage Int
+  escalationEnabled Boolean @default(false)
+  escalationDays Int
+  escalateTo String?
+  allowReject Boolean @default(false)
+  allowRevision Boolean @default(false)
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_workflow_stage_settings")
+}
+
+model EstimationCategories {
+  id String @id @default(uuid())
+  companyId String
+  code String?
+  name String
+  description String?
+  parentCategory String?
+  type String
+  defaultMarkup Float
+  itemCount Int
+  sortOrder Int
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_categories")
+}
+
+model EstimationLaborCostRates {
+  id String @id @default(uuid())
+  companyId String
+  skill String
+  department String?
+  level String?
+  standardRate Float
+  overtimeRate Float
+  unit String
+  efficiency Float
+  utilization Float
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_labor_cost_rates")
+}
+
+model EstimationMaterialCostRates {
+  id String @id @default(uuid())
+  companyId String
+  materialCode String?
+  materialName String
+  category String?
+  unit String
+  currentPrice Float
+  previousPrice Float
+  variancePercent Float
+  supplier String?
+  lastUpdated String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_material_cost_rates")
+}
+
+model EstimationOverheadCosts {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  category String?
+  costType String
+  monthlyAmount Float
+  annualAmount Float
+  allocationMethod String
+  allocationRate Float
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("estimation_overhead_costs")
+}
+
+model JobCostSheets {
+  id String @id @default(uuid())
+  costSheetNumber String
+  jobNumber String
+  jobName String
+  projectType String?
+  customer String?
+  costingDate String
+  status String
+  materialCost Float
+  laborCost Float
+  overheadCost Float
+  totalEstimatedCost Float
+  totalActualCost Float
+  profitMargin Float
+  costEngineer String?
+  notes String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("job_cost_sheets")
+}
+
+model Budgets {
+  id String @id @default(uuid())
+  budgetCode String
+  budgetName String
+  financialYearId String?
+  budgetType String
+  startDate String
+  endDate String
+  status String
+  department String?
+  costCenter String?
+  project String?
+  location String?
+  totalBudgetedAmount Float
+  totalActualAmount Float
+  totalVariance Float
+  utilizationPercentage Float
+  description String?
+  submittedBy String?
+  submittedAt DateTime?
+  approvedBy String?
+  approvedAt DateTime?
+  rejectedBy String?
+  rejectedAt DateTime?
+  rejectionReason String?
+  version Int
+  previousVersionId String?
+  revisionNotes String?
+  notes String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("budgets")
+}
+
+model FixedAssets {
+  id String @id @default(uuid())
+  assetCode String
+  assetName String
+  description String?
+  assetCategory String
+  assetSubCategory String?
+  glAccountId String?
+  acquisitionDate String
+  acquisitionCost Float
+  supplier String?
+  invoiceNumber String?
+  poNumber String?
+  depreciationMethod String
+  usefulLifeYears Int
+  usefulLifeMonths Int
+  depreciationRate Float?
+  salvageValue Float
+  depreciationStartDate String
+  accumulatedDepreciation Float
+  netBookValue Float
+  lastDepreciationDate DateTime?
+  nextDepreciationDate DateTime?
+  location String?
+  department String?
+  costCenter String?
+  assignedToEmployeeId String?
+  assignedToEmployeeName String?
+  manufacturer String?
+  model String?
+  serialNumber String?
+  barcode String?
+  status String
+  isDepreciable Boolean @default(true)
+  warrantyStartDate DateTime?
+  warrantyEndDate DateTime?
+  warrantyProvider String?
+  isInsured Boolean @default(false)
+  insuranceProvider String?
+  insurancePolicyNumber String?
+  insuranceExpiryDate DateTime?
+  insuredValue Float?
+  disposalDate DateTime?
+  disposalAmount Float?
+  gainLossOnDisposal Float?
+  disposalReason String?
+  attachments Json?
+  notes String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("fixed_assets")
+}
+
+model CostCenters {
+  id String @id @default(uuid())
+  costCenterCode String
+  costCenterName String
+  description String?
+  parentCostCenterId String?
+  department String?
+  location String?
+  managerId String?
+  managerName String?
+  isActive Boolean @default(true)
+  isProfitCenter Boolean @default(false)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cost_centers")
+}
+
+model TaxMasters {
+  id String @id @default(uuid())
+  taxCode String
+  taxName String
+  taxType String
+  taxCategory String
+  taxRate Float
+  effectiveFrom String
+  effectiveTo DateTime?
+  description String?
+  taxPayableAccountId String?
+  taxReceivableAccountId String?
+  taxExpenseAccountId String?
+  isActive Boolean @default(true)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("tax_masters")
+}
+
+model CashFlowTransactions {
+  id String @id @default(uuid())
+  transactionNumber String
+  periodId String
+  transactionDate String
+  category String
+  flowType String
+  source String
+  description String
+  amount Float
+  referenceNumber String?
+  referenceType String?
+  referenceId String?
+  partyId String?
+  partyName String?
+  partyType String?
+  bankAccountId String?
+  glAccountId String?
+  costCenter String?
+  department String?
+  project String?
+  location String?
+  notes String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cash_flow_transactions")
+}
+
+model FinanceAdvancedFeatures {
+  id String @id @default(uuid())
+  company_id String
+  feature_key String
+  name String
+  description String?
+  category String?
+  is_enabled Boolean @default(true)
+  sort_order Int
+  config Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_advanced_features")
+}
+
+model HrShiftAssignments {
+  id String @id @default(uuid())
+  companyId String
+  employeeId String?
+  employeeName String?
+  department String?
+  shiftCode String?
+  shiftName String?
+  effectiveFrom String?
+  effectiveTo String?
+  status String
+  assignedBy String?
+  assignedDate String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_shift_assignments")
+}
+
+model HrShiftRosterEntries {
+  id String @id @default(uuid())
+  companyId String
+  employeeId String?
+  employeeName String?
+  department String?
+  weekStart String?
+  shifts Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_shift_roster_entries")
+}
+
+model HrShiftSwaps {
+  id String @id @default(uuid())
+  companyId String
+  requesterId String?
+  requesterName String?
+  requesterDepartment String?
+  requesterShift String?
+  requesterDate String?
+  targetId String?
+  targetName String?
+  targetDepartment String?
+  targetShift String?
+  targetDate String?
+  reason String?
+  status String
+  requestDate String?
+  approvedBy String?
+  approvedDate String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_shift_swaps")
+}
+
+model HrEmployeeMovements {
+  id String @id @default(uuid())
+  companyId String
+  employeeCode String?
+  name String?
+  type String
+  fromDesignation String?
+  toDesignation String?
+  fromDepartment String?
+  toDepartment String?
+  fromLocation String?
+  toLocation String?
+  effectiveDate String?
+  requestDate String?
+  requestedBy String?
+  approvedBy String?
+  reason String?
+  salaryIncrement Float?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_employee_movements")
+}
+
+model HrOnboardingTasks {
+  id String @id @default(uuid())
+  companyId String
+  feature String
+  employeeCode String?
+  employeeName String?
+  designation String?
+  department String?
+  joiningDate String?
+  status String
+  data Json?
+  items Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_onboarding_tasks")
+}
+
+model HrOffboardingTasks {
+  id String @id @default(uuid())
+  companyId String
+  feature String
+  employeeCode String?
+  employeeName String?
+  designation String?
+  department String?
+  status String
+  data Json?
+  items Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_offboarding_tasks")
+}
+
+model HrSuccessionPlans {
+  id String @id @default(uuid())
+  companyId String
+  recordType String
+  title String?
+  status String?
+  data Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_succession_plans")
+}
+
+model HrPerformanceGoals {
+  id String @id @default(uuid())
+  companyId String
+  recordType String
+  title String?
+  status String?
+  data Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_performance_goals")
+}
+
+model HrPayrollStatutoryFilings {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  department String?
+  period String?
+  amount Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_payroll_statutory_filings")
+}
+
+model HrPayrollTaxRecords {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  department String?
+  financialYear String?
+  period String?
+  amount Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_payroll_tax_records")
+}
+
+model HrPayrollBonusRecords {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  designation String?
+  department String?
+  financialYear String?
+  bonusAmount Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_payroll_bonus_records")
+}
+
+model HrPayrollSalaryRevisions {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  designation String?
+  department String?
+  effectiveDate String?
+  currentSalary Float?
+  revisedSalary Float?
+  incrementPercent Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_payroll_salary_revisions")
+}
+
+model HrPayrollDisbursements {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  department String?
+  period String?
+  paymentMethod String?
+  bankName String?
+  accountNumber String?
+  netPay Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_payroll_disbursements")
+}
+
+model HrPayrollReports {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  department String?
+  period String?
+  amount Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_payroll_reports")
+}
+
+model HrAssetItems {
+  id String @id @default(uuid())
+  companyId String
+  assetClass String
+  assetTag String?
+  brand String?
+  model String?
+  item String?
+  category String?
+  serialNumber String?
+  processor String?
+  ram String?
+  storage String?
+  imei String?
+  simNumber String?
+  os String?
+  screenSize String?
+  resolution String?
+  purchaseDate String?
+  warranty String?
+  cost Float
+  status String
+  condition String?
+  assignedTo String?
+  employeeCode String?
+  department String?
+  location String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_asset_items")
+}
+
+model HrAssetInventory {
+  id String @id @default(uuid())
+  companyId String
+  assetCode String?
+  assetName String?
+  category String?
+  brand String?
+  model String?
+  totalQuantity Int
+  allocated Int
+  available Int
+  minStockLevel Int
+  reorderLevel Int
+  unitCost Float
+  totalValue Float
+  location String?
+  supplier String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_asset_inventory")
+}
+
+model HrAssetMaintenance {
+  id String @id @default(uuid())
+  companyId String
+  recordType String
+  requestId String?
+  ticketId String?
+  assetTag String?
+  assetName String?
+  assetCategory String?
+  issueType String?
+  issueDescription String?
+  requestedBy String?
+  reportedBy String?
+  employeeCode String?
+  department String?
+  priority String
+  status String
+  requestDate String?
+  reportedDate String?
+  expectedDate String?
+  startDate String?
+  completionDate String?
+  assignedTo String?
+  approvedBy String?
+  approvalDate String?
+  vendor String?
+  estimatedCost Float?
+  cost Float?
+  resolutionTime Int?
+  workDone String?
+  partsReplaced String?
+  location String?
+  contactNumber String?
+  remarks String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_asset_maintenance")
+}
+
+model HrVehicles {
+  id String @id @default(uuid())
+  companyId String
+  vehicleNumber String?
+  vehicleType String?
+  make String?
+  model String?
+  year Int?
+  purchaseDate String?
+  purchaseCost Float
+  registrationNumber String?
+  insuranceExpiry String?
+  pucExpiry String?
+  fitnessExpiry String?
+  currentOdometer Int
+  fuelType String?
+  status String
+  assignedTo String?
+  location String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_vehicles")
+}
+
+model HrVehicleFuel {
+  id String @id @default(uuid())
+  companyId String
+  recordId String?
+  vehicleNumber String?
+  vehicleName String?
+  registrationNumber String?
+  fuelDate String?
+  fuelType String?
+  quantity Float
+  pricePerLiter Float
+  totalCost Float
+  odometer Int
+  fuelStation String?
+  billNumber String?
+  filledBy String?
+  location String?
+  remarks String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_vehicle_fuel")
+}
+
+model HrComplianceLicenses {
+  id String @id @default(uuid())
+  companyId String
+  recordType String
+  name String?
+  number String?
+  authority String?
+  category String?
+  status String?
+  location String?
+  applicableTo String?
+  issueDate String?
+  expiryDate String?
+  renewalFrequency String?
+  lastRenewalDate String?
+  contactPerson String?
+  validUntil String?
+  relatedLicense String?
+  documentUrl String?
+  verifiedBy String?
+  verificationDate String?
+  renewalDueDate String?
+  priority String?
+  assignedTo String?
+  renewalCost Float?
+  documentsRequired Json?
+  submissionDeadline String?
+  applicationNumber String?
+  newExpiryDate String?
+  remarks String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_compliance_licenses")
+}
+
+model HrComplianceReturns {
+  id String @id @default(uuid())
+  companyId String
+  returnType String
+  returnMonth String?
+  returnPeriod String?
+  quarter String?
+  financialYear String?
+  establishment String?
+  state String?
+  branch String?
+  registrationNumber String?
+  formType String?
+  dueDate String?
+  filingDate String?
+  status String
+  totalEmployees Int?
+  coveredEmployees Int?
+  totalDeductees Int?
+  grossWages Float?
+  grossSalary Float?
+  employeeContribution Float?
+  employerContribution Float?
+  totalContribution Float?
+  totalDeducted Float?
+  totalPaid Float?
+  challanNumber String?
+  challanDate String?
+  acknowledgmentNumber String?
+  challanDetails Json?
+  remarks String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_compliance_returns")
+}
+
+model HrComplianceRegisters {
+  id String @id @default(uuid())
+  companyId String
+  entryType String
+  registerName String?
+  act String?
+  formNumber String?
+  requirement String?
+  applicability String?
+  frequency String?
+  responsibility String?
+  lastUpdated String?
+  lastCompleted String?
+  nextDue String?
+  status String
+  totalEntries Int?
+  format String?
+  retentionPeriod String?
+  documents Json?
+  penalties String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_compliance_registers")
+}
+
+model HrDocuments {
+  id String @id @default(uuid())
+  companyId String
+  docCategory String
+  documentType String?
+  documentNumber String?
+  title String?
+  issuingAuthority String?
+  issueDate String?
+  expiryDate String?
+  uploadedOn String?
+  uploadedBy String?
+  status String
+  fileName String?
+  fileSize String?
+  verifiedBy String?
+  verifiedOn String?
+  remarks String?
+  meta Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_documents")
+}
+
+model HrTravelRequests {
+  id String @id @default(uuid())
+  companyId String
+  requestNumber String?
+  employeeCode String?
+  employeeName String?
+  department String?
+  designation String?
+  travelType String?
+  purpose String?
+  fromLocation String?
+  toLocation String?
+  startDate String?
+  endDate String?
+  duration Int?
+  estimatedCost Float?
+  totalCost Float?
+  advanceAmount Float?
+  expensesClaimed Float?
+  status String
+  submittedDate String?
+  approver String?
+  approvedDate String?
+  rejectionReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_travel_requests")
+}
+
+model HrTravelAdvances {
+  id String @id @default(uuid())
+  companyId String
+  advanceNumber String?
+  employeeName String?
+  department String?
+  tripNumber String?
+  destination String?
+  travelDates String?
+  advanceAmount Float?
+  requestedDate String?
+  purpose String?
+  status String
+  approver String?
+  approvedDate String?
+  disbursedDate String?
+  settledDate String?
+  expensesSubmitted Float?
+  balanceAmount Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_travel_advances")
+}
+
+model HrCorporateCards {
+  id String @id @default(uuid())
+  companyId String
+  cardNumber String?
+  cardType String?
+  cardholderName String?
+  employeeCode String?
+  department String?
+  designation String?
+  cardProvider String?
+  creditLimit Float?
+  availableLimit Float?
+  currentBalance Float?
+  monthlySpend Float?
+  issueDate String?
+  expiryDate String?
+  lastTransactionDate String?
+  billingCycle String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_corporate_cards")
+}
+
+model HrCorporateCardTransactions {
+  id String @id @default(uuid())
+  companyId String
+  transactionId String?
+  cardNumber String?
+  cardType String?
+  cardHolder String?
+  employeeCode String?
+  department String?
+  merchantName String?
+  category String?
+  amount Float?
+  currency String?
+  transactionDate String?
+  transactionTime String?
+  location String?
+  status String
+  receiptUploaded Boolean @default(false)
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_corporate_card_transactions")
+}
+
+model HrExpenseClaims {
+  id String @id @default(uuid())
+  companyId String
+  kind String
+  claimNumber String?
+  employeeCode String?
+  employeeName String?
+  department String?
+  designation String?
+  category String?
+  claimType String?
+  description String?
+  amount Float?
+  advanceAmount Float?
+  cardExpenses Float?
+  netPayable Float?
+  destination String?
+  travelRequestId String?
+  travelDates String?
+  billDate String?
+  submissionDate String?
+  submittedDate String?
+  itemsCount Int?
+  documentsCount Int?
+  receiptAttached Boolean @default(false)
+  priority String?
+  pendingDays Int?
+  status String
+  approver String?
+  approvedDate String?
+  paidDate String?
+  paymentMethod String?
+  paymentReference String?
+  rejectionReason String?
+  items Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_expense_claims")
+}
+
+model HrAlumni {
+  id String @id @default(uuid())
+  companyId String
+  kind String
+  employeeCode String?
+  name String?
+  designation String?
+  department String?
+  joinDate String?
+  exitDate String?
+  tenure String?
+  currentCompany String?
+  currentDesignation String?
+  location String?
+  email String?
+  phone String?
+  linkedinUrl String?
+  achievements Json?
+  industryExpertise Json?
+  willingToMentor Boolean @default(false)
+  availableForRehire Boolean @default(false)
+  reasonForLeaving String?
+  lastContactDate String?
+  previousDesignation String?
+  proposedDesignation String?
+  proposedDepartment String?
+  proposedCTC Float?
+  requestedBy String?
+  requestDate String?
+  eligibilityScore Int?
+  performanceRating String?
+  backgroundCheckStatus String?
+  comments String?
+  details Json?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_alumni")
+}
+
+model HrOvertimeRequests {
+  id String @id @default(uuid())
+  companyId String
+  requestId String?
+  employeeCode String?
+  employeeName String?
+  department String?
+  designation String?
+  date String?
+  shiftType String?
+  regularHours Float?
+  overtimeHours Float?
+  reason String?
+  requestDate String?
+  status String
+  approvedBy String?
+  approvedDate String?
+  calculatedAmount Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_overtime_requests")
+}
+
+model HrSafetyIncidents {
+  id String @id @default(uuid())
+  companyId String
+  incidentNumber String?
+  reportedDate String?
+  incidentDate String?
+  incidentTime String?
+  location String?
+  department String?
+  severity String?
+  type String?
+  description String?
+  reportedBy String?
+  employeeInvolved String?
+  witnessCount Int?
+  status String
+  investigator String?
+  rootCause String?
+  daysLost Int?
+  medicalAttention Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_safety_incidents")
+}
+
+model HrAttendanceRecords {
+  id String @id @default(uuid())
+  companyId String
+  category String
+  employeeId String?
+  employeeName String?
+  employeeCode String?
+  department String?
+  period String?
+  date String?
+  presentDays Float?
+  absentDays Float?
+  totalHours Float?
+  status String
+  details Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("hr_attendance_records")
+}
+
+model HrIdCards {
+  id String
+  cardNumber String
+  employeeCode String?
+  expiryDate String
+  emergencyContact String
+  issuedBy String
+  updatedAt DateTime @id
+
+  @@map("hr_id_cards")
+}
+
+model HrAccessCards {
+  id String @id @default(uuid())
+  cardNumber String
+  employeeCode String?
+  expiryDate String
+  accessZones String?
+  createdAt DateTime @default(now())
+
+  @@map("hr_access_cards")
+}
+
+model HrStationery {
+  id String @id @default(uuid())
+  itemCode String
+  unit String
+  available Int
+  unitCost Float
+  supplier String
+  createdAt DateTime @default(now())
+
+  @@map("hr_stationery")
+}
+
+model HrAssetAudits {
+  id String
+  auditId String
+  auditor String
+  missing Int
+  completionDate String
+  updatedAt DateTime @id
+
+  @@map("hr_asset_audits")
+}
+
+model HrVehicleAssignments {
+  id String @id @default(uuid())
+  assignmentId String?
+  assignedTo String?
+  assignmentDate String
+  odometerReadingStart Int
+  createdAt DateTime @default(now())
+
+  @@map("hr_vehicle_assignments")
+}
+
+model HrDocumentAuditLogs {
+  id String @id @default(uuid())
+  timestamp String
+  employeeId String?
+  remarks String
+
+  @@map("hr_document_audit_logs")
+}
+
+model HrTeams {
+  id String @id @default(uuid())
+  companyId String
+  code String?
+  teamLeadId String?
+  memberCount Int
+  completedProjects Int
+  budgetUtilization Float?
+  shift String
+  createdAt DateTime @default(now())
+
+  @@map("hr_teams")
+}
+
+model HrLeaveEncashments {
+  id String @id @default(uuid())
+  companyId String
+  employeeId String?
+  leaveType String?
+  perDayRate Float?
+  netAmount Float?
+  processedOn String?
+  remarks String
+  createdAt DateTime @default(now())
+
+  @@map("hr_leave_encashments")
+}
+
+model HrPerDiemRates {
+  id String @id @default(uuid())
+  companyId String
+  locationName String?
+  currency String?
+  incidentalsRate Float?
+  effectiveFrom String
+  createdAt DateTime @default(now())
+
+  @@map("hr_per_diem_rates")
+}
+
+model HrExpenseBudgets {
+  id String @id @default(uuid())
+  companyId String
+  department String?
+  pendingAmount Float?
+  categoryBreakdown Json
+  createdAt DateTime @default(now())
+
+  @@map("hr_expense_budgets")
+}
+
+model HrTimesheets {
+  id String @id @default(uuid())
+  companyId String
+  employeeCode String?
+  week String?
+  overtimeHours Float
+  entries Json
+  createdAt DateTime @default(now())
+
+  @@map("hr_timesheets")
+}
+
+model AdjustmentReasons {
+  id String @id @default(uuid())
+  code String
+  name String
+  description String?
+  reasonType String
+  status String
+  expenseAccountId String?
+  expenseAccountName String?
+  incomeAccountId String?
+  incomeAccountName String?
+  requiresApproval Boolean @default(false)
+  approvalThreshold Float?
+  sortOrder Int
+  icon String?
+  color String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("adjustment_reasons")
+}
+
+model CycleCountPlans {
+  id String @id @default(uuid())
+  planNumber String
+  title String
+  status String
+  scheduledDate String
+  warehouseId String?
+  warehouseName String?
+  locationId String?
+  abcClass String?
+  itemGroups Json?
+  remarks String?
+  assignedTo String?
+  adjustmentId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("cycle_count_plans")
+}
+
+model CycleCountItems {
+  id String @id @default(uuid())
+  planId String
+  itemId String
+  itemCode String
+  itemName String
+  systemQuantity Float
+  actualQuantity Float?
+  countedAt DateTime?
+  isCounted Boolean @default(false)
+  remarks String?
+
+  @@map("cycle_count_items")
+}
+
+model ItIpWhitelistEntries {
+  id String @id @default(uuid())
+  companyId String?
+  ipAddress String
+  type String
+  description String?
+  category String?
+  addedBy String?
+  addedDate String?
+  lastAccess String?
+  accessCount Int
+  status String
+  expiresAt String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_ip_whitelist_entries")
+}
+
+model ItDocumentTemplates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  category String?
+  content String?
+  variables String?
+  format String
+  lastModified String?
+  usageCount Int
+  isDefault Boolean @default(false)
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_document_templates")
+}
+
+model ItCustomFields {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  label String
+  module String?
+  fieldType String
+  required Boolean @default(false)
+  defaultValue String?
+  options String?
+  validation String?
+  helpText String?
+  createdAtLabel String?
+  active Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_custom_fields")
+}
+
+model ItIntegrationConfigs {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  category String
+  description String?
+  status String
+  icon String?
+  config Json?
+  lastSync String?
+  syncFrequency String?
+  features String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_integration_configs")
+}
+
+model ItAccessPolicies {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  enabled Boolean @default(true)
+  appliedRoles String?
+  severity String
+  config Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_access_policies")
+}
+
+model ItScheduledJobs {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  schedule String?
+  cronExpression String?
+  status String
+  lastRun String?
+  lastRunStatus String?
+  nextRun String?
+  duration String?
+  successRate Float
+  totalRuns Int
+  failedRuns Int
+  enabled Boolean @default(true)
+  priority String
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_scheduled_jobs")
+}
+
+model ItAutomationRules {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  category String
+  trigger String?
+  triggerType String?
+  conditions String?
+  actions String?
+  status String
+  enabled Boolean @default(true)
+  priority String
+  lastTriggered String?
+  executionCount Int
+  successCount Int
+  failureCount Int
+  successRate Float
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_automation_rules")
+}
+
+model ItSecurityAlerts {
+  id String @id @default(uuid())
+  companyId String?
+  type String
+  severity String
+  title String
+  description String?
+  timestamp String?
+  source String?
+  ipAddress String?
+  userId String?
+  userName String?
+  status String
+  actionTaken String?
+  assignedTo String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_security_alerts")
+}
+
+model ItPasswordPolicies {
+  id String @id @default(uuid())
+  companyId String?
+  minLength Int
+  maxLength Int
+  requireUppercase Boolean @default(true)
+  requireLowercase Boolean @default(true)
+  requireNumbers Boolean @default(true)
+  requireSpecialChars Boolean @default(true)
+  expiryDays Int
+  historyCount Int
+  lockoutThreshold Int
+  lockoutDurationMinutes Int
+  mfaRequired Boolean @default(false)
+  extra Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_password_policies")
+}
+
+model ItNotificationSettings {
+  id String @id @default(uuid())
+  companyId String?
+  category String
+  name String
+  description String?
+  channels Json?
+  priority String
+  roles String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_notification_settings")
+}
+
+model ItUserGroups {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  memberCount Int
+  permissions String?
+  members Json?
+  createdDate String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_user_groups")
+}
+
+model ItLicenseFeatures {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  category String
+  enabled Boolean @default(false)
+  included Boolean @default(true)
+  tier String?
+  usageLimit Int?
+  usageCount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_license_features")
+}
+
+model ItLicenseUsers {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  email String?
+  role String?
+  department String?
+  licenseType String
+  status String
+  assignedDate String?
+  lastActive String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_license_users")
+}
+
+model ItSecurityPolicies {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  description String?
+  type String
+  enabled Boolean @default(true)
+  appliedRoles String?
+  severity String
+  config Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_security_policies")
+}
+
+model ItWebhookEndpoints {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  url String?
+  events String?
+  status String
+  secret String?
+  lastTriggered String?
+  successCount Int
+  failureCount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_webhook_endpoints")
+}
+
+model ItApiEndpoints {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  method String
+  path String?
+  description String?
+  category String
+  enabled Boolean @default(true)
+  authRequired Boolean @default(true)
+  parameters Json?
+  rateLimit Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_api_endpoints")
+}
+
+model ItBackupRecords {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  type String
+  status String
+  size String?
+  location String?
+  startedAt String?
+  completedAt String?
+  duration String?
+  automated Boolean @default(false)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_backup_records")
+}
+
+model ItExportDatasets {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  category String
+  recordCount Int
+  size String?
+  exportable Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("it_export_datasets")
+}
+
+model LogisticsDeliveryCoordinations {
+  id String @id @default(uuid())
+  woNumber String
+  customerName String
+  siteAddress String?
+  siteGps String?
+  siteLandmark String?
+  contactName String?
+  contactPhone String?
+  contactEmail String?
+  contactRole String?
+  preferredDate DateTime?
+  preferredTime String?
+  timeSlot String?
+  transportMethod String
+  transporter String?
+  status String
+  transporterNotified Boolean @default(false)
+  siteContactNotified Boolean @default(false)
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("logistics_delivery_coordinations")
+}
+
+model ProductionFloorActivities {
+  id String @id @default(uuid())
+  activityId String?
+  workOrderId String?
+  startTime String?
+  efficiencyPercent Float?
+  created_at DateTime @default(now())
+
+  @@map("production_floor_activities")
+}
+
+model ProductionBomVerifications {
+  id String @id @default(uuid())
+  bomCode String?
+  status String?
+  created_at DateTime @default(now())
+
+  @@map("production_bom_verifications")
+}
+
+model ProductionGanttTasks {
+  id String @id @default(uuid())
+  name String?
+  priority String?
+  created_at DateTime @default(now())
+
+  @@map("production_gantt_tasks")
+}
+
+model ProductionMachineTimelines {
+  id String @id @default(uuid())
+  machineCode String?
+  currentShift String?
+  created_at DateTime @default(now())
+
+  @@map("production_machine_timelines")
+}
+
+model ProductionAndonLines {
+  id String @id @default(uuid())
+  lineName String?
+  target Float?
+  operator String?
+  created_at DateTime @default(now())
+
+  @@map("production_andon_lines")
+}
+
+model FinanceApVendorAccount {
+  id String @id @default(uuid())
+  vendorId String?
+  vendorCategory String?
+  dueThisWeek Float?
+  lastPaymentDate DateTime?
+  paymentTerms String?
+  agingBuckets Json?
+  vendorContact Json?
+  vendorSince DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("finance_ap_vendor_account")
+}
+
+model FinanceArCustomerAccount {
+  id String @id @default(uuid())
+  customerId String?
+  customerCategory String?
+  dueThisWeek Float?
+  lastCollectionDate DateTime?
+  availableCredit Float?
+  averageDaysDelayed Float?
+  collectionAgent String?
+  agingBuckets Json?
+  customerContact Json?
+  customerSince DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("finance_ar_customer_account")
+}
+
+model CrmPricingRules {
+  id String @id @default(uuid())
+  companyId String?
+  discountValue Float?
+  applicableProducts Json?
+  usageCount Float?
+  createdAt DateTime @default(now())
+
+  @@map("crm_pricing_rules")
+}
+
+model ProcurementNotifications {
+  id String @id @default(uuid())
+  companyId String
+  type String
+  priority String
+  title String
+  message String?
+  read Boolean @default(false)
+  action String?
+  actionUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_notifications")
+}
+
+model ProcurementBudgets {
+  id String @id @default(uuid())
+  companyId String
+  fiscalYear String?
+  name String
+  budgetType String
+  budget Float
+  spent Float
+  committed Float
+  available Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_budgets")
+}
+
+model ProcurementCalendarEvents {
+  id String @id @default(uuid())
+  companyId String
+  title String
+  type String
+  eventDate String
+  time String?
+  vendor String?
+  description String?
+  location String?
+  items Int?
+  value Float?
+  status String
+  priority String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_calendar_events")
+}
+
+model ProcurementBomReceipts {
+  id String @id @default(uuid())
+  companyId String
+  bomCode String
+  productName String
+  submittedBy String?
+  submittedDate String?
+  status String
+  itemsCount Int
+  totalValue Float
+  accessoriesCount Int
+  fittingsCount Int
+  materialsCount Int
+  prNumber String?
+  poNumber String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_bom_receipts")
+}
+
+model ProcurementCategories {
+  id String @id @default(uuid())
+  companyId String
+  code String?
+  name String
+  description String?
+  budget Float
+  spent Float
+  suppliers Int
+  items Int
+  manager String?
+  priority String
+  savingsTarget Float
+  actualSavings Float
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_categories")
+}
+
+model ProcurementSavingsInitiatives {
+  id String @id @default(uuid())
+  companyId String
+  title String
+  description String?
+  category String?
+  type String?
+  targetSavings Float
+  actualSavings Float
+  owner String?
+  startDate String?
+  endDate String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_savings_initiatives")
+}
+
+model ProcurementVendorScorecards {
+  id String @id @default(uuid())
+  companyId String
+  vendorCode String?
+  vendorName String
+  category String?
+  overallScore Float
+  qualityScore Float
+  deliveryScore Float
+  costScore Float
+  serviceScore Float
+  tier String?
+  riskScore Float
+  riskLevel String
+  totalSpend Float
+  totalOrders Int
+  lastEvaluated String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_vendor_scorecards")
+}
+
+model ProcurementVendors {
+  id String @id @default(uuid())
+  companyId String
+  vendorCode String?
+  legalName String
+  tradeName String?
+  gstNumber String?
+  panNumber String?
+  cinNumber String?
+  msmeRegistration String?
+  rating Float
+  status String
+  contactPersons Json?
+  addresses Json?
+  bankDetails Json?
+  paymentTerms Json?
+  categories Json?
+  specificMaterials Json?
+  certifications Json?
+  documents Json?
+  totalPOs Int
+  totalSpendYTD Float
+  registeredDate String?
+  lastOrderDate String?
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("procurement_vendors")
+}
+
+model ProductionRoutingTemplates {
+  id String @id @default(uuid())
+  code String
+  name String
+  product_code String?
+  product_name String?
+  version String
+  department String?
+  total_operations Int
+  total_setup_time Float
+  total_cycle_time Float
+  total_cost Float
+  status String
+  effective_from String?
+  effective_to String?
+  operations Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_routing_templates")
+}
+
+model ProductionLineConfigs {
+  id String @id @default(uuid())
+  code String
+  name String
+  department String?
+  location String?
+  line_type String?
+  work_centers Int
+  operators Int
+  capacity Float
+  efficiency Float
+  utilization Float
+  status String
+  shift_schedule String?
+  supervisor String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_line_configs")
+}
+
+model ProductionShiftDefinitions {
+  id String @id @default(uuid())
+  code String
+  name String
+  shift_type String
+  start_time String?
+  end_time String?
+  duration Float
+  break_time Int
+  working_days Json?
+  effective_from String?
+  effective_to String?
+  assigned_workers Int
+  status String
+  allow_overtime_after Float
+  shift_premium Float
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_shift_definitions")
+}
+
+model ProductionDieToolAssets {
+  id String @id @default(uuid())
+  asset_code String
+  name String
+  type String
+  status String
+  life_used Int
+  max_life Int
+  location String?
+  current_work_order String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_die_tool_assets")
+}
+
+model ProductionShutterOrders {
+  id String @id @default(uuid())
+  wo_number String?
+  product_name String?
+  shutter_type String
+  quantity Int
+  completed_quantity Int
+  status String
+  assigned_to String?
+  start_date String?
+  target_date String?
+  dimensions String?
+  finish String?
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_shutter_orders")
+}
+
+model ProductionTrialInstallations {
+  id String @id @default(uuid())
+  wo_number String?
+  product_name String?
+  installation_type String
+  status String
+  scheduled_date String?
+  completion_date String?
+  supervisor String?
+  location String?
+  checklist Json?
+  issues_found Int
+  approved Boolean @default(false)
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_trial_installations")
+}
+
+model ProductionOperationTasks {
+  id String @id @default(uuid())
+  wo_number String?
+  product_name String?
+  operation_type String?
+  operator String?
+  machine String?
+  status String
+  start_time String?
+  end_time String?
+  target_quantity Int
+  completed_quantity Int
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_operation_tasks")
+}
+
+model ProductionSpareParts {
+  id String @id @default(uuid())
+  part_number String?
+  part_name String?
+  category String
+  equipment_compatibility Json?
+  quantity_in_stock Int
+  minimum_stock Int
+  reorder_point Int
+  unit String?
+  unit_cost Float
+  location String?
+  supplier String?
+  lead_time Int
+  last_purchase_date String?
+  usage_rate Float
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_spare_parts")
+}
+
+model ProductionPreventiveMaintenance {
+  id String @id @default(uuid())
+  equipment_code String?
+  equipment_name String?
+  task_type String
+  frequency String
+  last_completed String?
+  next_due String?
+  estimated_duration Float
+  assigned_to String?
+  status String
+  priority String
+  checklist_items Int
+  completed_items Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_preventive_maintenance")
+}
+
+model ProductionMaintenanceRequests {
+  id String @id @default(uuid())
+  request_number String?
+  equipment_code String?
+  equipment_name String?
+  location String?
+  request_type String
+  priority String
+  status String
+  requested_by String?
+  request_date String?
+  description String?
+  assigned_to String?
+  estimated_cost Float
+  actual_cost Float?
+  completion_date String?
+  downtime Float
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_maintenance_requests")
+}
+
+model ProductionNcrs {
+  id String @id @default(uuid())
+  ncr_number String?
+  title String?
+  product_code String?
+  product_name String?
+  work_order String?
+  lot_number String?
+  quantity_affected Int
+  detected_by String?
+  detected_date String?
+  detected_stage String?
+  severity String
+  status String
+  nonconformance_type String
+  description String?
+  root_cause String?
+  corrective_action String?
+  preventive_action String?
+  assigned_to String?
+  target_close_date String?
+  actual_close_date String?
+  cost_impact Float
+  customer_impact Boolean @default(false)
+  attachments Json?
+  approved_by String?
+  verified_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_ncrs")
+}
+
+model ProductionQualityPlans {
+  id String @id @default(uuid())
+  plan_number String?
+  plan_name String?
+  product_code String?
+  product_name String?
+  category String?
+  version String
+  status String
+  created_by String?
+  created_date String?
+  last_updated String?
+  approved_by String?
+  approval_date String?
+  inspection_points Json?
+  acceptance_criteria Json?
+  testing_frequency String?
+  sampling_size Int
+  quality_standard String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_quality_plans")
+}
+
+model ProductionScheduleLines {
+  id String @id @default(uuid())
+  schedule_code String?
+  work_order_id String?
+  product_name String?
+  product_code String?
+  work_center String?
+  planned_start String?
+  planned_end String?
+  actual_start String?
+  actual_end String?
+  quantity Int
+  unit String?
+  status String
+  priority String
+  assigned_to String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("production_schedule_lines")
+}
+
+model PmProjectSettings {
+  id String @id @default(uuid())
+  company_id String
+  default_currency String
+  fiscal_year_start String
+  default_project_prefix String
+  auto_numbering Boolean @default(true)
+  document_retention String
+  project_approval_required Boolean @default(true)
+  milestone_approval_required Boolean @default(true)
+  document_approval_required Boolean @default(true)
+  budget_approval_threshold String
+  change_order_approval_levels String
+  project_start_notification Boolean @default(true)
+  milestone_complete_notification Boolean @default(true)
+  budget_exceeded_notification Boolean @default(true)
+  schedule_delay_notification Boolean @default(true)
+  email_notifications Boolean @default(true)
+  sms_notifications Boolean @default(false)
+  project_manager_approval Boolean @default(true)
+  department_head_approval Boolean @default(true)
+  finance_approval Boolean @default(true)
+  ceo_approval_threshold String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_project_settings")
+}
+
+model PmProjectTemplates {
+  id String @id @default(uuid())
+  company_id String
+  template_name String
+  project_type String?
+  description String?
+  category String
+  complexity String
+  estimated_duration String?
+  estimated_budget String?
+  phases Json?
+  milestones Int
+  tasks Int
+  resources Json?
+  deliverables Json?
+  default_settings Json?
+  tags Json?
+  usage_count Int
+  last_used String?
+  created_by String?
+  is_active Boolean @default(true)
+  is_favorite Boolean @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_project_templates")
+}
+
+model PmMilestoneTemplates {
+  id String @id @default(uuid())
+  company_id String
+  template_name String
+  project_type String?
+  description String?
+  total_milestones Int
+  estimated_duration String?
+  milestones Json?
+  usage_count Int
+  last_used String?
+  created_by String?
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_milestone_templates")
+}
+
+model PmChangeOrders {
+  id String @id @default(uuid())
+  company_id String
+  change_order_number String?
+  project_id String?
+  project_name String?
+  request_date String?
+  requested_by String?
+  requested_by_role String?
+  change_type String?
+  priority String
+  title String?
+  description String?
+  reason String?
+  impact_on_cost Float
+  impact_on_schedule Int
+  original_budget Float
+  revised_budget Float
+  original_end_date String?
+  revised_end_date String?
+  status String
+  approved_by String?
+  approval_date String?
+  implementation_date String?
+  completion_date String?
+  attachments Int
+  remarks String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_change_orders")
+}
+
+model PmDeliverables {
+  id String @id @default(uuid())
+  company_id String
+  deliverable_number String?
+  deliverable_name String?
+  project_number String?
+  project_name String?
+  type String?
+  description String?
+  assigned_to String?
+  planned_date String?
+  actual_date String?
+  status String
+  progress Int
+  dependencies Json?
+  quantity Int
+  unit String?
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_deliverables")
+}
+
+model PmProjectIssues {
+  id String @id @default(uuid())
+  company_id String
+  number String?
+  title String?
+  type String
+  category String?
+  project_number String?
+  project_name String?
+  description String?
+  impact String
+  probability String
+  status String
+  priority String
+  raised_by String?
+  assigned_to String?
+  raised_date String?
+  target_date String?
+  resolved_date String?
+  mitigation_plan String?
+  cost_impact Float
+  schedule_impact Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_project_issues")
+}
+
+model PmSiteIssues {
+  id String @id @default(uuid())
+  company_id String
+  issue_number String?
+  project_id String?
+  project_name String?
+  issue_title String?
+  issue_type String?
+  severity String
+  priority String
+  reported_date String?
+  reported_by String?
+  reported_by_role String?
+  location String?
+  description String?
+  impact_on_work String?
+  root_cause String?
+  proposed_solution String?
+  assigned_to String?
+  target_date String?
+  actual_resolution_date String?
+  status String
+  resolution_details String?
+  cost_impact Float
+  schedule_impact Int
+  preventive_measures String?
+  attachments Int
+  related_issues Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_site_issues")
+}
+
+model PmMaterialConsumption {
+  id String @id @default(uuid())
+  company_id String
+  date String?
+  project_id String?
+  project_name String?
+  work_package String?
+  material_code String?
+  material_name String?
+  category String?
+  unit String?
+  planned_qty Float
+  consumed_qty Float
+  variance Float
+  variance_percent Float
+  unit_cost Float
+  total_cost Float
+  source String
+  issued_by String?
+  received_by String?
+  warehouse_location String?
+  remarks String?
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_material_consumption")
+}
+
+model PmLaborEntries {
+  id String @id @default(uuid())
+  company_id String
+  date String?
+  project_id String?
+  project_name String?
+  work_package String?
+  labor_category String
+  workers_deployed Int
+  hours_worked Float
+  overtime_hours Float
+  total_manhours Float
+  planned_manhours Float
+  variance Float
+  hourly_rate Float
+  overtime_rate Float
+  total_cost Float
+  work_description String?
+  shift String
+  efficiency Float
+  supervisor String?
+  remarks String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_labor_entries")
+}
+
+model PmProjectCosts {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  project_name String?
+  project_type String?
+  customer String?
+  start_date String?
+  end_date String?
+  progress Int
+  status String
+  total_budget Float
+  actual_cost Float
+  committed_cost Float
+  forecasted_cost Float
+  variance Float
+  variance_percent Float
+  cost_breakdown Json?
+  profit_margin Float
+  actual_profit Float
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_project_costs")
+}
+
+model PmCommissioningActivities {
+  id String @id @default(uuid())
+  company_id String
+  activity_number String?
+  project_id String?
+  project_name String?
+  equipment_system String?
+  system_code String?
+  commissioning_type String
+  scheduled_date String?
+  actual_date String?
+  duration Int
+  status String
+  progress Int
+  engineer String?
+  client_rep String?
+  test_parameters Json?
+  checklist_items Json?
+  total_checks Int
+  passed_checks Int
+  failed_checks Int
+  observations String?
+  recommendations String?
+  certificate_issued Boolean @default(false)
+  certificate_number String?
+  next_activity String?
+  dependencies Json?
+  attachments Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_commissioning_activities")
+}
+
+model PmCustomerAcceptances {
+  id String @id @default(uuid())
+  company_id String
+  acceptance_number String?
+  project_id String?
+  project_name String?
+  project_type String?
+  customer String?
+  customer_contact String?
+  customer_email String?
+  acceptance_date String?
+  acceptance_type String
+  phase String?
+  deliverables Json?
+  acceptance_criteria Json?
+  total_criteria Int
+  criteria_met Int
+  criteria_pending Int
+  documentation Json?
+  total_documents Int
+  docs_submitted Int
+  docs_pending Int
+  defects_list Json?
+  punch_list_items Int
+  completed_punch_items Int
+  training_completed Boolean @default(false)
+  warranty_period String?
+  warranty_start_date String?
+  amc_offered Boolean @default(false)
+  amc_duration String?
+  signed_by String?
+  signed_by_designation String?
+  signed_date String?
+  witnessed_by String?
+  overall_status String
+  remarks String?
+  attachments Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_customer_acceptances")
+}
+
+model PmProjectProfitability {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  project_name String?
+  client_name String?
+  project_type String?
+  start_date String?
+  end_date String?
+  status String
+  contract_value Float
+  actual_revenue Float
+  revenue_recognized Float
+  total_budget Float
+  actual_cost Float
+  direct_costs Json?
+  indirect_costs Json?
+  gross_profit Float
+  gross_margin Float
+  net_profit Float
+  net_margin Float
+  budget_variance Float
+  variance_percent Float
+  billed_amount Float
+  outstanding_amount Float
+  payment_status String
+  risk_level String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_project_profitability")
+}
+
+model PmLayoutBriefings {
+  id String @id @default(uuid())
+  company_id String
+  briefing_number String?
+  project_id String?
+  project_name String?
+  briefing_date String?
+  briefing_time String?
+  location String?
+  organizer String?
+  status String
+  attendees Json?
+  agenda String?
+  minutes String?
+  action_items String?
+  attachments Json?
+  duration String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_layout_briefings")
+}
+
+model PmProgressEntries {
+  id String @id @default(uuid())
+  company_id String
+  date String?
+  work_package String?
+  activity String?
+  planned_work String?
+  actual_work String?
+  completion_percent Int
+  labor_deployed Int
+  hours_worked Float
+  material_used String?
+  equipment_used String?
+  issues String?
+  photos Int
+  weather String?
+  safety_incidents Int
+  reported_by String?
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_progress_entries")
+}
+
+model PmProjectTypes {
+  id String @id @default(uuid())
+  company_id String
+  type_name String?
+  type_code String?
+  category String?
+  description String?
+  industry String?
+  default_duration String?
+  budget_range String?
+  required_approvals Int
+  default_workflow String?
+  custom_fields Json?
+  project_count Int
+  active_projects Int
+  avg_success_rate Float
+  total_revenue Float
+  is_active Boolean @default(true)
+  created_date String?
+  last_modified String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_project_types")
+}
+
+model PmDocuments {
+  id String @id @default(uuid())
+  company_id String
+  document_number String?
+  project_id String?
+  project_name String?
+  document_name String?
+  document_type String?
+  category String?
+  version String?
+  upload_date String?
+  uploaded_by String?
+  file_size String?
+  file_format String?
+  status String
+  access_level String
+  reviewed_by String?
+  approved_by String?
+  approval_date String?
+  expiry_date String?
+  tags Json?
+  description String?
+  related_documents Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_documents")
+}
+
+model PmMrpMaterials {
+  id String @id @default(uuid())
+  company_id String
+  item_code String?
+  item_name String?
+  category String?
+  required_quantity Float
+  unit String?
+  available_stock Float
+  required_date String?
+  status String
+  supplier String?
+  unit_cost Float
+  total_cost Float
+  lead_time Int
+  project_phase String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_mrp_materials")
+}
+
+model PmInstallationActivities {
+  id String @id @default(uuid())
+  company_id String
+  activity_number String?
+  project_id String?
+  project_name String?
+  equipment_item String?
+  equipment_code String?
+  location String?
+  zone String?
+  installation_type String?
+  planned_start_date String?
+  planned_end_date String?
+  actual_start_date String?
+  actual_end_date String?
+  status String
+  progress Int
+  assigned_team String?
+  team_size Int
+  supervisor String?
+  dependencies Json?
+  prerequisites_completed Boolean @default(false)
+  material_availability String?
+  tools_required Json?
+  safety_checklist Boolean @default(false)
+  quality_checkpoint Boolean @default(false)
+  photos Int
+  remarks String?
+  issues Json?
+  delay_reason String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_installation_activities")
+}
+
+model PmQualityInspections {
+  id String @id @default(uuid())
+  company_id String
+  inspection_number String?
+  project_id String?
+  project_name String?
+  inspection_date String?
+  inspection_type String?
+  phase String?
+  work_package String?
+  inspector_name String?
+  inspector_id String?
+  checklist Json?
+  total_check_points Int
+  passed Int
+  failed Int
+  not_applicable Int
+  pending Int
+  overall_status String
+  defects Int
+  critical_defects Int
+  photos Int
+  signed_off Boolean @default(false)
+  sign_off_by String?
+  sign_off_date String?
+  next_inspection_date String?
+  remarks String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_quality_inspections")
+}
+
+model PmResourceUtilization {
+  id String @id @default(uuid())
+  company_id String
+  resource_id String?
+  resource_name String?
+  role String?
+  department String?
+  employee_type String?
+  total_capacity Float
+  allocated_hours Float
+  actual_hours Float
+  utilization Float
+  efficiency Float
+  billable_hours Float
+  non_billable_hours Float
+  overtime_hours Float
+  leave_hours Float
+  idle_hours Float
+  active_projects Int
+  cost_per_hour Float
+  total_revenue Float
+  total_cost Float
+  availability String?
+  status String
+  current_projects Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_resource_utilization")
+}
+
+model PmReports {
+  id String @id @default(uuid())
+  company_id String
+  report_name String?
+  report_type String?
+  category String?
+  description String?
+  frequency String?
+  format String?
+  last_generated String?
+  generated_by String?
+  project_scope String?
+  project_count Int
+  file_size String?
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_reports")
+}
+
+model PmSiteSurveys {
+  id String @id @default(uuid())
+  company_id String
+  survey_number String?
+  project_id String?
+  project_name String?
+  project_type String?
+  survey_date String?
+  site_name String?
+  site_address String?
+  city String?
+  state String?
+  surveyor_name String?
+  surveyor_contact String?
+  status String
+  measurements Json?
+  accessibility String?
+  power_available Boolean @default(false)
+  water_available Boolean @default(false)
+  drainage_available Boolean @default(false)
+  floor_level String?
+  ceiling_type String?
+  wall_condition String?
+  ventilation String?
+  natural_light String?
+  existing_equipment String?
+  obstacles String?
+  special_requirements String?
+  photos_count Int
+  drawings_count Int
+  issues Json?
+  recommendations Json?
+  estimated_budget Float
+  completion_percent Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_site_surveys")
+}
+
+model PmWbsNodes {
+  id String @id @default(uuid())
+  company_id String
+  code String?
+  name String?
+  type String?
+  level Int
+  parent_id String?
+  progress Int
+  status String
+  start_date String?
+  end_date String?
+  assigned_to String?
+  estimated_hours Float
+  actual_hours Float
+  budget Float
+  actual_cost Float
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_wbs_nodes")
+}
+
+model PmScheduleTasks {
+  id String @id @default(uuid())
+  company_id String
+  name String?
+  start_date String?
+  end_date String?
+  progress Int
+  assignee String?
+  dependencies Json?
+  phase String?
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_schedule_tasks")
+}
+
+model PmDocumentApprovals {
+  id String @id @default(uuid())
+  company_id String
+  document_number String?
+  document_name String?
+  version String?
+  document_type String?
+  project_name String?
+  sent_to_client String?
+  client_email String?
+  sent_date String?
+  due_date String?
+  status String
+  approved_by String?
+  approval_date String?
+  signature_url String?
+  comments String?
+  reminders_sent Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_document_approvals")
+}
+
+model PmDesignerTasks {
+  id String @id @default(uuid())
+  company_id String
+  name String?
+  project String?
+  assignee String?
+  target_date String?
+  status String
+  progress Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_designer_tasks")
+}
+
+model PmResourceAllocations {
+  id String @id @default(uuid())
+  company_id String
+  resource_id String?
+  resource_name String?
+  role String?
+  project_phase String?
+  allocated_hours Float
+  start_date String?
+  end_date String?
+  allocation Int
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_resource_allocations")
+}
+
+model PmCrates {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  number String?
+  items Int
+  design_weight Float
+  actual_weight Float?
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_crates")
+}
+
+model PmDesignAssets {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  file_name String?
+  category String
+  version Int
+  upload_date String?
+  status String
+  thumbnail_url String?
+  file_url String?
+  comments String?
+  is_latest Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_design_assets")
+}
+
+model PmMaterialStatus {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  name String?
+  total_qty Float
+  reserved Float
+  ordered Float
+  received Float
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_material_status")
+}
+
+model PmMachineStatus {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  name String?
+  type String?
+  status String
+  oee Int
+  current_job String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_machine_status")
+}
+
+model PmBomItems {
+  id String @id @default(uuid())
+  company_id String
+  project_id String?
+  parent_id String?
+  item_id String?
+  name String?
+  sku String?
+  quantity Float
+  uom String?
+  level Int
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_bom_items")
+}
+
+model PmEquipmentCatalog {
+  id String @id @default(uuid())
+  company_id String
+  code String?
+  name String?
+  category String?
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_equipment_catalog")
+}
+
+model PmDispatchCatalog {
+  id String @id @default(uuid())
+  company_id String
+  code String?
+  name String?
+  weight Float
+  volume Float
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_dispatch_catalog")
+}
+
+model PmBoqLineTemplates {
+  id String @id @default(uuid())
+  company_id String
+  item String?
+  description String?
+  unit String?
+  quantity Float
+  rate Float
+  amount Float
+  is_valid Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_boq_line_templates")
+}
+
+model PmProjectPlans {
+  id String @id @default(uuid())
+  companyId String
+  projectCode String?
+  projectName String
+  client String?
+  projectManager String?
+  startDate String?
+  endDate String?
+  estimatedBudget Float
+  actualBudget Float
+  status String
+  priority String
+  progressPercentage Int
+  phase String?
+  milestones Int
+  completedMilestones Int
+  teamSize Int
+  location String?
+  projectType String?
+  riskLevel String
+  plannedHours Int
+  actualHours Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("pm_project_plans")
+}
+
+model PmScopeItems {
+  id String @id @default(uuid())
+  company_id String
+  item_code String?
+  item_name String?
+  description String?
+  project_code String?
+  project_name String?
+  category String
+  type String
+  status String
+  wbs_reference String?
+  priority String
+  estimated_cost Float
+  estimated_duration Int
+  dependencies Json?
+  approved_by String?
+  approved_date String?
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_scope_items")
+}
+
+model PmCharters {
+  id String @id @default(uuid())
+  company_id String
+  project_code String?
+  project_name String?
+  charter_number String?
+  version String
+  project_manager String?
+  sponsor String?
+  client String?
+  department String?
+  category String
+  status String
+  priority String
+  objectives Json?
+  scope Json?
+  deliverables Json?
+  stakeholders Json?
+  budget Float
+  start_date String?
+  end_date String?
+  duration String?
+  risks Json?
+  assumptions Json?
+  constraints Json?
+  success_criteria Json?
+  approvals Json?
+  created_by String?
+  created_date String?
+  last_modified String?
+  approved_date String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_charters")
+}
+
+model PmKanbanCards {
+  id String @id @default(uuid())
+  company_id String
+  task_number String?
+  title String?
+  description String?
+  project_code String?
+  project_name String?
+  assignee String?
+  priority String
+  due_date String?
+  estimated_hours Float
+  tags Json?
+  column_key String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_kanban_cards")
+}
+
+model PmEarnedValue {
+  id String @id @default(uuid())
+  company_id String
+  project_code String?
+  project_name String?
+  budget_at_completion Float
+  planned_value Float
+  earned_value Float
+  actual_cost Float
+  progress_percent Int
+  start_date String?
+  end_date String?
+  status String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("pm_earned_value")
+}
+
+model QualityReworkItems {
+  id String @id @default(uuid())
+  reworkCode String?
+  defectId String?
+  projectId String?
+  component String
+  defectType String?
+  priority String
+  assignedTo String?
+  status String
+  iterations Int
+  notes String?
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("quality_rework_items")
+}
+
+model ReportDatasets {
+  id String @id @default(uuid())
+  companyId String
+  reportKey String
+  title String?
+  category String?
+  payload Json?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("report_datasets")
+}
+
+model ReportCatalogItems {
+  id String @id @default(uuid())
+  companyId String
+  module String
+  name String
+  description String?
+  category String?
+  frequency String?
+  href String?
+  lastGenerated String?
+  sortOrder Int
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("report_catalog_items")
+}
+
+model ReportSavedItems {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  description String?
+  category String?
+  dataSource String?
+  config Json?
+  outputFormat String
+  createdByName String?
+  isFavorite Boolean @default(false)
+  isShared Boolean @default(false)
+  runCount Int
+  lastRunAt String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("report_saved_items")
+}
+
+model SalesShippingMethods {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  carrier String?
+  type String
+  deliveryDays String?
+  baseRate Float
+  perKgRate Float
+  minWeight Float
+  maxWeight Float
+  freeShippingThreshold Float?
+  zones Json
+  applicableProducts Json
+  insuranceIncluded Boolean @default(false)
+  trackingAvailable Boolean @default(true)
+  status String
+  usageCount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_shipping_methods")
+}
+
+model SalesTaxRates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  taxType String
+  rate Float
+  cgstRate Float?
+  sgstRate Float?
+  igstRate Float?
+  hsnCode String?
+  sacCode String?
+  category String?
+  applicableProducts Json
+  description String?
+  status String
+  effectiveDate DateTime?
+  usageCount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_tax_rates")
+}
+
+model SalesDiscounts {
+  id String @id @default(uuid())
+  companyId String?
+  code String?
+  name String
+  type String
+  category String?
+  value Float
+  minQuantity Int
+  minOrderValue Float
+  maxDiscount Float?
+  applicableProducts Json
+  validFrom DateTime?
+  validTo DateTime?
+  status String
+  usageCount Int
+  usageLimit Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_discounts")
+}
+
+model SalesTermsTemplates {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  type String
+  category String?
+  content String?
+  status String
+  applicableTo Json
+  usageCount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_terms_templates")
+}
+
+model SalesSpecialPrices {
+  id String @id @default(uuid())
+  companyId String?
+  customerName String
+  customerType String
+  productCode String?
+  productName String?
+  category String?
+  standardPrice Float
+  specialPrice Float
+  discountPercent Float
+  minOrderQty Int
+  validFrom DateTime?
+  validTo DateTime?
+  status String
+  approvedBy String?
+  contractRef String?
+  orderCount Int
+  totalRevenue Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_special_prices")
+}
+
+model SalesPriceListItems {
+  id String @id @default(uuid())
+  companyId String?
+  productCode String?
+  productName String
+  category String?
+  basePrice Float
+  currentPrice Float
+  unit String
+  effectiveFrom DateTime?
+  priceChange Float
+  priceChangePercent Float
+  moq Int
+  stock Int
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_price_list_items")
+}
+
+model SalesReports {
+  id String @id @default(uuid())
+  companyId String?
+  name String
+  type String
+  description String?
+  period String?
+  generatedDate DateTime?
+  generatedBy String?
+  fileSize String?
+  format String
+  keyMetrics Json
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_reports")
+}
+
+model SalesHandovers {
+  id String @id @default(uuid())
+  companyId String?
+  handoverNumber String
+  projectNumber String?
+  projectName String
+  customer String?
+  salesPerson String?
+  projectManager String?
+  handoverDate DateTime?
+  status String
+  completionPercentage Int
+  documentsAttached Int
+  requiredDocuments Int
+  clientRequestDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_handovers")
+}
+
+model SalesHandoverPackageDocuments {
+  id String @id @default(uuid())
+  companyId String?
+  projectId String?
+  projectNumber String?
+  projectName String?
+  customer String?
+  name String
+  type String?
+  status String
+  uploadDate DateTime?
+  uploadedBy String?
+  content String?
+  sortOrder Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("sales_handover_package_documents")
+}
+
+model SupportFaqs {
+  id String @id @default(uuid())
+  companyId String
+  faqId String?
+  question String
+  answer String?
+  category String?
+  tags Json?
+  views Int
+  helpful Int
+  notHelpful Int
+  author String?
+  featured Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_faqs")
+}
+
+model SupportResponseTemplates {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  category String?
+  subject String?
+  body String?
+  trigger Json?
+  language String
+  active Boolean @default(true)
+  usageCount Int
+  effectivenessRate Float
+  avgResponseTime String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_response_templates")
+}
+
+model SupportSlaSettings {
+  id String @id @default(uuid())
+  companyId String
+  slaConfigs Json?
+  businessHours Json?
+  escalationRules Json?
+  notifications Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_sla_settings")
+}
+
+model SupportAssignmentRules {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  description String?
+  priority Int
+  conditions Json?
+  assignmentLogic String
+  assignTo String?
+  active Boolean @default(true)
+  matchedTickets Int
+  avgAssignmentTime String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_assignment_rules")
+}
+
+model SupportGuides {
+  id String @id @default(uuid())
+  companyId String
+  guideId String?
+  title String
+  description String?
+  category String?
+  difficulty String
+  readTime String?
+  views Int
+  helpful Int
+  lastUpdated String?
+  author String?
+  tags Json?
+  sections Int
+  featured Boolean @default(false)
+  format String
+  thumbnail String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_guides")
+}
+
+model SupportTroubleshootingArticles {
+  id String @id @default(uuid())
+  companyId String
+  articleId String?
+  title String
+  problem String?
+  solution String?
+  category String?
+  severity String
+  steps Json?
+  causes Json?
+  prevention Json?
+  tags Json?
+  views Int
+  helpful Int
+  lastUpdated String?
+  author String?
+  relatedArticles Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_troubleshooting_articles")
+}
+
+model SupportHardwareAssets {
+  id String @id @default(uuid())
+  companyId String
+  assetTag String?
+  name String
+  category String
+  manufacturer String?
+  model String?
+  serialNumber String?
+  status String
+  condition String
+  location Json?
+  assignedTo Json?
+  purchase Json?
+  specifications Json?
+  maintenance Json?
+  lifecycle Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_hardware_assets")
+}
+
+model SupportSoftwareAssets {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  vendor String?
+  category String
+  version String?
+  licenseType String
+  licenses Json?
+  cost Json?
+  deployment Json?
+  contract Json?
+  compliance Json?
+  support Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_software_assets")
+}
+
+model SupportScheduledChanges {
+  id String @id @default(uuid())
+  companyId String
+  ticketNumber String?
+  title String
+  type String
+  category String?
+  priority String
+  implementer String?
+  implementationDate String?
+  implementationTime String?
+  duration String?
+  status String
+  affectedSystems Json?
+  downtime Boolean @default(false)
+  backupCompleted Boolean @default(false)
+  stakeholdersNotified Boolean @default(false)
+  changeWindow String?
+  approvedBy String?
+  approvalDate String?
+  rollbackPlan Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_scheduled_changes")
+}
+
+model SupportOmnichannelInteractions {
+  id String @id @default(uuid())
+  companyId String
+  ticketId String
+  subject String
+  customerName String
+  customerEmail String?
+  customerAvatar String?
+  channel String
+  lastMessage String?
+  lastMessageTime String?
+  unreadCount Int
+  priority String
+  status String
+  assignedToName String?
+  assignedToAvatar String?
+  tags Json?
+  starred Boolean @default(false)
+  hasAttachments Boolean @default(false)
+  slaDeadline String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("support_omnichannel_interactions")
+}
+
+model WorkflowAutomationRules {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  description String?
+  trigger String?
+  triggerDetails String?
+  action String?
+  status String
+  frequency String?
+  lastRun String?
+  nextRun String?
+  executionCount Int
+  successRate Float
+  avgExecutionTime String?
+  category String?
+  priority String?
+  createdByName String?
+  conditions Json?
+  actions Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("workflow_automation_rules")
+}
+
+model WorkflowPendingApprovals {
+  id String @id @default(uuid())
+  companyId String
+  referenceNo String?
+  title String
+  description String?
+  module String?
+  moduleUrl String?
+  requestedBy String?
+  requestedAt String?
+  amount Float?
+  priority String?
+  dueDate String?
+  slaStatus String?
+  step String?
+  totalSteps Int
+  currentStep Int
+  status String
+  payload Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("workflow_pending_approvals")
+}
+
+model WorkflowConfigTemplates {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  description String?
+  category String?
+  triggerType String?
+  steps Int
+  activeInstances Int
+  status String
+  stepDetails Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("workflow_config_templates")
+}
+
+model WorkflowBuilderGraphs {
+  id String @id @default(uuid())
+  name String
+  description String?
+  nodes Json?
+  edges Json?
+  status String
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("workflow_builder_graphs")
+}
+
