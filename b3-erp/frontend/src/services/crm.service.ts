@@ -9,11 +9,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/a
 // Helper Functions
 // ============================================================================
 
+// Default tenant/company header expected by NestJS controllers (x-company-id).
+const DEFAULT_COMPANY_ID =
+  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID || 'test';
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      'x-company-id': DEFAULT_COMPANY_ID,
       ...options?.headers,
     },
   });
@@ -39,6 +44,19 @@ function buildQueryParams(params: Record<string, any>): string {
   });
   const queryString = queryParams.toString();
   return queryString ? `?${queryString}` : '';
+}
+
+/**
+ * Defensive list normaliser. Backends variously return a bare array, a
+ * `{ data: [...] }` envelope, or `{ items: [...] }`. Callers can wrap any
+ * list-returning request in this to always receive an array.
+ */
+export function asArray<T = any>(payload: any): T[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  if (payload && Array.isArray(payload.items)) return payload.items;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
 }
 
 // ============================================================================
@@ -383,6 +401,10 @@ export const crmService = {
     getStats: () => request<any>('/crm/opportunities/stats'),
 
     getForecast: () => request<any>('/crm/opportunities/forecast'),
+
+    // Related activity timeline for the opportunity detail view.
+    getActivities: (opportunityId: string) =>
+      request<any>(`/crm/activities${buildQueryParams({ opportunityId })}`).then(asArray),
   },
 
   // ===========================
@@ -906,6 +928,32 @@ export const crmService = {
       request<any>(`/crm/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
     delete: (id: string) => request<void>(`/crm/customers/${id}`, { method: 'DELETE' }),
+
+    // Related lists for the customer detail view. There is no dedicated
+    // customer-orders/invoices endpoint in the CRM module, so the "orders"
+    // panel is fed from the customer's quotes and the activity timeline from
+    // the customer's CRM activities (both support ?customerId=).
+    getQuotes: (customerId: string) =>
+      request<any>(`/crm/quotes${buildQueryParams({ customerId })}`).then(asArray),
+
+    getOpportunities: (customerId: string) =>
+      request<any>(`/crm/opportunities${buildQueryParams({ customerId })}`).then(asArray),
+
+    getContacts: (customerId: string) =>
+      request<any>(`/crm/contacts${buildQueryParams({ customerId })}`).then(asArray),
+
+    getActivities: (customerId: string) =>
+      request<any>(`/crm/activities${buildQueryParams({ customerId })}`).then(asArray),
+  },
+
+  // ===========================
+  // PRODUCTS (CPQ catalogue — reused for quote line-item picker)
+  // ===========================
+  products: {
+    getAll: (filters?: { search?: string; category?: string; isActive?: string }) =>
+      request<any>(`/cpq/products${buildQueryParams(filters || {})}`).then(asArray),
+
+    getById: (id: string) => request<any>(`/cpq/products/${id}`),
   },
 
   // ===========================

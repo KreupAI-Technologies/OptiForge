@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   Edit,
@@ -212,7 +213,7 @@ interface Interaction {
 }
 
 // Mock customer data with comprehensive enterprise fields - ManufacturingOS India
-const mockCustomer: Customer = {
+const mockCustomerSeed: Customer = {
   id: '1',
   // General Information
   customerNumber: 'CUST-2023-0142',
@@ -429,7 +430,7 @@ const mockCustomer: Customer = {
 };
 
 // Mock orders data - ManufacturingOS India
-const mockOrders: Order[] = [
+const mockOrdersSeed: Order[] = [
   { id: '1', orderNumber: 'ORD-2025-1234', date: '2025-10-05', amount: 785000, status: 'paid', items: 45 },
   { id: '2', orderNumber: 'ORD-2025-1189', date: '2025-09-28', amount: 625000, status: 'paid', items: 32 },
   { id: '3', orderNumber: 'ORD-2025-1145', date: '2025-09-15', amount: 945000, status: 'pending', items: 58 },
@@ -440,7 +441,7 @@ const mockOrders: Order[] = [
 ];
 
 // Mock interactions - ManufacturingOS India
-const mockInteractions: Interaction[] = [
+const mockInteractionsSeed: Interaction[] = [
   {
     id: '1',
     type: 'call',
@@ -526,7 +527,78 @@ export default function ViewCustomerPage() {
   const params = useParams();
   const { addToast } = useToast();
   const customerId = params.id as string;
-  const customer = mockCustomer;
+
+  const [customer, setCustomer] = useState<Customer>(mockCustomerSeed);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [interactions, setInteractions] = useState<Interaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!customerId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // (a) primary entity
+        const raw = await crmService.customers.getById(customerId);
+        if (!cancelled && raw && typeof raw === 'object') {
+          setCustomer({ ...mockCustomerSeed, ...(raw as any), id: (raw as any).id ?? customerId });
+        }
+
+        // (b) related lists — no dedicated orders/invoices endpoint exists,
+        // so "orders" is fed from the customer's quotes; the activity
+        // timeline from the customer's CRM activities.
+        const [quotesRaw, activitiesRaw] = await Promise.all([
+          crmService.customers.getQuotes(customerId).catch(() => []),
+          crmService.customers.getActivities(customerId).catch(() => []),
+        ]);
+
+        if (!cancelled) {
+          setOrders(
+            (quotesRaw as any[]).map((q, i) => ({
+              id: q.id ?? String(i),
+              orderNumber: q.quoteNumber ?? q.number ?? q.id ?? `Q-${i + 1}`,
+              date: (q.createdAt ?? q.sentDate ?? '').toString().slice(0, 10),
+              amount: Number(q.totalAmount ?? q.amount ?? 0),
+              status:
+                q.status === 'accepted'
+                  ? 'paid'
+                  : q.status === 'rejected'
+                  ? 'overdue'
+                  : 'pending',
+              items: Array.isArray(q.items) ? q.items.length : Number(q.itemCount ?? 0),
+            })),
+          );
+          setInteractions(
+            (activitiesRaw as any[]).map((a, i) => ({
+              id: a.id ?? String(i),
+              type:
+                a.type === 'meeting' || a.type === 'call' || a.type === 'email'
+                  ? a.type
+                  : 'call',
+              title: a.subject ?? a.title ?? 'Activity',
+              description: a.description ?? a.notes ?? '',
+              performedBy: a.performedByName ?? a.assignedToName ?? 'System',
+              date: (a.startDate ?? a.createdAt ?? '').toString().slice(0, 16).replace('T', ' '),
+              outcome: a.outcome ?? undefined,
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load customer');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [customerId]);
 
   const [activeTab, setActiveTab] = useState<'general' | 'addresses' | 'contacts' | 'financial' | 'sales' | 'logistics' | 'additional' | 'orders' | 'interactions'>('general');
 
@@ -617,6 +689,17 @@ export default function ViewCustomerPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 flex items-center space-x-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          <span>{loadError}</span>
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading customer…
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button
@@ -1651,7 +1734,7 @@ export default function ViewCustomerPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockOrders.map((order, index) => (
+                  {orders.map((order, index) => (
                     <tr key={order.id} className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                       <td className="px-4 py-4 text-sm font-medium text-blue-600 hover:underline cursor-pointer">
                         {order.orderNumber}
@@ -1683,7 +1766,7 @@ export default function ViewCustomerPage() {
 
             <div className="mt-6 flex items-center justify-between">
               <p className="text-sm text-gray-600">
-                Showing {mockOrders.length} orders
+                Showing {orders.length} orders
               </p>
               <div className="flex items-center space-x-2">
                 <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Previous</button>
@@ -1724,9 +1807,9 @@ export default function ViewCustomerPage() {
             </div>
 
             <div className="space-y-2">
-              {mockInteractions.map((interaction, index) => {
+              {interactions.map((interaction, index) => {
                 const InteractionIcon = interactionIcons[interaction.type];
-                const isLast = index === mockInteractions.length - 1;
+                const isLast = index === interactions.length - 1;
 
                 return (
                   <div key={interaction.id} className="relative">
