@@ -421,7 +421,7 @@ CREATE TABLE IF NOT EXISTS support_report_templates (
     category       varchar,
     description    text,
     frequency      varchar NOT NULL DEFAULT 'On-Demand',
-    format         json,
+    "format"       json,
     recipients     integer NOT NULL DEFAULT 0,
     scheduled      boolean NOT NULL DEFAULT false,
     popularity     integer NOT NULL DEFAULT 0,
