@@ -1,24 +1,47 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function ServiceCallStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const calls = [
-        { id: 'SR-2025-001', customer: 'TechCorp Industries', issue: 'Conveyor Belt Jam', priority: 'High', assignedTo: 'Mike Technician', reported: '2025-03-10', status: 'Open' },
-        { id: 'SR-2025-002', customer: 'Global Manufacturing', issue: 'Sensor Calibration', priority: 'Medium', assignedTo: 'Sarah Engineer', reported: '2025-03-09', status: 'In Progress' },
-        { id: 'SR-2025-003', customer: 'AutoParts Ltd', issue: 'Motor Overheating', priority: 'Critical', assignedTo: 'John Expert', reported: '2025-03-08', status: 'Resolved' },
-        { id: 'SR-2025-004', customer: 'SteelWorks Inc', issue: 'Software Glitch', priority: 'Low', assignedTo: 'David Support', reported: '2025-03-05', status: 'Closed' },
-        { id: 'SR-2025-005', customer: 'PlasticFab Co', issue: 'Hydraulic Leak', priority: 'High', assignedTo: 'Mike Technician', reported: '2025-03-11', status: 'Open' },
-    ];
+    const [calls, setCalls] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('after-sales/service-requests');
+                const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r.requestNumber ?? r.id ?? '',
+                    customer: r.customerName ?? '',
+                    issue: r.subject ?? r.description ?? '',
+                    priority: r.priority ?? '',
+                    assignedTo: r.assignedToName ?? r.assignedTo ?? '',
+                    reported: r.reportedDate ? String(r.reportedDate).slice(0, 10) : (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setCalls(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setCalls([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredCalls = status === 'All'
         ? calls
@@ -35,6 +58,8 @@ function ServiceCallStatusContent() {
                 { label: status }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Service Call List</CardTitle>

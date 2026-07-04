@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     BarChart3,
     Search,
@@ -43,74 +44,23 @@ export default function PayrollReportsPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [activeTab, setActiveTab] = useState<'recent' | 'templates'>('recent');
 
-    const recentReports: PayrollReport[] = [
-        {
-            id: '1',
-            reportName: 'Salary Register - January 2025',
-            reportType: 'Salary Register',
-            period: 'January 2025',
-            generatedDate: '2025-02-01',
-            generatedBy: 'Sarah Johnson',
-            status: 'Ready',
-            fileSize: '2.4 MB',
-            downloadCount: 5
-        },
-        {
-            id: '2',
-            reportName: 'Bank Statement - January 2025',
-            reportType: 'Bank Statement',
-            period: 'January 2025',
-            generatedDate: '2025-02-01',
-            generatedBy: 'Sarah Johnson',
-            status: 'Ready',
-            fileSize: '1.8 MB',
-            downloadCount: 3
-        },
-        {
-            id: '3',
-            reportName: 'PF & ESI Contribution - Q3 2024',
-            reportType: 'Statutory',
-            period: 'Q3 2024',
-            generatedDate: '2025-01-15',
-            generatedBy: 'Jennifer Brown',
-            status: 'Ready',
-            fileSize: '890 KB',
-            downloadCount: 8
-        },
-        {
-            id: '4',
-            reportName: 'Department-wise Cost Analysis',
-            reportType: 'MIS',
-            period: 'FY 2024-25',
-            generatedDate: '2025-01-20',
-            generatedBy: 'Sarah Johnson',
-            status: 'Ready',
-            fileSize: '3.2 MB',
-            downloadCount: 12
-        },
-        {
-            id: '5',
-            reportName: 'Salary Variance Report',
-            reportType: 'Variance',
-            period: 'Dec 2024 vs Jan 2025',
-            generatedDate: '2025-02-02',
-            generatedBy: 'Jennifer Brown',
-            status: 'Generating',
-            fileSize: '-',
-            downloadCount: 0
-        },
-        {
-            id: '6',
-            reportName: 'Executive Payroll Summary',
-            reportType: 'Summary',
-            period: 'January 2025',
-            generatedDate: '2025-02-03',
-            generatedBy: 'Sarah Johnson',
-            status: 'Scheduled',
-            fileSize: '-',
-            downloadCount: 0
-        }
-    ];
+    const [recentReports, setRecentReports] = useState<PayrollReport[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReports('recent');
+                const mapped: PayrollReport[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setRecentReports(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRecentReports([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const reportTemplates: ReportTemplate[] = [
         {

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { Wrench, Search, AlertCircle, CheckCircle, Clock, Zap, Plus, Filter, ChevronDown, ChevronUp, Lightbulb, Target, BookOpen } from 'lucide-react';
 
 interface TroubleshootingGuide {
@@ -21,296 +22,49 @@ interface TroubleshootingGuide {
   requiresService: boolean;
 }
 
-const mockGuides: TroubleshootingGuide[] = [
-  {
-    id: '1',
-    title: 'Refrigerator Not Cooling - Complete Diagnosis',
-    symptoms: [
-      'Warm temperature inside refrigerator',
-      'Ice cream melting faster than usual',
-      'Condensation on walls',
-      'Motor running continuously'
-    ],
-    causes: [
-      'Blocked air vents',
-      'Dirty condenser coils',
-      'Faulty thermostat',
-      'Refrigerant leak',
-      'Compressor failure'
-    ],
-    solutions: [
-      'Check and clear air vents inside the refrigerator',
-      'Clean the condenser coils at the back (unplug first)',
-      'Verify temperature setting is correct (3-4°C)',
-      'Listen for unusual compressor noise',
-      'Check for frost buildup in the freezer section',
-      'If problem persists, contact service center'
-    ],
-    difficulty: 'medium',
-    timeEstimate: 15,
-    category: 'Refrigeration',
-    relatedProducts: ['REF-2025-PRO', 'REF-2024-STD'],
-    successRate: 78,
-    views: 1245,
-    helpful: 234,
-    createdDate: '2025-08-15',
-    updatedDate: '2025-10-18',
-    requiresService: true
-  },
-  {
-    id: '2',
-    title: 'Microwave Not Heating - Quick Fix Guide',
-    symptoms: [
-      'Food not heating',
-      'Microwave runs but stays cold',
-      'Uneven heating patterns'
-    ],
-    causes: [
-      'Power supply issue',
-      'Faulty magnetron',
-      'Damaged door seal',
-      'High voltage circuit failure'
-    ],
-    solutions: [
-      'Ensure microwave is properly plugged in',
-      'Check circuit breaker and reset if needed',
-      'Verify door closes properly and seal is intact',
-      'Place a glass of water inside and run for 2 minutes - it should heat',
-      'If water remains cold, magnetron likely needs replacement',
-      'Contact authorized service center'
-    ],
-    difficulty: 'hard',
-    timeEstimate: 10,
-    category: 'Cooking',
-    relatedProducts: ['MW-QS-2025', 'MW-SMART-2025'],
-    successRate: 45,
-    views: 892,
-    helpful: 145,
-    createdDate: '2025-08-10',
-    updatedDate: '2025-10-17',
-    requiresService: true
-  },
-  {
-    id: '3',
-    title: 'Washing Machine Leaking Water',
-    symptoms: [
-      'Water leaking from bottom',
-      'Water leaking from door',
-      'Puddles during wash cycle',
-      'Error code E2 displayed'
-    ],
-    causes: [
-      'Damaged door seal',
-      'Clogged drain hose',
-      'Loose inlet hose connection',
-      'Crack in tub',
-      'Failed pump seal'
-    ],
-    solutions: [
-      'Stop immediately and disconnect power',
-      'Check drain hose for kinks or blockages',
-      'Tighten inlet hose connections at back',
-      'Inspect door gasket for tears or dirt',
-      'Clean gasket with damp cloth and dry thoroughly',
-      'Run empty wash cycle to test',
-      'If still leaking, contact service technician'
-    ],
-    difficulty: 'easy',
-    timeEstimate: 20,
-    category: 'Laundry',
-    relatedProducts: ['WM-ADV-2025', 'WM-COMPACT-2024'],
-    successRate: 68,
-    views: 1567,
-    helpful: 289,
-    createdDate: '2025-08-05',
-    updatedDate: '2025-10-16',
-    requiresService: true
-  },
-  {
-    id: '4',
-    title: 'Dishwasher Not Draining Properly',
-    symptoms: [
-      'Water pooling at bottom',
-      'Dishes still wet after cycle',
-      'Gurgling sounds',
-      'Foul odor from interior'
-    ],
-    causes: [
-      'Clogged filter',
-      'Blocked drain hose',
-      'Faulty drain pump',
-      'Kinked hose',
-      'Food debris in drain'
-    ],
-    solutions: [
-      'Remove and rinse the drain filter',
-      'Check drain hose for kinks behind dishwasher',
-      'Run a hot cycle with white vinegar (no dishes)',
-      'Use a plumbing snake to clear blockage if needed',
-      'Ensure drain hose connection is not pinched',
-      'Check sink drain is not blocked',
-      'If problem persists, pump replacement may be needed'
-    ],
-    difficulty: 'medium',
-    timeEstimate: 25,
-    category: 'Dishwashing',
-    relatedProducts: ['DW-TROUBLESHOOT', 'DW-SMART-2025'],
-    successRate: 72,
-    views: 734,
-    helpful: 156,
-    createdDate: '2025-07-30',
-    updatedDate: '2025-10-15',
-    requiresService: true
-  },
-  {
-    id: '5',
-    title: 'Oven Temperature Fluctuations',
-    symptoms: [
-      'Uneven cooking inside oven',
-      'Food burning on one side',
-      'Temperature displayed incorrectly',
-      'Oven doesn\'t reach set temperature'
-    ],
-    causes: [
-      'Faulty temperature sensor',
-      'Uneven rack placement',
-      'Dirty interior affecting heat circulation',
-      'Heating element malfunction',
-      'Thermostat calibration drift'
-    ],
-    solutions: [
-      'Clean the oven interior to ensure proper air circulation',
-      'Check that racks are properly seated',
-      'Place oven rack in center position for more even heating',
-      'Let oven preheat fully before cooking (15-20 minutes)',
-      'Use oven thermometer to verify actual temperature',
-      'If significantly off, sensor or heating element may need replacement',
-      'Contact technician for calibration or part replacement'
-    ],
-    difficulty: 'medium',
-    timeEstimate: 30,
-    category: 'Cooking',
-    relatedProducts: ['OVN-2025-PRO', 'OVN-COMPACT-2024'],
-    successRate: 65,
-    views: 567,
-    helpful: 112,
-    createdDate: '2025-07-25',
-    updatedDate: '2025-10-14',
-    requiresService: true
-  },
-  {
-    id: '6',
-    title: 'Washing Machine Strange Noises',
-    symptoms: [
-      'Grinding or squealing sounds',
-      'Thumping during spin cycle',
-      'Rattling noises',
-      'High-pitched beeping'
-    ],
-    causes: [
-      'Foreign object in drum',
-      'Worn drum bearing',
-      'Unbalanced load',
-      'Worn pump impeller',
-      'Faulty motor bearing'
-    ],
-    solutions: [
-      'Stop the wash cycle immediately',
-      'Check for coins, buttons, or small objects in drum',
-      'Inspect drum for visible damage or rust',
-      'Ensure load is balanced and not overloaded',
-      'Run empty spin cycle to listen for noise',
-      'If grinding noise continues, bearing replacement needed',
-      'Call technician if noise comes from motor area'
-    ],
-    difficulty: 'easy',
-    timeEstimate: 15,
-    category: 'Laundry',
-    relatedProducts: ['WM-ADV-2025', 'WM-COMPACT-2024'],
-    successRate: 55,
-    views: 823,
-    helpful: 178,
-    createdDate: '2025-07-20',
-    updatedDate: '2025-10-13',
-    requiresService: true
-  },
-  {
-    id: '7',
-    title: 'Refrigerator Ice Maker Not Working',
-    symptoms: [
-      'No ice production',
-      'Ice maker running but no ice',
-      'Slow ice production',
-      'Ice has strange taste or smell'
-    ],
-    causes: [
-      'Water supply line frozen',
-      'Clogged water filter',
-      'Low water pressure',
-      'Faulty water inlet valve',
-      'Ice maker module failure'
-    ],
-    solutions: [
-      'Check water filter - replace if clogged or discolored',
-      'Verify main water valve is fully open',
-      'Test water supply by holding a glass under dispenser',
-      'Ensure water supply line is not kinked',
-      'Clean ice maker module with warm water',
-      'Check for ice blockage in inlet',
-      'Reset ice maker by turning off/on from control panel',
-      'If no improvement, inlet valve or module needs replacement'
-    ],
-    difficulty: 'medium',
-    timeEstimate: 20,
-    category: 'Refrigeration',
-    relatedProducts: ['REF-2025-PRO', 'REF-ICE-2024'],
-    successRate: 71,
-    views: 656,
-    helpful: 134,
-    createdDate: '2025-07-15',
-    updatedDate: '2025-10-12',
-    requiresService: true
-  },
-  {
-    id: '8',
-    title: 'Smart Appliance App Connection Issues',
-    symptoms: [
-      'Cannot connect to WiFi',
-      'App shows offline status',
-      'Commands not received by appliance',
-      'Frequent disconnections'
-    ],
-    causes: [
-      'WiFi network issue',
-      'Appliance out of range',
-      'Outdated app version',
-      'Network authentication issue',
-      'Appliance firmware outdated'
-    ],
-    solutions: [
-      'Restart both appliance and WiFi router',
-      'Ensure appliance is within WiFi range',
-      'Update app to latest version from app store',
-      'Forget WiFi on appliance and reconnect',
-      'Check WiFi password is entered correctly',
-      'Update appliance firmware if available',
-      'Verify no MAC address filtering on router',
-      'Contact support if connection still fails'
-    ],
-    difficulty: 'easy',
-    timeEstimate: 10,
-    category: 'Technology',
-    relatedProducts: ['SMART-2025', 'SMART-HUB-2024'],
-    successRate: 82,
-    views: 945,
-    helpful: 267,
-    createdDate: '2025-07-10',
-    updatedDate: '2025-10-11',
-    requiresService: false
-  }
-];
+function mapTroubleshootingGuide(r: any): TroubleshootingGuide {
+  return {
+    id: String(r?.id ?? ''),
+    title: r?.title ?? '',
+    symptoms: Array.isArray(r?.symptoms) ? r.symptoms : (r?.symptom ? [r.symptom] : []),
+    causes: Array.isArray(r?.causes) ? r.causes : [],
+    solutions: Array.isArray(r?.solutions) ? r.solutions : (Array.isArray(r?.steps) ? r.steps : []),
+    difficulty: (r?.difficulty ?? 'medium') as TroubleshootingGuide['difficulty'],
+    timeEstimate: Number(r?.timeEstimate ?? r?.estimatedTime ?? 0) || 0,
+    category: r?.category ?? 'General',
+    relatedProducts: Array.isArray(r?.relatedProducts) ? r.relatedProducts : [],
+    successRate: Number(r?.successRate ?? 0),
+    views: Number(r?.views ?? 0),
+    helpful: Number(r?.helpful ?? 0),
+    createdDate: r?.createdDate ?? r?.createdAt ?? '',
+    updatedDate: r?.updatedDate ?? r?.updatedAt ?? '',
+    requiresService: Boolean(r?.requiresService),
+  };
+}
 
 export default function TroubleshootingPage() {
+  const [mockGuides, setMockGuides] = useState<TroubleshootingGuide[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.troubleshooting()) as any[];
+        if (!cancelled) setMockGuides(Array.isArray(raw) ? raw.map(mapTroubleshootingGuide) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load troubleshooting guides');
+          setMockGuides([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');

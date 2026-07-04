@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
     TrendingUp,
     Star,
@@ -46,80 +47,18 @@ const overallStats = {
     topPerformer: 'Emirates Logistics'
 };
 
-const carriers = [
-    {
-        id: 'CAR-001',
-        name: 'Emirates Logistics',
-        rating: 4.8,
-        onTimeDelivery: 98.5,
-        damageRate: 0.2,
-        avgDeliveryTime: 2.1,
-        totalShipments: 542,
-        activeVehicles: 28,
-        costPerKg: 12.5,
-        trend: 'up'
-    },
-    {
-        id: 'CAR-002',
-        name: 'Fast Track Shipping',
-        rating: 4.6,
-        onTimeDelivery: 96.2,
-        damageRate: 0.5,
-        avgDeliveryTime: 2.4,
-        totalShipments: 423,
-        activeVehicles: 22,
-        costPerKg: 11.8,
-        trend: 'up'
-    },
-    {
-        id: 'CAR-003',
-        name: 'Gulf Express',
-        rating: 4.4,
-        onTimeDelivery: 94.8,
-        damageRate: 0.8,
-        avgDeliveryTime: 2.6,
-        totalShipments: 389,
-        activeVehicles: 18,
-        costPerKg: 10.5,
-        trend: 'stable'
-    },
-    {
-        id: 'CAR-004',
-        name: 'Quick Delivery Co',
-        rating: 4.2,
-        onTimeDelivery: 92.1,
-        damageRate: 1.2,
-        avgDeliveryTime: 2.8,
-        totalShipments: 356,
-        activeVehicles: 15,
-        costPerKg: 9.8,
-        trend: 'down'
-    },
-    {
-        id: 'CAR-005',
-        name: 'Northern Logistics',
-        rating: 4.5,
-        onTimeDelivery: 95.5,
-        damageRate: 0.6,
-        avgDeliveryTime: 2.5,
-        totalShipments: 412,
-        activeVehicles: 20,
-        costPerKg: 11.2,
-        trend: 'up'
-    },
-    {
-        id: 'CAR-006',
-        name: 'Coast Shipping',
-        rating: 3.9,
-        onTimeDelivery: 88.3,
-        damageRate: 1.8,
-        avgDeliveryTime: 3.2,
-        totalShipments: 287,
-        activeVehicles: 12,
-        costPerKg: 8.5,
-        trend: 'down'
-    }
-];
+interface CarrierPerf {
+    id: string;
+    name: string;
+    rating: number;
+    onTimeDelivery: number;
+    damageRate: number;
+    avgDeliveryTime: number;
+    totalShipments: number;
+    activeVehicles: number;
+    costPerKg: number;
+    trend: string;
+}
 
 const monthlyTrends = [
     { month: 'Aug', onTime: 92, damage: 1.2, rating: 4.3 },
@@ -151,6 +90,34 @@ const radarData = [
 export default function CarrierPerformancePage() {
     const [selectedPeriod, setSelectedPeriod] = useState('6months');
     const [sortBy, setSortBy] = useState('rating');
+    const [carriers, setCarriers] = useState<CarrierPerf[]>([]);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await LogisticsService.getTransportCompanies();
+                const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+                if (cancelled) return;
+                setCarriers((list as any[]).map((r, i) => ({
+                    id: String(r.carrierId ?? r.code ?? r.id ?? `CAR-${i + 1}`),
+                    name: r.name ?? r.companyName ?? 'Unknown Carrier',
+                    rating: Number(r.rating ?? r.performanceRating ?? 0),
+                    onTimeDelivery: Number(r.onTimePercentage ?? r.onTimeDelivery ?? r.onTimeRate ?? 0),
+                    damageRate: Number(r.damageRate ?? 0),
+                    avgDeliveryTime: Number(r.avgDeliveryTime ?? 0),
+                    totalShipments: Number(r.totalShipments ?? 0),
+                    activeVehicles: Number(r.activeVehicles ?? r.activeShipments ?? 0),
+                    costPerKg: Number(r.costPerKg ?? r.averageCostPerShipment ?? 0),
+                    trend: r.trend ?? 'stable',
+                })));
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load carrier performance');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const getRatingColor = (rating: number) => {
         if (rating >= 4.5) return 'text-green-600';
@@ -176,6 +143,11 @@ export default function CarrierPerformancePage() {
 
     return (
         <div className="p-6 space-y-3 text-sm font-medium">
+            {loadError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                    {loadError}
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>

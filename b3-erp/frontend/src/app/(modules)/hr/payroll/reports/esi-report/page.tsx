@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Heart,
     Search,
@@ -31,86 +32,23 @@ export default function ESIReportPage() {
     const [yearFilter, setYearFilter] = useState('2025');
     const [eligibilityFilter, setEligibilityFilter] = useState('all');
 
-    const entries: ESIReportEntry[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            esiNumber: '3110XXXXXX00001',
-            grossWage: 137500,
-            eligibleWage: 0,
-            employeeContribution: 0,
-            employerContribution: 0,
-            totalContribution: 0,
-            isEligible: false
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            esiNumber: '3110XXXXXX00002',
-            grossWage: 76667,
-            eligibleWage: 0,
-            employeeContribution: 0,
-            employerContribution: 0,
-            totalContribution: 0,
-            isEligible: false
-        },
-        {
-            id: '3',
-            employeeId: 'EMP007',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            esiNumber: '3110XXXXXX00007',
-            grossWage: 18000,
-            eligibleWage: 18000,
-            employeeContribution: 135,
-            employerContribution: 585,
-            totalContribution: 720,
-            isEligible: true
-        },
-        {
-            id: '4',
-            employeeId: 'EMP008',
-            employeeName: 'Lisa Thompson',
-            department: 'Production',
-            esiNumber: '3110XXXXXX00008',
-            grossWage: 20000,
-            eligibleWage: 20000,
-            employeeContribution: 150,
-            employerContribution: 650,
-            totalContribution: 800,
-            isEligible: true
-        },
-        {
-            id: '5',
-            employeeId: 'EMP009',
-            employeeName: 'James Kumar',
-            department: 'Quality Assurance',
-            esiNumber: '3110XXXXXX00009',
-            grossWage: 19500,
-            eligibleWage: 19500,
-            employeeContribution: 146,
-            employerContribution: 634,
-            totalContribution: 780,
-            isEligible: true
-        },
-        {
-            id: '6',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Production',
-            esiNumber: '3110XXXXXX00010',
-            grossWage: 17500,
-            eligibleWage: 17500,
-            employeeContribution: 131,
-            employerContribution: 569,
-            totalContribution: 700,
-            isEligible: true
-        }
-    ];
+    const [entries, setEntries] = useState<ESIReportEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReportsBy('esi');
+                const mapped: ESIReportEntry[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setEntries(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEntries([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredEntries = entries.filter(entry => {
         const matchesSearch = entry.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -136,6 +74,8 @@ export default function ESIReportPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

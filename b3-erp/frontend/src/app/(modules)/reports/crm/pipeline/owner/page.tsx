@@ -37,7 +37,7 @@ function PipelineByOwnerContent() {
                 const raw = await fetchDomainList<any>('crm/leads');
                 const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
                     id: r.id ?? '',
-                    name: r.title ?? [r.firstName, r.lastName].filter(Boolean).join(' ') || r.company || '',
+                    name: (r.title ?? '') || [r.firstName, r.lastName].filter(Boolean).join(' ') || r.company || '',
                     account: r.company ?? '',
                     owner: r.assignedTo ?? r.teamAssignment ?? 'Unassigned',
                     stage: r.status ?? '',
