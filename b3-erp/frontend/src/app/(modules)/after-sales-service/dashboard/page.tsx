@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import { FileText, Shield, AlertCircle, Wrench, Navigation, DollarSign, TrendingUp, TrendingDown, CheckCircle, Clock, Users, ArrowRight, X, Eye, Calendar, Package } from 'lucide-react';
 
@@ -39,17 +40,50 @@ export default function AfterSalesDashboard() {
     sla: '-3%',
   };
 
-  const recentTickets = [
-    { id: 'TICKET-2025-000123', customer: 'Sharma Kitchens', priority: 'P1', issue: 'Chimney motor not working', timeLeft: '1h 30m', status: 'in_progress' },
-    { id: 'TICKET-2025-000118', customer: 'Prestige Developers', priority: 'P2', issue: 'Oven temperature issue', timeLeft: '8h 15m', status: 'acknowledged' },
-    { id: 'TICKET-2025-000134', customer: 'Modern Living', priority: 'P2', issue: 'Chimney suction reduced', timeLeft: '12h 45m', status: 'open' },
-  ];
+  // Recent tickets loaded from the after-sales service-requests endpoint.
+  const [recentTickets, setRecentTickets] = useState<any[]>([]);
 
-  const upcomingInstallations = [
-    { id: 'INS-2025-00118', customer: 'Prestige Developers', date: '2025-10-19', team: 'Vijay Patil', items: 5 },
-    { id: 'INS-2025-00142', customer: 'Elite Contractors', date: '2025-10-20', team: 'Vijay Patil', items: 3 },
-    { id: 'INS-2025-00101', customer: 'Signature Interiors', date: '2025-10-21', team: 'Arun Reddy', items: 4 },
-  ];
+  // Upcoming installations loaded from the after-sales installations endpoint.
+  const [upcomingInstallations, setUpcomingInstallations] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [srRaw, insRaw] = await Promise.all([
+          AfterSalesPagesService.serviceRequests().catch(() => []),
+          AfterSalesPagesService.installations().catch(() => []),
+        ]);
+        const tickets = (Array.isArray(srRaw) ? srRaw : []).slice(0, 5).map((r: any) => ({
+          id: r?.ticketNumber ?? r?.requestNumber ?? r?.id ?? '',
+          customer: r?.customerName ?? r?.customer ?? '',
+          priority: r?.priority ?? 'P3',
+          issue: r?.title ?? r?.subject ?? r?.description ?? '',
+          timeLeft: r?.slaTimeLeft ?? r?.timeLeft ?? '',
+          status: r?.status ?? 'open',
+        }));
+        const installs = (Array.isArray(insRaw) ? insRaw : []).slice(0, 5).map((r: any) => ({
+          id: r?.installationNumber ?? r?.id ?? '',
+          customer: r?.customerName ?? r?.customer?.name ?? '',
+          date: r?.scheduledDate ?? r?.scheduling?.scheduledDate ?? '',
+          team: r?.assignedTo ?? r?.team?.leadTechnician ?? '',
+          items: Number(r?.items ?? 0) || 0,
+        }));
+        if (!cancelled) { setRecentTickets(tickets); setUpcomingInstallations(installs); }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+          setRecentTickets([]); setUpcomingInstallations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const revenueData = [
     { month: 'Apr', amount: 245000 },

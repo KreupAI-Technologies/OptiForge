@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
     Search,
     Plus,
@@ -43,11 +44,37 @@ interface Asset {
 export default function CustomerSelfServicePortal() {
     const [searchQuery, setSearchQuery] = useState('');
 
-    const incidents: Incident[] = [
-        { id: 'INC-2025-001', type: 'Repair', subject: 'Conveyor belt motor overheating', date: '2025-10-24', status: 'In Progress', priority: 'High' },
-        { id: 'INC-2025-002', type: 'Maintenance', subject: 'Quarterly sensor calibration', date: '2025-10-15', status: 'Waiting for Customer', priority: 'Medium' },
-        { id: 'INC-2025-003', type: 'Support', subject: 'Software update assistance', date: '2025-10-01', status: 'Resolved', priority: 'Low' },
-    ];
+    // Incidents loaded from the after-sales service-requests endpoint.
+    const [incidents, setIncidents] = useState<Incident[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = (await AfterSalesPagesService.serviceRequests()) as any[];
+                const mapped: Incident[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r?.requestNumber ?? r?.ticketNumber ?? r?.id ?? '',
+                    type: r?.type ?? r?.serviceType ?? 'Support',
+                    subject: r?.title ?? r?.subject ?? r?.description ?? '',
+                    date: r?.date ?? r?.createdAt ?? '',
+                    status: (r?.status ?? 'Open') as Incident['status'],
+                    priority: (r?.priority ?? 'Medium') as Incident['priority'],
+                }));
+                if (!cancelled) setIncidents(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load incidents');
+                    setIncidents([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const assets: Asset[] = [
         {

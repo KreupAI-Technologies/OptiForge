@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
     FileText,
     Search,
@@ -33,110 +34,54 @@ const contractStats = {
     totalValue: 2450000
 };
 
-const contracts = [
-    {
-        id: 'CON-2024-001',
-        carrier: 'Emirates Logistics',
-        type: 'Full Service',
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
-        value: 450000,
-        status: 'Active',
-        routes: ['Dubai - Abu Dhabi', 'Dubai - Sharjah', 'UAE - Oman'],
-        sla: '98% On-Time',
-        rateType: 'Per KG',
-        baseRate: 12.5,
-        renewalStatus: 'Auto-Renew'
-    },
-    {
-        id: 'CON-2024-002',
-        carrier: 'Fast Track Shipping',
-        type: 'Standard',
-        startDate: '2024-02-01',
-        endDate: '2025-01-31',
-        value: 320000,
-        status: 'Active',
-        routes: ['UAE - KSA', 'UAE - Bahrain'],
-        sla: '95% On-Time',
-        rateType: 'Per Shipment',
-        baseRate: 850,
-        renewalStatus: 'Manual'
-    },
-    {
-        id: 'CON-2024-003',
-        carrier: 'Gulf Express',
-        type: 'Express',
-        startDate: '2023-06-01',
-        endDate: '2024-05-31',
-        value: 280000,
-        status: 'Expiring Soon',
-        routes: ['Dubai - Qatar', 'Abu Dhabi - Kuwait'],
-        sla: '99% On-Time',
-        rateType: 'Per KG',
-        baseRate: 15.0,
-        renewalStatus: 'Pending Review'
-    },
-    {
-        id: 'CON-2024-004',
-        carrier: 'Quick Delivery Co',
-        type: 'Last Mile',
-        startDate: '2024-03-15',
-        endDate: '2025-03-14',
-        value: 180000,
-        status: 'Active',
-        routes: ['Dubai Metro Area', 'Sharjah Metro Area'],
-        sla: '96% On-Time',
-        rateType: 'Per Delivery',
-        baseRate: 45,
-        renewalStatus: 'Auto-Renew'
-    },
-    {
-        id: 'CON-2024-005',
-        carrier: 'Northern Logistics',
-        type: 'Cold Chain',
-        startDate: '2024-01-15',
-        endDate: '2024-07-14',
-        value: 520000,
-        status: 'Expiring Soon',
-        routes: ['UAE - GCC', 'Pharma Routes'],
-        sla: '99.5% On-Time',
-        rateType: 'Per Container',
-        baseRate: 2500,
-        renewalStatus: 'Negotiating'
-    },
-    {
-        id: 'CON-2023-012',
-        carrier: 'Coast Shipping',
-        type: 'Standard',
-        startDate: '2023-01-01',
-        endDate: '2023-12-31',
-        value: 150000,
-        status: 'Expired',
-        routes: ['Dubai - Fujairah'],
-        sla: '92% On-Time',
-        rateType: 'Per KG',
-        baseRate: 8.5,
-        renewalStatus: 'Not Renewed'
-    },
-    {
-        id: 'CON-2024-006',
-        carrier: 'Heavy Haul Transport',
-        type: 'Specialized',
-        startDate: '2024-04-01',
-        endDate: '2025-03-31',
-        value: 380000,
-        status: 'Active',
-        routes: ['Heavy Equipment', 'Oversized Cargo'],
-        sla: '97% On-Time',
-        rateType: 'Custom Quote',
-        baseRate: 0,
-        renewalStatus: 'Manual'
-    }
-];
+interface CarrierContract {
+    id: string;
+    carrier: string;
+    type: string;
+    startDate: string;
+    endDate: string;
+    value: number;
+    status: string;
+    routes: string[];
+    sla: string;
+    rateType: string;
+    baseRate: number;
+    renewalStatus: string;
+}
 
 export default function CarrierContractsPage() {
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [contracts, setContracts] = useState<CarrierContract[]>([]);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await LogisticsService.getCarrierContracts();
+                const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+                if (cancelled) return;
+                setContracts((list as any[]).map((r, i) => ({
+                    id: String(r.contractNo ?? r.id ?? i),
+                    carrier: r.carrier ?? '',
+                    type: r.type ?? '',
+                    startDate: r.startDate ?? '',
+                    endDate: r.endDate ?? '',
+                    value: Number(r.value ?? 0),
+                    status: r.status ?? 'Active',
+                    routes: Array.isArray(r.routes) ? r.routes : (r.routes ? [r.routes] : []),
+                    sla: r.sla ?? '',
+                    rateType: r.rateType ?? '',
+                    baseRate: Number(r.baseRate ?? 0),
+                    renewalStatus: r.renewalStatus ?? '',
+                })));
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load contracts');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
