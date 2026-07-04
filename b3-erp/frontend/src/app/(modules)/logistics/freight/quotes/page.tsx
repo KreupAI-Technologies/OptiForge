@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FileText,
     Search,
@@ -24,6 +24,23 @@ import {
     TrendingUp
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { LogisticsService } from '@/services/logistics.service';
+
+interface FreightQuote {
+    id: string;
+    customer: string;
+    origin: string;
+    destination: string;
+    weight: string;
+    mode: string;
+    requestDate: string;
+    validUntil: string;
+    amount: number;
+    status: string;
+    carrier: string;
+    transitTime: string;
+    rejectionReason?: string;
+}
 
 // Mock Quote Data
 const quoteStats = {

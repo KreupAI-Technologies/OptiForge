@@ -49,162 +49,55 @@ interface AcceptedHandover {
 
 export default function AcceptedHandoverPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [acceptedHandovers, setAcceptedHandovers] = useState<AcceptedHandover[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const acceptedHandovers: AcceptedHandover[] = [
-    {
-      id: '1',
-      handoverNumber: 'HO-2025-001',
-      orderNumber: 'SO-2025-089',
-      customerName: 'Tata Motors Limited',
-      customerContact: 'Rajesh Kumar',
-      deliveryAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      handoverDate: '2025-10-18',
-      handoverTime: '10:30 AM',
-      acceptedBy: 'Rajesh Kumar',
-      acceptedByDesignation: 'Procurement Manager',
-      acceptedBySignature: true,
-      itemsCount: 15,
-      totalQuantity: 250,
-      rating: 5,
-      feedback: 'Excellent delivery service. All items received in perfect condition.',
-      documentsHandedOver: ['Invoice', 'Packing List', 'Quality Certificate', 'Warranty Card'],
-      photosAvailable: true,
-      installationRequired: true,
-      installationScheduled: true
-    },
-    {
-      id: '2',
-      handoverNumber: 'HO-2025-002',
-      orderNumber: 'SO-2025-091',
-      customerName: 'Larsen & Toubro',
-      customerContact: 'Amit Patel',
-      deliveryAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      handoverDate: '2025-10-17',
-      handoverTime: '2:15 PM',
-      acceptedBy: 'Amit Patel',
-      acceptedByDesignation: 'Site Engineer',
-      acceptedBySignature: true,
-      itemsCount: 12,
-      totalQuantity: 180,
-      rating: 4,
-      feedback: 'Good delivery. One minor packaging issue but items were intact.',
-      documentsHandedOver: ['Invoice', 'Packing List', 'Quality Certificate'],
-      photosAvailable: true,
-      installationRequired: false
-    },
-    {
-      id: '3',
-      handoverNumber: 'HO-2025-003',
-      orderNumber: 'SO-2025-095',
-      customerName: 'Reliance Industries',
-      customerContact: 'Vikram Shah',
-      deliveryAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      handoverDate: '2025-10-19',
-      handoverTime: '11:00 AM',
-      acceptedBy: 'Vikram Shah',
-      acceptedByDesignation: 'Operations Head',
-      acceptedBySignature: true,
-      itemsCount: 20,
-      totalQuantity: 400,
-      rating: 5,
-      feedback: 'Outstanding service. Very professional team and timely delivery.',
-      documentsHandedOver: ['Invoice', 'Packing List', 'Quality Certificate', 'Warranty Card', 'User Manual'],
-      photosAvailable: true,
-      installationRequired: true,
-      installationScheduled: true
-    },
-    {
-      id: '4',
-      handoverNumber: 'HO-2025-004',
-      orderNumber: 'SO-2025-098',
-      customerName: 'Adani Ports',
-      customerContact: 'Suresh Menon',
-      deliveryAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      handoverDate: '2025-10-16',
-      handoverTime: '3:45 PM',
-      acceptedBy: 'Suresh Menon',
-      acceptedByDesignation: 'Warehouse Manager',
-      acceptedBySignature: true,
-      itemsCount: 10,
-      totalQuantity: 120,
-      rating: 5,
-      documentsHandedOver: ['Invoice', 'Packing List', 'Quality Certificate'],
-      photosAvailable: false,
-      installationRequired: false
-    },
-    {
-      id: '5',
-      handoverNumber: 'HO-2025-005',
-      orderNumber: 'SO-2025-102',
-      customerName: 'Mahindra & Mahindra',
-      customerContact: 'Priya Sharma',
-      deliveryAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      handoverDate: '2025-10-15',
-      handoverTime: '9:30 AM',
-      acceptedBy: 'Priya Sharma',
-      acceptedByDesignation: 'Quality Manager',
-      acceptedBySignature: true,
-      itemsCount: 8,
-      totalQuantity: 90,
-      rating: 4,
-      feedback: 'Satisfactory delivery. Documentation could be more detailed.',
-      documentsHandedOver: ['Invoice', 'Packing List'],
-      photosAvailable: true,
-      installationRequired: true,
-      installationScheduled: false
-    },
-    {
-      id: '6',
-      handoverNumber: 'HO-2025-006',
-      orderNumber: 'SO-2025-104',
-      customerName: 'Bharat Heavy Electricals',
-      customerContact: 'Arun Verma',
-      deliveryAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      handoverDate: '2025-10-14',
-      handoverTime: '1:20 PM',
-      acceptedBy: 'Arun Verma',
-      acceptedByDesignation: 'Stores Superintendent',
-      acceptedBySignature: true,
-      itemsCount: 18,
-      totalQuantity: 320,
-      rating: 5,
-      feedback: 'Excellent handling of heavy items. Professional delivery team.',
-      documentsHandedOver: ['Invoice', 'Packing List', 'Quality Certificate', 'Warranty Card', 'Safety Data Sheet'],
-      photosAvailable: true,
-      installationRequired: true,
-      installationScheduled: true
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getHandovers();
+        const mapped: AcceptedHandover[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          handoverNumber: r.handoverNumber ?? r.number ?? '',
+          orderNumber: r.orderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerContact: r.customerContact ?? '',
+          deliveryAddress: {
+            street: r.deliveryAddress?.street ?? '',
+            city: r.deliveryAddress?.city ?? '',
+            state: r.deliveryAddress?.state ?? '',
+            pincode: r.deliveryAddress?.pincode ?? '',
+          },
+          handoverDate: r.handoverDate ?? '',
+          handoverTime: r.handoverTime ?? '',
+          acceptedBy: r.acceptedBy ?? '',
+          acceptedByDesignation: r.acceptedByDesignation ?? '',
+          acceptedBySignature: r.acceptedBySignature ?? false,
+          itemsCount: r.itemsCount ?? 0,
+          totalQuantity: r.totalQuantity ?? 0,
+          rating: r.rating,
+          feedback: r.feedback,
+          documentsHandedOver: r.documentsHandedOver ?? [],
+          photosAvailable: r.photosAvailable ?? false,
+          installationRequired: r.installationRequired ?? false,
+          installationScheduled: r.installationScheduled,
+        }));
+        if (!cancelled) setAcceptedHandovers(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setAcceptedHandovers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredHandovers = acceptedHandovers.filter(handover =>
     handover.handoverNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -52,6 +52,42 @@ const recommendations = [
 
 export default function GapAnalysisPage() {
   const [selectedDept, setSelectedDept] = useState('Engineering');
+  const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.get('/hr/skill-gaps')) as any[];
+        const mapped: SkillGap[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          skill: r.skill ?? '',
+          dept: r.dept ?? r.department ?? '',
+          expected: Number(r.expected ?? 0),
+          actual: Number(r.actual ?? 0),
+          gap: Number(r.gap ?? 0),
+          impact: r.impact ?? 'Low',
+          employees: Number(r.employees ?? 0),
+        }));
+        if (!cancelled) setSkillGaps(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load skill gaps');
+          setSkillGaps([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">

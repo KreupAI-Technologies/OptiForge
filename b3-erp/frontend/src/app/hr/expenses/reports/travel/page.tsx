@@ -27,54 +27,61 @@ export default function TravelAnalyticsPage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [travelData, setTravelData] = useState<TravelExpense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const travelData: TravelExpense[] = [
-    {
-      id: 'TRV-001', employeeName: 'Rajesh Kumar', employeeId: 'EMP-2145', department: 'Sales',
-      destination: 'Mumbai', purpose: 'Client meeting', startDate: '2025-01-15', endDate: '2025-01-17',
-      days: 3, flightCost: 8500, hotelCost: 12000, mealsCost: 3500, localTransportCost: 2000, totalCost: 26000
-    },
-    {
-      id: 'TRV-002', employeeName: 'Priya Sharma', employeeId: 'EMP-2198', department: 'Marketing',
-      destination: 'Bangalore', purpose: 'Conference', startDate: '2025-02-10', endDate: '2025-02-12',
-      days: 3, flightCost: 7200, hotelCost: 10500, mealsCost: 3200, localTransportCost: 1800, totalCost: 22700
-    },
-    {
-      id: 'TRV-003', employeeName: 'Amit Patel', employeeId: 'EMP-2234', department: 'Sales',
-      destination: 'Delhi', purpose: 'Business development', startDate: '2025-03-05', endDate: '2025-03-08',
-      days: 4, flightCost: 9500, hotelCost: 15000, mealsCost: 4500, localTransportCost: 2500, totalCost: 31500
-    },
-    {
-      id: 'TRV-004', employeeName: 'Neha Gupta', employeeId: 'EMP-2167', department: 'Engineering',
-      destination: 'Hyderabad', purpose: 'Training program', startDate: '2025-03-20', endDate: '2025-03-22',
-      days: 3, flightCost: 6800, hotelCost: 9500, mealsCost: 2800, localTransportCost: 1500, totalCost: 20600
-    },
-    {
-      id: 'TRV-005', employeeName: 'Sanjay Reddy', employeeId: 'EMP-2289', department: 'Operations',
-      destination: 'Chennai', purpose: 'Site visit', startDate: '2025-04-08', endDate: '2025-04-10',
-      days: 3, flightCost: 7500, hotelCost: 11000, mealsCost: 3000, localTransportCost: 1800, totalCost: 23300
-    },
-    {
-      id: 'TRV-006', employeeName: 'Meera Singh', employeeId: 'EMP-2301', department: 'Marketing',
-      destination: 'Pune', purpose: 'Event management', startDate: '2025-05-12', endDate: '2025-05-14',
-      days: 3, flightCost: 5500, hotelCost: 8500, mealsCost: 2500, localTransportCost: 1200, totalCost: 17700
-    },
-    {
-      id: 'TRV-007', employeeName: 'Vikram Shah', employeeId: 'EMP-2412', department: 'Sales',
-      destination: 'Kolkata', purpose: 'Client visit', startDate: '2025-06-18', endDate: '2025-06-20',
-      days: 3, flightCost: 8200, hotelCost: 10800, mealsCost: 3100, localTransportCost: 1900, totalCost: 24000
-    },
-    {
-      id: 'TRV-008', employeeName: 'Anita Desai', employeeId: 'EMP-2534', department: 'Engineering',
-      destination: 'Bangalore', purpose: 'Technical workshop', startDate: '2025-07-22', endDate: '2025-07-25',
-      days: 4, flightCost: 7800, hotelCost: 12500, mealsCost: 3800, localTransportCost: 2200, totalCost: 26300
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.get('/hr/travel-requests')) as any[];
+        const mapped: TravelExpense[] = (Array.isArray(raw) ? raw : []).map((r, i) => {
+          const flightCost = Number(r.flightCost ?? r.flight ?? 0);
+          const hotelCost = Number(r.hotelCost ?? r.hotel ?? 0);
+          const mealsCost = Number(r.mealsCost ?? r.meals ?? 0);
+          const localTransportCost = Number(r.localTransportCost ?? r.transport ?? 0);
+          return {
+            id: String(r.id ?? `TRV-${i}`),
+            employeeName: r.employeeName ?? r.employee ?? '',
+            employeeId: r.employeeId ?? '',
+            department: r.department ?? r.departmentName ?? '',
+            destination: r.destination ?? '',
+            purpose: r.purpose ?? '',
+            startDate: r.startDate ?? '',
+            endDate: r.endDate ?? '',
+            days: Number(r.days ?? 0),
+            flightCost,
+            hotelCost,
+            mealsCost,
+            localTransportCost,
+            totalCost: Number(
+              r.totalCost ?? r.totalAmount ?? flightCost + hotelCost + mealsCost + localTransportCost,
+            ),
+          };
+        });
+        if (!cancelled) setTravelData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load travel data');
+          setTravelData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
     if (selectedDepartment === 'all') return travelData;
     return travelData.filter(trip => trip.department === selectedDepartment);
-  }, [selectedDepartment]);
+  }, [selectedDepartment, travelData]);
 
   const stats = useMemo(() => {
     const total = filteredData.reduce(
