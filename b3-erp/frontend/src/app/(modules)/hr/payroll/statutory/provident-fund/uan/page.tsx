@@ -36,83 +36,23 @@ export default function UANManagementPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const uanRecords: UANRecord[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            uan: '101234567890',
-            memberId: 'DLCPM1234567',
-            dateOfJoining: '2020-04-01',
-            dateOfBirth: '1988-05-15',
-            aadhar: 'XXXX-XXXX-1234',
-            pan: 'ABCPJ1234K',
-            bankAccount: 'XXXX1234',
-            kycStatus: 'Verified',
-            uanStatus: 'Active'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            uan: '101234567891',
-            memberId: 'DLCPM1234568',
-            dateOfJoining: '2021-06-15',
-            dateOfBirth: '1992-08-20',
-            aadhar: 'XXXX-XXXX-5678',
-            pan: 'DEFPC5678L',
-            bankAccount: 'XXXX5678',
-            kycStatus: 'Verified',
-            uanStatus: 'Active'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            uan: '101234567892',
-            memberId: 'DLCPM1234569',
-            dateOfJoining: '2022-01-10',
-            dateOfBirth: '1995-03-12',
-            aadhar: 'XXXX-XXXX-9012',
-            pan: 'GHIPD9012M',
-            bankAccount: 'XXXX9012',
-            kycStatus: 'Partial',
-            uanStatus: 'Active'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            uan: '101234567893',
-            memberId: 'DLCPM1234570',
-            dateOfJoining: '2023-03-01',
-            dateOfBirth: '1997-11-25',
-            aadhar: 'XXXX-XXXX-3456',
-            pan: 'JKLPW3456N',
-            bankAccount: 'XXXX3456',
-            kycStatus: 'Verified',
-            uanStatus: 'Active'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP007',
-            employeeName: 'Lisa Wong',
-            department: 'Production',
-            uan: '',
-            memberId: '',
-            dateOfJoining: '2025-01-15',
-            dateOfBirth: '1998-07-08',
-            aadhar: 'XXXX-XXXX-7890',
-            pan: 'MNOPW7890O',
-            bankAccount: 'XXXX7890',
-            kycStatus: 'Pending',
-            uanStatus: 'Pending Activation'
-        }
-    ];
+    const [uanRecords, setUanRecords] = useState<UANRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getStatutoryBy('pf-uan');
+                const mapped: UANRecord[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setUanRecords(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setUanRecords([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredRecords = uanRecords.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||

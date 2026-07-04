@@ -1,12 +1,13 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Star } from 'lucide-react';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function SatisfactionRegionContent() {
     const router = useRouter();
@@ -15,13 +16,35 @@ function SatisfactionRegionContent() {
     const category = searchParams.get('category');
     const ratingFilter = searchParams.get('rating');
 
-    const feedback = [
-        { id: 'FB-2025-001', customer: 'TechCorp Industries', region: 'North America', category: 'Product Quality', rating: 5, comment: 'Excellent durability', date: '2025-03-10' },
-        { id: 'FB-2025-002', customer: 'Global Manufacturing', region: 'Europe', category: 'Delivery Time', rating: 4, comment: 'Good, but slightly delayed', date: '2025-03-09' },
-        { id: 'FB-2025-003', customer: 'AutoParts Ltd', region: 'Asia Pacific', category: 'Customer Service', rating: 5, comment: 'Outstanding support', date: '2025-03-08' },
-        { id: 'FB-2025-004', customer: 'SteelWorks Inc', region: 'North America', category: 'Value for Money', rating: 3, comment: 'A bit pricey', date: '2025-03-05' },
-        { id: 'FB-2025-005', customer: 'PlasticFab Co', region: 'Europe', category: 'After-Sales Support', rating: 2, comment: 'Slow response time', date: '2025-03-11' },
-    ];
+    const [feedback, setFeedback] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('after-sales/feedback/ratings');
+                const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r.id ?? r.feedbackNumber ?? '',
+                    customer: r.customerName ?? '',
+                    region: r.region ?? r.serviceType ?? '',
+                    category: r.category ?? '',
+                    rating: Number(r.rating ?? 0),
+                    comment: r.comment ?? '',
+                    date: r.date ? String(r.date).slice(0, 10) : (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
+                }));
+                if (!cancelled) setFeedback(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setFeedback([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     let filteredFeedback = feedback;
 
@@ -46,6 +69,8 @@ function SatisfactionRegionContent() {
                 { label: 'Details' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Feedback List</CardTitle>
