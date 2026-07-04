@@ -297,146 +297,67 @@ export default function ProductionSchedulingViewPage() {
     ],
   };
 
-  const resourceAllocations: ResourceAllocation[] = [
-    {
-      workCenter: 'Assembly Line 1',
-      workCenterCode: 'AL-01',
-      allocatedHours: 624,
-      availableHours: 672,
-      utilization: 92.9,
-      overloaded: false,
-      conflicts: [],
-      machineAssignments: [
-        {
-          machineId: 'M-001',
-          machineName: 'Auto Assembly Machine 1',
-          workOrders: ['WO-2025-1234', 'WO-2025-1237'],
-          utilizationPercent: 95,
-          status: 'allocated',
-        },
-        {
-          machineId: 'M-002',
-          machineName: 'Testing Station 1',
-          workOrders: ['WO-2025-1234', 'WO-2025-1237'],
-          utilizationPercent: 88,
-          status: 'allocated',
-        },
-      ],
-      laborAssignments: [
-        {
-          employeeId: 'EMP-001',
-          employeeName: 'Suresh Patel',
-          role: 'Line Operator',
-          assignedHours: 104,
-          workOrders: ['WO-2025-1234', 'WO-2025-1237'],
-          shift: 'Morning',
-        },
-        {
-          employeeId: 'EMP-002',
-          employeeName: 'Amit Singh',
-          role: 'Quality Inspector',
-          assignedHours: 52,
-          workOrders: ['WO-2025-1234'],
-          shift: 'Morning',
-        },
-        {
-          employeeId: 'EMP-003',
-          employeeName: 'Priya Sharma',
-          role: 'Line Supervisor',
-          assignedHours: 80,
-          workOrders: ['WO-2025-1234', 'WO-2025-1237'],
-          shift: 'Afternoon',
-        },
-      ],
-      shiftAllocation: {
-        morning: { hours: 224, workOrders: 2 },
-        afternoon: { hours: 224, workOrders: 2 },
-        night: { hours: 176, workOrders: 1 },
-      },
-    },
-    {
-      workCenter: 'Assembly Line 2',
-      workCenterCode: 'AL-02',
-      allocatedHours: 512,
-      availableHours: 672,
-      utilization: 76.2,
-      overloaded: false,
-      conflicts: [],
-      machineAssignments: [
-        {
-          machineId: 'M-003',
-          machineName: 'Auto Assembly Machine 2',
-          workOrders: ['WO-2025-1235', 'WO-2025-1238'],
-          utilizationPercent: 75,
-          status: 'allocated',
-        },
-      ],
-      laborAssignments: [
-        {
-          employeeId: 'EMP-004',
-          employeeName: 'Ramesh Kumar',
-          role: 'Line Operator',
-          assignedHours: 80,
-          workOrders: ['WO-2025-1235', 'WO-2025-1238'],
-          shift: 'Morning',
-        },
-        {
-          employeeId: 'EMP-005',
-          employeeName: 'Deepak Verma',
-          role: 'Setup Technician',
-          assignedHours: 32,
-          workOrders: ['WO-2025-1235'],
-          shift: 'Afternoon',
-        },
-      ],
-      shiftAllocation: {
-        morning: { hours: 192, workOrders: 2 },
-        afternoon: { hours: 192, workOrders: 2 },
-        night: { hours: 128, workOrders: 1 },
-      },
-    },
-    {
-      workCenter: 'Assembly Line 3',
-      workCenterCode: 'AL-03',
-      allocatedHours: 704,
-      availableHours: 672,
-      utilization: 104.8,
-      overloaded: true,
-      conflicts: ['Capacity exceeded by 32 hours', 'Overtime required on 2025-04-19 and 2025-04-20'],
-      machineAssignments: [
-        {
-          machineId: 'M-005',
-          machineName: 'Auto Assembly Machine 3',
-          workOrders: ['WO-2025-1236', 'WO-2025-1239'],
-          utilizationPercent: 110,
-          status: 'overloaded',
-        },
-      ],
-      laborAssignments: [
-        {
-          employeeId: 'EMP-006',
-          employeeName: 'Vijay Desai',
-          role: 'Line Operator',
-          assignedHours: 116,
-          workOrders: ['WO-2025-1236', 'WO-2025-1239'],
-          shift: 'Morning',
-        },
-        {
-          employeeId: 'EMP-007',
-          employeeName: 'Sandeep Rao',
-          role: 'Line Operator',
-          assignedHours: 116,
-          workOrders: ['WO-2025-1236', 'WO-2025-1239'],
-          shift: 'Afternoon',
-        },
-      ],
-      shiftAllocation: {
-        morning: { hours: 240, workOrders: 2 },
-        afternoon: { hours: 240, workOrders: 2 },
-        night: { hours: 224, workOrders: 2 },
-      },
-    },
-  ];
+  // Resource allocations — primary table, wired to production/resource-allocations
+  const [resourceAllocations, setResourceAllocations] = useState<ResourceAllocation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await ProductionOrphanService.getResourceAllocations();
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+        const mapped: ResourceAllocation[] = raw.map((r) => {
+          const allocatedHours = Number(r.allocatedHours ?? r.allocated ?? 0);
+          const availableHours = Number(r.availableHours ?? r.available ?? r.capacityHours ?? 0);
+          const utilization = Number(
+            r.utilization ?? (availableHours > 0 ? (allocatedHours / availableHours) * 100 : 0),
+          );
+          const shift = r.shiftAllocation ?? {};
+          return {
+            workCenter: r.workCenter ?? r.workCenterName ?? r.resourceName ?? r.name ?? '-',
+            workCenterCode: r.workCenterCode ?? r.code ?? r.resourceCode ?? '-',
+            allocatedHours,
+            availableHours,
+            utilization,
+            overloaded: Boolean(r.overloaded ?? utilization > 100),
+            conflicts: Array.isArray(r.conflicts) ? r.conflicts : [],
+            machineAssignments: Array.isArray(r.machineAssignments) ? r.machineAssignments : [],
+            laborAssignments: Array.isArray(r.laborAssignments) ? r.laborAssignments : [],
+            shiftAllocation: {
+              morning: {
+                hours: Number(shift.morning?.hours ?? 0),
+                workOrders: Number(shift.morning?.workOrders ?? 0),
+              },
+              afternoon: {
+                hours: Number(shift.afternoon?.hours ?? 0),
+                workOrders: Number(shift.afternoon?.workOrders ?? 0),
+              },
+              night: {
+                hours: Number(shift.night?.hours ?? 0),
+                workOrders: Number(shift.night?.workOrders ?? 0),
+              },
+            },
+          };
+        });
+        if (!cancelled) setResourceAllocations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load resource allocations');
+          setResourceAllocations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -951,6 +872,24 @@ export default function ProductionSchedulingViewPage() {
                   <Factory className="w-5 h-5 text-blue-600" />
                   Work Center Allocation
                 </h3>
+
+                {isLoading && (
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                    Loading resource allocations…
+                  </div>
+                )}
+                {loadError && !isLoading && (
+                  <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    {loadError}
+                  </div>
+                )}
+                {!isLoading && !loadError && resourceAllocations.length === 0 && (
+                  <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    No resource allocations found.
+                  </div>
+                )}
 
                 {resourceAllocations.map((resource, idx) => (
                   <div key={idx} className="mb-3 bg-white border border-gray-200 rounded-lg overflow-hidden">

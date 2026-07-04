@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MapPin, Package, User, Calendar, TrendingUp, CheckCircle, Clock, AlertCircle, Building, Truck, Archive, Eye, Filter, Search, Plus, History } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service';
 
 interface AssetMovement {
   id: string
@@ -48,7 +49,71 @@ export default function AssetTracking() {
   const [selectedMovement, setSelectedMovement] = useState<AssetMovement | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
-  const assetMovements: AssetMovement[] = [
+  const [assetMovements, setAssetMovements] = useState<AssetMovement[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await supportPagesService.getHardwareAssets()) as any[]
+        const mapped: AssetMovement[] = (Array.isArray(raw) ? raw : []).map((a: any) => ({
+          id: String(a.id ?? a.assetId ?? a.assetTag ?? ''),
+          assetId: String(a.assetId ?? a.id ?? a.assetTag ?? ''),
+          assetName: String(a.assetName ?? a.name ?? a.model ?? ''),
+          assetType: (a.assetType ?? 'Hardware') as AssetMovement['assetType'],
+          assetTag: String(a.assetTag ?? a.tag ?? a.assetId ?? a.id ?? ''),
+          movementType: (a.movementType ?? 'Transfer') as AssetMovement['movementType'],
+          status: (a.status ?? 'Pending') as AssetMovement['status'],
+          from: {
+            location: String(a.from?.location ?? a.fromLocation ?? ''),
+            building: String(a.from?.building ?? a.fromBuilding ?? ''),
+            room: String(a.from?.room ?? a.fromRoom ?? ''),
+            person: a.from?.person ?? a.fromPerson ?? undefined,
+          },
+          to: {
+            location: String(a.to?.location ?? a.toLocation ?? a.location ?? ''),
+            building: String(a.to?.building ?? a.toBuilding ?? a.building ?? ''),
+            room: String(a.to?.room ?? a.toRoom ?? a.room ?? ''),
+            person: a.to?.person ?? a.toPerson ?? a.assignedTo ?? undefined,
+          },
+          requestedBy: {
+            name: String(a.requestedBy?.name ?? a.requestedByName ?? a.owner ?? ''),
+            department: String(a.requestedBy?.department ?? a.department ?? ''),
+            email: String(a.requestedBy?.email ?? a.requestedByEmail ?? ''),
+          },
+          dates: {
+            requested: String(a.dates?.requested ?? a.requestedDate ?? a.createdAt ?? ''),
+            scheduled: String(a.dates?.scheduled ?? a.scheduledDate ?? ''),
+            completed: a.dates?.completed ?? a.completedDate ?? undefined,
+          },
+          notes: String(a.notes ?? a.description ?? ''),
+          tracking: {
+            currentLocation: String(a.tracking?.currentLocation ?? a.currentLocation ?? a.location ?? ''),
+            lastUpdate: String(a.tracking?.lastUpdate ?? a.lastUpdate ?? a.updatedAt ?? ''),
+            estimatedArrival: a.tracking?.estimatedArrival ?? a.estimatedArrival ?? undefined,
+          },
+        }))
+        if (!cancelled) setAssetMovements(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load asset movements')
+          setAssetMovements([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const assetMovementsSeed: AssetMovement[] = [
     {
       id: '1',
       assetId: 'HW-2024-001',
@@ -369,6 +434,8 @@ export default function AssetTracking() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading asset movements…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

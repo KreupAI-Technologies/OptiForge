@@ -1,24 +1,55 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function RevenueAnalysisReport() {
     const router = useRouter();
-    const revenueStreams = [
-        { id: 'REV-001', product: 'Industrial Pumps', category: 'Machinery', revenue: 1200000, growth: 15 },
-        { id: 'REV-002', product: 'Conveyor Belts', category: 'Components', revenue: 850000, growth: 8 },
-        { id: 'REV-003', product: 'Maintenance Services', category: 'Services', revenue: 450000, growth: 22 },
-        { id: 'REV-004', product: 'Spare Parts', category: 'Components', revenue: 320000, growth: 5 },
-        { id: 'REV-005', product: 'Consulting', category: 'Services', revenue: 180000, growth: 12 },
-    ];
+    const [revenueStreams, setRevenueStreams] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                // Revenue analysis derives from posted sales invoices, grouped by customer.
+                const raw = await fetchDomainList<any>('finance/invoices?invoiceType=Sales Invoice');
+                const groups = new Map<string, number>();
+                (Array.isArray(raw) ? raw : []).forEach((r: any) => {
+                    const key = r.partyName ?? 'Unknown';
+                    groups.set(key, (groups.get(key) ?? 0) + Number(r.totalAmount ?? 0));
+                });
+                const mapped = Array.from(groups.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([product, revenue], i) => ({
+                        id: `REV-${String(i + 1).padStart(3, '0')}`,
+                        product,
+                        category: 'Sales',
+                        revenue,
+                        growth: 0,
+                    }));
+                if (!cancelled) setRevenueStreams(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRevenueStreams([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">Revenue Analysis</h1>

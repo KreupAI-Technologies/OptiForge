@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CheckCircle,
@@ -18,6 +18,7 @@ import {
   History
 } from 'lucide-react'
 import { ViewApprovalModal, ApproveRejectModal, ApprovalHistoryModal, FilterModal } from '@/components/cpq/QuoteApprovalModals'
+import { cpqApprovalService, type CPQApprovalItem } from '@/services/cpq/cpq-approval.service'
 
 interface QuoteApproval {
   id: string
@@ -59,147 +60,50 @@ export default function CPQQuotesApprovalsPage() {
   // Advanced filters
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
 
-  const [approvals, setApprovals] = useState<QuoteApproval[]>([
-    {
-      id: 'APP-001',
-      quoteNumber: 'QT-2024-1234',
-      customerName: 'Prestige Properties Ltd',
-      value: 2850000,
-      discount: 18,
-      requester: 'Rajesh Kumar',
-      approvers: [
-        {
-          name: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          comments: 'Approved - Customer has good payment history',
-          date: '2024-10-18'
-        },
-        {
-          name: 'Amit Patel',
-          role: 'Regional Director',
-          status: 'pending'
+  const [approvals, setApprovals] = useState<QuoteApproval[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await cpqApprovalService.findAll({ category: 'quote' })
+        const mapped: QuoteApproval[] = (Array.isArray(rows) ? rows : []).map(
+          (r: CPQApprovalItem) => {
+            const payload = (r.payload ?? {}) as Record<string, any>
+            return {
+              id: r.id,
+              quoteNumber: r.reference ?? r.title ?? '—',
+              customerName: r.customerName ?? '—',
+              value: Number(r.value ?? 0),
+              discount: Number(payload.discount ?? 0),
+              requester: r.requestedBy ?? '—',
+              approvers: Array.isArray(payload.approvers) ? payload.approvers : [],
+              reason: r.reason ?? '',
+              submittedDate: (r.createdAt ?? '').slice(0, 10),
+              status: r.status,
+              priority: r.priority,
+            }
+          },
+        )
+        if (!cancelled) setApprovals(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load approvals')
+          setApprovals([])
         }
-      ],
-      reason: 'Discount exceeds standard 15% limit for premium segment',
-      submittedDate: '2024-10-18',
-      status: 'pending',
-      priority: 'high'
-    },
-    {
-      id: 'APP-002',
-      quoteNumber: 'QT-2024-1235',
-      customerName: 'Urban Homes Pvt Ltd',
-      value: 1750000,
-      discount: 22,
-      requester: 'Priya Sharma',
-      approvers: [
-        {
-          name: 'Amit Patel',
-          role: 'Regional Director',
-          status: 'approved',
-          comments: 'Approved - Volume deal with 10+ units',
-          date: '2024-10-17'
-        }
-      ],
-      reason: 'Special volume pricing for bulk order (12 kitchens)',
-      submittedDate: '2024-10-17',
-      status: 'approved',
-      priority: 'medium'
-    },
-    {
-      id: 'APP-003',
-      quoteNumber: 'QT-2024-1236',
-      customerName: 'Elite Builders & Developers',
-      value: 4200000,
-      discount: 25,
-      requester: 'Amit Patel',
-      approvers: [
-        {
-          name: 'Vikram Singh',
-          role: 'VP Sales',
-          status: 'rejected',
-          comments: 'Discount too high. Please renegotiate to max 20%',
-          date: '2024-10-16'
-        }
-      ],
-      reason: 'Strategic customer requiring premium discount',
-      submittedDate: '2024-10-16',
-      status: 'rejected',
-      priority: 'urgent'
-    },
-    {
-      id: 'APP-004',
-      quoteNumber: 'QT-2024-1237',
-      customerName: 'Sunshine Apartments',
-      value: 950000,
-      discount: 12,
-      requester: 'Neha Gupta',
-      approvers: [
-        {
-          name: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'pending'
-        }
-      ],
-      reason: 'Payment terms: Net 60 days (standard is Net 30)',
-      submittedDate: '2024-10-18',
-      status: 'pending',
-      priority: 'low'
-    },
-    {
-      id: 'APP-005',
-      quoteNumber: 'QT-2024-1238',
-      customerName: 'Metro Residency',
-      value: 3200000,
-      discount: 20,
-      requester: 'Rajesh Kumar',
-      approvers: [
-        {
-          name: 'Priya Sharma',
-          role: 'Sales Manager',
-          status: 'approved',
-          comments: 'Approved with condition: 50% advance payment',
-          date: '2024-10-15'
-        },
-        {
-          name: 'Amit Patel',
-          role: 'Regional Director',
-          status: 'approved',
-          comments: 'Agreed. Conditions acceptable',
-          date: '2024-10-15'
-        }
-      ],
-      reason: 'Custom design requirements with extended delivery timeline',
-      submittedDate: '2024-10-15',
-      status: 'approved',
-      priority: 'high'
-    },
-    {
-      id: 'APP-006',
-      quoteNumber: 'QT-2024-1239',
-      customerName: 'Luxury Villas Project',
-      value: 5800000,
-      discount: 15,
-      requester: 'Amit Patel',
-      approvers: [
-        {
-          name: 'Vikram Singh',
-          role: 'VP Sales',
-          status: 'pending'
-        },
-        {
-          name: 'Rajesh Mehta',
-          role: 'CFO',
-          status: 'pending'
-        }
-      ],
-      reason: 'High-value quote requiring multi-level approval',
-      submittedDate: '2024-10-17',
-      status: 'escalated',
-      priority: 'urgent'
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Handler functions
   const handleViewApproval = (approval: QuoteApproval) => {

@@ -9,6 +9,22 @@ import { KnowledgeBase } from './entities/knowledge-base.entity';
 import { SparePart } from './entities/spare-part.entity';
 import { KnowledgeFaq } from './entities/knowledge-faq.entity';
 import { KnowledgeManual } from './entities/knowledge-manual.entity';
+import { ServiceFeedback } from './entities/service-feedback.entity';
+import { PartsMovement } from './entities/parts-movement.entity';
+import { TroubleshootingGuide } from './entities/troubleshooting-guide.entity';
+import { ServiceAnalytics } from './entities/service-analytics.entity';
+
+// Additive page-backing controllers + services
+import {
+  AfterSalesFeedbackController,
+  AfterSalesPartsController,
+  AfterSalesAnalyticsController,
+  AfterSalesTroubleshootingController,
+} from './after-sales-pages.controller';
+import { ServiceFeedbackService } from './services/service-feedback.service';
+import { PartsMovementService } from './services/parts-movement.service';
+import { ServiceAnalyticsService } from './services/service-analytics.service';
+import { TroubleshootingService } from './services/troubleshooting.service';
 
 // Knowledge base (FAQs + Manuals)
 import { KnowledgeFaqController } from './knowledge/knowledge-faq.controller';
@@ -57,9 +73,17 @@ import { AfterSalesController } from './after-sales.controller';
       SparePart,
       KnowledgeFaq,
       KnowledgeManual,
+      ServiceFeedback,
+      PartsMovement,
+      TroubleshootingGuide,
+      ServiceAnalytics,
     ]),
   ],
   controllers: [
+    AfterSalesFeedbackController,
+    AfterSalesPartsController,
+    AfterSalesAnalyticsController,
+    AfterSalesTroubleshootingController,
     ServiceContractsController,
     WarrantiesController,
     ServiceRequestsController,
@@ -79,6 +103,10 @@ import { AfterSalesController } from './after-sales.controller';
     ServiceBillingService,
     KnowledgeFaqService,
     KnowledgeManualService,
+    ServiceFeedbackService,
+    PartsMovementService,
+    ServiceAnalyticsService,
+    TroubleshootingService,
     ServiceTypeSeederService,
     WarrantyTypeSeederService,
     AfterSalesService,

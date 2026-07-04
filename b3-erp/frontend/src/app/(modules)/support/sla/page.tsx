@@ -26,7 +26,43 @@ export default function SLAManagement() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
 
-  const slas: SLA[] = [
+  const [slas, setSlas] = useState<SLA[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true); setLoadError(null)
+      try {
+        const res = (await supportPagesService.getSlaSettings()) as any
+        const raw: any[] = Array.isArray(res?.slaConfigs) ? res.slaConfigs : (Array.isArray(res) ? res : [])
+        const mapped: SLA[] = raw.map((s: any) => ({
+          id: String(s?.id ?? s?.slaId ?? s?.slaNumber ?? ''),
+          slaNumber: String(s?.slaNumber ?? s?.code ?? s?.id ?? ''),
+          name: String(s?.name ?? s?.title ?? ''),
+          type: (s?.type ?? 'Response Time') as SLA['type'],
+          priority: (s?.priority ?? 'P3') as SLA['priority'],
+          target: String(s?.target ?? ''),
+          actual: String(s?.actual ?? ''),
+          compliance: Number(s?.compliance ?? 0),
+          status: (s?.status ?? 'Meeting') as SLA['status'],
+          ticketsCount: Number(s?.ticketsCount ?? s?.tickets ?? 0),
+          breachCount: Number(s?.breachCount ?? s?.breaches ?? 0),
+          applicableTo: String(s?.applicableTo ?? s?.scope ?? ''),
+          lastBreach: s?.lastBreach != null ? String(s.lastBreach) : undefined,
+          trend: (s?.trend ?? 'stable') as SLA['trend'],
+        }))
+        if (!cancelled) setSlas(mapped)
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load SLAs'); setSlas([]) }
+      } finally { if (!cancelled) setIsLoading(false) }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const slasSeed: SLA[] = [
     {
       id: '1',
       slaNumber: 'SLA-001',
@@ -275,6 +311,8 @@ export default function SLAManagement() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading SLAs…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

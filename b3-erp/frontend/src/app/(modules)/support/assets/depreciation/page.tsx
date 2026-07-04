@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Wrench, Calendar, CheckCircle, AlertCircle, Clock, DollarSign, User, FileText, TrendingUp, Eye, Edit, Plus, Search, Filter } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface MaintenanceSchedule {
   id: string
@@ -53,7 +54,76 @@ export default function AssetDepreciation() {
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceSchedule | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
-  const maintenanceSchedules: MaintenanceSchedule[] = [
+  const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await supportPagesService.getHardwareAssets()) as any[]
+        const mapped: MaintenanceSchedule[] = (Array.isArray(raw) ? raw : []).map((a: any) => ({
+          id: String(a?.id ?? a?.assetId ?? a?.assetTag ?? ''),
+          assetId: String(a?.assetId ?? a?.id ?? ''),
+          assetName: a?.assetName ?? a?.name ?? 'Unknown Asset',
+          assetCategory: (a?.assetCategory ?? a?.category ?? 'Hardware') as MaintenanceSchedule['assetCategory'],
+          assetTag: a?.assetTag ?? a?.tag ?? a?.assetId ?? String(a?.id ?? ''),
+          maintenanceType: (a?.maintenanceType ?? 'Preventive') as MaintenanceSchedule['maintenanceType'],
+          status: (a?.status ?? 'Scheduled') as MaintenanceSchedule['status'],
+          priority: (a?.priority ?? 'Medium') as MaintenanceSchedule['priority'],
+          schedule: {
+            frequency: (a?.schedule?.frequency ?? a?.frequency ?? 'Quarterly') as MaintenanceSchedule['schedule']['frequency'],
+            lastMaintenance: a?.schedule?.lastMaintenance ?? a?.lastMaintenance ?? '',
+            nextMaintenance: a?.schedule?.nextMaintenance ?? a?.nextMaintenance ?? '',
+            dueDate: a?.schedule?.dueDate ?? a?.dueDate ?? '',
+          },
+          details: {
+            description: a?.details?.description ?? a?.description ?? '',
+            estimatedDuration: a?.details?.estimatedDuration ?? a?.estimatedDuration ?? '',
+            estimatedCost: Number(a?.details?.estimatedCost ?? a?.estimatedCost ?? 0),
+            actualCost: a?.details?.actualCost ?? a?.actualCost ?? undefined,
+          },
+          assignment: {
+            technician: a?.assignment?.technician ?? a?.technician ?? '',
+            team: a?.assignment?.team ?? a?.team ?? '',
+            contactEmail: a?.assignment?.contactEmail ?? a?.contactEmail ?? '',
+          },
+          location: {
+            building: a?.location?.building ?? a?.building ?? '',
+            floor: a?.location?.floor ?? a?.floor ?? '',
+            room: a?.location?.room ?? a?.room ?? '',
+          },
+          warranty: {
+            covered: Boolean(a?.warranty?.covered ?? a?.warrantyCovered ?? false),
+            expiryDate: a?.warranty?.expiryDate ?? a?.warrantyExpiryDate ?? '',
+            vendor: a?.warranty?.vendor ?? a?.vendor ?? '',
+          },
+          history: {
+            totalServices: Number(a?.history?.totalServices ?? a?.totalServices ?? 0),
+            lastServiceDate: a?.history?.lastServiceDate ?? a?.lastServiceDate ?? '',
+            avgDowntime: a?.history?.avgDowntime ?? a?.avgDowntime ?? '',
+          },
+        }))
+        if (!cancelled) setMaintenanceSchedules(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load maintenance schedules')
+          setMaintenanceSchedules([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const maintenanceSchedulesSeed: MaintenanceSchedule[] = [
     {
       id: '1',
       assetId: 'HW-2023-045',
@@ -429,6 +499,8 @@ export default function AssetDepreciation() {
 
   return (
     <div className="p-6 space-y-3">
+      {isLoading && (<div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700"><div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />Loading maintenance schedules…</div>)}
+      {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
