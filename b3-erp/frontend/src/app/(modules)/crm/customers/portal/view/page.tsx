@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import { exportToCsv, printCurrentView } from '@/lib/export';
 import { Package, FileText, DollarSign, MessageSquare, Download, Calendar, TrendingUp, Bell, User, Settings, LogOut, Search, Filter, Eye, ChevronRight, Clock, CheckCircle, AlertCircle, XCircle, Receipt, FileSpreadsheet, Printer } from 'lucide-react';
 
@@ -81,8 +83,8 @@ export default function CustomerPortalViewPage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Mock customer data
-  const customerInfo = {
+  // Mock customer data (fallback seed)
+  const customerInfoSeed = {
     name: 'John Smith',
     email: 'john.smith@techcorp.com',
     company: 'TechCorp Global Inc.',
@@ -93,7 +95,7 @@ export default function CustomerPortalViewPage() {
     currentBalance: 73500,
   };
 
-  const mockOrders: Order[] = [
+  const mockOrdersSeed: Order[] = [
     {
       id: '1',
       orderNumber: 'ORD-2024-1523',
@@ -131,7 +133,7 @@ export default function CustomerPortalViewPage() {
     },
   ];
 
-  const mockInvoices: Invoice[] = [
+  const mockInvoicesSeed: Invoice[] = [
     {
       id: '1',
       invoiceNumber: 'INV-2024-3456',
@@ -166,7 +168,7 @@ export default function CustomerPortalViewPage() {
     },
   ];
 
-  const mockReceipts: Receipt[] = [
+  const mockReceiptsSeed: Receipt[] = [
     {
       id: '1',
       receiptNumber: 'RCP-2024-8923',
@@ -205,7 +207,7 @@ export default function CustomerPortalViewPage() {
     },
   ];
 
-  const mockStatementTransactions: StatementTransaction[] = [
+  const mockStatementTransactionsSeed: StatementTransaction[] = [
     {
       id: '1',
       date: '2024-10-18',
@@ -288,7 +290,7 @@ export default function CustomerPortalViewPage() {
     },
   ];
 
-  const mockTickets: SupportTicket[] = [
+  const mockTicketsSeed: SupportTicket[] = [
     {
       id: '1',
       ticketNumber: 'TKT-5623',
@@ -318,7 +320,7 @@ export default function CustomerPortalViewPage() {
     },
   ];
 
-  const mockDocuments: Document[] = [
+  const mockDocumentsSeed: Document[] = [
     {
       id: '1',
       name: 'Master Service Agreement 2024',
@@ -352,6 +354,96 @@ export default function CustomerPortalViewPage() {
       category: 'Pricing',
     },
   ];
+
+  // ---- Live-loaded portal data ----
+  const searchParams = useSearchParams();
+  const portalCustomerId = searchParams?.get('customerId') || searchParams?.get('id') || '';
+
+  const [customerInfo, setCustomerInfo] = useState(customerInfoSeed);
+  const [mockOrders, setMockOrders] = useState<Order[]>([]);
+  // No CRM endpoints exist for portal invoices / receipts / statement /
+  // documents, so those panels fall back to their (empty) live state. The
+  // orders panel is fed from the customer's quotes and support from tickets.
+  const [mockInvoices] = useState<Invoice[]>([]);
+  const [mockReceipts] = useState<Receipt[]>([]);
+  const [mockStatementTransactions] = useState<StatementTransaction[]>([]);
+  const [mockTickets, setMockTickets] = useState<SupportTicket[]>([]);
+  const [mockDocuments] = useState<Document[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!portalCustomerId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // (a) primary entity
+        const raw: any = await crmService.customers.getById(portalCustomerId);
+        if (!cancelled && raw && typeof raw === 'object') {
+          setCustomerInfo({
+            name: raw.contactName ?? raw.customerName ?? customerInfoSeed.name,
+            email: raw.generalEmail ?? raw.email ?? customerInfoSeed.email,
+            company: raw.customerName ?? raw.legalName ?? customerInfoSeed.company,
+            accountNumber: raw.customerNumber ?? raw.id ?? customerInfoSeed.accountNumber,
+            memberSince: (raw.customerSince ?? raw.createdAt ?? customerInfoSeed.memberSince).toString().slice(0, 10),
+            accountValue: Number(raw.lifetimeValue ?? customerInfoSeed.accountValue),
+            creditLimit: Number(raw.creditLimit ?? customerInfoSeed.creditLimit),
+            currentBalance: Number(raw.creditUsed ?? customerInfoSeed.currentBalance),
+          });
+        }
+
+        // (b) related lists — orders from quotes, support from tickets.
+        const [quotesRaw, ticketsRaw] = await Promise.all([
+          crmService.customers.getQuotes(portalCustomerId).catch(() => []),
+          crmService.tickets.getAll({ customerId: portalCustomerId }).then((r: any) => (Array.isArray(r) ? r : r?.data ?? [])).catch(() => []),
+        ]);
+
+        if (!cancelled) {
+          setMockOrders(
+            (quotesRaw as any[]).map((q, i) => ({
+              id: q.id ?? String(i),
+              orderNumber: q.quoteNumber ?? q.number ?? q.id ?? `Q-${i + 1}`,
+              date: (q.createdAt ?? '').toString().slice(0, 10),
+              status:
+                q.status === 'accepted'
+                  ? 'delivered'
+                  : q.status === 'rejected'
+                  ? 'cancelled'
+                  : 'processing',
+              items: Array.isArray(q.items) ? q.items.length : Number(q.itemCount ?? 0),
+              total: Number(q.totalAmount ?? q.amount ?? 0),
+            })),
+          );
+          setMockTickets(
+            (ticketsRaw as any[]).map((t, i) => ({
+              id: t.id ?? String(i),
+              ticketNumber: t.ticketNumber ?? t.number ?? t.id ?? `TKT-${i + 1}`,
+              subject: t.subject ?? t.title ?? '',
+              status:
+                ['open', 'in-progress', 'resolved', 'closed'].includes(t.status)
+                  ? t.status
+                  : 'open',
+              priority: ['low', 'medium', 'high'].includes(t.priority) ? t.priority : 'medium',
+              createdAt: (t.createdAt ?? '').toString().slice(0, 10),
+              lastUpdate: (t.updatedAt ?? t.createdAt ?? '').toString().slice(0, 10),
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load portal data');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [portalCustomerId]);
 
   const getOrderStatusColor = (status: string) => {
     switch (status) {
@@ -481,6 +573,17 @@ export default function CustomerPortalViewPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      {loadError && (
+        <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          <span>{loadError}</span>
+        </div>
+      )}
+      {isLoading && (
+        <div className="border-b border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading portal…
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0">
         <div className="px-3">
