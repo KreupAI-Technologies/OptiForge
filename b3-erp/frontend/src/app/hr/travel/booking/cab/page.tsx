@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Car, Plus, Calendar, IndianRupee, User, MapPin, Edit2, Trash2, X, Save, AlertCircle, Download, Navigation } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -35,119 +36,28 @@ interface CabBooking {
 }
 
 export default function CabBookingPage() {
-  const [bookings, setBookings] = useState<CabBooking[]>([
-    {
-      id: '1',
-      bookingReference: 'CAB-2025-001',
-      travelRequestId: 'TR-2025-002',
-      employeeCode: 'EMP456',
-      employeeName: 'Priya Sharma',
-      department: 'Engineering',
-      provider: 'ola',
-      bookingNumber: 'OLA123456',
-      cabType: 'sedan',
-      vehicleModel: 'Honda City',
-      driverName: 'Rajesh Kumar',
-      driverContact: '+91 98765 43210',
-      pickupLocation: 'Pune Airport (PNQ)',
-      dropLocation: 'ITC Grand Central, Bangalore',
-      pickupDate: '2025-11-10',
-      pickupTime: '08:00',
-      tripType: 'one-way',
-      distance: 15,
-      duration: '30 mins',
-      baseFare: 420,
-      taxes: 80,
-      totalAmount: 500,
-      bookingDate: '2025-11-09',
-      bookingSource: 'app',
-      bookingStatus: 'confirmed',
-      paymentMethod: 'corporate-account',
-      remarks: 'Airport pickup - confirmed driver details'
-    },
-    {
-      id: '2',
-      bookingReference: 'CAB-2025-002',
-      travelRequestId: 'TR-2025-003',
-      employeeCode: 'EMP789',
-      employeeName: 'Amit Patel',
-      department: 'Quality',
-      provider: 'uber',
-      bookingNumber: 'UBR789012',
-      cabType: 'sedan',
-      vehicleModel: 'Toyota Etios',
-      pickupLocation: 'Office - Pune',
-      dropLocation: 'Mumbai Airport (BOM)',
-      pickupDate: '2025-11-30',
-      pickupTime: '23:00',
-      tripType: 'one-way',
-      distance: 150,
-      duration: '3 hours',
-      baseFare: 3200,
-      taxes: 480,
-      totalAmount: 3680,
-      bookingDate: '2025-11-25',
-      bookingSource: 'app',
-      bookingStatus: 'confirmed',
-      paymentMethod: 'corporate-account',
-      remarks: 'Night travel for early morning international flight'
-    },
-    {
-      id: '3',
-      bookingReference: 'CAB-2025-003',
-      travelRequestId: 'TR-2025-001',
-      employeeCode: 'EMP234',
-      employeeName: 'Rajesh Kumar',
-      department: 'Sales',
-      provider: 'corporate-taxi',
-      bookingNumber: 'CORP456789',
-      cabType: 'suv',
-      vehicleModel: 'Toyota Innova',
-      driverName: 'Suresh Patil',
-      driverContact: '+91 98123 45678',
-      pickupLocation: 'Mumbai Office',
-      dropLocation: 'Client Office - Pune',
-      pickupDate: '2025-11-05',
-      pickupTime: '09:00',
-      tripType: 'round-trip',
-      distance: 300,
-      duration: '6 hours (round-trip)',
-      baseFare: 5500,
-      taxes: 825,
-      totalAmount: 6325,
-      bookingDate: '2025-11-03',
-      bookingSource: 'corporate-agent',
-      bookingStatus: 'completed',
-      paymentMethod: 'corporate-account',
-      remarks: 'Round trip for client meeting - completed successfully'
-    },
-    {
-      id: '4',
-      bookingReference: 'CAB-2025-004',
-      travelRequestId: 'TR-2025-005',
-      employeeCode: 'EMP567',
-      employeeName: 'Sneha Reddy',
-      department: 'Production',
-      provider: 'ola',
-      bookingNumber: 'OLA987654',
-      cabType: 'sedan',
-      pickupLocation: 'Hotel - Chennai',
-      dropLocation: 'Supplier Factory - Chennai Outskirts',
-      pickupDate: '2025-11-08',
-      pickupTime: '10:00',
-      tripType: 'hourly',
-      distance: 80,
-      duration: '4 hours',
-      baseFare: 1800,
-      taxes: 270,
-      totalAmount: 2070,
-      bookingDate: '2025-11-07',
-      bookingSource: 'app',
-      bookingStatus: 'pending',
-      paymentMethod: 'corporate-account',
-      remarks: 'Hourly rental for supplier visit - pending confirmation'
-    }
-  ]);
+  const [bookings, setBookings] = useState<CabBooking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.travelRequests<any[]>();
+        if (!cancelled) setBookings(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setBookings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);

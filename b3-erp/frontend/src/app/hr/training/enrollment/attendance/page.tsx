@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { CheckSquare, Calendar, Search, UserCheck, UserX, Clock, Save } from 'lucide-react';
 
 interface Attendee {
@@ -13,13 +14,28 @@ interface Attendee {
 export default function AttendancePage() {
   const [selectedSession, setSelectedSession] = useState('1');
 
-  const [attendees, setAttendees] = useState<Attendee[]>([
-    { id: '1', name: 'Sarah Connor', role: 'Frontend Dev', status: 'Present' },
-    { id: '2', name: 'James Wilson', role: 'Sales rep', status: 'Absent' },
-    { id: '3', name: 'Michael Chen', role: 'Product Manager', status: 'Present' },
-    { id: '4', name: 'Emily Davis', role: 'Designer', status: 'Late' },
-    { id: '5', name: 'Robert Johnson', role: 'HR Specialist', status: 'Present' },
-  ]);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.trainingEnrollments<any[]>();
+        if (!cancelled) setAttendees(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setAttendees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const stats = {
     present: attendees.filter(a => a.status === 'Present').length,

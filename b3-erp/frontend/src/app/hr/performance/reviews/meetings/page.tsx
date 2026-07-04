@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Calendar, Clock, MapPin, Users, Plus, Video, Monitor } from 'lucide-react';
 
 interface Meeting {
@@ -17,41 +18,28 @@ interface Meeting {
 
 export default function ReviewMeetingsPage() {
   const [showModal, setShowModal] = useState(false);
-  const [meetings, setMeetings] = useState<Meeting[]>([
-    {
-      id: '1',
-      employeeName: 'Rahul Sharma',
-      role: 'Senior Developer',
-      date: '2024-03-25',
-      time: '10:00 AM',
-      duration: '45 min',
-      type: 'in_person',
-      location: 'Conference Room A',
-      status: 'scheduled'
-    },
-    {
-      id: '2',
-      employeeName: 'Priya Patel',
-      role: 'Product Designer',
-      date: '2024-03-25',
-      time: '02:00 PM',
-      duration: '30 min',
-      type: 'remote',
-      location: 'Google Meet',
-      status: 'scheduled'
-    },
-    {
-      id: '3',
-      employeeName: 'Amit Kumar',
-      role: 'QA Lead',
-      date: '2024-03-26',
-      time: '11:00 AM',
-      duration: '60 min',
-      type: 'remote',
-      location: 'Google Meet',
-      status: 'scheduled'
-    }
-  ]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setMeetings(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setMeetings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [formData, setFormData] = useState({
     employeeName: '',

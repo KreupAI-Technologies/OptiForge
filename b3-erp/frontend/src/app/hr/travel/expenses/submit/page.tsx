@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { useRouter } from 'next/navigation';
 import { Receipt, Upload, Plus, X, CreditCard, Wallet, Calendar, MapPin, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
@@ -20,19 +21,28 @@ interface ExpenseItem {
 export default function Page() {
   const router = useRouter();
   const [travelRequestId, setTravelRequestId] = useState('TR-2025-001');
-  const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([
-    {
-      id: '1',
-      category: 'accommodation',
-      date: '2025-11-10',
-      description: 'Hotel ITC Grand Central - 2 nights',
-      amount: 12000,
-      billNumber: 'INV-45632',
-      hasReceipt: true,
-      paymentMode: 'corporate_card',
-      cardLastDigits: '4523'
-    }
-  ]);
+  const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.travelRequests<any[]>();
+        if (!cancelled) setExpenseItems(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setExpenseItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newExpense, setNewExpense] = useState<Partial<ExpenseItem>>({

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Mail, Plus, Clock, CheckCircle, User, Calendar } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -16,26 +17,28 @@ interface FeedbackRequest {
 
 export default function FeedbackRequestsPage() {
   const [showModal, setShowModal] = useState(false);
-  const [requests, setRequests] = useState<FeedbackRequest[]>([
-    {
-      id: '1',
-      recipient: 'David Miller',
-      role: 'QA Engineer',
-      requestedDate: '2024-03-20',
-      dueDate: '2024-03-27',
-      status: 'pending',
-      topics: ['Project Collaboration', 'Technical Quality']
-    },
-    {
-      id: '2',
-      recipient: 'Emily Wilson',
-      role: 'UI Designer',
-      requestedDate: '2024-03-18',
-      dueDate: '2024-03-25',
-      status: 'completed',
-      topics: ['Design Handover', 'Communication']
-    }
-  ]);
+  const [requests, setRequests] = useState<FeedbackRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setRequests(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRequests([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [formData, setFormData] = useState({
     recipient: '',

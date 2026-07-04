@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Users, Search, Filter, CheckCircle, Clock } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -30,45 +31,28 @@ export default function PeerReviewsPage() {
   const [selectedPeer, setSelectedPeer] = useState<PeerReview | null>(null);
 
   // Mock Data
-  const [reviews, setReviews] = useState<PeerReview[]>([
-    {
-      id: '1',
-      peerName: 'Sarah Jenkins',
-      department: 'Engineering',
-      role: 'Senior Frontend Dev',
-      relationship: 'Team Member',
-      dueDate: '2024-03-25',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      peerName: 'Michael Chen',
-      department: 'Product',
-      role: 'Product Manager',
-      relationship: 'Project Lead',
-      dueDate: '2024-03-28',
-      status: 'pending'
-    },
-    {
-      id: '3',
-      peerName: 'David Miller',
-      department: 'Engineering',
-      role: 'QA Engineer',
-      relationship: 'Colleague',
-      dueDate: '2024-03-20',
-      status: 'completed',
-      submittedDate: '2024-03-18'
-    },
-    {
-      id: '4',
-      peerName: 'Emily Wilson',
-      department: 'Design',
-      role: 'UI Designer',
-      relationship: 'Cross-functional',
-      dueDate: '2024-03-30',
-      status: 'pending'
-    }
-  ]);
+  const [reviews, setReviews] = useState<PeerReview[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setReviews(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setReviews([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [formData, setFormData] = useState<ReviewForm>({
     teamwork: 0,

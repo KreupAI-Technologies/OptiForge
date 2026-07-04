@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { CheckCircle, AlertTriangle, FileText, XCircle, Clock } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -15,25 +16,28 @@ interface PIPReview {
 }
 
 export default function PIPReviewPage() {
-  const [reviews, setReviews] = useState<PIPReview[]>([
-    {
-      id: '1',
-      employee: 'James Wilson',
-      role: 'Sales Representative',
-      startDate: '2024-03-01',
-      endDate: '2024-04-30',
-      status: 'pending_review'
-    },
-    {
-      id: '2',
-      employee: 'Sarah Connor',
-      role: 'Marketing Specialist',
-      startDate: '2024-01-01',
-      endDate: '2024-03-01',
-      status: 'passed',
-      outcome: 'Successfully met all performance goals.'
-    }
-  ]);
+  const [reviews, setReviews] = useState<PIPReview[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setReviews(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setReviews([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [selectedReview, setSelectedReview] = useState<PIPReview | null>(null);
   const [decision, setDecision] = useState<{ type: string; notes: string }>({ type: 'passed', notes: '' });

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { User, Save, Send, Calendar, TrendingUp, Target, Award, AlertCircle } from 'lucide-react';
 
 interface ReviewSection {
@@ -23,64 +24,28 @@ export default function SelfReviewPage() {
   const [reviewPeriod] = useState({ start: '2024-04-01', end: '2024-09-30' });
   const [isDraft, setIsDraft] = useState(true);
 
-  const [reviewSections, setReviewSections] = useState<ReviewSection[]>([
-    {
-      id: '1',
-      title: 'Quality of Work',
-      description: 'Accuracy, thoroughness, and quality of work output',
-      rating: 4,
-      comments: 'Consistently maintained high quality standards in all manufacturing processes. Implemented quality checks that reduced defects by 12%.'
-    },
-    {
-      id: '2',
-      title: 'Productivity',
-      description: 'Efficiency and volume of work completed',
-      rating: 5,
-      comments: 'Exceeded production targets by 15% this quarter. Optimized workflow processes that improved team efficiency.'
-    },
-    {
-      id: '3',
-      title: 'Technical Skills',
-      description: 'Job-specific technical competencies',
-      rating: 4,
-      comments: 'Successfully completed advanced CNC programming certification. Applied new skills to improve machining precision.'
-    },
-    {
-      id: '4',
-      title: 'Initiative & Innovation',
-      description: 'Proactive approach and creative problem-solving',
-      rating: 4,
-      comments: 'Proposed and implemented automated quality inspection system that saved 3 hours daily. Led kaizen initiative for waste reduction.'
-    },
-    {
-      id: '5',
-      title: 'Teamwork & Collaboration',
-      description: 'Working effectively with others',
-      rating: 5,
-      comments: 'Actively mentored 3 junior team members. Collaborated cross-functionally with QA and Maintenance teams to resolve production issues.'
-    },
-    {
-      id: '6',
-      title: 'Communication',
-      description: 'Clarity and effectiveness of communication',
-      rating: 4,
-      comments: 'Maintained clear documentation of all processes. Regularly updated team and management on project status.'
-    },
-    {
-      id: '7',
-      title: 'Attendance & Punctuality',
-      description: 'Regularity and timeliness',
-      rating: 5,
-      comments: 'Perfect attendance record for the review period. Always punctual and ready to start work on time.'
-    },
-    {
-      id: '8',
-      title: 'Safety Compliance',
-      description: 'Adherence to safety protocols',
-      rating: 5,
-      comments: 'Consistently followed all safety protocols. Completed all mandatory safety training modules. Zero safety incidents reported.'
-    }
-  ]);
+  const [reviewSections, setReviewSections] = useState<ReviewSection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setReviewSections(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setReviewSections([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [goals] = useState<Goal[]>([
     {

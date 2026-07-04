@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Building, Plus, Calendar, IndianRupee, User, MapPin, Edit2, Trash2, X, Save, AlertCircle, Download, Star, Bed } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -35,120 +36,28 @@ interface HotelBooking {
 }
 
 export default function HotelBookingPage() {
-  const [bookings, setBookings] = useState<HotelBooking[]>([
-    {
-      id: '1',
-      bookingReference: 'HTL-2025-001',
-      travelRequestId: 'TR-2025-002',
-      employeeCode: 'EMP456',
-      employeeName: 'Priya Sharma',
-      department: 'Engineering',
-      hotelName: 'ITC Grand Central',
-      hotelChain: 'ITC Hotels',
-      confirmationNumber: 'ITC123456',
-      location: 'Bangalore',
-      address: 'MG Road, Bangalore 560001',
-      roomType: 'deluxe',
-      checkInDate: '2025-11-10',
-      checkOutDate: '2025-11-15',
-      nights: 5,
-      guests: 1,
-      ratePerNight: 6500,
-      taxes: 3900,
-      totalAmount: 36400,
-      bookingDate: '2025-10-20',
-      bookingSource: 'corporate-agent',
-      agencyName: 'MakeMyTrip Corporate',
-      bookingStatus: 'confirmed',
-      mealPlan: 'breakfast',
-      specialRequests: 'High floor, non-smoking room',
-      cancellationPolicy: 'Free cancellation up to 24 hours before check-in',
-      remarks: 'Corporate rate applied - 20% discount'
-    },
-    {
-      id: '2',
-      bookingReference: 'HTL-2025-002',
-      travelRequestId: 'TR-2025-003',
-      employeeCode: 'EMP789',
-      employeeName: 'Amit Patel',
-      department: 'Quality',
-      hotelName: 'Marina Bay Sands',
-      confirmationNumber: 'MBS789012',
-      location: 'Singapore',
-      address: '10 Bayfront Avenue, Singapore 018956',
-      roomType: 'executive',
-      checkInDate: '2025-12-01',
-      checkOutDate: '2025-12-07',
-      nights: 6,
-      guests: 1,
-      ratePerNight: 18000,
-      taxes: 19440,
-      totalAmount: 127440,
-      bookingDate: '2025-10-25',
-      bookingSource: 'hotel-direct',
-      bookingStatus: 'confirmed',
-      mealPlan: 'breakfast',
-      specialRequests: 'City view room, late check-out if possible',
-      cancellationPolicy: 'Non-refundable. Changes allowed with fee',
-      remarks: 'International business travel - upgraded to executive room'
-    },
-    {
-      id: '3',
-      bookingReference: 'HTL-2025-003',
-      travelRequestId: 'TR-2025-001',
-      employeeCode: 'EMP234',
-      employeeName: 'Rajesh Kumar',
-      department: 'Sales',
-      hotelName: 'The Westin Pune',
-      hotelChain: 'Marriott',
-      confirmationNumber: 'MAR456789',
-      location: 'Pune',
-      address: 'Koregaon Park, Pune 411001',
-      roomType: 'deluxe',
-      checkInDate: '2025-11-05',
-      checkOutDate: '2025-11-07',
-      nights: 2,
-      guests: 1,
-      ratePerNight: 5200,
-      taxes: 1872,
-      totalAmount: 12272,
-      bookingDate: '2025-10-22',
-      bookingSource: 'online-portal',
-      agencyName: 'Booking.com Corporate',
-      bookingStatus: 'confirmed',
-      mealPlan: 'breakfast',
-      cancellationPolicy: 'Free cancellation up to 48 hours before check-in',
-      remarks: 'Client meeting accommodation'
-    },
-    {
-      id: '4',
-      bookingReference: 'HTL-2025-004',
-      travelRequestId: 'TR-2025-005',
-      employeeCode: 'EMP567',
-      employeeName: 'Sneha Reddy',
-      department: 'Production',
-      hotelName: 'Taj Coromandel',
-      hotelChain: 'Taj Hotels',
-      confirmationNumber: 'TAJ987654',
-      location: 'Chennai',
-      address: 'Nungambakkam, Chennai 600034',
-      roomType: 'standard',
-      checkInDate: '2025-11-08',
-      checkOutDate: '2025-11-11',
-      nights: 3,
-      guests: 1,
-      ratePerNight: 4800,
-      taxes: 2592,
-      totalAmount: 16992,
-      bookingDate: '2025-10-28',
-      bookingSource: 'corporate-agent',
-      agencyName: 'TravelBuddy Corporate',
-      bookingStatus: 'pending',
-      mealPlan: 'room-only',
-      cancellationPolicy: 'Free cancellation up to 24 hours before check-in',
-      remarks: 'Pending confirmation from hotel'
-    }
-  ]);
+  const [bookings, setBookings] = useState<HotelBooking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.travelRequests<any[]>();
+        if (!cancelled) setBookings(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setBookings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);

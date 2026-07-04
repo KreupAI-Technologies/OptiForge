@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Target, Plus, Save, X, Calendar, TrendingUp, Users } from 'lucide-react';
 
 interface Goal {
@@ -16,19 +17,28 @@ interface Goal {
 }
 
 export default function SetGoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      title: 'Improve Production Efficiency',
-      description: 'Increase overall production efficiency by 15% through process optimization',
-      category: 'department',
-      priority: 'high',
-      startDate: '2024-11-01',
-      endDate: '2025-03-31',
-      weight: 30,
-      kpis: ['Production Output', 'Defect Rate', 'Machine Utilization']
-    }
-  ]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceGoals<any[]>();
+        if (!cancelled) setGoals(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setGoals([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newGoal, setNewGoal] = useState<Partial<Goal>>({

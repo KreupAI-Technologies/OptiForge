@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Award, ThumbsUp, Heart, Star, Plus, User } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -16,35 +17,28 @@ interface Recognition {
 
 export default function RecognitionPage() {
   const [showModal, setShowModal] = useState(false);
-  const [recognitions, setRecognitions] = useState<Recognition[]>([
-    {
-      id: '1',
-      sender: 'Sarah Jenkins',
-      recipient: 'Rahul Sharma',
-      coreValue: 'Innovation',
-      message: 'Amazing work on automating the deployment pipeline! Saved the team hours of work.',
-      date: '2024-03-20',
-      reactions: 5
-    },
-    {
-      id: '2',
-      sender: 'Michael Chen',
-      recipient: 'Priya Patel',
-      coreValue: 'Teamwork',
-      message: 'Thank you for helping me debug that critical issue late last night.',
-      date: '2024-03-19',
-      reactions: 8
-    },
-    {
-      id: '3',
-      sender: 'Rahul Sharma',
-      recipient: 'Amit Kumar',
-      coreValue: 'Excellence',
-      message: 'Great attention to detail on the QA report. Caught some edge cases we missed.',
-      date: '2024-03-18',
-      reactions: 3
-    }
-  ]);
+  const [recognitions, setRecognitions] = useState<Recognition[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setRecognitions(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRecognitions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [formData, setFormData] = useState({
     recipient: '',

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Clock, CheckCircle, AlertTriangle, ChevronRight, Calculator, Calendar } from 'lucide-react';
 
 interface PIP {
@@ -15,35 +16,28 @@ interface PIP {
 }
 
 export default function PIPTrackingPage() {
-  const [activePIPs, setActivePIPs] = useState<PIP[]>([
-    {
-      id: '1',
-      employee: 'James Wilson',
-      role: 'Sales Representative',
-      startDate: '2024-03-01',
-      endDate: '2024-04-30',
-      status: 'active',
-      progress: 60,
-      actionItems: [
-        { id: 'a1', text: 'Complete sales training module', completed: true },
-        { id: 'a2', text: 'Make 50 calls per week', completed: true },
-        { id: 'a3', text: 'Close 3 deals', completed: false }
-      ]
-    },
-    {
-      id: '2',
-      employee: 'Linda Chen',
-      role: 'Customer Support',
-      startDate: '2024-03-15',
-      endDate: '2024-04-15',
-      status: 'active',
-      progress: 30,
-      actionItems: [
-        { id: 'b1', text: 'Reduce ticket resolution time', completed: false },
-        { id: 'b2', text: 'Maintain CSAT > 4.5', completed: true }
-      ]
-    }
-  ]);
+  const [activePIPs, setActivePIPs] = useState<PIP[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceReviews<any[]>();
+        if (!cancelled) setActivePIPs(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setActivePIPs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 

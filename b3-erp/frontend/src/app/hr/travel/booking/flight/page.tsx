@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Plane, Plus, Calendar, IndianRupee, User, MapPin, Edit2, Trash2, X, Save, AlertCircle, Download } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -36,124 +37,28 @@ interface FlightBooking {
 }
 
 export default function FlightBookingPage() {
-  const [bookings, setBookings] = useState<FlightBooking[]>([
-    {
-      id: '1',
-      bookingReference: 'FLT-2025-001',
-      travelRequestId: 'TR-2025-002',
-      employeeCode: 'EMP456',
-      employeeName: 'Priya Sharma',
-      department: 'Engineering',
-      airline: 'Air India',
-      flightNumber: 'AI 804',
-      pnr: 'ABC123',
-      bookingClass: 'economy',
-      from: 'Pune (PNQ)',
-      to: 'Bangalore (BLR)',
-      departureDate: '2025-11-10',
-      departureTime: '06:30',
-      arrivalDate: '2025-11-10',
-      arrivalTime: '07:55',
-      fare: 4200,
-      taxes: 850,
-      totalAmount: 5050,
-      bookingDate: '2025-10-20',
-      bookingSource: 'corporate-agent',
-      agencyName: 'MakeMyTrip Corporate',
-      ticketStatus: 'confirmed',
-      seatNumber: '12A',
-      mealPreference: 'Vegetarian',
-      baggageAllowance: '15kg Check-in + 7kg Cabin',
-      cancellationPolicy: 'Free cancellation up to 24 hours before departure',
-      remarks: 'Window seat requested and confirmed'
-    },
-    {
-      id: '2',
-      bookingReference: 'FLT-2025-002',
-      travelRequestId: 'TR-2025-003',
-      employeeCode: 'EMP789',
-      employeeName: 'Amit Patel',
-      department: 'Quality',
-      airline: 'Singapore Airlines',
-      flightNumber: 'SQ 422',
-      pnr: 'XYZ789',
-      bookingClass: 'business',
-      from: 'Mumbai (BOM)',
-      to: 'Singapore (SIN)',
-      departureDate: '2025-12-01',
-      departureTime: '02:05',
-      arrivalDate: '2025-12-01',
-      arrivalTime: '09:45',
-      fare: 75000,
-      taxes: 12500,
-      totalAmount: 87500,
-      bookingDate: '2025-10-25',
-      bookingSource: 'airline-direct',
-      ticketStatus: 'confirmed',
-      seatNumber: '7K',
-      mealPreference: 'Non-Vegetarian',
-      baggageAllowance: '30kg Check-in + 14kg Cabin',
-      cancellationPolicy: 'Flexible - Changes allowed with fee',
-      remarks: 'Business class upgrade approved for international travel'
-    },
-    {
-      id: '3',
-      bookingReference: 'FLT-2025-003',
-      travelRequestId: 'TR-2025-001',
-      employeeCode: 'EMP234',
-      employeeName: 'Rajesh Kumar',
-      department: 'Sales',
-      airline: 'IndiGo',
-      flightNumber: '6E 6544',
-      pnr: 'PQR456',
-      bookingClass: 'economy',
-      from: 'Mumbai (BOM)',
-      to: 'Pune (PNQ)',
-      departureDate: '2025-11-05',
-      departureTime: '10:15',
-      arrivalDate: '2025-11-05',
-      arrivalTime: '11:10',
-      fare: 2800,
-      taxes: 420,
-      totalAmount: 3220,
-      bookingDate: '2025-10-22',
-      bookingSource: 'online-portal',
-      agencyName: 'Yatra Corporate',
-      ticketStatus: 'confirmed',
-      seatNumber: '18C',
-      baggageAllowance: '15kg Check-in + 7kg Cabin',
-      cancellationPolicy: 'Non-refundable. Date change allowed with ₹3000 fee',
-      remarks: 'Short domestic flight for client meeting'
-    },
-    {
-      id: '4',
-      bookingReference: 'FLT-2025-004',
-      travelRequestId: 'TR-2025-005',
-      employeeCode: 'EMP567',
-      employeeName: 'Sneha Reddy',
-      department: 'Production',
-      airline: 'Vistara',
-      flightNumber: 'UK 863',
-      pnr: 'DEF321',
-      bookingClass: 'premium-economy',
-      from: 'Pune (PNQ)',
-      to: 'Chennai (MAA)',
-      departureDate: '2025-11-08',
-      departureTime: '14:45',
-      arrivalDate: '2025-11-08',
-      arrivalTime: '16:20',
-      fare: 6500,
-      taxes: 980,
-      totalAmount: 7480,
-      bookingDate: '2025-10-28',
-      bookingSource: 'corporate-agent',
-      agencyName: 'TravelBuddy Corporate',
-      ticketStatus: 'pending',
-      baggageAllowance: '20kg Check-in + 7kg Cabin',
-      cancellationPolicy: 'Free cancellation up to 48 hours before departure',
-      remarks: 'Pending ticket confirmation from airline'
-    }
-  ]);
+  const [bookings, setBookings] = useState<FlightBooking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.travelRequests<any[]>();
+        if (!cancelled) setBookings(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setBookings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);

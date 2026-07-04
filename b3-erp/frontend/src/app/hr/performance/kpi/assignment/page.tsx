@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { UserCheck, Plus, Trash2, Search } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 
@@ -25,30 +26,28 @@ export default function KPIAssignmentPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   // Mock Data
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: '1',
-      name: 'Rahul Sharma',
-      role: 'Senior Developer',
-      kpis: [
-        {
-          id: 'k1',
-          title: 'Code Quality',
-          description: 'Maintain 95% test coverage',
-          target: '95%',
-          weight: 30,
-          dueDate: '2024-06-30',
-          status: 'assigned'
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceGoals<any[]>();
+        if (!cancelled) setEmployees(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setEmployees([]);
         }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Priya Patel',
-      role: 'Product Designer',
-      kpis: []
-    }
-  ]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [formData, setFormData] = useState({
     title: '',

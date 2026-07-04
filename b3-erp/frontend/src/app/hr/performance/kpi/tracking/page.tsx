@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { TrendingUp, Target, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface KPI {
@@ -16,41 +17,28 @@ interface KPI {
 }
 
 export default function KPITrackingPage() {
-  const [kpis, setKpis] = useState<KPI[]>([
-    {
-      id: '1',
-      title: 'Sales Revenue',
-      description: 'Achieve quarterly sales target',
-      currentValue: 85000,
-      targetValue: 100000,
-      unit: '$',
-      weight: 40,
-      dueDate: '2024-03-31',
-      status: 'on-track'
-    },
-    {
-      id: '2',
-      title: 'Customer Satisfaction',
-      description: 'Maintain CSAT score above 4.5',
-      currentValue: 4.2,
-      targetValue: 4.5,
-      unit: 'Score',
-      weight: 30,
-      dueDate: '2024-03-31',
-      status: 'at-risk'
-    },
-    {
-      id: '3',
-      title: 'Project Delivery',
-      description: 'deliver 5 key projects',
-      currentValue: 5,
-      targetValue: 5,
-      unit: 'Projects',
-      weight: 30,
-      dueDate: '2024-03-15',
-      status: 'completed'
-    }
-  ]);
+  const [kpis, setKpis] = useState<KPI[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.performanceGoals<any[]>();
+        if (!cancelled) setKpis(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setKpis([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [selectedKPI, setSelectedKPI] = useState<KPI | null>(null);
   const [updateValue, setUpdateValue] = useState('');

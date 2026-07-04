@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { Clock, UserPlus, Mail, AlertCircle, ArrowUpCircle } from 'lucide-react';
 
 interface WaitlistEntry {
@@ -13,12 +14,28 @@ interface WaitlistEntry {
 }
 
 export default function WaitingListPage() {
-  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([
-    { id: '1', name: 'Alice Springer', program: 'Advanced React Patterns', dateAdded: '2024-03-28', priority: 'High', position: 1 },
-    { id: '2', name: 'Bob Martin', program: 'Advanced React Patterns', dateAdded: '2024-03-29', priority: 'Normal', position: 2 },
-    { id: '3', name: 'Charlie Day', program: 'Security Compliance', dateAdded: '2024-04-01', priority: 'Normal', position: 1 },
-    { id: '4', name: 'Diana Prince', program: 'Effective Communication', dateAdded: '2024-04-02', priority: 'Low', position: 5 },
-  ]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.trainingEnrollments<any[]>();
+        if (!cancelled) setWaitlist(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setWaitlist([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handlePromote = (id: string, name: string) => {
     if (confirm(`Promote ${name} to enrolled status? A notification will be sent.`)) {
