@@ -1,26 +1,82 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Plus, MoreVertical, Phone, Video, Info, Paperclip, Smile, Send, Check, CheckCheck } from 'lucide-react';
+import { collaborationOrphanService, type CollabChannelItem, type CollabMessageItem } from '@/services/collaboration.service';
+
+interface ChatView { id: string; name: string; type: string; lastMessage: string; time: string; unread: number; status?: string; }
+interface MessageView { id: string; sender: string; text: string; time: string; isMe: boolean; status?: string; }
+
+function formatTime(value?: string): string {
+    if (!value) return '';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function MessagingPage() {
-    const [selectedChat, setSelectedChat] = useState('1');
+    const [selectedChat, setSelectedChat] = useState('');
     const [messageInput, setMessageInput] = useState('');
+    const [chats, setChats] = useState<ChatView[]>([]);
+    const [messages, setMessages] = useState<MessageView[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const chats = [
-        { id: '1', name: 'General', type: 'channel', lastMessage: 'Has everyone seen the new update?', time: '10:30 AM', unread: 0 },
-        { id: '2', name: 'Project Alpha', type: 'channel', lastMessage: 'Meeting at 2 PM', time: '09:15 AM', unread: 3 },
-        { id: '3', name: 'Sarah Wilson', type: 'direct', lastMessage: 'Can you review this doc?', time: 'Yesterday', unread: 0, status: 'online' },
-        { id: '4', name: 'Mike Johnson', type: 'direct', lastMessage: 'Thanks for the help!', time: 'Yesterday', unread: 0, status: 'offline' },
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const rawChannels = await collaborationOrphanService.getChannels();
+                if (cancelled) return;
+                const mapped: ChatView[] = (rawChannels as CollabChannelItem[]).map((c) => ({
+                    id: String(c.id),
+                    name: c.name ?? 'Untitled',
+                    type: c.channelType ?? 'channel',
+                    lastMessage: c.lastMessage ?? '',
+                    time: formatTime(c.lastMessageAt),
+                    unread: Number(c.unreadCount ?? 0),
+                    status: c.status,
+                }));
+                setChats(mapped);
+                if (mapped.length > 0) setSelectedChat(mapped[0].id);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load channels');
+                    setChats([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
-    const messages = [
-        { id: 1, sender: 'Sarah Wilson', text: 'Hey team, just a reminder about the deadline tomorrow.', time: '10:00 AM', isMe: false },
-        { id: 2, sender: 'You', text: 'Thanks Sarah, I am almost done with my part.', time: '10:05 AM', isMe: true, status: 'read' },
-        { id: 3, sender: 'Mike Johnson', text: 'I might need some help with the reporting module.', time: '10:10 AM', isMe: false },
-        { id: 4, sender: 'You', text: 'Sure Mike, let\'s sync after lunch.', time: '10:12 AM', isMe: true, status: 'delivered' },
-        { id: 5, sender: 'Sarah Wilson', text: 'Great teamwork everyone!', time: '10:30 AM', isMe: false },
-    ];
+    useEffect(() => {
+        if (!selectedChat) { setMessages([]); return; }
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const raw = await collaborationOrphanService.getMessages(selectedChat);
+                if (cancelled) return;
+                setMessages((raw as CollabMessageItem[]).map((m) => ({
+                    id: String(m.id),
+                    sender: m.senderName ?? 'Unknown',
+                    text: m.content ?? '',
+                    time: formatTime(m.sentAt ?? m.createdAt),
+                    isMe: (m.status === 'read' || m.status === 'delivered' || m.status === 'sent') && !!m.senderId && m.senderName === 'You',
+                    status: m.status,
+                })));
+            } catch {
+                if (!cancelled) setMessages([]);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [selectedChat]);
+
+    const activeChat = chats.find((c) => c.id === selectedChat);
 
     return (
         <div className="flex h-screen bg-white overflow-hidden">
@@ -44,7 +100,13 @@ export default function MessagingPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                    {chats.map((chat) => (
+                    {isLoading ? (
+                        <div className="p-4 text-sm text-gray-500">Loading channels…</div>
+                    ) : loadError ? (
+                        <div className="p-4 text-sm text-red-600">{loadError}</div>
+                    ) : chats.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500">No conversations found.</div>
+                    ) : chats.map((chat) => (
                         <button
                             key={chat.id}
                             onClick={() => setSelectedChat(chat.id)}
@@ -83,11 +145,11 @@ export default function MessagingPage() {
                 <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-lg font-semibold text-gray-600">
-                            #
+                            {activeChat?.type === 'channel' ? '#' : (activeChat?.name?.split(' ').map(n => n[0]).join('') || '#')}
                         </div>
                         <div>
-                            <h2 className="font-bold text-gray-900">General</h2>
-                            <p className="text-xs text-gray-500">24 members • 3 online</p>
+                            <h2 className="font-bold text-gray-900">{activeChat?.name ?? 'No conversation'}</h2>
+                            <p className="text-xs text-gray-500">{activeChat?.type === 'channel' ? `${activeChat?.unread ?? 0} unread` : (activeChat?.status ?? '')}</p>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -105,6 +167,9 @@ export default function MessagingPage() {
 
                 {/* Messages List */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+                    {messages.length === 0 && (
+                        <div className="text-center text-sm text-gray-400 py-8">No messages yet.</div>
+                    )}
                     {messages.map((msg) => (
                         <div key={msg.id} className={`flex ${msg.isMe ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[70%] ${msg.isMe ? 'order-2' : 'order-1'}`}>

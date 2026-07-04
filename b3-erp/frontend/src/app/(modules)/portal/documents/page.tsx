@@ -1,21 +1,63 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Folder, FileText, Download, Search, Grid, List, MoreVertical, Upload } from 'lucide-react';
 import Link from 'next/link';
+import { PortalService, type PortalDocumentItem } from '@/services/portal.service';
+
+interface DocView { id: string; name: string; type: 'folder' | 'file'; items?: string; size?: string; date: string; }
+
+function formatBytes(bytes: number): string {
+    const b = Number(bytes) || 0;
+    if (b <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(Math.floor(Math.log(b) / Math.log(1024)), units.length - 1);
+    return `${(b / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatDate(value?: string): string {
+    if (!value) return '';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+}
 
 export default function PortalDocumentsPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+    const [files, setFiles] = useState<DocView[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const files = [
-        { id: 1, name: 'Invoices', type: 'folder', items: '12 items', date: 'Oct 24, 2025' },
-        { id: 2, name: 'Contracts', type: 'folder', items: '3 items', date: 'Sep 15, 2025' },
-        { id: 3, name: 'Project Specs', type: 'folder', items: '8 items', date: 'Oct 01, 2025' },
-        { id: 4, name: 'Invoice #INV-2025-001.pdf', type: 'file', size: '2.4 MB', date: 'Oct 24, 2025' },
-        { id: 5, name: 'Q4 Proposal.pdf', type: 'file', size: '1.8 MB', date: 'Oct 20, 2025' },
-        { id: 6, name: 'Kitchen Layout v3.dwg', type: 'file', size: '15.2 MB', date: 'Oct 18, 2025' },
-        { id: 7, name: 'Material Selection.xlsx', type: 'file', size: '45 KB', date: 'Oct 15, 2025' },
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await PortalService.getDocuments();
+                if (cancelled) return;
+                setFiles((raw as PortalDocumentItem[]).map((d) => {
+                    const isFolder = d.docType === 'folder';
+                    return {
+                        id: String(d.id),
+                        name: d.name ?? 'Untitled',
+                        type: isFolder ? 'folder' : 'file',
+                        items: isFolder ? `${Number(d.itemCount ?? 0)} items` : undefined,
+                        size: isFolder ? undefined : formatBytes(Number(d.sizeBytes ?? 0)),
+                        date: formatDate(d.updatedAt ?? d.createdAt),
+                    } as DocView;
+                }));
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load documents');
+                    setFiles([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 p-3">
@@ -64,8 +106,22 @@ export default function PortalDocumentsPage() {
                 </div>
             </div>
 
+            {loadError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm mb-3">
+                    {loadError}
+                </div>
+            )}
+
             {/* File List */}
-            {viewMode === 'list' ? (
+            {isLoading ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-sm text-gray-500">
+                    Loading documents…
+                </div>
+            ) : files.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-sm text-gray-500">
+                    No documents found.
+                </div>
+            ) : viewMode === 'list' ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 border-b border-gray-200">

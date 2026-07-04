@@ -1,25 +1,83 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Folder, FileText, Image, MoreVertical, Search, Plus, Upload, Download, Share2, Trash2, Grid, List, Clock, Star } from 'lucide-react';
+import { collaborationOrphanService, type CollabFileItem, type CollabFolderItem } from '@/services/collaboration.service';
+
+interface FolderView { id: string; name: string; items: number; size: string; modified: string; }
+interface FileView { id: string; name: string; type: string; size: string; modified: string; owner: string; }
+
+function formatBytes(bytes: number): string {
+    const b = Number(bytes) || 0;
+    if (b <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(Math.floor(Math.log(b) / Math.log(1024)), units.length - 1);
+    return `${(b / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatDate(value?: string): string {
+    if (!value) return '';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+}
+
+function inferType(name?: string, fileType?: string): string {
+    if (fileType && fileType !== 'file') return fileType;
+    const ext = (name || '').split('.').pop()?.toLowerCase() || '';
+    if (ext === 'pdf') return 'pdf';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'excel';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+    if (['doc', 'docx'].includes(ext)) return 'doc';
+    if (['zip', 'rar', '7z'].includes(ext)) return 'zip';
+    return 'file';
+}
 
 export default function FilesPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [folders, setFolders] = useState<FolderView[]>([]);
+    const [files, setFiles] = useState<FileView[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const folders = [
-        { id: '1', name: 'Projects', items: 12, size: '1.2 GB', modified: '2 hours ago' },
-        { id: '2', name: 'Finance', items: 8, size: '450 MB', modified: 'Yesterday' },
-        { id: '3', name: 'Marketing', items: 24, size: '2.8 GB', modified: '3 days ago' },
-        { id: '4', name: 'HR Documents', items: 5, size: '120 MB', modified: 'Last week' },
-    ];
-
-    const files = [
-        { id: '1', name: 'Q4 Financial Report.pdf', type: 'pdf', size: '2.4 MB', modified: '10 mins ago', owner: 'Sarah Wilson' },
-        { id: '2', name: 'Project Timeline.xlsx', type: 'excel', size: '1.8 MB', modified: '1 hour ago', owner: 'Mike Johnson' },
-        { id: '3', name: 'Site Inspection.jpg', type: 'image', size: '4.2 MB', modified: '3 hours ago', owner: 'David Lee' },
-        { id: '4', name: 'Meeting Notes.docx', type: 'doc', size: '45 KB', modified: 'Yesterday', owner: 'Emma Davis' },
-        { id: '5', name: 'Design Assets.zip', type: 'zip', size: '156 MB', modified: '2 days ago', owner: 'James Brown' },
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const [rawFolders, rawFiles] = await Promise.all([
+                    collaborationOrphanService.getFolders(),
+                    collaborationOrphanService.getFiles(),
+                ]);
+                if (cancelled) return;
+                setFolders((rawFolders as CollabFolderItem[]).map((f) => ({
+                    id: String(f.id),
+                    name: f.name ?? 'Untitled',
+                    items: Number(f.itemCount ?? 0),
+                    size: formatBytes(Number(f.sizeBytes ?? 0)),
+                    modified: formatDate(f.updatedAt),
+                })));
+                setFiles((rawFiles as CollabFileItem[]).map((f) => ({
+                    id: String(f.id),
+                    name: f.name ?? 'Untitled',
+                    type: inferType(f.name, f.fileType),
+                    size: formatBytes(Number(f.sizeBytes ?? 0)),
+                    modified: formatDate(f.updatedAt),
+                    owner: f.owner ?? 'Unknown',
+                })));
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load files');
+                    setFolders([]);
+                    setFiles([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, []);
 
     const getFileIcon = (type: string) => {
         switch (type) {
@@ -73,9 +131,20 @@ export default function FilesPage() {
                     </button>
                 </div>
 
+                {loadError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+                        {loadError}
+                    </div>
+                )}
+
                 {/* Folders */}
                 <div>
                     <h2 className="text-lg font-bold text-gray-900 mb-2">Folders</h2>
+                    {isLoading ? (
+                        <div className="text-sm text-gray-500 py-4">Loading folders…</div>
+                    ) : folders.length === 0 ? (
+                        <div className="text-sm text-gray-500 py-4">No folders found.</div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                         {folders.map((folder) => (
                             <div key={folder.id} className="bg-white p-3 rounded-xl border border-gray-200 hover:shadow-md transition-shadow cursor-pointer">
@@ -93,6 +162,7 @@ export default function FilesPage() {
                             </div>
                         ))}
                     </div>
+                    )}
                 </div>
 
                 {/* Files */}
@@ -115,7 +185,11 @@ export default function FilesPage() {
                         </div>
                     </div>
 
-                    {viewMode === 'grid' ? (
+                    {isLoading ? (
+                        <div className="text-sm text-gray-500 py-4">Loading files…</div>
+                    ) : files.length === 0 ? (
+                        <div className="text-sm text-gray-500 py-4">No files found.</div>
+                    ) : viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                             {files.map((file) => (
                                 <div key={file.id} className="bg-white p-3 rounded-xl border border-gray-200 hover:shadow-md transition-shadow cursor-pointer group">
@@ -129,7 +203,7 @@ export default function FilesPage() {
                                     <p className="text-xs text-gray-500 mb-3">{file.size} • {file.modified}</p>
                                     <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
                                         <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center text-xs font-bold text-gray-600">
-                                            {file.owner[0]}
+                                            {file.owner?.[0] ?? '?'}
                                         </div>
                                         <span className="text-xs text-gray-500 truncate">{file.owner}</span>
                                     </div>
