@@ -7,7 +7,7 @@
 
 > The 2026-07-03 report described a broken build, ~89% unwired pages, 59 dead links, fragmented auth, near-zero tests, and unimplemented write-actions. **All resolved.** The pre-update report is preserved in git history. Colours below reflect the **current, verified** state.
 
-> **Honesty note (2026-07-04 re-audit).** An earlier revision of this doc claimed "0 orphans / 100% wired". That was measured with a narrow grep and was **optimistic**. A stricter detector (catching hardcoded typed-const data arrays whose array literal opens on the next line, which the first grep missed) found **375** pages still rendering hardcoded mock data with no fetch. Four autonomous wiring waves brought that down **375 → 230 → 177 → 66 → 60**, wiring **~370 pages** across HR, reports, production, finance, inventory, project-mgmt, CPQ, estimation, support, sales, procurement, IT-admin, logistics, CRM, and after-sales. The residual **60** are **not** unwired data-list pages — see §2 for the exact classification. **Zero** plain data-list pages remain that render a mock array while a fitting live endpoint sits unused.
+> **Honesty note (2026-07-04 re-audit).** An earlier revision of this doc claimed "0 orphans / 100% wired". That was measured with a narrow grep and was **optimistic**. A stricter detector (catching hardcoded typed-const data arrays whose array literal opens on the next line, which the first grep missed) found **375** pages still rendering hardcoded mock data with no fetch. Five autonomous wiring waves brought that down **375 → 230 → 177 → 66 → 60 → 36**, wiring **~390 pages** across HR, reports, production, finance, inventory, project-mgmt, CPQ, estimation, support, sales, procurement, IT-admin, logistics, CRM, after-sales, and the create/edit forms' master-data pickers. The residual **36** are **not** unwired data-list pages — see §2 for the exact classification. **Zero** plain data-list pages remain that render a mock array while a fitting live endpoint sits unused.
 
 ________________________________________
 
@@ -45,18 +45,21 @@ Every module's **data-list pages** fetch on mount via a typed service, with a de
 | After wave 1 (hr, reports, production, finance, inventory, pm, cpq, estimation) | 230 |
 | After wave 2 (hr payroll/safety/training/leave, support, sales, procurement, finance, production, it-admin, logistics, crm, after-sales) | 177 |
 | After wave 3 (after-sales, hr, finance, reports, logistics, production, crm, support, misc) | 66 |
-| After wave 4 (CRM detail `view/[id]` pages) | **60** |
+| After wave 4 (CRM detail `view/[id]` pages) | 60 |
+| After wave 5 (form pickers → live master data; production Industry-4.0; portal/detail/misc) | **36** |
 
-### Residual 60 — classified (none are unwired data-list pages)
+Wave 5 additionally wired: **14 create/edit forms'** entity-pickers (customers, vendors, products, employees, warehouses, accounts, cost-centers) to live master-data endpoints via a shared `master-data.service.ts` (edit forms also prefill the record by id); **all 7 production Industry-4.0 pages** (`real-time-monitoring`, `smart-analytics`, `digital-twin`, `automation`, `supply-chain`, `human-centric`, `sustainability`) to live equipment/OEE/energy/skill endpoints; and `project-management/view/[id]`, `hr/.../form16`, `portal/orders`.
+
+### Residual 36 — classified (none are unwired data-list pages)
 
 | Class | Count | Examples | Why not "wired to a list endpoint" |
 |---|---|---|---|
-| **Create / edit / add forms** | ~33 | `finance/payables/add`, `crm/quotes/edit/[id]`, `procurement/requisitions/add`, `sales/orders/create`, `hr/payroll/add`, `after-sales/billing/create` | Their arrays are **dropdown-option masters** (currencies, GST rates, states, categories), not data listings. Forms POST/PUT; they are not orphan list pages. |
-| **Nav / module-hub landing pages** | ~15 | `finance/{tax,currency,consolidation,controls,integration,period-operations}`, `crm/advanced-features`, `dashboard`, `settings`, `help`, `documentation` | `<Link>` card grids that route to sub-pages. No data table to wire. |
-| **Industry-4.0 / portal / collaboration showcase** | ~7 | `production/{digital-twin,real-time-monitoring,smart-analytics,sustainability,human-centric,supply-chain,automation}`, `portal/{orders,documents}`, `collaboration/{files,messaging}`, `advanced-features/iot` | Feature-showcase / device mockups / chat UI. **No backing NestJS endpoint exists** (out of pilot scope). |
+| **Nav / module-hub landing pages** | ~17 | `finance/{tax,currency,consolidation,controls,integration,period-operations,reporting,budgeting,automation}`, `crm/advanced-features`, `advanced-features`, `dashboard`, `settings`, `help`, `documentation`, `hr/offboarding/{fnf,docs}` | `<Link>` card grids that route to sub-pages. No data table to wire. |
+| **Config-only forms** | ~4 | `support/incidents/create`, `support/changes/create`, `workflow/automation/create` | Contain only IT-systems config + trigger/action/priority enums — no entity master data to fetch. Forms POST; not orphan list pages. |
+| **No-backend showcase / mockup** | ~10 | `collaboration/{files,messaging}`, `portal/documents`, `advanced-features/iot`, `after-sales/field-service/mobile`, `cpq/advanced-features`, `support/reports` (report-template catalog; only candidate endpoint 500s) | Feature-showcase / device telemetry / chat UI with **no backing NestJS endpoint**. Would require net-new backend out of pilot scope. |
 | **`_finance_deprecated/*`** | 5 | `_finance_deprecated/receivables/aging` | Next.js **private folder** (`_` prefix) — **not routed**, produces no URL. |
 
-**Bottom line:** zero remaining plain data-list pages render a hardcoded mock array while a fitting live endpoint sits unused. The residual is forms (input pages), nav hubs, and showcase pages with no backend — all acceptable for pilot. Detector: `python3` scan for `page.tsx` with no `useEffect/Service./fetch/useQuery` that declares a non-config-named array of objects.
+**Bottom line:** zero remaining plain data-list pages render a hardcoded mock array while a fitting live endpoint sits unused. The residual is nav hubs, config-only input forms, no-backend showcase pages, and a non-routed deprecated folder — all acceptable for pilot. Detector: `python3` scan for `page.tsx` with no `useEffect/Service./fetch/useQuery` that declares a non-config-named array of objects.
 
 ________________________________________
 
