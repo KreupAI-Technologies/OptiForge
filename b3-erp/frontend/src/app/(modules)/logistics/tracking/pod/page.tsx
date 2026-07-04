@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, FileText, CheckCircle, Image as ImageIcon, User, Calendar, MapPin, Clock, Download, Eye, Filter } from 'lucide-react';
+import { ArrowLeft, Search, FileText, CheckCircle, Image as ImageIcon, User, Calendar, MapPin, Clock, Download, Eye, Filter, AlertCircle } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface ProofOfDelivery {
   id: string;

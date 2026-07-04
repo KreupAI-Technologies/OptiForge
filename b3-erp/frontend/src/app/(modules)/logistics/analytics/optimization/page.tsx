@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Zap,
   TrendingUp,
@@ -15,8 +15,10 @@ import {
   RefreshCw,
   CheckCircle,
   AlertTriangle,
+  AlertCircle,
   BarChart3
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface OptimizationMetric {
   name: string;

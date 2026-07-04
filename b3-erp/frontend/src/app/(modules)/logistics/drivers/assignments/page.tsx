@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Plus,
@@ -13,10 +13,12 @@ import {
   MapPin,
   CheckCircle,
   AlertTriangle,
+  AlertCircle,
   TrendingUp,
   Phone,
   FileText
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface DriverAssignment {
   id: number;
@@ -61,43 +63,69 @@ export default function DriverAssignmentsPage() {
   const [selectedTripStatus, setSelectedTripStatus] = useState('all');
   const [selectedAssignmentType, setSelectedAssignmentType] = useState('all');
 
-  const [assignments, setAssignments] = useState<DriverAssignment[]>([
-    {
-      id: 1,
-      assignmentId: 'DA-2024-001',
-      driverId: 'DRV-001',
-      driverName: 'Ramesh Sharma',
-      driverPhone: '+91-9876543210',
-      licenseNumber: 'MH-0120230045678',
-      licenseExpiry: '2027-06-30',
-      vehicleId: 'VEH-001',
-      vehicleNumber: 'MH-01-AB-1234',
-      vehicleType: '32-Ft Truck',
-      assignmentType: 'permanent',
-      assignmentDate: '2024-01-15',
-      validFrom: '2024-01-15',
-      validUntil: null,
-      currentTrip: 'TRP-2024-001',
-      currentLoad: 'LD-2024-001',
-      currentLocation: 'Vadodara Hub, Gujarat',
-      tripStatus: 'on-trip',
-      totalTripsAssigned: 156,
-      completedTrips: 154,
-      activeTrips: 2,
-      totalDistance: 185600,
-      totalRevenue: 9280000,
-      shiftType: 'day',
-      workingHours: 48,
-      restHours: 12,
-      nextAvailableTime: null,
-      homeBase: 'Mumbai Distribution Center',
-      emergencyContact: 'Sunita Sharma (Wife)',
-      emergencyPhone: '+91-9876543211',
-      notes: 'Experienced driver, excellent safety record',
-      status: 'active',
-      assignedBy: 'Fleet Manager',
-      lastModified: '2024-10-21 14:30'
-    },
+  const [assignments, setAssignments] = useState<DriverAssignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getDrivers()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: DriverAssignment[] = list.map((r, idx) => ({
+          id: idx + 1,
+          assignmentId: r?.assignmentId ?? '',
+          driverId: r?.driverId ?? '',
+          driverName: r?.driverName ?? '',
+          driverPhone: r?.driverPhone ?? '',
+          licenseNumber: r?.licenseNumber ?? '',
+          licenseExpiry: r?.licenseExpiry ?? '',
+          vehicleId: r?.vehicleId ?? '',
+          vehicleNumber: r?.vehicleNumber ?? '',
+          vehicleType: r?.vehicleType ?? '',
+          assignmentType: (r?.assignmentType ?? 'permanent') as DriverAssignment['assignmentType'],
+          assignmentDate: r?.assignmentDate ?? '',
+          validFrom: r?.validFrom ?? '',
+          validUntil: r?.validUntil ?? null,
+          currentTrip: r?.currentTrip ?? null,
+          currentLoad: r?.currentLoad ?? null,
+          currentLocation: r?.currentLocation ?? '',
+          tripStatus: (r?.tripStatus ?? 'available') as DriverAssignment['tripStatus'],
+          totalTripsAssigned: Number(r?.totalTripsAssigned ?? 0),
+          completedTrips: Number(r?.completedTrips ?? 0),
+          activeTrips: Number(r?.activeTrips ?? 0),
+          totalDistance: Number(r?.totalDistance ?? 0),
+          totalRevenue: Number(r?.totalRevenue ?? 0),
+          shiftType: (r?.shiftType ?? 'day') as DriverAssignment['shiftType'],
+          workingHours: Number(r?.workingHours ?? 0),
+          restHours: Number(r?.restHours ?? 0),
+          nextAvailableTime: r?.nextAvailableTime ?? null,
+          homeBase: r?.homeBase ?? '',
+          emergencyContact: r?.emergencyContact ?? '',
+          emergencyPhone: r?.emergencyPhone ?? '',
+          notes: r?.notes ?? '',
+          status: (r?.status ?? 'active') as DriverAssignment['status'],
+          assignedBy: r?.assignedBy ?? '',
+          lastModified: r?.lastModified ?? '',
+        }));
+        if (!cancelled) setAssignments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load drivers');
+          setAssignments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
     {
       id: 2,
       assignmentId: 'DA-2024-002',

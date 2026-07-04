@@ -23,77 +23,48 @@ interface TeamPerformance {
 
 export default function SLACompliance() {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
+  const [complianceData, setComplianceData] = useState<ComplianceData[]>([])
+  const [teamPerformance, setTeamPerformance] = useState<TeamPerformance[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const complianceData: ComplianceData[] = [
-    { month: 'Apr 2024', compliance: 91.2, breaches: 42, totalTickets: 478 },
-    { month: 'May 2024', compliance: 93.5, breaches: 35, totalTickets: 538 },
-    { month: 'Jun 2024', compliance: 89.8, breaches: 58, totalTickets: 569 },
-    { month: 'Jul 2024', compliance: 94.2, breaches: 31, totalTickets: 535 },
-    { month: 'Aug 2024', compliance: 92.7, breaches: 38, totalTickets: 521 },
-    { month: 'Sep 2024', compliance: 95.1, breaches: 26, totalTickets: 531 },
-    { month: 'Oct 2024', compliance: 93.8, breaches: 33, totalTickets: 532 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const settings = await supportPagesService.getSlaSettings()
+        const source: any[] = Array.isArray(settings?.slaConfigs)
+          ? settings.slaConfigs
+          : Array.isArray(settings?.compliance) ? settings.compliance : []
+        const mapped: ComplianceData[] = source.map((r: any) => ({
+          month: r.month ?? r.name ?? r.label ?? '',
+          compliance: r.compliance ?? r.complianceRate ?? 0,
+          breaches: r.breaches ?? 0,
+          totalTickets: r.totalTickets ?? r.ticketCount ?? 0,
+        }))
+        if (!cancelled) setComplianceData(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setComplianceData([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
-  const teamPerformance: TeamPerformance[] = [
-    {
-      teamName: 'Infrastructure',
-      agent: 'Amit Patel',
-      ticketsHandled: 128,
-      slaCompliance: 96.8,
-      avgResponseTime: '12 min',
-      avgResolutionTime: '3.2 hrs',
-      breaches: 4
-    },
-    {
-      teamName: 'Application Support',
-      agent: 'Priya Sharma',
-      ticketsHandled: 145,
-      slaCompliance: 94.5,
-      avgResponseTime: '18 min',
-      avgResolutionTime: '4.5 hrs',
-      breaches: 8
-    },
-    {
-      teamName: 'Network',
-      agent: 'Rahul Verma',
-      ticketsHandled: 98,
-      slaCompliance: 92.8,
-      avgResponseTime: '22 min',
-      avgResolutionTime: '5.1 hrs',
-      breaches: 7
-    },
-    {
-      teamName: 'Security',
-      agent: 'Rajesh Kumar',
-      ticketsHandled: 87,
-      slaCompliance: 97.7,
-      avgResponseTime: '10 min',
-      avgResolutionTime: '2.8 hrs',
-      breaches: 2
-    },
-    {
-      teamName: 'Database',
-      agent: 'Sneha Reddy',
-      ticketsHandled: 76,
-      slaCompliance: 95.2,
-      avgResponseTime: '15 min',
-      avgResolutionTime: '3.8 hrs',
-      breaches: 4
-    },
-    {
-      teamName: 'Desktop Support',
-      agent: 'Vikram Singh',
-      ticketsHandled: 234,
-      slaCompliance: 89.3,
-      avgResponseTime: '35 min',
-      avgResolutionTime: '12 hrs',
-      breaches: 25
-    }
-  ]
-
-  const overallCompliance = complianceData[complianceData.length - 1].compliance
+  const overallCompliance = complianceData.length > 0
+    ? complianceData[complianceData.length - 1].compliance
+    : 0
   const totalBreaches = complianceData.reduce((sum, d) => sum + d.breaches, 0)
   const totalTickets = complianceData.reduce((sum, d) => sum + d.totalTickets, 0)
+  const bestPerformer = teamPerformance.length > 0
+    ? teamPerformance.reduce((best, team) => (team.slaCompliance > best.slaCompliance ? team : best))
+    : null
 
   const stats = [
     {
@@ -107,7 +78,7 @@ export default function SLACompliance() {
     {
       label: 'Total Tickets',
       value: totalTickets,
-      change: `${complianceData[complianceData.length - 1].totalTickets} this month`,
+      change: `${complianceData.length > 0 ? complianceData[complianceData.length - 1].totalTickets : 0} this month`,
       icon: BarChart3,
       color: 'blue'
     },
@@ -120,12 +91,8 @@ export default function SLACompliance() {
     },
     {
       label: 'Best Performer',
-      value: teamPerformance.reduce((best, team) => 
-        team.slaCompliance > best.slaCompliance ? team : best
-      ).agent.split(' ')[0],
-      change: `${teamPerformance.reduce((best, team) => 
-        team.slaCompliance > best.slaCompliance ? team : best
-      ).slaCompliance}% compliance`,
+      value: bestPerformer ? bestPerformer.agent.split(' ')[0] : '—',
+      change: bestPerformer ? `${bestPerformer.slaCompliance}% compliance` : 'No data',
       icon: Award,
       color: 'purple'
     },
@@ -182,6 +149,19 @@ export default function SLACompliance() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading SLA compliance…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">

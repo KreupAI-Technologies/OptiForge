@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Search,
@@ -8,6 +8,7 @@ import {
   Plus,
   AlertOctagon,
   AlertTriangle,
+  AlertCircle,
   Info,
   CheckCircle2,
   MoreVertical,
@@ -15,6 +16,7 @@ import {
   FileWarning,
   Clock
 } from 'lucide-react';
+import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 import {
   BarChart,
   Bar,
@@ -41,41 +43,58 @@ const severityData = [
   { name: 'Observation', value: 12, color: '#3b82f6' },
 ];
 
-const findings = [
-  {
-    id: 'FND-2024-056',
-    title: 'Blocked Fire Extinguisher (Area G)',
-    source: 'Internal Audit Q1',
-    category: 'Safety Compliance',
-    severity: 'Major',
-    date: '2024-04-10',
-    status: 'In Correction',
-    ref: 'NCR-2024-012'
-  },
-  {
-    id: 'FND-2024-057',
-    title: 'Expired MSDS for Industrial Solvent',
-    source: 'Monthly Safety Walkthrough',
-    category: 'Chemical Safety',
-    severity: 'Minor',
-    date: '2024-04-12',
-    status: 'Open',
-    ref: 'OBS-2024-089'
-  },
-  {
-    id: 'FND-2024-055',
-    title: 'Unguarded Conveyor Pinch Point',
-    source: 'External OSHA Verification',
-    category: 'Equipment Safety',
-    severity: 'Critical',
-    date: '2024-04-05',
-    status: 'Resolved',
-    ref: 'NCR-2024-010'
-  }
-];
+interface FindingItem {
+  id: string;
+  title: string;
+  source: string;
+  category: string;
+  severity: string;
+  date: string;
+  status: string;
+  ref: string;
+}
 
 export default function AuditFindingsPage() {
   const [activeTab, setActiveTab] = useState('All');
+  const [findings, setFindings] = useState<FindingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getInspections('finding');
+        const mapped: FindingItem[] = rows.map((row: SafetyInspection) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            source: row.auditType ?? meta.source ?? '',
+            category: row.area ?? row.department ?? '',
+            severity: row.severity ?? '',
+            date: row.completedDate ?? row.scheduledDate ?? '',
+            status: row.status ?? '',
+            ref: row.code ?? meta.ref ?? '',
+          };
+        });
+        if (!cancelled) setFindings(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load findings');
+          setFindings([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -93,6 +112,19 @@ export default function AuditFindingsPage() {
           Log Finding
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading findings…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Insight Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

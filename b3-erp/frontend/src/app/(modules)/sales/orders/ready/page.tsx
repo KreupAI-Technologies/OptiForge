@@ -53,221 +53,53 @@ export default function ReadyOrdersPage() {
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('all');
   const [selectedPackagingStatus, setSelectedPackagingStatus] = useState<string>('all');
 
-  const orders: ReadyOrder[] = [
-    {
-      id: '1',
-      orderNumber: 'RDY-2025-001',
-      salesOrderNumber: 'SO-2025-089',
-      customerName: 'Tata Motors Limited',
-      customerEmail: 'procurement@tatamotors.com',
-      customerPhone: '+91 98765 43210',
-      totalAmount: 1245000,
-      priority: 'urgent',
-      paymentStatus: 'paid',
-      readyDate: '2025-10-18',
-      expectedDeliveryDate: '2025-10-22',
-      shippingAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      deliveryMethod: 'express',
-      packagingStatus: 'completed',
-      itemsCount: 250,
-      weight: 1500,
-      dimensions: '120x80x100 cm',
-      shippingCharges: 15000,
-      trackingReady: true,
-      notes: 'Fragile items - Handle with care'
-    },
-    {
-      id: '2',
-      orderNumber: 'RDY-2025-002',
-      salesOrderNumber: 'SO-2025-091',
-      customerName: 'Larsen & Toubro',
-      customerEmail: 'orders@lnt.com',
-      customerPhone: '+91 98765 43211',
-      totalAmount: 856000,
-      priority: 'high',
-      paymentStatus: 'paid',
-      readyDate: '2025-10-19',
-      expectedDeliveryDate: '2025-10-23',
-      shippingAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      deliveryMethod: 'standard',
-      packagingStatus: 'completed',
-      itemsCount: 180,
-      weight: 1200,
-      dimensions: '100x70x90 cm',
-      shippingCharges: 12000,
-      trackingReady: true
-    },
-    {
-      id: '3',
-      orderNumber: 'RDY-2025-003',
-      salesOrderNumber: 'SO-2025-095',
-      customerName: 'Reliance Industries',
-      customerEmail: 'procurement@ril.com',
-      customerPhone: '+91 98765 43212',
-      totalAmount: 2340000,
-      priority: 'urgent',
-      paymentStatus: 'paid',
-      readyDate: '2025-10-20',
-      expectedDeliveryDate: '2025-10-21',
-      shippingAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      deliveryMethod: 'same_day',
-      packagingStatus: 'in_progress',
-      itemsCount: 400,
-      weight: 2500,
-      dimensions: '150x100x120 cm',
-      shippingCharges: 25000,
-      trackingReady: false,
-      notes: 'Rush delivery required'
-    },
-    {
-      id: '4',
-      orderNumber: 'RDY-2025-004',
-      salesOrderNumber: 'SO-2025-098',
-      customerName: 'Adani Ports',
-      customerEmail: 'logistics@adaniports.com',
-      customerPhone: '+91 98765 43213',
-      totalAmount: 675000,
-      priority: 'normal',
-      paymentStatus: 'cod',
-      readyDate: '2025-10-20',
-      expectedDeliveryDate: '2025-10-25',
-      shippingAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      deliveryMethod: 'standard',
-      packagingStatus: 'completed',
-      itemsCount: 120,
-      weight: 800,
-      dimensions: '90x60x70 cm',
-      shippingCharges: 10000,
-      trackingReady: true,
-      notes: 'COD - Collect ₹6,75,000'
-    },
-    {
-      id: '5',
-      orderNumber: 'RDY-2025-005',
-      salesOrderNumber: 'SO-2025-102',
-      customerName: 'Mahindra & Mahindra',
-      customerEmail: 'purchase@mahindra.com',
-      customerPhone: '+91 98765 43214',
-      totalAmount: 445000,
-      priority: 'high',
-      paymentStatus: 'paid',
-      readyDate: '2025-10-20',
-      expectedDeliveryDate: '2025-10-24',
-      shippingAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      deliveryMethod: 'express',
-      packagingStatus: 'completed',
-      itemsCount: 90,
-      weight: 650,
-      dimensions: '80x60x70 cm',
-      shippingCharges: 8500,
-      trackingReady: true
-    },
-    {
-      id: '6',
-      orderNumber: 'RDY-2025-006',
-      salesOrderNumber: 'SO-2025-104',
-      customerName: 'Godrej Industries',
-      customerEmail: 'orders@godrej.com',
-      customerPhone: '+91 98765 43215',
-      totalAmount: 325000,
-      priority: 'normal',
-      paymentStatus: 'partially_paid',
-      readyDate: '2025-10-21',
-      expectedDeliveryDate: '2025-10-26',
-      shippingAddress: {
-        street: 'Godrej Complex, Vikhroli',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        pincode: '400079'
-      },
-      deliveryMethod: 'customer_pickup',
-      packagingStatus: 'pending',
-      itemsCount: 60,
-      weight: 400,
-      dimensions: '70x50x60 cm',
-      shippingCharges: 0,
-      trackingReady: false,
-      notes: 'Customer pickup scheduled for 2025-10-26'
-    },
-    {
-      id: '7',
-      orderNumber: 'RDY-2025-007',
-      salesOrderNumber: 'SO-2025-107',
-      customerName: 'Bharat Heavy Electricals',
-      customerEmail: 'procurement@bhel.in',
-      customerPhone: '+91 98765 43216',
-      totalAmount: 1890000,
-      priority: 'high',
-      paymentStatus: 'paid',
-      readyDate: '2025-10-21',
-      expectedDeliveryDate: '2025-10-24',
-      shippingAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      deliveryMethod: 'express',
-      packagingStatus: 'in_progress',
-      itemsCount: 320,
-      weight: 1800,
-      dimensions: '130x90x110 cm',
-      shippingCharges: 18000,
-      trackingReady: false
-    },
-    {
-      id: '8',
-      orderNumber: 'RDY-2025-008',
-      salesOrderNumber: 'SO-2025-110',
-      customerName: 'Hindustan Zinc Limited',
-      customerEmail: 'purchase@hzl.com',
-      customerPhone: '+91 98765 43217',
-      totalAmount: 567000,
-      priority: 'normal',
-      paymentStatus: 'pending',
-      readyDate: '2025-10-22',
-      expectedDeliveryDate: '2025-10-27',
-      shippingAddress: {
-        street: 'Zinc Smelter Complex',
-        city: 'Udaipur',
-        state: 'Rajasthan',
-        pincode: '313001'
-      },
-      deliveryMethod: 'standard',
-      packagingStatus: 'pending',
-      itemsCount: 100,
-      weight: 750,
-      dimensions: '85x65x75 cm',
-      shippingCharges: 9500,
-      trackingReady: false,
-      notes: 'Payment pending - Hold delivery until payment received'
-    }
-  ];
+  const [orders, setOrders] = useState<ReadyOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: ReadyOrder[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          orderNumber: r.orderNumber ?? '',
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerEmail: r.customerEmail ?? '',
+          customerPhone: r.customerPhone ?? '',
+          totalAmount: r.totalAmount ?? 0,
+          priority: (r.priority ?? 'normal') as ReadyOrder['priority'],
+          paymentStatus: (r.paymentStatus ?? 'pending') as ReadyOrder['paymentStatus'],
+          readyDate: r.readyDate ?? '',
+          expectedDeliveryDate: r.expectedDeliveryDate ?? '',
+          shippingAddress: {
+            street: r.shippingAddress?.street ?? '',
+            city: r.shippingAddress?.city ?? '',
+            state: r.shippingAddress?.state ?? '',
+            pincode: r.shippingAddress?.pincode ?? '',
+          },
+          deliveryMethod: (r.deliveryMethod ?? 'standard') as ReadyOrder['deliveryMethod'],
+          packagingStatus: (r.packagingStatus ?? 'pending') as ReadyOrder['packagingStatus'],
+          itemsCount: r.itemsCount ?? 0,
+          weight: r.weight ?? 0,
+          dimensions: r.dimensions ?? '',
+          shippingCharges: r.shippingCharges ?? 0,
+          trackingReady: r.trackingReady ?? false,
+          notes: r.notes,
+        }));
+        if (!cancelled) setOrders(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch =
@@ -335,6 +167,18 @@ export default function ReadyOrdersPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading orders…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

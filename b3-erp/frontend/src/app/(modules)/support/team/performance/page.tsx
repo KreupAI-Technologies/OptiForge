@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { TrendingUp, TrendingDown, Star, Clock, CheckCircle, Users, BarChart3, Target, Award, Calendar, Filter } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { TrendingUp, TrendingDown, Star, Clock, CheckCircle, Users, BarChart3, Target, Award, Calendar, Filter, AlertCircle } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface TeamPerformanceData {
   agentId: string

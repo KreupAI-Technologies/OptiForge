@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Package,
@@ -15,8 +15,10 @@ import {
   Filter,
   BarChart3,
   PieChart,
-  TrendingDown
+  TrendingDown,
+  AlertCircle
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface DeliveryMetrics {
   period: string;
@@ -144,128 +146,48 @@ export default function DeliveryAnalyticsPage() {
     }
   ]);
 
-  const [routePerformance, setRoutePerformance] = useState<RoutePerformance[]>([
-    {
-      id: 1,
-      routeName: 'Mumbai-Pune Express',
-      origin: 'Mumbai DC',
-      destination: 'Pune Hub',
-      totalDeliveries: 245,
-      onTimeDeliveries: 238,
-      avgDeliveryTime: 4.5,
-      avgDistance: 148,
-      onTimePercentage: 97.1,
-      fuelEfficiency: 5.8,
-      avgCostPerTrip: 8880,
-      rating: 4.8,
-      performance: 'excellent'
-    },
-    {
-      id: 2,
-      routeName: 'Delhi-Jaipur Highway',
-      origin: 'Delhi Hub',
-      destination: 'Jaipur Center',
-      totalDeliveries: 198,
-      onTimeDeliveries: 186,
-      avgDeliveryTime: 5.8,
-      avgDistance: 268,
-      onTimePercentage: 93.9,
-      fuelEfficiency: 5.2,
-      avgCostPerTrip: 16080,
-      rating: 4.5,
-      performance: 'excellent'
-    },
-    {
-      id: 3,
-      routeName: 'Bangalore-Chennai Corridor',
-      origin: 'Bangalore Plant',
-      destination: 'Chennai Port',
-      totalDeliveries: 312,
-      onTimeDeliveries: 288,
-      avgDeliveryTime: 7.2,
-      avgDistance: 346,
-      onTimePercentage: 92.3,
-      fuelEfficiency: 5.0,
-      avgCostPerTrip: 20760,
-      rating: 4.6,
-      performance: 'excellent'
-    },
-    {
-      id: 4,
-      routeName: 'Kolkata-Bhubaneswar Route',
-      origin: 'Kolkata Depot',
-      destination: 'Bhubaneswar Hub',
-      totalDeliveries: 156,
-      onTimeDeliveries: 140,
-      avgDeliveryTime: 9.5,
-      avgDistance: 442,
-      onTimePercentage: 89.7,
-      fuelEfficiency: 4.8,
-      avgCostPerTrip: 26520,
-      rating: 4.2,
-      performance: 'good'
-    },
-    {
-      id: 5,
-      routeName: 'Ahmedabad-Mumbai Industrial',
-      origin: 'Ahmedabad Hub',
-      destination: 'Mumbai Industrial',
-      totalDeliveries: 228,
-      onTimeDeliveries: 205,
-      avgDeliveryTime: 9.8,
-      avgDistance: 524,
-      onTimePercentage: 89.9,
-      fuelEfficiency: 4.5,
-      avgCostPerTrip: 31440,
-      rating: 4.3,
-      performance: 'good'
-    },
-    {
-      id: 6,
-      routeName: 'Hyderabad-Vijayawada',
-      origin: 'Hyderabad Workshop',
-      destination: 'Vijayawada Center',
-      totalDeliveries: 124,
-      onTimeDeliveries: 106,
-      avgDeliveryTime: 6.2,
-      avgDistance: 274,
-      onTimePercentage: 85.5,
-      fuelEfficiency: 5.1,
-      avgCostPerTrip: 16440,
-      rating: 3.9,
-      performance: 'average'
-    },
-    {
-      id: 7,
-      routeName: 'Pune-Goa Coastal',
-      origin: 'Pune Hub',
-      destination: 'Goa Port',
-      totalDeliveries: 89,
-      onTimeDeliveries: 78,
-      avgDeliveryTime: 11.5,
-      avgDistance: 448,
-      onTimePercentage: 87.6,
-      fuelEfficiency: 4.6,
-      avgCostPerTrip: 26880,
-      rating: 4.1,
-      performance: 'good'
-    },
-    {
-      id: 8,
-      routeName: 'Chennai-Coimbatore Inland',
-      origin: 'Chennai Port',
-      destination: 'Coimbatore Plant',
-      totalDeliveries: 178,
-      onTimeDeliveries: 145,
-      avgDeliveryTime: 8.8,
-      avgDistance: 498,
-      onTimePercentage: 81.5,
-      fuelEfficiency: 4.4,
-      avgCostPerTrip: 29880,
-      rating: 3.7,
-      performance: 'average'
-    }
-  ]);
+  const [routePerformance, setRoutePerformance] = useState<RoutePerformance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getShipments()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: RoutePerformance[] = list.map((r, idx) => ({
+          id: idx + 1,
+          routeName: r?.routeName ?? '',
+          origin: r?.origin ?? '',
+          destination: r?.destination ?? '',
+          totalDeliveries: Number(r?.totalDeliveries ?? 0),
+          onTimeDeliveries: Number(r?.onTimeDeliveries ?? 0),
+          avgDeliveryTime: Number(r?.avgDeliveryTime ?? 0),
+          avgDistance: Number(r?.avgDistance ?? 0),
+          onTimePercentage: Number(r?.onTimePercentage ?? 0),
+          fuelEfficiency: Number(r?.fuelEfficiency ?? 0),
+          avgCostPerTrip: Number(r?.avgCostPerTrip ?? 0),
+          rating: Number(r?.rating ?? 0),
+          performance: (r?.performance ?? 'average') as RoutePerformance['performance'],
+        }));
+        if (!cancelled) setRoutePerformance(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load deliveries');
+          setRoutePerformance([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getPerformanceColor = (performance: string) => {
     const colors: { [key: string]: string } = {
@@ -307,6 +229,19 @@ export default function DeliveryAnalyticsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading deliveries…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-3">

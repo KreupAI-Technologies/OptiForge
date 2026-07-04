@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AttendanceService } from '@/services/attendance.service';
 import {
   ArrowLeft,
   Calendar,
@@ -59,100 +60,59 @@ export default function ViewAttendancePage({ params }: { params: { id: string } 
     position: 'Production Manager',
   };
 
-  // Mock attendance records
-  const attendanceRecords: AttendanceRecord[] = [
-    {
-      date: '2024-01-20',
-      dayOfWeek: 'Saturday',
-      checkIn: '09:05',
-      checkOut: '18:15',
-      status: 'present',
-      hoursWorked: 9.17,
-      overtime: 0.17,
-      lateBy: 5,
-      earlyLeave: 0,
-      location: 'Factory - Building A',
-      remarks: '',
-    },
-    {
-      date: '2024-01-19',
-      dayOfWeek: 'Friday',
-      checkIn: '08:58',
-      checkOut: '18:02',
-      status: 'present',
-      hoursWorked: 9.07,
-      overtime: 0.07,
-      lateBy: 0,
-      earlyLeave: 0,
-      location: 'Factory - Building A',
-      remarks: '',
-    },
-    {
-      date: '2024-01-18',
-      dayOfWeek: 'Thursday',
-      checkIn: '09:10',
-      checkOut: '18:20',
-      status: 'present',
-      hoursWorked: 9.17,
-      overtime: 0.17,
-      lateBy: 10,
-      earlyLeave: 0,
-      location: 'Factory - Building A',
-      remarks: '',
-    },
-    {
-      date: '2024-01-17',
-      dayOfWeek: 'Wednesday',
-      checkIn: '09:00',
-      checkOut: '13:00',
-      status: 'half_day',
-      hoursWorked: 4.0,
-      overtime: 0,
-      lateBy: 0,
-      earlyLeave: 300,
-      location: 'Factory - Building A',
-      remarks: 'Medical appointment',
-    },
-    {
-      date: '2024-01-16',
-      dayOfWeek: 'Tuesday',
-      checkIn: '-',
-      checkOut: '-',
-      status: 'leave',
-      hoursWorked: 0,
-      overtime: 0,
-      lateBy: 0,
-      earlyLeave: 0,
-      location: '-',
-      remarks: 'Sick leave approved',
-    },
-    {
-      date: '2024-01-15',
-      dayOfWeek: 'Monday',
-      checkIn: '08:55',
-      checkOut: '18:00',
-      status: 'present',
-      hoursWorked: 9.08,
-      overtime: 0.08,
-      lateBy: 0,
-      earlyLeave: 0,
-      location: 'Factory - Building A',
-      remarks: '',
-    },
-    {
-      date: '2024-01-14',
-      dayOfWeek: 'Sunday',
-      checkIn: '-',
-      checkOut: '-',
-      status: 'holiday',
-      hoursWorked: 0,
-      overtime: 0,
-      lateBy: 0,
-      earlyLeave: 0,
-      location: '-',
-      remarks: 'Weekly off',
-    },
-  ];
+  // Attendance records (live)
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const fmtTime = (v: any): string => {
+      if (!v) return '-';
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return '-';
+      return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    };
+    const mapStatus = (s: any): AttendanceRecord['status'] => {
+      switch (String(s ?? '').toUpperCase()) {
+        case 'PRESENT': return 'present';
+        case 'ABSENT': return 'absent';
+        case 'LATE': return 'present';
+        case 'HALF_DAY': return 'half_day';
+        case 'ON_LEAVE': return 'leave';
+        case 'HOLIDAY':
+        case 'WEEKEND': return 'holiday';
+        default: return 'present';
+      }
+    };
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await AttendanceService.getAttendance({ employeeId: params.id });
+        const mapped: AttendanceRecord[] = (raw as any[]).map((r) => {
+          const d = r?.date ? new Date(r.date) : null;
+          return {
+            date: d && !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : String(r?.date ?? ''),
+            dayOfWeek: d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-US', { weekday: 'long' }) : '',
+            checkIn: fmtTime(r?.checkInTime),
+            checkOut: fmtTime(r?.checkOutTime),
+            status: mapStatus(r?.status),
+            hoursWorked: r?.totalHours ?? 0,
+            overtime: r?.overtimeHours ?? 0,
+            lateBy: r?.lateBy ?? 0,
+            earlyLeave: r?.earlyLeave ?? 0,
+            location: r?.location ?? '-',
+            remarks: r?.remarks ?? '',
+          };
+        });
+        if (!cancelled) setAttendanceRecords(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setAttendanceRecords([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [params.id]);
 
   // Mock month summary
   const monthSummary: MonthSummary = {
@@ -192,6 +152,8 @@ export default function ViewAttendancePage({ params }: { params: { id: string } 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
       <div className="w-full">
+        {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>)}
+        {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -495,7 +457,7 @@ export default function ViewAttendancePage({ params }: { params: { id: string } 
                     Attendance Timeline (Last 20 Days)
                   </h4>
                   <div className="flex gap-1.5">
-                    {attendanceRecords.reverse().map((record, idx) => {
+                    {[...attendanceRecords].reverse().map((record, idx) => {
                       const statusColors = {
                         present: 'bg-green-500 hover:bg-green-600',
                         absent: 'bg-red-500 hover:bg-red-600',

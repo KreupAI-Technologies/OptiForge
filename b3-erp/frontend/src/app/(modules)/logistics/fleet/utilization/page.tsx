@@ -56,284 +56,63 @@ export default function FleetUtilizationPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedPerformance, setSelectedPerformance] = useState('all');
 
-  const [utilizationData, setUtilizationData] = useState<VehicleUtilization[]>([
-    {
-      id: 1,
-      vehicleId: 'VEH-001',
-      vehicleNumber: 'MH-01-AB-1234',
-      vehicleType: '32-Ft Truck',
-      make: 'Tata',
-      model: 'LPT 3118',
-      year: 2022,
-      totalDays: 30,
-      activeDays: 26,
-      idleDays: 2,
-      maintenanceDays: 2,
-      utilizationPercentage: 86.7,
-      totalTrips: 12,
-      totalDistance: 18500,
-      avgTripDistance: 1542,
-      totalRevenue: 925000,
-      revenuePerKm: 50,
-      revenuePerDay: 30833,
-      operatingCost: 648000,
-      fuelCost: 425000,
-      maintenanceCost: 85000,
-      profitability: 277000,
-      profitMargin: 29.9,
-      loadCapacityUtilization: 88,
-      driverName: 'Ramesh Sharma',
-      currentStatus: 'active',
-      performanceRating: 'excellent',
-      recommendations: [
-        'Excellent utilization - maintain current performance',
-        'Consider increasing load capacity utilization to 90%+'
-      ]
-    },
-    {
-      id: 2,
-      vehicleId: 'VEH-002',
-      vehicleNumber: 'KA-05-CD-5678',
-      vehicleType: '20-Ft Container',
-      make: 'Ashok Leyland',
-      model: 'Ecomet 1615',
-      year: 2023,
-      totalDays: 30,
-      activeDays: 22,
-      idleDays: 7,
-      maintenanceDays: 1,
-      utilizationPercentage: 73.3,
-      totalTrips: 15,
-      totalDistance: 6800,
-      avgTripDistance: 453,
-      totalRevenue: 408000,
-      revenuePerKm: 60,
-      revenuePerDay: 13600,
-      operatingCost: 294000,
-      fuelCost: 185000,
-      maintenanceCost: 28000,
-      profitability: 114000,
-      profitMargin: 27.9,
-      loadCapacityUtilization: 75,
-      driverName: 'Suresh Kumar',
-      currentStatus: 'idle',
-      performanceRating: 'good',
-      recommendations: [
-        'Good utilization but can be improved',
-        'Reduce idle days - schedule more short-haul trips',
-        'Improve load capacity utilization to 85%+'
-      ]
-    },
-    {
-      id: 3,
-      vehicleId: 'VEH-003',
-      vehicleNumber: 'WB-02-EF-9012',
-      vehicleType: '40-Ft Truck',
-      make: 'Mahindra',
-      model: 'Blazo X 42',
-      year: 2021,
-      totalDays: 30,
-      activeDays: 24,
-      idleDays: 3,
-      maintenanceDays: 3,
-      utilizationPercentage: 80.0,
-      totalTrips: 8,
-      totalDistance: 16800,
-      avgTripDistance: 2100,
-      totalRevenue: 1008000,
-      revenuePerKm: 60,
-      revenuePerDay: 33600,
-      operatingCost: 728000,
-      fuelCost: 485000,
-      maintenanceCost: 125000,
-      profitability: 280000,
-      profitMargin: 27.8,
-      loadCapacityUtilization: 92,
-      driverName: 'Mohan Das',
-      currentStatus: 'active',
-      performanceRating: 'excellent',
-      recommendations: [
-        'Excellent load capacity utilization',
-        'Good overall performance',
-        'Consider reducing maintenance downtime'
-      ]
-    },
-    {
-      id: 4,
-      vehicleId: 'VEH-004',
-      vehicleNumber: 'TS-09-GH-3456',
-      vehicleType: '24-Ft Truck',
-      make: 'BharatBenz',
-      model: '2826R',
-      year: 2023,
-      totalDays: 30,
-      activeDays: 18,
-      idleDays: 5,
-      maintenanceDays: 7,
-      utilizationPercentage: 60.0,
-      totalTrips: 10,
-      totalDistance: 6500,
-      avgTripDistance: 650,
-      totalRevenue: 390000,
-      revenuePerKm: 60,
-      revenuePerDay: 13000,
-      operatingCost: 312000,
-      fuelCost: 195000,
-      maintenanceCost: 88000,
-      profitability: 78000,
-      profitMargin: 20.0,
-      loadCapacityUtilization: 82,
-      driverName: 'Prakash Reddy',
-      currentStatus: 'maintenance',
-      performanceRating: 'average',
-      recommendations: [
-        'High maintenance days affecting utilization',
-        'Review maintenance schedule - plan preventive maintenance better',
-        'Reduce idle days when vehicle is operational',
-        'Profit margin below target - optimize operating costs'
-      ]
-    },
-    {
-      id: 5,
-      vehicleId: 'VEH-005',
-      vehicleNumber: 'MH-12-IJ-7890',
-      vehicleType: '18-Ft Truck',
-      make: 'Eicher',
-      model: 'Pro 6025T',
-      year: 2022,
-      totalDays: 30,
-      activeDays: 28,
-      idleDays: 1,
-      maintenanceDays: 1,
-      utilizationPercentage: 93.3,
-      totalTrips: 20,
-      totalDistance: 8500,
-      avgTripDistance: 425,
-      totalRevenue: 510000,
-      revenuePerKm: 60,
-      revenuePerDay: 17000,
-      operatingCost: 340000,
-      fuelCost: 210000,
-      maintenanceCost: 32000,
-      profitability: 170000,
-      profitMargin: 33.3,
-      loadCapacityUtilization: 68,
-      driverName: 'Ganesh Patil',
-      currentStatus: 'active',
-      performanceRating: 'excellent',
-      recommendations: [
-        'Outstanding utilization rate - best in fleet',
-        'Excellent profit margin',
-        'Consider increasing load capacity per trip to maximize revenue'
-      ]
-    },
-    {
-      id: 6,
-      vehicleId: 'VEH-006',
-      vehicleNumber: 'DL-03-KL-2468',
-      vehicleType: '28-Ft Truck',
-      make: 'Tata',
-      model: 'Signa 2823.K',
-      year: 2021,
-      totalDays: 30,
-      activeDays: 25,
-      idleDays: 3,
-      maintenanceDays: 2,
-      utilizationPercentage: 83.3,
-      totalTrips: 11,
-      totalDistance: 8200,
-      avgTripDistance: 745,
-      totalRevenue: 492000,
-      revenuePerKm: 60,
-      revenuePerDay: 16400,
-      operatingCost: 369000,
-      fuelCost: 246000,
-      maintenanceCost: 55000,
-      profitability: 123000,
-      profitMargin: 25.0,
-      loadCapacityUtilization: 85,
-      driverName: 'Vijay Singh',
-      currentStatus: 'active',
-      performanceRating: 'good',
-      recommendations: [
-        'Good utilization and performance',
-        'Improve profit margin by optimizing fuel consumption',
-        'Maintain current load capacity utilization'
-      ]
-    },
-    {
-      id: 7,
-      vehicleId: 'VEH-007',
-      vehicleNumber: 'TN-01-MN-1357',
-      vehicleType: '32-Ft Truck',
-      make: 'Volvo',
-      model: 'FH16',
-      year: 2023,
-      totalDays: 30,
-      activeDays: 20,
-      idleDays: 9,
-      maintenanceDays: 1,
-      utilizationPercentage: 66.7,
-      totalTrips: 9,
-      totalDistance: 7800,
-      avgTripDistance: 867,
-      totalRevenue: 468000,
-      revenuePerKm: 60,
-      revenuePerDay: 15600,
-      operatingCost: 351000,
-      fuelCost: 234000,
-      maintenanceCost: 30000,
-      profitability: 117000,
-      profitMargin: 25.0,
-      loadCapacityUtilization: 78,
-      driverName: 'Murugan Subramanian',
-      currentStatus: 'idle',
-      performanceRating: 'average',
-      recommendations: [
-        'High idle days reducing overall utilization',
-        'Schedule more trips to improve utilization to 80%+',
-        'Improve load capacity utilization',
-        'Consider assigning to longer routes for better revenue'
-      ]
-    },
-    {
-      id: 8,
-      vehicleId: 'VEH-008',
-      vehicleNumber: 'GJ-01-OP-2580',
-      vehicleType: '20-Ft Truck',
-      make: 'Ashok Leyland',
-      model: 'Partner',
-      year: 2020,
-      totalDays: 30,
-      activeDays: 15,
-      idleDays: 12,
-      maintenanceDays: 3,
-      utilizationPercentage: 50.0,
-      totalTrips: 8,
-      totalDistance: 4500,
-      avgTripDistance: 563,
-      totalRevenue: 270000,
-      revenuePerKm: 60,
-      revenuePerDay: 9000,
-      operatingCost: 234000,
-      fuelCost: 153000,
-      maintenanceCost: 42000,
-      profitability: 36000,
-      profitMargin: 13.3,
-      loadCapacityUtilization: 62,
-      driverName: 'Bharat Patel',
-      currentStatus: 'offline',
-      performanceRating: 'poor',
-      recommendations: [
-        'CRITICAL: Low utilization - only 50% of available days',
-        'Very high idle days - investigate scheduling issues',
-        'Poor profit margin - below 15% threshold',
-        'Consider fleet optimization or reassignment',
-        'Improve load capacity utilization significantly',
-        'Review if vehicle should remain in active fleet'
-      ]
-    }
-  ]);
+  const [utilizationData, setUtilizationData] = useState<VehicleUtilization[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getVehicles()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: VehicleUtilization[] = list.map((r, idx) => ({
+          id: idx + 1,
+          vehicleId: r?.vehicleId ?? '',
+          vehicleNumber: r?.vehicleNumber ?? '',
+          vehicleType: r?.vehicleType ?? '',
+          make: r?.make ?? '',
+          model: r?.model ?? '',
+          year: Number(r?.year ?? 0),
+          totalDays: Number(r?.totalDays ?? 0),
+          activeDays: Number(r?.activeDays ?? 0),
+          idleDays: Number(r?.idleDays ?? 0),
+          maintenanceDays: Number(r?.maintenanceDays ?? 0),
+          utilizationPercentage: Number(r?.utilizationPercentage ?? 0),
+          totalTrips: Number(r?.totalTrips ?? 0),
+          totalDistance: Number(r?.totalDistance ?? 0),
+          avgTripDistance: Number(r?.avgTripDistance ?? 0),
+          totalRevenue: Number(r?.totalRevenue ?? 0),
+          revenuePerKm: Number(r?.revenuePerKm ?? 0),
+          revenuePerDay: Number(r?.revenuePerDay ?? 0),
+          operatingCost: Number(r?.operatingCost ?? 0),
+          fuelCost: Number(r?.fuelCost ?? 0),
+          maintenanceCost: Number(r?.maintenanceCost ?? 0),
+          profitability: Number(r?.profitability ?? 0),
+          profitMargin: Number(r?.profitMargin ?? 0),
+          loadCapacityUtilization: Number(r?.loadCapacityUtilization ?? 0),
+          driverName: r?.driverName ?? '',
+          currentStatus: (r?.currentStatus ?? 'idle') as VehicleUtilization['currentStatus'],
+          performanceRating: (r?.performanceRating ?? 'average') as VehicleUtilization['performanceRating'],
+          recommendations: Array.isArray(r?.recommendations) ? r.recommendations : [],
+        }));
+        if (!cancelled) setUtilizationData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load vehicles');
+          setUtilizationData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {
@@ -401,6 +180,19 @@ export default function FleetUtilizationPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading vehicles…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Plus
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface CreditNote {
   id: string;
@@ -35,118 +36,41 @@ export default function CreditNotesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
-  const creditNotes: CreditNote[] = [
-    {
-      id: '1',
-      creditNoteNumber: 'CN-2025-001',
-      invoiceNumber: 'INV-2025-1189',
-      customerName: 'Tata Motors Limited',
-      issueDate: '2025-10-15',
-      amount: 125000,
-      reason: 'Defective items returned',
-      status: 'applied',
-      type: 'return',
-      itemsCount: 5,
-      appliedDate: '2025-10-18',
-      notes: '5 units returned due to quality issues'
-    },
-    {
-      id: '2',
-      creditNoteNumber: 'CN-2025-002',
-      invoiceNumber: 'INV-2025-1195',
-      customerName: 'Reliance Industries',
-      issueDate: '2025-10-16',
-      amount: 234000,
-      reason: 'Billing error - Overcharged',
-      status: 'approved',
-      type: 'discount_adjustment',
-      itemsCount: 1,
-      notes: 'Quantity mismatch in original invoice'
-    },
-    {
-      id: '3',
-      creditNoteNumber: 'CN-2025-003',
-      invoiceNumber: 'INV-2025-1201',
-      customerName: 'Mahindra & Mahindra',
-      issueDate: '2025-10-17',
-      amount: 45000,
-      reason: 'Promotional discount applied',
-      status: 'pending',
-      type: 'discount_adjustment',
-      itemsCount: 3,
-      notes: 'Volume discount as per agreement'
-    },
-    {
-      id: '4',
-      creditNoteNumber: 'CN-2025-004',
-      invoiceNumber: 'INV-2025-1183',
-      customerName: 'L&T Heavy Engineering',
-      issueDate: '2025-10-12',
-      amount: 567000,
-      reason: 'Complete order cancellation',
-      status: 'refunded',
-      type: 'full_refund',
-      itemsCount: 12,
-      appliedDate: '2025-10-14',
-      refundMethod: 'Bank Transfer',
-      notes: 'Project cancelled by customer'
-    },
-    {
-      id: '5',
-      creditNoteNumber: 'CN-2025-005',
-      invoiceNumber: 'INV-2025-1207',
-      customerName: 'Bharat Heavy Electricals',
-      issueDate: '2025-10-18',
-      amount: 89000,
-      reason: 'Damaged goods received',
-      status: 'approved',
-      type: 'defect',
-      itemsCount: 2,
-      notes: 'Damaged during transit - replacement sent'
-    },
-    {
-      id: '6',
-      creditNoteNumber: 'CN-2025-006',
-      invoiceNumber: 'INV-2025-1190',
-      customerName: 'Hindalco Industries',
-      issueDate: '2025-10-14',
-      amount: 156000,
-      reason: 'Partial order return',
-      status: 'applied',
-      type: 'partial_refund',
-      itemsCount: 4,
-      appliedDate: '2025-10-16',
-      notes: '4 items returned - specifications did not match'
-    },
-    {
-      id: '7',
-      creditNoteNumber: 'CN-2025-007',
-      invoiceNumber: 'INV-2025-1212',
-      customerName: 'JSW Steel',
-      issueDate: '2025-10-19',
-      amount: 78000,
-      reason: 'Early payment discount',
-      status: 'pending',
-      type: 'discount_adjustment',
-      itemsCount: 1,
-      notes: '2% early payment discount as per terms'
-    },
-    {
-      id: '8',
-      creditNoteNumber: 'CN-2025-008',
-      invoiceNumber: 'INV-2025-1204',
-      customerName: 'Godrej Industries',
-      issueDate: '2025-10-13',
-      amount: 325000,
-      reason: 'Quality issues - Full return',
-      status: 'refunded',
-      type: 'full_refund',
-      itemsCount: 8,
-      appliedDate: '2025-10-15',
-      refundMethod: 'Check',
-      notes: 'All items failed quality inspection'
-    }
-  ];
+  const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: CreditNote[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          creditNoteNumber: r.creditNoteNumber ?? '',
+          invoiceNumber: r.invoiceNumber ?? '',
+          customerName: r.customerName ?? '',
+          issueDate: r.issueDate ?? '',
+          amount: r.amount ?? 0,
+          reason: r.reason ?? '',
+          status: (r.status ?? 'pending') as CreditNote['status'],
+          type: (r.type ?? 'return') as CreditNote['type'],
+          itemsCount: r.itemsCount ?? 0,
+          appliedDate: r.appliedDate,
+          refundMethod: r.refundMethod,
+          notes: r.notes,
+        }));
+        if (!cancelled) setCreditNotes(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setCreditNotes([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredCreditNotes = creditNotes.filter(note => {
     const matchesSearch =
@@ -197,6 +121,18 @@ export default function CreditNotesPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button

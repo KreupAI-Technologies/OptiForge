@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardCheck,
   Search,
@@ -16,6 +16,7 @@ import {
   Flame,
   UserCheck
 } from 'lucide-react';
+import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 
 // Mock Data
 const inspectionStats = {
@@ -25,47 +26,62 @@ const inspectionStats = {
   outstandingIssues: 6
 };
 
-const inspectionChecklists = [
-  {
-    id: 'INSP-2024-040',
-    title: 'Monthly Fire Safety Audit',
-    area: 'Warehouse Sector A & B',
-    inspector: 'John Smith',
-    status: 'In Progress',
-    compliance: 85,
-    items: [
-      { name: 'Fire Extinguishers Charged', status: 'Pass' },
-      { name: 'Emergency Exits Clear', status: 'Fail', note: 'Blocked by pallet in Sector B' },
-      { name: 'Sprinkler System Pressure', status: 'Pass' },
-      { name: 'Emergency Lights Functional', status: 'Pending' },
-    ]
-  },
-  {
-    id: 'INSP-2024-041',
-    title: 'Bi-Weekly Machine Guard Check',
-    area: 'Production Line 4',
-    inspector: 'Sarah Wilson',
-    status: 'Scheduled',
-    compliance: 0,
-    items: []
-  },
-  {
-    id: 'INSP-2024-039',
-    title: 'Chemical Storage Review',
-    area: 'Hazmat Room',
-    inspector: 'Mike Johnson',
-    status: 'Completed',
-    compliance: 92,
-    items: [
-      { name: 'Proper Labeling', status: 'Pass' },
-      { name: 'Bund Integrity', status: 'Fail', note: 'Minor crack in Bund 3' },
-      { name: 'MSDS Sheets Accessible', status: 'Pass' },
-    ]
-  },
-];
+interface ChecklistItem {
+  name: string;
+  status: string;
+  note?: string;
+}
+
+interface InspectionItem {
+  id: string;
+  title: string;
+  area: string;
+  inspector: string;
+  status: string;
+  compliance: number;
+  items: ChecklistItem[];
+}
 
 export default function InspectionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [inspectionChecklists, setInspectionChecklists] = useState<InspectionItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getInspections('inspection');
+        const mapped: InspectionItem[] = rows.map((row: SafetyInspection) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            area: row.area ?? '',
+            inspector: row.auditor ?? row.assignedTo ?? '',
+            status: row.status ?? '',
+            compliance: Number(meta.compliance ?? row.score ?? 0) || 0,
+            items: Array.isArray(meta.items) ? (meta.items as ChecklistItem[]) : [],
+          };
+        });
+        if (!cancelled) setInspectionChecklists(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load inspections');
+          setInspectionChecklists([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -83,6 +99,19 @@ export default function InspectionsPage() {
           Start New Inspection
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading inspections…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
