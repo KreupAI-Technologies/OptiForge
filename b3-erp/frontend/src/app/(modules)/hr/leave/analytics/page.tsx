@@ -100,20 +100,13 @@ export default function LeaveAnalyticsPage() {
         { type: 'success', title: 'Improved Approval Time', description: 'Average approval time reduced from 2.3 days to 1.5 days over the last quarter.' }
     ];
 
-    const topLeaveReasons = [
-        { reason: 'Family Events', percentage: 28 },
-        { reason: 'Medical/Health', percentage: 22 },
-        { reason: 'Personal Work', percentage: 18 },
-        { reason: 'Vacation/Travel', percentage: 15 },
-        { reason: 'Emergency', percentage: 10 },
-        { reason: 'Other', percentage: 7 }
-    ];
-
-    const maxRequests = Math.max(...weekdayPatterns.map(p => p.requests));
+    const maxRequests = weekdayPatterns.length ? Math.max(...weekdayPatterns.map(p => p.requests), 1) : 1;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -210,7 +203,7 @@ export default function LeaveAnalyticsPage() {
                     </h3>
                     <div className="flex items-end justify-between h-40 gap-2">
                         {monthlyTrends.map((month) => {
-                            const maxValue = Math.max(...monthlyTrends.map(m => m.value));
+                            const maxValue = Math.max(...monthlyTrends.map(m => m.value), 1);
                             const height = (month.value / maxValue) * 100;
                             return (
                                 <div key={month.month} className="flex-1 flex flex-col items-center">

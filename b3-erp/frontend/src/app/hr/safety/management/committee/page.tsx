@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Search,
@@ -10,17 +10,19 @@ import {
   ClipboardCheck,
   Plus,
   ArrowRight,
-  Clock
+  Clock,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
 
-// Mock Data
-const committeeMembers = [
-  { id: 1, name: 'Robert Fox', role: 'Chairperson', department: 'Operations', termEnds: 'Dec 2024', status: 'Active' },
-  { id: 2, name: 'Jenny Wilson', role: 'Secretary', department: 'HR', termEnds: 'Dec 2025', status: 'Active' },
-  { id: 3, name: 'Guy Hawkins', role: 'Employee Rep', department: 'Assembly', termEnds: 'Jun 2024', status: 'Active' },
-  { id: 4, name: 'Kristin Watson', role: 'Management Rep', department: 'Facilities', termEnds: 'Dec 2024', status: 'Active' },
-  { id: 5, name: 'Cody Fisher', role: 'Safety Officer', department: 'EHS', termEnds: 'Permanent', status: 'Active' },
-];
+interface CommitteeMember {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  termEnds: string;
+  status: string;
+}
 
 const actionItems = [
   { id: 1, title: 'Install guard rails on Line 3', assignee: 'Facilities', priority: 'High', due: '2024-04-10', status: 'In Progress' },

@@ -60,195 +60,54 @@ export default function CustomReportsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showBuilder, setShowBuilder] = useState(false);
 
-  const reports: CustomReport[] = [
-    {
-      id: 'RPT-001',
-      name: 'Sales Performance by Region',
-      description: 'Quarterly sales performance breakdown across all regions with win rate analysis',
-      type: 'bar_chart',
-      category: 'sales',
-      dataSource: 'opportunities',
-      metrics: ['Total Revenue', 'Deal Count', 'Win Rate', 'Avg Deal Size'],
-      dimensions: ['Region', 'Sales Rep', 'Product'],
-      filters: [
-        { field: 'status', operator: 'equals', value: 'won' },
-        { field: 'stage', operator: 'not_equals', value: 'lost' }
-      ],
-      dateRange: 'last_quarter',
-      createdBy: 'Sarah Johnson',
-      createdAt: '2025-08-15',
-      lastRun: '2025-10-20',
-      runCount: 47,
-      isFavorite: true,
-      isShared: true,
-      sharedWith: ['Sales Team', 'Management'],
-      schedule: 'weekly',
-      status: 'active'
-    },
-    {
-      id: 'RPT-002',
-      name: 'Customer Lifetime Value Analysis',
-      description: 'Customer segmentation by LTV with churn risk indicators',
-      type: 'pie_chart',
-      category: 'customers',
-      dataSource: 'customers',
-      metrics: ['Customer LTV', 'Total Spend', 'Avg Purchase Value', 'Purchase Frequency'],
-      dimensions: ['Customer Segment', 'Industry', 'Company Size'],
-      filters: [
-        { field: 'status', operator: 'equals', value: 'active' },
-        { field: 'ltv', operator: 'greater_than', value: '10000' }
-      ],
-      dateRange: 'last_year',
-      createdBy: 'Michael Chen',
-      createdAt: '2025-07-22',
-      lastRun: '2025-10-19',
-      runCount: 34,
-      isFavorite: true,
-      isShared: true,
-      sharedWith: ['Customer Success', 'Sales Team'],
-      schedule: 'monthly',
-      status: 'active'
-    },
-    {
-      id: 'RPT-003',
-      name: 'Pipeline Velocity Trends',
-      description: 'Track how quickly deals move through pipeline stages over time',
-      type: 'line_chart',
-      category: 'performance',
-      dataSource: 'opportunities',
-      metrics: ['Avg Days in Stage', 'Stage Conversion Rate', 'Deal Velocity'],
-      dimensions: ['Stage', 'Month', 'Sales Rep'],
-      filters: [
-        { field: 'stage', operator: 'not_equals', value: 'closed_lost' }
-      ],
-      dateRange: 'last_quarter',
-      createdBy: 'Sarah Johnson',
-      createdAt: '2025-09-10',
-      lastRun: '2025-10-20',
-      runCount: 28,
-      isFavorite: false,
-      isShared: true,
-      sharedWith: ['Sales Team'],
-      schedule: 'weekly',
-      status: 'active'
-    },
-    {
-      id: 'RPT-004',
-      name: 'Revenue Attribution by Channel',
-      description: 'Revenue breakdown by marketing channel and campaign source',
-      type: 'bar_chart',
-      category: 'revenue',
-      dataSource: 'opportunities',
-      metrics: ['Revenue', 'Deal Count', 'Conversion Rate', 'Cost per Acquisition'],
-      dimensions: ['Channel', 'Campaign', 'Lead Source'],
-      filters: [
-        { field: 'status', operator: 'equals', value: 'won' }
-      ],
-      dateRange: 'last_30_days',
-      createdBy: 'Emily Rodriguez',
-      createdAt: '2025-09-28',
-      lastRun: '2025-10-20',
-      runCount: 15,
-      isFavorite: true,
-      isShared: false,
-      sharedWith: [],
-      schedule: null,
-      status: 'active'
-    },
-    {
-      id: 'RPT-005',
-      name: 'Activity Effectiveness Report',
-      description: 'Correlation between sales activities and deal outcomes',
-      type: 'table',
-      category: 'activities',
-      dataSource: 'activities',
-      metrics: ['Activity Count', 'Response Rate', 'Meeting Conversion', 'Deal Win Rate'],
-      dimensions: ['Activity Type', 'Sales Rep', 'Customer Segment'],
-      filters: [
-        { field: 'activity_type', operator: 'in', value: 'call,email,meeting' }
-      ],
-      dateRange: 'last_quarter',
-      createdBy: 'Michael Chen',
-      createdAt: '2025-08-05',
-      lastRun: '2025-10-18',
-      runCount: 42,
-      isFavorite: false,
-      isShared: true,
-      sharedWith: ['Sales Team', 'Sales Ops'],
-      schedule: 'monthly',
-      status: 'active'
-    },
-    {
-      id: 'RPT-006',
-      name: 'Customer Health Score Dashboard',
-      description: 'Real-time customer health indicators with engagement metrics',
-      type: 'metric_card',
-      category: 'customers',
-      dataSource: 'customers',
-      metrics: ['Health Score', 'Engagement Score', 'Support Tickets', 'NPS Score'],
-      dimensions: ['Customer Segment', 'Account Manager', 'Region'],
-      filters: [
-        { field: 'status', operator: 'equals', value: 'active' },
-        { field: 'health_score', operator: 'less_than', value: '70' }
-      ],
-      dateRange: 'last_30_days',
-      createdBy: 'Sarah Johnson',
-      createdAt: '2025-09-15',
-      lastRun: '2025-10-20',
-      runCount: 22,
-      isFavorite: true,
-      isShared: true,
-      sharedWith: ['Customer Success', 'Management'],
-      schedule: 'daily',
-      status: 'active'
-    },
-    {
-      id: 'RPT-007',
-      name: 'Contract Renewal Forecast',
-      description: 'Predictive analysis of upcoming contract renewals and expansion opportunities',
-      type: 'table',
-      category: 'revenue',
-      dataSource: 'contracts',
-      metrics: ['Contract Value', 'Renewal Probability', 'Expansion Potential', 'Churn Risk'],
-      dimensions: ['Contract Type', 'Customer Segment', 'Renewal Month'],
-      filters: [
-        { field: 'renewal_date', operator: 'within_next', value: '90_days' }
-      ],
-      dateRange: 'custom',
-      createdBy: 'Emily Rodriguez',
-      createdAt: '2025-07-30',
-      lastRun: '2025-10-19',
-      runCount: 38,
-      isFavorite: false,
-      isShared: true,
-      sharedWith: ['Sales Team', 'Finance'],
-      schedule: 'weekly',
-      status: 'active'
-    },
-    {
-      id: 'RPT-008',
-      name: 'Product Mix Analysis',
-      description: 'Revenue contribution and growth trends by product line',
-      type: 'pie_chart',
-      category: 'sales',
-      dataSource: 'opportunities',
-      metrics: ['Revenue', 'Units Sold', 'Avg Price', 'Growth Rate'],
-      dimensions: ['Product', 'Product Category', 'Region'],
-      filters: [
-        { field: 'status', operator: 'equals', value: 'won' }
-      ],
-      dateRange: 'last_year',
-      createdBy: 'Michael Chen',
-      createdAt: '2025-06-12',
-      lastRun: '2025-10-17',
-      runCount: 56,
-      isFavorite: false,
-      isShared: true,
-      sharedWith: ['Product Team', 'Sales Team'],
-      schedule: 'monthly',
-      status: 'active'
-    }
-  ];
+  const [reports, setReports] = useState<CustomReport[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.savedReports.getAll()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: CustomReport[] = list.map((r, idx) => ({
+          id: r?.id ?? `RPT-${idx + 1}`,
+          name: r?.name ?? '',
+          description: r?.description ?? '',
+          type: (r?.type ?? 'table') as CustomReport['type'],
+          category: (r?.category ?? 'custom') as CustomReport['category'],
+          dataSource: (r?.dataSource ?? 'opportunities') as CustomReport['dataSource'],
+          metrics: Array.isArray(r?.metrics) ? r.metrics : [],
+          dimensions: Array.isArray(r?.dimensions) ? r.dimensions : [],
+          filters: Array.isArray(r?.filters) ? r.filters : [],
+          dateRange: (r?.dateRange ?? 'last_30_days') as CustomReport['dateRange'],
+          createdBy: r?.createdBy ?? '',
+          createdAt: r?.createdAt ?? '',
+          lastRun: r?.lastRun ?? undefined,
+          runCount: Number(r?.runCount ?? 0),
+          isFavorite: !!r?.isFavorite,
+          isShared: !!r?.isShared,
+          sharedWith: Array.isArray(r?.sharedWith) ? r.sharedWith : [],
+          schedule: (r?.schedule ?? null) as CustomReport['schedule'],
+          status: (r?.status ?? 'active') as CustomReport['status'],
+        }));
+        if (!cancelled) setReports(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load reports');
+          setReports([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredReports = reports.filter(report => {
     const matchesSearch = report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -416,6 +275,19 @@ export default function CustomReportsPage() {
           </div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading reports…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Reports Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

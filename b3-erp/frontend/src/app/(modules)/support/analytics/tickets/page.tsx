@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, Download, Filter } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { TrendingUp, TrendingDown, Minus, BarChart3, Calendar, Download, Filter, AlertCircle } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface TicketTrend {
   period: string
@@ -30,19 +31,40 @@ interface PriorityDistribution {
 
 export default function TicketAnalytics() {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
+  const [ticketTrends, setTicketTrends] = useState<TicketTrend[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const ticketTrends: TicketTrend[] = [
-    { period: 'Jan 2024', total: 342, open: 45, resolved: 267, closed: 30, change: 5.2 },
-    { period: 'Feb 2024', total: 389, open: 52, resolved: 298, closed: 39, change: 13.7 },
-    { period: 'Mar 2024', total: 456, open: 67, resolved: 334, closed: 55, change: 17.2 },
-    { period: 'Apr 2024', total: 423, open: 58, resolved: 312, closed: 53, change: -7.2 },
-    { period: 'May 2024', total: 478, open: 71, resolved: 356, closed: 51, change: 13.0 },
-    { period: 'Jun 2024', total: 512, open: 82, resolved: 378, closed: 52, change: 7.1 },
-    { period: 'Jul 2024', total: 534, open: 89, resolved: 391, closed: 54, change: 4.3 },
-    { period: 'Aug 2024', total: 567, open: 94, resolved: 412, closed: 61, change: 6.2 },
-    { period: 'Sep 2024', total: 489, open: 76, resolved: 368, closed: 45, change: -13.8 },
-    { period: 'Oct 2024', total: 523, open: 85, resolved: 389, closed: 49, change: 7.0 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getOmnichannel()
+        // Omnichannel conversations; only period-bearing records map to trend rows.
+        const mapped: TicketTrend[] = raw
+          .filter((r: any) => r?.period || r?.month)
+          .map((r: any) => ({
+            period: r.period ?? r.month ?? '',
+            total: r.total ?? 0,
+            open: r.open ?? 0,
+            resolved: r.resolved ?? 0,
+            closed: r.closed ?? 0,
+            change: r.change ?? 0,
+          }))
+        if (!cancelled) setTicketTrends(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setTicketTrends([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const categoryData: CategoryData[] = [
     { category: 'Network Issues', count: 145, percentage: 27.7, avgResolutionTime: '4.2 hours', trend: 'up' },
@@ -61,8 +83,9 @@ export default function TicketAnalytics() {
     { priority: 'P3 - Low', count: 117, percentage: 22.4, avgResponseTime: '8.7 hours', slaCompliance: 95.7 }
   ]
 
-  const currentMonth = ticketTrends[ticketTrends.length - 1]
-  const previousMonth = ticketTrends[ticketTrends.length - 2]
+  const emptyTrend: TicketTrend = { period: '', total: 0, open: 0, resolved: 0, closed: 0, change: 0 }
+  const currentMonth = ticketTrends.length > 0 ? ticketTrends[ticketTrends.length - 1] : emptyTrend
+  const previousMonth = ticketTrends.length > 1 ? ticketTrends[ticketTrends.length - 2] : emptyTrend
 
   const stats = [
     {
@@ -156,6 +179,19 @@ export default function TicketAnalytics() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading ticket analytics…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">

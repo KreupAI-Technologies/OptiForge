@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BarChart3,
     Download,
@@ -10,6 +10,7 @@ import {
     TrendingUp,
     PieChart
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
 
 interface LeaveSummary {
     leaveType: string;

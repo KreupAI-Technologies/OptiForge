@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Search,
@@ -8,10 +8,12 @@ import {
   Users,
   CheckCircle,
   AlertTriangle,
+  AlertCircle,
   Clock,
   ChevronRight,
   MoreHorizontal
 } from 'lucide-react';
+import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
 import {
   BarChart,
   Bar,
@@ -40,19 +42,69 @@ const upcomingDrills = [
   { id: 3, name: 'Severe Weather Drill', date: '2024-06-10', time: '11:00 AM', status: 'Proposed', type: 'Evacuation' },
 ];
 
-const trainingRecords = [
-  { id: 'TR-001', employee: 'John Doe', course: 'Forklift Safety Certification', date: '2024-03-20', expiry: '2025-03-20', status: 'Valid' },
-  { id: 'TR-002', employee: 'Sarah Smith', course: 'Chemical Handling Basics', date: '2023-04-15', expiry: '2024-04-15', status: 'Expiring Soon' },
-  { id: 'TR-003', employee: 'Mike Johnson', course: 'Fire Warden Training', date: '2024-01-10', expiry: '2026-01-10', status: 'Valid' },
-  { id: 'TR-004', employee: 'Emily Davis', course: 'First Aid & CPR', date: '2022-03-01', expiry: '2024-03-01', status: 'Expired' },
-  { id: 'TR-005', employee: 'Chris Wilson', course: 'Lockout/Tagout', date: '2024-02-28', expiry: '2025-02-28', status: 'Valid' },
-];
+interface TrainingRecord {
+  id: string;
+  employee: string;
+  course: string;
+  date: string;
+  expiry: string;
+  status: string;
+}
 
 export default function SafetyTrainingPage() {
   const [activeTab, setActiveTab] = useState('Compliance');
+  const [trainingRecords, setTrainingRecords] = useState<TrainingRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getTrainings('training');
+        const mapped: TrainingRecord[] = rows.map((row: SafetyTraining) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.code ?? row.id ?? ''),
+            employee: row.memberName ?? meta.employee ?? '',
+            course: row.title ?? '',
+            date: row.completedDate ?? row.scheduledDate ?? '',
+            expiry: row.reviewDate ?? meta.expiry ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setTrainingRecords(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load training records');
+          setTrainingRecords([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading training records…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
