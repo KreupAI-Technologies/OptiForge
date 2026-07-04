@@ -450,16 +450,24 @@ export default function QuoteEditPage() {
                   <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-1">
                     Quote Owner *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="owner"
                     value={formData.owner}
                     onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.owner ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    placeholder="Enter quote owner"
-                  />
+                    disabled={employeesLoading}
+                  >
+                    <option value="">{employeesLoading ? 'Loading employees…' : 'Select owner'}</option>
+                    {employees.map(e => (
+                      <option key={e.id} value={mdLabel.employee(e)}>{mdLabel.employee(e)}</option>
+                    ))}
+                    {/* Keep existing value selectable even if not yet in live list */}
+                    {formData.owner && !employees.find(e => mdLabel.employee(e) === formData.owner) && (
+                      <option value={formData.owner}>{formData.owner}</option>
+                    )}
+                  </select>
                   {errors.owner && (
                     <p className="text-sm text-red-600 mt-1">{errors.owner}</p>
                   )}
