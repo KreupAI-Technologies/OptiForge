@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BarChart3,
     Download,
@@ -13,6 +13,7 @@ import {
     FileText,
     Printer
 } from 'lucide-react';
+import { HrSelfServiceService } from '@/services/hr-self-service.service';
 
 interface OvertimeReport {
     id: string;

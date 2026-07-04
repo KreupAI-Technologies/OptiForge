@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Navigation,
   Plus,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
   TrendingUp
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface TripDetails {
   id: number;

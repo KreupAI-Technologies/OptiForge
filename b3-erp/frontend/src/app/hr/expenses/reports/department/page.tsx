@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Building, Download, TrendingUp, Users, DollarSign, BarChart3 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Building, Download, TrendingUp, Users, DollarSign, BarChart3, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from '@/hooks/use-toast';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface DepartmentExpense {
   department: string;

@@ -237,6 +237,12 @@ import { PayrollBonusRecordService } from './services/payroll-bonus-record.servi
 import { PayrollSalaryRevisionService } from './services/payroll-salary-revision.service';
 import { PayrollDisbursementService } from './services/payroll-disbursement.service';
 import { PayrollReportService } from './services/payroll-report.service';
+import { PayrollLoanRecovery } from './entities/payroll-loan-recovery.entity';
+import { PayrollLoanRecoveryController } from './controllers/payroll-loan-recovery.controller';
+import { PayrollLoanRecoveryService } from './services/payroll-loan-recovery.service';
+import { PayrollBonusScheme } from './entities/payroll-bonus-scheme.entity';
+import { PayrollBonusSchemeController } from './controllers/payroll-bonus-scheme.controller';
+import { PayrollBonusSchemeService } from './services/payroll-bonus-scheme.service';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { AttendanceRecordController } from './controllers/attendance-record.controller';
 import { AttendanceRecordService } from './services/attendance-record.service';

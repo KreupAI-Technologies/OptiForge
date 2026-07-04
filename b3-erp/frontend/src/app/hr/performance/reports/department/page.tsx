@@ -1,20 +1,57 @@
 'use client';
 
-import { Building, TrendingUp, Users, Target, Activity } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building, TrendingUp, Users, Target, Activity, AlertCircle } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+interface DepartmentDatum {
+  name: string;
+  avgScore: number;
+  completionPrice: number;
+  pipRate: number;
+  promotionReady: number;
+  prevScore: number;
+}
 
 export default function DepartmentPerformancePage() {
-  const departmentData = [
-    { name: 'Engineering', avgScore: 4.2, completionPrice: 95, pipRate: 2, promotionReady: 15, prevScore: 4.0 },
-    { name: 'Sales', avgScore: 4.5, completionPrice: 98, pipRate: 5, promotionReady: 20, prevScore: 4.2 },
-    { name: 'Marketing', avgScore: 3.9, completionPrice: 92, pipRate: 3, promotionReady: 10, prevScore: 3.8 },
-    { name: 'Product', avgScore: 4.1, completionPrice: 94, pipRate: 1, promotionReady: 12, prevScore: 4.1 },
-    { name: 'HR', avgScore: 4.3, completionPrice: 100, pipRate: 0, promotionReady: 8, prevScore: 4.2 },
-    { name: 'Finance', avgScore: 4.0, completionPrice: 96, pipRate: 2, promotionReady: 10, prevScore: 3.9 },
-  ];
+  const [departmentData, setDepartmentData] = useState<DepartmentDatum[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.performanceReviews()) as any[];
+        const mapped: DepartmentDatum[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          name: r.name ?? r.department ?? r.departmentName ?? '',
+          avgScore: Number(r.avgScore ?? r.averageScore ?? r.rating ?? 0),
+          completionPrice: Number(r.completionPrice ?? r.reviewCompletion ?? r.completion ?? 0),
+          pipRate: Number(r.pipRate ?? 0),
+          promotionReady: Number(r.promotionReady ?? 0),
+          prevScore: Number(r.prevScore ?? r.previousScore ?? 0),
+        }));
+        if (!cancelled) setDepartmentData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department data');
+          setDepartmentData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const trendData = [
     { month: 'Jan', Eng: 4.0, Sales: 4.2, Mkt: 3.8 },

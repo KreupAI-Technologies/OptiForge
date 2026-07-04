@@ -27,16 +27,6 @@ import {
   Cell
 } from 'recharts';
 
-// Mock Data
-const monthlyHoursData = [
-  { month: 'Jan', technical: 120, softSkills: 40, compliance: 20 },
-  { month: 'Feb', technical: 150, softSkills: 50, compliance: 10 },
-  { month: 'Mar', technical: 180, softSkills: 60, compliance: 30 },
-  { month: 'Apr', technical: 200, softSkills: 80, compliance: 40 },
-  { month: 'May', technical: 170, softSkills: 70, compliance: 20 },
-  { month: 'Jun', technical: 220, softSkills: 90, compliance: 15 },
-];
-
 const trainingTypeData = [
   { name: 'Online Courses', value: 450, color: '#8b5cf6' },
   { name: 'Workshops', value: 300, color: '#ec4899' },
@@ -44,8 +34,47 @@ const trainingTypeData = [
   { name: 'Seminars', value: 150, color: '#3b82f6' },
 ];
 
+interface MonthlyHoursRecord {
+  month: string;
+  technical: number;
+  softSkills: number;
+  compliance: number;
+}
+
 export default function TrainingHoursPage() {
   const [timeRange, setTimeRange] = useState('Last 6 Months');
+  const [monthlyHoursData, setMonthlyHoursData] = useState<MonthlyHoursRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingEnrollments()) as any[];
+        const mapped: MonthlyHoursRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          month: r.month ?? r.period ?? '',
+          technical: Number(r.technical ?? 0),
+          softSkills: Number(r.softSkills ?? 0),
+          compliance: Number(r.compliance ?? 0),
+        }));
+        if (!cancelled) setMonthlyHoursData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load training hours');
+          setMonthlyHoursData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -73,6 +102,19 @@ export default function TrainingHoursPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading training hours…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPI Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
