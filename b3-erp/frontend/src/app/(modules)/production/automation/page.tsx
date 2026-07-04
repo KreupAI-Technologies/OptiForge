@@ -21,6 +21,7 @@ import { IntegrationHealthMonitor, ConnectedSystem, HealthCheck } from '@/compon
 import { BarcodeScanner, ScannedItem, WIPStatus, ScanMode } from '@/components/industry4/BarcodeScanner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // ============================================================================
 // Types

@@ -57,15 +57,16 @@ interface InvoiceFormData {
   termsConditions: string;
 }
 
-const indianCompanies = [
-  { name: 'Tata Steel Limited', gst: '27AAACT2727Q1ZV', state: 'West Bengal' },
-  { name: 'Reliance Industries Ltd', gst: '24AAACR5055K1Z4', state: 'Gujarat' },
-  { name: 'HDFC Bank Limited', gst: '27AAACH6393K1ZF', state: 'Maharashtra' },
-  { name: 'ICICI Bank Limited', gst: '27AAACI1681G1ZA', state: 'Maharashtra' },
-  { name: 'Infosys Limited', gst: '29AAACI1681G1Z9', state: 'Karnataka' },
-  { name: 'Wipro Limited', gst: '29AAACW3775F1ZR', state: 'Karnataka' },
-  { name: 'Mahindra & Mahindra', gst: '27AAACM1474E1ZH', state: 'Maharashtra' },
-  { name: 'Larsen & Toubro Ltd', gst: '27AAACL0125F1Z5', state: 'Maharashtra' },
+// Seed/fallback customer list (kept as unused fallback per wiring contract)
+const indianCompaniesSeed: MDCustomer[] = [
+  { id: 'seed-1', customerName: 'Tata Steel Limited', customerCode: 'seed-1' },
+  { id: 'seed-2', customerName: 'Reliance Industries Ltd', customerCode: 'seed-2' },
+  { id: 'seed-3', customerName: 'HDFC Bank Limited', customerCode: 'seed-3' },
+  { id: 'seed-4', customerName: 'ICICI Bank Limited', customerCode: 'seed-4' },
+  { id: 'seed-5', customerName: 'Infosys Limited', customerCode: 'seed-5' },
+  { id: 'seed-6', customerName: 'Wipro Limited', customerCode: 'seed-6' },
+  { id: 'seed-7', customerName: 'Mahindra & Mahindra', customerCode: 'seed-7' },
+  { id: 'seed-8', customerName: 'Larsen & Toubro Ltd', customerCode: 'seed-8' },
 ];
 
 const indianStates = [

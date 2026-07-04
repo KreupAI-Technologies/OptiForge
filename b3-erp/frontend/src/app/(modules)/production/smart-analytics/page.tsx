@@ -232,6 +232,78 @@ export default function SmartAnalyticsPage() {
         // Overview - show all components in a compact layout
         return (
           <div className="space-y-3">
+            {/* Live OEE Records — primary data list from the backend */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Live OEE Records
+                  </h2>
+                  {!oeeLoading && !oeeError && (
+                    <span className="text-xs text-gray-400">
+                      {oeeRecords.length} record{oeeRecords.length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+
+                {oeeLoading && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Loading OEE records…
+                  </div>
+                )}
+
+                {oeeError && !oeeLoading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+                    <AlertTriangle className="w-4 h-4" />
+                    {oeeError}
+                  </div>
+                )}
+
+                {!oeeLoading && !oeeError && oeeRecords.length === 0 && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    No OEE records
+                  </div>
+                )}
+
+                {!oeeLoading && !oeeError && oeeRecords.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          <th className="px-3 py-2 font-medium">Work Center / Line</th>
+                          <th className="px-3 py-2 font-medium">OEE</th>
+                          <th className="px-3 py-2 font-medium">Availability</th>
+                          <th className="px-3 py-2 font-medium">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {oeeRecords.map((r: any, i: number) => (
+                          <tr
+                            key={r?.id ?? i}
+                            className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          >
+                            <td className="px-3 py-2 text-gray-900 dark:text-gray-100">
+                              {r?.workCenterName ?? r?.productionLineName ?? r?.id ?? '—'}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                              {r?.oee ?? '—'}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                              {r?.availability ?? '—'}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+                              {r?.recordDate ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Natural Language Query - Featured */}
             <NaturalLanguageQuery
               onQuerySubmit={handleQuerySubmit}

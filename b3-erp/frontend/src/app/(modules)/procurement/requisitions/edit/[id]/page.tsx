@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { fetchRecordById } from '@/services/master-data.service';
 import {
   ArrowLeft,
   Save,

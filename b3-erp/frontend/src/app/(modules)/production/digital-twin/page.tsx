@@ -119,6 +119,34 @@ export default function DigitalTwinPage() {
   const [currentView, setCurrentView] = useState<ViewMode>('overview');
   const [selectedFloor, setSelectedFloor] = useState('floor-1');
 
+  // Live primary data list — GET /production/digital-twins (NestJS domain backend)
+  const [twins, setTwins] = useState<any[]>([]);
+  const [twinsLoading, setTwinsLoading] = useState(true);
+  const [twinsError, setTwinsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setTwinsLoading(true);
+      setTwinsError(null);
+      try {
+        const raw = await ProductionOrphanService.getDigitalTwins();
+        if (!cancelled) setTwins(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setTwinsError(err instanceof Error ? err.message : 'Failed to load digital twins');
+          setTwins([]);
+        }
+      } finally {
+        if (!cancelled) setTwinsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Event handlers
   const handleMachineClick = (machine: FloorMachine) => {
     console.log('Machine clicked:', machine);
