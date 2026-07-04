@@ -344,3 +344,64 @@ CREATE TABLE IF NOT EXISTS "support_omnichannel_interactions" (
 
 CREATE INDEX IF NOT EXISTS "IDX_omnichannel_interactions_company"
   ON "support_omnichannel_interactions" ("companyId");
+
+-- Backs GET /api/v1/support/tickets (Prisma model SupportTicket -> support_tickets).
+-- ADDITIVE ONLY. Column names mirror the Prisma model field names.
+CREATE TABLE IF NOT EXISTS "support_tickets" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "ticketCode" varchar NOT NULL,
+  "ticketNumber" varchar NOT NULL,
+  "channel" varchar NOT NULL,
+  "source" varchar,
+  "customerId" varchar,
+  "customerName" varchar NOT NULL,
+  "customerEmail" varchar,
+  "customerPhone" varchar,
+  "companyName" varchar,
+  "subject" varchar NOT NULL,
+  "description" text NOT NULL,
+  "categoryId" varchar,
+  "subCategory" varchar,
+  "priority" varchar NOT NULL DEFAULT 'medium',
+  "ticketType" varchar NOT NULL,
+  "assignedAgentId" varchar,
+  "assignedTeam" varchar,
+  "escalatedTo" varchar,
+  "escalationLevel" integer NOT NULL DEFAULT 0,
+  "slaId" varchar,
+  "firstResponseDue" timestamp,
+  "resolutionDue" timestamp,
+  "firstResponseAt" timestamp,
+  "firstResponseBreached" boolean NOT NULL DEFAULT false,
+  "resolutionBreached" boolean NOT NULL DEFAULT false,
+  "resolution" text,
+  "resolutionNotes" text,
+  "resolvedAt" timestamp,
+  "resolvedBy" varchar,
+  "closedAt" timestamp,
+  "closedBy" varchar,
+  "closureReason" varchar,
+  "status" varchar NOT NULL DEFAULT 'open',
+  "csatScore" integer,
+  "csatFeedback" text,
+  "csatSubmittedAt" timestamp,
+  "tags" text[] NOT NULL DEFAULT '{}',
+  "relatedTickets" text[] NOT NULL DEFAULT '{}',
+  "attachments" json,
+  "reopenCount" integer NOT NULL DEFAULT 0,
+  "responseCount" integer NOT NULL DEFAULT 0,
+  "incidentId" varchar,
+  "problemId" varchar,
+  "changeRequestId" varchar,
+  "remarks" text,
+  "companyId" varchar NOT NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_tickets" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_support_tickets_code_company" UNIQUE ("ticketCode", "companyId"),
+  CONSTRAINT "UQ_support_tickets_number_company" UNIQUE ("ticketNumber", "companyId")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_support_tickets_company"
+  ON "support_tickets" ("companyId");

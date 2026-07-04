@@ -5,6 +5,7 @@ import { SupportAutomationRule } from './entities/support-automation-rule.entity
 import { SupportFaq } from './entities/support-faq.entity';
 import { SupportTicketCategory } from './entities/support-ticket-category.entity';
 import { SupportResponseTemplate } from './entities/support-response-template.entity';
+import { SupportReportTemplate } from './entities/support-report-template.entity';
 import { SupportSlaSetting } from './entities/support-sla-setting.entity';
 import { SupportAgent } from './entities/support-agent.entity';
 import { SupportAgentSkill } from './entities/support-agent-skill.entity';
@@ -21,6 +22,7 @@ import { SupportAutomationRuleController } from './controllers/support-automatio
 import { SupportFaqController } from './controllers/support-faq.controller';
 import { SupportTicketCategoryController } from './controllers/support-ticket-category.controller';
 import { SupportResponseTemplateController } from './controllers/support-response-template.controller';
+import { SupportReportTemplateController } from './controllers/support-report-template.controller';
 import { SupportSlaSettingController } from './controllers/support-sla-setting.controller';
 import { SupportAgentController } from './controllers/support-agent.controller';
 import { SupportAgentSkillController } from './controllers/support-agent-skill.controller';
@@ -37,6 +39,7 @@ import { SupportAutomationRuleService } from './services/support-automation-rule
 import { SupportFaqService } from './services/support-faq.service';
 import { SupportTicketCategoryService } from './services/support-ticket-category.service';
 import { SupportResponseTemplateService } from './services/support-response-template.service';
+import { SupportReportTemplateService } from './services/support-report-template.service';
 import { SupportSlaSettingService } from './services/support-sla-setting.service';
 import { SupportAgentService } from './services/support-agent.service';
 import { SupportAgentSkillService } from './services/support-agent-skill.service';
@@ -70,6 +73,7 @@ import { SupportController } from './support.controller';
       SupportFaq,
       SupportTicketCategory,
       SupportResponseTemplate,
+      SupportReportTemplate,
       SupportSlaSetting,
       SupportAgent,
       SupportAgentSkill,
@@ -92,6 +96,7 @@ import { SupportController } from './support.controller';
     SupportAutomationRuleController,
     SupportFaqController,
     SupportResponseTemplateController,
+    SupportReportTemplateController,
     SupportSlaSettingController,
     SupportAgentController,
     SupportAgentSkillController,
@@ -111,6 +116,7 @@ import { SupportController } from './support.controller';
     SupportFaqService,
     SupportTicketCategoryService,
     SupportResponseTemplateService,
+    SupportReportTemplateService,
     SupportSlaSettingService,
     SupportAgentService,
     SupportAgentSkillService,

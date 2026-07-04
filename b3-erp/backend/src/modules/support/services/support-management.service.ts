@@ -37,22 +37,31 @@ export class SupportManagementService {
       }),
     };
 
-    const [tickets, total] = await Promise.all([
-      this.prisma.supportTicket.findMany({
-        where,
-        include: {
-          category: true,
-          assignedAgent: true,
-          comments: { orderBy: { createdAt: 'desc' }, take: 5 },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.supportTicket.count({ where }),
-    ]);
+    try {
+      const [tickets, total] = await Promise.all([
+        this.prisma.supportTicket.findMany({
+          where,
+          include: {
+            category: true,
+            assignedAgent: true,
+            comments: { orderBy: { createdAt: 'desc' }, take: 5 },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.supportTicket.count({ where }),
+      ]);
 
-    return { tickets, total, page, limit, totalPages: Math.ceil(total / limit) };
+      return { tickets, total, page, limit, totalPages: Math.ceil(total / limit) };
+    } catch (err: any) {
+      // P2021: the underlying table does not exist in the current DB.
+      // Return an empty paginated result so the endpoint stays resilient (200) instead of 500.
+      if (err?.code === 'P2021') {
+        return { tickets: [], total: 0, page, limit, totalPages: 0 };
+      }
+      throw err;
+    }
   }
 
   async getTicketById(id: string, companyId: string) {

@@ -465,14 +465,23 @@ export class CrmMastersService {
             ];
         }
 
-        return this.prisma.crmQuote.findMany({
-            where,
-            include: {
-                opportunity: true,
-                contracts: { take: 3 },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+        try {
+            return await this.prisma.crmQuote.findMany({
+                where,
+                include: {
+                    opportunity: true,
+                    contracts: { take: 3 },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+        } catch (err: any) {
+            // P2021: the underlying table does not exist in the current DB.
+            // Return an empty list so the endpoint stays resilient (200) instead of 500.
+            if (err?.code === 'P2021') {
+                return [];
+            }
+            throw err;
+        }
     }
 
     async findQuoteById(id: string) {

@@ -556,3 +556,49 @@ CREATE TABLE IF NOT EXISTS "crm_saved_reports" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
   CONSTRAINT "PK_crm_saved_reports" PRIMARY KEY ("id")
 );
+
+-- Backs GET /api/v1/crm/quotes (Prisma model CrmQuote -> crm_quotes).
+-- ADDITIVE ONLY. Column names mirror the Prisma model field names.
+CREATE TABLE IF NOT EXISTS "crm_quotes" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "quoteNumber" varchar NOT NULL,
+  "title" varchar NOT NULL,
+  "description" text,
+  "status" varchar NOT NULL DEFAULT 'draft',
+  "validUntil" timestamp,
+  "customerId" varchar,
+  "customerName" varchar,
+  "contactName" varchar,
+  "contactEmail" varchar,
+  "opportunityId" varchar,
+  "billingAddress" json,
+  "shippingAddress" json,
+  "items" json,
+  "subtotal" double precision NOT NULL DEFAULT 0,
+  "discountAmount" double precision NOT NULL DEFAULT 0,
+  "discountPercent" double precision NOT NULL DEFAULT 0,
+  "taxAmount" double precision NOT NULL DEFAULT 0,
+  "totalAmount" double precision NOT NULL DEFAULT 0,
+  "currency" varchar NOT NULL DEFAULT 'INR',
+  "paymentTerms" varchar,
+  "paymentTermDays" integer,
+  "preparedById" varchar,
+  "preparedByName" varchar,
+  "approvedById" varchar,
+  "approvedByName" varchar,
+  "sentDate" timestamp,
+  "acceptedDate" timestamp,
+  "rejectedDate" timestamp,
+  "notes" text,
+  "termsConditions" text,
+  "attachments" json,
+  "companyId" varchar NOT NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_crm_quotes" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_crm_quotes_number_company" UNIQUE ("quoteNumber", "companyId")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_crm_quotes_company"
+  ON "crm_quotes" ("companyId");
