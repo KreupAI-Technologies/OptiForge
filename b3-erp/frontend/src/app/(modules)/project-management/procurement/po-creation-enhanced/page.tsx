@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ShoppingCart,
@@ -30,6 +30,7 @@ import {
   FormProgressIndicator,
 } from '@/components/ui/FormUX';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { PrintPreview } from '@/components/print/PrintPreview';
 import { POTemplate, CompanyInfo } from '@/components/print/PDFTemplates';
 
@@ -163,17 +164,9 @@ const MOCK_COMPANY: CompanyInfo = {
   taxId: '06AAXCO1234F1ZN',
 };
 
-const VENDORS = [
-  { label: 'Merino Industries Ltd.', value: 'VND-001', gstin: '29AAACM1234A1Z5', address: 'Industrial Area, Sector 6, Bangalore - 560058', contact: 'Rajesh Kumar - +91 98765 43210' },
-  { label: 'Hettich India Pvt Ltd', value: 'VND-002', gstin: '27AAACH5678B2Z3', address: 'Faridabad Industrial Estate, Haryana - 121001', contact: 'Amit Sharma - +91 98123 45678' },
-  { label: 'Hafele India Pvt Ltd', value: 'VND-003', gstin: '27AAACH9012C3Z1', address: 'Thane Industrial Park, Mumbai - 400601', contact: 'Priya Patel - +91 99887 66543' },
-];
-
-const PROJECTS = [
-  { label: 'PRJ-2025-001 - Taj Hotels - Commercial Kitchen', value: 'PRJ-2025-001' },
-  { label: 'PRJ-2025-002 - BigBasket - Cold Room', value: 'PRJ-2025-002' },
-  { label: 'PRJ-2025-003 - L&T Campus - Industrial Kitchen', value: 'PRJ-2025-003' },
-];
+// Reference-data types (wired to NestJS backend at runtime)
+type VendorOption = { label: string; value: string; gstin: string; address: string; contact: string };
+type ProjectOption = { label: string; value: string };
 
 const UNITS = [
   { label: 'pcs', value: 'pcs' },
@@ -219,6 +212,44 @@ export default function POCreationEnhancedPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+
+  // Reference data (wired to NestJS backend)
+  const [vendors, setVendors] = useState<VendorOption[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getProcurementVendorsRaw();
+        if (cancelled) return;
+        setVendors((rows || []).map((v: any) => ({
+          label: v.vendorName || v.name || v.legalName || v.code || '',
+          value: v.id || v.code,
+          gstin: v.gstin || v.gstNumber || v.taxId || '',
+          address: v.address || v.billingAddress || '',
+          contact: v.contactPerson || v.contactName || v.contact || '',
+        })));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmProjectPlansRaw();
+        if (cancelled) return;
+        setProjects((rows || []).map((p: any) => {
+          const code = p.projectCode || p.code || p.id;
+          const name = p.projectName || p.name || '';
+          return { label: code ? `${code} - ${name}` : name, value: p.id || code };
+        }));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Auto-save draft
   const { lastSaved, isSaving, hasDraft, clearDraft, restoreDraft } = useAutoSaveDraft(
@@ -323,7 +354,7 @@ export default function POCreationEnhancedPage() {
 
   // Vendor selection
   const selectVendor = (vendorId: string) => {
-    const vendor = VENDORS.find(v => v.value === vendorId);
+    const vendor = vendors.find(v => v.value === vendorId);
     if (vendor) {
       updateFormData('vendor', vendorId);
       updateFormData('vendorName', vendor.label);
@@ -396,11 +427,11 @@ export default function POCreationEnhancedPage() {
                   Project <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={PROJECTS}
+                  options={projects}
                   value={formData.projectId}
                   onChange={(val) => {
                     updateFormData('projectId', val);
-                    const project = PROJECTS.find(p => p.value === val);
+                    const project = projects.find(p => p.value === val);
                     if (project) {
                       updateFormData('projectName', project.label.split(' - ')[1] || '');
                     }
@@ -417,7 +448,7 @@ export default function POCreationEnhancedPage() {
                   Vendor <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={VENDORS}
+                  options={vendors}
                   value={formData.vendor}
                   onChange={selectVendor}
                   placeholder="Select Vendor"

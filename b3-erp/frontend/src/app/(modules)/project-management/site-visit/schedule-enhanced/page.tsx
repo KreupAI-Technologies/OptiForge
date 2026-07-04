@@ -112,29 +112,10 @@ const STEPS = [
   { id: 'review', label: 'Confirm', description: 'Review and schedule', icon: CheckCircle },
 ];
 
-const EQUIPMENT_OPTIONS = [
-  { id: 'laser', label: 'Laser Measure', icon: Ruler },
-  { id: 'camera', label: 'Camera/Phone', icon: Camera },
-  { id: 'measuring_tape', label: 'Measuring Tape', icon: Ruler },
-  { id: 'clipboard', label: 'Checklist/Forms', icon: ClipboardList },
-  { id: 'level', label: 'Spirit Level', icon: Ruler },
-  { id: 'ppe', label: 'Safety Gear (PPE)', icon: AlertTriangle },
-];
-
-const PROJECTS = [
-  { label: 'PRJ-2025-001 - Taj Hotels - Commercial Kitchen', value: 'PRJ-2025-001', location: 'Taj Hotels, Mumbai', address: 'Apollo Bunder, Colaba, Mumbai, Maharashtra 400001' },
-  { label: 'PRJ-2025-002 - BigBasket - Cold Room', value: 'PRJ-2025-002', location: 'BigBasket Warehouse, Bengaluru', address: 'Survey No. 12/1, Whitefield Main Rd, Bengaluru, Karnataka 560066' },
-  { label: 'PRJ-2025-003 - L&T Campus - Industrial Kitchen', value: 'PRJ-2025-003', location: 'L&T Campus, Powai', address: 'Saki Vihar Rd, Powai, Mumbai, Maharashtra 400072' },
-];
-
-const EMPLOYEES = [
-  { label: 'Rajesh Kumar', value: 'Rajesh Kumar', phone: '+91 98765 43210' },
-  { label: 'Priya Sharma', value: 'Priya Sharma', phone: '+91 98765 43211' },
-  { label: 'Amit Patel', value: 'Amit Patel', phone: '+91 98765 43212' },
-  { label: 'Sunita Reddy', value: 'Sunita Reddy', phone: '+91 98765 43213' },
-  { label: 'Vikram Singh', value: 'Vikram Singh', phone: '+91 98765 43214' },
-  { label: 'Anjali Gupta', value: 'Anjali Gupta', phone: '+91 98765 43215' },
-];
+// Reference-data types (wired to NestJS backend at runtime)
+type EquipmentOption = { id: string; label: string; icon: React.ComponentType<{ className?: string }> };
+type ProjectOption = { label: string; value: string; location: string; address: string };
+type EmployeeOption = { label: string; value: string; phone: string };
 
 const initialFormData: FormData = {
   project: '',
@@ -168,6 +149,64 @@ export default function ScheduleSiteVisitEnhancedPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reference data (wired to NestJS backend)
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmProjectPlansRaw();
+        if (cancelled) return;
+        setProjects((rows || []).map((p: any) => {
+          const code = p.projectCode || p.code || p.id;
+          const name = p.projectName || p.name || '';
+          return {
+            label: code ? `${code} - ${name}` : name,
+            value: p.id || code,
+            location: p.location || '',
+            address: p.location || '',
+          };
+        }));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getHrEmployeesRaw();
+        if (cancelled) return;
+        setEmployees((rows || []).map((e: any) => ({
+          label: e.fullName || `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.name || '',
+          value: e.id,
+          phone: e.mobileNumber || e.phone || e.contactNumber || '',
+        })));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmEquipmentCatalogRaw();
+        if (cancelled) return;
+        setEquipmentOptions((rows || []).map((eq: any) => ({
+          id: eq.code || eq.id,
+          label: eq.name || eq.code || '',
+          icon: Ruler,
+        })));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Auto-save draft
   const { lastSaved, isSaving, hasDraft, clearDraft, restoreDraft } = useAutoSaveDraft(
@@ -355,11 +394,11 @@ export default function ScheduleSiteVisitEnhancedPage() {
                 Project <span className="text-red-500">*</span>
               </label>
               <SearchableSelect
-                options={PROJECTS}
+                options={projects}
                 value={formData.project}
                 onChange={(val) => {
                   updateFormData('project', val);
-                  const selectedProject = PROJECTS.find(p => p.value === val);
+                  const selectedProject = projects.find(p => p.value === val);
                   if (selectedProject) {
                     updateFormData('projectName', selectedProject.label.split(' - ')[1] || '');
                     updateFormData('location', selectedProject.location);
@@ -638,11 +677,11 @@ export default function ScheduleSiteVisitEnhancedPage() {
                   <div key={member.id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1 grid grid-cols-3 gap-2">
                       <SearchableSelect
-                        options={EMPLOYEES}
+                        options={employees}
                         value={member.name}
                         onChange={(val) => {
                           updateTeamMember(member.id, 'name', val);
-                          const selectedEmp = EMPLOYEES.find(e => e.value === val);
+                          const selectedEmp = employees.find(e => e.value === val);
                           if (selectedEmp) {
                             updateTeamMember(member.id, 'phone', selectedEmp.phone);
                           }
@@ -697,7 +736,7 @@ export default function ScheduleSiteVisitEnhancedPage() {
                 <HelpIcon content={FIELD_HELP.equipment.content} title={FIELD_HELP.equipment.title} />
               </label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {EQUIPMENT_OPTIONS.map((equip) => {
+                {equipmentOptions.map((equip) => {
                   const Icon = equip.icon;
                   const isSelected = formData.equipment.includes(equip.id);
                   return (
@@ -847,7 +886,7 @@ export default function ScheduleSiteVisitEnhancedPage() {
                 <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Equipment & Objectives</h3>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {formData.equipment.map((equipId) => {
-                    const equip = EQUIPMENT_OPTIONS.find(e => e.id === equipId);
+                    const equip = equipmentOptions.find(e => e.id === equipId);
                     return equip ? (
                       <span key={equipId} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
                         {equip.label}

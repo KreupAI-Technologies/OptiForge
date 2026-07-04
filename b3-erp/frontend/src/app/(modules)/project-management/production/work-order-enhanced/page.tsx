@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Factory,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { StepIndicator } from '@/components/ui/StepIndicator';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   useAutoSaveDraft,
   AutoSaveIndicator,
@@ -109,28 +110,11 @@ const defaultMaterials: Material[] = [
   { id: '2', itemCode: 'WELD-ROD', description: 'Welding Rod SS 308L', quantity: 5, unit: 'kg', available: 20, reserved: 8 },
 ];
 
-const PROJECTS = [
-  { label: 'PRJ-2025-001 - Taj Hotels - Commercial Kitchen', value: 'PRJ-001', projectName: 'Taj Hotels - Commercial Kitchen' },
-  { label: 'PRJ-2025-002 - BigBasket - Cold Room', value: 'PRJ-002', projectName: 'BigBasket - Cold Room' },
-  { label: 'PRJ-2025-003 - Reliance Retail - Display Shelves', value: 'PRJ-003', projectName: 'Reliance Retail - Display Shelves' },
-];
-
-const PRODUCTS = [
-  { label: 'COOK-RANGE-6B - 6-Burner Gas Cooking Range', value: 'COOK-RANGE-6B', name: '6-Burner Gas Cooking Range' },
-  { label: 'SS-TABLE-4FT - Stainless Steel Prep Table 4ft', value: 'SS-TABLE-4FT', name: 'Stainless Steel Prep Table 4ft' },
-  { label: 'COLD-UNIT-L - Industrial Cooling Unit (Large)', value: 'COLD-UNIT-L', name: 'Industrial Cooling Unit (Large)' },
-];
-
-const WORK_CENTERS = [
-  { label: 'Laser Cutting - Line 1 (Laser-01)', value: 'Laser-01' },
-  { label: 'Laser Cutting - Line 2 (Laser-02)', value: 'Laser-02' },
-  { label: 'Bending - Line 1 (Bend-01)', value: 'Bend-01' },
-  { label: 'Bending - Line 2 (Bend-02)', value: 'Bend-02' },
-  { label: 'Fabrication - Bay 1 (Fab-01)', value: 'Fab-01' },
-  { label: 'Welding - Bay 1 (Weld-01)', value: 'Weld-01' },
-  { label: 'Buffing - Line 1 (Buff-01)', value: 'Buff-01' },
-  { label: 'Assembly Line 1 (Assembly-01)', value: 'Assembly-01' },
-];
+// Reference-data types (wired to NestJS backend at runtime)
+type ProjectOption = { label: string; value: string; projectName: string };
+type ProductOption = { label: string; value: string; name: string };
+type WorkCenterOption = { label: string; value: string };
+type RawMaterialOption = { label: string; value: string; description: string; unit: string; available: number; reserved: number };
 
 const PRIORITIES = [
   { label: 'Urgent (Immediate Start)', value: 'Urgent' },
@@ -145,13 +129,6 @@ const UNITS = [
   { label: 'Units (units)', value: 'units' },
   { label: 'Kilograms (kg)', value: 'kg' },
   { label: 'Running Meters (rm)', value: 'rm' },
-];
-
-const RAW_MATERIALS = [
-  { label: 'SS304-2MM - Stainless Steel 304 Sheet 2mm', value: 'SS304-2MM', description: 'Stainless Steel 304 Sheet 2mm', unit: 'sheets', available: 25, reserved: 5 },
-  { label: 'SS316-3MM - Stainless Steel 316 Sheet 3mm', value: 'SS316-3MM', description: 'Stainless Steel 316 Sheet 3mm', unit: 'sheets', available: 12, reserved: 2 },
-  { label: 'WELD-ROD - Welding Rod SS 308L', value: 'WELD-ROD', description: 'Welding Rod SS 308L', unit: 'kg', available: 20, reserved: 8 },
-  { label: 'GAS-ARGON - Argon Gas Cylinder', value: 'GAS-ARGON', description: 'Argon Gas Cylinder', unit: 'cyl', available: 15, reserved: 3 },
 ];
 
 const STANDARD_OPERATIONS = [
@@ -187,6 +164,83 @@ export default function ProductionWorkOrderEnhancedPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reference data (wired to NestJS backend)
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [workCenters, setWorkCenters] = useState<WorkCenterOption[]>([]);
+  const [rawMaterials, setRawMaterials] = useState<RawMaterialOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmProjectPlansRaw();
+        if (cancelled) return;
+        setProjects((rows || []).map((p: any) => {
+          const code = p.projectCode || p.code || p.id;
+          const name = p.projectName || p.name || '';
+          return { label: code ? `${code} - ${name}` : name, value: p.id || code, projectName: name };
+        }));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getCpqProductsRaw();
+        if (cancelled) return;
+        setProducts((rows || []).map((p: any) => {
+          const code = p.productCode || p.code || p.sku || p.id;
+          const name = p.productName || p.name || '';
+          return { label: code ? `${code} - ${name}` : name, value: p.id || code, name };
+        }));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmMachineStatusRaw();
+        if (cancelled) return;
+        setWorkCenters((rows || []).map((m: any) => {
+          const name = m.name || m.machineName || '';
+          const code = m.code || m.machineCode || m.id;
+          return { label: code ? `${name} (${code})` : name, value: m.id || code };
+        }));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await projectManagementService.getPmBomItems();
+        if (cancelled) return;
+        setRawMaterials((rows || []).map((b: any) => {
+          const code = b.sku || b.itemId || b.code || b.id;
+          const name = b.name || b.itemName || '';
+          return {
+            label: code ? `${code} - ${name}` : name,
+            value: b.id || code,
+            description: name,
+            unit: b.uom || b.unit || '',
+            available: b.available ?? b.quantity ?? 0,
+            reserved: b.reserved ?? 0,
+          };
+        }));
+      } catch { /* leave empty on error */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Auto-save
   const { lastSaved, isSaving, hasDraft, clearDraft, restoreDraft } = useAutoSaveDraft(
@@ -342,10 +396,10 @@ export default function ProductionWorkOrderEnhancedPage() {
                   Project <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={PROJECTS}
+                  options={projects}
                   value={formData.project}
                   onChange={(val) => {
-                    const project = PROJECTS.find(p => p.value === val);
+                    const project = projects.find(p => p.value === val);
                     updateFormData('project', val);
                     updateFormData('projectName', project?.projectName || '');
                   }}
@@ -372,10 +426,10 @@ export default function ProductionWorkOrderEnhancedPage() {
                   Product Code
                 </label>
                 <SearchableSelect
-                  options={PRODUCTS}
+                  options={products}
                   value={formData.productCode}
                   onChange={(val) => {
-                    const product = PRODUCTS.find(p => p.value === val);
+                    const product = products.find(p => p.value === val);
                     updateFormData('productCode', val);
                     updateFormData('productName', product?.name || '');
                   }}
@@ -477,7 +531,7 @@ export default function ProductionWorkOrderEnhancedPage() {
                   <HelpIcon content={FIELD_HELP.workCenter.content} title={FIELD_HELP.workCenter.title} />
                 </label>
                 <SearchableSelect
-                  options={WORK_CENTERS}
+                  options={workCenters}
                   value={formData.workCenter}
                   onChange={(val) => updateFormData('workCenter', val)}
                   placeholder="Select work center"
@@ -542,7 +596,7 @@ export default function ProductionWorkOrderEnhancedPage() {
                   <div className="w-48">
                     <label className="block text-xs text-gray-500 mb-1">Work Center</label>
                     <SearchableSelect
-                      options={WORK_CENTERS}
+                      options={workCenters}
                       value={op.workCenter}
                       onChange={(val) => updateOperation(op.id, 'workCenter', val)}
                       className="min-h-[32px]"
@@ -618,10 +672,10 @@ export default function ProductionWorkOrderEnhancedPage() {
                       <tr key={mat.id} className={shortfall ? 'bg-red-50' : ''}>
                         <td className="px-4 py-2 w-48">
                           <SearchableSelect
-                            options={RAW_MATERIALS}
+                            options={rawMaterials}
                             value={mat.itemCode}
                             onChange={(val) => {
-                              const item = RAW_MATERIALS.find(i => i.value === val);
+                              const item = rawMaterials.find(i => i.value === val);
                               if (item) {
                                 updateMaterial(mat.id, 'itemCode', val);
                                 updateMaterial(mat.id, 'description', item.description);
