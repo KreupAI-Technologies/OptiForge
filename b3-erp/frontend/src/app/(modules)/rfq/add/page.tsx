@@ -274,13 +274,35 @@ export default function AddRFQPage() {
     targetPrice: 0,
   });
 
-  const [vendors, setVendors] = useState<Vendor[]>(mockVendors);
+  const [vendors, setVendors] = useState<Vendor[]>(mockVendorsSeed);
+  const [isLoadingVendors, setIsLoadingVendors] = useState(false);
   const [vendorFilter, setVendorFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [ratingFilter, setRatingFilter] = useState(0);
   const [showVendorDetails, setShowVendorDetails] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setIsLoadingVendors(true);
+    MasterDataService.getVendors().then((liveVendors) => {
+      if (liveVendors.length > 0) {
+        setVendors(
+          liveVendors.map((v: MDVendor, idx: number) => ({
+            id: v.id,
+            vendorId: v.vendorCode || v.id,
+            vendorName: mdLabel.vendor(v),
+            category: v.category || '',
+            email: v.email || '',
+            phone: '',
+            rating: 0,
+            pastPerformance: '',
+            selected: false,
+          }))
+        );
+      }
+    }).finally(() => setIsLoadingVendors(false));
+  }, []);
 
   const updateFormData = (field: keyof RFQFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
