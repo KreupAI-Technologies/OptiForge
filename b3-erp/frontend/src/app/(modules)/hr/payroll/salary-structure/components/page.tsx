@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Layers,
     Plus,
@@ -11,6 +11,7 @@ import {
     ToggleLeft,
     Calculator
 } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface SalaryComponent {
     id: string;
@@ -31,148 +32,23 @@ export default function ComponentsMasterPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
 
-    const components: SalaryComponent[] = [
-        {
-            id: '1',
-            code: 'BASIC',
-            name: 'Basic Salary',
-            description: 'Base salary component',
-            type: 'Earning',
-            category: 'Fixed',
-            calculationType: 'Fixed',
-            calculationBase: 'CTC',
-            value: 40,
-            isTaxable: true,
-            isStatutory: false,
-            isActive: true
-        },
-        {
-            id: '2',
-            code: 'HRA',
-            name: 'House Rent Allowance',
-            description: 'Allowance for housing expenses',
-            type: 'Earning',
-            category: 'Fixed',
-            calculationType: 'Percentage',
-            calculationBase: 'Basic',
-            value: 50,
-            isTaxable: true,
-            isStatutory: false,
-            isActive: true
-        },
-        {
-            id: '3',
-            code: 'DA',
-            name: 'Dearness Allowance',
-            description: 'Cost of living adjustment',
-            type: 'Earning',
-            category: 'Variable',
-            calculationType: 'Percentage',
-            calculationBase: 'Basic',
-            value: 12,
-            isTaxable: true,
-            isStatutory: false,
-            isActive: true
-        },
-        {
-            id: '4',
-            code: 'CONVEY',
-            name: 'Conveyance Allowance',
-            description: 'Transportation allowance',
-            type: 'Earning',
-            category: 'Fixed',
-            calculationType: 'Fixed',
-            calculationBase: 'N/A',
-            value: 1600,
-            isTaxable: false,
-            isStatutory: false,
-            isActive: true
-        },
-        {
-            id: '5',
-            code: 'MA',
-            name: 'Medical Allowance',
-            description: 'Medical expense allowance',
-            type: 'Earning',
-            category: 'Fixed',
-            calculationType: 'Fixed',
-            calculationBase: 'N/A',
-            value: 1250,
-            isTaxable: false,
-            isStatutory: false,
-            isActive: true
-        },
-        {
-            id: '6',
-            code: 'PF',
-            name: 'Provident Fund',
-            description: 'Employee PF contribution',
-            type: 'Deduction',
-            category: 'Statutory',
-            calculationType: 'Percentage',
-            calculationBase: 'Basic',
-            value: 12,
-            isTaxable: false,
-            isStatutory: true,
-            isActive: true
-        },
-        {
-            id: '7',
-            code: 'ESIC',
-            name: 'ESI Contribution',
-            description: 'Employee state insurance',
-            type: 'Deduction',
-            category: 'Statutory',
-            calculationType: 'Percentage',
-            calculationBase: 'Gross',
-            value: 0.75,
-            isTaxable: false,
-            isStatutory: true,
-            isActive: true
-        },
-        {
-            id: '8',
-            code: 'PT',
-            name: 'Professional Tax',
-            description: 'State professional tax',
-            type: 'Deduction',
-            category: 'Statutory',
-            calculationType: 'Formula',
-            calculationBase: 'Gross',
-            value: 200,
-            isTaxable: false,
-            isStatutory: true,
-            isActive: true
-        },
-        {
-            id: '9',
-            code: 'TDS',
-            name: 'Tax Deducted at Source',
-            description: 'Income tax deduction',
-            type: 'Deduction',
-            category: 'Statutory',
-            calculationType: 'Formula',
-            calculationBase: 'Taxable Income',
-            value: 0,
-            isTaxable: false,
-            isStatutory: true,
-            isActive: true
-        },
-        {
-            id: '10',
-            code: 'BONUS',
-            name: 'Performance Bonus',
-            description: 'Variable performance-based bonus',
-            type: 'Earning',
-            category: 'Variable',
-            calculationType: 'Percentage',
-            calculationBase: 'Basic',
-            value: 0,
-            isTaxable: true,
-            isStatutory: false,
-            isActive: true
-        }
-    ];
+    const [components, setComponents] = useState<SalaryComponent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getSalaryComponents();
+          const mapped: SalaryComponent[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setComponents(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setComponents([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredComponents = components.filter(comp => {
         const matchesSearch = comp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -205,6 +81,8 @@ export default function ComponentsMasterPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

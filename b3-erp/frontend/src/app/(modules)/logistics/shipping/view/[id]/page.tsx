@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ArrowLeft, Edit, Package, Truck, MapPin, Calendar,
   User, Phone, Mail, FileText, Download, Clock,
@@ -138,14 +139,30 @@ export default function ShippingViewPage({ params }: { params: { id: string } })
     dispatchedDate: '2025-10-16 09:00:00'
   };
 
-  const trackingEvents: TrackingEvent[] = [
-    { id: 'T1', timestamp: '2025-10-16 17:45', location: 'Bangalore - Out for Delivery', status: 'in_transit', description: 'Shipment out for delivery', updatedBy: 'Carrier System' },
-    { id: 'T2', timestamp: '2025-10-16 14:30', location: 'Bangalore - Hub', status: 'in_transit', description: 'Arrived at destination hub', updatedBy: 'Carrier System' },
-    { id: 'T3', timestamp: '2025-10-16 11:20', location: 'Mumbai - Transit Hub', status: 'in_transit', description: 'In transit via Mumbai hub', updatedBy: 'Carrier System' },
-    { id: 'T4', timestamp: '2025-10-16 09:00', location: 'Pune - Warehouse', status: 'dispatched', description: 'Shipment dispatched from warehouse', updatedBy: 'Priya Sharma' },
-    { id: 'T5', timestamp: '2025-10-16 08:30', location: 'Pune - Warehouse', status: 'picked', description: 'Package picked up by carrier', updatedBy: 'Ramesh Patil' },
-    { id: 'T6', timestamp: '2025-10-15 16:30', location: 'Pune - Warehouse', status: 'scheduled', description: 'Shipment scheduled and created', updatedBy: 'Priya Sharma' }
-  ];
+  const [trackingEvents, setTrackingEvents] = useState<TrackingEvent[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getTrackingEvents();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setTrackingEvents((list as any[]).map((r, i) => ({
+          id: String(r.id ?? r.eventId ?? `T${i + 1}`),
+          timestamp: r.timestamp ?? r.eventTime ?? r.createdAt ?? '',
+          location: r.location ?? '',
+          status: r.status ?? r.eventType ?? '',
+          description: r.description ?? r.notes ?? '',
+          updatedBy: r.updatedBy ?? r.recordedBy ?? 'System',
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load tracking events');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -179,6 +196,11 @@ export default function ShippingViewPage({ params }: { params: { id: string } })
 
   return (
     <div className="p-6 space-y-3">
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2">

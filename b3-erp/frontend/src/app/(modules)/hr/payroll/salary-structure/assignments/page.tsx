@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     UserCheck,
     Search,
@@ -10,6 +10,7 @@ import {
     Eye,
     Calendar
 } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface EmployeeAssignment {
     id: string;
@@ -30,86 +31,23 @@ export default function EmployeeAssignmentsPage() {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [gradeFilter, setGradeFilter] = useState('all');
 
-    const assignments: EmployeeAssignment[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            templateName: 'Senior Level - Grade C',
-            grade: 'C',
-            ctc: 1500000,
-            effectiveFrom: '2024-04-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Production Engineer',
-            templateName: 'Mid Level - Grade B',
-            grade: 'B',
-            ctc: 800000,
-            effectiveFrom: '2024-04-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            templateName: 'Mid Level - Grade B',
-            grade: 'B',
-            ctc: 750000,
-            effectiveFrom: '2024-04-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            designation: 'Machine Operator',
-            templateName: 'Entry Level - Grade A',
-            grade: 'A',
-            ctc: 400000,
-            effectiveFrom: '2024-04-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            designation: 'Senior Accountant',
-            templateName: 'Senior Level - Grade C',
-            grade: 'C',
-            ctc: 1200000,
-            effectiveFrom: '2024-04-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active'
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            templateName: 'Mid Level - Grade B',
-            grade: 'B',
-            ctc: 900000,
-            effectiveFrom: '2025-04-01',
-            effectiveTo: '2026-03-31',
-            status: 'Pending'
-        }
-    ];
+    const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getSalaryAssignments();
+          const mapped: EmployeeAssignment[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setAssignments(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setAssignments([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(assignments.map(a => a.department)));
     const grades = Array.from(new Set(assignments.map(a => a.grade)));
@@ -142,6 +80,8 @@ export default function EmployeeAssignmentsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

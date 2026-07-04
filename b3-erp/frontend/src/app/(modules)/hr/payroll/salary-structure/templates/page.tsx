@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FileSpreadsheet,
     Plus,
@@ -11,6 +11,7 @@ import {
     Copy,
     Users
 } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface SalaryTemplate {
     id: string;
@@ -35,77 +36,23 @@ export default function SalaryTemplatesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
 
-    const templates: SalaryTemplate[] = [
-        {
-            id: '1',
-            name: 'Entry Level - Grade A',
-            description: 'Standard template for freshers and entry-level positions',
-            grade: 'A',
-            ctcRange: { min: 300000, max: 500000 },
-            components: [
-                { code: 'BASIC', name: 'Basic Salary', type: 'Earning', percentage: 40 },
-                { code: 'HRA', name: 'House Rent Allowance', type: 'Earning', percentage: 20 },
-                { code: 'DA', name: 'Dearness Allowance', type: 'Earning', percentage: 8 },
-                { code: 'CONVEY', name: 'Conveyance', type: 'Earning', percentage: 5 },
-                { code: 'SA', name: 'Special Allowance', type: 'Earning', percentage: 15 },
-                { code: 'PF', name: 'Provident Fund', type: 'Deduction', percentage: 12 }
-            ],
-            employeesAssigned: 45,
-            isActive: true,
-            lastModified: '2025-01-15'
-        },
-        {
-            id: '2',
-            name: 'Mid Level - Grade B',
-            description: 'Template for experienced professionals',
-            grade: 'B',
-            ctcRange: { min: 500000, max: 1000000 },
-            components: [
-                { code: 'BASIC', name: 'Basic Salary', type: 'Earning', percentage: 42 },
-                { code: 'HRA', name: 'House Rent Allowance', type: 'Earning', percentage: 21 },
-                { code: 'DA', name: 'Dearness Allowance', type: 'Earning', percentage: 6 },
-                { code: 'CONVEY', name: 'Conveyance', type: 'Earning', percentage: 4 },
-                { code: 'SA', name: 'Special Allowance', type: 'Earning', percentage: 15 },
-                { code: 'PF', name: 'Provident Fund', type: 'Deduction', percentage: 12 }
-            ],
-            employeesAssigned: 32,
-            isActive: true,
-            lastModified: '2025-01-10'
-        },
-        {
-            id: '3',
-            name: 'Senior Level - Grade C',
-            description: 'Template for senior professionals and team leads',
-            grade: 'C',
-            ctcRange: { min: 1000000, max: 2000000 },
-            components: [
-                { code: 'BASIC', name: 'Basic Salary', type: 'Earning', percentage: 45 },
-                { code: 'HRA', name: 'House Rent Allowance', type: 'Earning', percentage: 22.5 },
-                { code: 'DA', name: 'Dearness Allowance', type: 'Earning', percentage: 5 },
-                { code: 'SA', name: 'Special Allowance', type: 'Earning', percentage: 15.5 },
-                { code: 'PF', name: 'Provident Fund', type: 'Deduction', percentage: 12 }
-            ],
-            employeesAssigned: 18,
-            isActive: true,
-            lastModified: '2025-01-05'
-        },
-        {
-            id: '4',
-            name: 'Management - Grade D',
-            description: 'Template for managers and department heads',
-            grade: 'D',
-            ctcRange: { min: 2000000, max: 5000000 },
-            components: [
-                { code: 'BASIC', name: 'Basic Salary', type: 'Earning', percentage: 50 },
-                { code: 'HRA', name: 'House Rent Allowance', type: 'Earning', percentage: 25 },
-                { code: 'SA', name: 'Special Allowance', type: 'Earning', percentage: 13 },
-                { code: 'PF', name: 'Provident Fund', type: 'Deduction', percentage: 12 }
-            ],
-            employeesAssigned: 8,
-            isActive: true,
-            lastModified: '2024-12-20'
-        }
-    ];
+    const [templates, setTemplates] = useState<SalaryTemplate[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getSalaryTemplates();
+          const mapped: SalaryTemplate[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setTemplates(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setTemplates([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredTemplates = templates.filter(template =>
         template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

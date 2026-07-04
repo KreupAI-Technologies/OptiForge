@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ArrowLeft,
   Edit2,
@@ -141,56 +142,34 @@ export default function ViewCarrierPage({ params }: { params: { id: string } }) 
   };
 
   // Mock shipment history
-  const shipmentHistory: ShipmentHistory[] = [
-    {
-      id: '1',
-      shipmentNumber: 'SHP-2024-001',
-      trackingNumber: 'BLUEDART123456789',
-      from: 'Pune, Maharashtra',
-      to: 'Jamshedpur, Jharkhand',
-      pickupDate: '2024-01-15',
-      deliveryDate: '2024-01-18',
-      status: 'delivered',
-      charges: 25000,
-      rating: 5,
-    },
-    {
-      id: '2',
-      shipmentNumber: 'SHP-2024-002',
-      trackingNumber: 'BLUEDART987654321',
-      from: 'Mumbai, Maharashtra',
-      to: 'Bangalore, Karnataka',
-      pickupDate: '2024-01-16',
-      deliveryDate: '2024-01-19',
-      status: 'delivered',
-      charges: 18000,
-      rating: 4,
-    },
-    {
-      id: '3',
-      shipmentNumber: 'SHP-2024-003',
-      trackingNumber: 'BLUEDART456789123',
-      from: 'Delhi, Delhi',
-      to: 'Chennai, Tamil Nadu',
-      pickupDate: '2024-01-17',
-      deliveryDate: '',
-      status: 'in_transit',
-      charges: 22000,
-      rating: 0,
-    },
-    {
-      id: '4',
-      shipmentNumber: 'SHP-2024-004',
-      trackingNumber: 'BLUEDART789123456',
-      from: 'Pune, Maharashtra',
-      to: 'Kolkata, West Bengal',
-      pickupDate: '2024-01-18',
-      deliveryDate: '2024-01-22',
-      status: 'delayed',
-      charges: 28000,
-      rating: 3,
-    },
-  ];
+  const [shipmentHistory, setShipmentHistory] = useState<ShipmentHistory[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getShipments();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setShipmentHistory((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          shipmentNumber: r.shipmentNumber ?? r.shipmentNo ?? '',
+          trackingNumber: r.trackingNumber ?? '',
+          from: r.from ?? r.origin ?? r.originAddress ?? '',
+          to: r.to ?? r.destination ?? r.destinationAddress ?? '',
+          pickupDate: r.pickupDate ?? r.actualPickup ?? '',
+          deliveryDate: r.deliveryDate ?? r.actualDelivery ?? r.deliveredAt ?? '',
+          status: (r.status ?? 'in_transit') as ShipmentHistory['status'],
+          charges: Number(r.charges ?? r.totalCharges ?? r.value ?? 0),
+          rating: Number(r.rating ?? 0),
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load shipment history');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Activity timeline
   const activities = [
@@ -264,6 +243,11 @@ export default function ViewCarrierPage({ params }: { params: { id: string } }) 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
       <div className="w-full">
+        {loadError && (
+          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+            {loadError}
+          </div>
+        )}
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">

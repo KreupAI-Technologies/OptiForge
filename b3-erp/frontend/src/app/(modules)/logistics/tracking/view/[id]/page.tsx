@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ArrowLeft,
   Package,
@@ -134,53 +135,40 @@ export default function TrackingViewPage({ params }: { params: { id: string } })
   };
 
   // Tracking events
-  const trackingEvents: TrackingEvent[] = [
-    {
-      timestamp: '2024-01-18 16:30',
-      location: 'Nagpur Sorting Hub',
-      city: 'Nagpur',
-      state: 'Maharashtra',
-      status: 'In Transit',
-      description: 'Package arrived at sorting facility. Processing for onward journey.',
-      icon: 'hub',
-    },
-    {
-      timestamp: '2024-01-18 08:45',
-      location: 'Mumbai Distribution Center',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      status: 'In Transit',
-      description: 'Package departed from distribution center.',
-      icon: 'transit',
-    },
-    {
-      timestamp: '2024-01-17 21:30',
-      location: 'Mumbai Distribution Center',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      status: 'In Transit',
-      description: 'Package arrived at distribution center for sorting.',
-      icon: 'hub',
-    },
-    {
-      timestamp: '2024-01-17 14:20',
-      location: 'En Route to Mumbai',
-      city: 'Lonavala',
-      state: 'Maharashtra',
-      status: 'In Transit',
-      description: 'Package in transit to Mumbai distribution center.',
-      icon: 'transit',
-    },
-    {
-      timestamp: '2024-01-17 09:15',
-      location: 'Main Warehouse - Pune',
-      city: 'Pune',
-      state: 'Maharashtra',
-      status: 'Picked Up',
-      description: 'Package picked up from sender. Shipment initiated.',
-      icon: 'pickup',
-    },
-  ];
+  const [trackingEvents, setTrackingEvents] = useState<TrackingEvent[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getTrackingEvents();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        const iconFor = (status: string): TrackingEvent['icon'] => {
+          const st = (status || '').toLowerCase();
+          if (st.includes('pick')) return 'pickup';
+          if (st.includes('deliver')) return 'delivery';
+          if (st.includes('hub') || st.includes('sort')) return 'hub';
+          if (st.includes('delay')) return 'delay';
+          if (st.includes('issue') || st.includes('exception')) return 'issue';
+          return 'transit';
+        };
+        setTrackingEvents((list as any[]).map((r) => ({
+          timestamp: r.timestamp ?? r.eventTime ?? r.createdAt ?? '',
+          location: r.location ?? '',
+          city: r.city ?? '',
+          state: r.state ?? '',
+          status: r.status ?? r.eventType ?? '',
+          description: r.description ?? r.notes ?? '',
+          icon: r.icon ?? iconFor(r.status ?? r.eventType ?? ''),
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load tracking events');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Route checkpoints
   const routeCheckpoints = [
@@ -256,6 +244,11 @@ export default function TrackingViewPage({ params }: { params: { id: string } })
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
       <div className="w-full">
+        {loadError && (
+          <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+            {loadError}
+          </div>
+        )}
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">

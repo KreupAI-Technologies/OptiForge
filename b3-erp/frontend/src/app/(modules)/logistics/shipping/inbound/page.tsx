@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, Package, Truck, MapPin, Calendar, CheckCircle, Clock, AlertTriangle, Download, Filter } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 
@@ -30,116 +31,40 @@ export default function InboundShippingPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
 
-  const inboundShipments: InboundShipment[] = [
-    {
-      id: '1',
-      shipmentNo: 'IB-2025-0421',
-      poNumber: 'PO-2025-1245',
-      supplier: 'SteelCorp Industries',
-      carrier: 'Global Freight Ltd',
-      origin: 'Mumbai, India',
-      destination: 'Warehouse A - Chennai',
-      expectedDate: '2025-10-23',
-      actualDate: '',
-      items: 5,
-      totalQty: 2500,
-      totalValue: 125000,
-      status: 'in-transit',
-      trackingNumber: 'TRK-MUM-2025-8745',
-      containerNo: 'MSCU-4567891',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      shipmentNo: 'IB-2025-0422',
-      poNumber: 'PO-2025-1256',
-      supplier: 'BearingTech Industries',
-      carrier: 'Swift Logistics',
-      origin: 'Pune, India',
-      destination: 'Warehouse A - Chennai',
-      expectedDate: '2025-10-22',
-      actualDate: '',
-      items: 3,
-      totalQty: 850,
-      totalValue: 95000,
-      status: 'delayed',
-      trackingNumber: 'TRK-PUN-2025-3421',
-      containerNo: 'TOLU-7834561',
-      priority: 'high'
-    },
-    {
-      id: '3',
-      shipmentNo: 'IB-2025-0423',
-      poNumber: 'PO-2025-1267',
-      supplier: 'MetalSource Ltd',
-      carrier: 'Express Transport',
-      origin: 'Bangalore, India',
-      destination: 'Warehouse B - Chennai',
-      expectedDate: '2025-10-25',
-      actualDate: '',
-      items: 8,
-      totalQty: 4200,
-      totalValue: 210000,
-      status: 'scheduled',
-      trackingNumber: 'TRK-BLR-2025-9876',
-      containerNo: 'HJCU-2345678',
-      priority: 'medium'
-    },
-    {
-      id: '4',
-      shipmentNo: 'IB-2025-0424',
-      poNumber: 'PO-2025-1278',
-      supplier: 'ChemSupply Co',
-      carrier: 'SafeChem Transport',
-      origin: 'Ahmedabad, India',
-      destination: 'Warehouse A - Chennai',
-      expectedDate: '2025-10-21',
-      actualDate: '2025-10-21',
-      items: 4,
-      totalQty: 1200,
-      totalValue: 48000,
-      status: 'arrived',
-      trackingNumber: 'TRK-AMD-2025-5432',
-      containerNo: 'SCTU-8901234',
-      priority: 'medium'
-    },
-    {
-      id: '5',
-      shipmentNo: 'IB-2025-0425',
-      poNumber: 'PO-2025-1289',
-      supplier: 'HydroTech Systems',
-      carrier: 'Premium Freight',
-      origin: 'Coimbatore, India',
-      destination: 'Warehouse A - Chennai',
-      expectedDate: '2025-10-21',
-      actualDate: '2025-10-21',
-      items: 2,
-      totalQty: 45,
-      totalValue: 67500,
-      status: 'unloading',
-      trackingNumber: 'TRK-CBE-2025-2109',
-      containerNo: 'PFTU-4561237',
-      priority: 'high'
-    },
-    {
-      id: '6',
-      shipmentNo: 'IB-2025-0426',
-      poNumber: 'PO-2025-1290',
-      supplier: 'WireTech Solutions',
-      carrier: 'Fast Track Logistics',
-      origin: 'Delhi, India',
-      destination: 'Warehouse B - Chennai',
-      expectedDate: '2025-10-20',
-      actualDate: '2025-10-20',
-      items: 6,
-      totalQty: 890,
-      totalValue: 34500,
-      status: 'completed',
-      trackingNumber: 'TRK-DEL-2025-7654',
-      containerNo: 'FTCU-9012345',
-      priority: 'low'
-    }
-  ];
+  const [inboundShipments, setInboundShipments] = useState<InboundShipment[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getShipments();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setInboundShipments((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          shipmentNo: r.shipmentNumber ?? r.shipmentNo ?? '',
+          poNumber: r.poNumber ?? r.purchaseOrder ?? '',
+          supplier: r.supplier ?? r.supplierName ?? r.customerName ?? '',
+          carrier: r.carrier ?? r.carrierName ?? '',
+          origin: r.origin ?? r.originAddress ?? '',
+          destination: r.destination ?? r.destinationAddress ?? '',
+          expectedDate: r.expectedDate ?? r.expectedDelivery ?? '',
+          actualDate: r.actualDate ?? r.deliveredAt ?? '',
+          items: Number(r.items ?? r.itemCount ?? 0),
+          totalQty: Number(r.totalQty ?? 0),
+          totalValue: Number(r.totalValue ?? r.value ?? 0),
+          status: (r.status ?? 'scheduled') as InboundShipment['status'],
+          trackingNumber: r.trackingNumber ?? '',
+          containerNo: r.containerNo ?? '',
+          priority: (r.priority ?? 'medium') as InboundShipment['priority'],
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load inbound shipments');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredShipments = inboundShipments.filter(shipment => {
     const matchesSearch = shipment.shipmentNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,6 +111,11 @@ export default function InboundShippingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
       <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
