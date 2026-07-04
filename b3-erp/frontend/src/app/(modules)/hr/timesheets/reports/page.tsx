@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     BarChart3,
     Download,
@@ -13,6 +13,8 @@ import {
     Printer,
     TrendingUp
 } from 'lucide-react';
+
+const TS_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface TimesheetReport {
     employeeId: string;
@@ -31,14 +33,36 @@ export default function TimesheetReportsPage() {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [reportType, setReportType] = useState('summary');
 
-    const reports: TimesheetReport[] = [
-        { employeeId: 'EMP001', employeeName: 'Sarah Johnson', department: 'Human Resources', totalHours: 168, billableHours: 120, nonBillableHours: 48, overtime: 8, projects: 3, utilizationRate: 71 },
-        { employeeId: 'EMP002', employeeName: 'Michael Chen', department: 'Production', totalHours: 180, billableHours: 160, nonBillableHours: 20, overtime: 20, projects: 2, utilizationRate: 89 },
-        { employeeId: 'EMP003', employeeName: 'Emily Davis', department: 'Quality Assurance', totalHours: 160, billableHours: 140, nonBillableHours: 20, overtime: 0, projects: 4, utilizationRate: 88 },
-        { employeeId: 'EMP004', employeeName: 'David Wilson', department: 'Production', totalHours: 176, billableHours: 150, nonBillableHours: 26, overtime: 16, projects: 2, utilizationRate: 85 },
-        { employeeId: 'EMP005', employeeName: 'Jennifer Brown', department: 'Finance', totalHours: 160, billableHours: 100, nonBillableHours: 60, overtime: 0, projects: 2, utilizationRate: 63 },
-        { employeeId: 'EMP006', employeeName: 'Robert Martinez', department: 'IT', totalHours: 184, billableHours: 170, nonBillableHours: 14, overtime: 24, projects: 5, utilizationRate: 92 }
-    ];
+    const [reports, setReports] = useState<TimesheetReport[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const res = await fetch(`${TS_API_BASE}/hr/timesheets`, { headers: { 'x-company-id': 'test' }, cache: 'no-store' });
+                if (!res.ok) throw new Error('Failed to load timesheets');
+                const raw = await res.json();
+                const mapped: TimesheetReport[] = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => ({
+                    employeeId: r?.employeeCode ?? r?.employeeId ?? String(i),
+                    employeeName: r?.employeeName ?? '',
+                    department: r?.department ?? r?.departmentName ?? '',
+                    totalHours: r?.totalHours ?? 0,
+                    billableHours: r?.billableHours ?? 0,
+                    nonBillableHours: r?.nonBillableHours ?? 0,
+                    overtime: r?.overtime ?? r?.overtimeHours ?? 0,
+                    projects: r?.projects ?? 0,
+                    utilizationRate: r?.utilizationRate ?? 0,
+                }));
+                if (!cancelled) setReports(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setReports([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(reports.map(r => r.department)));
 
@@ -51,7 +75,7 @@ export default function TimesheetReportsPage() {
         billableHours: filteredReports.reduce((sum, r) => sum + r.billableHours, 0),
         nonBillableHours: filteredReports.reduce((sum, r) => sum + r.nonBillableHours, 0),
         overtime: filteredReports.reduce((sum, r) => sum + r.overtime, 0),
-        avgUtilization: Math.round(filteredReports.reduce((sum, r) => sum + r.utilizationRate, 0) / filteredReports.length)
+        avgUtilization: filteredReports.length ? Math.round(filteredReports.reduce((sum, r) => sum + r.utilizationRate, 0) / filteredReports.length) : 0
     };
 
     const departmentStats = departments.map(dept => {
@@ -74,6 +98,8 @@ export default function TimesheetReportsPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

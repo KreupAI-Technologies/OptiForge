@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Users, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Clock, Calendar, Filter, BarChart3 } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface AgentWorkload {
   agentId: string
@@ -52,105 +53,72 @@ interface TeamWorkloadSummary {
 export default function TeamWorkload() {
   const [selectedTeam, setSelectedTeam] = useState<string>('All')
   const [viewMode, setViewMode] = useState<'grid' | 'chart'>('grid')
+  const [agentWorkloads, setAgentWorkloads] = useState<AgentWorkload[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const agentWorkloads: AgentWorkload[] = [
-    {
-      agentId: '1',
-      agentName: 'Sarah Johnson',
-      team: 'Infrastructure',
-      avatar: 'SJ',
-      status: 'Busy',
-      currentLoad: { activeTickets: 8, priority1: 2, priority2: 3, priority3: 2, priority4: 1 },
-      capacity: { maxTickets: 12, utilizationRate: 67 },
-      schedule: { shift: '9:00 AM - 5:00 PM', availableHours: 3.5, currentTime: '1:30 PM' },
-      recentActivity: { resolvedToday: 4, assignedToday: 2, avgResponseTime: '8 min' },
-      weeklyTrend: { monday: 10, tuesday: 12, wednesday: 9, thursday: 8, friday: 11 }
-    },
-    {
-      agentId: '2',
-      agentName: 'Michael Chen',
-      team: 'Application Support',
-      avatar: 'MC',
-      status: 'Busy',
-      currentLoad: { activeTickets: 12, priority1: 1, priority2: 5, priority3: 4, priority4: 2 },
-      capacity: { maxTickets: 10, utilizationRate: 120 },
-      schedule: { shift: '8:00 AM - 4:00 PM', availableHours: 2.0, currentTime: '2:00 PM' },
-      recentActivity: { resolvedToday: 3, assignedToday: 5, avgResponseTime: '12 min' },
-      weeklyTrend: { monday: 11, tuesday: 13, wednesday: 12, thursday: 12, friday: 14 }
-    },
-    {
-      agentId: '3',
-      agentName: 'Emily Davis',
-      team: 'Security',
-      avatar: 'ED',
-      status: 'Available',
-      currentLoad: { activeTickets: 5, priority1: 3, priority2: 1, priority3: 1, priority4: 0 },
-      capacity: { maxTickets: 10, utilizationRate: 50 },
-      schedule: { shift: '10:00 AM - 6:00 PM', availableHours: 4.5, currentTime: '1:30 PM' },
-      recentActivity: { resolvedToday: 6, assignedToday: 3, avgResponseTime: '5 min' },
-      weeklyTrend: { monday: 7, tuesday: 6, wednesday: 8, thursday: 5, friday: 7 }
-    },
-    {
-      agentId: '4',
-      agentName: 'David Kumar',
-      team: 'Network',
-      avatar: 'DK',
-      status: 'Busy',
-      currentLoad: { activeTickets: 10, priority1: 2, priority2: 4, priority3: 3, priority4: 1 },
-      capacity: { maxTickets: 12, utilizationRate: 83 },
-      schedule: { shift: '7:00 AM - 3:00 PM', availableHours: 1.5, currentTime: '1:30 PM' },
-      recentActivity: { resolvedToday: 8, assignedToday: 4, avgResponseTime: '7 min' },
-      weeklyTrend: { monday: 12, tuesday: 14, wednesday: 11, thursday: 10, friday: 13 }
-    },
-    {
-      agentId: '5',
-      agentName: 'Lisa Martinez',
-      team: 'Desktop Support',
-      avatar: 'LM',
-      status: 'Available',
-      currentLoad: { activeTickets: 15, priority1: 3, priority2: 5, priority3: 5, priority4: 2 },
-      capacity: { maxTickets: 15, utilizationRate: 100 },
-      schedule: { shift: '9:00 AM - 5:00 PM', availableHours: 3.5, currentTime: '1:30 PM' },
-      recentActivity: { resolvedToday: 5, assignedToday: 6, avgResponseTime: '15 min' },
-      weeklyTrend: { monday: 14, tuesday: 16, wednesday: 15, thursday: 15, friday: 17 }
-    },
-    {
-      agentId: '6',
-      agentName: 'Robert Brown',
-      team: 'Database',
-      avatar: 'RB',
-      status: 'Offline',
-      currentLoad: { activeTickets: 0, priority1: 0, priority2: 0, priority3: 0, priority4: 0 },
-      capacity: { maxTickets: 8, utilizationRate: 0 },
-      schedule: { shift: 'Off Duty', availableHours: 0, currentTime: 'Not Working' },
-      recentActivity: { resolvedToday: 0, assignedToday: 0, avgResponseTime: 'N/A' },
-      weeklyTrend: { monday: 5, tuesday: 6, wednesday: 4, thursday: 0, friday: 5 }
-    },
-    {
-      agentId: '7',
-      agentName: 'Anna Lee',
-      team: 'Application Support',
-      avatar: 'AL',
-      status: 'Available',
-      currentLoad: { activeTickets: 11, priority1: 2, priority2: 4, priority3: 3, priority4: 2 },
-      capacity: { maxTickets: 12, utilizationRate: 92 },
-      schedule: { shift: '9:00 AM - 5:00 PM', availableHours: 3.5, currentTime: '1:30 PM' },
-      recentActivity: { resolvedToday: 7, assignedToday: 4, avgResponseTime: '9 min' },
-      weeklyTrend: { monday: 12, tuesday: 13, wednesday: 11, thursday: 11, friday: 14 }
-    },
-    {
-      agentId: '8',
-      agentName: 'Tom Wilson',
-      team: 'Infrastructure',
-      avatar: 'TW',
-      status: 'Available',
-      currentLoad: { activeTickets: 7, priority1: 1, priority2: 2, priority3: 3, priority4: 1 },
-      capacity: { maxTickets: 12, utilizationRate: 58 },
-      schedule: { shift: '8:00 AM - 4:00 PM', availableHours: 2.5, currentTime: '1:30 PM' },
-      recentActivity: { resolvedToday: 5, assignedToday: 3, avgResponseTime: '11 min' },
-      weeklyTrend: { monday: 9, tuesday: 11, wednesday: 10, thursday: 7, friday: 12 }
-    }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getTeamAgents()
+        const mapped: AgentWorkload[] = raw.map((r: any, i: number) => {
+          const name: string = r.agentName ?? r.name ?? ''
+          const cl = r.currentLoad ?? {}
+          const cap = r.capacity ?? {}
+          const sch = r.schedule ?? {}
+          const act = r.recentActivity ?? {}
+          const wt = r.weeklyTrend ?? {}
+          return {
+            agentId: String(r.agentId ?? r.id ?? i),
+            agentName: name,
+            team: r.team ?? '',
+            avatar: r.avatar ?? (name ? name.split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase() : '?'),
+            status: r.status ?? 'Offline',
+            currentLoad: {
+              activeTickets: cl.activeTickets ?? r.activeTickets ?? 0,
+              priority1: cl.priority1 ?? 0,
+              priority2: cl.priority2 ?? 0,
+              priority3: cl.priority3 ?? 0,
+              priority4: cl.priority4 ?? 0,
+            },
+            capacity: {
+              maxTickets: cap.maxTickets ?? r.maxTickets ?? 0,
+              utilizationRate: cap.utilizationRate ?? r.utilizationRate ?? 0,
+            },
+            schedule: {
+              shift: sch.shift ?? '',
+              availableHours: sch.availableHours ?? 0,
+              currentTime: sch.currentTime ?? '',
+            },
+            recentActivity: {
+              resolvedToday: act.resolvedToday ?? 0,
+              assignedToday: act.assignedToday ?? 0,
+              avgResponseTime: act.avgResponseTime ?? 'N/A',
+            },
+            weeklyTrend: {
+              monday: wt.monday ?? 0,
+              tuesday: wt.tuesday ?? 0,
+              wednesday: wt.wednesday ?? 0,
+              thursday: wt.thursday ?? 0,
+              friday: wt.friday ?? 0,
+            },
+          }
+        })
+        if (!cancelled) setAgentWorkloads(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setAgentWorkloads([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const teamSummaries: TeamWorkloadSummary[] = [
     { teamName: 'Infrastructure', totalAgents: 2, activeAgents: 2, totalActiveTickets: 15, avgUtilization: 63, overloadedAgents: 0, availableCapacity: 9 },
@@ -226,6 +194,19 @@ export default function TeamWorkload() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading team workload…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Overall Statistics */}
       <div className="grid grid-cols-6 gap-2">

@@ -130,6 +130,8 @@ export default function ProjectHoursPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -169,7 +171,7 @@ export default function ProjectHoursPage() {
                         <p className="text-orange-400 text-sm">Hours Used</p>
                         <p className="text-3xl font-bold text-white">{totalStats.totalUsedHours}h</p>
                         <p className="text-xs text-gray-400 mt-1">
-                            {Math.round((totalStats.totalUsedHours / totalStats.totalBudgetHours) * 100)}% of budget
+                            {totalStats.totalBudgetHours > 0 ? Math.round((totalStats.totalUsedHours / totalStats.totalBudgetHours) * 100) : 0}% of budget
                         </p>
                     </div>
                 </div>

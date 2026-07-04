@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { EmployeeService } from '@/services/employee.service';
 import {
   ArrowLeft,
   Save,
