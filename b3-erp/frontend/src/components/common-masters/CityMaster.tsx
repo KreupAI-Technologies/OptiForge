@@ -7,6 +7,7 @@ import {
   Anchor, Train, Navigation
 } from 'lucide-react';
 import { commonMastersService, State } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 interface City {
   id: string;
@@ -273,55 +274,70 @@ export default function CityMaster() {
   const [filterType, setFilterType] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        // This is a simplification. Ideally, we'd fetch countries, then states, then cities.
-        // For the wireup, we'll fetch states for the main countries and then cities for those states.
-        const countries = await commonMastersService.getAllCountries();
-        const allStates: State[] = [];
-        const allCities: City[] = [];
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      // This is a simplification. Ideally, we'd fetch countries, then states, then cities.
+      // For the wireup, we'll fetch states for the main countries and then cities for those states.
+      const countries = await commonMastersService.getAllCountries();
+      const allStates: State[] = [];
+      const allCities: City[] = [];
 
-        for (const country of countries) {
-          const countryStates = await commonMastersService.getStatesByCountry(country.id);
-          allStates.push(...countryStates);
+      for (const country of countries) {
+        const countryStates = await commonMastersService.getStatesByCountry(country.id);
+        allStates.push(...countryStates);
 
-          for (const state of countryStates) {
-            const stateCities = await commonMastersService.getCitiesByState(state.id);
-            allCities.push(...stateCities.map(c => ({
-              id: c.id,
-              cityCode: c.name.substring(0, 3).toUpperCase(),
-              cityName: c.name,
-              stateId: c.stateId,
-              stateName: state.name,
-              countryId: state.countryId,
-              countryName: country.name,
-              cityType: 'Tier-1',
-              isCapital: false,
-              statistics: { totalPinCodes: 0 },
-              infrastructure: { airport: false, seaport: false, railwayStation: false, metroRail: false },
-              status: c.isActive ? 'Active' : 'Inactive',
-              isActive: c.isActive,
-              metadata: {
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                createdBy: 'System',
-                updatedBy: 'System'
-              }
-            } as City)));
-          }
+        for (const state of countryStates) {
+          const stateCities = await commonMastersService.getCitiesByState(state.id);
+          allCities.push(...stateCities.map(c => ({
+            id: c.id,
+            cityCode: c.name.substring(0, 3).toUpperCase(),
+            cityName: c.name,
+            stateId: c.stateId,
+            stateName: state.name,
+            countryId: state.countryId,
+            countryName: country.name,
+            cityType: 'Tier-1',
+            isCapital: false,
+            statistics: { totalPinCodes: 0 },
+            infrastructure: { airport: false, seaport: false, railwayStation: false, metroRail: false },
+            status: c.isActive ? 'Active' : 'Inactive',
+            isActive: c.isActive,
+            metadata: {
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              createdBy: 'System',
+              updatedBy: 'System'
+            }
+          } as City)));
         }
-        setStates(allStates);
-        setCities(allCities);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
       }
-    };
+      setStates(allStates);
+      setCities(allCities);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('cities', rows);
+      await fetchData();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing cities:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
 
   const handleEdit = (city: City) => {
     setSelectedCity(city);
@@ -476,7 +492,7 @@ export default function CityMaster() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                 Import
               </button>

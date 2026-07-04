@@ -467,6 +467,14 @@ export interface CounterMaterial {
     isActive: boolean;
 }
 
+export interface BulkImportResult {
+    entity: string;
+    total: number;
+    created: number;
+    skipped: number;
+    errors: { row: number; reason: string }[];
+}
+
 class CommonMastersService {
     // ===========================
     // GENERIC CRUD HELPER METHODS
@@ -475,6 +483,26 @@ class CommonMastersService {
         const params = new URLSearchParams();
         if (companyId) params.append('companyId', companyId);
         return params.toString();
+    }
+
+    // ===========================
+    // BULK CSV IMPORT
+    // ===========================
+    /**
+     * Bulk-create master records from parsed CSV rows.
+     * `entity` is the URL segment, e.g. 'countries', 'item-categories'.
+     * Company-scoped entities require `companyId`.
+     */
+    async bulkCreate(
+        entity: string,
+        rows: Record<string, string>[],
+        companyId?: string,
+    ): Promise<BulkImportResult> {
+        const response = await apiClient.post<BulkImportResult>(
+            `/api/v1/common-masters/${entity}/bulk`,
+            { rows, companyId },
+        );
+        return response.data;
     }
 
     /**

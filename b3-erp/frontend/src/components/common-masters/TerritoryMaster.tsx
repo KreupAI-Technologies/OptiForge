@@ -7,6 +7,7 @@ import {
   AlertTriangle, MapPin, ChevronRight, ChevronDown, Award
 } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 interface Territory {
   id: string;
@@ -248,38 +249,53 @@ export default function TerritoryMaster() {
   const [currentTab, setCurrentTab] = useState('basic');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
+  const fetchTerritories = async () => {
+    try {
+      setIsLoading(true);
+      const data = await commonMastersService.getAllTerritories(companyId);
+      setTerritories(data.map(t => ({
+        id: t.id,
+        territoryCode: t.code,
+        territoryName: t.name,
+        level: 1,
+        coverage: {},
+        assignment: { manager: 'N/A', managerId: 'N/A' },
+        targets: {},
+        performance: {},
+        settings: { territoryType: 'Sales', allowOverlap: false, priority: 'Medium' },
+        status: t.isActive ? 'Active' : 'Inactive',
+        isActive: t.isActive,
+        metadata: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 'System',
+          updatedBy: 'System'
+        }
+      } as Territory)));
+    } catch (error) {
+      console.error('Error fetching territories:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTerritories = async () => {
-      try {
-        setIsLoading(true);
-        const data = await commonMastersService.getAllTerritories(companyId);
-        setTerritories(data.map(t => ({
-          id: t.id,
-          territoryCode: t.code,
-          territoryName: t.name,
-          level: 1,
-          coverage: {},
-          assignment: { manager: 'N/A', managerId: 'N/A' },
-          targets: {},
-          performance: {},
-          settings: { territoryType: 'Sales', allowOverlap: false, priority: 'Medium' },
-          status: t.isActive ? 'Active' : 'Inactive',
-          isActive: t.isActive,
-          metadata: {
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            createdBy: 'System',
-            updatedBy: 'System'
-          }
-        } as Territory)));
-      } catch (error) {
-        console.error('Error fetching territories:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchTerritories();
   }, [companyId]);
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('territories', rows, companyId);
+      await fetchTerritories();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing territories:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
 
   const handleEdit = (territory: Territory) => {
     setSelectedTerritory(territory);
@@ -466,7 +482,7 @@ export default function TerritoryMaster() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                 Import
               </button>

@@ -7,6 +7,7 @@ import {
   Phone, Mail, Flag, Building2, TrendingUp, Activity
 } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 interface Country {
   id: string;
@@ -301,8 +302,7 @@ export default function CountryMaster() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
 
-  useEffect(() => {
-    const fetchCountries = async () => {
+  const fetchCountries = async () => {
       try {
         setIsLoading(true);
         const data = await commonMastersService.getAllCountries();
@@ -350,8 +350,29 @@ export default function CountryMaster() {
         setIsLoading(false);
       }
     };
+
+  useEffect(() => {
     fetchCountries();
   }, []);
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) {
+        alert('The selected CSV file has no data rows.');
+        return;
+      }
+      const result = await commonMastersService.bulkCreate('countries', rows);
+      await fetchCountries();
+      alert(
+        `Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`,
+      );
+    } catch (error) {
+      console.error('Error importing countries:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
 
   const handleEdit = (country: Country) => {
     setSelectedCountry(country);
@@ -511,7 +532,7 @@ export default function CountryMaster() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                 Import
               </button>

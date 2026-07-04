@@ -7,6 +7,7 @@ import {
   AlertCircle, Grid, List, Tag, Package, TrendingUp, DollarSign
 } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 
 interface ItemGroup {
@@ -202,6 +203,22 @@ const ItemGroupMaster: React.FC = () => {
     }
   };
 
+  const companyId = 'MAIN_COMPANY_ID';
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('item-groups', rows, companyId);
+      await loadItemGroups();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing item groups:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
+
 
   useEffect(() => {
     let filtered = groups;
@@ -234,7 +251,7 @@ const ItemGroupMaster: React.FC = () => {
               <p className="text-gray-600 mt-2">Manage item groups for pricing and reporting</p>
             </div>
             <div className="flex gap-3">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
                 <Upload className="w-4 h-4" />
                 Import
               </button>

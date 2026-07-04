@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Building2, Users, Phone, Mail, ChevronRight, ChevronDown, Download, Upload, Grid, List, UserCheck } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 interface Department {
   id: string;
@@ -187,6 +189,20 @@ export default function DepartmentMaster() {
   const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['1']));
   const [activeTab, setActiveTab] = useState('basic');
+  const companyId = 'MAIN_COMPANY_ID';
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('departments', rows, companyId);
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing departments:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
 
   const filteredDepartments = departments.filter(department => {
     const matchesSearch = department.departmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -414,7 +430,7 @@ export default function DepartmentMaster() {
             <p className="text-gray-600">Manage organizational departments and structure</p>
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={handleImport} className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
               <Upload className="w-4 h-4" />
               Import
             </button>

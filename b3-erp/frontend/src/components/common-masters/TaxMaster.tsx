@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Calculator, Percent, FileText, Globe, TrendingUp, Download, Upload, Grid, List } from 'lucide-react';
 import { commonMastersService, Tax } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 const taxTypes = ['sales', 'purchase', 'service', 'vat', 'gst', 'excise', 'custom', 'withholding'];
 const rateTypes = ['percentage', 'fixed'];
@@ -15,6 +16,7 @@ const customerTypes = ['B2B', 'B2C', 'Government', 'Export'];
 export default function TaxMaster() {
   const [taxes, setTaxes] = useState<Tax[]>([]);
   const [loading, setLoading] = useState(true);
+  const companyId = 'MAIN_COMPANY_ID';
 
   useEffect(() => {
     fetchTaxes();
@@ -48,6 +50,20 @@ export default function TaxMaster() {
 
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('taxes', rows, companyId);
+      await fetchTaxes();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing taxes:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
 
   const handleAddTax = () => {
     setEditingTax(null);
@@ -128,7 +144,7 @@ export default function TaxMaster() {
             <p className="text-gray-600">Manage tax configurations and compliance</p>
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={handleImport} className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
               <Upload className="w-4 h-4" />
               Import
             </button>

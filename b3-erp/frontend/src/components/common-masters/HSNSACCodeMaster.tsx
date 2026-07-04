@@ -7,6 +7,7 @@ import {
   TrendingUp, DollarSign, Percent, Calculator
 } from 'lucide-react';
 import { commonMastersService, HsnSac } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 
 interface HSNSACCode {
@@ -72,6 +73,7 @@ const HSNSACCodeMaster: React.FC = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const companyId = 'MAIN_COMPANY_ID';
 
   const mockCodes: HSNSACCode[] = [
     {
@@ -214,6 +216,20 @@ const HSNSACCodeMaster: React.FC = () => {
     }
   };
 
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('hsn-sacs', rows, companyId);
+      await loadHsnSacs();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing hsn-sacs:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
+
 
   useEffect(() => {
     let filtered = codes;
@@ -245,7 +261,7 @@ const HSNSACCodeMaster: React.FC = () => {
               <p className="text-gray-600 mt-2">Manage tax classification codes for goods and services</p>
             </div>
             <div className="flex gap-3">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
                 <Upload className="w-4 h-4" />
                 Import
               </button>

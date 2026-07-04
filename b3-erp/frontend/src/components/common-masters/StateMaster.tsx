@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Building2, Users, Flag, Globe
 } from 'lucide-react';
 import { commonMastersService, Country } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 interface State {
   id: string;
@@ -208,50 +209,65 @@ export default function StateMaster() {
   const [filterType, setFilterType] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [countriesData] = await Promise.all([
-          commonMastersService.getAllCountries()
-        ]);
-        setCountries(countriesData);
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [countriesData] = await Promise.all([
+        commonMastersService.getAllCountries()
+      ]);
+      setCountries(countriesData);
 
-        // Fetch all states (initially or based on filter)
-        // For simplicity in this mock-to-live transition, we'll fetch all states for the first country or some default
-        // In a real app, we might fetch all if no country is selected, or only on country selection.
-        // Let's fetch states for all countries for now as a demo.
-        const allStates: State[] = [];
-        for (const country of countriesData) {
-          const countryStates = await commonMastersService.getStatesByCountry(country.id);
-          allStates.push(...countryStates.map(s => ({
-            id: s.id,
-            stateCode: s.name.substring(0, 2).toUpperCase(), // Placeholder
-            stateName: s.name,
-            countryId: s.countryId,
-            countryName: country.name,
-            stateType: 'State',
-            taxation: { vatApplicable: false },
-            statistics: { totalCities: 0 },
-            status: s.isActive ? 'Active' : 'Inactive',
-            isActive: s.isActive,
-            metadata: {
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              createdBy: 'System',
-              updatedBy: 'System'
-            }
-          } as State)));
-        }
-        setStates(allStates);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
+      // Fetch all states (initially or based on filter)
+      // For simplicity in this mock-to-live transition, we'll fetch all states for the first country or some default
+      // In a real app, we might fetch all if no country is selected, or only on country selection.
+      // Let's fetch states for all countries for now as a demo.
+      const allStates: State[] = [];
+      for (const country of countriesData) {
+        const countryStates = await commonMastersService.getStatesByCountry(country.id);
+        allStates.push(...countryStates.map(s => ({
+          id: s.id,
+          stateCode: s.name.substring(0, 2).toUpperCase(), // Placeholder
+          stateName: s.name,
+          countryId: s.countryId,
+          countryName: country.name,
+          stateType: 'State',
+          taxation: { vatApplicable: false },
+          statistics: { totalCities: 0 },
+          status: s.isActive ? 'Active' : 'Inactive',
+          isActive: s.isActive,
+          metadata: {
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: 'System',
+            updatedBy: 'System'
+          }
+        } as State)));
       }
-    };
+      setStates(allStates);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('states', rows);
+      await fetchData();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing states:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
 
   const handleEdit = (state: State) => {
     setSelectedState(state);
@@ -402,7 +418,7 @@ export default function StateMaster() {
               </select>
             </div>
             <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                 Import
               </button>

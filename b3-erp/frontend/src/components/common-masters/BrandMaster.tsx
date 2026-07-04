@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Tag, Star, DollarSign, Package, Download, Upload, Grid, List, Building2 } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 interface Brand {
   id: string;
@@ -185,6 +186,22 @@ export default function BrandMaster() {
     }
   };
 
+  const companyId = 'MAIN_COMPANY_ID';
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('brands', rows, companyId);
+      await loadBrands();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing brands:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterQuality, setFilterQuality] = useState<string>('all');
@@ -282,7 +299,7 @@ export default function BrandMaster() {
             <p className="text-gray-600">Manage brand information and specifications</p>
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+            <button onClick={handleImport} className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
               <Upload className="w-4 h-4" />
               Import
             </button>

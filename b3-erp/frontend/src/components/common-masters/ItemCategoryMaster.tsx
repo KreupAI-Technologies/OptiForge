@@ -8,6 +8,7 @@ import {
   ChevronDown, Move, Copy, Archive, RefreshCw, Settings
 } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
+import { pickAndParseCsv } from '@/lib/import';
 
 
 interface ItemCategory {
@@ -389,6 +390,22 @@ const ItemCategoryMaster: React.FC = () => {
     }
   };
 
+  const companyId = 'MAIN_COMPANY_ID';
+
+  const handleImport = async () => {
+    try {
+      const rows = await pickAndParseCsv();
+      if (!rows) return;
+      if (rows.length === 0) { alert('The selected CSV file has no data rows.'); return; }
+      const result = await commonMastersService.bulkCreate('item-categories', rows, companyId);
+      await loadCategories();
+      alert(`Import complete: ${result.created} created, ${result.skipped} skipped (of ${result.total} rows).`);
+    } catch (error) {
+      console.error('Error importing item categories:', error);
+      alert('Import failed. Please check the CSV format and try again.');
+    }
+  };
+
 
   useEffect(() => {
     let filtered = categories;
@@ -566,7 +583,7 @@ const ItemCategoryMaster: React.FC = () => {
               <p className="text-gray-600 mt-2">Manage product and service categorization hierarchy</p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
+              <button onClick={handleImport} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                 <Upload className="w-4 h-4" />
                 Import
               </button>
