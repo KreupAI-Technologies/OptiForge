@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -15,8 +15,10 @@ import {
   Download,
   Star,
   MessageSquare,
-  Camera
+  Camera,
+  AlertCircle
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface AcceptedHandover {
   id: string;

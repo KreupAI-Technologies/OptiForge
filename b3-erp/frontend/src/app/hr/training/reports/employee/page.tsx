@@ -68,6 +68,42 @@ const selectedEmployeeData = {
 export default function EmployeeReportsPage() {
   const [searchTerm, setSearchTerm] = useState('Alice Johnson');
   const [selectedEmployee, setSelectedEmployee] = useState(selectedEmployeeData);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.get<any[]>('/hr/employees'));
+        const mapped: EmployeeRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          name: r.name ?? [r.firstName, r.lastName].filter(Boolean).join(' ') ?? '',
+          role: r.role ?? r.jobTitle ?? r.designation ?? '',
+          department: r.department ?? r.departmentName ?? '',
+          location: r.location ?? '',
+          email: r.email ?? '',
+          phone: r.phone ?? '',
+          avatar: r.avatar ?? String(r.name ?? '').split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+        }));
+        if (!cancelled) setEmployees(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load employees');
+          setEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -97,6 +133,19 @@ export default function EmployeeReportsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading employees…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

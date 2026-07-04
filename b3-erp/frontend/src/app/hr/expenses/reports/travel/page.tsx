@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { TrendingUp, Download, MapPin, Plane, Hotel, Users, Calendar } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { TrendingUp, Download, MapPin, Plane, Hotel, Users, Calendar, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from '@/hooks/use-toast';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface TravelExpense {
   id: string;

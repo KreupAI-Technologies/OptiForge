@@ -1,15 +1,53 @@
 'use client';
 
-import { useState } from 'react';
-import { BarChart3, TrendingUp, Users, Target, Activity, PieChart as PieChartIcon, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BarChart3, TrendingUp, Users, Target, Activity, PieChart as PieChartIcon, Calendar, AlertCircle } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+interface DepartmentScore {
+  name: string;
+  score: number;
+  lastYear: number;
+}
 
 export default function PerformanceAnalyticsPage() {
   const [timePeriod, setTimePeriod] = useState('YTD');
   const [department, setDepartment] = useState('All');
+  const [departmentScores, setDepartmentScores] = useState<DepartmentScore[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.performanceReviews()) as any[];
+        const mapped: DepartmentScore[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          name: r.name ?? r.department ?? r.departmentName ?? '',
+          score: Number(r.score ?? r.currentScore ?? r.rating ?? 0),
+          lastYear: Number(r.lastYear ?? r.previousScore ?? r.prevScore ?? 0),
+        }));
+        if (!cancelled) setDepartmentScores(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load analytics');
+          setDepartmentScores([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock Data
   const performanceTrend = [
