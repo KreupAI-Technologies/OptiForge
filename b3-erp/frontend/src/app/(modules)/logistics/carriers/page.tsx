@@ -68,229 +68,51 @@ export default function LogisticsCarriersPage() {
   const [isExporting, setIsExporting] = useState(false);
   const itemsPerPage = 10;
 
-  // Sample carriers data
-  const carriers: Carrier[] = [
-    {
-      id: '1',
-      carrier_id: 'CAR-001',
-      name: 'BlueDart Express',
-      carrier_type: 'courier',
-      contact_person: 'Rajesh Kumar',
-      contact_number: '+91-1800-233-1234',
-      email: 'support@bluedart.com',
-      address: 'Mumbai, Maharashtra - 400001',
-      on_time_percentage: 94.5,
-      average_cost_per_shipment: 850,
-      total_shipments: 1250,
-      active_shipments: 45,
-      rating: 4.5,
-      established_date: '2020-01-15',
-      service_areas: ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata'],
-      status: 'active',
-      contract_type: 'Long-term',
-      insurance_coverage: 1000000,
-      notes: 'Premium courier service with excellent track record',
-      last_shipment_date: '2025-01-17'
-    },
-    {
-      id: '2',
-      carrier_id: 'CAR-002',
-      name: 'DTDC Courier',
-      carrier_type: 'courier',
-      contact_person: 'Priya Sharma',
-      contact_number: '+91-1860-208-8208',
-      email: 'info@dtdc.com',
-      address: 'Delhi, NCR - 110001',
-      on_time_percentage: 88.2,
-      average_cost_per_shipment: 720,
-      total_shipments: 980,
-      active_shipments: 32,
-      rating: 4.0,
-      established_date: '2019-06-20',
-      service_areas: ['Delhi', 'Pune', 'Ahmedabad', 'Jaipur'],
-      status: 'active',
-      contract_type: 'Short-term',
-      insurance_coverage: 750000,
-      notes: 'Cost-effective courier option',
-      last_shipment_date: '2025-01-16'
-    },
-    {
-      id: '3',
-      carrier_id: 'CAR-003',
-      name: 'Delhivery',
-      carrier_type: 'freight',
-      contact_person: 'Amit Patel',
-      contact_number: '+91-124-4643-000',
-      email: 'business@delhivery.com',
-      address: 'Gurgaon, Haryana - 122001',
-      on_time_percentage: 91.8,
-      average_cost_per_shipment: 1200,
-      total_shipments: 1580,
-      active_shipments: 58,
-      rating: 4.8,
-      established_date: '2018-03-10',
-      service_areas: ['All India', 'Pan India Network'],
-      status: 'active',
-      contract_type: 'Long-term',
-      insurance_coverage: 2000000,
-      notes: 'Reliable freight and logistics partner',
-      last_shipment_date: '2025-01-17'
-    },
-    {
-      id: '4',
-      carrier_id: 'CAR-004',
-      name: 'FedEx India',
-      carrier_type: 'air',
-      contact_person: 'Sarah Johnson',
-      contact_number: '+91-1800-103-9000',
-      email: 'customercare@fedex.com',
-      address: 'Bangalore, Karnataka - 560001',
-      on_time_percentage: 96.3,
-      average_cost_per_shipment: 2500,
-      total_shipments: 650,
-      active_shipments: 28,
-      rating: 5.0,
-      established_date: '2017-11-05',
-      service_areas: ['International', 'Major Cities', 'Express Service'],
-      status: 'active',
-      contract_type: 'Per-shipment',
-      insurance_coverage: 5000000,
-      notes: 'Premium international and domestic air freight',
-      last_shipment_date: '2025-01-17'
-    },
-    {
-      id: '5',
-      carrier_id: 'CAR-005',
-      name: 'Gati-KWE',
-      carrier_type: 'freight',
-      contact_person: 'Vikram Singh',
-      contact_number: '+91-1800-180-4284',
-      email: 'support@gati.com',
-      address: 'Hyderabad, Telangana - 500001',
-      on_time_percentage: 85.7,
-      average_cost_per_shipment: 950,
-      total_shipments: 820,
-      active_shipments: 22,
-      rating: 3.8,
-      established_date: '2020-08-12',
-      service_areas: ['South India', 'East India', 'Heavy Freight'],
-      status: 'active',
-      contract_type: 'Short-term',
-      insurance_coverage: 1500000,
-      notes: 'Specialized in heavy freight',
-      last_shipment_date: '2025-01-15'
-    },
-    {
-      id: '6',
-      carrier_id: 'CAR-006',
-      name: 'Indian Railways Logistics',
-      carrier_type: 'rail',
-      contact_person: 'Manoj Kumar',
-      contact_number: '+91-1800-111-321',
-      email: 'cargo@indianrail.gov.in',
-      address: 'New Delhi - 110001',
-      on_time_percentage: 78.5,
-      average_cost_per_shipment: 450,
-      total_shipments: 2100,
-      active_shipments: 65,
-      rating: 3.5,
-      established_date: '2015-01-01',
-      service_areas: ['All India - Rail Network', 'Bulk Shipments'],
-      status: 'active',
-      contract_type: 'Long-term',
-      insurance_coverage: 800000,
-      notes: 'Most economical for bulk shipments',
-      last_shipment_date: '2025-01-16'
-    },
-    {
-      id: '7',
-      carrier_id: 'CAR-007',
-      name: 'DHL Express',
-      carrier_type: 'air',
-      contact_person: 'Michael Brown',
-      contact_number: '+91-1800-111-345',
-      email: 'india@dhl.com',
-      address: 'Mumbai, Maharashtra - 400002',
-      on_time_percentage: 97.2,
-      average_cost_per_shipment: 3200,
-      total_shipments: 420,
-      active_shipments: 18,
-      rating: 4.9,
-      established_date: '2016-05-20',
-      service_areas: ['International', 'Express Delivery', 'Door-to-Door'],
-      status: 'active',
-      contract_type: 'Per-shipment',
-      insurance_coverage: 6000000,
-      notes: 'Premium international express service',
-      last_shipment_date: '2025-01-17'
-    },
-    {
-      id: '8',
-      carrier_id: 'CAR-008',
-      name: 'VRL Logistics',
-      carrier_type: 'freight',
-      contact_person: 'Suresh Rao',
-      contact_number: '+91-831-2444444',
-      email: 'care@vrllogistics.com',
-      address: 'Belgaum, Karnataka - 590001',
-      on_time_percentage: 82.4,
-      average_cost_per_shipment: 680,
-      total_shipments: 1150,
-      active_shipments: 38,
-      rating: 3.9,
-      established_date: '2019-02-15',
-      service_areas: ['South India', 'West India', 'Surface Transport'],
-      status: 'active',
-      contract_type: 'Short-term',
-      insurance_coverage: 1200000,
-      notes: 'Reliable surface transport solutions',
-      last_shipment_date: '2025-01-14'
-    },
-    {
-      id: '9',
-      carrier_id: 'CAR-009',
-      name: 'Safexpress',
-      carrier_type: 'freight',
-      contact_person: 'Anita Verma',
-      contact_number: '+91-1800-103-5959',
-      email: 'support@safexpress.com',
-      address: 'Delhi, NCR - 110020',
-      on_time_percentage: 89.6,
-      average_cost_per_shipment: 1050,
-      total_shipments: 890,
-      active_shipments: 35,
-      rating: 4.2,
-      established_date: '2018-09-10',
-      service_areas: ['North India', 'Central India', 'Express Cargo'],
-      status: 'active',
-      contract_type: 'Long-term',
-      insurance_coverage: 1800000,
-      notes: 'Fast and secure freight forwarding',
-      last_shipment_date: '2025-01-16'
-    },
-    {
-      id: '10',
-      carrier_id: 'CAR-010',
-      name: 'XpressBees',
-      carrier_type: 'courier',
-      contact_person: 'Rohit Mehta',
-      contact_number: '+91-1800-208-4000',
-      email: 'support@xpressbees.com',
-      address: 'Pune, Maharashtra - 411001',
-      on_time_percentage: 86.3,
-      average_cost_per_shipment: 590,
-      total_shipments: 760,
-      active_shipments: 29,
-      rating: 4.1,
-      established_date: '2020-11-25',
-      service_areas: ['Maharashtra', 'Gujarat', 'E-commerce Logistics'],
-      status: 'suspended',
-      contract_type: 'Short-term',
-      insurance_coverage: 500000,
-      notes: 'Under review - service quality issues',
-      last_shipment_date: '2025-01-10'
-    }
-  ];
+  // Carriers data (wired to NestJS transport-companies endpoint)
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await LogisticsService.getTransportCompanies();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        const mapped: Carrier[] = (list as any[]).map((r, i) => ({
+          id: String(r.id ?? r.transportCompanyId ?? i),
+          carrier_id: r.carrierId ?? r.code ?? r.transportCompanyId ?? `CAR-${i + 1}`,
+          name: r.name ?? r.companyName ?? 'Unknown Carrier',
+          carrier_type: (r.carrierType ?? r.transportMode ?? r.type ?? 'freight') as Carrier['carrier_type'],
+          contact_person: r.contactPerson ?? r.contactName ?? '',
+          contact_number: r.contactNumber ?? r.phone ?? r.contactPhone ?? '',
+          email: r.email ?? r.contactEmail ?? '',
+          address: r.address ?? r.city ?? '',
+          on_time_percentage: Number(r.onTimePercentage ?? r.onTimeRate ?? 0),
+          average_cost_per_shipment: Number(r.averageCostPerShipment ?? r.avgCost ?? 0),
+          total_shipments: Number(r.totalShipments ?? 0),
+          active_shipments: Number(r.activeShipments ?? 0),
+          rating: Number(r.rating ?? r.performanceRating ?? 0),
+          established_date: r.establishedDate ?? r.createdAt ?? '',
+          service_areas: Array.isArray(r.serviceAreas) ? r.serviceAreas : (r.serviceAreas ? [r.serviceAreas] : []),
+          status: (r.status ?? (r.isActive === false ? 'inactive' : 'active')) as Carrier['status'],
+          contract_type: (r.contractType ?? 'Per-shipment') as Carrier['contract_type'],
+          insurance_coverage: Number(r.insuranceCoverage ?? 0),
+          notes: r.notes ?? '',
+          last_shipment_date: r.lastShipmentDate ?? '',
+        }));
+        setCarriers(mapped);
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load carriers');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Calculate stats
   const stats = {
@@ -542,6 +364,17 @@ export default function LogisticsCarriersPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
+      {isLoading && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm">
+          Loading carriers...
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">

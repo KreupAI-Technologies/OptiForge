@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { Search, Filter, BarChart3, TrendingUp, CheckCircle, AlertCircle, Calendar, MapPin, Download, X, Eye, Clock, User, Wrench } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToCsv } from '@/lib/export';
@@ -21,160 +22,47 @@ interface FTFRecord {
   partsUsed: string[];
 }
 
-const mockFTFRecords: FTFRecord[] = [
-  {
-    id: '1',
-    serviceId: 'SVC-2025-1001',
-    customerName: 'Rajesh Manufacturing',
-    equipment: 'Washing Machine - Model WM-5000',
-    issueType: 'Motor Malfunction',
-    issueDescription: 'Motor not spinning, making unusual noise during wash cycle',
-    serviceDate: '2025-10-20',
-    technician: 'Amit Kumar',
-    region: 'Mumbai',
-    ftfStatus: true,
-    resolutionTime: 45,
-    serviceCategory: 'Repair',
-    partsUsed: ['Motor Bearing', 'Motor Shaft Seal']
-  },
-  {
-    id: '2',
-    serviceId: 'SVC-2025-1002',
-    customerName: 'Pune Auto Parts',
-    equipment: 'Refrigerator - Model RF-8000',
-    issueType: 'Compressor Issue',
-    issueDescription: 'Compressor not starting, fridge not cooling',
-    serviceDate: '2025-10-19',
-    technician: 'Priya Sharma',
-    region: 'Pune',
-    ftfStatus: false,
-    resolutionTime: 120,
-    serviceCategory: 'Repair',
-    partsUsed: ['Compressor', 'Capacitor']
-  },
-  {
-    id: '3',
-    serviceId: 'SVC-2025-1003',
-    customerName: 'Mumbai Electronics',
-    equipment: 'Air Conditioner - Model AC-3500',
-    issueType: 'Refrigerant Leak',
-    issueDescription: 'Low cooling efficiency, refrigerant level depleted',
-    serviceDate: '2025-10-18',
-    technician: 'Rajesh Patel',
-    region: 'Mumbai',
-    ftfStatus: true,
-    resolutionTime: 60,
-    serviceCategory: 'Maintenance',
-    partsUsed: ['Refrigerant Gas']
-  },
-  {
-    id: '4',
-    serviceId: 'SVC-2025-1004',
-    customerName: 'Delhi Manufacturing Hub',
-    equipment: 'Dishwasher - Model DW-2000',
-    issueType: 'Water Drainage Problem',
-    issueDescription: 'Water not draining from wash chamber, pooling at bottom',
-    serviceDate: '2025-10-17',
-    technician: 'Vikram Singh',
-    region: 'Delhi',
-    ftfStatus: true,
-    resolutionTime: 35,
-    serviceCategory: 'Repair',
-    partsUsed: ['Drain Pump', 'Filter Mesh']
-  },
-  {
-    id: '5',
-    serviceId: 'SVC-2025-1005',
-    customerName: 'Bangalore Tech Solutions',
-    equipment: 'Microwave Oven - Model MO-1500',
-    issueType: 'Magnetron Failure',
-    issueDescription: 'Microwave not heating, heating element not working',
-    serviceDate: '2025-10-16',
-    technician: 'Neha Desai',
-    region: 'Bangalore',
-    ftfStatus: false,
-    resolutionTime: 90,
-    serviceCategory: 'Repair',
-    partsUsed: ['Magnetron', 'High Voltage Capacitor']
-  },
-  {
-    id: '6',
-    serviceId: 'SVC-2025-1006',
-    customerName: 'Chennai Industrial',
-    equipment: 'Washing Machine - Model WM-7000',
-    issueType: 'Drum Bearing Failure',
-    issueDescription: 'Loud grinding noise during spin cycle, rust in drum',
-    serviceDate: '2025-10-15',
-    technician: 'Sanjay Verma',
-    region: 'Chennai',
-    ftfStatus: true,
-    resolutionTime: 55,
-    serviceCategory: 'Repair',
-    partsUsed: ['Drum Bearing', 'Drum Seal', 'Stainless Steel Drum']
-  },
-  {
-    id: '7',
-    serviceId: 'SVC-2025-1007',
-    customerName: 'Ahmedabad Precision',
-    equipment: 'Refrigerator - Model RF-6000',
-    issueType: 'Thermostat Malfunction',
-    issueDescription: 'Temperature control not working, fridge freezing or too warm',
-    serviceDate: '2025-10-14',
-    technician: 'Ananya Sharma',
-    region: 'Ahmedabad',
-    ftfStatus: true,
-    resolutionTime: 40,
-    serviceCategory: 'Repair',
-    partsUsed: ['Electronic Thermostat']
-  },
-  {
-    id: '8',
-    serviceId: 'SVC-2025-1008',
-    customerName: 'Hyderabad Manufacturing',
-    equipment: 'Air Conditioner - Model AC-5000',
-    issueType: 'Blower Motor Issue',
-    issueDescription: 'Blower not working, no air circulation in room',
-    serviceDate: '2025-10-13',
-    technician: 'Ravi Kumar',
-    region: 'Hyderabad',
-    ftfStatus: false,
-    resolutionTime: 105,
-    serviceCategory: 'Repair',
-    partsUsed: ['Blower Motor', 'Motor Capacitor', 'Fan Blade']
-  },
-  {
-    id: '9',
-    serviceId: 'SVC-2025-1009',
-    customerName: 'Kolkata Industries',
-    equipment: 'Water Heater - Model WH-500',
-    issueType: 'Heating Element Burnout',
-    issueDescription: 'Water not heating up to desired temperature',
-    serviceDate: '2025-10-12',
-    technician: 'Rakesh Singh',
-    region: 'Kolkata',
-    ftfStatus: true,
-    resolutionTime: 38,
-    serviceCategory: 'Maintenance',
-    partsUsed: ['Heating Element']
-  },
-  {
-    id: '10',
-    serviceId: 'SVC-2025-1010',
-    customerName: 'Lucknow Manufacturing',
-    equipment: 'Washing Machine - Model WM-4000',
-    issueType: 'Control Panel Failure',
-    issueDescription: 'Display not showing, buttons not responding to input',
-    serviceDate: '2025-10-11',
-    technician: 'Priya Sharma',
-    region: 'Lucknow',
-    ftfStatus: false,
-    resolutionTime: 145,
-    serviceCategory: 'Repair',
-    partsUsed: ['Control PCB', 'Display Unit']
-  }
-];
+function mapFTFRecord(r: any): FTFRecord {
+  return {
+    id: String(r?.id ?? ''),
+    serviceId: r?.serviceId ?? '',
+    customerName: r?.customerName ?? '',
+    equipment: r?.equipment ?? '',
+    issueType: r?.issueType ?? '',
+    issueDescription: r?.issueDescription ?? '',
+    serviceDate: r?.serviceDate ?? '',
+    technician: r?.technician ?? '',
+    region: r?.region ?? '',
+    ftfStatus: Boolean(r?.ftfStatus),
+    resolutionTime: Number(r?.resolutionTime ?? 0),
+    serviceCategory: r?.serviceCategory ?? '',
+    partsUsed: Array.isArray(r?.partsUsed) ? r.partsUsed : [],
+  };
+}
 
 export default function FTFAnalyticsPage() {
+  const [mockFTFRecords, setMockFTFRecords] = useState<FTFRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.ftf()) as any[];
+        if (!cancelled) setMockFTFRecords(Array.isArray(raw) ? raw.map(mapFTFRecord) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load FTF records');
+          setMockFTFRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');

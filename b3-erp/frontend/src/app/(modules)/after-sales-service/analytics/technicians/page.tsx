@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { Search, Filter, Users, Star, TrendingUp, Calendar, MapPin, CheckCircle, Award, BarChart3, Download, X, Clock, Wrench, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToCsv } from '@/lib/export';
@@ -22,170 +23,48 @@ interface Technician {
   status: 'active' | 'inactive' | 'on-leave';
 }
 
-const mockTechnicians: Technician[] = [
-  {
-    id: '1',
-    name: 'Amit Kumar',
-    employeeId: 'TEC-001',
-    region: 'Mumbai',
-    experience: 8,
-    rating: 4.8,
-    totalServices: 245,
-    ftfCount: 198,
-    avgResolutionTime: 48,
-    completionRate: 98,
-    specializations: ['Washing Machine', 'Refrigerator', 'AC'],
-    certifications: ['LG Service Center', 'Samsung Expert', 'IEC Certified'],
-    joiningDate: '2017-03-15',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: 'Priya Sharma',
-    employeeId: 'TEC-002',
-    region: 'Pune',
-    experience: 6,
-    rating: 4.6,
-    totalServices: 189,
-    ftfCount: 165,
-    avgResolutionTime: 52,
-    completionRate: 95,
-    specializations: ['Dishwasher', 'Microwave', 'Water Heater'],
-    certifications: ['Bosch Certified', 'IFB Expert', 'Safety Certified'],
-    joiningDate: '2019-06-20',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Rajesh Patel',
-    employeeId: 'TEC-003',
-    region: 'Mumbai',
-    experience: 10,
-    rating: 4.9,
-    totalServices: 312,
-    ftfCount: 289,
-    avgResolutionTime: 45,
-    completionRate: 99,
-    specializations: ['AC', 'Refrigerator', 'Heating Systems'],
-    certifications: ['Daikin Expert', 'Godrej Certified', 'Advanced Diagnostics'],
-    joiningDate: '2015-01-10',
-    status: 'active'
-  },
-  {
-    id: '4',
-    name: 'Vikram Singh',
-    employeeId: 'TEC-004',
-    region: 'Delhi',
-    experience: 5,
-    rating: 4.4,
-    totalServices: 156,
-    ftfCount: 129,
-    avgResolutionTime: 58,
-    completionRate: 92,
-    specializations: ['Washing Machine', 'Microwave', 'Cooktop'],
-    certifications: ['Wipro Certified', 'Electrolux Expert'],
-    joiningDate: '2020-02-28',
-    status: 'active'
-  },
-  {
-    id: '5',
-    name: 'Neha Desai',
-    employeeId: 'TEC-005',
-    region: 'Bangalore',
-    experience: 7,
-    rating: 4.7,
-    totalServices: 218,
-    ftfCount: 195,
-    avgResolutionTime: 50,
-    completionRate: 97,
-    specializations: ['Refrigerator', 'Freezer', 'Water Purifier'],
-    certifications: ['Videocon Certified', 'IEC Expert', 'Environmental Safety'],
-    joiningDate: '2018-05-12',
-    status: 'active'
-  },
-  {
-    id: '6',
-    name: 'Sanjay Verma',
-    employeeId: 'TEC-006',
-    region: 'Chennai',
-    experience: 9,
-    rating: 4.5,
-    totalServices: 267,
-    ftfCount: 223,
-    avgResolutionTime: 54,
-    completionRate: 94,
-    specializations: ['AC', 'Washing Machine', 'Geyser'],
-    certifications: ['Carrier Expert', 'Kuvera Certified', 'Energy Audit'],
-    joiningDate: '2016-08-22',
-    status: 'active'
-  },
-  {
-    id: '7',
-    name: 'Ananya Sharma',
-    employeeId: 'TEC-007',
-    region: 'Ahmedabad',
-    experience: 4,
-    rating: 4.3,
-    totalServices: 98,
-    ftfCount: 78,
-    avgResolutionTime: 62,
-    completionRate: 88,
-    specializations: ['Microwave', 'Chimney', 'Water Heater'],
-    certifications: ['Havells Expert', 'Safety Certified'],
-    joiningDate: '2021-09-15',
-    status: 'on-leave'
-  },
-  {
-    id: '8',
-    name: 'Ravi Kumar',
-    employeeId: 'TEC-008',
-    region: 'Hyderabad',
-    experience: 6,
-    rating: 4.6,
-    totalServices: 201,
-    ftfCount: 172,
-    avgResolutionTime: 51,
-    completionRate: 96,
-    specializations: ['Refrigerator', 'AC', 'Dishwasher'],
-    certifications: ['LG Expert', 'Whirlpool Certified'],
-    joiningDate: '2019-11-01',
-    status: 'active'
-  },
-  {
-    id: '9',
-    name: 'Rakesh Singh',
-    employeeId: 'TEC-009',
-    region: 'Kolkata',
-    experience: 8,
-    rating: 4.7,
-    totalServices: 234,
-    ftfCount: 201,
-    avgResolutionTime: 49,
-    completionRate: 97,
-    specializations: ['Water Heater', 'Cooktop', 'Refrigerator'],
-    certifications: ['AO Smith Expert', 'Bajaj Certified', 'Thermal Expert'],
-    joiningDate: '2017-07-18',
-    status: 'active'
-  },
-  {
-    id: '10',
-    name: 'Priyanka Verma',
-    employeeId: 'TEC-010',
-    region: 'Lucknow',
-    experience: 5,
-    rating: 4.5,
-    totalServices: 167,
-    ftfCount: 138,
-    avgResolutionTime: 56,
-    completionRate: 93,
-    specializations: ['Washing Machine', 'Refrigerator', 'Microwave'],
-    certifications: ['Godrej Expert', 'Safety Certified'],
-    joiningDate: '2020-05-10',
-    status: 'active'
-  }
-];
+function mapTechnician(r: any): Technician {
+  return {
+    id: String(r?.id ?? ''),
+    name: r?.name ?? '',
+    employeeId: r?.employeeId ?? '',
+    region: r?.region ?? '',
+    experience: Number(r?.experience ?? 0),
+    rating: Number(r?.rating ?? 0),
+    totalServices: Number(r?.totalServices ?? 0),
+    ftfCount: Number(r?.ftfCount ?? 0),
+    avgResolutionTime: Number(r?.avgResolutionTime ?? 0),
+    completionRate: Number(r?.completionRate ?? 0),
+    specializations: Array.isArray(r?.specializations) ? r.specializations : [],
+    certifications: Array.isArray(r?.certifications) ? r.certifications : [],
+    joiningDate: r?.joiningDate ?? '',
+    status: (r?.status ?? 'active') as Technician['status'],
+  };
+}
 
 export default function TechniciansAnalyticsPage() {
+  const [mockTechnicians, setMockTechnicians] = useState<Technician[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.technicians()) as any[];
+        if (!cancelled) setMockTechnicians(Array.isArray(raw) ? raw.map(mapTechnician) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load technicians');
+          setMockTechnicians([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');

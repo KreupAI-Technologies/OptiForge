@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import { Search, Eye, Edit, Plus, Package, CheckCircle, Clock, XCircle, AlertTriangle, User, Calendar, MapPin, FileText, Download, Filter, Send, MoreVertical, ShoppingCart, Truck, Phone } from 'lucide-react';
 
@@ -54,329 +55,33 @@ interface RequisitionItem {
   notes: string;
 }
 
-const mockRequisitions: PartsRequisition[] = [
-  {
-    id: '1',
-    requisitionNumber: 'PR-2025-001',
-    requestDate: '2025-10-22',
-    requiredDate: '2025-10-25',
-    requestedBy: 'Suresh Patel',
-    department: 'Service Operations',
-    serviceRequestId: 'SR-2025-145',
-    contractId: 'AMC-2025-0001',
-    customerId: 'CUST001',
-    customerName: 'Sharma Modular Kitchens Pvt Ltd',
-    priority: 'high',
-    status: 'approved',
-    approvedBy: 'Maintenance Manager',
-    approvalDate: '2025-10-22',
-    totalItems: 3,
-    totalValue: 2850,
-    estimatedCost: 2850,
-    actualCost: 2650,
-    supplier: 'Kitchen Hardware Supplies',
-    expectedDelivery: '2025-10-24',
-    deliveryLocation: 'Mumbai Central Warehouse',
-    justification: 'Urgent replacement required for customer AMC contract. Cabinet hinges failed during service.',
-    internalNotes: 'Customer has premium contract. Ensure quality parts are delivered.',
-    items: [
-      {
-        id: '1',
-        partNumber: 'KIT-HNG-001',
-        partName: 'Cabinet Hinge - Soft Close',
-        category: 'Hardware',
-        manufacturer: 'Hettich',
-        requestedQuantity: 4,
-        approvedQuantity: 4,
-        receivedQuantity: 0,
-        unitCost: 450,
-        totalCost: 1800,
-        currentStock: 245,
-        urgencyLevel: 'urgent',
-        alternativeAccepted: false,
-        supplierPartNumber: 'HTH-8645i',
-        status: 'ordered',
-        notes: 'Premium quality required'
-      },
-      {
-        id: '2',
-        partNumber: 'MCH-SCR-008',
-        partName: 'Mounting Screws Set',
-        category: 'Hardware',
-        manufacturer: 'Hafele',
-        requestedQuantity: 2,
-        approvedQuantity: 2,
-        receivedQuantity: 0,
-        unitCost: 125,
-        totalCost: 250,
-        currentStock: 156,
-        urgencyLevel: 'normal',
-        alternativeAccepted: true,
-        supplierPartNumber: 'HFL-SCR-001',
-        status: 'ordered',
-        notes: 'Standard mounting screws'
-      },
-      {
-        id: '3',
-        partNumber: 'CON-ADH-015',
-        partName: 'Industrial Adhesive',
-        category: 'Consumable',
-        manufacturer: 'Fevicol',
-        requestedQuantity: 1,
-        approvedQuantity: 1,
-        receivedQuantity: 0,
-        unitCost: 800,
-        totalCost: 800,
-        currentStock: 45,
-        urgencyLevel: 'normal',
-        alternativeAccepted: true,
-        supplierPartNumber: 'FVC-IND-001',
-        status: 'ordered',
-        notes: 'For permanent cabinet mounting'
-      }
-    ],
-    attachments: ['service_report.pdf', 'customer_approval.pdf'],
-    trackingNumber: 'TRK-2025-001',
-    deliveredDate: '',
-    receivedBy: ''
-  },
-  {
-    id: '2',
-    requisitionNumber: 'PR-2025-002',
-    requestDate: '2025-10-21',
-    requiredDate: '2025-10-28',
-    requestedBy: 'Amit Singh',
-    department: 'Field Service',
-    serviceRequestId: 'SR-2025-142',
-    contractId: 'CMC-2025-0012',
-    customerId: 'CUST002',
-    customerName: 'Elite Kitchen Solutions',
-    priority: 'urgent',
-    status: 'in_procurement',
-    approvedBy: 'Service Manager',
-    approvalDate: '2025-10-21',
-    totalItems: 2,
-    totalValue: 1750,
-    estimatedCost: 1750,
-    actualCost: 1650,
-    supplier: 'Electrical Components Ltd',
-    expectedDelivery: '2025-10-26',
-    deliveryLocation: 'Delhi Service Center',
-    justification: 'LED strip failure in customer kitchen. Urgent replacement needed to maintain service SLA.',
-    internalNotes: 'Customer has complained about delayed service. Priority delivery required.',
-    items: [
-      {
-        id: '1',
-        partNumber: 'ELC-LED-012',
-        partName: 'LED Strip Light - Under Cabinet',
-        category: 'Electronics',
-        manufacturer: 'Philips',
-        requestedQuantity: 1,
-        approvedQuantity: 1,
-        receivedQuantity: 0,
-        unitCost: 1250,
-        totalCost: 1250,
-        currentStock: 35,
-        urgencyLevel: 'critical',
-        alternativeAccepted: false,
-        supplierPartNumber: 'PHL-HUE-001',
-        status: 'ordered',
-        notes: 'Warm white, exact model required'
-      },
-      {
-        id: '2',
-        partNumber: 'ELC-PWR-025',
-        partName: 'Power Adapter 24V',
-        category: 'Electronics',
-        manufacturer: 'Mean Well',
-        requestedQuantity: 1,
-        approvedQuantity: 1,
-        receivedQuantity: 0,
-        unitCost: 500,
-        totalCost: 500,
-        currentStock: 28,
-        urgencyLevel: 'urgent',
-        alternativeAccepted: true,
-        supplierPartNumber: 'MW-PWR-24V',
-        status: 'ordered',
-        notes: 'Compatible power adapter'
-      }
-    ],
-    attachments: ['fault_diagnosis.pdf'],
-    trackingNumber: 'TRK-2025-002',
-    deliveredDate: '',
-    receivedBy: ''
-  },
-  {
-    id: '3',
-    requisitionNumber: 'PR-2025-003',
-    requestDate: '2025-10-20',
-    requiredDate: '2025-10-30',
-    requestedBy: 'Ravi Kumar',
-    department: 'Installation',
-    serviceRequestId: '',
-    contractId: '',
-    customerId: 'CUST003',
-    customerName: 'Modern Home Interiors',
-    priority: 'medium',
-    status: 'received',
-    approvedBy: 'Installation Manager',
-    approvalDate: '2025-10-20',
-    totalItems: 5,
-    totalValue: 4250,
-    estimatedCost: 4250,
-    actualCost: 4100,
-    supplier: 'Premium Hardware Solutions',
-    expectedDelivery: '2025-10-25',
-    deliveryLocation: 'Bangalore Installation Site',
-    justification: 'New installation project requires premium drawer slides for customer satisfaction.',
-    internalNotes: 'Customer is design-conscious. Ensure smooth operation and premium finish.',
-    items: [
-      {
-        id: '1',
-        partNumber: 'MCH-DRW-025',
-        partName: 'Drawer Slide - Heavy Duty',
-        category: 'Mechanical',
-        manufacturer: 'Blum',
-        requestedQuantity: 8,
-        approvedQuantity: 8,
-        receivedQuantity: 8,
-        unitCost: 890,
-        totalCost: 7120,
-        currentStock: 0,
-        urgencyLevel: 'urgent',
-        alternativeAccepted: false,
-        supplierPartNumber: 'BLM-TND-001',
-        status: 'received',
-        notes: 'Full extension, soft close'
-      }
-    ],
-    attachments: ['installation_plan.pdf', 'customer_specifications.pdf'],
-    trackingNumber: 'TRK-2025-003',
-    deliveredDate: '2025-10-23',
-    receivedBy: 'Warehouse Manager'
-  },
-  {
-    id: '4',
-    requisitionNumber: 'PR-2025-004',
-    requestDate: '2025-10-23',
-    requiredDate: '2025-11-02',
-    requestedBy: 'Deepak Sharma',
-    department: 'Maintenance',
-    priority: 'low',
-    status: 'submitted',
-    totalItems: 4,
-    totalValue: 1850,
-    estimatedCost: 1850,
-    actualCost: 0,
-    deliveryLocation: 'Chennai Service Center',
-    justification: 'Routine maintenance stock replenishment for preventive service operations.',
-    internalNotes: 'Standard consumables for monthly service activities.',
-    items: [
-      {
-        id: '1',
-        partNumber: 'CON-CLN-008',
-        partName: 'Kitchen Cleaner - Stainless Steel',
-        category: 'Consumable',
-        manufacturer: 'Weiman',
-        requestedQuantity: 12,
-        approvedQuantity: 0,
-        receivedQuantity: 0,
-        unitCost: 125,
-        totalCost: 1500,
-        currentStock: 850,
-        urgencyLevel: 'normal',
-        alternativeAccepted: true,
-        supplierPartNumber: 'WMN-CLN-SS',
-        status: 'pending',
-        notes: 'Bulk order for cost efficiency'
-      },
-      {
-        id: '2',
-        partNumber: 'CON-LUB-012',
-        partName: 'Hinge Lubricant',
-        category: 'Consumable',
-        manufacturer: '3M',
-        requestedQuantity: 6,
-        approvedQuantity: 0,
-        receivedQuantity: 0,
-        unitCost: 85,
-        totalCost: 510,
-        currentStock: 24,
-        urgencyLevel: 'normal',
-        alternativeAccepted: true,
-        supplierPartNumber: '3M-LUB-001',
-        status: 'pending',
-        notes: 'Silicone-based lubricant'
-      }
-    ],
-    attachments: ['maintenance_schedule.pdf'],
-    trackingNumber: '',
-    deliveredDate: '',
-    receivedBy: ''
-  },
-  {
-    id: '5',
-    requisitionNumber: 'PR-2025-005',
-    requestDate: '2025-10-19',
-    requiredDate: '2025-10-22',
-    requestedBy: 'Manoj Kumar',
-    department: 'Quality Assurance',
-    priority: 'high',
-    status: 'rejected',
-    totalItems: 2,
-    totalValue: 3200,
-    estimatedCost: 3200,
-    actualCost: 0,
-    deliveryLocation: 'Pune Quality Lab',
-    justification: 'Specialized tools required for quality inspection of customer complaints.',
-    internalNotes: 'Request rejected due to budget constraints. Alternative solution needed.',
-    items: [
-      {
-        id: '1',
-        partNumber: 'TLS-DRL-015',
-        partName: 'Cordless Drill Bit Set',
-        category: 'Tools',
-        manufacturer: 'Bosch',
-        requestedQuantity: 1,
-        approvedQuantity: 0,
-        receivedQuantity: 0,
-        unitCost: 2500,
-        totalCost: 2500,
-        currentStock: 12,
-        urgencyLevel: 'normal',
-        alternativeAccepted: false,
-        supplierPartNumber: 'BSH-DRL-PRO',
-        status: 'rejected',
-        notes: 'Budget exceeded for non-critical tools'
-      },
-      {
-        id: '2',
-        partNumber: 'TLS-MSR-008',
-        partName: 'Digital Calipers',
-        category: 'Tools',
-        manufacturer: 'Mitutoyo',
-        requestedQuantity: 1,
-        approvedQuantity: 0,
-        receivedQuantity: 0,
-        unitCost: 700,
-        totalCost: 700,
-        currentStock: 8,
-        urgencyLevel: 'normal',
-        alternativeAccepted: true,
-        supplierPartNumber: 'MIT-CAL-001',
-        status: 'rejected',
-        notes: 'Alternative measuring tools available'
-      }
-    ],
-    attachments: ['quality_requirements.pdf'],
-    trackingNumber: '',
-    deliveredDate: '',
-    receivedBy: ''
-  }
-];
+function mapPartsRequisition(r: any): PartsRequisition {
+  return { ...(r as PartsRequisition), items: Array.isArray(r?.items) ? r.items : [], attachments: Array.isArray(r?.attachments) ? r.attachments : [] };
+}
 
 export default function PartsRequisitionPage() {
+  const [mockRequisitions, setMockRequisitions] = useState<PartsRequisition[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.partsRequisitions()) as any[];
+        if (!cancelled) setMockRequisitions(Array.isArray(raw) ? raw.map(mapPartsRequisition) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load requisitions');
+          setMockRequisitions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const router = useRouter();
   const [requisitions, setRequisitions] = useState<PartsRequisition[]>(mockRequisitions);
   const [searchTerm, setSearchTerm] = useState('');
