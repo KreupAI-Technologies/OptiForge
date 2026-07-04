@@ -33,28 +33,70 @@ export default function LeaveSummaryPage() {
     const [selectedYear, setSelectedYear] = useState('2025');
     const [departmentFilter, setDepartmentFilter] = useState('all');
 
-    const leaveSummary: LeaveSummary[] = [
-        { leaveType: 'Annual Leave', totalDays: 2520, usedDays: 1050, pendingDays: 120, utilizationRate: 42, employeesUsed: 95 },
-        { leaveType: 'Sick Leave', totalDays: 1440, usedDays: 380, pendingDays: 25, utilizationRate: 26, employeesUsed: 68 },
-        { leaveType: 'Casual Leave', totalDays: 720, usedDays: 450, pendingDays: 30, utilizationRate: 63, employeesUsed: 85 },
-        { leaveType: 'Compensatory Off', totalDays: 320, usedDays: 180, pendingDays: 15, utilizationRate: 56, employeesUsed: 42 },
-        { leaveType: 'Maternity/Paternity', totalDays: 1820, usedDays: 364, pendingDays: 0, utilizationRate: 20, employeesUsed: 8 }
-    ];
+    const [leaveSummary, setLeaveSummary] = useState<LeaveSummary[]>([]);
+    const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const monthlyTrends: MonthlyTrend[] = [
-        { month: 'Jan', annual: 85, sick: 32, casual: 45, other: 12 },
-        { month: 'Feb', annual: 92, sick: 28, casual: 38, other: 15 },
-        { month: 'Mar', annual: 78, sick: 35, casual: 42, other: 10 },
-        { month: 'Apr', annual: 105, sick: 25, casual: 50, other: 18 },
-        { month: 'May', annual: 120, sick: 30, casual: 48, other: 20 },
-        { month: 'Jun', annual: 150, sick: 22, casual: 55, other: 25 }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await LeaveService.getAllLeaveApplicationsRaw();
+                const apps = Array.isArray(raw) ? raw : [];
+
+                // Derive summary rows grouped by leave type
+                const byType: Record<string, { used: number; pending: number; total: number; emps: Set<string> }> = {};
+                apps.forEach((a: any) => {
+                    const type = a?.leaveTypeName ?? a?.leaveType ?? 'Other';
+                    const days = a?.totalDays ?? 0;
+                    const status = String(a?.status ?? '').toUpperCase();
+                    if (!byType[type]) byType[type] = { used: 0, pending: 0, total: 0, emps: new Set() };
+                    byType[type].total += days;
+                    if (status === 'APPROVED') byType[type].used += days;
+                    else if (status === 'PENDING') byType[type].pending += days;
+                    if (a?.employeeId) byType[type].emps.add(String(a.employeeId));
+                });
+                const summary: LeaveSummary[] = Object.entries(byType).map(([leaveType, v]) => ({
+                    leaveType,
+                    totalDays: v.total,
+                    usedDays: v.used,
+                    pendingDays: v.pending,
+                    utilizationRate: v.total > 0 ? Math.round((v.used / v.total) * 100) : 0,
+                    employeesUsed: v.emps.size,
+                }));
+
+                // Derive monthly trends by leave-type bucket
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const byMonth: Record<string, MonthlyTrend> = {};
+                apps.forEach((a: any) => {
+                    const d = a?.startDate ? new Date(a.startDate) : null;
+                    if (!d || isNaN(d.getTime())) return;
+                    const m = monthNames[d.getMonth()];
+                    if (!byMonth[m]) byMonth[m] = { month: m, annual: 0, sick: 0, casual: 0, other: 0 };
+                    const code = String(a?.leaveTypeCode ?? a?.leaveTypeName ?? '').toUpperCase();
+                    const days = a?.totalDays ?? 0;
+                    if (code.includes('ANNUAL')) byMonth[m].annual += days;
+                    else if (code.includes('SICK')) byMonth[m].sick += days;
+                    else if (code.includes('CASUAL')) byMonth[m].casual += days;
+                    else byMonth[m].other += days;
+                });
+                const trends: MonthlyTrend[] = monthNames.filter((m) => byMonth[m]).map((m) => byMonth[m]);
+
+                if (!cancelled) { setLeaveSummary(summary); setMonthlyTrends(trends); }
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setLeaveSummary([]); setMonthlyTrends([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = ['Human Resources', 'Production', 'IT', 'Finance', 'Quality Assurance', 'Warehouse'];
 
     const totalUsed = leaveSummary.reduce((sum, l) => sum + l.usedDays, 0);
     const totalPending = leaveSummary.reduce((sum, l) => sum + l.pendingDays, 0);
-    const avgUtilization = Math.round(leaveSummary.reduce((sum, l) => sum + l.utilizationRate, 0) / leaveSummary.length);
+    const avgUtilization = leaveSummary.length ? Math.round(leaveSummary.reduce((sum, l) => sum + l.utilizationRate, 0) / leaveSummary.length) : 0;
 
     const getUtilizationColor = (rate: number) => {
         if (rate >= 50) return 'text-green-400 bg-green-500';
