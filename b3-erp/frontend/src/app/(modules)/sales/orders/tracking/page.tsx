@@ -65,368 +65,58 @@ export default function OrderTrackingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<OrderTracking | null>(null);
 
-  const orders: OrderTracking[] = [
-    {
-      id: '1',
-      orderNumber: 'TRK-2025-001',
-      salesOrderNumber: 'SO-2025-112',
-      customerName: 'Tata Motors Limited',
-      customerPhone: '+91 98765 43210',
-      customerEmail: 'procurement@tatamotors.com',
-      shippingAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      orderDate: '2025-10-15',
-      expectedDeliveryDate: '2025-10-22',
-      currentStatus: 'out_for_delivery',
-      currentLocation: 'Ahmedabad Hub - Out for Delivery',
-      carrier: 'Blue Dart Express',
-      trackingNumber: 'BD123456789IN',
-      itemsCount: 250,
-      totalAmount: 1245000,
-      estimatedDelivery: '2025-10-20 by 4:00 PM',
-      deliveryProgress: 90,
-      lastUpdated: '2025-10-20T08:30:00',
-      trackingEvents: [
-        {
-          status: 'Order Placed',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-15T10:00:00',
-          description: 'Order received and confirmed',
-          completed: true
-        },
-        {
-          status: 'Production Started',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-16T09:00:00',
-          description: 'Production process initiated',
-          completed: true
-        },
-        {
-          status: 'Quality Check',
-          location: 'Quality Control Dept - Surat',
-          timestamp: '2025-10-17T14:30:00',
-          description: 'Quality inspection completed - All items passed',
-          completed: true
-        },
-        {
-          status: 'Packed & Ready',
-          location: 'Warehouse - Surat',
-          timestamp: '2025-10-18T11:00:00',
-          description: 'Items packed and ready for shipment',
-          completed: true
-        },
-        {
-          status: 'Picked Up',
-          location: 'Surat Hub',
-          timestamp: '2025-10-18T16:45:00',
-          description: 'Package picked up by Blue Dart Express',
-          completed: true
-        },
-        {
-          status: 'In Transit',
-          location: 'Ahmedabad Sorting Center',
-          timestamp: '2025-10-19T22:15:00',
-          description: 'Package arrived at sorting facility',
-          completed: true
-        },
-        {
-          status: 'Out for Delivery',
-          location: 'Ahmedabad Hub',
-          timestamp: '2025-10-20T08:30:00',
-          description: 'Out for delivery - Expected by 4:00 PM',
-          completed: false
-        },
-        {
-          status: 'Delivered',
-          location: 'Customer Location',
-          timestamp: '',
-          description: 'Package will be delivered',
-          completed: false
-        }
-      ]
-    },
-    {
-      id: '2',
-      orderNumber: 'TRK-2025-002',
-      salesOrderNumber: 'SO-2025-115',
-      customerName: 'Larsen & Toubro',
-      customerPhone: '+91 98765 43211',
-      customerEmail: 'orders@lnt.com',
-      shippingAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      orderDate: '2025-10-17',
-      expectedDeliveryDate: '2025-10-24',
-      currentStatus: 'in_transit',
-      currentLocation: 'Gandhinagar Sorting Center',
-      carrier: 'DTDC Courier',
-      trackingNumber: 'DTDC987654321IN',
-      itemsCount: 180,
-      totalAmount: 856000,
-      estimatedDelivery: '2025-10-23 by 5:00 PM',
-      deliveryProgress: 65,
-      lastUpdated: '2025-10-20T06:15:00',
-      trackingEvents: [
-        {
-          status: 'Order Placed',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-17T11:30:00',
-          description: 'Order received and confirmed',
-          completed: true
-        },
-        {
-          status: 'Production Started',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-18T08:00:00',
-          description: 'Production process initiated',
-          completed: true
-        },
-        {
-          status: 'Quality Check',
-          location: 'Quality Control Dept - Surat',
-          timestamp: '2025-10-19T15:00:00',
-          description: 'Quality inspection in progress',
-          completed: true
-        },
-        {
-          status: 'Packed & Ready',
-          location: 'Warehouse - Surat',
-          timestamp: '2025-10-19T18:30:00',
-          description: 'Items packed and ready for shipment',
-          completed: true
-        },
-        {
-          status: 'In Transit',
-          location: 'Gandhinagar Sorting Center',
-          timestamp: '2025-10-20T06:15:00',
-          description: 'Package in transit to delivery location',
-          completed: false
-        },
-        {
-          status: 'Out for Delivery',
-          location: 'Gandhinagar Hub',
-          timestamp: '',
-          description: 'Will be out for delivery soon',
-          completed: false
-        },
-        {
-          status: 'Delivered',
-          location: 'Customer Location',
-          timestamp: '',
-          description: 'Package will be delivered',
-          completed: false
-        }
-      ]
-    },
-    {
-      id: '3',
-      orderNumber: 'TRK-2025-003',
-      salesOrderNumber: 'SO-2025-118',
-      customerName: 'Reliance Industries',
-      customerPhone: '+91 98765 43212',
-      customerEmail: 'procurement@ril.com',
-      shippingAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      orderDate: '2025-10-18',
-      expectedDeliveryDate: '2025-10-25',
-      currentStatus: 'quality_check',
-      currentLocation: 'Quality Control Department - Surat',
-      itemsCount: 400,
-      totalAmount: 2340000,
-      estimatedDelivery: '2025-10-25 by 6:00 PM',
-      deliveryProgress: 40,
-      lastUpdated: '2025-10-20T10:00:00',
-      trackingEvents: [
-        {
-          status: 'Order Placed',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-18T09:15:00',
-          description: 'Order received and confirmed',
-          completed: true
-        },
-        {
-          status: 'Production Started',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-19T07:30:00',
-          description: 'Production process initiated',
-          completed: true
-        },
-        {
-          status: 'Quality Check',
-          location: 'Quality Control Dept - Surat',
-          timestamp: '2025-10-20T10:00:00',
-          description: 'Quality inspection in progress',
-          completed: false
-        },
-        {
-          status: 'Packed & Ready',
-          location: 'Warehouse - Surat',
-          timestamp: '',
-          description: 'Awaiting quality clearance',
-          completed: false
-        },
-        {
-          status: 'Shipped',
-          location: 'Carrier Pickup',
-          timestamp: '',
-          description: 'Will be shipped after packing',
-          completed: false
-        },
-        {
-          status: 'Delivered',
-          location: 'Customer Location',
-          timestamp: '',
-          description: 'Package will be delivered',
-          completed: false
-        }
-      ]
-    },
-    {
-      id: '4',
-      orderNumber: 'TRK-2025-004',
-      salesOrderNumber: 'SO-2025-120',
-      customerName: 'Mahindra & Mahindra',
-      customerPhone: '+91 98765 43214',
-      customerEmail: 'purchase@mahindra.com',
-      shippingAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      orderDate: '2025-10-19',
-      expectedDeliveryDate: '2025-10-26',
-      currentStatus: 'production',
-      currentLocation: 'Manufacturing Facility - Surat',
-      itemsCount: 90,
-      totalAmount: 445000,
-      estimatedDelivery: '2025-10-26 by 5:00 PM',
-      deliveryProgress: 25,
-      lastUpdated: '2025-10-20T09:00:00',
-      trackingEvents: [
-        {
-          status: 'Order Placed',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-19T14:00:00',
-          description: 'Order received and confirmed',
-          completed: true
-        },
-        {
-          status: 'Production Started',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-20T09:00:00',
-          description: 'Production process initiated - 30% complete',
-          completed: false
-        },
-        {
-          status: 'Quality Check',
-          location: 'Quality Control Dept - Surat',
-          timestamp: '',
-          description: 'Pending production completion',
-          completed: false
-        },
-        {
-          status: 'Packed & Ready',
-          location: 'Warehouse - Surat',
-          timestamp: '',
-          description: 'Awaiting quality clearance',
-          completed: false
-        },
-        {
-          status: 'Shipped',
-          location: 'Carrier Pickup',
-          timestamp: '',
-          description: 'Will be shipped after packing',
-          completed: false
-        },
-        {
-          status: 'Delivered',
-          location: 'Customer Location',
-          timestamp: '',
-          description: 'Package will be delivered',
-          completed: false
-        }
-      ]
-    },
-    {
-      id: '5',
-      orderNumber: 'TRK-2025-005',
-      salesOrderNumber: 'SO-2025-122',
-      customerName: 'Adani Ports',
-      customerPhone: '+91 98765 43213',
-      customerEmail: 'logistics@adaniports.com',
-      shippingAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      orderDate: '2025-10-20',
-      expectedDeliveryDate: '2025-10-27',
-      currentStatus: 'order_placed',
-      currentLocation: 'Order Processing - Surat',
-      itemsCount: 120,
-      totalAmount: 675000,
-      estimatedDelivery: '2025-10-27 by 6:00 PM',
-      deliveryProgress: 10,
-      lastUpdated: '2025-10-20T11:00:00',
-      trackingEvents: [
-        {
-          status: 'Order Placed',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '2025-10-20T11:00:00',
-          description: 'Order received and confirmed',
-          completed: false
-        },
-        {
-          status: 'Production Started',
-          location: 'Manufacturing Facility - Surat',
-          timestamp: '',
-          description: 'Production will start soon',
-          completed: false
-        },
-        {
-          status: 'Quality Check',
-          location: 'Quality Control Dept - Surat',
-          timestamp: '',
-          description: 'Pending production completion',
-          completed: false
-        },
-        {
-          status: 'Packed & Ready',
-          location: 'Warehouse - Surat',
-          timestamp: '',
-          description: 'Awaiting quality clearance',
-          completed: false
-        },
-        {
-          status: 'Shipped',
-          location: 'Carrier Pickup',
-          timestamp: '',
-          description: 'Will be shipped after packing',
-          completed: false
-        },
-        {
-          status: 'Delivered',
-          location: 'Customer Location',
-          timestamp: '',
-          description: 'Package will be delivered',
-          completed: false
-        }
-      ]
-    }
-  ];
+  const [orders, setOrders] = useState<OrderTracking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: OrderTracking[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          orderNumber: r.orderNumber ?? '',
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerPhone: r.customerPhone ?? '',
+          customerEmail: r.customerEmail ?? '',
+          shippingAddress: {
+            street: r.shippingAddress?.street ?? '',
+            city: r.shippingAddress?.city ?? '',
+            state: r.shippingAddress?.state ?? '',
+            pincode: r.shippingAddress?.pincode ?? '',
+          },
+          orderDate: r.orderDate ?? '',
+          expectedDeliveryDate: r.expectedDeliveryDate ?? '',
+          currentStatus: (r.currentStatus ?? 'order_placed') as OrderTracking['currentStatus'],
+          currentLocation: r.currentLocation ?? '',
+          carrier: r.carrier,
+          trackingNumber: r.trackingNumber,
+          itemsCount: r.itemsCount ?? 0,
+          totalAmount: r.totalAmount ?? 0,
+          trackingEvents: (r.trackingEvents ?? []).map((e: any) => ({
+            status: e.status ?? '',
+            location: e.location ?? '',
+            timestamp: e.timestamp ?? '',
+            description: e.description ?? '',
+            completed: e.completed ?? false,
+          })),
+          estimatedDelivery: r.estimatedDelivery ?? '',
+          deliveryProgress: r.deliveryProgress ?? 0,
+          lastUpdated: r.lastUpdated ?? '',
+        }));
+        if (!cancelled) setOrders(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = orders.filter(order =>
     order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
