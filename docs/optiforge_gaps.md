@@ -23,7 +23,7 @@ ________________________________________
 | Prisma coverage of API tables | partial / drifted | **573 models — 100% of API tables**, `prisma validate` ✅ | 🟢 |
 | Auth | Django ✅ / NestJS ❌ / FE ❌ | **Local JWT end-to-end** (NestJS `/auth/*` + FE `AuthContext`) | 🟢 |
 | Export / Print buttons | ~all `console.log` | **185 pages** → real CSV / print | 🟢 |
-| Delete / Approve / Reject buttons | mostly stubs | ~23 pages still `console.log` | 🟡 |
+| Delete / Approve / Reject buttons | mostly stubs | **wired to backend** (0 `console.log` action stubs) | 🟢 |
 | CI `frontend-typecheck` | informational | **blocking** | 🟢 |
 | Automated test coverage | ~0–2% | still low | 🔴 |
 | `not-found.tsx` graceful 404 | Present | Present | 🟢 |
@@ -52,7 +52,7 @@ ________________________________________
 | Edit / Update | 🟢 wired |
 | Export (→ CSV) | 🟢 **185 pages** wired to a shared `exportToCsv` util |
 | Print (→ print dialog) | 🟢 wired |
-| Delete / Approve / Reject | 🟡 ~23 pages still `console.log` (follow-up) |
+| Delete / Approve / Reject | 🟢 wired to backend delete/approve/reject endpoints (0 `console.log` action stubs) |
 | Import | 🟡 largely unimplemented (follow-up) |
 
 ________________________________________
@@ -107,7 +107,7 @@ ________________________________________
 2. [P0] Auth fragmented — 🟢 **resolved** on local JWT (Keycloak deferred).
 3. [P0] 88% pages UI-only shells — 🟢 **resolved** (0 true orphans; ~250 endpoints built to support them).
 4. [P1] Dead-link cleanup — 🟢 **0 broken URLs**; PWA icon added.
-5. [P1] Export / Import / Print stubs — 🟢 Export/Print done; 🟡 Import + Delete/Approve/Reject remain on ~23 pages.
+5. [P1] Export / Import / Print / Delete / Approve stubs — 🟢 Export, Print, Delete, Approve, Reject all wired; 🟡 only bulk Import (file upload) remains.
 6. [P2] Test coverage — 🔴 still low (separate initiative).
 7. [P2] Django platform empty — 🟡 consolidated on NestJS; recommend amending ADR-0004.
 
