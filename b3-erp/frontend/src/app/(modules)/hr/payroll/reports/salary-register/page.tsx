@@ -43,123 +43,23 @@ export default function SalaryRegisterPage() {
     const [yearFilter, setYearFilter] = useState('2025');
     const [departmentFilter, setDepartmentFilter] = useState('all');
 
-    const entries: SalaryRegisterEntry[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            basicSalary: 68750,
-            hra: 27500,
-            conveyance: 3000,
-            specialAllowance: 25000,
-            otherAllowances: 13250,
-            grossEarnings: 137500,
-            pf: 8250,
-            esi: 0,
-            professionalTax: 200,
-            tds: 22000,
-            otherDeductions: 4550,
-            totalDeductions: 35000,
-            netPay: 102500,
-            workingDays: 26,
-            lopDays: 0,
-            paidDays: 26
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            basicSalary: 38333,
-            hra: 15333,
-            conveyance: 1600,
-            specialAllowance: 14000,
-            otherAllowances: 7400,
-            grossEarnings: 76667,
-            pf: 4600,
-            esi: 575,
-            professionalTax: 200,
-            tds: 8000,
-            otherDeductions: 4625,
-            totalDeductions: 18000,
-            netPay: 58667,
-            workingDays: 26,
-            lopDays: 1,
-            paidDays: 25
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            basicSalary: 33750,
-            hra: 13500,
-            conveyance: 1600,
-            specialAllowance: 12000,
-            otherAllowances: 6650,
-            grossEarnings: 67500,
-            pf: 4050,
-            esi: 506,
-            professionalTax: 200,
-            tds: 6000,
-            otherDeductions: 4244,
-            totalDeductions: 15000,
-            netPay: 52500,
-            workingDays: 26,
-            lopDays: 0,
-            paidDays: 26
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            designation: 'Senior Accountant',
-            basicSalary: 55000,
-            hra: 22000,
-            conveyance: 2400,
-            specialAllowance: 20000,
-            otherAllowances: 10600,
-            grossEarnings: 110000,
-            pf: 6600,
-            esi: 0,
-            professionalTax: 200,
-            tds: 16000,
-            otherDeductions: 5200,
-            totalDeductions: 28000,
-            netPay: 82000,
-            workingDays: 26,
-            lopDays: 0,
-            paidDays: 26
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            basicSalary: 45000,
-            hra: 18000,
-            conveyance: 1600,
-            specialAllowance: 16000,
-            otherAllowances: 9400,
-            grossEarnings: 90000,
-            pf: 5400,
-            esi: 0,
-            professionalTax: 200,
-            tds: 12000,
-            otherDeductions: 4400,
-            totalDeductions: 22000,
-            netPay: 68000,
-            workingDays: 26,
-            lopDays: 0,
-            paidDays: 26
-        }
-    ];
+    const [entries, setEntries] = useState<SalaryRegisterEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReportsBy('salary-register');
+                const mapped: SalaryRegisterEntry[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setEntries(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEntries([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(entries.map(e => e.department)));
 
@@ -184,6 +84,8 @@ export default function SalaryRegisterPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

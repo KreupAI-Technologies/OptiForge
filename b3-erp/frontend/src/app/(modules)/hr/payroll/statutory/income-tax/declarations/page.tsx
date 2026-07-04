@@ -41,103 +41,23 @@ export default function TaxDeclarationsPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [fiscalYear] = useState('2024-25');
 
-    const declarations: TaxDeclaration[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            fiscalYear: '2024-25',
-            regime: 'Old',
-            status: 'Verified',
-            submittedDate: '2024-04-15',
-            verifiedDate: '2024-04-20',
-            section80C: 150000,
-            section80D: 50000,
-            section80G: 10000,
-            hra: 180000,
-            lta: 30000,
-            otherExemptions: 30000,
-            totalDeductions: 450000,
-            proofsPending: 0
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            fiscalYear: '2024-25',
-            regime: 'New',
-            status: 'Submitted',
-            submittedDate: '2024-04-10',
-            verifiedDate: null,
-            section80C: 0,
-            section80D: 0,
-            section80G: 0,
-            hra: 0,
-            lta: 0,
-            otherExemptions: 50000,
-            totalDeductions: 50000,
-            proofsPending: 0
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            fiscalYear: '2024-25',
-            regime: 'Old',
-            status: 'Submitted',
-            submittedDate: '2024-04-18',
-            verifiedDate: null,
-            section80C: 100000,
-            section80D: 25000,
-            section80G: 5000,
-            hra: 96000,
-            lta: 20000,
-            otherExemptions: 4000,
-            totalDeductions: 250000,
-            proofsPending: 3
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            fiscalYear: '2024-25',
-            regime: 'Old',
-            status: 'Draft',
-            submittedDate: null,
-            verifiedDate: null,
-            section80C: 80000,
-            section80D: 30000,
-            section80G: 0,
-            hra: 144000,
-            lta: 0,
-            otherExemptions: 20000,
-            totalDeductions: 274000,
-            proofsPending: 5
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            fiscalYear: '2024-25',
-            regime: 'New',
-            status: 'Verified',
-            submittedDate: '2024-04-08',
-            verifiedDate: '2024-04-12',
-            section80C: 0,
-            section80D: 0,
-            section80G: 0,
-            hra: 0,
-            lta: 0,
-            otherExemptions: 50000,
-            totalDeductions: 50000,
-            proofsPending: 0
-        }
-    ];
+    const [declarations, setDeclarations] = useState<TaxDeclaration[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getTaxRecordsBy('declarations');
+                const mapped: TaxDeclaration[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setDeclarations(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setDeclarations([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredDeclarations = declarations.filter(dec => {
         const matchesSearch = dec.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -179,6 +99,8 @@ export default function TaxDeclarationsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

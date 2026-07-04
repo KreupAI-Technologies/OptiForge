@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   FileText,
   Download,
@@ -51,104 +52,43 @@ export default function ReportsPage() {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
 
-  // Mock Data - Scheduled Reports
-  const scheduledReports: Report[] = [
-    {
-      id: 'RPT-001',
-      reportName: 'Monthly SLA Performance Report',
-      reportType: 'SLA Performance',
-      description: 'Comprehensive analysis of response and resolution time compliance',
-      frequency: 'Monthly',
-      format: 'PDF',
-      lastGenerated: '2025-02-01',
-      nextScheduled: '2025-03-01',
-      status: 'Active',
-      recipients: ['operations@b3macbis.com', 'manager@b3macbis.com'],
-      createdBy: 'Admin User',
-      parameters: { includeCharts: true, compareWithPrevious: true }
-    },
-    {
-      id: 'RPT-002',
-      reportName: 'Weekly Engineer Performance Dashboard',
-      reportType: 'Engineer Performance',
-      description: 'Individual and team performance metrics with job completion rates',
-      frequency: 'Weekly',
-      format: 'Excel',
-      lastGenerated: '2025-02-10',
-      nextScheduled: '2025-02-17',
-      status: 'Active',
-      recipients: ['hr@b3macbis.com', 'team-leads@b3macbis.com'],
-      createdBy: 'HR Manager',
-      parameters: { includeIndividualBreakdown: true, slaThreshold: 90 }
-    },
-    {
-      id: 'RPT-003',
-      reportName: 'Contract Renewal Pipeline',
-      reportType: 'Contract Management',
-      description: 'Upcoming renewals, expiring contracts, and revenue projections',
-      frequency: 'Monthly',
-      format: 'PDF',
-      lastGenerated: '2025-02-01',
-      nextScheduled: '2025-03-01',
-      status: 'Active',
-      recipients: ['sales@b3macbis.com', 'finance@b3macbis.com'],
-      createdBy: 'Sales Manager',
-      parameters: { forecastMonths: 3, includeHistoricalData: true }
-    },
-    {
-      id: 'RPT-004',
-      reportName: 'Daily Service Request Summary',
-      reportType: 'Service Trends',
-      description: 'Daily snapshot of open tickets, SLA status, and urgent items',
-      frequency: 'Daily',
-      format: 'CSV',
-      lastGenerated: '2025-02-17',
-      nextScheduled: '2025-02-18',
-      status: 'Active',
-      recipients: ['operations@b3macbis.com'],
-      createdBy: 'Operations Lead',
-      parameters: { priorityFilter: 'P1,P2', includePending: true }
-    },
-    {
-      id: 'RPT-005',
-      reportName: 'Quarterly Revenue Analysis',
-      reportType: 'Revenue Analysis',
-      description: 'Financial performance by service type, region, and customer segment',
-      frequency: 'Quarterly',
-      format: 'Excel',
-      lastGenerated: '2025-01-15',
-      nextScheduled: '2025-04-15',
-      status: 'Active',
-      recipients: ['cfo@b3macbis.com', 'finance@b3macbis.com'],
-      createdBy: 'Finance Director',
-      parameters: { includeProjections: true, regionBreakdown: true }
-    },
-    {
-      id: 'RPT-006',
-      reportName: 'Customer Satisfaction Survey Results',
-      reportType: 'Customer Satisfaction',
-      description: 'NPS, CSAT scores, and customer feedback analysis',
-      frequency: 'Monthly',
-      format: 'PDF',
-      lastGenerated: '2025-02-01',
-      status: 'Generating',
-      recipients: ['quality@b3macbis.com', 'management@b3macbis.com'],
-      createdBy: 'Quality Manager',
-      parameters: { includeComments: true, sentimentAnalysis: true }
-    },
-    {
-      id: 'RPT-007',
-      reportName: 'Ad-hoc Billing Report - January',
-      reportType: 'Billing Summary',
-      description: 'Custom billing report for January with overdue analysis',
-      frequency: 'On-Demand',
-      format: 'Excel',
-      lastGenerated: '2025-02-05',
-      status: 'Inactive',
-      createdBy: 'Billing Team',
-      parameters: { dateRange: '2025-01-01 to 2025-01-31', includeAging: true }
-    }
-  ];
+  // Scheduled reports loaded from the after-sales analytics endpoint.
+  const [scheduledReports, setScheduledReports] = useState<Report[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.reports()) as any[];
+        const mapped: Report[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          reportName: r?.reportName ?? '',
+          reportType: (r?.reportType ?? 'Custom') as Report['reportType'],
+          description: r?.description ?? '',
+          frequency: (r?.frequency ?? 'On-Demand') as Report['frequency'],
+          format: (r?.format ?? 'PDF') as Report['format'],
+          lastGenerated: r?.lastGenerated ?? '',
+          nextScheduled: r?.nextScheduled,
+          status: (r?.status ?? 'Active') as Report['status'],
+          recipients: Array.isArray(r?.recipients) ? r.recipients : [],
+          createdBy: r?.createdBy ?? '',
+          parameters: r?.parameters,
+        }));
+        if (!cancelled) setScheduledReports(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load reports');
+          setScheduledReports([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock Data - Report Templates
   const reportTemplates: ReportTemplate[] = [

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Wallet,
     Search,
@@ -30,86 +31,23 @@ export default function PFContributionPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [monthFilter, setMonthFilter] = useState('January 2025');
 
-    const contributions: PFContribution[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            uan: '101234567890',
-            basicWage: 50000,
-            employeeContribution: 6000,
-            employerEPF: 2100,
-            employerEPS: 3900,
-            totalContribution: 12000,
-            month: 'January 2025'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            uan: '101234567891',
-            basicWage: 26666,
-            employeeContribution: 3200,
-            employerEPF: 1120,
-            employerEPS: 2080,
-            totalContribution: 6400,
-            month: 'January 2025'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            uan: '101234567892',
-            basicWage: 25000,
-            employeeContribution: 3000,
-            employerEPF: 1050,
-            employerEPS: 1950,
-            totalContribution: 6000,
-            month: 'January 2025'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            uan: '101234567893',
-            basicWage: 13333,
-            employeeContribution: 1600,
-            employerEPF: 560,
-            employerEPS: 1040,
-            totalContribution: 3200,
-            month: 'January 2025'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            uan: '101234567894',
-            basicWage: 40000,
-            employeeContribution: 4800,
-            employerEPF: 1680,
-            employerEPS: 3120,
-            totalContribution: 9600,
-            month: 'January 2025'
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            uan: '101234567895',
-            basicWage: 30000,
-            employeeContribution: 3600,
-            employerEPF: 1260,
-            employerEPS: 2340,
-            totalContribution: 7200,
-            month: 'January 2025'
-        }
-    ];
+    const [contributions, setContributions] = useState<PFContribution[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getStatutoryBy('pf-contribution');
+                const mapped: PFContribution[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setContributions(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setContributions([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredContributions = contributions.filter(c => {
         const matchesSearch = c.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
