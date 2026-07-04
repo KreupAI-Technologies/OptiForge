@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqAnalyticsLiveService } from '@/services/cpq/cpq-analytics-live.service'
 import {
   Package,
   Settings,
@@ -28,8 +29,59 @@ interface DashboardMetric {
   color: string
 }
 
+interface RecentQuote {
+  id: string
+  customer: string
+  value: number
+  products: number
+  status: string
+  createdDate: string
+}
+
 export default function CPQDashboardPage() {
   const router = useRouter()
+
+  const [recentQuotes, setRecentQuotes] = useState<RecentQuote[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await cpqAnalyticsLiveService.getQuotes()
+        const statusMap: Record<string, string> = {
+          pending: 'pending-approval',
+          'pending-approval': 'pending-approval',
+          approved: 'approved',
+          sent: 'sent',
+          draft: 'draft',
+        }
+        const mapped: RecentQuote[] = raw.slice(0, 8).map((q) => ({
+          id: q.quoteNumber || String(q.id),
+          customer: q.customerName || 'Unknown',
+          value: Number(q.totalAmount ?? 0),
+          products: Array.isArray(q.items) ? q.items.length : 0,
+          status: statusMap[String(q.status ?? '').toLowerCase()] ?? String(q.status ?? 'draft'),
+          createdDate: (q.quoteDate || q.createdAt || '').toString().slice(0, 10),
+        }))
+        if (!cancelled) setRecentQuotes(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load recent quotes')
+          setRecentQuotes([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const metrics: DashboardMetric[] = [
     {
@@ -63,41 +115,6 @@ export default function CPQDashboardPage() {
       trend: 'up',
       icon: Clock,
       color: 'orange'
-    }
-  ]
-
-  const recentQuotes = [
-    {
-      id: 'Q-2025-0156',
-      customer: 'Prestige Estates',
-      value: 18500000,
-      products: 3,
-      status: 'pending-approval',
-      createdDate: '2025-10-20'
-    },
-    {
-      id: 'Q-2025-0155',
-      customer: 'DLF Limited',
-      value: 8500000,
-      products: 2,
-      status: 'approved',
-      createdDate: '2025-10-19'
-    },
-    {
-      id: 'Q-2025-0154',
-      customer: 'Oberoi Realty',
-      value: 28000000,
-      products: 5,
-      status: 'sent',
-      createdDate: '2025-10-19'
-    },
-    {
-      id: 'Q-2025-0153',
-      customer: 'Godrej Properties',
-      value: 6500000,
-      products: 2,
-      status: 'draft',
-      createdDate: '2025-10-18'
     }
   ]
 

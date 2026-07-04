@@ -1,23 +1,44 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function WorkOrdersStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const workOrders = [
-        { id: 'WO-2025-001', product: 'Industrial Server Rack', quantity: 50, startDate: '2025-01-15', dueDate: '2025-01-30', status: 'In Progress' },
-        { id: 'WO-2025-002', product: 'Cooling Unit', quantity: 30, startDate: '2025-01-18', dueDate: '2025-02-05', status: 'Delayed' },
-        { id: 'WO-2025-003', product: 'Power Distribution Unit', quantity: 100, startDate: '2025-01-20', dueDate: '2025-01-28', status: 'Completed' },
-        { id: 'WO-2025-004', product: 'Control Panel', quantity: 15, startDate: '2025-01-22', dueDate: '2025-02-10', status: 'In Progress' },
-        { id: 'WO-2025-005', product: 'Mounting Bracket', quantity: 500, startDate: '2025-01-25', dueDate: '2025-02-01', status: 'Pending' },
-    ];
+    const [workOrders, setWorkOrders] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('production/work-order');
+                const mapped = raw.map((r: any) => ({
+                    id: r.workOrderNumber ?? r.woNumber ?? r.id,
+                    product: r.productName ?? r.itemName ?? '',
+                    quantity: Number(r.quantity ?? r.plannedQty ?? 0),
+                    startDate: r.startDate ?? r.plannedStartDate ?? '',
+                    dueDate: r.dueDate ?? r.plannedEndDate ?? '',
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setWorkOrders(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setWorkOrders([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredWOs = status === 'All'
         ? workOrders
@@ -37,6 +58,8 @@ function WorkOrdersStatusContent() {
                 { label: status }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Work Order List</CardTitle>

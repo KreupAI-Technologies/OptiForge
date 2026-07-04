@@ -8,5 +8,6 @@ export * from './cpq-guided-selling.service';
 export * from './cpq-proposal.service';
 export * from './cpq-contract.service';
 export * from './cpq-analytics.service';
+export * from './cpq-analytics-live.service';
 export * from './cpq-settings.service';
 export * from './cpq-approval.service';

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Package, MapPin, Calendar, AlertTriangle, CheckCircle, Layers } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface BatchItem {
   id: string;

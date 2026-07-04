@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, FileText, Download, Plus, X, Calendar, Filter } from 'lucide-react'
+import {
+  estimationCategoryService,
+  EstimationCategory,
+} from '@/services/estimation-category.service'
 
 export default function CustomReportPage() {
   const router = useRouter()
@@ -18,6 +22,38 @@ export default function CustomReportPage() {
   const [outputFormat, setOutputFormat] = useState('pdf')
   const [includeCharts, setIncludeCharts] = useState(true)
   const [includeRawData, setIncludeRawData] = useState(false)
+
+  // Live category options drive the "Kitchen Category" filter. Analytics has no
+  // base GET, so we source the one data-backed filter list from the categories
+  // endpoint and fall back to defaults when none exist.
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([
+    'Modular', 'L-Shape', 'U-Shape', 'Parallel', 'Island',
+  ])
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoadError(null)
+      try {
+        const cats = await estimationCategoryService.getCategories()
+        const names = cats
+          .map((c: EstimationCategory) => c.name)
+          .filter((n): n is string => Boolean(n))
+        if (!cancelled && names.length > 0) setCategoryOptions(names)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load categories',
+          )
+        }
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const availableMetrics = [
     { id: 'total-estimates', name: 'Total Estimates', category: 'Volume' },

@@ -192,6 +192,26 @@ class InventoryService {
         return this.unwrapArray(response);
     }
 
+    async getCapacityUtilization(): Promise<any[]> {
+        const response = await apiClient.get<any[]>('/inventory/warehouses/capacity-utilization');
+        return this.unwrapArray(response);
+    }
+
+    async getWarehouse(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/warehouses/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getWarehouseLocations(id: string): Promise<any[]> {
+        const response = await apiClient.get<any[]>(`/inventory/warehouses/${id}/locations`);
+        return this.unwrapArray(response);
+    }
+
+    async getWarehouseStockSummary(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/warehouses/${id}/stock-summary`);
+        return (response as any)?.data ?? response;
+    }
+
     async getStockTransfers(): Promise<any[]> {
         const response = await apiClient.get<any[]>('/inventory/stock-transfers');
         return this.unwrapArray(response);

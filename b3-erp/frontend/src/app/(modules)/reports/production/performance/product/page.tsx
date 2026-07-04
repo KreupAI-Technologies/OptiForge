@@ -1,21 +1,44 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function ProductPerformanceDetail() {
     const router = useRouter();
 
-    const products = [
-        { id: 'PROD-001', name: 'Industrial Server Rack', produced: 150, rejected: 2, oee: 88, cycleTime: '45m' },
-        { id: 'PROD-002', name: 'Cooling Unit', produced: 85, rejected: 5, oee: 72, cycleTime: '1h 20m' },
-        { id: 'PROD-003', name: 'Power Distribution Unit', produced: 320, rejected: 1, oee: 94, cycleTime: '15m' },
-    ];
+    const [products, setProducts] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('production/work-order');
+                const mapped = raw.map((r: any) => ({
+                    id: r.workOrderNumber ?? r.id,
+                    name: r.productName ?? r.itemName ?? '',
+                    produced: Number(r.producedQty ?? r.completedQty ?? 0),
+                    rejected: Number(r.rejectedQty ?? 0),
+                    oee: Number(r.oee ?? 0),
+                    cycleTime: Number(r.cycleTime ?? 0),
+                }));
+                if (!cancelled) setProducts(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setProducts([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -30,6 +53,8 @@ export default function ProductPerformanceDetail() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('production-performance-product', products)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader><CardTitle>Product Metrics</CardTitle></CardHeader>
                 <CardContent className="p-0">

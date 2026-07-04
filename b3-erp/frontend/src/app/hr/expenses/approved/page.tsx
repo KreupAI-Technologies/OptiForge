@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { CheckCircle, Download, Eye, Calendar, User, FileText, Filter } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
@@ -32,162 +33,29 @@ interface Expense {
 }
 
 export default function ApprovedExpensesPage() {
-  const [expenses] = useState<Expense[]>([
-    {
-      id: 'EXP-2025-010',
-      title: 'Client Meeting - Delhi',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      department: 'Sales',
-      submittedDate: '2025-03-01',
-      approvedDate: '2025-03-02',
-      approvedBy: 'Manager - Sales',
-      totalAmount: 12500,
-      itemCount: 3,
-      status: 'approved',
-      paymentStatus: 'paid',
-      paymentDate: '2025-03-05',
-      items: [
-        {
-          id: '1',
-          category: 'Travel',
-          description: 'Flight tickets',
-          amount: 8000,
-          date: '2025-02-28',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Accommodation',
-          description: 'Hotel stay',
-          amount: 3500,
-          date: '2025-02-28',
-          receipt: true
-        },
-        {
-          id: '3',
-          category: 'Meals',
-          description: 'Client lunch',
-          amount: 1000,
-          date: '2025-02-28',
-          receipt: true
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.expenseClaims<any[]>();
+        if (!cancelled) setExpenses(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setExpenses([]);
         }
-      ]
-    },
-    {
-      id: 'EXP-2025-009',
-      title: 'Software Tools Purchase',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      department: 'Engineering',
-      submittedDate: '2025-02-28',
-      approvedDate: '2025-03-01',
-      approvedBy: 'Manager - Engineering',
-      totalAmount: 5600,
-      itemCount: 2,
-      status: 'approved',
-      paymentStatus: 'processed',
-      items: [
-        {
-          id: '1',
-          category: 'Software/Tools',
-          description: 'IDE License',
-          amount: 4000,
-          date: '2025-02-25',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Software/Tools',
-          description: 'API Testing Tool',
-          amount: 1600,
-          date: '2025-02-25',
-          receipt: true
-        }
-      ]
-    },
-    {
-      id: 'EXP-2025-008',
-      title: 'Training Materials',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      department: 'HR',
-      submittedDate: '2025-02-26',
-      approvedDate: '2025-02-27',
-      approvedBy: 'Manager - HR',
-      totalAmount: 3200,
-      itemCount: 2,
-      status: 'approved',
-      paymentStatus: 'pending',
-      items: [
-        {
-          id: '1',
-          category: 'Training',
-          description: 'Training books',
-          amount: 2400,
-          date: '2025-02-24',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Office Supplies',
-          description: 'Presentation materials',
-          amount: 800,
-          date: '2025-02-24',
-          receipt: true
-        }
-      ]
-    },
-    {
-      id: 'EXP-2025-007',
-      title: 'Business Conference - Mumbai',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      department: 'Sales',
-      submittedDate: '2025-02-20',
-      approvedDate: '2025-02-21',
-      approvedBy: 'Manager - Sales',
-      totalAmount: 18900,
-      itemCount: 4,
-      status: 'approved',
-      paymentStatus: 'paid',
-      paymentDate: '2025-02-25',
-      items: [
-        {
-          id: '1',
-          category: 'Travel',
-          description: 'Flight tickets',
-          amount: 9500,
-          date: '2025-02-18',
-          receipt: true
-        },
-        {
-          id: '2',
-          category: 'Accommodation',
-          description: 'Hotel (2 nights)',
-          amount: 6000,
-          date: '2025-02-18',
-          receipt: true
-        },
-        {
-          id: '3',
-          category: 'Training',
-          description: 'Conference fee',
-          amount: 2400,
-          date: '2025-02-18',
-          receipt: true
-        },
-        {
-          id: '4',
-          category: 'Transport',
-          description: 'Local transport',
-          amount: 1000,
-          date: '2025-02-18',
-          receipt: true
-        }
-      ]
-    }
-  ]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');

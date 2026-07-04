@@ -21,6 +21,14 @@ import {
   Grid,
   List,
 } from 'lucide-react';
+import {
+  estimationPricingLiveService,
+  PricingRecord,
+} from '@/services/estimation-pricing-live.service';
+import {
+  estimationMaterialCostService,
+  MaterialCostRate,
+} from '@/services/estimation-material-cost.service';
 
 interface PriceItem {
   id: string;
@@ -63,6 +71,8 @@ export default function AddPricingPage() {
 
   const [showPreview, setShowPreview] = useState(false);
   const [importSource, setImportSource] = useState<'manual' | 'existing' | 'catalog'>('manual');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const categories = ['Base Cabinets', 'Wall Cabinets', 'Countertops', 'Hardware', 'Tall Units', 'Accessories'];
 
@@ -137,105 +147,67 @@ export default function AddPricingPage() {
     handleAddItem();
   };
 
-  const handleImportFromExisting = () => {
+  const handleImportFromExisting = async () => {
     setImportSource('existing');
-    // Mock data for import - would show modal to select price list in real implementation
-    const sampleItems: PriceItem[] = [
-      {
-        id: Date.now().toString(),
-        itemCode: 'MK-BASE-001',
-        description: 'Standard Base Cabinet 600mm - Oak Finish',
-        category: 'Base Cabinets',
-        basePrice: 12500,
-        discountPercent: 0,
-        marginPercent: 18,
-        finalPrice: 12500,
-        unit: 'Unit',
-      },
-      {
-        id: (Date.now() + 1).toString(),
-        itemCode: 'MK-WALL-002',
-        description: 'Wall Cabinet 800mm with Glass Door',
-        category: 'Wall Cabinets',
-        basePrice: 15800,
-        discountPercent: 0,
-        marginPercent: 20,
-        finalPrice: 15800,
-        unit: 'Unit',
-      },
-      {
-        id: (Date.now() + 2).toString(),
-        itemCode: 'MK-TALL-003',
-        description: 'Tall Unit 2100mm with Shelves',
-        category: 'Tall Units',
-        basePrice: 28500,
-        discountPercent: 0,
-        marginPercent: 22,
-        finalPrice: 28500,
-        unit: 'Unit',
-      },
-    ];
-
-    setFormData(prev => ({
-      ...prev,
-      priceItems: sampleItems,
-    }));
+    setImportLoading(true);
+    setImportError(null);
+    try {
+      // Pull existing pricing records and turn each into an importable price item.
+      const pricing = await estimationPricingLiveService.getPricing();
+      const items: PriceItem[] = pricing.map((p: PricingRecord, idx) => {
+        const basePrice = Number(p.baseCost ?? p.totalPrice ?? 0);
+        const discountPercent = Number(p.discountPercentage ?? 0);
+        return {
+          id: `${Date.now()}-${idx}`,
+          itemCode: p.pricingNumber ?? p.id,
+          description: p.title ?? 'Imported pricing item',
+          category: p.category ?? 'Base Cabinets',
+          basePrice,
+          discountPercent,
+          marginPercent: Number(p.markupPercentage ?? 0),
+          finalPrice: calculateFinalPrice(basePrice, discountPercent),
+          unit: 'Unit',
+        };
+      });
+      setFormData(prev => ({ ...prev, priceItems: items }));
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : 'Failed to import from existing price lists',
+      );
+    } finally {
+      setImportLoading(false);
+    }
   };
 
-  const handleLinkToCatalog = () => {
+  const handleLinkToCatalog = async () => {
     setImportSource('catalog');
-    // Mock data for catalog items - would show modal to select from product catalog in real implementation
-    const catalogItems: PriceItem[] = [
-      {
-        id: Date.now().toString(),
-        itemCode: 'CAT-COUNTER-001',
-        description: 'Granite Countertop - Black Galaxy',
-        category: 'Countertops',
-        basePrice: 8500,
-        discountPercent: 5,
-        marginPercent: 25,
-        finalPrice: 8075,
-        unit: 'Sq.Ft',
-      },
-      {
-        id: (Date.now() + 1).toString(),
-        itemCode: 'CAT-HARD-004',
-        description: 'Soft Close Hinges - Premium',
-        category: 'Hardware',
-        basePrice: 350,
-        discountPercent: 10,
-        marginPercent: 30,
-        finalPrice: 315,
-        unit: 'Set',
-      },
-      {
-        id: (Date.now() + 2).toString(),
-        itemCode: 'CAT-ACC-007',
-        description: 'Pull-Out Basket - Chrome',
-        category: 'Accessories',
-        basePrice: 4200,
-        discountPercent: 0,
-        marginPercent: 28,
-        finalPrice: 4200,
-        unit: 'Unit',
-      },
-      {
-        id: (Date.now() + 3).toString(),
-        itemCode: 'CAT-BASE-010',
-        description: 'Corner Base Cabinet - Carousel',
-        category: 'Base Cabinets',
-        basePrice: 18900,
-        discountPercent: 0,
-        marginPercent: 20,
-        finalPrice: 18900,
-        unit: 'Unit',
-      },
-    ];
-
-    setFormData(prev => ({
-      ...prev,
-      priceItems: catalogItems,
-    }));
+    setImportLoading(true);
+    setImportError(null);
+    try {
+      // Pull material cost rates (the catalog) and map each into a price item.
+      const rates = await estimationMaterialCostService.getRates();
+      const items: PriceItem[] = rates.map((r: MaterialCostRate, idx) => {
+        const basePrice = Number(r.currentPrice ?? 0);
+        return {
+          id: `${Date.now()}-${idx}`,
+          itemCode: r.materialCode ?? r.id,
+          description: r.materialName ?? 'Catalog item',
+          category: r.category ?? 'Base Cabinets',
+          basePrice,
+          discountPercent: 0,
+          marginPercent: 0,
+          finalPrice: calculateFinalPrice(basePrice, 0),
+          unit: r.unit ?? 'Unit',
+        };
+      });
+      setFormData(prev => ({ ...prev, priceItems: items }));
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : 'Failed to link to catalog',
+      );
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   const handleSubmitDraft = (e: React.FormEvent) => {
@@ -521,6 +493,12 @@ export default function AddPricingPage() {
                 <p className="text-xs text-gray-600 mt-1">Select from product catalog</p>
               </button>
             </div>
+            {importLoading && (
+              <p className="mt-2 text-xs text-blue-700">Importing items...</p>
+            )}
+            {importError && (
+              <p className="mt-2 text-xs text-red-600">{importError}</p>
+            )}
           </div>
 
           {/* Add Item Button */}

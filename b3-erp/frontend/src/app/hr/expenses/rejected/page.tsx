@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { XCircle, Search, Eye, RefreshCw, AlertCircle, Receipt, Calendar, User, Building2, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -30,81 +31,29 @@ interface RejectedExpense {
 }
 
 export default function RejectedExpensesPage() {
-  const [expenses, setExpenses] = useState<RejectedExpense[]>([
-    {
-      id: 'EXP-2024-1105',
-      title: 'Office Supplies Purchase - November',
-      employeeId: 'EMP-2145',
-      employeeName: 'Priya Sharma',
-      department: 'Administration',
-      submittedDate: '2024-11-01',
-      rejectedDate: '2024-11-03',
-      rejectedBy: 'Rajesh Kumar (Finance Manager)',
-      rejectionReason: 'Receipt not clear - please resubmit with original bill. The uploaded image is too blurry to verify the amount and vendor details.',
-      totalAmount: 3200,
-      itemCount: 2,
-      items: [
-        { id: '1', category: 'Office Supplies', description: 'Stationery items', amount: 1800, date: '2024-10-28', receipt: 'receipt_blur.pdf' },
-        { id: '2', category: 'Office Supplies', description: 'Printer cartridges', amount: 1400, date: '2024-10-29', receipt: 'receipt_blur2.pdf' }
-      ],
-      canResubmit: true
-    },
-    {
-      id: 'EXP-2024-1089',
-      title: 'Business Dinner - Client Meeting',
-      employeeId: 'EMP-2198',
-      employeeName: 'Amit Patel',
-      department: 'Sales',
-      submittedDate: '2024-10-28',
-      rejectedDate: '2024-10-30',
-      rejectedBy: 'Meera Singh (Department Head)',
-      rejectionReason: 'Expense exceeds per-person limit of ₹1,500. The submitted amount of ₹2,800 per person requires prior approval which was not obtained.',
-      totalAmount: 8400,
-      itemCount: 1,
-      items: [
-        { id: '1', category: 'Client Entertainment', description: 'Dinner at Five Star Hotel - 3 clients', amount: 8400, date: '2024-10-25', receipt: 'dinner_receipt.pdf' }
-      ],
-      canResubmit: true
-    },
-    {
-      id: 'EXP-2024-1072',
-      title: 'Travel Expenses - Mumbai Trip',
-      employeeId: 'EMP-2234',
-      employeeName: 'Sanjay Reddy',
-      department: 'Business Development',
-      submittedDate: '2024-10-22',
-      rejectedDate: '2024-10-24',
-      rejectedBy: 'Rajesh Kumar (Finance Manager)',
-      rejectionReason: 'Missing travel approval form. All outstation travel expenses require prior written approval from department head.',
-      totalAmount: 12500,
-      itemCount: 4,
-      items: [
-        { id: '1', category: 'Travel', description: 'Flight ticket - Delhi to Mumbai', amount: 6800, date: '2024-10-15' },
-        { id: '2', category: 'Accommodation', description: 'Hotel stay - 2 nights', amount: 4200, date: '2024-10-16', receipt: 'hotel.pdf' },
-        { id: '3', category: 'Meals', description: 'Food expenses', amount: 1000, date: '2024-10-16' },
-        { id: '4', category: 'Transport', description: 'Local taxi', amount: 500, date: '2024-10-17', receipt: 'taxi.pdf' }
-      ],
-      canResubmit: true
-    },
-    {
-      id: 'EXP-2024-1051',
-      title: 'Training Conference Registration',
-      employeeId: 'EMP-2167',
-      employeeName: 'Neha Gupta',
-      department: 'Engineering',
-      submittedDate: '2024-10-18',
-      rejectedDate: '2024-10-20',
-      rejectedBy: 'Meera Singh (Department Head)',
-      rejectionReason: 'Training not pre-approved. Training expenses must be approved in the annual training budget before registration.',
-      totalAmount: 15000,
-      itemCount: 2,
-      items: [
-        { id: '1', category: 'Training', description: 'Conference registration fee', amount: 12000, date: '2024-10-10', receipt: 'conf_reg.pdf' },
-        { id: '2', category: 'Training', description: 'Workshop materials', amount: 3000, date: '2024-10-11', receipt: 'workshop.pdf' }
-      ],
-      canResubmit: false
-    }
-  ]);
+  const [expenses, setExpenses] = useState<RejectedExpense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.expenseClaims<any[]>();
+        if (!cancelled) setExpenses(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setExpenses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');

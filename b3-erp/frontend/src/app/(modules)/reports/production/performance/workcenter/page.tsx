@@ -1,20 +1,43 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function WorkCenterContent() {
     const router = useRouter();
 
-    const workCenters = [
-        { id: 'WC-001', name: 'CNC Machining', oee: 88, availability: 95, performance: 90, quality: 98, status: 'Active' },
-        { id: 'WC-002', name: 'Assembly Line 1', oee: 82, availability: 88, performance: 85, quality: 95, status: 'Active' },
-        { id: 'WC-003', name: 'Paint Shop', oee: 75, availability: 80, performance: 82, quality: 92, status: 'Maintenance' },
-        { id: 'WC-004', name: 'Welding Station', oee: 90, availability: 96, performance: 92, quality: 98, status: 'Active' },
-    ];
+    const [workCenters, setWorkCenters] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('production/work-center');
+                const mapped = raw.map((r: any) => ({
+                    id: r.workCenterCode ?? r.code ?? r.id,
+                    name: r.workCenterName ?? r.name ?? '',
+                    oee: Number(r.oee ?? 0),
+                    availability: Number(r.availability ?? 0),
+                    performance: Number(r.performance ?? 0),
+                    quality: Number(r.quality ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setWorkCenters(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setWorkCenters([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -27,6 +50,8 @@ function WorkCenterContent() {
                 { label: 'Work Centers' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Work Center Metrics</CardTitle>

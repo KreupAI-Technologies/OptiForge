@@ -1022,6 +1022,59 @@ export class FinanceService {
     return this.request<any>('/finance/cash/dashboard');
   }
 
+  // Payables Aging (analytics — envelope: { data:[], summary })
+  static async getPayablesAging(params?: {
+    asOfDate?: string;
+    partyId?: string;
+  }): Promise<{ data: any[]; summary: any }> {
+    const q = new URLSearchParams();
+    if (params?.asOfDate) q.set('asOfDate', params.asOfDate);
+    if (params?.partyId) q.set('partyId', params.partyId);
+    const qs = q.toString();
+    const res = await this.request<any>(
+      `/finance/reports/payables-aging${qs ? `?${qs}` : ''}`,
+    );
+    return {
+      data: Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [],
+      summary: res?.summary ?? null,
+    };
+  }
+
+  // Cash Flow report (analytics — envelope: { reportType, data:[], generatedAt })
+  static async getCashFlowReport(params?: {
+    periodId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any> {
+    const q = new URLSearchParams();
+    if (params?.periodId) q.set('periodId', params.periodId);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    const qs = q.toString();
+    return this.request<any>(`/finance/reports/cash-flow${qs ? `?${qs}` : ''}`);
+  }
+
+  // Receivables (AR customer accounts) list
+  static async getReceivables(filters?: {
+    status?: string;
+    riskRating?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') q.set('status', filters.status);
+    if (filters?.riskRating && filters.riskRating !== 'all') q.set('riskRating', filters.riskRating);
+    if (filters?.search) q.set('search', filters.search);
+    const qs = q.toString();
+    const res = await this.request<any>(`/finance/receivables${qs ? `?${qs}` : ''}`);
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  // Account ledger transactions (chart-of-accounts/:id/transactions)
+  // Backend envelope: { accountId, accountCode, accountName, transactions:[], summary }.
+  static async getAccountTransactions(id: string): Promise<any> {
+    return this.request<any>(`/finance/chart-of-accounts/${id}/transactions`);
+  }
+
   // Journal Entries (accounting) detail pages
   static async getJournalEntries(): Promise<any[]> {
     const res = await this.request<any>('/finance/journal-entries');

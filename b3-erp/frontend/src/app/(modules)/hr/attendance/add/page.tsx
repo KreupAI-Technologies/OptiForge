@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -34,53 +35,29 @@ export default function MarkAttendancePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [bulkStatus, setBulkStatus] = useState<'present' | 'absent' | ''>('');
 
-  const [attendanceEntries, setAttendanceEntries] = useState<AttendanceEntry[]>([
-    {
-      employeeId: 'B3-001',
-      employeeName: 'Rajesh Kumar',
-      department: 'Production',
-      checkIn: '09:00',
-      checkOut: '18:00',
-      status: 'present',
-      remarks: '',
-    },
-    {
-      employeeId: 'B3-002',
-      employeeName: 'Priya Sharma',
-      department: 'Quality',
-      checkIn: '09:00',
-      checkOut: '18:00',
-      status: 'present',
-      remarks: '',
-    },
-    {
-      employeeId: 'B3-003',
-      employeeName: 'Amit Patel',
-      department: 'Maintenance',
-      checkIn: '09:00',
-      checkOut: '13:00',
-      status: 'half_day',
-      remarks: 'Medical appointment',
-    },
-    {
-      employeeId: 'B3-004',
-      employeeName: 'Sneha Reddy',
-      department: 'Engineering',
-      checkIn: '',
-      checkOut: '',
-      status: 'absent',
-      remarks: '',
-    },
-    {
-      employeeId: 'B3-005',
-      employeeName: 'Karan Singh',
-      department: 'Production',
-      checkIn: '09:00',
-      checkOut: '18:00',
-      status: 'present',
-      remarks: '',
-    },
-  ]);
+  const [attendanceEntries, setAttendanceEntries] = useState<AttendanceEntry[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setDataLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrPagesService.get<any[]>('/hr/attendance-records');
+        if (!cancelled) setAttendanceEntries(Array.isArray(rows) ? (rows as any) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setAttendanceEntries([]);
+        }
+      } finally {
+        if (!cancelled) setDataLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleEntryChange = (index: number, field: keyof AttendanceEntry, value: any) => {
     const updatedEntries = [...attendanceEntries];

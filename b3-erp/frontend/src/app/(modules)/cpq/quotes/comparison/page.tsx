@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqAnalyticsLiveService } from '@/services/cpq/cpq-analytics-live.service'
 import {
   GitCompare,
   ArrowRight,

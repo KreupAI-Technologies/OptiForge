@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, QrCode, Scan, Package, MapPin, Calendar, Download, Upload, Printer, CheckCircle } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface BarcodeItem {
   id: string;
@@ -26,159 +27,57 @@ export default function BarcodeTrackingPage() {
   const [scanInput, setScanInput] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [scanMode, setScanMode] = useState(false);
+  const [barcodeItems, setBarcodeItems] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const barcodeItems: BarcodeItem[] = [
-    {
-      id: '1',
-      itemCode: 'RM-001',
-      itemName: 'Steel Sheet 1mm',
-      barcode: '8901234567890',
-      barcodeType: 'EAN-13',
-      quantity: 450,
-      uom: 'Sheets',
-      location: 'Zone A - Bin A-01-R01',
-      batchNumber: 'BATCH-2025-001',
-      serialNumber: '',
-      lastScanned: '2025-10-20 14:30:00',
-      scanCount: 127,
-      status: 'active'
-    },
-    {
-      id: '2',
-      itemCode: 'CP-102',
-      itemName: 'Electric Motor 5HP',
-      barcode: 'MTR5HP2024001',
-      barcodeType: 'Code-128',
-      quantity: 15,
-      uom: 'Nos',
-      location: 'Zone B - Bin B-02-R01',
-      batchNumber: '',
-      serialNumber: 'EM5HP-2024-001',
-      lastScanned: '2025-10-19 10:15:00',
-      scanCount: 45,
-      status: 'active'
-    },
-    {
-      id: '3',
-      itemCode: 'FG-201',
-      itemName: 'Motor Housing Complete',
-      barcode: 'QR-MH201-2025',
-      barcodeType: 'QR Code',
-      quantity: 145,
-      uom: 'Nos',
-      location: 'Zone C - Bin C-01-R02',
-      batchNumber: 'BATCH-2025-089',
-      serialNumber: '',
-      lastScanned: '2025-10-21 09:00:00',
-      scanCount: 203,
-      status: 'active'
-    },
-    {
-      id: '4',
-      itemCode: 'RM-032',
-      itemName: 'Brass Rod 12mm',
-      barcode: '8902345678901',
-      barcodeType: 'EAN-13',
-      quantity: 180,
-      uom: 'Pcs',
-      location: 'Zone A - Bin A-02-R03',
-      batchNumber: 'BATCH-2024-089',
-      serialNumber: '',
-      lastScanned: '2025-10-18 16:45:00',
-      scanCount: 78,
-      status: 'active'
-    },
-    {
-      id: '5',
-      itemCode: 'CS-015',
-      itemName: 'Cutting Oil Grade A',
-      barcode: 'DM-CS015-2025',
-      barcodeType: 'Data Matrix',
-      quantity: 30,
-      uom: 'Ltrs',
-      location: 'Zone D - Bin D-01-R05',
-      batchNumber: 'BATCH-2024-145',
-      serialNumber: '',
-      lastScanned: '2025-10-15 11:20:00',
-      scanCount: 34,
-      status: 'active'
-    },
-    {
-      id: '6',
-      itemCode: 'RM-045',
-      itemName: 'Aluminum Plate 5mm',
-      barcode: '8903456789012',
-      barcodeType: 'EAN-13',
-      quantity: 0,
-      uom: 'Sheets',
-      location: 'Zone A - Bin A-03-R01',
-      batchNumber: 'BATCH-2025-034',
-      serialNumber: '',
-      lastScanned: '2025-09-30 14:00:00',
-      scanCount: 156,
-      status: 'inactive'
-    },
-    {
-      id: '7',
-      itemCode: 'FG-305',
-      itemName: 'Gearbox Assembly',
-      barcode: 'QR-GB305-2025',
-      barcodeType: 'QR Code',
-      quantity: 67,
-      uom: 'Nos',
-      location: 'Zone C - Bin C-02-R01',
-      batchNumber: '',
-      serialNumber: 'GB-2025-001',
-      lastScanned: '2025-10-20 08:30:00',
-      scanCount: 89,
-      status: 'active'
-    },
-    {
-      id: '8',
-      itemCode: 'CP-089',
-      itemName: 'Bearing 6205-2RS',
-      barcode: 'BR62052RS2025',
-      barcodeType: 'Code-128',
-      quantity: 250,
-      uom: 'Nos',
-      location: 'Zone B - Bin B-01-R04',
-      batchNumber: 'BATCH-2025-112',
-      serialNumber: '',
-      lastScanned: '2025-10-21 07:15:00',
-      scanCount: 312,
-      status: 'active'
-    },
-    {
-      id: '9',
-      itemCode: 'RM-078',
-      itemName: 'Copper Wire 2.5mm',
-      barcode: 'DAMAGED-001',
-      barcodeType: 'Code-128',
-      quantity: 45,
-      uom: 'Kg',
-      location: 'Zone A - Bin A-04-R02',
-      batchNumber: 'BATCH-2025-045',
-      serialNumber: '',
-      lastScanned: '2025-10-10 12:00:00',
-      scanCount: 23,
-      status: 'damaged'
-    },
-    {
-      id: '10',
-      itemCode: 'CS-067',
-      itemName: 'Grinding Wheel 150mm',
-      barcode: 'DM-GW150-2025',
-      barcodeType: 'Data Matrix',
-      quantity: 120,
-      uom: 'Nos',
-      location: 'Zone D - Bin D-02-R03',
-      batchNumber: 'BATCH-2025-078',
-      serialNumber: '',
-      lastScanned: '2025-10-19 15:30:00',
-      scanCount: 198,
-      status: 'active'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Barcodes are backed by serial-numbers (each carries barcode + serialNumber
+        // + location + status). Map ORM shape to the fields the table reads.
+        const raw = await inventoryService.getSerialNumbers();
+        const mapped = raw.map((s: any, idx: number) => {
+          const location = s.locationName || s.warehouseName || s.locationId || s.warehouseId || '';
+          return {
+            id: s.id ?? String(idx),
+            itemCode: s.itemCode ?? '',
+            itemName: s.itemName ?? '',
+            barcode: s.barcode || s.serialNumber || '',
+            barcodeType: s.barcodeType ?? 'Code-128',
+            quantity: Number(s.quantity ?? 1),
+            uom: s.uom ?? 'Nos',
+            location,
+            batchNumber: s.batchNumber ?? '',
+            serialNumber: s.serialNumber ?? '',
+            lastScanned: s.lastMovementDate ?? s.updatedAt ?? s.createdAt ?? '',
+            scanCount: Number(s.serviceCount ?? 0),
+            status:
+              s.status === 'Scrapped' || s.status === 'Quarantine'
+                ? 'damaged'
+                : s.status === 'Available' || s.status === 'In Store' || s.status === 'Installed'
+                ? 'active'
+                : 'inactive',
+          };
+        });
+        if (!cancelled) setBarcodeItems(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load barcodes');
+          setBarcodeItems([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredItems = barcodeItems.filter(item => {
     const matchesSearch = item.barcode.toLowerCase().includes(searchQuery.toLowerCase()) ||

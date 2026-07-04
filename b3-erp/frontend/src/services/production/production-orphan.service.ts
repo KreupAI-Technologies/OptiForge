@@ -156,4 +156,66 @@ export const ProductionOrphanService = {
 
   // GET production/bom/:id (backs /production/bom/view|edit/[id])
   getBom: (id: string) => request<any>(`/production/bom/${id}`),
+
+  // --- List fetches backing the ~28 hardcoded production pages ---
+
+  // GET production/work-order (backs work-orders/completed|progress|pending|tracking)
+  getWorkOrders: () => request<any[]>('/production/work-order'),
+
+  // GET production/bom (backs bom/versions|comparison|multi-level)
+  getBoms: () => request<any[]>('/production/bom'),
+
+  // GET production/job-sequences (backs scheduling/sequencing)
+  getJobSequences: () => request<any[]>('/production/job-sequences'),
+
+  // GET production/resource-allocations (backs scheduling/resources)
+  getResourceAllocations: () => request<any[]>('/production/resource-allocations'),
+
+  // GET production/production-schedules (backs scheduling/optimize)
+  getProductionSchedules: () => request<any[]>('/production/production-schedules'),
+
+  // GET production/master-schedules (backs planning)
+  getMasterSchedules: () => request<any[]>('/production/master-schedules'),
+
+  // GET production/mrp-runs (backs mrp/results)
+  getMrpRuns: () => request<any[]>('/production/mrp-runs'),
+
+  // GET production/demand-plans (backs planning/demand)
+  getDemandPlans: () => request<any[]>('/production/demand-plans'),
+
+  // GET production/root-cause-analyses (backs downtime/rca)
+  getRootCauseAnalyses: () => request<any[]>('/production/root-cause-analyses'),
+
+  // GET production/shop-floor-control (backs shopfloor/tracking)
+  getShopFloorControl: () => request<any[]>('/production/shop-floor-control'),
+
+  // GET production/operator-workstations (backs shopfloor/operator)
+  getOperatorWorkstations: () => request<any[]>('/production/operator-workstations'),
+
+  // GET production/oee-records (backs analytics/oee)
+  getOeeRecords: () => request<any[]>('/production/oee-records'),
+
+  // GET production/digital-twins (backs digital-twin)
+  getDigitalTwins: () => request<any[]>('/production/digital-twins'),
+
+  // GET production/automation-workflows (backs automation)
+  getAutomationWorkflows: () => request<any[]>('/production/automation-workflows'),
+
+  // GET production/ai-insights (backs smart-analytics)
+  getAiInsights: () => request<any[]>('/production/ai-insights'),
+
+  // GET production/equipment-health (backs real-time-monitoring)
+  getEquipmentHealth: () => request<any[]>('/production/equipment-health'),
+
+  // GET production/collaboration/team-activities (backs collaboration)
+  getTeamActivities: () => request<any[]>('/production/collaboration/team-activities'),
+
+  // GET production/sustainability/esg-scores (backs sustainability)
+  getEsgScores: () => request<any[]>('/production/sustainability/esg-scores'),
+
+  // GET production/resilience/scenario-planning (backs resilience)
+  getScenarioPlanning: () => request<any[]>('/production/resilience/scenario-planning'),
+
+  // GET production/skill-matrices (backs human-centric)
+  getSkillMatrices: () => request<any[]>('/production/skill-matrices'),
 };

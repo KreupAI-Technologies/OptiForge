@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Filter, TrendingUp, TrendingDown, Package, Layers, AlertTriangle, CheckCircle } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface CapacityData {
   warehouse: string;
@@ -33,89 +34,57 @@ export default function WarehouseCapacityPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('current');
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('all');
 
-  // Mock capacity data
-  const capacityData: CapacityData[] = [
-    {
-      warehouse: 'Mumbai Central Warehouse',
-      location: 'Andheri East, Mumbai',
-      totalCapacity: 15000,
-      usedCapacity: 11700,
-      availableCapacity: 3300,
-      utilizationPercent: 78,
-      trend: 'increasing',
-      totalZones: 5,
-      totalLocations: 390,
-      availableLocations: 68,
-      avgItemsPerLocation: 6.3,
-      peakUtilization: 92,
-      lowUtilization: 65,
-      status: 'optimal'
-    },
-    {
-      warehouse: 'Delhi Regional Hub',
-      location: 'Okhla Industrial Area, Delhi',
-      totalCapacity: 10000,
-      usedCapacity: 6500,
-      availableCapacity: 3500,
-      utilizationPercent: 65,
-      trend: 'stable',
-      totalZones: 3,
-      totalLocations: 210,
-      availableLocations: 77,
-      avgItemsPerLocation: 5.5,
-      peakUtilization: 78,
-      lowUtilization: 52,
-      status: 'optimal'
-    },
-    {
-      warehouse: 'Bangalore Factory Store',
-      location: 'Whitefield, Bangalore',
-      totalCapacity: 8000,
-      usedCapacity: 7360,
-      availableCapacity: 640,
-      utilizationPercent: 92,
-      trend: 'increasing',
-      totalZones: 4,
-      totalLocations: 210,
-      availableLocations: 16,
-      avgItemsPerLocation: 7.8,
-      peakUtilization: 97,
-      lowUtilization: 85,
-      status: 'critical'
-    },
-    {
-      warehouse: 'Chennai Distribution Center',
-      location: 'Ambattur Industrial Estate, Chennai',
-      totalCapacity: 12000,
-      usedCapacity: 9600,
-      availableCapacity: 2400,
-      utilizationPercent: 80,
-      trend: 'stable',
-      totalZones: 4,
-      totalLocations: 280,
-      availableLocations: 56,
-      avgItemsPerLocation: 6.1,
-      peakUtilization: 88,
-      lowUtilization: 72,
-      status: 'warning'
-    },
-    {
-      warehouse: 'Pune Manufacturing Unit',
-      location: 'Pimpri-Chinchwad, Pune',
-      totalCapacity: 6000,
-      usedCapacity: 2400,
-      availableCapacity: 3600,
-      utilizationPercent: 40,
-      trend: 'decreasing',
-      totalZones: 2,
-      totalLocations: 120,
-      availableLocations: 72,
-      avgItemsPerLocation: 3.2,
-      peakUtilization: 55,
-      lowUtilization: 32,
-      status: 'optimal'
-    }
-  ];
+  const [capacityData, setCapacityData] = useState<CapacityData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await inventoryService.getCapacityUtilization()) as any[];
+        if (cancelled) return;
+        const mapped: CapacityData[] = (raw ?? []).map((w) => {
+          const totalCapacity = Number(w.totalCapacity ?? 0);
+          const usedCapacity = Number(w.currentUtilization ?? 0);
+          const availableCapacity = Number(
+            w.availableCapacity ?? Math.max(totalCapacity - usedCapacity, 0),
+          );
+          const utilizationPercent =
+            totalCapacity > 0 ? Math.round((usedCapacity / totalCapacity) * 100) : 0;
+          const status: CapacityData['status'] =
+            utilizationPercent >= 90 ? 'critical' : utilizationPercent >= 80 ? 'warning' : 'optimal';
+          return {
+            warehouse: w.warehouseName ?? w.warehouseCode ?? '—',
+            location: w.warehouseCode ?? '',
+            totalCapacity,
+            usedCapacity,
+            availableCapacity,
+            utilizationPercent,
+            trend: 'stable',
+            totalZones: 0,
+            totalLocations: 0,
+            availableLocations: 0,
+            avgItemsPerLocation: 0,
+            peakUtilization: utilizationPercent,
+            lowUtilization: utilizationPercent,
+            status,
+          };
+        });
+        setCapacityData(mapped);
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load capacity data');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock zone-wise capacity breakdown
   const zoneCapacityBreakdown: { [key: string]: ZoneCapacity[] } = {
@@ -146,7 +115,9 @@ export default function WarehouseCapacityPage() {
   const totalCapacity = filteredData.reduce((sum, w) => sum + w.totalCapacity, 0);
   const totalUsed = filteredData.reduce((sum, w) => sum + w.usedCapacity, 0);
   const totalAvailable = filteredData.reduce((sum, w) => sum + w.availableCapacity, 0);
-  const avgUtilization = filteredData.reduce((sum, w) => sum + w.utilizationPercent, 0) / filteredData.length;
+  const avgUtilization = filteredData.length
+    ? filteredData.reduce((sum, w) => sum + w.utilizationPercent, 0) / filteredData.length
+    : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
