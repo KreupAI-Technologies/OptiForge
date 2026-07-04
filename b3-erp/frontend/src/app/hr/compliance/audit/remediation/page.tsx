@@ -1,12 +1,56 @@
 'use client';
 
-import { Wrench, CheckCircle, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Wrench, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface RemediationPlan {
+  id: string;
+  finding: string;
+  action: string;
+  owner: string;
+  due: string;
+  status: string;
+}
 
 export default function Page() {
-  const plans = [
-    { id: '1', finding: 'Fire extinguishers expired', action: 'Replace all extinguishers', owner: 'Safety Team', due: '2025-02-01', status: 'in_progress' },
-    { id: '2', finding: 'Training records incomplete', action: 'Complete documentation', owner: 'HR Team', due: '2025-01-30', status: 'completed' }
-  ];
+  const [plans, setPlans] = useState<RemediationPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getAudits();
+        const mapped: RemediationPlan[] = rows.map((row) => {
+          const meta = ((row as any).meta || {}) as any;
+          return {
+            id: String(row.id),
+            finding: meta.finding ?? row.title ?? '',
+            action: meta.action ?? '',
+            owner: meta.owner ?? row.auditor ?? '',
+            due: meta.due ?? row.nextAuditDue ?? '',
+            status: meta.status ?? row.status ?? 'in_progress',
+          };
+        });
+        if (!cancelled) setPlans(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load remediation plans');
+          setPlans([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = { total: plans.length, completed: plans.filter(p => p.status === 'completed').length };
 
@@ -16,6 +60,18 @@ export default function Page() {
         <Wrench className="h-6 w-6 text-green-600" />
         Remediation Plans
       </h1>
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading remediation plans…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200">
           <p className="text-xs font-semibold text-blue-600 uppercase">Total Plans</p>

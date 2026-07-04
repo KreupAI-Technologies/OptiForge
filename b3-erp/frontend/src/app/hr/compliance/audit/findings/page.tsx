@@ -1,13 +1,54 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface Finding {
+  id: string;
+  audit: string;
+  finding: string;
+  severity: string;
+  status: string;
+}
 
 export default function Page() {
-  const findings = [
-    { id: '1', audit: 'Factory Safety', finding: 'Fire extinguishers expired', severity: 'critical', status: 'open' },
-    { id: '2', audit: 'POSH Compliance', finding: 'Training records incomplete', severity: 'moderate', status: 'resolved' }
-  ];
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getAudits();
+        const mapped: Finding[] = rows.map((row) => {
+          const meta = ((row as any).meta || {}) as any;
+          return {
+            id: String(row.id),
+            audit: row.title ?? meta.audit ?? '',
+            finding: meta.finding ?? '',
+            severity: meta.severity ?? ((row.criticalFindings ?? 0) > 0 ? 'critical' : 'moderate'),
+            status: meta.status ?? row.status ?? 'open',
+          };
+        });
+        if (!cancelled) setFindings(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load audit findings');
+          setFindings([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = { total: findings.length, critical: findings.filter(f => f.severity === 'critical').length };
 
@@ -17,6 +58,18 @@ export default function Page() {
         <FileText className="h-6 w-6 text-orange-600" />
         Audit Findings
       </h1>
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading audit findings…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200">
           <p className="text-xs font-semibold text-blue-600 uppercase">Total Findings</p>
