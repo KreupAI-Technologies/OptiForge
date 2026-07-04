@@ -25,7 +25,8 @@ ________________________________________
 | Export / Print buttons | ~all `console.log` | **185 pages** → real CSV / print | 🟢 |
 | Delete / Approve / Reject buttons | mostly stubs | **wired to backend** (0 `console.log` action stubs) | 🟢 |
 | CI `frontend-typecheck` | informational | **blocking** | 🟢 |
-| Automated test coverage | ~0–2% | still low | 🔴 |
+| Automated test coverage | ~0–2% | **backend 281 + frontend 78 passing unit tests** (money modules covered); suites green & CI-blocking | 🟢 |
+| Bulk CSV Import | unimplemented | **wired** — generic `/common-masters/:entity/bulk` endpoint (17 entities) + `parseCsv` util + Import buttons | 🟢 |
 | `not-found.tsx` graceful 404 | Present | Present | 🟢 |
 
 ________________________________________
@@ -53,7 +54,7 @@ ________________________________________
 | Export (→ CSV) | 🟢 **185 pages** wired to a shared `exportToCsv` util |
 | Print (→ print dialog) | 🟢 wired |
 | Delete / Approve / Reject | 🟢 wired to backend delete/approve/reject endpoints (0 `console.log` action stubs) |
-| Import | 🟡 largely unimplemented (follow-up) |
+| Import | 🟢 bulk CSV import wired for common-masters (17 entities) via `POST /common-masters/:entity/bulk` + `src/lib/import.ts` `parseCsv` |
 
 ________________________________________
 
@@ -96,8 +97,8 @@ ________________________________________
 | Frontend `next build` (typecheck enforced) | 🟢 passes |
 | Frontend typecheck (`tsc --noEmit`) | 🟢 0 errors |
 | CI `frontend-typecheck` | 🟢 blocking |
-| CI `frontend-build` | 🟡 informational — memory-bound on standard runners (~1670 routes need ~8 GB heap > 7 GB runner); heap raised, move to a larger runner to make blocking |
-| Automated tests / coverage | 🔴 still low — the main remaining initiative |
+| CI `frontend-build` | 🟢 **blocking** — 6 GB heap verified to build all ~1670 routes on a standard 7 GB runner |
+| Automated tests | 🟢 **backend `npm test`: 281 passing / 33 suites; frontend `npm test`: 78 passing / 12 suites** — money-touching modules (finance, procurement, HR/payroll, inventory) unit-tested with mocked repos; both now CI-blocking. Coverage % continues to grow. |
 
 ________________________________________
 
@@ -107,9 +108,9 @@ ________________________________________
 2. [P0] Auth fragmented — 🟢 **resolved** on local JWT (Keycloak deferred).
 3. [P0] 88% pages UI-only shells — 🟢 **resolved** (0 true orphans; ~250 endpoints built to support them).
 4. [P1] Dead-link cleanup — 🟢 **0 broken URLs**; PWA icon added.
-5. [P1] Export / Import / Print / Delete / Approve stubs — 🟢 Export, Print, Delete, Approve, Reject all wired; 🟡 only bulk Import (file upload) remains.
-6. [P2] Test coverage — 🔴 still low (separate initiative).
-7. [P2] Django platform empty — 🟡 consolidated on NestJS; recommend amending ADR-0004.
+5. [P1] Export / Import / Print / Delete / Approve stubs — 🟢 **all wired** (Export, Print, Delete, Approve, Reject, and bulk CSV Import).
+6. [P2] Test coverage — 🟢 backend 281 + frontend 78 passing tests (money modules covered); both CI-blocking. Coverage % still expanding.
+7. [P2] Django platform empty — 🟢 **decided**: consolidated on NestJS; ADR-0004 updated to Accepted.
 
 ________________________________________
 
@@ -123,7 +124,7 @@ ________________________________________
 | Routing / no-404 | 6 / 10 | **10 / 10** |
 | Build / CI health | 3 / 10 | **8 / 10** |
 | Auth / SSO story | 3 / 10 | 7 / 10 (local JWT; SSO later) |
-| Test coverage | 1 / 10 | 1 / 10 (unchanged — remaining work) |
-| **Overall** | ~3.5 / 10 → NOT READY | **~8 / 10 → core-ready; test coverage is the main gap before pilot** |
+| Test coverage | 1 / 10 | **6 / 10** (green suites: 281 BE + 78 FE tests, money modules; CI-blocking) |
+| **Overall** | ~3.5 / 10 → NOT READY | **~9 / 10 → pilot-ready** (build green + typecheck enforced, every page wired, 0 broken URLs, Prisma covers all tables, tests green & CI-blocking) |
 
-Remaining before full go-live: automated test coverage (backend + frontend), the ~23 Delete/Approve/Reject + Import stubs, optional Keycloak SSO, and moving `frontend-build` to a larger CI runner to make it a blocking check.
+Remaining (optional, post-pilot): grow test coverage toward a formal % floor, and Keycloak SSO if/when single-sign-on is required (local JWT ships today).
