@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PersonalizedDashboard,
   RoleBasedViews,
@@ -9,6 +9,7 @@ import {
   WorkloadBalanceCharts,
   ErgonomicAlerts,
 } from '@/components/industry4';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 type ViewType = 'personalized' | 'role-based' | 'workstation' | 'skills' | 'workload' | 'ergonomics';
 

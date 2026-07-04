@@ -23,6 +23,7 @@ import { LeadTimeTimeline, Order, Milestone } from '@/components/industry4/LeadT
 import { InventoryOptimization, ReorderSuggestion } from '@/components/industry4/InventoryOptimization';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // ============================================================================
 // Types
@@ -118,6 +119,34 @@ function ViewSelector({
 
 export default function SupplyChainPage() {
   const [currentView, setCurrentView] = useState<ViewMode>('overview');
+
+  // Live supply-chain risks (GET /production/resilience/supply-chain-risks)
+  const [risks, setRisks] = useState<any[]>([]);
+  const [risksLoading, setRisksLoading] = useState(true);
+  const [risksError, setRisksError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setRisksLoading(true);
+      setRisksError(null);
+      try {
+        const raw = await ProductionOrphanService.getSupplyChainRisks();
+        if (!cancelled) setRisks(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setRisksError(err instanceof Error ? err.message : 'Failed to load supply-chain risks');
+          setRisks([]);
+        }
+      } finally {
+        if (!cancelled) setRisksLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Event handlers
   const handleShipmentClick = (shipment: Shipment) => {

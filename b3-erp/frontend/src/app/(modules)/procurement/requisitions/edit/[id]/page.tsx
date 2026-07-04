@@ -155,6 +155,16 @@ export default function EditRequisitionPage() {
     category: '',
   });
 
+  // Fetch the live record and prefill when available; existing mock stays as fallback
+  useEffect(() => {
+    if (!requisitionId) return;
+    fetchRecordById<RequisitionFormData>('/procurement/purchase-requisitions', requisitionId).then((record) => {
+      if (record) {
+        setFormData((prev) => ({ ...prev, ...record }));
+      }
+    });
+  }, [requisitionId]);
+
   const updateFormData = (field: keyof RequisitionFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };

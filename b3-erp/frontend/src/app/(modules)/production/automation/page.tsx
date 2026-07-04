@@ -118,6 +118,34 @@ function ViewSelector({
 export default function AutomationPage() {
   const [currentView, setCurrentView] = useState<ViewMode>('overview');
 
+  // Live primary data list: automation workflows from the NestJS domain backend.
+  const [workflows, setWorkflows] = useState<any[]>([]);
+  const [wfLoading, setWfLoading] = useState(true);
+  const [wfError, setWfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setWfLoading(true);
+      setWfError(null);
+      try {
+        const raw = await ProductionOrphanService.getAutomationWorkflows();
+        if (!cancelled) setWorkflows(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setWfError(err instanceof Error ? err.message : 'Failed to load automation workflows');
+          setWorkflows([]);
+        }
+      } finally {
+        if (!cancelled) setWfLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Event handlers
   const handleEntityClick = (entity: DataEntity) => {
     console.log('Entity clicked:', entity);
