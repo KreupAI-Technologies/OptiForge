@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search, Plus, HelpCircle, ThumbsUp, ThumbsDown, Eye, Calendar,
   ChevronDown, ChevronUp, Tag, Star, TrendingUp, Edit, Trash2,
-  Filter, BookOpen, MessageCircle
+  Filter, BookOpen, MessageCircle, AlertCircle
 } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface FAQ {
   id: string

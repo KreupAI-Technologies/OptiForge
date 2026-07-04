@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   Search,
@@ -10,11 +10,13 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
+  AlertCircle,
   Zap,
   Settings,
   Users,
   HardHat
 } from 'lucide-react';
+import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
 
 // Mock Data
 const hierarchyData = [

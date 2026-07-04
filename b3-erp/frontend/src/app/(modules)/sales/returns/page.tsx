@@ -33,241 +33,47 @@ export default function ReturnsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
 
-  const [returns] = useState<Return[]>([
-    {
-      id: 'RET-001',
-      returnNumber: 'RET-2025-001',
-      orderNumber: 'ORD-2025-1245',
-      customerName: 'Sharma Builders Pvt Ltd',
-      productCode: 'KIT-SS-001',
-      productName: 'Stainless Steel Kitchen Sink (Single Bowl)',
-      category: 'Kitchen Sinks',
-      quantity: 5,
-      unitPrice: 11250,
-      totalAmount: 56250,
-      reason: 'Minor scratches and dents on the surface',
-      returnType: 'damaged',
-      status: 'pending',
-      requestDate: '2025-10-18',
-      daysOpen: 2,
-      notes: 'Customer reported damage during transit'
-    },
-    {
-      id: 'RET-002',
-      returnNumber: 'RET-2025-002',
-      orderNumber: 'ORD-2025-1189',
-      customerName: 'Modern Kitchen Solutions',
-      productCode: 'KIT-FC-002',
-      productName: 'Brass Kitchen Faucet with Pull-Out Spray',
-      category: 'Kitchen Faucets',
-      quantity: 3,
-      unitPrice: 14800,
-      totalAmount: 44400,
-      reason: 'Pull-out spray mechanism not working properly',
-      returnType: 'defective',
-      status: 'inspecting',
-      requestDate: '2025-10-15',
-      inspectionDate: '2025-10-17',
-      resolutionType: 'replacement',
-      daysOpen: 5,
-      notes: 'Under inspection by quality team'
-    },
-    {
-      id: 'RET-003',
-      returnNumber: 'RET-2025-003',
-      orderNumber: 'ORD-2025-1456',
-      customerName: 'VIP Homes & Interiors',
-      productCode: 'KIT-CW-001',
-      productName: 'Granite Coated Non-Stick Cookware Set (7 Pcs)',
-      category: 'Cookware',
-      quantity: 2,
-      unitPrice: 10000,
-      totalAmount: 20000,
-      reason: 'Coating peeling off after first use',
-      returnType: 'quality_issue',
-      status: 'approved',
-      requestDate: '2025-10-12',
-      inspectionDate: '2025-10-14',
-      resolutionType: 'replacement',
-      daysOpen: 8,
-      notes: 'Manufacturing defect confirmed. Replacement approved.'
-    },
-    {
-      id: 'RET-004',
-      returnNumber: 'RET-2025-004',
-      orderNumber: 'ORD-2025-1378',
-      customerName: 'Elite Contractors Pvt Ltd',
-      productCode: 'KIT-CB-001',
-      productName: 'Modular Kitchen Base Cabinet (24")',
-      category: 'Kitchen Storage',
-      quantity: 4,
-      unitPrice: 17500,
-      totalAmount: 70000,
-      reason: 'Dimensions do not match specifications',
-      returnType: 'wrong_item',
-      status: 'approved',
-      requestDate: '2025-10-10',
-      inspectionDate: '2025-10-12',
-      resolutionType: 'exchange',
-      daysOpen: 10,
-      notes: 'Wrong size shipped. Exchange with correct size approved.'
-    },
-    {
-      id: 'RET-005',
-      returnNumber: 'RET-2025-005',
-      orderNumber: 'ORD-2025-1523',
-      customerName: 'Home Decor Plus (Dealer)',
-      productCode: 'KIT-AP-001',
-      productName: '750W Mixer Grinder with 3 Jars',
-      category: 'Kitchen Appliances',
-      quantity: 6,
-      unitPrice: 6375,
-      totalAmount: 38250,
-      reason: 'Motor making unusual noise and overheating',
-      returnType: 'defective',
-      status: 'completed',
-      requestDate: '2025-10-05',
-      inspectionDate: '2025-10-07',
-      resolutionType: 'replacement',
-      daysOpen: 15,
-      notes: 'Replacement completed and delivered'
-    },
-    {
-      id: 'RET-006',
-      returnNumber: 'RET-2025-006',
-      orderNumber: 'ORD-2025-1298',
-      customerName: 'Premium Builders Group',
-      productCode: 'KIT-CH-001',
-      productName: 'Chimney Hood 60cm with Auto-Clean',
-      category: 'Kitchen Ventilation',
-      quantity: 2,
-      unitPrice: 15400,
-      totalAmount: 30800,
-      reason: 'Auto-clean feature not functioning',
-      returnType: 'defective',
-      status: 'inspecting',
-      requestDate: '2025-10-14',
-      inspectionDate: '2025-10-16',
-      resolutionType: 'repair',
-      daysOpen: 6,
-      notes: 'Repair technician assigned'
-    },
-    {
-      id: 'RET-007',
-      returnNumber: 'RET-2025-007',
-      orderNumber: 'ORD-2025-1601',
-      customerName: 'Luxury Homes & Villas',
-      productCode: 'KIT-CT-002',
-      productName: 'Premium Quartz Countertop (per sq.ft)',
-      category: 'Countertops',
-      quantity: 120,
-      unitPrice: 595,
-      totalAmount: 71400,
-      reason: 'Color variation and visible seams',
-      returnType: 'quality_issue',
-      status: 'rejected',
-      requestDate: '2025-10-08',
-      inspectionDate: '2025-10-10',
-      daysOpen: 12,
-      notes: 'Minor variations are within acceptable limits. Return rejected.'
-    },
-    {
-      id: 'RET-008',
-      returnNumber: 'RET-2025-008',
-      orderNumber: 'ORD-2025-1712',
-      customerName: 'Kitchen World (Dealer Network)',
-      productCode: 'KIT-AC-001',
-      productName: 'Modular Kitchen Basket Organizer',
-      category: 'Kitchen Accessories',
-      quantity: 15,
-      unitPrice: 2625,
-      totalAmount: 39375,
-      reason: 'Does not fit standard cabinet size',
-      returnType: 'size_issue',
-      status: 'pending',
-      requestDate: '2025-10-17',
-      daysOpen: 3,
-      notes: 'Awaiting customer to provide cabinet dimensions'
-    },
-    {
-      id: 'RET-009',
-      returnNumber: 'RET-2025-009',
-      orderNumber: 'ORD-2025-1434',
-      customerName: 'City Hospital Kitchen Department',
-      productCode: 'KIT-CW-002',
-      productName: 'Stainless Steel Pressure Cooker 5L',
-      category: 'Cookware',
-      quantity: 8,
-      unitPrice: 3375,
-      totalAmount: 27000,
-      reason: 'Safety valve defective',
-      returnType: 'defective',
-      status: 'approved',
-      requestDate: '2025-10-11',
-      inspectionDate: '2025-10-13',
-      resolutionType: 'replacement',
-      daysOpen: 9,
-      notes: 'Safety concern - immediate replacement approved'
-    },
-    {
-      id: 'RET-010',
-      returnNumber: 'RET-2025-010',
-      orderNumber: 'ORD-2025-1556',
-      customerName: 'Smart Contractors Ltd',
-      productCode: 'KIT-SS-002',
-      productName: 'Stainless Steel Kitchen Sink (Double Bowl)',
-      category: 'Kitchen Sinks',
-      quantity: 3,
-      unitPrice: 12950,
-      totalAmount: 38850,
-      reason: 'Drain assembly incomplete',
-      returnType: 'wrong_item',
-      status: 'completed',
-      requestDate: '2025-10-06',
-      inspectionDate: '2025-10-08',
-      resolutionType: 'replacement',
-      daysOpen: 14,
-      notes: 'Missing parts supplied and issue resolved'
-    },
-    {
-      id: 'RET-011',
-      returnNumber: 'RET-2025-011',
-      orderNumber: 'ORD-2025-1823',
-      customerName: 'Builders Association India',
-      productCode: 'KIT-AP-002',
-      productName: '2000W Induction Cooktop Digital',
-      category: 'Kitchen Appliances',
-      quantity: 10,
-      unitPrice: 5200,
-      totalAmount: 52000,
-      reason: 'Display panel not responding',
-      returnType: 'defective',
-      status: 'pending',
-      requestDate: '2025-10-19',
-      daysOpen: 1,
-      notes: 'New return - awaiting inspection'
-    },
-    {
-      id: 'RET-012',
-      returnNumber: 'RET-2025-012',
-      orderNumber: 'ORD-2025-1267',
-      customerName: 'College Hostel Management',
-      productCode: 'KIT-FC-001',
-      productName: 'Chrome Kitchen Faucet Single Handle',
-      category: 'Kitchen Faucets',
-      quantity: 12,
-      unitPrice: 9750,
-      totalAmount: 117000,
-      reason: 'Chrome plating discolored',
-      returnType: 'quality_issue',
-      status: 'inspecting',
-      requestDate: '2025-10-13',
-      inspectionDate: '2025-10-15',
-      resolutionType: 'refund',
-      daysOpen: 7,
-      notes: 'Quality issue confirmed. Refund being processed.'
-    }
-  ])
+  const [returns, setReturns] = useState<Return[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: Return[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          returnNumber: r.returnNumber ?? '',
+          orderNumber: r.orderNumber ?? '',
+          customerName: r.customerName ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          category: r.category ?? '',
+          quantity: r.quantity ?? 0,
+          unitPrice: r.unitPrice ?? 0,
+          totalAmount: r.totalAmount ?? 0,
+          reason: r.reason ?? '',
+          returnType: (r.returnType ?? 'defective') as Return['returnType'],
+          status: (r.status ?? 'pending') as Return['status'],
+          requestDate: r.requestDate ?? '',
+          inspectionDate: r.inspectionDate,
+          resolutionType: r.resolutionType,
+          daysOpen: r.daysOpen ?? 0,
+          images: r.images,
+          notes: r.notes,
+        }));
+        if (!cancelled) setReturns(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setReturns([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const statuses = ['all', 'pending', 'inspecting', 'approved', 'rejected', 'completed']
 
@@ -342,6 +148,18 @@ export default function ReturnsPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Inline Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

@@ -42,61 +42,61 @@ const departmentRiskData = [
   { dept: 'Logistics', total: 6, high: 2, critical: 0 },
 ];
 
-const riskRegister = [
-  {
-    id: 'RR-001',
-    hazard: 'Forklift Traffic / Blind Spots',
-    likelihood: 4,
-    impact: 5,
-    rpn: 20,
-    level: 'Critical',
-    controls: 'Automated Warning Sensors, Speed Limiters',
-    status: 'Mitigated'
-  },
-  {
-    id: 'RR-002',
-    hazard: 'Welding Fume Exposure',
-    likelihood: 3,
-    impact: 4,
-    rpn: 12,
-    level: 'Medium',
-    controls: 'Local Exhaust Ventilation, Respirators',
-    status: 'In Progress'
-  },
-  {
-    id: 'RR-003',
-    hazard: 'Slip Hazards (Wet Floor)',
-    likelihood: 4,
-    impact: 2,
-    rpn: 8,
-    level: 'Low',
-    controls: 'Non-slip mats, Signage',
-    status: 'Ongoing'
-  },
-  {
-    id: 'RR-004',
-    hazard: 'Electrical Panel Maintenance',
-    likelihood: 2,
-    impact: 5,
-    rpn: 10,
-    level: 'High',
-    controls: 'LOTO Procedures, Arc Flash Training',
-    status: 'Mitigated'
-  },
-  {
-    id: 'RR-005',
-    hazard: 'Pallet Racking Collapse',
-    likelihood: 1,
-    impact: 5,
-    rpn: 5,
-    level: 'Medium',
-    controls: 'Annual Rack Inspections, Load Labeling',
-    status: 'Ongoing'
-  },
-];
+interface RiskItem {
+  id: string;
+  hazard: string;
+  likelihood: number;
+  impact: number;
+  rpn: number;
+  level: string;
+  controls: string;
+  status: string;
+}
 
 export default function RiskRegisterPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [riskRegister, setRiskRegister] = useState<RiskItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getHazards('risk');
+        const mapped: RiskItem[] = rows.map((row: SafetyHazard) => {
+          const meta = (row.meta || {}) as any;
+          const likelihood = Number(meta.likelihood ?? row.likelihood ?? 0) || 0;
+          const impact = Number(meta.impact ?? 0) || 0;
+          const rpn = Number(meta.rpn ?? row.riskScore ?? (likelihood * impact)) || 0;
+          return {
+            id: String(row.id),
+            hazard: row.title ?? '',
+            likelihood,
+            impact,
+            rpn,
+            level: row.riskLevel ?? '',
+            controls: row.controlMeasures ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setRiskRegister(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load risk register');
+          setRiskRegister([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -114,6 +114,19 @@ export default function RiskRegisterPage() {
           Export Register
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading risk register…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Analytics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -61,252 +61,59 @@ export default function ShippedOrdersPage() {
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<string>('all');
   const [selectedCarrier, setSelectedCarrier] = useState<string>('all');
 
-  const orders: ShippedOrder[] = [
-    {
-      id: '1',
-      orderNumber: 'SHP-2025-001',
-      salesOrderNumber: 'SO-2025-078',
-      customerName: 'Tata Motors Limited',
-      customerPhone: '+91 98765 43210',
-      totalAmount: 1245000,
-      priority: 'urgent',
-      shippedDate: '2025-10-18',
-      expectedDeliveryDate: '2025-10-22',
-      estimatedDeliveryDate: '2025-10-22',
-      shippingAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      deliveryMethod: 'express',
-      carrier: 'Blue Dart Express',
-      trackingNumber: 'BD123456789IN',
-      trackingUrl: 'https://bluedart.com/track/BD123456789IN',
-      currentLocation: 'Ahmedabad Hub - Out for Delivery',
-      deliveryStatus: 'out_for_delivery',
-      itemsCount: 250,
-      weight: 1500,
-      lastUpdate: '2025-10-20T08:30:00',
-      deliveryProgress: 85,
-      expectedDeliveryTime: '2:00 PM - 4:00 PM',
-      signatureRequired: true,
-      insuranceValue: 1245000
-    },
-    {
-      id: '2',
-      orderNumber: 'SHP-2025-002',
-      salesOrderNumber: 'SO-2025-082',
-      customerName: 'Larsen & Toubro',
-      customerPhone: '+91 98765 43211',
-      totalAmount: 856000,
-      priority: 'high',
-      shippedDate: '2025-10-17',
-      expectedDeliveryDate: '2025-10-21',
-      estimatedDeliveryDate: '2025-10-21',
-      shippingAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'DTDC Courier',
-      trackingNumber: 'DTDC987654321IN',
-      trackingUrl: 'https://dtdc.com/track/DTDC987654321IN',
-      currentLocation: 'Gandhinagar Sorting Center',
-      deliveryStatus: 'in_transit',
-      itemsCount: 180,
-      weight: 1200,
-      lastUpdate: '2025-10-20T06:15:00',
-      deliveryProgress: 65,
-      signatureRequired: true,
-      insuranceValue: 856000
-    },
-    {
-      id: '3',
-      orderNumber: 'SHP-2025-003',
-      salesOrderNumber: 'SO-2025-075',
-      customerName: 'Reliance Industries',
-      customerPhone: '+91 98765 43212',
-      totalAmount: 2340000,
-      priority: 'urgent',
-      shippedDate: '2025-10-16',
-      expectedDeliveryDate: '2025-10-19',
-      estimatedDeliveryDate: '2025-10-21',
-      shippingAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      deliveryMethod: 'express',
-      carrier: 'FedEx India',
-      trackingNumber: 'FDX456789123IN',
-      trackingUrl: 'https://fedex.com/track/FDX456789123IN',
-      currentLocation: 'Rajkot Transit Hub',
-      deliveryStatus: 'delayed',
-      delayReason: 'Weather conditions - Heavy rain in transit route',
-      itemsCount: 400,
-      weight: 2500,
-      lastUpdate: '2025-10-20T05:45:00',
-      deliveryProgress: 55,
-      signatureRequired: true,
-      insuranceValue: 2340000
-    },
-    {
-      id: '4',
-      orderNumber: 'SHP-2025-004',
-      salesOrderNumber: 'SO-2025-088',
-      customerName: 'Adani Ports',
-      customerPhone: '+91 98765 43213',
-      totalAmount: 675000,
-      priority: 'normal',
-      shippedDate: '2025-10-19',
-      expectedDeliveryDate: '2025-10-24',
-      estimatedDeliveryDate: '2025-10-24',
-      shippingAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'Delhivery',
-      trackingNumber: 'DLV789456123IN',
-      trackingUrl: 'https://delhivery.com/track/DLV789456123IN',
-      currentLocation: 'Bhuj Distribution Center',
-      deliveryStatus: 'in_transit',
-      itemsCount: 120,
-      weight: 800,
-      lastUpdate: '2025-10-20T07:00:00',
-      deliveryProgress: 40,
-      signatureRequired: false
-    },
-    {
-      id: '5',
-      orderNumber: 'SHP-2025-005',
-      salesOrderNumber: 'SO-2025-092',
-      customerName: 'Mahindra & Mahindra',
-      customerPhone: '+91 98765 43214',
-      totalAmount: 445000,
-      priority: 'high',
-      shippedDate: '2025-10-18',
-      expectedDeliveryDate: '2025-10-22',
-      estimatedDeliveryDate: '2025-10-23',
-      shippingAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      deliveryMethod: 'express',
-      carrier: 'Blue Dart Express',
-      trackingNumber: 'BD987654321IN',
-      trackingUrl: 'https://bluedart.com/track/BD987654321IN',
-      currentLocation: 'Pune Hub',
-      deliveryStatus: 'in_transit',
-      itemsCount: 90,
-      weight: 650,
-      lastUpdate: '2025-10-20T09:20:00',
-      deliveryProgress: 70,
-      signatureRequired: true,
-      insuranceValue: 445000
-    },
-    {
-      id: '6',
-      orderNumber: 'SHP-2025-006',
-      salesOrderNumber: 'SO-2025-096',
-      customerName: 'Godrej Industries',
-      customerPhone: '+91 98765 43215',
-      totalAmount: 325000,
-      priority: 'normal',
-      shippedDate: '2025-10-17',
-      expectedDeliveryDate: '2025-10-21',
-      estimatedDeliveryDate: '2025-10-21',
-      shippingAddress: {
-        street: 'Godrej Complex, Vikhroli',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        pincode: '400079'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'India Post',
-      trackingNumber: 'IP123789456IN',
-      trackingUrl: 'https://indiapost.gov.in/track/IP123789456IN',
-      currentLocation: 'Mumbai Central Post Office',
-      deliveryStatus: 'attempted',
-      delayReason: 'Delivery attempted - Recipient not available',
-      itemsCount: 60,
-      weight: 400,
-      lastUpdate: '2025-10-20T11:30:00',
-      deliveryProgress: 90,
-      deliveryAttempts: 1,
-      signatureRequired: true
-    },
-    {
-      id: '7',
-      orderNumber: 'SHP-2025-007',
-      salesOrderNumber: 'SO-2025-099',
-      customerName: 'Bharat Heavy Electricals',
-      customerPhone: '+91 98765 43216',
-      totalAmount: 1890000,
-      priority: 'high',
-      shippedDate: '2025-10-19',
-      expectedDeliveryDate: '2025-10-23',
-      estimatedDeliveryDate: '2025-10-23',
-      shippingAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      deliveryMethod: 'express',
-      carrier: 'DHL Express',
-      trackingNumber: 'DHL456123789IN',
-      trackingUrl: 'https://dhl.com/track/DHL456123789IN',
-      currentLocation: 'Indore Transit Hub',
-      deliveryStatus: 'in_transit',
-      itemsCount: 320,
-      weight: 1800,
-      lastUpdate: '2025-10-20T08:00:00',
-      deliveryProgress: 50,
-      signatureRequired: true,
-      insuranceValue: 1890000
-    },
-    {
-      id: '8',
-      orderNumber: 'SHP-2025-008',
-      salesOrderNumber: 'SO-2025-085',
-      customerName: 'Hindustan Zinc Limited',
-      customerPhone: '+91 98765 43217',
-      totalAmount: 567000,
-      priority: 'normal',
-      shippedDate: '2025-10-15',
-      expectedDeliveryDate: '2025-10-19',
-      estimatedDeliveryDate: '2025-10-22',
-      shippingAddress: {
-        street: 'Zinc Smelter Complex',
-        city: 'Udaipur',
-        state: 'Rajasthan',
-        pincode: '313001'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'DTDC Courier',
-      trackingNumber: 'DTDC321654987IN',
-      trackingUrl: 'https://dtdc.com/track/DTDC321654987IN',
-      currentLocation: 'Customer requested return - Address incorrect',
-      deliveryStatus: 'returning',
-      delayReason: 'Incorrect delivery address - Returning to origin',
-      itemsCount: 100,
-      weight: 750,
-      lastUpdate: '2025-10-20T10:15:00',
-      deliveryProgress: 30,
-      deliveryAttempts: 2,
-      signatureRequired: true,
-      insuranceValue: 567000
-    }
-  ];
+  const [orders, setOrders] = useState<ShippedOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: ShippedOrder[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          orderNumber: r.orderNumber ?? '',
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerPhone: r.customerPhone ?? '',
+          totalAmount: r.totalAmount ?? 0,
+          priority: (r.priority ?? 'normal') as ShippedOrder['priority'],
+          shippedDate: r.shippedDate ?? '',
+          expectedDeliveryDate: r.expectedDeliveryDate ?? '',
+          estimatedDeliveryDate: r.estimatedDeliveryDate ?? '',
+          shippingAddress: {
+            street: r.shippingAddress?.street ?? '',
+            city: r.shippingAddress?.city ?? '',
+            state: r.shippingAddress?.state ?? '',
+            pincode: r.shippingAddress?.pincode ?? '',
+          },
+          deliveryMethod: (r.deliveryMethod ?? 'standard') as ShippedOrder['deliveryMethod'],
+          carrier: r.carrier ?? '',
+          trackingNumber: r.trackingNumber ?? '',
+          trackingUrl: r.trackingUrl ?? '',
+          currentLocation: r.currentLocation ?? '',
+          deliveryStatus: (r.deliveryStatus ?? 'in_transit') as ShippedOrder['deliveryStatus'],
+          delayReason: r.delayReason,
+          itemsCount: r.itemsCount ?? 0,
+          weight: r.weight ?? 0,
+          lastUpdate: r.lastUpdate ?? '',
+          deliveryProgress: r.deliveryProgress ?? 0,
+          expectedDeliveryTime: r.expectedDeliveryTime,
+          deliveryAttempts: r.deliveryAttempts,
+          signatureRequired: r.signatureRequired ?? false,
+          insuranceValue: r.insuranceValue,
+        }));
+        if (!cancelled) setOrders(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch =
@@ -392,6 +199,18 @@ export default function ShippedOrdersPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button
