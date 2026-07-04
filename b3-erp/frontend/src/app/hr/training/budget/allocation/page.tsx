@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
   Search,
@@ -11,8 +11,10 @@ import {
   Edit2,
   Save,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   PieChart,
   Pie,

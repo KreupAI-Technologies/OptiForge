@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Search,
@@ -10,8 +10,10 @@ import {
   Users,
   ArrowUpRight,
   Target,
-  BarChart2
+  BarChart2,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   BarChart,
   Bar,
@@ -42,13 +44,6 @@ const performanceCorrelation = [
   { trainingHours: 30, performanceScore: 82, employee: 'Employee J' },
 ];
 
-const roiData = [
-  { month: 'Q1', cost: 45000, value: 32000 },
-  { month: 'Q2', cost: 52000, value: 58000 },
-  { month: 'Q3', cost: 48000, value: 75000 },
-  { month: 'Q4', cost: 60000, value: 120000 },
-];
-
 const keyMetrics = [
   { title: 'Training ROI', value: '245%', change: '+12%', icon: DollarSign, color: 'text-green-600', bg: 'bg-green-100' },
   { title: 'Productivity Lift', value: '+18%', change: '+3%', icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-100' },
@@ -56,8 +51,45 @@ const keyMetrics = [
   { title: 'Promotion Rate', value: '12%', change: '+2%', icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-100' },
 ];
 
+interface RoiRecord {
+  month: string;
+  cost: number;
+  value: number;
+}
+
 export default function ImpactPage() {
   const [selectedDept, setSelectedDept] = useState('All Departments');
+  const [roiData, setRoiData] = useState<RoiRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingPrograms()) as any[];
+        const mapped: RoiRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          month: r.month ?? r.period ?? r.name ?? '',
+          cost: Number(r.cost ?? r.budget ?? 0),
+          value: Number(r.value ?? r.valueGenerated ?? 0),
+        }));
+        if (!cancelled) setRoiData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load impact data');
+          setRoiData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -87,6 +119,19 @@ export default function ImpactPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading impact data…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">

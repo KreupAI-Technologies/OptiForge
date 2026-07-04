@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Shield, CheckCircle, XCircle, Edit, Save } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface Permission {
   id: string;

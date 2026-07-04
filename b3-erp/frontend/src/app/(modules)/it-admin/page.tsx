@@ -1,8 +1,38 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Shield, Settings, Database, Server, Activity, AlertTriangle, CheckCircle, TrendingUp, HardDrive, Cpu, Network } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
+
+interface RecentActivity {
+  user: string;
+  action: string;
+  time: string;
+  type: string;
+}
+
+function relativeTime(iso?: string): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diff = Math.max(0, Date.now() - then);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function activityType(severity?: string, status?: string): string {
+  const s = (severity || status || '').toLowerCase();
+  if (s.includes('error') || s.includes('critical') || s.includes('fail')) return 'warning';
+  if (s.includes('warn')) return 'warning';
+  if (s.includes('success') || s.includes('ok')) return 'success';
+  return 'info';
+}
 
 export default function ITAdminDashboard() {
   const router = useRouter();
@@ -33,13 +63,54 @@ export default function ITAdminDashboard() {
     { title: 'Activity Logs', icon: Activity, link: '/it-admin/logs', color: 'bg-indigo-500' }
   ];
 
-  const recentActivities = [
+  const fallbackActivities: RecentActivity[] = [
     { user: 'Rajesh Kumar', action: 'Created new user account', time: '10 mins ago', type: 'success' },
     { user: 'System', action: 'Database backup completed', time: '25 mins ago', type: 'success' },
     { user: 'Priya Sharma', action: 'Modified user permissions', time: '1 hour ago', type: 'info' },
     { user: 'System', action: 'Security alert: Failed login attempts', time: '2 hours ago', type: 'warning' },
     { user: 'Amit Patel', action: 'Updated system configuration', time: '3 hours ago', type: 'info' }
   ];
+
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>(fallbackActivities);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoadingActivities(true);
+      setActivitiesError(null);
+      try {
+        const res = await ItAdminService.getAuditLogs({ limit: '5', page: '1' });
+        const logs = Array.isArray(res?.data) ? res.data : [];
+        if (logs.length > 0) {
+          const mapped: RecentActivity[] = logs.map((log) => ({
+            user: log.userName || log.userId || 'System',
+            action:
+              log.description ||
+              [log.action, log.module].filter(Boolean).join(' - ') ||
+              'Activity recorded',
+            time: relativeTime(log.createdAt),
+            type: activityType(log.severity, log.status),
+          }));
+          if (!cancelled) setRecentActivities(mapped);
+        }
+        // If no logs yet, keep the illustrative fallback list.
+      } catch (err) {
+        if (!cancelled) {
+          setActivitiesError(
+            err instanceof Error ? err.message : 'Failed to load recent activities',
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoadingActivities(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const systemHealth = [
     { name: 'Web Server', status: 'healthy', uptime: '99.9%', lastCheck: '2 mins ago' },
@@ -235,6 +306,12 @@ export default function ITAdminDashboard() {
         {/* Recent Activities */}
         <div className="bg-white rounded-xl border border-gray-200 p-3">
           <h2 className="text-lg font-bold text-gray-900 mb-2">Recent Activities</h2>
+          {isLoadingActivities && (
+            <p className="text-xs text-gray-400 mb-2">Loading activities...</p>
+          )}
+          {activitiesError && (
+            <p className="text-xs text-red-500 mb-2">{activitiesError}</p>
+          )}
           <div className="space-y-3">
             {recentActivities.map((activity, idx) => (
               <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">

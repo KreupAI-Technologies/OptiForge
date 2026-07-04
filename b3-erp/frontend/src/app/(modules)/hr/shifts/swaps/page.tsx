@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     ArrowLeftRight,
     Plus,
@@ -13,6 +13,7 @@ import {
     MessageSquare,
     User
 } from 'lucide-react';
+import { HrShiftsService } from '@/services/hr-shifts.service';
 
 interface ShiftSwap {
     id: string;

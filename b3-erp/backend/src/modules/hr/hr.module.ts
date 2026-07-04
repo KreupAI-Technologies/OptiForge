@@ -367,6 +367,14 @@ import { PrismaModule } from '../prisma/prisma.module';
       OvertimeRequest,
       SafetyIncident,
       TrainingProgram,
+      // HR Safety orphan-endpoint build (shared discriminator tables)
+      SafetyHazard,
+      SafetyInspection,
+      SafetyPpe,
+      SafetyDrill,
+      SafetyTraining,
+      SafetyWellness,
+      SafetyReport,
       // HR Compliance & Documents (orphan-endpoint build)
       ComplianceLicense,
       ComplianceReturn,
@@ -469,6 +477,14 @@ import { PrismaModule } from '../prisma/prisma.module';
     OvertimeRequestController,
     SafetyIncidentController,
     TrainingProgramController,
+    // HR Safety orphan-endpoint build (shared discriminator tables)
+    SafetyHazardController,
+    SafetyInspectionController,
+    SafetyPpeController,
+    SafetyDrillController,
+    SafetyTrainingController,
+    SafetyWellnessController,
+    SafetyReportController,
     // HR Compliance & Documents (orphan-endpoint build)
     ComplianceLicenseController,
     ComplianceReturnController,
@@ -562,6 +578,14 @@ import { PrismaModule } from '../prisma/prisma.module';
     OvertimeRequestService,
     SafetyIncidentService,
     TrainingProgramService,
+    // HR Safety orphan-endpoint build (shared discriminator tables)
+    SafetyHazardService,
+    SafetyInspectionService,
+    SafetyPpeService,
+    SafetyDrillService,
+    SafetyTrainingService,
+    SafetyWellnessService,
+    SafetyReportService,
     // HR Compliance & Documents (orphan-endpoint build)
     ComplianceLicenseService,
     ComplianceReturnService,

@@ -28,56 +28,31 @@ export default function ShiftRosterPage() {
 
     const departments = ['Production', 'Quality Assurance', 'Warehouse', 'IT', 'HR'];
 
-    const roster: RosterEntry[] = [
-        {
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'HR',
-            shifts: { 'Mon': 'DAY', 'Tue': 'DAY', 'Wed': 'DAY', 'Thu': 'DAY', 'Fri': 'DAY', 'Sat': 'OFF', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            shifts: { 'Mon': 'MOR', 'Tue': 'MOR', 'Wed': 'MOR', 'Thu': 'MOR', 'Fri': 'MOR', 'Sat': 'MOR', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            shifts: { 'Mon': 'DAY', 'Tue': 'DAY', 'Wed': 'DAY', 'Thu': 'DAY', 'Fri': 'DAY', 'Sat': 'OFF', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            shifts: { 'Mon': 'EVE', 'Tue': 'EVE', 'Wed': 'EVE', 'Thu': 'EVE', 'Fri': 'EVE', 'Sat': 'EVE', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Warehouse',
-            shifts: { 'Mon': 'NGT', 'Tue': 'NGT', 'Wed': 'NGT', 'Thu': 'NGT', 'Fri': 'NGT', 'Sat': 'OFF', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            shifts: { 'Mon': 'DAY', 'Tue': 'DAY', 'Wed': 'DAY', 'Thu': 'DAY', 'Fri': 'DAY', 'Sat': 'OFF', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP007',
-            employeeName: 'Lisa Wong',
-            department: 'Production',
-            shifts: { 'Mon': 'MOR', 'Tue': 'MOR', 'Wed': 'EVE', 'Thu': 'EVE', 'Fri': 'MOR', 'Sat': 'OFF', 'Sun': 'OFF' }
-        },
-        {
-            employeeId: 'EMP008',
-            employeeName: 'James Taylor',
-            department: 'Warehouse',
-            shifts: { 'Mon': 'OFF', 'Tue': 'NGT', 'Wed': 'NGT', 'Thu': 'NGT', 'Fri': 'NGT', 'Sat': 'NGT', 'Sun': 'OFF' }
-        }
-    ];
+    const [roster, setRoster] = useState<RosterEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrShiftsService.getShiftRoster();
+                const mapped: RosterEntry[] = (raw as any[]).map((r) => ({
+                    employeeId: r.employeeId ?? '',
+                    employeeName: r.employeeName ?? '',
+                    department: r.department ?? '',
+                    shifts: (r.shifts ?? {}) as { [key: string]: string },
+                }));
+                if (!cancelled) setRoster(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRoster([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredRoster = roster.filter(entry =>
         departmentFilter === 'all' || entry.department === departmentFilter
@@ -137,6 +112,8 @@ export default function ShiftRosterPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Search,
@@ -11,6 +11,7 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   LineChart,
   Line,
@@ -41,15 +42,51 @@ const categoryData = [
   { category: 'Internal Training', spend: 5000, budget: 30000 },
 ];
 
-const expenses = [
-  { id: 1, description: 'Leadership Summit Tickets', category: 'External Workshops', date: '2025-05-15', amount: 4500, department: 'Engineering' },
-  { id: 2, description: 'Udemy Annual Subscription', category: 'Online Courses', date: '2025-05-10', amount: 12000, department: 'All' },
-  { id: 3, description: 'Project Management Seminar', category: 'External Workshops', date: '2025-04-22', amount: 2800, department: 'Product' },
-  { id: 4, description: 'Cloud AWS Certification Vouchers', category: 'Online Courses', date: '2025-04-05', amount: 5000, department: 'Engineering' },
-];
+interface TrainingExpense {
+  id: number | string;
+  description: string;
+  category: string;
+  date: string;
+  amount: number;
+  department: string;
+}
 
 export default function BudgetTrackingPage() {
   const [timeRange, setTimeRange] = useState('YTD');
+  const [expenses, setExpenses] = useState<TrainingExpense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.expenseClaims()) as any[];
+        const mapped: TrainingExpense[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
+          id: r.id ?? i,
+          description: r.description ?? r.title ?? r.purpose ?? '',
+          category: r.category ?? '',
+          date: r.date ?? r.claimDate ?? r.createdAt ?? '',
+          amount: Number(r.amount ?? r.totalAmount ?? r.value ?? 0),
+          department: r.department ?? r.departmentName ?? '',
+        }));
+        if (!cancelled) setExpenses(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load transactions');
+          setExpenses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);
@@ -82,6 +119,19 @@ export default function BudgetTrackingPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading transactions…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

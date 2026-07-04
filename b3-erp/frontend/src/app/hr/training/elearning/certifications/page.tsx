@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Award,
   Search,
@@ -10,54 +10,60 @@ import {
   ExternalLink,
   ShieldCheck,
   Calendar,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
-const certifications = [
-  {
-    id: 1,
-    title: 'Advanced Leadership Masterclass',
-    issuer: 'OptiForge Academy',
-    issueDate: 'Jan 15, 2025',
-    expiryDate: 'Jan 15, 2028',
-    credentialId: 'OF-2025-ALM-8821',
-    image: 'bg-gradient-to-br from-purple-500 to-indigo-600',
-    skills: ['Leadership', 'Management', 'Conflict Resolution']
-  },
-  {
-    id: 2,
-    title: 'Certified Scrum Master',
-    issuer: 'Agile Alliance',
-    issueDate: 'Dec 10, 2024',
-    expiryDate: 'Dec 10, 2026',
-    credentialId: 'AA-CSM-99201',
-    image: 'bg-gradient-to-br from-blue-500 to-cyan-600',
-    skills: ['Agile', 'Scrum', 'Project Management']
-  },
-  {
-    id: 3,
-    title: 'Cyber Security Fundamentals',
-    issuer: 'InfoSec Institute',
-    issueDate: 'Nov 22, 2024',
-    expiryDate: 'Nov 22, 2025',
-    credentialId: 'IS-CSF-4421',
-    image: 'bg-gradient-to-br from-emerald-500 to-teal-600',
-    skills: ['Security', 'Privacy', 'Compliance']
-  },
-  {
-    id: 4,
-    title: 'Effective Business Communication',
-    issuer: 'OptiForge HR',
-    issueDate: 'Oct 05, 2024',
-    expiryDate: 'Permanent',
-    credentialId: 'OF-EBC-1102',
-    image: 'bg-gradient-to-br from-amber-500 to-orange-600',
-    skills: ['Communication', 'Public Speaking']
-  },
-];
+interface Certification {
+  id: number | string;
+  title: string;
+  issuer: string;
+  issueDate: string;
+  expiryDate: string;
+  credentialId: string;
+  image: string;
+  skills: string[];
+}
 
 export default function CertificationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [certifications, setCertifications] = useState<Certification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.get('/hr/elearning-courses')) as any[];
+        const mapped: Certification[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          title: r.title ?? r.name ?? '',
+          issuer: r.issuer ?? '',
+          issueDate: r.issueDate ?? '',
+          expiryDate: r.expiryDate ?? 'Permanent',
+          credentialId: r.credentialId ?? '',
+          image: r.image ?? 'bg-gradient-to-br from-purple-500 to-indigo-600',
+          skills: Array.isArray(r.skills) ? r.skills : [],
+        }));
+        if (!cancelled) setCertifications(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load certifications');
+          setCertifications([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -87,6 +93,19 @@ export default function CertificationsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading certifications…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

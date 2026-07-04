@@ -1,7 +1,15 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Users, Target, ArrowUp, ArrowDown } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { HrPagesService } from '@/services/hr-pages.service';
+
+interface TopPerformer {
+  name: string;
+  role: string;
+  score: number;
+}
 
 export default function KPIDashboardPage() {
   const data = [
@@ -21,11 +29,37 @@ export default function KPIDashboardPage() {
     { name: 'HR', score: 81, trend: 'down' },
   ];
 
-  const topPerformers = [
-    { name: 'Sarah Jenkins', role: 'Engineering', score: 98 },
-    { name: 'Michael Chen', role: 'Sales', score: 96 },
-    { name: 'Lisa Wang', role: 'Product', score: 95 },
-  ];
+  const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.performanceGoals('kpi')) as any[];
+        const mapped: TopPerformer[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          name: r.name ?? r.employeeName ?? r.title ?? '',
+          role: r.role ?? r.department ?? r.category ?? '',
+          score: Number(r.score ?? r.progress ?? r.value ?? 0),
+        }));
+        if (!cancelled) setTopPerformers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load KPI performers');
+          setTopPerformers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -38,6 +72,19 @@ export default function KPIDashboardPage() {
           <p className="text-gray-500 mt-1">Analytics and insights on organizational performance.</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading KPIs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
