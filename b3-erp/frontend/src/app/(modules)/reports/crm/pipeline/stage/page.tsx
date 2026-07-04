@@ -99,6 +99,8 @@ function PipelineByStageContent() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && <div className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+                {loadError && !isLoading && <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
                 {/* Visual Summary Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <Card className="bg-gradient-to-br from-indigo-900 to-indigo-950 text-white border-none shadow-xl">
@@ -123,7 +125,7 @@ function PipelineByStageContent() {
                         <div>
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Wtd. Average Prob.</p>
                             <p className="text-3xl font-black text-gray-900 mt-1 italic tracking-tighter">
-                                {Math.round(filteredOpps.reduce((sum, o) => sum + (o.value * o.probability), 0) / filteredOpps.reduce((sum, o) => sum + o.value, 0))}%
+                                {(() => { const tot = filteredOpps.reduce((sum, o) => sum + o.value, 0); return tot ? Math.round(filteredOpps.reduce((sum, o) => sum + (o.value * o.probability), 0) / tot) : 0; })()}%
                             </p>
                             <p className="text-xs font-bold text-orange-600 mt-1 uppercase">High confidence sector</p>
                         </div>

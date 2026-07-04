@@ -183,6 +183,33 @@ export class LogisticsService {
     const qs = params.toString();
     return request<any[]>(`/logistics/freight-charges${qs ? `?${qs}` : ''}`);
   }
+
+  static async getTransportCompanies(filters?: {
+    status?: string;
+    transportMode?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.transportMode)
+      params.set('transportMode', filters.transportMode);
+    const qs = params.toString();
+    return request<any[]>(
+      `/logistics/transport-companies${qs ? `?${qs}` : ''}`,
+    );
+  }
+
+  static async getTrackingEvents(filters?: {
+    status?: string;
+    eventType?: string;
+    shipmentId?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.eventType) params.set('eventType', filters.eventType);
+    if (filters?.shipmentId) params.set('shipmentId', filters.shipmentId);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/tracking-events${qs ? `?${qs}` : ''}`);
+  }
 }
 
 export const logisticsService = LogisticsService;

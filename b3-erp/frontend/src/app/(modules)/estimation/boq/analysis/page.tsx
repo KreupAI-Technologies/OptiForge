@@ -40,85 +40,62 @@ interface CategoryBreakdown {
 
 export default function BOQAnalysisPage() {
   const router = useRouter()
-  const [selectedProject, setSelectedProject] = useState('proj-001')
+  const [selectedProject, setSelectedProject] = useState('')
+  const [projects, setProjects] = useState<BOQAnalysis[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [projects] = useState<BOQAnalysis[]>([
-    {
-      id: 'proj-001',
-      projectName: 'Luxury Villa - Modular Kitchen',
-      projectCode: 'PRJ-2025-045',
-      location: 'Mumbai, Maharashtra',
-      totalValue: 785000,
-      materialCost: 550000,
-      laborCost: 150000,
-      overheadCost: 55000,
-      contingency: 30000,
-      profitMargin: 12.7,
-      categories: [
-        { category: 'Kitchen Cabinets', value: 285000, percentage: 36.3, items: 12, trend: 'stable', variance: 0 },
-        { category: 'Countertops', value: 125000, percentage: 15.9, items: 3, trend: 'up', variance: 8.5 },
-        { category: 'Kitchen Appliances', value: 180000, percentage: 22.9, items: 7, trend: 'up', variance: 12.3 },
-        { category: 'Kitchen Sinks & Faucets', value: 55000, percentage: 7.0, items: 4, trend: 'stable', variance: 0 },
-        { category: 'Kitchen Accessories', value: 45000, percentage: 5.7, items: 15, trend: 'down', variance: -5.2 },
-        { category: 'Installation & Fitting', value: 95000, percentage: 12.1, items: 1, trend: 'stable', variance: 0 }
-      ],
-      createdDate: '2025-10-15',
-      status: 'approved'
-    },
-    {
-      id: 'proj-002',
-      projectName: 'Apartment Complex - 50 Units',
-      projectCode: 'PRJ-2025-038',
-      location: 'Pune, Maharashtra',
-      totalValue: 9750000,
-      materialCost: 6825000,
-      laborCost: 1950000,
-      overheadCost: 585000,
-      contingency: 390000,
-      profitMargin: 10.3,
-      categories: [
-        { category: 'Kitchen Cabinets', value: 3250000, percentage: 33.3, items: 600, trend: 'stable', variance: 0 },
-        { category: 'Countertops', value: 1800000, percentage: 18.5, items: 150, trend: 'up', variance: 6.2 },
-        { category: 'Kitchen Sinks', value: 625000, percentage: 6.4, items: 150, trend: 'stable', variance: 0 },
-        { category: 'Kitchen Faucets', value: 487500, percentage: 5.0, items: 150, trend: 'down', variance: -3.5 },
-        { category: 'Accessories & Fittings', value: 975000, percentage: 10.0, items: 750, trend: 'stable', variance: 0 },
-        { category: 'Labor & Installation', value: 2612500, percentage: 26.8, items: 50, trend: 'up', variance: 8.7 }
-      ],
-      createdDate: '2025-09-28',
-      status: 'submitted'
-    },
-    {
-      id: 'proj-003',
-      projectName: 'Restaurant Kitchen Setup',
-      projectCode: 'PRJ-2025-052',
-      location: 'Bangalore, Karnataka',
-      totalValue: 1450000,
-      materialCost: 1015000,
-      laborCost: 290000,
-      overheadCost: 87000,
-      contingency: 58000,
-      profitMargin: 14.5,
-      categories: [
-        { category: 'Commercial Appliances', value: 625000, percentage: 43.1, items: 12, trend: 'up', variance: 15.2 },
-        { category: 'Work Tables & Storage', value: 325000, percentage: 22.4, items: 8, trend: 'stable', variance: 0 },
-        { category: 'Commercial Sinks', value: 145000, percentage: 10.0, items: 3, trend: 'stable', variance: 0 },
-        { category: 'Exhaust & Ventilation', value: 215000, percentage: 14.8, items: 2, trend: 'up', variance: 10.5 },
-        { category: 'Accessories & Tools', value: 85000, percentage: 5.9, items: 25, trend: 'down', variance: -8.3 },
-        { category: 'Installation Services', value: 55000, percentage: 3.8, items: 1, trend: 'stable', variance: 0 }
-      ],
-      createdDate: '2025-10-18',
-      status: 'draft'
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const rows = await estimationBOQService.findAll()
+        const mapped: BOQAnalysis[] = (Array.isArray(rows) ? rows : []).map((b: any) => ({
+          id: String(b.id ?? ''),
+          projectName: b.projectName ?? '—',
+          projectCode: b.boqNumber ?? '',
+          location: b.projectLocation ?? '—',
+          totalValue: Number(b.estimatedValue ?? 0),
+          materialCost: Number(b.materialCost ?? 0),
+          laborCost: Number(b.laborCost ?? 0),
+          overheadCost: Number(b.overheadCost ?? 0),
+          contingency: Number(b.contingency ?? 0),
+          profitMargin: Number(b.profitMargin ?? 0),
+          categories: Array.isArray(b.categories) ? b.categories : [],
+          createdDate: (b.createdAt ?? '').toString().slice(0, 10),
+          status: STATUS_MAP[b.status] ?? 'draft',
+        }))
+        if (!cancelled) {
+          setProjects(mapped)
+          if (mapped.length > 0) setSelectedProject(mapped[0].id)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load BOQ analysis')
+          setProjects([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  const selectedProjectData = projects.find(p => p.id === selectedProject) || projects[0]
+  const selectedProjectData = projects.find(p => p.id === selectedProject) ?? projects[0]
 
-  const costBreakdown = [
-    { label: 'Material Cost', value: selectedProjectData.materialCost, percentage: (selectedProjectData.materialCost / selectedProjectData.totalValue) * 100, color: 'blue' },
-    { label: 'Labor Cost', value: selectedProjectData.laborCost, percentage: (selectedProjectData.laborCost / selectedProjectData.totalValue) * 100, color: 'green' },
-    { label: 'Overhead', value: selectedProjectData.overheadCost, percentage: (selectedProjectData.overheadCost / selectedProjectData.totalValue) * 100, color: 'purple' },
-    { label: 'Contingency', value: selectedProjectData.contingency, percentage: (selectedProjectData.contingency / selectedProjectData.totalValue) * 100, color: 'orange' }
-  ]
+  const costBreakdown = selectedProjectData
+    ? [
+        { label: 'Material Cost', value: selectedProjectData.materialCost, percentage: selectedProjectData.totalValue ? (selectedProjectData.materialCost / selectedProjectData.totalValue) * 100 : 0, color: 'blue' },
+        { label: 'Labor Cost', value: selectedProjectData.laborCost, percentage: selectedProjectData.totalValue ? (selectedProjectData.laborCost / selectedProjectData.totalValue) * 100 : 0, color: 'green' },
+        { label: 'Overhead', value: selectedProjectData.overheadCost, percentage: selectedProjectData.totalValue ? (selectedProjectData.overheadCost / selectedProjectData.totalValue) * 100 : 0, color: 'purple' },
+        { label: 'Contingency', value: selectedProjectData.contingency, percentage: selectedProjectData.totalValue ? (selectedProjectData.contingency / selectedProjectData.totalValue) * 100 : 0, color: 'orange' },
+      ]
+    : []
 
   const getStatusColor = (status: string) => {
     switch (status) {
