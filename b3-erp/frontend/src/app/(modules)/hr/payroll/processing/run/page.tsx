@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Play,
     Calendar,
@@ -39,53 +40,23 @@ export default function RunPayrollPage() {
     const departments = ['All Departments', 'Human Resources', 'Production', 'Quality Assurance', 'Finance', 'IT'];
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    const recentRuns: PayrollRun[] = [
-        {
-            id: '1',
-            period: 'December 2024',
-            month: 'December',
-            year: 2024,
-            status: 'Completed',
-            totalEmployees: 125,
-            processedEmployees: 125,
-            grossPay: 12500000,
-            netPay: 10250000,
-            totalDeductions: 2250000,
-            startedAt: '2024-12-28T10:00:00',
-            completedAt: '2024-12-28T10:45:00',
-            initiatedBy: 'Sarah Johnson'
-        },
-        {
-            id: '2',
-            period: 'November 2024',
-            month: 'November',
-            year: 2024,
-            status: 'Completed',
-            totalEmployees: 122,
-            processedEmployees: 122,
-            grossPay: 12200000,
-            netPay: 10000000,
-            totalDeductions: 2200000,
-            startedAt: '2024-11-28T10:00:00',
-            completedAt: '2024-11-28T10:40:00',
-            initiatedBy: 'Sarah Johnson'
-        },
-        {
-            id: '3',
-            period: 'October 2024',
-            month: 'October',
-            year: 2024,
-            status: 'Completed',
-            totalEmployees: 120,
-            processedEmployees: 120,
-            grossPay: 12000000,
-            netPay: 9800000,
-            totalDeductions: 2200000,
-            startedAt: '2024-10-28T10:00:00',
-            completedAt: '2024-10-28T10:35:00',
-            initiatedBy: 'Sarah Johnson'
-        }
-    ];
+    const [recentRuns, setRecentRuns] = useState<PayrollRun[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getPayrollRuns();
+          const mapped: PayrollRun[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setRecentRuns(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRecentRuns([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const pendingChecks = [
         { label: 'Attendance Data', status: 'ready', count: 125 },
@@ -124,6 +95,8 @@ export default function RunPayrollPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

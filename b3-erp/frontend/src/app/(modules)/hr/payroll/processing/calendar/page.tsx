@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Calendar,
     ChevronLeft,
@@ -27,17 +28,23 @@ export default function PayrollCalendarPage() {
 
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    const events: PayrollEvent[] = [
-        { id: '1', date: '2025-01-07', title: 'PF Return Filing', type: 'deadline', description: 'Monthly PF return deadline', status: 'upcoming' },
-        { id: '2', date: '2025-01-10', title: 'ESI Return Filing', type: 'deadline', description: 'Monthly ESI return deadline', status: 'upcoming' },
-        { id: '3', date: '2025-01-15', title: 'TDS Payment', type: 'deadline', description: 'TDS payment for December', status: 'upcoming' },
-        { id: '4', date: '2025-01-25', title: 'Payroll Processing', type: 'payroll-run', description: 'Run January payroll', status: 'upcoming' },
-        { id: '5', date: '2025-01-26', title: 'Republic Day', type: 'holiday', description: 'National holiday' },
-        { id: '6', date: '2025-01-28', title: 'Salary Disbursement', type: 'payroll-run', description: 'Transfer salaries to employees', status: 'upcoming' },
-        { id: '7', date: '2025-01-31', title: 'Monthly Closing', type: 'reminder', description: 'Close January payroll books' },
-        { id: '8', date: '2024-12-28', title: 'December Payroll', type: 'payroll-run', description: 'Payroll completed', status: 'completed' },
-        { id: '9', date: '2024-12-25', title: 'Christmas', type: 'holiday', description: 'Company holiday' }
-    ];
+    const [events, setEvents] = useState<PayrollEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getPayrollCalendar();
+          const mapped: PayrollEvent[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setEvents(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEvents([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const getDaysInMonth = (month: number, year: number) => {
         return new Date(year, month + 1, 0).getDate();
@@ -154,6 +161,8 @@ export default function PayrollCalendarPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

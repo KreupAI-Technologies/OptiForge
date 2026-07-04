@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -67,11 +67,24 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
     attachments: ['Medical Certificate.pdf', 'Doctor Note.jpg'],
   };
 
-  // Mock leave history
-  const leaveHistory = [
-    { date: '2024-01-20 14:30', action: 'Approved by Sarah Johnson', user: 'Sarah Johnson', type: 'success' },
-    { date: '2024-01-20 10:15', action: 'Leave request submitted', user: 'Rajesh Kumar', type: 'info' },
-  ];
+  const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const res = await fetch('http://localhost:3001/api/v1/hr/leave-applications?companyId=company-1', { headers: { 'Content-Type': 'application/json' } });
+        const json = await res.json();
+        const rows = Array.isArray(json) ? json : (json?.data ?? []);
+        if (!cancelled) setLeaveHistory(rows.map((r: any) => ({ ...r })));
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setLeaveHistory([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -119,6 +132,8 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
+      {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+      {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
       <div className="w-full">
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">

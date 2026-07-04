@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Calendar,
     Search,
@@ -37,95 +38,23 @@ export default function EMISchedulePage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
-    const schedules: EMISchedule[] = [
-        {
-            id: '1',
-            loanId: 'LOAN-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            loanType: 'Personal Loan',
-            principalAmount: 500000,
-            outstandingAmount: 375000,
-            emiAmount: 25000,
-            tenure: 24,
-            remainingTenure: 15,
-            interestRate: 8.5,
-            nextEmiDate: '2025-02-28',
-            status: 'Active',
-            emiHistory: [
-                { month: 'Jan 2025', principal: 21458, interest: 3542, total: 25000, status: 'Paid', paidDate: '2025-01-28' },
-                { month: 'Dec 2024', principal: 21306, interest: 3694, total: 25000, status: 'Paid', paidDate: '2024-12-28' },
-                { month: 'Nov 2024', principal: 21155, interest: 3845, total: 25000, status: 'Paid', paidDate: '2024-11-28' },
-                { month: 'Feb 2025', principal: 21611, interest: 3389, total: 25000, status: 'Upcoming', paidDate: null }
-            ]
-        },
-        {
-            id: '2',
-            loanId: 'LOAN-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            loanType: 'Salary Advance',
-            principalAmount: 50000,
-            outstandingAmount: 25000,
-            emiAmount: 12500,
-            tenure: 4,
-            remainingTenure: 2,
-            interestRate: 0,
-            nextEmiDate: '2025-02-28',
-            status: 'Active',
-            emiHistory: [
-                { month: 'Jan 2025', principal: 12500, interest: 0, total: 12500, status: 'Paid', paidDate: '2025-01-28' },
-                { month: 'Dec 2024', principal: 12500, interest: 0, total: 12500, status: 'Paid', paidDate: '2024-12-28' },
-                { month: 'Feb 2025', principal: 12500, interest: 0, total: 12500, status: 'Upcoming', paidDate: null },
-                { month: 'Mar 2025', principal: 12500, interest: 0, total: 12500, status: 'Upcoming', paidDate: null }
-            ]
-        },
-        {
-            id: '3',
-            loanId: 'LOAN-003',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            loanType: 'Housing Loan',
-            principalAmount: 2000000,
-            outstandingAmount: 1850000,
-            emiAmount: 50000,
-            tenure: 60,
-            remainingTenure: 57,
-            interestRate: 7.5,
-            nextEmiDate: '2025-02-28',
-            status: 'Active',
-            emiHistory: [
-                { month: 'Jan 2025', principal: 38438, interest: 11562, total: 50000, status: 'Paid', paidDate: '2025-01-28' },
-                { month: 'Dec 2024', principal: 38198, interest: 11802, total: 50000, status: 'Paid', paidDate: '2024-12-28' },
-                { month: 'Nov 2024', principal: 37959, interest: 12041, total: 50000, status: 'Paid', paidDate: '2024-11-28' },
-                { month: 'Feb 2025', principal: 38678, interest: 11322, total: 50000, status: 'Upcoming', paidDate: null }
-            ]
-        },
-        {
-            id: '4',
-            loanId: 'LOAN-004',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            loanType: 'Festival Advance',
-            principalAmount: 30000,
-            outstandingAmount: 0,
-            emiAmount: 10000,
-            tenure: 3,
-            remainingTenure: 0,
-            interestRate: 0,
-            nextEmiDate: '-',
-            status: 'Completed',
-            emiHistory: [
-                { month: 'Jan 2025', principal: 10000, interest: 0, total: 10000, status: 'Paid', paidDate: '2025-01-28' },
-                { month: 'Dec 2024', principal: 10000, interest: 0, total: 10000, status: 'Paid', paidDate: '2024-12-28' },
-                { month: 'Nov 2024', principal: 10000, interest: 0, total: 10000, status: 'Paid', paidDate: '2024-11-05' }
-            ]
-        }
-    ];
+    const [schedules, setSchedules] = useState<EMISchedule[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getLoanRecoveries('emi');
+          const mapped: EMISchedule[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setSchedules(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setSchedules([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredSchedules = schedules.filter(schedule => {
         const matchesSearch = schedule.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,6 +94,8 @@ export default function EMISchedulePage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { printCurrentView } from '@/lib/export';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
   ArrowLeft,
   Edit,
@@ -126,29 +127,23 @@ export default function ViewPayrollPage({ params }: { params: { id: string } }) 
     remarks: 'Salary processed successfully for October 2025',
   };
 
-  const activities: Activity[] = [
-    {
-      id: '1',
-      action: 'Payroll Paid',
-      user: 'Sunita Reddy',
-      timestamp: '2025-10-30 10:30 AM',
-      details: 'Salary paid via bank transfer',
-    },
-    {
-      id: '2',
-      action: 'Payroll Processed',
-      user: 'Sunita Reddy',
-      timestamp: '2025-10-28 03:45 PM',
-      details: 'Payroll processed and approved for payment',
-    },
-    {
-      id: '3',
-      action: 'Payroll Created',
-      user: 'Vikram Singh',
-      timestamp: '2025-10-25 11:15 AM',
-      details: 'Payroll entry created for October 2025',
-    },
-  ];
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await HrPayrollService.getReportsBy('activity');
+        const mapped: Activity[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+        if (!cancelled) setActivities(mapped);
+      } catch (err) {
+        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setActivities([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -171,6 +166,8 @@ export default function ViewPayrollPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
+      {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+      {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
       <div className="w-full">
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">

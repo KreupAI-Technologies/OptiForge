@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     History,
     Search,
@@ -11,6 +11,7 @@ import {
     Calendar,
     User
 } from 'lucide-react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 
 interface RevisionHistory {
     id: string;
@@ -34,88 +35,23 @@ export default function RevisionHistoryPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [yearFilter, setYearFilter] = useState('2025');
 
-    const revisions: RevisionHistory[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            revisionType: 'Increment',
-            previousCTC: 1400000,
-            newCTC: 1500000,
-            incrementPercentage: 7.14,
-            previousGrade: 'C',
-            newGrade: 'C',
-            effectiveDate: '2025-04-01',
-            approvedBy: 'John Smith',
-            approvedDate: '2025-03-15',
-            remarks: 'Annual increment'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            revisionType: 'Promotion',
-            previousCTC: 600000,
-            newCTC: 800000,
-            incrementPercentage: 33.33,
-            previousGrade: 'A',
-            newGrade: 'B',
-            effectiveDate: '2025-01-01',
-            approvedBy: 'Robert Martinez',
-            approvedDate: '2024-12-20',
-            remarks: 'Promoted to Senior Engineer'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            revisionType: 'Increment',
-            previousCTC: 850000,
-            newCTC: 900000,
-            incrementPercentage: 5.88,
-            previousGrade: 'B',
-            newGrade: 'B',
-            effectiveDate: '2025-04-01',
-            approvedBy: 'Jennifer Brown',
-            approvedDate: '2025-03-10',
-            remarks: 'Performance-based increment'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP007',
-            employeeName: 'Lisa Wong',
-            department: 'Production',
-            revisionType: 'New Joining',
-            previousCTC: 0,
-            newCTC: 450000,
-            incrementPercentage: 0,
-            previousGrade: '-',
-            newGrade: 'A',
-            effectiveDate: '2025-01-15',
-            approvedBy: 'Sarah Johnson',
-            approvedDate: '2025-01-10',
-            remarks: 'New employee'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            revisionType: 'Correction',
-            previousCTC: 720000,
-            newCTC: 750000,
-            incrementPercentage: 4.17,
-            previousGrade: 'B',
-            newGrade: 'B',
-            effectiveDate: '2024-10-01',
-            approvedBy: 'John Smith',
-            approvedDate: '2024-09-25',
-            remarks: 'Salary correction as per policy'
-        }
-    ];
+    const [revisions, setRevisions] = useState<RevisionHistory[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getSalaryRevisionsBy('history');
+          const mapped: RevisionHistory[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setRevisions(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRevisions([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredRevisions = revisions.filter(revision => {
         const matchesSearch = revision.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,6 +84,8 @@ export default function RevisionHistoryPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Banknote,
     Search,
@@ -36,92 +37,23 @@ export default function SalaryDisbursementPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedRecords, setSelectedRecords] = useState<string[]>([]);
 
-    const disbursements: DisbursementRecord[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            bankName: 'HDFC Bank',
-            accountNumber: 'XXXX1234',
-            ifscCode: 'HDFC0001234',
-            netPay: 100000,
-            status: 'Completed',
-            transactionId: 'TXN20250128001',
-            processedAt: '2025-01-28T10:30:00',
-            failureReason: null
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            bankName: 'ICICI Bank',
-            accountNumber: 'XXXX5678',
-            ifscCode: 'ICIC0005678',
-            netPay: 53333,
-            status: 'Completed',
-            transactionId: 'TXN20250128002',
-            processedAt: '2025-01-28T10:30:00',
-            failureReason: null
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            bankName: 'SBI',
-            accountNumber: 'XXXX9012',
-            ifscCode: 'SBIN0009012',
-            netPay: 50000,
-            status: 'Processing',
-            transactionId: null,
-            processedAt: null,
-            failureReason: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            bankName: 'Axis Bank',
-            accountNumber: 'XXXX3456',
-            ifscCode: 'UTIB0003456',
-            netPay: 26667,
-            status: 'Pending',
-            transactionId: null,
-            processedAt: null,
-            failureReason: null
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            bankName: 'HDFC Bank',
-            accountNumber: 'XXXX7890',
-            ifscCode: 'HDFC0007890',
-            netPay: 80000,
-            status: 'Failed',
-            transactionId: null,
-            processedAt: null,
-            failureReason: 'Invalid account number'
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            bankName: 'Kotak Bank',
-            accountNumber: 'XXXX1122',
-            ifscCode: 'KKBK0001122',
-            netPay: 60000,
-            status: 'Pending',
-            transactionId: null,
-            processedAt: null,
-            failureReason: null
-        }
-    ];
+    const [disbursements, setDisbursements] = useState<DisbursementRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getDisbursements();
+          const mapped: DisbursementRecord[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setDisbursements(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setDisbursements([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredDisbursements = disbursements.filter(d => {
         const matchesSearch = d.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -175,6 +107,8 @@ export default function SalaryDisbursementPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

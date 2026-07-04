@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     ClipboardCheck,
     Search,
@@ -37,110 +38,23 @@ export default function PayrollVerificationPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
 
-    const verifications: PayrollVerification[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            grossPay: 125000,
-            deductions: 25000,
-            netPay: 100000,
-            workingDays: 26,
-            presentDays: 26,
-            lop: 0,
-            overtime: 0,
-            status: 'Verified',
-            issues: [],
-            verifiedBy: 'Robert Martinez',
-            verifiedAt: '2025-01-25T14:30:00'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            grossPay: 66666,
-            deductions: 13333,
-            netPay: 53333,
-            workingDays: 26,
-            presentDays: 24,
-            lop: 2,
-            overtime: 8,
-            status: 'Flagged',
-            issues: ['Overtime not approved', 'Attendance mismatch'],
-            verifiedBy: null,
-            verifiedAt: null
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            grossPay: 62500,
-            deductions: 12500,
-            netPay: 50000,
-            workingDays: 26,
-            presentDays: 25,
-            lop: 1,
-            overtime: 0,
-            status: 'Pending',
-            issues: [],
-            verifiedBy: null,
-            verifiedAt: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            grossPay: 33333,
-            deductions: 6666,
-            netPay: 26667,
-            workingDays: 26,
-            presentDays: 26,
-            lop: 0,
-            overtime: 12,
-            status: 'Verified',
-            issues: [],
-            verifiedBy: 'Sarah Johnson',
-            verifiedAt: '2025-01-25T15:00:00'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            grossPay: 100000,
-            deductions: 20000,
-            netPay: 80000,
-            workingDays: 26,
-            presentDays: 23,
-            lop: 3,
-            overtime: 0,
-            status: 'Corrected',
-            issues: ['LOP days corrected from 2 to 3'],
-            verifiedBy: 'Sarah Johnson',
-            verifiedAt: '2025-01-25T16:00:00'
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            grossPay: 75000,
-            deductions: 15000,
-            netPay: 60000,
-            workingDays: 26,
-            presentDays: 26,
-            lop: 0,
-            overtime: 4,
-            status: 'Pending',
-            issues: [],
-            verifiedBy: null,
-            verifiedAt: null
-        }
-    ];
+    const [verifications, setVerifications] = useState<PayrollVerification[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getReportsBy('verification');
+          const mapped: PayrollVerification[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setVerifications(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setVerifications([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredVerifications = verifications.filter(v => {
         const matchesSearch = v.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -193,6 +107,8 @@ export default function PayrollVerificationPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

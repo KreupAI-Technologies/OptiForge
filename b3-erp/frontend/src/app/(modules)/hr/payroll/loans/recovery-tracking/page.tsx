@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     TrendingDown,
     Search,
@@ -38,116 +39,23 @@ export default function RecoveryTrackingPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('February 2025');
 
-    const records: RecoveryRecord[] = [
-        {
-            id: '1',
-            loanId: 'LOAN-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            loanType: 'Personal Loan',
-            totalLoanAmount: 500000,
-            totalRecovered: 225000,
-            pendingRecovery: 275000,
-            monthlyEMI: 25000,
-            currentMonthDeduction: 25000,
-            recoveryStatus: 'On Track',
-            lastRecoveryDate: '2025-01-28',
-            nextRecoveryDate: '2025-02-28',
-            missedEMIs: 0,
-            consecutiveMissed: 0
-        },
-        {
-            id: '2',
-            loanId: 'LOAN-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            loanType: 'Salary Advance',
-            totalLoanAmount: 50000,
-            totalRecovered: 25000,
-            pendingRecovery: 25000,
-            monthlyEMI: 12500,
-            currentMonthDeduction: 12500,
-            recoveryStatus: 'On Track',
-            lastRecoveryDate: '2025-01-28',
-            nextRecoveryDate: '2025-02-28',
-            missedEMIs: 0,
-            consecutiveMissed: 0
-        },
-        {
-            id: '3',
-            loanId: 'LOAN-003',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            loanType: 'Housing Loan',
-            totalLoanAmount: 2000000,
-            totalRecovered: 150000,
-            pendingRecovery: 1850000,
-            monthlyEMI: 50000,
-            currentMonthDeduction: 50000,
-            recoveryStatus: 'On Track',
-            lastRecoveryDate: '2025-01-28',
-            nextRecoveryDate: '2025-02-28',
-            missedEMIs: 0,
-            consecutiveMissed: 0
-        },
-        {
-            id: '4',
-            loanId: 'LOAN-005',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            loanType: 'Emergency Loan',
-            totalLoanAmount: 80000,
-            totalRecovered: 40000,
-            pendingRecovery: 40000,
-            monthlyEMI: 10000,
-            currentMonthDeduction: 20000,
-            recoveryStatus: 'Delayed',
-            lastRecoveryDate: '2024-12-28',
-            nextRecoveryDate: '2025-02-28',
-            missedEMIs: 1,
-            consecutiveMissed: 1
-        },
-        {
-            id: '5',
-            loanId: 'LOAN-006',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            loanType: 'Festival Advance',
-            totalLoanAmount: 30000,
-            totalRecovered: 30000,
-            pendingRecovery: 0,
-            monthlyEMI: 10000,
-            currentMonthDeduction: 0,
-            recoveryStatus: 'Completed',
-            lastRecoveryDate: '2025-01-28',
-            nextRecoveryDate: '-',
-            missedEMIs: 0,
-            consecutiveMissed: 0
-        },
-        {
-            id: '6',
-            loanId: 'LOAN-007',
-            employeeId: 'EMP012',
-            employeeName: 'Lisa Thompson',
-            department: 'Sales',
-            loanType: 'Personal Loan',
-            totalLoanAmount: 100000,
-            totalRecovered: 30000,
-            pendingRecovery: 70000,
-            monthlyEMI: 10000,
-            currentMonthDeduction: 30000,
-            recoveryStatus: 'Defaulted',
-            lastRecoveryDate: '2024-10-28',
-            nextRecoveryDate: '2025-02-28',
-            missedEMIs: 3,
-            consecutiveMissed: 3
-        }
-    ];
+    const [records, setRecords] = useState<RecoveryRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrPayrollService.getLoanRecoveries('tracking');
+          const mapped: RecoveryRecord[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setRecords(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRecords([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredRecords = records.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -191,6 +99,8 @@ export default function RecoveryTrackingPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
