@@ -1,10 +1,55 @@
 'use client';
 
-import { useState } from 'react';
-import { Folder, File, Download, Eye, FolderOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Folder, File, Download, Eye, FolderOpen, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface RepoFile {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  lastModified: string;
+}
 
 export default function BrowseRepositoryPage() {
   const [currentPath, setCurrentPath] = useState(['Documents']);
+  const [files, setFiles] = useState<RepoFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments();
+        const mapped: RepoFile[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            name: row.fileName ?? row.title ?? '',
+            size: row.fileSize ?? '',
+            type: meta.type ?? row.documentType ?? '',
+            lastModified: row.uploadedOn ?? meta.lastModified ?? '',
+          };
+        });
+        if (!cancelled) setFiles(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load files');
+          setFiles([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const navigateToPath = (index: number) => {
     // Navigate to a specific path level
@@ -25,18 +70,25 @@ export default function BrowseRepositoryPage() {
     { id: 6, name: 'Training Materials', fileCount: 32, lastModified: '2024-11-30' }
   ];
 
-  const files = [
-    { id: 1, name: 'Employee_Handbook_2025.pdf', size: '4.5 MB', type: 'PDF', lastModified: '2025-01-15' },
-    { id: 2, name: 'Leave_Policy_v3.1.pdf', size: '850 KB', type: 'PDF', lastModified: '2024-12-20' },
-    { id: 3, name: 'Code_of_Conduct_v6.0.pdf', size: '2.1 MB', type: 'PDF', lastModified: '2025-01-10' }
-  ];
-
   return (
     <div className="w-full h-full px-3 py-2">
       <div className="mb-3">
         <h1 className="text-2xl font-bold text-gray-900">Browse Repository</h1>
         <p className="text-sm text-gray-600 mt-1">Browse and access document repository</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading files…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <div className="flex items-center gap-2 text-sm text-gray-600">

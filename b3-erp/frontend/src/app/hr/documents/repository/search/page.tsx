@@ -1,16 +1,59 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, File, Download, Eye, Filter } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, File, Download, Eye, Filter, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface SearchResult {
+  id: string;
+  name: string;
+  path: string;
+  size: string;
+  type: string;
+  lastModified: string;
+  relevance: number;
+}
 
 export default function SearchRepositoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const searchResults = [
-    { id: 1, name: 'Leave_Policy_v3.1.pdf', path: 'HR Policies', size: '850 KB', type: 'PDF', lastModified: '2024-12-20', relevance: 95 },
-    { id: 2, name: 'Leave_Application_Form.docx', path: 'Templates/Forms', size: '120 KB', type: 'DOCX', lastModified: '2024-11-15', relevance: 88 },
-    { id: 3, name: 'Leave_Encashment_Rules.pdf', path: 'HR Policies/Leave', size: '420 KB', type: 'PDF', lastModified: '2024-10-30', relevance: 82 }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments();
+        const mapped: SearchResult[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            name: row.fileName ?? row.title ?? '',
+            path: meta.path ?? row.docCategory ?? '',
+            size: row.fileSize ?? '',
+            type: meta.type ?? row.documentType ?? '',
+            lastModified: row.uploadedOn ?? meta.lastModified ?? '',
+            relevance: meta.relevance ?? 0,
+          };
+        });
+        if (!cancelled) setSearchResults(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load search results');
+          setSearchResults([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -18,6 +61,19 @@ export default function SearchRepositoryPage() {
         <h1 className="text-2xl font-bold text-gray-900">Search Repository</h1>
         <p className="text-sm text-gray-600 mt-1">Search for documents across the repository</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading search results…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <div className="flex gap-2">
