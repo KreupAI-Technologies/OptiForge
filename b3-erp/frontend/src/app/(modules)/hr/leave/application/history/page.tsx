@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     History,
     Search,
@@ -13,6 +13,9 @@ import {
     Eye,
     Download
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
+
+const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
 interface LeaveHistory {
     id: string;
@@ -33,73 +36,41 @@ export default function MyLeaveHistoryPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [yearFilter, setYearFilter] = useState('2025');
 
-    const leaveHistory: LeaveHistory[] = [
-        {
-            id: 'LV-2025-001',
-            leaveType: 'Annual Leave',
-            startDate: '2025-01-15',
-            endDate: '2025-01-17',
-            days: 3,
-            status: 'Approved',
-            reason: 'Family vacation',
-            appliedDate: '2025-01-10',
-            approvedBy: 'John Smith',
-            approvedDate: '2025-01-11',
-            remarks: 'Approved. Enjoy your vacation!'
-        },
-        {
-            id: 'LV-2025-002',
-            leaveType: 'Sick Leave',
-            startDate: '2025-01-25',
-            endDate: '2025-01-25',
-            days: 1,
-            status: 'Approved',
-            reason: 'Medical appointment',
-            appliedDate: '2025-01-24',
-            approvedBy: 'John Smith',
-            approvedDate: '2025-01-24',
-            remarks: 'Approved'
-        },
-        {
-            id: 'LV-2025-003',
-            leaveType: 'Casual Leave',
-            startDate: '2025-02-10',
-            endDate: '2025-02-11',
-            days: 2,
-            status: 'Pending',
-            reason: 'Personal work',
-            appliedDate: '2025-02-05',
-            approvedBy: '',
-            approvedDate: '',
-            remarks: ''
-        },
-        {
-            id: 'LV-2025-004',
-            leaveType: 'Annual Leave',
-            startDate: '2025-02-20',
-            endDate: '2025-02-25',
-            days: 6,
-            status: 'Rejected',
-            reason: 'Travel plans',
-            appliedDate: '2025-02-01',
-            approvedBy: 'John Smith',
-            approvedDate: '2025-02-02',
-            remarks: 'Project deadline conflicts. Please reschedule.'
-        },
-        {
-            id: 'LV-2024-015',
-            leaveType: 'Compensatory Off',
-            startDate: '2024-12-27',
-            endDate: '2024-12-27',
-            days: 1,
-            status: 'Approved',
-            reason: 'Comp off for weekend work',
-            appliedDate: '2024-12-20',
-            approvedBy: 'John Smith',
-            approvedDate: '2024-12-21',
-            remarks: 'Approved'
-        }
-    ];
+    const [leaveHistory, setLeaveHistory] = useState<LeaveHistory[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const fmtDate = (v: any): string => {
+            if (!v) return '';
+            const d = new Date(v);
+            return isNaN(d.getTime()) ? String(v) : d.toISOString().split('T')[0];
+        };
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await LeaveService.getAllLeaveApplicationsRaw();
+                const mapped: LeaveHistory[] = (raw as any[]).map((r, i) => ({
+                    id: String(r?.applicationNumber ?? r?.id ?? i),
+                    leaveType: r?.leaveTypeName ?? r?.leaveType ?? '',
+                    startDate: fmtDate(r?.startDate),
+                    endDate: fmtDate(r?.endDate),
+                    days: r?.totalDays ?? r?.days ?? 0,
+                    status: (capitalize(String(r?.status ?? 'Pending')) as LeaveHistory['status']),
+                    reason: r?.reason ?? '',
+                    appliedDate: fmtDate(r?.appliedAt ?? r?.appliedDate),
+                    approvedBy: r?.approverName ?? r?.approvedBy ?? '',
+                    approvedDate: fmtDate(r?.approvedAt ?? r?.approvedDate),
+                    remarks: r?.rejectionReason ?? r?.remarks ?? '',
+                }));
+                if (!cancelled) setLeaveHistory(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setLeaveHistory([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredHistory = leaveHistory.filter(leave => {
         const matchesSearch = leave.id.toLowerCase().includes(searchTerm.toLowerCase()) ||

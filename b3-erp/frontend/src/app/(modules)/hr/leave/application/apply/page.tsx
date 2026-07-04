@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Calendar,
     Clock,
@@ -11,6 +11,7 @@ import {
     User,
     Briefcase
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
 
 interface LeaveBalance {
     type: string;
@@ -40,12 +41,35 @@ export default function ApplyLeavePage() {
         'Unpaid Leave'
     ];
 
-    const leaveBalances: LeaveBalance[] = [
-        { type: 'Annual Leave', total: 21, used: 5, pending: 2, available: 14 },
-        { type: 'Sick Leave', total: 12, used: 3, pending: 0, available: 9 },
-        { type: 'Casual Leave', total: 6, used: 2, pending: 1, available: 3 },
-        { type: 'Compensatory Off', total: 4, used: 1, pending: 0, available: 3 }
-    ];
+    const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await LeaveService.getAllLeaveBalances();
+                const mapped: LeaveBalance[] = (raw as any[]).map((r) => {
+                    const total = r?.entitledDays ?? r?.total ?? 0;
+                    const used = r?.usedDays ?? r?.used ?? 0;
+                    const pending = r?.pendingDays ?? r?.pending ?? 0;
+                    return {
+                        type: r?.leaveTypeName ?? r?.type ?? '',
+                        total,
+                        used,
+                        pending,
+                        available: r?.balanceDays ?? r?.available ?? (total - used - pending),
+                    };
+                });
+                if (!cancelled) setLeaveBalances(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setLeaveBalances([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const calculateDays = () => {
         if (!startDate || !endDate) return 0;
@@ -61,6 +85,8 @@ export default function ApplyLeavePage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

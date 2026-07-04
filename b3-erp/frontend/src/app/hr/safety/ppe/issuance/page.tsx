@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   Search,
@@ -15,17 +15,18 @@ import {
   Plus,
   ArrowRight,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyPpe } from '@/services/hr-safety.service';
 
-// Mock Data
-const ppeCatalog = [
-  { id: 'PPE-001', name: 'Standard Hard Hat', icon: HardHat, category: 'Head Protection', stock: 45 },
-  { id: 'PPE-002', name: 'Steel-Toe Safety Boots', icon: Footprints, category: 'Foot Protection', stock: 22 },
-  { id: 'PPE-003', name: 'Anti-Fog Safety Goggles', icon: Eye, category: 'Eye Protection', stock: 80 },
-  { id: 'PPE-004', name: 'Engineers Leather Gloves', icon: Hand, category: 'Hand Protection', stock: 120 },
-  { id: 'PPE-005', name: 'High-Viz Reflective Vest', icon: Shirt, category: 'Body Protection', stock: 65 },
-];
+interface PpeCatalogItem {
+  id: string;
+  name: string;
+  icon: any;
+  category: string;
+  stock: number;
+}
 
 const employeeList = [
   { id: 'EMP-012', name: 'Alex Johnson', department: 'Maintenance', lastIssue: '2023-11-15' },
@@ -37,6 +38,39 @@ export default function PPEIssuancePage() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isIssued, setIsIssued] = useState(false);
+  const [ppeCatalog, setPpeCatalog] = useState<PpeCatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getPpe('issuance');
+        const mapped: PpeCatalogItem[] = rows.map((row: SafetyPpe) => ({
+          id: String(row.itemCode ?? row.id ?? ''),
+          name: row.itemName ?? '',
+          icon: Shield,
+          category: row.category ?? '',
+          stock: row.inStock ?? row.quantity ?? 0,
+        }));
+        if (!cancelled) setPpeCatalog(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load PPE catalog');
+          setPpeCatalog([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleItem = (id: string) => {
     setSelectedItems(prev =>
@@ -55,6 +89,18 @@ export default function PPEIssuancePage() {
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading PPE catalog…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

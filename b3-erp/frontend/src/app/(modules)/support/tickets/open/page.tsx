@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Ticket, Clock, User, Search, Filter, Eye, MessageSquare } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Ticket, Clock, User, Search, Filter, Eye, MessageSquare, AlertCircle } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface TicketItem {
   id: string
@@ -22,112 +23,42 @@ export default function OpenTickets() {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
 
-  const [tickets] = useState<TicketItem[]>([
-    {
-      id: '1',
-      ticketId: 'TKT-2024-1047',
-      subject: 'Production system slow response time',
-      requester: 'John Smith',
-      category: 'Performance',
-      priority: 'critical',
-      status: 'Open',
-      createdAt: '2024-10-21 09:15',
-      slaRemaining: '2h 45m',
-      assignee: 'Rajesh Kumar',
-      comments: 3
-    },
-    {
-      id: '2',
-      ticketId: 'TKT-2024-1046',
-      subject: 'Unable to access CRM module',
-      requester: 'Sarah Johnson',
-      category: 'Access Issue',
-      priority: 'high',
-      status: 'Open',
-      createdAt: '2024-10-21 08:30',
-      slaRemaining: '5h 12m',
-      assignee: 'Priya Sharma',
-      comments: 2
-    },
-    {
-      id: '3',
-      ticketId: 'TKT-2024-1045',
-      subject: 'Report generation failing for sales data',
-      requester: 'Mike Wilson',
-      category: 'Bug',
-      priority: 'medium',
-      status: 'Open',
-      createdAt: '2024-10-21 07:45',
-      slaRemaining: '18h 30m',
-      assignee: 'Amit Patel',
-      comments: 5
-    },
-    {
-      id: '4',
-      ticketId: 'TKT-2024-1044',
-      subject: 'How to export inventory data to Excel?',
-      requester: 'Emily Davis',
-      category: 'How-To',
-      priority: 'low',
-      status: 'Open',
-      createdAt: '2024-10-21 06:20',
-      slaRemaining: '46h 15m',
-      assignee: 'Sneha Reddy',
-      comments: 1
-    },
-    {
-      id: '5',
-      ticketId: 'TKT-2024-1043',
-      subject: 'Email notifications not being sent',
-      requester: 'David Brown',
-      category: 'System Error',
-      priority: 'high',
-      status: 'Open',
-      createdAt: '2024-10-20 16:30',
-      slaRemaining: '1h 05m',
-      assignee: 'Vikram Singh',
-      comments: 4
-    },
-    {
-      id: '6',
-      ticketId: 'TKT-2024-1042',
-      subject: 'Request for API documentation',
-      requester: 'Lisa Anderson',
-      category: 'Feature Request',
-      priority: 'low',
-      status: 'Open',
-      createdAt: '2024-10-20 15:00',
-      slaRemaining: '38h 45m',
-      assignee: 'Unassigned',
-      comments: 0
-    },
-    {
-      id: '7',
-      ticketId: 'TKT-2024-1041',
-      subject: 'Database connection timeout errors',
-      requester: 'Tom Martinez',
-      category: 'System Error',
-      priority: 'critical',
-      status: 'Open',
-      createdAt: '2024-10-20 14:15',
-      slaRemaining: 'Overdue',
-      assignee: 'Rajesh Kumar',
-      comments: 8
-    },
-    {
-      id: '8',
-      ticketId: 'TKT-2024-1040',
-      subject: 'Mobile app login issues on iOS',
-      requester: 'Jennifer Lee',
-      category: 'Bug',
-      priority: 'medium',
-      status: 'Open',
-      createdAt: '2024-10-20 13:30',
-      slaRemaining: '12h 20m',
-      assignee: 'Priya Sharma',
-      comments: 3
-    }
-  ])
+  const [tickets, setTickets] = useState<TicketItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getOmnichannel()
+        const mapped: TicketItem[] = raw.map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          ticketId: r.ticketId ?? r.ticketNumber ?? r.conversationId ?? r.reference ?? String(r.id ?? i),
+          subject: r.subject ?? r.title ?? r.lastMessage ?? '',
+          requester: r.requester ?? r.customerName ?? r.customer ?? r.from ?? '',
+          category: r.category ?? r.channel ?? '',
+          priority: (r.priority ?? 'medium') as TicketItem['priority'],
+          status: r.status ?? 'Open',
+          createdAt: r.createdAt ?? r.created ?? '',
+          slaRemaining: r.slaRemaining ?? r.sla ?? '',
+          assignee: r.assignee ?? r.assignedTo ?? r.agent ?? 'Unassigned',
+          comments: r.comments ?? r.messageCount ?? 0,
+        }))
+        if (!cancelled) setTickets(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setTickets([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -170,6 +101,19 @@ export default function OpenTickets() {
           <div className="text-sm text-gray-600">Total Open</div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading open tickets…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">

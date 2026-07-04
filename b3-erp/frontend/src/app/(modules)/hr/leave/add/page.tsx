@@ -72,59 +72,40 @@ export default function AddLeavePage() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Mock employees data
-  const allEmployees: Employee[] = [
-    {
-      id: '1',
-      employeeId: 'B3-0001',
-      name: 'Rajesh Kumar',
-      department: 'Production',
-      position: 'Production Supervisor',
-      email: 'rajesh.kumar@b3erp.com',
-      phone: '+91 98765 43210',
-      leaveBalance: { casualLeave: 12, sickLeave: 7, privilegeLeave: 15 },
-    },
-    {
-      id: '2',
-      employeeId: 'B3-0002',
-      name: 'Priya Sharma',
-      department: 'Quality Control',
-      position: 'QC Inspector',
-      email: 'priya.sharma@b3erp.com',
-      phone: '+91 98765 43211',
-      leaveBalance: { casualLeave: 10, sickLeave: 6, privilegeLeave: 18 },
-    },
-    {
-      id: '3',
-      employeeId: 'B3-0003',
-      name: 'Amit Patel',
-      department: 'Procurement',
-      position: 'Procurement Officer',
-      email: 'amit.patel@b3erp.com',
-      phone: '+91 98765 43212',
-      leaveBalance: { casualLeave: 8, sickLeave: 5, privilegeLeave: 20 },
-    },
-    {
-      id: '4',
-      employeeId: 'B3-0004',
-      name: 'Sunita Reddy',
-      department: 'Finance',
-      position: 'Accounts Manager',
-      email: 'sunita.reddy@b3erp.com',
-      phone: '+91 98765 43213',
-      leaveBalance: { casualLeave: 15, sickLeave: 8, privilegeLeave: 12 },
-    },
-    {
-      id: '5',
-      employeeId: 'B3-0005',
-      name: 'Vikram Singh',
-      department: 'HR',
-      position: 'HR Executive',
-      email: 'vikram.singh@b3erp.com',
-      phone: '+91 98765 43214',
-      leaveBalance: { casualLeave: 14, sickLeave: 6, privilegeLeave: 16 },
-    },
-  ];
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true); setLoadError(null);
+      try {
+        const raw = await EmployeeService.getAllEmployeesRaw();
+        const mapped: Employee[] = (raw as any[]).map((r) => {
+          const fullName = r?.fullName ?? [r?.firstName, r?.lastName].filter(Boolean).join(' ').trim();
+          return {
+            id: String(r?.id ?? ''),
+            employeeId: r?.employeeCode ?? '',
+            name: fullName || '',
+            department: r?.departmentName ?? r?.department ?? '',
+            position: r?.designation ?? '',
+            email: r?.email ?? '',
+            phone: r?.phone ?? '',
+            leaveBalance: {
+              casualLeave: r?.leaveBalance?.casualLeave ?? 0,
+              sickLeave: r?.leaveBalance?.sickLeave ?? 0,
+              privilegeLeave: r?.leaveBalance?.privilegeLeave ?? 0,
+            },
+          };
+        });
+        if (!cancelled) setAllEmployees(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setAllEmployees([]); }
+      } finally { if (!cancelled) setIsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const leaveTypes = [
     { value: 'Casual Leave', balance: 'casualLeave' },
@@ -275,6 +256,8 @@ export default function AddLeavePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
       <div className="w-full">
+        {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading…</div>)}
+        {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</div>)}
         {/* Header */}
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Star, TrendingUp, TrendingDown, ThumbsUp, ThumbsDown, MessageSquare, Users, Download, Filter, RefreshCw, AlertCircle } from 'lucide-react'
 import { ChartWrapper } from '@/components/ui'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface CSATTrend {
   period: string
@@ -40,19 +41,41 @@ interface RatingDistribution {
 
 export default function CSATAnalytics() {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month')
+  const [csatTrends, setCsatTrends] = useState<CSATTrend[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const csatTrends: CSATTrend[] = [
-    { period: 'Jan', score: 4.2, responses: 156, nps: 42, promoters: 89, passives: 45, detractors: 22 },
-    { period: 'Feb', score: 4.3, responses: 178, nps: 45, promoters: 102, passives: 52, detractors: 24 },
-    { period: 'Mar', score: 4.5, responses: 198, nps: 51, promoters: 123, passives: 54, detractors: 21 },
-    { period: 'Apr', score: 4.4, responses: 189, nps: 48, promoters: 115, passives: 51, detractors: 23 },
-    { period: 'May', score: 4.6, responses: 212, nps: 54, promoters: 134, passives: 58, detractors: 20 },
-    { period: 'Jun', score: 4.7, responses: 234, nps: 58, promoters: 152, passives: 63, detractors: 19 },
-    { period: 'Jul', score: 4.6, responses: 245, nps: 56, promoters: 159, passives: 66, detractors: 20 },
-    { period: 'Aug', score: 4.8, responses: 267, nps: 62, promoters: 178, passives: 68, detractors: 21 },
-    { period: 'Sep', score: 4.7, responses: 256, nps: 59, promoters: 166, passives: 71, detractors: 19 },
-    { period: 'Oct', score: 4.9, responses: 289, nps: 67, promoters: 201, passives: 70, detractors: 18 }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getOmnichannel()
+        // Omnichannel returns conversations; aggregate any CSAT-bearing records by period.
+        const mapped: CSATTrend[] = raw
+          .filter((r: any) => r?.period || r?.csatScore != null || r?.score != null)
+          .map((r: any) => ({
+            period: r.period ?? r.month ?? '',
+            score: r.score ?? r.csatScore ?? 0,
+            responses: r.responses ?? r.responseCount ?? 0,
+            nps: r.nps ?? 0,
+            promoters: r.promoters ?? 0,
+            passives: r.passives ?? 0,
+            detractors: r.detractors ?? 0,
+          }))
+        if (!cancelled) setCsatTrends(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setCsatTrends([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const categorySatisfaction: CategorySatisfaction[] = [
     { category: 'Network Issues', score: 4.6, responses: 145, positivePercentage: 82.8, neutralPercentage: 12.4, negativePercentage: 4.8, trend: 'up' },

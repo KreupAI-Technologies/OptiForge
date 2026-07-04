@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   Search,
@@ -14,8 +14,10 @@ import {
   Inbox,
   Truck,
   Building2,
-  MoreHorizontal
+  MoreHorizontal,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyPpe } from '@/services/hr-safety.service';
 
 // Mock Data
 const inventoryStats = {
@@ -25,19 +27,71 @@ const inventoryStats = {
   pendingOrders: 2
 };
 
-const stockLevels = [
-  { id: 'SKU-7701', name: 'Standard Hard Hat', category: 'Head Protection', onHand: 45, min: 20, leadTime: '3 days', status: 'Healthy' },
-  { id: 'SKU-7702', name: 'Steel-Toe Boots (M)', category: 'Foot Protection', onHand: 12, min: 15, leadTime: '5 days', status: 'Low Stock' },
-  { id: 'SKU-7703', name: 'Safety Goggles', category: 'Eye Protection', onHand: 8, min: 25, leadTime: '2 days', status: 'Critical' },
-  { id: 'SKU-7704', name: 'Nitrile Gloves', category: 'Hand Protection', onHand: 240, min: 100, leadTime: '1 day', status: 'Healthy' },
-  { id: 'SKU-7705', name: 'High-Viz Vest', category: 'Body Protection', onHand: 55, min: 30, leadTime: '4 days', status: 'Healthy' },
-];
+interface StockLevel {
+  id: string;
+  name: string;
+  category: string;
+  onHand: number;
+  min: number;
+  leadTime: string;
+  status: string;
+}
 
 export default function PPEInventoryPage() {
   const [filter, setFilter] = useState('All');
+  const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getPpe('stock');
+        const mapped: StockLevel[] = rows.map((row: SafetyPpe) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.itemCode ?? row.id ?? ''),
+            name: row.itemName ?? '',
+            category: row.category ?? '',
+            onHand: row.inStock ?? row.quantity ?? 0,
+            min: row.reorderLevel ?? 0,
+            leadTime: meta.leadTime ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setStockLevels(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load PPE inventory');
+          setStockLevels([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading PPE inventory…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

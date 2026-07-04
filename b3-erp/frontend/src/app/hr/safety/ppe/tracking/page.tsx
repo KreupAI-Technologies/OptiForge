@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package,
   Search,
@@ -16,8 +16,10 @@ import {
   ArrowUpRight,
   ShieldCheck,
   TrendingUp,
-  Plus
+  Plus,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyPpe } from '@/services/hr-safety.service';
 
 // Mock Data
 const trackingStats = {
@@ -27,50 +29,68 @@ const trackingStats = {
   replacementRequests: 5
 };
 
-const assignedPPE = [
-  {
-    id: 'TRK-9901',
-    employee: 'John Smith',
-    item: 'Standard Hard Hat',
-    issuedDate: '2023-01-10',
-    expiryDate: '2028-01-10',
-    status: 'Compliant',
-    condition: 'Good'
-  },
-  {
-    id: 'TRK-9902',
-    employee: 'Sarah Wilson',
-    item: 'Steel-Toe Boots',
-    issuedDate: '2023-06-15',
-    expiryDate: '2024-06-15',
-    status: 'Expiring Soon',
-    condition: 'Fair'
-  },
-  {
-    id: 'TRK-9888',
-    employee: 'Mike Ross',
-    item: 'Safety Goggles',
-    issuedDate: '2022-12-01',
-    expiryDate: '2023-12-01',
-    status: 'Expired',
-    condition: 'Poor'
-  },
-  {
-    id: 'TRK-9910',
-    employee: 'Emma Blunt',
-    item: 'Reflective Vest',
-    issuedDate: '2024-02-20',
-    expiryDate: '2026-02-20',
-    status: 'Compliant',
-    condition: 'New'
-  },
-];
+interface AssignedPPE {
+  id: string;
+  employee: string;
+  item: string;
+  issuedDate: string;
+  expiryDate: string;
+  status: string;
+  condition: string;
+}
 
 export default function PPETrackingPage() {
   const [filter, setFilter] = useState('All');
+  const [assignedPPE, setAssignedPPE] = useState<AssignedPPE[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getPpe('assignment');
+        const mapped: AssignedPPE[] = rows.map((row: SafetyPpe) => ({
+          id: String(row.itemCode ?? row.id ?? ''),
+          employee: row.employeeName ?? '',
+          item: row.itemName ?? '',
+          issuedDate: row.issuedDate ?? '',
+          expiryDate: row.expiryDate ?? '',
+          status: row.status ?? '',
+          condition: row.condition ?? '',
+        }));
+        if (!cancelled) setAssignedPPE(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load assigned PPE');
+          setAssignedPPE([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading assigned PPE…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
