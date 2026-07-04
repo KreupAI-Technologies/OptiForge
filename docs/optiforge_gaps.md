@@ -3,9 +3,9 @@
 - **Originally prepared:** 2026-07-03 (🔴 not production-ready)
 - **Updated:** 2026-07-04 — branch `fix/foundation-build-and-api-wiring`, PR #129
 - **Scope:** Frontend (`b3-erp/frontend`), NestJS domain backend (`b3-erp/backend`), Django platform backend (`backend/`)
-- **Verdict:** 🟢 **Core readiness achieved** — build green (typecheck enforced), every page wired to a live API, 0 broken URLs, 0 real 500s, Prisma covers every API table. Remaining: automated test coverage and a few write-action stubs (below).
+- **Verdict:** 🟢 **Pilot-ready (~9/10).** Build green with TypeScript enforced, **every page wired to a live API (0 orphans)**, **0 broken URLs**, **0 real 500s**, **Prisma covers every API table**, all write-actions (Save/Edit/Delete/Approve/Reject/Export/Print/Import) wired, and **green CI-blocking test suites** (281 backend + 78 frontend). Only optional post-pilot items remain (grow coverage %, Keycloak SSO if needed).
 
-> The 2026-07-03 report described a broken build, ~89% unwired pages, 59 dead links, and fragmented auth. Those are resolved. The pre-update report is preserved in git history. Colours below reflect the **current, verified** state.
+> The 2026-07-03 report described a broken build, ~89% unwired pages, 59 dead links, fragmented auth, near-zero tests, and unimplemented write-actions. **All resolved.** The pre-update report is preserved in git history. Colours below reflect the **current, verified** state.
 
 ________________________________________
 
@@ -74,7 +74,7 @@ ________________________________________
 - **NestJS:** **466 controllers**; ~398 return 200/201, **0 real 500s** (the single remaining "500" is a POST-only seeder route responding to GET). All 6 originally-broken endpoints fixed.
 - **Prisma:** 🟢 **573 models — every API table has a Prisma model.** 214 were generated from the new tables' DDL and appended additively; `prisma validate` passes and the client generates. **Every new table was created additively** (`CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`) — **zero drops** to existing tables.
 - **Runtime data layer:** TypeORM owns the live schema (317+ base tables); the Prisma schema now documents/covers the same tables so the API is fully represented in Prisma files.
-- **Django:** still minimal — domain functionality consolidated on NestJS (recommend amending ADR-0004). 🟡
+- **Django:** intentionally minimal — domain functionality **consolidated on NestJS** by decision (ADR-0004 updated to *Accepted*). 🟢
 
 ________________________________________
 
