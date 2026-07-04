@@ -215,7 +215,7 @@ export default function AddShipmentPage() {
   const serviceTypes = ['Door to Door', 'Port to Port', 'Door to Port', 'Port to Door'];
   const paymentTermsOptions = ['Prepaid', 'To Pay', 'Third Party'];
 
-  // Mock orders
+  // Mock orders — static: order-lookup is a different flow, not an entity-picker list
   const mockOrders = [
     { id: 'SO-2024-001', customer: 'Tata Steel Limited', date: '2024-01-10', amount: 125000, items: 5 },
     { id: 'SO-2024-002', customer: 'JSW Steel', date: '2024-01-12', amount: 89000, items: 3 },
@@ -223,37 +223,38 @@ export default function AddShipmentPage() {
     { id: 'PO-2024-015', customer: 'Larsen & Toubro', date: '2024-01-14', amount: 234000, items: 10 },
   ];
 
-  // Mock stock items
-  const mockStockItems = [
-    { code: 'RM-001', name: 'Steel Sheets - Grade 304', stock: 150, weight: 50, volume: 0.25 },
-    { code: 'RM-002', name: 'Aluminum Rods', stock: 200, weight: 15, volume: 0.08 },
-    { code: 'COMP-001', name: 'Electric Motors - 5HP', stock: 80, weight: 25, volume: 0.15 },
-    { code: 'FG-001', name: 'Finished Panel Assembly', stock: 45, weight: 120, volume: 1.5 },
-  ];
+  useEffect(() => {
+    setWarehousesLoading(true);
+    MasterDataService.getWarehouses().then((live) => {
+      if (live.length > 0) {
+        setMockWarehouses(live.map((w: MDWarehouse) => ({
+          code: w.warehouseCode || w.id,
+          name: w.warehouseName || w.warehouseCode || w.id,
+          address: '',
+          city: w.city || '',
+          state: '',
+          pincode: '',
+          contact: '',
+          phone: '',
+        })));
+      }
+      setWarehousesLoading(false);
+    });
 
-  // Mock warehouses
-  const mockWarehouses = [
-    {
-      code: 'WH-001',
-      name: 'Main Warehouse - Pune',
-      address: 'Plot No. 45, MIDC Industrial Area',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '411019',
-      contact: 'Suresh Patil',
-      phone: '+91 98765 11111',
-    },
-    {
-      code: 'WH-002',
-      name: 'Distribution Center - Mumbai',
-      address: 'Unit 23, Logistics Park, Bhiwandi',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '421302',
-      contact: 'Rajesh Sharma',
-      phone: '+91 98765 22222',
-    },
-  ];
+    setStockItemsLoading(true);
+    MasterDataService.getProducts().then((live) => {
+      if (live.length > 0) {
+        setMockStockItems(live.map((p: MDProduct) => ({
+          code: p.sku || p.id,
+          name: p.name || p.productName || p.sku || p.id,
+          stock: 0,
+          weight: 0,
+          volume: 0,
+        })));
+      }
+      setStockItemsLoading(false);
+    });
+  }, []);
 
   const handleInputChange = (field: keyof ShipmentForm, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -790,7 +791,7 @@ export default function AddShipmentPage() {
                   className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.fromWarehouse ? 'border-red-500' : 'border-gray-300'
                     }`}
                 >
-                  <option value="">Select warehouse</option>
+                  <option value="">{warehousesLoading ? 'Loading…' : 'Select warehouse'}</option>
                   {mockWarehouses.map(wh => (
                     <option key={wh.code} value={wh.code}>
                       {wh.code} - {wh.name}
@@ -1609,7 +1610,10 @@ export default function AddShipmentPage() {
             </div>
             <div className="overflow-y-auto max-h-96 p-3">
               <div className="space-y-3">
-                {filteredStockItems.map(item => (
+                {stockItemsLoading && (
+                  <div className="p-3 text-center text-gray-500 text-sm">Loading items…</div>
+                )}
+                {!stockItemsLoading && filteredStockItems.map(item => (
                   <button
                     key={item.code}
                     type="button"
