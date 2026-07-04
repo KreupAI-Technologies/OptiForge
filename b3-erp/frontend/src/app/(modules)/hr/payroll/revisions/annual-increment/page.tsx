@@ -38,88 +38,23 @@ export default function AnnualIncrementPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [departmentFilter, setDepartmentFilter] = useState('all');
 
-    const increments: AnnualIncrement[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            currentCTC: 1500000,
-            proposedCTC: 1650000,
-            incrementPercentage: 10,
-            incrementAmount: 150000,
-            effectiveDate: '2025-04-01',
-            status: 'Pending Approval',
-            performanceRating: 4.5,
-            yearsOfService: 5,
-            lastIncrementDate: '2024-04-01'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Production Engineer',
-            currentCTC: 800000,
-            proposedCTC: 880000,
-            incrementPercentage: 10,
-            incrementAmount: 80000,
-            effectiveDate: '2025-04-01',
-            status: 'Approved',
-            performanceRating: 4.2,
-            yearsOfService: 3,
-            lastIncrementDate: '2024-04-01'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            currentCTC: 750000,
-            proposedCTC: 810000,
-            incrementPercentage: 8,
-            incrementAmount: 60000,
-            effectiveDate: '2025-04-01',
-            status: 'Draft',
-            performanceRating: 3.8,
-            yearsOfService: 2,
-            lastIncrementDate: '2024-04-01'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            designation: 'Senior Accountant',
-            currentCTC: 1200000,
-            proposedCTC: 1320000,
-            incrementPercentage: 10,
-            incrementAmount: 120000,
-            effectiveDate: '2025-04-01',
-            status: 'Pending Approval',
-            performanceRating: 4.3,
-            yearsOfService: 4,
-            lastIncrementDate: '2024-04-01'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            currentCTC: 900000,
-            proposedCTC: 990000,
-            incrementPercentage: 10,
-            incrementAmount: 90000,
-            effectiveDate: '2025-04-01',
-            status: 'Approved',
-            performanceRating: 4.0,
-            yearsOfService: 2,
-            lastIncrementDate: '2024-04-01'
-        }
-    ];
+    const [increments, setIncrements] = useState<AnnualIncrement[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getSalaryRevisionsBy('annual');
+                const mapped: AnnualIncrement[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setIncrements(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setIncrements([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(increments.map(i => i.department)));
 

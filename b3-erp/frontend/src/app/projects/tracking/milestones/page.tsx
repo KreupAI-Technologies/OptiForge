@@ -408,12 +408,66 @@ export default function MilestonesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.listAllMilestones();
+        const mapped: Milestone[] = (Array.isArray(raw) ? raw : []).map((m: any, i: number) => {
+          const meta = (m.metadata ?? {}) as Record<string, any>;
+          return {
+            id: String(m.id ?? i),
+            milestoneNumber: meta.milestoneNumber ?? `MS-${String(i + 1).padStart(3, '0')}`,
+            title: m.name ?? m.title ?? '—',
+            description: m.description ?? '',
+            project: m.projectName ?? meta.projectName ?? m.projectId ?? '—',
+            projectCode: meta.projectCode ?? '',
+            phase: meta.phase ?? '',
+            category: meta.category ?? 'technical',
+            owner: meta.owner ?? '',
+            department: meta.department ?? '',
+            baselineDate: (meta.baselineDate ?? m.dueDate ?? '').toString().slice(0, 10),
+            currentDate: (m.dueDate ?? '').toString().slice(0, 10),
+            actualDate: m.completedDate ? m.completedDate.toString().slice(0, 10) : undefined,
+            status: STATUS_MAP[m.status] ?? 'planned',
+            progress: Number(meta.progress ?? 0),
+            priority: meta.priority ?? 'medium',
+            impact: meta.impact ?? 'medium',
+            dependencies: Array.isArray(meta.dependencies) ? meta.dependencies : [],
+            successCriteria: Array.isArray(meta.successCriteria) ? meta.successCriteria : [],
+            approvers: Array.isArray(meta.approvers) ? meta.approvers : [],
+            risks: Number(meta.risks ?? 0),
+            delayDays: meta.delayDays,
+            completionNotes: meta.completionNotes,
+          };
+        });
+        if (!cancelled) setMilestones(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load milestones');
+          setMilestones([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Get unique values for filters
-  const projects = useMemo(() => Array.from(new Set(MILESTONES.map(m => m.project))), []);
+  const projects = useMemo(() => Array.from(new Set(milestones.map(m => m.project))), [milestones]);
 
   const filtered = useMemo(() => {
-    return MILESTONES.filter(m => {
+    return milestones.filter(m => {
       const matchSearch = [m.title, m.description, m.project, m.projectCode, m.milestoneNumber, m.owner, m.phase].some(
         v => v.toLowerCase().includes(searchTerm.toLowerCase())
       );
