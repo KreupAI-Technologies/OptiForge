@@ -73,7 +73,7 @@ export default function BOMCostingPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const res = await ProductionOrphanService.getBoms();
+        const res: any = await ProductionOrphanService.getBoms();
         const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
         // BOM records may expose line items under components/items/lines; fall back
         // to treating each BOM record itself as a costed row.

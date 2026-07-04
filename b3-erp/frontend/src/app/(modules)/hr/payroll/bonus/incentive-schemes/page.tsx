@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Target,
     Search,
@@ -39,93 +40,23 @@ export default function IncentiveSchemesPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const schemes: IncentiveScheme[] = [
-        {
-            id: '1',
-            schemeName: 'Sales Target Incentive',
-            schemeCode: 'INC-SAL-001',
-            type: 'Sales',
-            applicableTo: 'Sales Team',
-            targetType: 'Revenue',
-            targetValue: 10000000,
-            incentiveType: 'Percentage',
-            incentiveValue: 2,
-            maxPayout: 500000,
-            effectiveFrom: '2025-01-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active',
-            participants: 15,
-            totalPayout: 450000
-        },
-        {
-            id: '2',
-            schemeName: 'Production Efficiency Bonus',
-            schemeCode: 'INC-PRD-001',
-            type: 'Production',
-            applicableTo: 'Production Department',
-            targetType: 'Units',
-            targetValue: 10000,
-            incentiveType: 'Slab',
-            incentiveValue: 50,
-            maxPayout: 200000,
-            effectiveFrom: '2025-01-01',
-            effectiveTo: '2025-06-30',
-            status: 'Active',
-            participants: 45,
-            totalPayout: 320000
-        },
-        {
-            id: '3',
-            schemeName: 'Zero Defect Bonus',
-            schemeCode: 'INC-QA-001',
-            type: 'Quality',
-            applicableTo: 'QA Team',
-            targetType: 'Percentage',
-            targetValue: 99.5,
-            incentiveType: 'Fixed',
-            incentiveValue: 10000,
-            maxPayout: 100000,
-            effectiveFrom: '2025-01-01',
-            effectiveTo: '2025-12-31',
-            status: 'Active',
-            participants: 12,
-            totalPayout: 80000
-        },
-        {
-            id: '4',
-            schemeName: 'Perfect Attendance Reward',
-            schemeCode: 'INC-ATT-001',
-            type: 'Attendance',
-            applicableTo: 'All Employees',
-            targetType: 'Days',
-            targetValue: 30,
-            incentiveType: 'Fixed',
-            incentiveValue: 5000,
-            maxPayout: 60000,
-            effectiveFrom: '2025-01-01',
-            effectiveTo: '2025-12-31',
-            status: 'Active',
-            participants: 128,
-            totalPayout: 215000
-        },
-        {
-            id: '5',
-            schemeName: 'Q2 Special Campaign',
-            schemeCode: 'INC-CUS-001',
-            type: 'Custom',
-            applicableTo: 'Marketing Team',
-            targetType: 'Revenue',
-            targetValue: 5000000,
-            incentiveType: 'Percentage',
-            incentiveValue: 3,
-            maxPayout: 150000,
-            effectiveFrom: '2025-04-01',
-            effectiveTo: '2025-06-30',
-            status: 'Draft',
-            participants: 0,
-            totalPayout: 0
-        }
-    ];
+    const [schemes, setSchemes] = useState<IncentiveScheme[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getBonusSchemes();
+                const mapped: IncentiveScheme[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setSchemes(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setSchemes([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredSchemes = schemes.filter(scheme => {
         const matchesSearch = scheme.schemeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -170,6 +101,8 @@ export default function IncentiveSchemesPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Award,
     Search,
@@ -38,76 +39,23 @@ export default function PerformanceBonusPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [periodFilter, setPeriodFilter] = useState('Q4 2024');
 
-    const bonusRecords: PerformanceBonus[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            reviewPeriod: 'Q4 2024',
-            performanceRating: 4.5,
-            kpiScore: 92,
-            targetBonus: 100000,
-            multiplier: 1.15,
-            calculatedBonus: 115000,
-            managerAdjustment: 5000,
-            finalBonus: 120000,
-            status: 'Approved',
-            reviewedBy: 'CEO'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            reviewPeriod: 'Q4 2024',
-            performanceRating: 4.8,
-            kpiScore: 98,
-            targetBonus: 60000,
-            multiplier: 1.25,
-            calculatedBonus: 75000,
-            managerAdjustment: 0,
-            finalBonus: 75000,
-            status: 'Paid',
-            reviewedBy: 'Robert Martinez'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            reviewPeriod: 'Q4 2024',
-            performanceRating: 5.0,
-            kpiScore: 100,
-            targetBonus: 80000,
-            multiplier: 1.3,
-            calculatedBonus: 104000,
-            managerAdjustment: 10000,
-            finalBonus: 114000,
-            status: 'Pending Review',
-            reviewedBy: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            reviewPeriod: 'Q4 2024',
-            performanceRating: 3.8,
-            kpiScore: 78,
-            targetBonus: 45000,
-            multiplier: 0.95,
-            calculatedBonus: 42750,
-            managerAdjustment: 0,
-            finalBonus: 42750,
-            status: 'Draft',
-            reviewedBy: null
-        }
-    ];
+    const [bonusRecords, setBonusRecords] = useState<PerformanceBonus[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getBonusRecordsBy('performance');
+                const mapped: PerformanceBonus[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setBonusRecords(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBonusRecords([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredRecords = bonusRecords.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -160,6 +108,8 @@ export default function PerformanceBonusPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

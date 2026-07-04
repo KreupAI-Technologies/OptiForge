@@ -57,6 +57,51 @@ export default function InactiveUsersPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReason, setSelectedReason] = useState('all');
+  const [inactiveUsers, setInactiveUsers] = useState<InactiveUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await UserManagementService.getAllUsers({ status: UserStatus.INACTIVE })) as any[];
+        const list = (Array.isArray(raw) ? raw : []).filter(
+          (u: any) =>
+            (u.status ?? '').toString().toLowerCase() === 'inactive' || u.isActive === false
+        );
+        const mapped: InactiveUser[] = list.map((u: any) => ({
+          id: (u.id ?? '').toString(),
+          name:
+            (u.displayName ??
+              [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
+              u.name ||
+              '') as string,
+          email: (u.email ?? '') as string,
+          phone: (u.phone ?? '') as string,
+          department: (u.department ?? '') as string,
+          role: (u.roleName ?? u.role ?? '') as string,
+          deactivatedDate: (u.updatedAt ?? u.deactivatedDate ?? '').toString(),
+          deactivationReason: (u.deactivationReason ?? u.reason ?? '') as string,
+          avatar: (u.avatar ?? '🧑‍💼') as string,
+        }));
+        if (!cancelled) setInactiveUsers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load users');
+          setInactiveUsers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const reasons = ['all', 'Left Organization', 'Maternity Leave', 'Medical Leave', 'Extended Leave'];
 
@@ -70,6 +115,17 @@ export default function InactiveUsersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3">
       <div className="w-full">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading users…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>

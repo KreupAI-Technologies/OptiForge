@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,19 +18,39 @@ import {
     Briefcase
 } from 'lucide-react';
 import Link from 'next/link';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function CustomerAcquisitionDetail() {
     const router = useRouter();
 
-    const customers = [
-        { id: 'CUST-001', name: 'Acme Corp', since: '2025-01-15', source: 'Website', status: 'Active', revenue: 150000 },
-        { id: 'CUST-002', name: 'Industrial Ltd', since: '2025-02-01', source: 'Referral', status: 'Active', revenue: 450000 },
-        { id: 'CUST-003', name: 'Tech Start', since: '2025-02-10', source: 'LinkedIn', status: 'Onboarding', revenue: 25000 },
-        { id: 'CUST-004', name: 'Global Services', since: '2025-02-15', source: 'Trade Show', status: 'Active', revenue: 85000 },
-        { id: 'CUST-005', name: 'Cyberdyne Systems', since: '2025-01-20', source: 'Direct', status: 'Active', revenue: 1200000 },
-        { id: 'CUST-006', name: 'Wayne Enterprises', since: '2025-01-25', source: 'Referral', status: 'Active', revenue: 2500000 },
-        { id: 'CUST-007', name: 'Stark Industries', since: '2025-02-05', source: 'Outbound', status: 'Onboarding', revenue: 850000 },
-    ];
+    const [customers, setCustomers] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('crm/customers');
+                const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r.id ?? '',
+                    name: r.customerName ?? '',
+                    since: r.createdAt ? String(r.createdAt).slice(0, 10) : (r.acquisitionDate ?? ''),
+                    source: r.customerGroup ?? r.segment ?? r.customerLifecycleStage ?? 'Direct',
+                    status: r.accountStatus ?? r.status ?? 'Active',
+                    revenue: Number(r.lifetimeValue ?? 0),
+                }));
+                if (!cancelled) setCustomers(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setCustomers([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden bg-gray-50">

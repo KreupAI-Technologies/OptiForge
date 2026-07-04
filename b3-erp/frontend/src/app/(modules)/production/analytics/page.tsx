@@ -173,7 +173,7 @@ export default function ProductionAnalyticsPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const res = await ProductionOrphanService.getProductivityMetrics();
+        const res: any = await ProductionOrphanService.getProductivityMetrics();
         const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
         const mapped: OperatorProductivity[] = raw.map((m, idx) => {
           const unitsProduced = Number(m.unitsProduced ?? m.actualOutput ?? m.output ?? m.units ?? 0);

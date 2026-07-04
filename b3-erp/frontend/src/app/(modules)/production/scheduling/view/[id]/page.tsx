@@ -308,7 +308,7 @@ export default function ProductionSchedulingViewPage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const res = await ProductionOrphanService.getResourceAllocations();
+        const res: any = await ProductionOrphanService.getResourceAllocations();
         const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
         const mapped: ResourceAllocation[] = raw.map((r) => {
           const allocatedHours = Number(r.allocatedHours ?? r.allocated ?? 0);
