@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   BarChart3, TrendingUp, Activity, AlertTriangle,
   Clock, Users, Package, Settings, Download,
   ChevronDown, Calendar, Filter, RefreshCw,
-  PieChart, Target, Zap, Award
+  PieChart, Target, Zap, Award, AlertCircle
 } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface OEEMetrics {
   availability: number;

@@ -110,6 +110,70 @@ export const HrPayrollService = {
     );
   },
 
+  // ---- Salary structure family --------------------------------------------
+  async getSalaryStructures(): Promise<any[]> {
+    // NOTE: entity has no companyId column; passing it 500s. Query bare.
+    return toArray(await request(`/hr/salary-structures`));
+  },
+  async getSalaryTemplates(): Promise<any[]> {
+    return toArray(await request(`/hr/salary-templates`));
+  },
+  async getSalaryComponents(): Promise<any[]> {
+    return toArray(await request(`/hr/salary-components`));
+  },
+  async getSalaryAssignments(): Promise<any[]> {
+    // Assignments live on salary-structures (employee-assigned structures).
+    return toArray(await request(`/hr/salary-structures`));
+  },
+
+  // ---- Payroll processing -------------------------------------------------
+  async getPayrollCalendar(): Promise<any[]> {
+    return toArray(await request(`/hr/payroll-calendar`));
+  },
+  async getSalarySlips(extra?: Record<string, string | undefined>): Promise<any[]> {
+    return toArray(await request(`/hr/salary-slips${withCompany(extra)}`));
+  },
+
+  // ---- Bonus family (discriminated by category on bonus-records) ----------
+  async getBonusRecordsBy(category: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/bonus-records${withCompany({ category })}`),
+    );
+  },
+
+  // ---- Salary revisions (discriminated by category) -----------------------
+  async getSalaryRevisionsBy(category?: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/salary-revisions${withCompany({ category })}`),
+    );
+  },
+
+  // ---- Statutory (discriminated by category on statutory-filings / tax) ---
+  async getStatutoryBy(category: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/statutory-filings${withCompany({ category })}`),
+    );
+  },
+  async getTaxRecordsBy(category?: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/tax-records${withCompany({ category })}`),
+    );
+  },
+
+  // ---- Payroll reports (discriminated by category) ------------------------
+  async getReportsBy(category: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/payroll-reports${withCompany({ category })}`),
+    );
+  },
+
+  // ---- Loans (recoveries + EMI schedule share loan-recoveries) ------------
+  async getLoanRecoveries(status?: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/loan-recoveries${withCompany({ status })}`),
+    );
+  },
+
   // ---- Attendance summary orphan endpoints --------------------------------
   // Backs the aggregate attendance pages under /hr/attendance/*. The raw
   // per-day /hr/attendances endpoint is left alone; these summary/rollup pages

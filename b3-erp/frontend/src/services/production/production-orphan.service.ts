@@ -195,6 +195,9 @@ export const ProductionOrphanService = {
   // GET production/oee-records (backs analytics/oee)
   getOeeRecords: () => request<any[]>('/production/oee-records'),
 
+  // GET production/productivity-metrics (backs analytics)
+  getProductivityMetrics: () => request<any[]>('/production/productivity-metrics'),
+
   // GET production/digital-twins (backs digital-twin)
   getDigitalTwins: () => request<any[]>('/production/digital-twins'),
 

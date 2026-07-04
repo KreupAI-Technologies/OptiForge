@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   Building,
   DollarSign,
@@ -45,169 +46,59 @@ export default function CostCentersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  // Sample cost centers data
-  const costCenters: CostCenter[] = [
-    {
-      id: 'CC001',
-      code: 'CC-OPS-001',
-      name: 'Operations - Manufacturing',
-      department: 'Operations',
-      manager: 'John Doe',
-      type: 'Production',
-      status: 'Active',
-      budgetAllocated: 50000000,
-      actualCost: 48500000,
-      variance: 1500000,
-      variancePercent: 3.0,
-      employeeCount: 120,
-      openingDate: '2020-01-01',
-      description: 'Main manufacturing and production operations'
-    },
-    {
-      id: 'CC002',
-      code: 'CC-IT-001',
-      name: 'Information Technology',
-      department: 'IT',
-      manager: 'Jane Smith',
-      type: 'Service',
-      status: 'Active',
-      budgetAllocated: 15000000,
-      actualCost: 16200000,
-      variance: -1200000,
-      variancePercent: -8.0,
-      employeeCount: 35,
-      openingDate: '2020-01-01',
-      description: 'IT infrastructure and support services'
-    },
-    {
-      id: 'CC003',
-      code: 'CC-SAL-001',
-      name: 'Sales & Marketing',
-      department: 'Sales',
-      manager: 'Robert Brown',
-      type: 'Sales',
-      status: 'Active',
-      budgetAllocated: 25000000,
-      actualCost: 23800000,
-      variance: 1200000,
-      variancePercent: 4.8,
-      employeeCount: 45,
-      openingDate: '2020-01-01',
-      description: 'Sales operations and marketing activities'
-    },
-    {
-      id: 'CC004',
-      code: 'CC-HR-001',
-      name: 'Human Resources',
-      department: 'Human Resources',
-      manager: 'Sarah Wilson',
-      type: 'Administrative',
-      status: 'Active',
-      budgetAllocated: 8000000,
-      actualCost: 7950000,
-      variance: 50000,
-      variancePercent: 0.6,
-      employeeCount: 15,
-      openingDate: '2020-01-01',
-      description: 'HR operations and employee management'
-    },
-    {
-      id: 'CC005',
-      code: 'CC-RD-001',
-      name: 'Research & Development',
-      department: 'Engineering',
-      manager: 'Michael Chen',
-      type: 'R&D',
-      status: 'Active',
-      budgetAllocated: 20000000,
-      actualCost: 19500000,
-      variance: 500000,
-      variancePercent: 2.5,
-      employeeCount: 28,
-      openingDate: '2021-06-01',
-      description: 'Product research and development'
-    },
-    {
-      id: 'CC006',
-      code: 'CC-FIN-001',
-      name: 'Finance & Accounting',
-      department: 'Finance',
-      manager: 'Emily Davis',
-      type: 'Administrative',
-      status: 'Active',
-      budgetAllocated: 10000000,
-      actualCost: 9800000,
-      variance: 200000,
-      variancePercent: 2.0,
-      employeeCount: 22,
-      openingDate: '2020-01-01',
-      description: 'Financial operations and accounting'
-    },
-    {
-      id: 'CC007',
-      code: 'CC-QA-001',
-      name: 'Quality Assurance',
-      department: 'Operations',
-      manager: 'David Martinez',
-      type: 'Service',
-      status: 'Active',
-      budgetAllocated: 6000000,
-      actualCost: 6100000,
-      variance: -100000,
-      variancePercent: -1.7,
-      employeeCount: 18,
-      openingDate: '2020-03-01',
-      description: 'Quality control and assurance'
-    },
-    {
-      id: 'CC008',
-      code: 'CC-LOG-001',
-      name: 'Logistics & Warehouse',
-      department: 'Operations',
-      manager: 'Lisa Anderson',
-      type: 'Service',
-      status: 'Active',
-      budgetAllocated: 12000000,
-      actualCost: 11500000,
-      variance: 500000,
-      variancePercent: 4.2,
-      employeeCount: 40,
-      openingDate: '2020-01-01',
-      description: 'Warehouse and logistics operations'
-    },
-    {
-      id: 'CC009',
-      code: 'CC-CUST-001',
-      name: 'Customer Service',
-      department: 'Sales',
-      manager: 'James Taylor',
-      type: 'Service',
-      status: 'Active',
-      budgetAllocated: 5000000,
-      actualCost: 4800000,
-      variance: 200000,
-      variancePercent: 4.0,
-      employeeCount: 25,
-      openingDate: '2020-01-01',
-      description: 'Customer support and service operations'
-    },
-    {
-      id: 'CC010',
-      code: 'CC-FAC-001',
-      name: 'Facilities Management',
-      department: 'Operations',
-      manager: 'Patricia White',
-      type: 'Administrative',
-      status: 'Active',
-      budgetAllocated: 7000000,
-      actualCost: 7200000,
-      variance: -200000,
-      variancePercent: -2.9,
-      employeeCount: 12,
-      openingDate: '2020-01-01',
-      description: 'Facilities and building management'
-    }
-  ];
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getCostCenters()) as any[];
+        const mapped: CostCenter[] = (Array.isArray(raw) ? raw : []).map((r: any) => {
+          const budgetAllocated = Number(r.budgetAllocated ?? r.budget ?? 0);
+          const actualCost = Number(r.actualCost ?? 0);
+          const variance = Number(r.variance ?? (budgetAllocated - actualCost));
+          const variancePercent = budgetAllocated
+            ? Number(((variance / budgetAllocated) * 100).toFixed(1))
+            : 0;
+          const typeVal = r.isProfitCenter ? 'Production' : (r.type ?? 'Service');
+          return {
+            id: r.id ?? r.costCenterCode ?? '',
+            code: r.costCenterCode ?? r.code ?? '',
+            name: r.costCenterName ?? r.name ?? '',
+            department: r.department ?? '',
+            manager: r.managerName ?? r.manager ?? '',
+            type: (['Production', 'Service', 'Administrative', 'Sales', 'R&D'].includes(typeVal)
+              ? typeVal
+              : 'Service') as CostCenter['type'],
+            status: (r.isActive ?? true) ? 'Active' : 'Inactive',
+            budgetAllocated,
+            actualCost,
+            variance,
+            variancePercent,
+            employeeCount: Number(r.employeeCount ?? 0),
+            openingDate: r.openingDate ?? (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
+            description: r.description ?? '',
+          };
+        });
+        if (!cancelled) setCostCenters(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load cost centers');
+          setCostCenters([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const filteredCostCenters = costCenters.filter(cc => {
     const matchesSearch =
@@ -589,6 +480,12 @@ export default function CostCentersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-900 to-gray-900 p-3">
       <div className="w-full space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">Loading cost centers…</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

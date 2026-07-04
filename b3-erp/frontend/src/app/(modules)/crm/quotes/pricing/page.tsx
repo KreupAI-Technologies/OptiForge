@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, Percent, DollarSign, Users, Package, Calendar, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface PricingRule {
   id: string;
@@ -166,7 +167,48 @@ const mockRules: PricingRule[] = [
 
 export default function PricingRulesPage() {
   const router = useRouter();
-  const [rules, setRules] = useState<PricingRule[]>(mockRules);
+  const [rules, setRules] = useState<PricingRule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.pricingRules.getAll()) as any[];
+        const mapped: PricingRule[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: String(r.id ?? ''),
+          name: r.name ?? r.ruleName ?? '',
+          description: r.description ?? '',
+          ruleType: r.ruleType ?? 'volume',
+          discountType: r.discountType ?? 'percentage',
+          discountValue: Number(r.discountValue ?? 0),
+          conditions: Array.isArray(r.conditions) ? r.conditions : [],
+          priority: Number(r.priority ?? 0),
+          isActive: r.isActive ?? true,
+          applicableProducts: Array.isArray(r.applicableProducts) ? r.applicableProducts : [],
+          applicableCustomers: Array.isArray(r.applicableCustomers) ? r.applicableCustomers : [],
+          validFrom: r.validFrom ?? '',
+          validUntil: r.validUntil ?? undefined,
+          usageCount: Number(r.usageCount ?? 0),
+          totalSavings: Number(r.totalSavings ?? 0),
+          createdDate: r.createdDate ?? r.createdAt ?? '',
+        }));
+        if (!cancelled) setRules(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pricing rules');
+          setRules([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'volume' | 'customer' | 'product' | 'seasonal' | 'bundle' | 'time-limited'>('all');
   const [showActiveOnly, setShowActiveOnly] = useState(false);
@@ -242,6 +284,18 @@ export default function PricingRulesPage() {
 
   return (
     <div className="w-full h-full px-3 py-2 ">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading pricing rules…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       <div className="mb-8">
         <div className="flex justify-end mb-3">
           <button
