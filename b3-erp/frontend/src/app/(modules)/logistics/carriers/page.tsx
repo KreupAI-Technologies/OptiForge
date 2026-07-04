@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   Search,
   Filter,

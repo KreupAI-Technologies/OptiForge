@@ -155,6 +155,26 @@ export default function BOQAnalysisPage() {
         </select>
       </div>
 
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading BOQ analysis…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && !selectedProjectData && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No BOQ records found.
+        </div>
+      )}
+
+      {selectedProjectData && (
+        <>
       {/* Project Overview */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">
@@ -308,6 +328,8 @@ export default function BOQAnalysisPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }
