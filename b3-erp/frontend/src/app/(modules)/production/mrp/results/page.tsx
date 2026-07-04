@@ -98,7 +98,7 @@ export default function MRPResultsPage() {
   ];
 
   // Mock data for action messages
-  const actionMessages: ActionMessage[] = [
+  const [actionMessages, setActionMessages] = useState<ActionMessage[]>([
     {
       id: '1',
       messageType: 'expedite',
@@ -239,7 +239,7 @@ export default function MRPResultsPage() {
       affectedWOs: ['WO-2025-1152', 'WO-2025-1153'],
       status: 'rejected'
     }
-  ];
+  ]);
 
   const currentRun = mrpRuns.find(run => run.runNumber === selectedRun) || mrpRuns[0];
 
@@ -306,15 +306,21 @@ export default function MRPResultsPage() {
   };
 
   const handleApproveActionSubmit = (data: any) => {
-    // TODO: Integrate with API to approve action message
-    console.log('Approving action message:', selectedActionMessage?.id, data);
+    if (selectedActionMessage) {
+      setActionMessages(prev =>
+        prev.map(m => (m.id === selectedActionMessage.id ? { ...m, status: 'approved' } : m)),
+      );
+    }
     setIsApproveActionOpen(false);
     setSelectedActionMessage(null);
   };
 
   const handleRejectActionSubmit = (data: any) => {
-    // TODO: Integrate with API to reject action message
-    console.log('Rejecting action message:', selectedActionMessage?.id, data);
+    if (selectedActionMessage) {
+      setActionMessages(prev =>
+        prev.map(m => (m.id === selectedActionMessage.id ? { ...m, status: 'rejected' } : m)),
+      );
+    }
     setIsRejectActionOpen(false);
     setSelectedActionMessage(null);
   };

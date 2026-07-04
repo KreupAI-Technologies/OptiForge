@@ -169,7 +169,7 @@ const ProductionQualityPage = () => {
     }
   }
 
-  const filteredInspections = mockInspections.filter(inspection => {
+  const filteredInspections = inspections.filter(inspection => {
     const matchesSearch =
       inspection.inspection_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inspection.work_order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -187,10 +187,10 @@ const ProductionQualityPage = () => {
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedInspections = filteredInspections.slice(startIndex, startIndex + itemsPerPage)
 
-  const pendingInspections = mockInspections.filter(i => i.pass_fail_status === 'pending').length
-  const passedInspections = mockInspections.filter(i => i.pass_fail_status === 'passed').length
-  const failedInspections = mockInspections.filter(i => i.pass_fail_status === 'failed').length
-  const totalInspections = mockInspections.filter(i => i.pass_fail_status !== 'pending').length
+  const pendingInspections = inspections.filter(i => i.pass_fail_status === 'pending').length
+  const passedInspections = inspections.filter(i => i.pass_fail_status === 'passed').length
+  const failedInspections = inspections.filter(i => i.pass_fail_status === 'failed').length
+  const totalInspections = inspections.filter(i => i.pass_fail_status !== 'pending').length
   const passRate = totalInspections > 0 ? ((passedInspections / totalInspections) * 100).toFixed(1) : '0.0'
 
   // Helper function to convert QualityInspection to Inspection modal format
@@ -272,13 +272,17 @@ const ProductionQualityPage = () => {
   }
 
   const handleApproveSubmit = (decision: 'approve' | 'reject' | 'request-changes', comments: string, signature: string) => {
-    // TODO: Replace with actual API call
-    // await fetch(`/api/quality/inspections/${selectedInspection?.id}/approve`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ decision, comments, signature })
-    // });
-    console.log('Approve inspection submitted:', { decision, comments, signature })
+    if (selectedInspection) {
+      const nextStatus: QualityInspection['pass_fail_status'] =
+        decision === 'approve' ? 'passed' : decision === 'reject' ? 'failed' : 'conditional'
+      setInspections(prev =>
+        prev.map(i =>
+          i.id === selectedInspection.id
+            ? { ...i, pass_fail_status: nextStatus, remarks: comments || i.remarks }
+            : i,
+        ),
+      )
+    }
     setIsApproveOpen(false)
     setSelectedInspection(null)
   }
@@ -551,7 +555,7 @@ const ProductionQualityPage = () => {
         onClose={handleViewClose}
         inspection={selectedInspection ? convertToModalInspection(selectedInspection) : null}
         onEdit={(inspection) => {
-          const qualityInspection = mockInspections.find(i => i.inspection_id === inspection.id)
+          const qualityInspection = inspections.find(i => i.inspection_id === inspection.id)
           if (qualityInspection) {
             handleEdit(qualityInspection)
           }
