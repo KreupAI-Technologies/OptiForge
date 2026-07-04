@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, FileText, Package, Truck, MapPin, Calendar, CheckCircle, Clock, XCircle, AlertTriangle, Filter, Plus } from 'lucide-react';
 
 interface FreightBooking {
@@ -38,200 +39,46 @@ export default function FreightBookingPage() {
   const [isViewingDetails, setIsViewingDetails] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
 
-  const bookings: FreightBooking[] = [
-    {
-      id: '1',
-      bookingNo: 'FB-2025-2001',
-      customerName: 'ABC Manufacturing Ltd',
-      origin: 'Chennai Port',
-      destination: 'Singapore Port',
-      cargoType: 'Industrial Machinery',
-      weight: 15000,
-      volume: 45,
-      transportMode: 'sea',
-      carrier: 'Maersk Line',
-      bookingDate: '2025-10-18',
-      pickupDate: '2025-10-25',
-      expectedDelivery: '2025-11-02',
-      status: 'confirmed',
-      bookingAmount: 485000,
-      containerNo: 'MAEU7654321',
-      vesselFlight: 'MSC EMMA - V.234',
-      billOfLading: 'BL-2025-8765',
-      customsStatus: 'in-process',
-      trackingUrl: 'https://track.maersk.com/12345',
-      contactPerson: 'Rajesh Kumar',
-      contactPhone: '+91-98765-43210'
-    },
-    {
-      id: '2',
-      bookingNo: 'FB-2025-2002',
-      customerName: 'Global Traders Inc',
-      origin: 'Mumbai Airport',
-      destination: 'Dubai Airport',
-      cargoType: 'Electronics',
-      weight: 8500,
-      volume: 28,
-      transportMode: 'air',
-      carrier: 'Emirates SkyCargo',
-      bookingDate: '2025-10-15',
-      pickupDate: '2025-10-20',
-      expectedDelivery: '2025-10-22',
-      status: 'delivered',
-      bookingAmount: 890000,
-      containerNo: 'N/A',
-      vesselFlight: 'EK-407',
-      billOfLading: 'AWB-2025-4532',
-      customsStatus: 'cleared',
-      trackingUrl: 'https://track.emirates.com/67890',
-      contactPerson: 'Priya Sharma',
-      contactPhone: '+91-99876-54321'
-    },
-    {
-      id: '3',
-      bookingNo: 'FB-2025-2003',
-      customerName: 'TechCorp Solutions',
-      origin: 'Bangalore',
-      destination: 'Delhi',
-      cargoType: 'IT Equipment',
-      weight: 12000,
-      volume: 38,
-      transportMode: 'road',
-      carrier: 'VRL Logistics',
-      bookingDate: '2025-10-19',
-      pickupDate: '2025-10-22',
-      expectedDelivery: '2025-10-24',
-      status: 'in-transit',
-      bookingAmount: 185000,
-      containerNo: 'TRUCK-KA-01-AB-1234',
-      vesselFlight: 'N/A',
-      billOfLading: 'LR-2025-9876',
-      customsStatus: 'not-required',
-      trackingUrl: 'https://track.vrl.in/abc123',
-      contactPerson: 'Amit Patel',
-      contactPhone: '+91-98234-56789'
-    },
-    {
-      id: '4',
-      bookingNo: 'FB-2025-2004',
-      customerName: 'Precision Parts Ltd',
-      origin: 'Chennai',
-      destination: 'Kolkata',
-      cargoType: 'Auto Components',
-      weight: 18500,
-      volume: 52,
-      transportMode: 'rail',
-      carrier: 'Indian Railways',
-      bookingDate: '2025-10-20',
-      pickupDate: '2025-10-26',
-      expectedDelivery: '2025-11-01',
-      status: 'confirmed',
-      bookingAmount: 125000,
-      containerNo: 'RAIL-CON-45678',
-      vesselFlight: 'N/A',
-      billOfLading: 'RR-2025-3456',
-      customsStatus: 'not-required',
-      trackingUrl: 'https://ntes.indianrail.gov.in',
-      contactPerson: 'Suresh Menon',
-      contactPhone: '+91-97123-45678'
-    },
-    {
-      id: '5',
-      bookingNo: 'FB-2025-2005',
-      customerName: 'Eastern Electronics',
-      origin: 'Visakhapatnam Port',
-      destination: 'Hong Kong Port',
-      cargoType: 'Consumer Electronics',
-      weight: 22000,
-      volume: 68,
-      transportMode: 'sea',
-      carrier: 'COSCO Shipping',
-      bookingDate: '2025-10-21',
-      pickupDate: '2025-10-28',
-      expectedDelivery: '2025-11-05',
-      status: 'pending',
-      bookingAmount: 625000,
-      containerNo: 'COSU8765432',
-      vesselFlight: 'COSCO PRIDE - V.567',
-      billOfLading: 'BL-2025-5432',
-      customsStatus: 'pending',
-      trackingUrl: '',
-      contactPerson: 'Deepak Singh',
-      contactPhone: '+91-96543-21098'
-    },
-    {
-      id: '6',
-      bookingNo: 'FB-2025-2006',
-      customerName: 'Metro Wholesale',
-      origin: 'Hyderabad',
-      destination: 'Mumbai',
-      cargoType: 'FMCG Products',
-      weight: 9500,
-      volume: 32,
-      transportMode: 'road',
-      carrier: 'Gati Ltd',
-      bookingDate: '2025-10-16',
-      pickupDate: '2025-10-18',
-      expectedDelivery: '2025-10-21',
-      status: 'delivered',
-      bookingAmount: 95000,
-      containerNo: 'TRUCK-TN-01-XY-5678',
-      vesselFlight: 'N/A',
-      billOfLading: 'LR-2025-7654',
-      customsStatus: 'not-required',
-      trackingUrl: 'https://track.gati.com/xyz789',
-      contactPerson: 'Vikas Reddy',
-      contactPhone: '+91-95432-10987'
-    },
-    {
-      id: '7',
-      bookingNo: 'FB-2025-2007',
-      customerName: 'Northern Distributors',
-      origin: 'Delhi Airport',
-      destination: 'Frankfurt Airport',
-      cargoType: 'Pharmaceuticals',
-      weight: 5500,
-      volume: 18,
-      transportMode: 'air',
-      carrier: 'Lufthansa Cargo',
-      bookingDate: '2025-10-19',
-      pickupDate: '2025-10-24',
-      expectedDelivery: '2025-10-26',
-      status: 'in-transit',
-      bookingAmount: 1250000,
-      containerNo: 'N/A',
-      vesselFlight: 'LH-8234',
-      billOfLading: 'AWB-2025-8901',
-      customsStatus: 'cleared',
-      trackingUrl: 'https://lufthansa-cargo.com/track',
-      contactPerson: 'Rahul Verma',
-      contactPhone: '+91-94321-87654'
-    },
-    {
-      id: '8',
-      bookingNo: 'FB-2025-2008',
-      customerName: 'Coastal Enterprises',
-      origin: 'Kochi',
-      destination: 'Colombo',
-      cargoType: 'Textiles',
-      weight: 13500,
-      volume: 42,
-      transportMode: 'sea',
-      carrier: 'Sri Lanka Shipping',
-      bookingDate: '2025-10-10',
-      pickupDate: '2025-10-15',
-      expectedDelivery: '2025-10-18',
-      status: 'cancelled',
-      bookingAmount: 215000,
-      containerNo: 'SLSL5432109',
-      vesselFlight: 'SL PEARL - V.890',
-      billOfLading: 'BL-2025-2109',
-      customsStatus: 'pending',
-      trackingUrl: '',
-      contactPerson: 'Lakshmi Iyer',
-      contactPhone: '+91-93210-98765'
-    }
-  ];
+  const [bookings, setBookings] = useState<FreightBooking[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getFreightCharges();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setBookings((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          bookingNo: r.bookingNo ?? r.chargeNumber ?? r.referenceNo ?? '',
+          customerName: r.customerName ?? r.customer ?? '',
+          origin: r.origin ?? '',
+          destination: r.destination ?? '',
+          cargoType: r.cargoType ?? '',
+          weight: Number(r.weight ?? 0),
+          volume: Number(r.volume ?? 0),
+          transportMode: (r.transportMode ?? r.mode ?? 'road') as FreightBooking['transportMode'],
+          carrier: r.carrier ?? r.carrierName ?? '',
+          bookingDate: r.bookingDate ?? r.createdAt ?? '',
+          pickupDate: r.pickupDate ?? '',
+          expectedDelivery: r.expectedDelivery ?? '',
+          status: (r.status ?? 'pending') as FreightBooking['status'],
+          bookingAmount: Number(r.bookingAmount ?? r.totalCharge ?? r.amount ?? 0),
+          containerNo: r.containerNo ?? '',
+          vesselFlight: r.vesselFlight ?? '',
+          billOfLading: r.billOfLading ?? '',
+          customsStatus: (r.customsStatus ?? 'not-required') as FreightBooking['customsStatus'],
+          trackingUrl: r.trackingUrl ?? '',
+          contactPerson: r.contactPerson ?? '',
+          contactPhone: r.contactPhone ?? '',
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load bookings');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const bookingStats = {
     total: bookings.length,
@@ -799,6 +646,11 @@ For real-time updates, enable notifications above.
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
     FileSearch,
     Search,
@@ -34,103 +35,56 @@ const auditStats = {
     avgVariance: 3.2
 };
 
-const auditRecords = [
-    {
-        id: 'AUD-2024-0089',
-        invoiceNo: 'INV-2024-5612',
-        carrier: 'Emirates Logistics',
-        shipmentId: 'SHP-2024-1203',
-        originalAmount: 48500,
-        auditedAmount: 45200,
-        variance: -3300,
-        varianceType: 'Overcharge',
-        status: 'Disputed',
-        auditDate: '2024-01-20',
-        category: 'Weight Discrepancy'
-    },
-    {
-        id: 'AUD-2024-0088',
-        invoiceNo: 'INV-2024-5608',
-        carrier: 'Fast Track Shipping',
-        shipmentId: 'SHP-2024-1198',
-        originalAmount: 32000,
-        auditedAmount: 32000,
-        variance: 0,
-        varianceType: 'Correct',
-        status: 'Verified',
-        auditDate: '2024-01-19',
-        category: 'N/A'
-    },
-    {
-        id: 'AUD-2024-0087',
-        invoiceNo: 'INV-2024-5601',
-        carrier: 'Gulf Express',
-        shipmentId: 'SHP-2024-1195',
-        originalAmount: 125000,
-        auditedAmount: 118500,
-        variance: -6500,
-        varianceType: 'Overcharge',
-        status: 'Recovered',
-        auditDate: '2024-01-18',
-        category: 'Fuel Surcharge Error'
-    },
-    {
-        id: 'AUD-2024-0086',
-        invoiceNo: 'INV-2024-5595',
-        carrier: 'Quick Delivery Co',
-        shipmentId: 'SHP-2024-1190',
-        originalAmount: 18500,
-        auditedAmount: 19200,
-        variance: 700,
-        varianceType: 'Undercharge',
-        status: 'Adjusted',
-        auditDate: '2024-01-17',
-        category: 'Additional Services'
-    },
-    {
-        id: 'AUD-2024-0085',
-        invoiceNo: 'INV-2024-5588',
-        carrier: 'Northern Logistics',
-        shipmentId: 'SHP-2024-1185',
-        originalAmount: 85000,
-        auditedAmount: 82300,
-        variance: -2700,
-        varianceType: 'Overcharge',
-        status: 'Pending Review',
-        auditDate: '2024-01-16',
-        category: 'Rate Discrepancy'
-    },
-    {
-        id: 'AUD-2024-0084',
-        invoiceNo: 'INV-2024-5582',
-        carrier: 'Maersk',
-        shipmentId: 'SHP-2024-1180',
-        originalAmount: 42000,
-        auditedAmount: 42000,
-        variance: 0,
-        varianceType: 'Correct',
-        status: 'Verified',
-        auditDate: '2024-01-15',
-        category: 'N/A'
-    },
-    {
-        id: 'AUD-2024-0083',
-        invoiceNo: 'INV-2024-5575',
-        carrier: 'Emirates SkyCargo',
-        shipmentId: 'SHP-2024-1175',
-        originalAmount: 156000,
-        auditedAmount: 148500,
-        variance: -7500,
-        varianceType: 'Overcharge',
-        status: 'Disputed',
-        auditDate: '2024-01-14',
-        category: 'Dimensional Weight'
-    }
-];
+interface AuditRecord {
+    id: string;
+    invoiceNo: string;
+    carrier: string;
+    shipmentId: string;
+    originalAmount: number;
+    auditedAmount: number;
+    variance: number;
+    varianceType: string;
+    status: string;
+    auditDate: string;
+    category: string;
+}
 
 export default function FreightAuditPage() {
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([]);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await LogisticsService.getFreightCharges();
+                const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+                if (cancelled) return;
+                setAuditRecords((list as any[]).map((r, i) => {
+                    const original = Number(r.originalAmount ?? r.totalCharge ?? r.amount ?? 0);
+                    const audited = Number(r.auditedAmount ?? r.approvedAmount ?? original);
+                    return {
+                        id: String(r.auditId ?? r.id ?? i),
+                        invoiceNo: r.invoiceNo ?? r.invoiceNumber ?? '',
+                        carrier: r.carrier ?? r.carrierName ?? '',
+                        shipmentId: r.shipmentId ?? r.shipmentNumber ?? '',
+                        originalAmount: original,
+                        auditedAmount: audited,
+                        variance: Number(r.variance ?? (audited - original)),
+                        varianceType: r.varianceType ?? (audited > original ? 'Undercharge' : audited < original ? 'Overcharge' : 'Correct'),
+                        status: r.status ?? 'Pending',
+                        auditDate: r.auditDate ?? r.createdAt ?? '',
+                        category: r.category ?? 'N/A',
+                    };
+                }));
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load audit records');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -160,6 +114,11 @@ export default function FreightAuditPage() {
 
     return (
         <div className="p-6 space-y-3 text-sm font-medium">
+            {loadError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                    {loadError}
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>

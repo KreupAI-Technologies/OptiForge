@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     Briefcase,
     Search,
@@ -40,128 +41,23 @@ export default function TravelExpensesMyExpensesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const expenses: TravelExpense[] = [
-        {
-            id: '1',
-            expenseId: 'TE-2025-001',
-            travelRequestId: 'TR-2025-001',
-            advanceId: 'TA-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            purpose: 'Annual HR Conference 2025',
-            destination: 'Mumbai',
-            travelDates: 'Feb 20-23, 2025',
-            totalExpenses: 42500,
-            advanceReceived: 45000,
-            balanceDue: -2500,
-            status: 'Draft',
-            submittedDate: null,
-            expenseCount: 12,
-            categories: [
-                { name: 'Flight', amount: 16300 },
-                { name: 'Hotel', amount: 18000 },
-                { name: 'Meals', amount: 4200 },
-                { name: 'Transport', amount: 2500 },
-                { name: 'Miscellaneous', amount: 1500 }
-            ]
-        },
-        {
-            id: '2',
-            expenseId: 'TE-2025-002',
-            travelRequestId: 'TR-2025-004',
-            advanceId: 'TA-2025-004',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            purpose: 'Client Meeting - Delhi',
-            destination: 'New Delhi',
-            travelDates: 'Feb 18-19, 2025',
-            totalExpenses: 22800,
-            advanceReceived: 20000,
-            balanceDue: 2800,
-            status: 'Pending Approval',
-            submittedDate: '2025-02-20',
-            expenseCount: 8,
-            categories: [
-                { name: 'Flight', amount: 8500 },
-                { name: 'Hotel', amount: 8000 },
-                { name: 'Meals', amount: 3500 },
-                { name: 'Transport', amount: 2800 }
-            ]
-        },
-        {
-            id: '3',
-            expenseId: 'TE-2025-003',
-            travelRequestId: 'TR-2025-007',
-            advanceId: 'TA-2025-005',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            purpose: 'Vendor Visit - Hyderabad',
-            destination: 'Hyderabad',
-            travelDates: 'Feb 1-3, 2025',
-            totalExpenses: 10500,
-            advanceReceived: 12000,
-            balanceDue: -1500,
-            status: 'Settled',
-            submittedDate: '2025-02-05',
-            expenseCount: 6,
-            categories: [
-                { name: 'Flight', amount: 5200 },
-                { name: 'Hotel', amount: 3500 },
-                { name: 'Meals', amount: 1200 },
-                { name: 'Transport', amount: 600 }
-            ]
-        },
-        {
-            id: '4',
-            expenseId: 'TE-2025-004',
-            travelRequestId: 'TR-2025-008',
-            advanceId: 'TA-2025-006',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            purpose: 'Equipment Training - Pune',
-            destination: 'Pune',
-            travelDates: 'Feb 5-7, 2025',
-            totalExpenses: 16500,
-            advanceReceived: 18000,
-            balanceDue: -1500,
-            status: 'Approved',
-            submittedDate: '2025-02-08',
-            expenseCount: 7,
-            categories: [
-                { name: 'Train', amount: 2800 },
-                { name: 'Hotel', amount: 9500 },
-                { name: 'Meals', amount: 2700 },
-                { name: 'Transport', amount: 1500 }
-            ]
-        },
-        {
-            id: '5',
-            expenseId: 'TE-2025-005',
-            travelRequestId: 'TR-2025-009',
-            advanceId: null,
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            purpose: 'AWS Summit Bangalore',
-            destination: 'Bangalore',
-            travelDates: 'Feb 10-11, 2025',
-            totalExpenses: 5500,
-            advanceReceived: 0,
-            balanceDue: 5500,
-            status: 'Submitted',
-            submittedDate: '2025-02-12',
-            expenseCount: 4,
-            categories: [
-                { name: 'Registration', amount: 3500 },
-                { name: 'Meals', amount: 1200 },
-                { name: 'Transport', amount: 800 }
-            ]
-        }
-    ];
+    const [expenses, setExpenses] = useState<TravelExpense[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getTravelExpenses();
+          const mapped: TravelExpense[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setExpenses(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setExpenses([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.purpose.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -209,6 +105,8 @@ export default function TravelExpensesMyExpensesPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

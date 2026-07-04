@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     Building2,
     Search,
@@ -50,128 +51,23 @@ export default function HotelBookingPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('February 2025');
 
-    const bookings: HotelBooking[] = [
-        {
-            id: '1',
-            bookingId: 'HB-2025-001',
-            travelRequestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            hotelName: 'Taj Lands End',
-            hotelRating: 5,
-            city: 'Mumbai',
-            address: 'Bandstand, Bandra West',
-            checkInDate: '2025-02-20',
-            checkOutDate: '2025-02-23',
-            nights: 3,
-            roomType: 'Deluxe',
-            roomCount: 1,
-            ratePerNight: 12000,
-            totalAmount: 36000,
-            status: 'Confirmed',
-            confirmationNumber: 'TAJ123456',
-            amenities: ['WiFi', 'Breakfast', 'Parking', 'Gym'],
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-10'
-        },
-        {
-            id: '2',
-            bookingId: 'HB-2025-002',
-            travelRequestId: 'TR-2025-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            hotelName: 'ITC Grand Chola',
-            hotelRating: 5,
-            city: 'Chennai',
-            address: 'Guindy',
-            checkInDate: '2025-02-25',
-            checkOutDate: '2025-02-26',
-            nights: 1,
-            roomType: 'Standard',
-            roomCount: 2,
-            ratePerNight: 8500,
-            totalAmount: 17000,
-            status: 'Requested',
-            confirmationNumber: null,
-            amenities: ['WiFi', 'Breakfast'],
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-11'
-        },
-        {
-            id: '3',
-            bookingId: 'HB-2025-003',
-            travelRequestId: 'TR-2025-003',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            hotelName: 'Marina Bay Sands',
-            hotelRating: 5,
-            city: 'Singapore',
-            address: 'Marina Bay',
-            checkInDate: '2025-03-10',
-            checkOutDate: '2025-03-15',
-            nights: 5,
-            roomType: 'Suite',
-            roomCount: 1,
-            ratePerNight: 35000,
-            totalAmount: 175000,
-            status: 'Requested',
-            confirmationNumber: null,
-            amenities: ['WiFi', 'Breakfast', 'Pool', 'Spa'],
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-12'
-        },
-        {
-            id: '4',
-            bookingId: 'HB-2025-004',
-            travelRequestId: 'TR-2025-004',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            hotelName: 'The Oberoi',
-            hotelRating: 5,
-            city: 'New Delhi',
-            address: 'Dr. Zakir Hussain Marg',
-            checkInDate: '2025-02-18',
-            checkOutDate: '2025-02-19',
-            nights: 1,
-            roomType: 'Deluxe',
-            roomCount: 1,
-            ratePerNight: 15000,
-            totalAmount: 15000,
-            status: 'Confirmed',
-            confirmationNumber: 'OB789012',
-            amenities: ['WiFi', 'Breakfast', 'Parking'],
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-09'
-        },
-        {
-            id: '5',
-            bookingId: 'HB-2025-005',
-            travelRequestId: 'TR-2025-007',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            hotelName: 'Hyatt Regency',
-            hotelRating: 4,
-            city: 'Hyderabad',
-            address: 'HITEC City',
-            checkInDate: '2025-02-01',
-            checkOutDate: '2025-02-03',
-            nights: 2,
-            roomType: 'Standard',
-            roomCount: 1,
-            ratePerNight: 6500,
-            totalAmount: 13000,
-            status: 'Checked Out',
-            confirmationNumber: 'HYT345678',
-            amenities: ['WiFi', 'Breakfast'],
-            bookedBy: 'Self',
-            bookingDate: '2025-01-28'
-        }
-    ];
+    const [bookings, setBookings] = useState<HotelBooking[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getBookings('hotel');
+          const mapped: HotelBooking[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setBookings(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBookings([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredBookings = bookings.filter(booking => {
         const matchesSearch = booking.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -223,6 +119,8 @@ export default function HotelBookingPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
