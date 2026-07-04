@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, Package, Truck, CheckCircle, Clock, AlertTriangle, User, Weight, Maximize } from 'lucide-react';
 
 interface LoadingBay {
@@ -26,104 +27,42 @@ export default function LoadingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  const loadingBays: LoadingBay[] = [
-    {
-      id: '1',
-      bayNo: 'BAY-01',
-      bayName: 'Loading Bay 1',
-      status: 'loading',
-      currentShipment: 'OB-2025-0531',
-      vehicleNo: 'TN-01-AB-1234',
-      driverName: 'Rajesh Kumar',
-      startTime: '2025-10-21 08:30',
-      estimatedEnd: '2025-10-21 10:00',
-      loadedItems: 5,
-      totalItems: 8,
-      loadedWeight: 1250,
-      totalWeight: 2000,
-      progress: 62.5
-    },
-    {
-      id: '2',
-      bayNo: 'BAY-02',
-      bayName: 'Loading Bay 2',
-      status: 'loading',
-      currentShipment: 'OB-2025-0536',
-      vehicleNo: 'TN-06-KL-2345',
-      driverName: 'Mohammed Ali',
-      startTime: '2025-10-21 09:00',
-      estimatedEnd: '2025-10-21 10:45',
-      loadedItems: 3,
-      totalItems: 7,
-      loadedWeight: 890,
-      totalWeight: 1850,
-      progress: 42.9
-    },
-    {
-      id: '3',
-      bayNo: 'BAY-03',
-      bayName: 'Loading Bay 3',
-      status: 'occupied',
-      currentShipment: 'OB-2025-0532',
-      vehicleNo: 'TN-02-CD-5678',
-      driverName: 'Suresh Reddy',
-      startTime: '2025-10-21 10:00',
-      estimatedEnd: '2025-10-21 11:15',
-      loadedItems: 0,
-      totalItems: 5,
-      loadedWeight: 0,
-      totalWeight: 1420,
-      progress: 0
-    },
-    {
-      id: '4',
-      bayNo: 'BAY-04',
-      bayName: 'Loading Bay 4',
-      status: 'available',
-      currentShipment: '',
-      vehicleNo: '',
-      driverName: '',
-      startTime: '',
-      estimatedEnd: '',
-      loadedItems: 0,
-      totalItems: 0,
-      loadedWeight: 0,
-      totalWeight: 0,
-      progress: 0
-    },
-    {
-      id: '5',
-      bayNo: 'BAY-05',
-      bayName: 'Loading Bay 5',
-      status: 'available',
-      currentShipment: '',
-      vehicleNo: '',
-      driverName: '',
-      startTime: '',
-      estimatedEnd: '',
-      loadedItems: 0,
-      totalItems: 0,
-      loadedWeight: 0,
-      totalWeight: 0,
-      progress: 0
-    },
-    {
-      id: '6',
-      bayNo: 'BAY-06',
-      bayName: 'Loading Bay 6',
-      status: 'maintenance',
-      currentShipment: '',
-      vehicleNo: '',
-      driverName: '',
-      startTime: '',
-      estimatedEnd: '',
-      loadedItems: 0,
-      totalItems: 0,
-      loadedWeight: 0,
-      totalWeight: 0,
-      progress: 0
-    }
-  ];
+  const [loadingBays, setLoadingBays] = useState<LoadingBay[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getShipments();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setLoadingBays((list as any[]).map((r, i) => {
+          const loaded = Number(r.loadedItems ?? 0);
+          const total = Number(r.totalItems ?? r.itemCount ?? 0);
+          return {
+            id: String(r.id ?? i),
+            bayNo: r.bayNo ?? r.dockDoor ?? '',
+            bayName: r.bayName ?? '',
+            status: (r.status ?? 'available') as LoadingBay['status'],
+            currentShipment: r.currentShipment ?? r.shipmentNumber ?? '',
+            vehicleNo: r.vehicleNo ?? r.vehicleNumber ?? '',
+            driverName: r.driverName ?? '',
+            startTime: r.startTime ?? r.scheduledTime ?? '',
+            estimatedEnd: r.estimatedEnd ?? '',
+            loadedItems: loaded,
+            totalItems: total,
+            loadedWeight: Number(r.loadedWeight ?? 0),
+            totalWeight: Number(r.totalWeight ?? r.weight ?? 0),
+            progress: Number(r.progress ?? (total ? Math.round((loaded / total) * 100) : 0)),
+          };
+        }));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load loading bays');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredBays = loadingBays.filter(bay => {
     const matchesSearch = bay.bayNo.toLowerCase().includes(searchQuery.toLowerCase()) ||

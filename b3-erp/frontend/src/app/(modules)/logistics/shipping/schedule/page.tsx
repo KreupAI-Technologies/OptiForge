@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
     Calendar,
     Clock,
@@ -22,92 +23,18 @@ import {
 } from 'lucide-react';
 
 // Mock Schedule Data
-const scheduleData = [
-    {
-        id: 'SHP-2024-1201',
-        time: '08:00',
-        customer: 'ABC Manufacturing',
-        destination: 'Dubai Industrial City',
-        carrier: 'Emirates Logistics',
-        vehicle: 'TRK-4521',
-        items: 12,
-        weight: '2,450 kg',
-        status: 'On Time',
-        dock: 'Dock A1'
-    },
-    {
-        id: 'SHP-2024-1202',
-        time: '09:30',
-        customer: 'Global Tech Solutions',
-        destination: 'Jebel Ali Free Zone',
-        carrier: 'Fast Track Shipping',
-        vehicle: 'TRK-7823',
-        items: 8,
-        weight: '1,200 kg',
-        status: 'Loading',
-        dock: 'Dock B2'
-    },
-    {
-        id: 'SHP-2024-1203',
-        time: '10:00',
-        customer: 'Premier Industries',
-        destination: 'Abu Dhabi Port',
-        carrier: 'Gulf Express',
-        vehicle: 'TRK-3345',
-        items: 25,
-        weight: '4,800 kg',
-        status: 'Delayed',
-        dock: 'Dock A3'
-    },
-    {
-        id: 'SHP-2024-1204',
-        time: '11:30',
-        customer: 'Tech Innovations LLC',
-        destination: 'Sharjah Industrial',
-        carrier: 'Quick Delivery Co',
-        vehicle: 'TRK-9912',
-        items: 5,
-        weight: '650 kg',
-        status: 'Scheduled',
-        dock: 'Dock C1'
-    },
-    {
-        id: 'SHP-2024-1205',
-        time: '13:00',
-        customer: 'Al Falak Trading',
-        destination: 'RAK Free Trade Zone',
-        carrier: 'Northern Logistics',
-        vehicle: 'TRK-5567',
-        items: 18,
-        weight: '3,200 kg',
-        status: 'Scheduled',
-        dock: 'Dock B1'
-    },
-    {
-        id: 'SHP-2024-1206',
-        time: '14:30',
-        customer: 'Sunrise Electronics',
-        destination: 'Ajman Port',
-        carrier: 'Coast Shipping',
-        vehicle: 'TRK-2234',
-        items: 10,
-        weight: '1,800 kg',
-        status: 'Scheduled',
-        dock: 'Dock A2'
-    },
-    {
-        id: 'SHP-2024-1207',
-        time: '16:00',
-        customer: 'Desert Steel Works',
-        destination: 'Dubai South',
-        carrier: 'Heavy Haul Transport',
-        vehicle: 'TRK-8801',
-        items: 3,
-        weight: '8,500 kg',
-        status: 'Scheduled',
-        dock: 'Dock D1'
-    }
-];
+interface ScheduleShipment {
+    id: string;
+    time: string;
+    customer: string;
+    destination: string;
+    carrier: string;
+    vehicle: string;
+    items: number;
+    weight: string;
+    status: string;
+    dock: string;
+}
 
 const dockStatus = [
     { dock: 'Dock A1', status: 'Occupied', shipment: 'SHP-2024-1201', eta: '08:45' },
@@ -122,6 +49,34 @@ const dockStatus = [
 export default function ShippingSchedulePage() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+    const [scheduleData, setScheduleData] = useState<ScheduleShipment[]>([]);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await LogisticsService.getShipments();
+                const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+                if (cancelled) return;
+                setScheduleData((list as any[]).map((r, i) => ({
+                    id: String(r.shipmentNumber ?? r.id ?? i),
+                    time: r.scheduledTime ?? r.pickupTime ?? r.time ?? '',
+                    customer: r.customerName ?? r.customer ?? '',
+                    destination: r.destination ?? r.destinationAddress ?? '',
+                    carrier: r.carrier ?? r.carrierName ?? r.transportCompany ?? '',
+                    vehicle: r.vehicleNumber ?? r.vehicle ?? '',
+                    items: Number(r.itemCount ?? r.items ?? 0),
+                    weight: r.weight != null ? String(r.weight) : '',
+                    status: r.status ?? 'Scheduled',
+                    dock: r.dock ?? r.dockDoor ?? '',
+                })));
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load schedule');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -148,6 +103,11 @@ export default function ShippingSchedulePage() {
 
     return (
         <div className="p-6 space-y-3 text-sm font-medium">
+            {loadError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                    {loadError}
+                </div>
+            )}
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>

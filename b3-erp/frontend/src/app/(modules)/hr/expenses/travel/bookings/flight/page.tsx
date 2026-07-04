@@ -46,113 +46,23 @@ export default function FlightBookingPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('February 2025');
 
-    const bookings: FlightBooking[] = [
-        {
-            id: '1',
-            bookingId: 'FB-2025-001',
-            travelRequestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            airline: 'IndiGo',
-            flightNumber: '6E 234',
-            fromAirport: 'BLR',
-            toAirport: 'BOM',
-            departureDate: '2025-02-20',
-            departureTime: '08:30',
-            arrivalTime: '10:15',
-            class: 'Economy',
-            fare: 8500,
-            status: 'Ticketed',
-            pnr: 'ABC123',
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-10'
-        },
-        {
-            id: '2',
-            bookingId: 'FB-2025-002',
-            travelRequestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            airline: 'IndiGo',
-            flightNumber: '6E 567',
-            fromAirport: 'BOM',
-            toAirport: 'BLR',
-            departureDate: '2025-02-23',
-            departureTime: '19:45',
-            arrivalTime: '21:30',
-            class: 'Economy',
-            fare: 7800,
-            status: 'Ticketed',
-            pnr: 'XYZ456',
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-10'
-        },
-        {
-            id: '3',
-            bookingId: 'FB-2025-003',
-            travelRequestId: 'TR-2025-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            airline: 'Air India',
-            flightNumber: 'AI 505',
-            fromAirport: 'BLR',
-            toAirport: 'MAA',
-            departureDate: '2025-02-25',
-            departureTime: '07:00',
-            arrivalTime: '08:00',
-            class: 'Economy',
-            fare: 4500,
-            status: 'Confirmed',
-            pnr: null,
-            bookedBy: 'Self',
-            bookingDate: '2025-02-11'
-        },
-        {
-            id: '4',
-            bookingId: 'FB-2025-004',
-            travelRequestId: 'TR-2025-003',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            airline: 'Singapore Airlines',
-            flightNumber: 'SQ 508',
-            fromAirport: 'BLR',
-            toAirport: 'SIN',
-            departureDate: '2025-03-10',
-            departureTime: '14:30',
-            arrivalTime: '21:15',
-            class: 'Business',
-            fare: 85000,
-            status: 'Pending',
-            pnr: null,
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-12'
-        },
-        {
-            id: '5',
-            bookingId: 'FB-2025-005',
-            travelRequestId: 'TR-2025-004',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            airline: 'Vistara',
-            flightNumber: 'UK 815',
-            fromAirport: 'BLR',
-            toAirport: 'DEL',
-            departureDate: '2025-02-18',
-            departureTime: '06:15',
-            arrivalTime: '09:00',
-            class: 'Premium Economy',
-            fare: 12500,
-            status: 'Ticketed',
-            pnr: 'VIS789',
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-09'
-        }
-    ];
+    const [bookings, setBookings] = useState<FlightBooking[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getBookings('flight');
+          const mapped: FlightBooking[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setBookings(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBookings([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredBookings = bookings.filter(booking => {
         const matchesSearch = booking.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -192,6 +102,8 @@ export default function FlightBookingPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

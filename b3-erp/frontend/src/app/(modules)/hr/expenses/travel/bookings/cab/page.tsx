@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     Car,
     Search,
@@ -47,152 +48,23 @@ export default function CabBookingPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('upcoming');
 
-    const bookings: CabBooking[] = [
-        {
-            id: '1',
-            bookingId: 'CB-2025-001',
-            travelRequestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            cabType: 'Sedan',
-            vendor: 'Ola Corporate',
-            pickupLocation: 'Bangalore Airport (BLR)',
-            dropLocation: 'Taj Lands End, Mumbai',
-            pickupDate: '2025-02-20',
-            pickupTime: '10:30',
-            tripType: 'One Way',
-            estimatedDistance: 25,
-            estimatedFare: 800,
-            actualFare: null,
-            status: 'Scheduled',
-            driverName: null,
-            driverPhone: null,
-            vehicleNumber: null,
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-10'
-        },
-        {
-            id: '2',
-            bookingId: 'CB-2025-002',
-            travelRequestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            cabType: 'Sedan',
-            vendor: 'Ola Corporate',
-            pickupLocation: 'Taj Lands End, Mumbai',
-            dropLocation: 'Mumbai Airport (BOM)',
-            pickupDate: '2025-02-23',
-            pickupTime: '17:00',
-            tripType: 'One Way',
-            estimatedDistance: 28,
-            estimatedFare: 850,
-            actualFare: null,
-            status: 'Scheduled',
-            driverName: null,
-            driverPhone: null,
-            vehicleNumber: null,
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-10'
-        },
-        {
-            id: '3',
-            bookingId: 'CB-2025-003',
-            travelRequestId: 'TR-2025-004',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            cabType: 'SUV',
-            vendor: 'Uber for Business',
-            pickupLocation: 'Delhi Airport (DEL)',
-            dropLocation: 'The Oberoi, New Delhi',
-            pickupDate: '2025-02-18',
-            pickupTime: '09:15',
-            tripType: 'Round Trip',
-            estimatedDistance: 40,
-            estimatedFare: 2500,
-            actualFare: null,
-            status: 'Driver Assigned',
-            driverName: 'Rajesh Kumar',
-            driverPhone: '+91 98765 43210',
-            vehicleNumber: 'DL 01 AB 1234',
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-09'
-        },
-        {
-            id: '4',
-            bookingId: 'CB-2025-004',
-            travelRequestId: 'TR-2025-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            cabType: 'Sedan',
-            vendor: 'Ola Corporate',
-            pickupLocation: 'Chennai Airport (MAA)',
-            dropLocation: 'ITC Grand Chola',
-            pickupDate: '2025-02-25',
-            pickupTime: '08:15',
-            tripType: 'Hourly',
-            estimatedDistance: 15,
-            estimatedFare: 1500,
-            actualFare: null,
-            status: 'Scheduled',
-            driverName: null,
-            driverPhone: null,
-            vehicleNumber: null,
-            bookedBy: 'Self',
-            bookingDate: '2025-02-11'
-        },
-        {
-            id: '5',
-            bookingId: 'CB-2025-005',
-            travelRequestId: 'TR-2025-007',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            cabType: 'Hatchback',
-            vendor: 'Ola Corporate',
-            pickupLocation: 'Hyderabad Office',
-            dropLocation: 'Hyderabad Airport (HYD)',
-            pickupDate: '2025-02-03',
-            pickupTime: '16:00',
-            tripType: 'One Way',
-            estimatedDistance: 35,
-            estimatedFare: 650,
-            actualFare: 720,
-            status: 'Completed',
-            driverName: 'Venkat Rao',
-            driverPhone: '+91 87654 32109',
-            vehicleNumber: 'TS 07 CD 5678',
-            bookedBy: 'Self',
-            bookingDate: '2025-02-01'
-        },
-        {
-            id: '6',
-            bookingId: 'CB-2025-006',
-            travelRequestId: 'TR-2025-008',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            cabType: 'Premium',
-            vendor: 'Uber for Business',
-            pickupLocation: 'Bangalore Office',
-            dropLocation: 'Bangalore Airport (BLR)',
-            pickupDate: '2025-02-12',
-            pickupTime: '05:00',
-            tripType: 'One Way',
-            estimatedDistance: 45,
-            estimatedFare: 1800,
-            actualFare: 1950,
-            status: 'Completed',
-            driverName: 'Suresh Gowda',
-            driverPhone: '+91 76543 21098',
-            vehicleNumber: 'KA 01 EF 9012',
-            bookedBy: 'Travel Desk',
-            bookingDate: '2025-02-10'
-        }
-    ];
+    const [bookings, setBookings] = useState<CabBooking[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getBookings('cab');
+          const mapped: CabBooking[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setBookings(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBookings([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredBookings = bookings.filter(booking => {
         const matchesSearch = booking.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -237,6 +109,8 @@ export default function CabBookingPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
