@@ -1677,6 +1677,36 @@ export class AfterSalesManagementService {
   static async getServicePayments(): Promise<ServicePayment[]> {
     return apiRequest<ServicePayment[]>(`/after-sales/billing/payments`);
   }
+
+  // Service Requests (live via NestJS domain backend)
+  static async getServiceRequestsLive(filters?: {
+    status?: string;
+    priority?: string;
+    customerId?: string;
+    assignedTo?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.priority) params.set('priority', filters.priority);
+    if (filters?.customerId) params.set('customerId', filters.customerId);
+    if (filters?.assignedTo) params.set('assignedTo', filters.assignedTo);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest<any[]>(`/after-sales/service-requests${qs}`);
+  }
+
+  // Installations (live via NestJS domain backend)
+  static async getInstallationsLive(filters?: {
+    status?: string;
+    customerId?: string;
+    teamLeaderId?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.customerId) params.set('customerId', filters.customerId);
+    if (filters?.teamLeaderId) params.set('teamLeaderId', filters.teamLeaderId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest<any[]>(`/after-sales/installations${qs}`);
+  }
 }
 
 export default AfterSalesManagementService;

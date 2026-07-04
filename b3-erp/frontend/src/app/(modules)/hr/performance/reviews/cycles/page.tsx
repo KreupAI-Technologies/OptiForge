@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Target,
     Plus,
@@ -30,54 +30,49 @@ interface ReviewCycle {
 export default function ReviewCyclesPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [cycles, setCycles] = useState<ReviewCycle[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    // Mock Data
-    const cycles: ReviewCycle[] = [
-        {
-            id: '1',
-            name: 'Annual Performance Review 2024',
-            type: 'Annual',
-            startDate: '2024-12-01',
-            endDate: '2025-01-31',
-            status: 'Active',
-            participants: 150,
-            completionRate: 65,
-            description: 'End of year performance assessment for all permanent employees.'
-        },
-        {
-            id: '2',
-            name: 'Mid-Year Review 2025',
-            type: 'Mid-Year',
-            startDate: '2025-06-01',
-            endDate: '2025-07-15',
-            status: 'Planned',
-            participants: 155,
-            completionRate: 0,
-            description: 'Mid-year check-in and goal adjustment.'
-        },
-        {
-            id: '3',
-            name: 'Q1 Probation Review',
-            type: 'Probation',
-            startDate: '2025-01-10',
-            endDate: '2025-01-25',
-            status: 'Active',
-            participants: 12,
-            completionRate: 40,
-            description: 'Probation confirmation reviews for Q4 hires.'
-        },
-        {
-            id: '4',
-            name: 'Annual Performance Review 2023',
-            type: 'Annual',
-            startDate: '2023-12-01',
-            endDate: '2024-01-31',
-            status: 'Completed',
-            participants: 140,
-            completionRate: 100,
-            description: 'Archived review cycle for previous year.'
-        }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+                const res = await fetch(`${base}/hr/transfers-promotions`, {
+                    headers: { 'x-company-id': 'test' },
+                    cache: 'no-store',
+                });
+                if (!res.ok) throw new Error('Failed to load review cycles');
+                const raw = await res.json();
+                const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
+                const mapped: ReviewCycle[] = rows.map((r) => ({
+                    id: r?.id ?? '',
+                    name: r?.name ?? r?.title ?? 'Review Cycle',
+                    type: r?.type ?? 'Annual',
+                    startDate: r?.startDate ?? r?.effectiveDate ?? r?.createdAt ?? '',
+                    endDate: r?.endDate ?? '',
+                    status: r?.status ?? 'Planned',
+                    participants: r?.participants ?? 0,
+                    completionRate: r?.completionRate ?? 0,
+                    description: r?.description ?? r?.remarks ?? '',
+                }));
+                if (!cancelled) setCycles(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setCycles([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredCycles = cycles.filter(cycle => {
         const matchesSearch = cycle.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -141,6 +136,17 @@ export default function ReviewCyclesPage() {
                         </select>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                        Loading…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        {loadError}
+                    </div>
+                )}
 
                 {/* Cycles Grid */}
                 <div className="grid grid-cols-1 gap-3">

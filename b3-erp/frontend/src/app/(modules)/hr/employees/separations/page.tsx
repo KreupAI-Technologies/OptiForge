@@ -34,65 +34,52 @@ export default function SeparationsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
+    const [separations, setSeparations] = useState<Separation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const separations: Separation[] = [
-        {
-            id: '1',
-            employeeId: 'EMP045',
-            employeeName: 'Jessica Brown',
-            designation: 'Procurement Specialist',
-            department: 'Procurement',
-            separationType: 'Resignation',
-            initiationDate: '2025-01-15',
-            lastWorkingDay: '2025-02-15',
-            noticePeriod: 30,
-            status: 'In Progress',
-            exitInterviewScheduled: true,
-            clearanceStatus: 60
-        },
-        {
-            id: '2',
-            employeeId: 'EMP078',
-            employeeName: 'Thomas Anderson',
-            designation: 'Warehouse Associate',
-            department: 'Warehouse',
-            separationType: 'Termination',
-            initiationDate: '2025-01-20',
-            lastWorkingDay: '2025-01-27',
-            noticePeriod: 7,
-            status: 'Pending Clearance',
-            exitInterviewScheduled: false,
-            clearanceStatus: 80
-        },
-        {
-            id: '3',
-            employeeId: 'EMP012',
-            employeeName: 'Rachel Green',
-            designation: 'Marketing Manager',
-            department: 'Marketing',
-            separationType: 'Retirement',
-            initiationDate: '2024-12-01',
-            lastWorkingDay: '2025-01-31',
-            noticePeriod: 60,
-            status: 'Completed',
-            exitInterviewScheduled: true,
-            clearanceStatus: 100
-        },
-        {
-            id: '4',
-            employeeId: 'CON015',
-            employeeName: 'Kevin Ross',
-            designation: 'IT Consultant',
-            department: 'IT',
-            separationType: 'End of Contract',
-            initiationDate: '2025-01-01',
-            lastWorkingDay: '2025-01-31',
-            noticePeriod: 0,
-            status: 'Initiated',
-            exitInterviewScheduled: false,
-            clearanceStatus: 20
-        }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+                const res = await fetch(`${base}/hr/offboarding-tasks`, {
+                    headers: { 'x-company-id': 'test' },
+                    cache: 'no-store',
+                });
+                if (!res.ok) throw new Error('Failed to load separations');
+                const raw = await res.json();
+                const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
+                const mapped: Separation[] = rows.map((r) => ({
+                    id: r.id ?? '',
+                    employeeId: r.employeeId ?? r.employeeCode ?? '',
+                    employeeName: r.employeeName ?? r.fullName ?? '',
+                    designation: r.designation ?? r.position ?? '',
+                    department: r.department ?? r.departmentName ?? '',
+                    separationType: r.separationType ?? r.type ?? 'Resignation',
+                    initiationDate: r.initiationDate ?? r.createdAt ?? '',
+                    lastWorkingDay: r.lastWorkingDay ?? r.dueDate ?? '',
+                    noticePeriod: r.noticePeriod ?? 0,
+                    status: r.status ?? 'Initiated',
+                    exitInterviewScheduled: r.exitInterviewScheduled ?? false,
+                    clearanceStatus: r.clearanceStatus ?? r.progress ?? 0,
+                }));
+                if (!cancelled) setSeparations(mapped);
+            } catch (e) {
+                if (!cancelled) {
+                    setLoadError(e instanceof Error ? e.message : 'Failed to load');
+                    setSeparations([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const filteredSeparations = separations.filter(sep => {
         const matchesSearch = sep.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -153,6 +140,17 @@ export default function SeparationsPage() {
                         </button>
                     </div>
                 </div>
+
+                {isLoading && (
+                    <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                        Loading…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        {loadError}
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">

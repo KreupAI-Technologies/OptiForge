@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AttendanceService } from '@/services/attendance.service';
+import { LeaveService } from '@/services/leave.service';
 import {
   ArrowLeft,
   Edit2,
@@ -193,45 +195,57 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
     lastUpdated: '2024-01-20',
   };
 
-  // Mock attendance records
-  const attendanceRecords: AttendanceRecord[] = [
-    { date: '2024-01-20', checkIn: '09:05', checkOut: '18:15', status: 'present', hoursWorked: 9.17 },
-    { date: '2024-01-19', checkIn: '08:58', checkOut: '18:02', status: 'present', hoursWorked: 9.07 },
-    { date: '2024-01-18', checkIn: '09:10', checkOut: '18:20', status: 'present', hoursWorked: 9.17 },
-    { date: '2024-01-17', checkIn: '09:00', checkOut: '13:00', status: 'half_day', hoursWorked: 4.0 },
-    { date: '2024-01-16', checkIn: '-', checkOut: '-', status: 'leave', hoursWorked: 0 },
-  ];
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Mock leave records
-  const leaveRecords: LeaveRecord[] = [
-    {
-      id: '1',
-      leaveType: 'Sick Leave',
-      startDate: '2024-01-16',
-      endDate: '2024-01-16',
-      days: 1,
-      status: 'approved',
-      reason: 'Medical appointment',
-    },
-    {
-      id: '2',
-      leaveType: 'Casual Leave',
-      startDate: '2023-12-22',
-      endDate: '2023-12-24',
-      days: 3,
-      status: 'approved',
-      reason: 'Personal work',
-    },
-    {
-      id: '3',
-      leaveType: 'Earned Leave',
-      startDate: '2023-11-10',
-      endDate: '2023-11-12',
-      days: 3,
-      status: 'approved',
-      reason: 'Family function',
-    },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [attRaw, leaveRaw] = await Promise.all([
+          AttendanceService.getAttendance({ employeeId: params.id }),
+          LeaveService.getAllLeaveApplicationsRaw(),
+        ]);
+        const fmtTime = (v: any) =>
+          v ? new Date(v).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
+        const attMapped: AttendanceRecord[] = (attRaw as any[]).map((a) => ({
+          date: (a?.date ? new Date(a.date).toISOString().slice(0, 10) : '') ?? '',
+          checkIn: fmtTime(a?.checkInTime),
+          checkOut: fmtTime(a?.checkOutTime),
+          status: (a?.status ?? 'present') as AttendanceRecord['status'],
+          hoursWorked: a?.totalHours ?? 0,
+        }));
+        const leaveMapped: LeaveRecord[] = (leaveRaw as any[]).map((l) => ({
+          id: l?.id ?? '',
+          leaveType: l?.leaveType ?? l?.leaveTypeName ?? l?.type ?? '',
+          startDate: l?.startDate ?? l?.fromDate ?? '',
+          endDate: l?.endDate ?? l?.toDate ?? '',
+          days: l?.days ?? l?.numberOfDays ?? 0,
+          status: (l?.status ?? 'pending') as LeaveRecord['status'],
+          reason: l?.reason ?? '',
+        }));
+        if (!cancelled) {
+          setAttendanceRecords(attMapped);
+          setLeaveRecords(leaveMapped);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setAttendanceRecords([]);
+          setLeaveRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   // Activity timeline
   const activities = [
@@ -379,6 +393,17 @@ export default function ViewEmployeePage({ params }: { params: { id: string } })
             </button>
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-5 gap-2 mb-3">

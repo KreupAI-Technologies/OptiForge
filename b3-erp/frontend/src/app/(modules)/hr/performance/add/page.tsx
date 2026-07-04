@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { EmployeeService } from '@/services/employee.service';
 import {
   ArrowLeft,
   Save,
@@ -86,54 +87,43 @@ export default function AddPerformancePage() {
   const [newTraining, setNewTraining] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Mock employees data
-  const allEmployees: Employee[] = [
-    {
-      id: '1',
-      employeeId: 'B3-0001',
-      name: 'Rajesh Kumar',
-      department: 'Production',
-      position: 'Production Supervisor',
-      email: 'rajesh.kumar@b3erp.com',
-      phone: '+91 98765 43210',
-    },
-    {
-      id: '2',
-      employeeId: 'B3-0002',
-      name: 'Priya Sharma',
-      department: 'Quality Control',
-      position: 'QC Inspector',
-      email: 'priya.sharma@b3erp.com',
-      phone: '+91 98765 43211',
-    },
-    {
-      id: '3',
-      employeeId: 'B3-0003',
-      name: 'Amit Patel',
-      department: 'Procurement',
-      position: 'Procurement Officer',
-      email: 'amit.patel@b3erp.com',
-      phone: '+91 98765 43212',
-    },
-    {
-      id: '4',
-      employeeId: 'B3-0004',
-      name: 'Sunita Reddy',
-      department: 'Finance',
-      position: 'Accounts Manager',
-      email: 'sunita.reddy@b3erp.com',
-      phone: '+91 98765 43213',
-    },
-    {
-      id: '5',
-      employeeId: 'B3-0005',
-      name: 'Vikram Singh',
-      department: 'HR',
-      position: 'HR Executive',
-      email: 'vikram.singh@b3erp.com',
-      phone: '+91 98765 43214',
-    },
-  ];
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await EmployeeService.getAllEmployeesRaw();
+        const mapped: Employee[] = (raw as any[]).map((r) => ({
+          id: r?.id ?? '',
+          employeeId: r?.employeeCode ?? r?.employeeId ?? '',
+          name:
+            r?.fullName ??
+            [r?.firstName, r?.lastName].filter(Boolean).join(' ').trim() ??
+            '',
+          department: r?.departmentName ?? r?.department ?? '',
+          position: r?.designation ?? r?.position ?? '',
+          email: r?.email ?? '',
+          phone: r?.phone ?? r?.mobile ?? '',
+        }));
+        if (!cancelled) setAllEmployees(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setAllEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredEmployees = allEmployees.filter(
     (emp) =>
@@ -351,6 +341,17 @@ export default function AddPerformancePage() {
             </div>
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         {/* Overall Rating Card */}
         <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-3 text-white shadow-lg mb-3">

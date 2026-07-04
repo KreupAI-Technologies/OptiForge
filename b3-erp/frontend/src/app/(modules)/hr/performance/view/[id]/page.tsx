@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { printCurrentView } from '@/lib/export';
 import {
@@ -113,36 +113,45 @@ export default function ViewPerformancePage({ params }: { params: { id: string }
     nextReviewDate: '2026-01-15',
   };
 
-  const activities: Activity[] = [
-    {
-      id: '1',
-      action: 'Review Completed',
-      user: 'Anil Mehta',
-      timestamp: '2025-10-15 04:30 PM',
-      details: 'Performance review marked as completed',
-    },
-    {
-      id: '2',
-      action: 'Employee Feedback Added',
-      user: 'Rajesh Kumar',
-      timestamp: '2025-10-15 02:15 PM',
-      details: 'Employee provided comments and acknowledgment',
-    },
-    {
-      id: '3',
-      action: 'Review Submitted',
-      user: 'Anil Mehta',
-      timestamp: '2025-10-15 11:00 AM',
-      details: 'Performance review submitted for approval',
-    },
-    {
-      id: '4',
-      action: 'Review Created',
-      user: 'Vikram Singh',
-      timestamp: '2025-10-10 10:30 AM',
-      details: 'Performance review initiated for Q3 2025',
-    },
-  ];
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+        const res = await fetch(`${base}/hr/transfers-promotions`, {
+          headers: { 'x-company-id': 'test' },
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error('Failed to load activity');
+        const raw = await res.json();
+        const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
+        const mapped: Activity[] = rows.map((r) => ({
+          id: r?.id ?? '',
+          action: r?.action ?? r?.type ?? r?.status ?? 'Activity',
+          user: r?.user ?? r?.requestedBy ?? r?.approvedBy ?? '',
+          timestamp: r?.timestamp ?? r?.effectiveDate ?? r?.createdAt ?? '',
+          details: r?.details ?? r?.remarks ?? r?.reason ?? '',
+        }));
+        if (!cancelled) setActivities(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setActivities([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -268,6 +277,17 @@ export default function ViewPerformancePage({ params }: { params: { id: string }
             )}
           </div>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            Loading…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-3">
