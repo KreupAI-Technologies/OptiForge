@@ -239,10 +239,21 @@ export default function DowntimeDashboardPage() {
     setIsDeleteOpen(true);
   };
 
-  const handleDeleteSubmit = (reason: string) => {
-    console.log('Deleting event:', selectedEvent?.id, 'Reason:', reason);
-    // TODO: Implement API call
-    setIsDeleteOpen(false);
+  const handleDeleteSubmit = async (reason: string) => {
+    const event = selectedEvent;
+    if (!event) {
+      setIsDeleteOpen(false);
+      return;
+    }
+    try {
+      await ProductionOrphanService.deleteDowntimeRecord(event.id);
+      setDowntimeEvents(prev => prev.filter(e => e.id !== event.id));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete downtime event');
+    } finally {
+      setIsDeleteOpen(false);
+      setSelectedEvent(null);
+    }
   };
 
   const handleQuickAnalysis = () => {

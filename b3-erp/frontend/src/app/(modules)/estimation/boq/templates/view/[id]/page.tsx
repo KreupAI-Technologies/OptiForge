@@ -4,6 +4,7 @@ import React from 'react';
 import { ArrowLeft, Edit, Copy, Download, Trash2, Calendar, User, Hash, TrendingUp } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
+import { estimationTemplateService } from '@/services/estimation-template.service';
 
 // Mock data - would come from API
 const templateData = {
@@ -149,10 +150,15 @@ export default function ViewBOQTemplate() {
     exportToCsv(`boq-template-${templateData.templateCode}`, templateData.items);
   };
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
-      console.log('Deleting template:', templateId);
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await estimationTemplateService.deleteBoqTemplate(templateId);
       router.push('/estimation/boq/templates');
+    } catch (err) {
+      alert('Failed to delete template. Please try again.');
     }
   };
 

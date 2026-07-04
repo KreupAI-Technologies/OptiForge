@@ -104,6 +104,13 @@ class ProcurementOperationsService {
     });
   }
 
+  async deleteNotification(id: string): Promise<void> {
+    await fetch(`${API_BASE_URL}/procurement/notifications/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   async getBudgets(
     companyId = 'default',
     budgetType?: string,

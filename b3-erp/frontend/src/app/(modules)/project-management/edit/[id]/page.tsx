@@ -51,6 +51,7 @@ import {
   FavoriteTemplateModal,
 } from '@/components/project-management/TemplatesModals';
 import { useProjectContext } from '@/context/ProjectContext';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 // Field help content
 const FIELD_HELP = {
@@ -513,10 +514,18 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
     setSelectedTemplate(null);
   };
 
-  const handleDeleteTemplate = () => {
-    console.log('Deleting template:', selectedTemplate);
-    setShowDeleteTemplateModal(false);
-    setSelectedTemplate(null);
+  const handleDeleteTemplate = async () => {
+    const templateId = selectedTemplate?.id;
+    try {
+      if (templateId) {
+        await projectManagementService.deletePmTemplate(String(templateId));
+      }
+    } catch (err) {
+      alert('Failed to delete template. Please try again.');
+    } finally {
+      setShowDeleteTemplateModal(false);
+      setSelectedTemplate(null);
+    }
   };
 
   const handleTemplateSettings = (data: any) => {

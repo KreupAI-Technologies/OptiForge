@@ -191,11 +191,26 @@ export default function MRPPlannedOrdersPage() {
     setIsCreateOpen(false);
   };
 
-  const handleApproveSubmit = (data: any) => {
-    // TODO: Implement API call to approve order
-    console.log('Approving order:', selectedOrder?.plannedOrderNumber, data);
-    setIsApproveOpen(false);
-    setSelectedOrder(null);
+  const handleApproveSubmit = async (data: any) => {
+    const order = selectedOrder;
+    if (!order) {
+      setIsApproveOpen(false);
+      return;
+    }
+    try {
+      await ProductionOrphanService.updatePlannedOrder(order.id, {
+        status: 'Approved',
+        ...(data ?? {}),
+      });
+      setPlannedOrders(prev =>
+        prev.map(o => (o.id === order.id ? { ...o, status: 'approved' } : o)),
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to approve order');
+    } finally {
+      setIsApproveOpen(false);
+      setSelectedOrder(null);
+    }
   };
 
   const handleConvertSubmit = (data: any) => {

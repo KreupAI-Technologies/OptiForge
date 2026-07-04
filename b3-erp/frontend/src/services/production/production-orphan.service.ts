@@ -30,6 +30,30 @@ async function post<T = any>(path: string, body: any): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function put<T = any>(path: string, body: any): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function del(path: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+}
+
 /**
  * Each method returns the raw backend array (typed as any[]). Pages apply a
  * defensive transform from the raw ORM shape into their local interface.
@@ -43,9 +67,13 @@ export const ProductionOrphanService = {
 
   // GET production/planned-orders
   getPlannedOrders: () => request<any[]>('/production/planned-orders'),
+  // PUT production/planned-orders/:id (used to approve — set status)
+  updatePlannedOrder: (id: string, body: any) => put<any>(`/production/planned-orders/${id}`, body),
 
   // GET production/downtime-records
   getDowntimeRecords: () => request<any[]>('/production/downtime-records'),
+  // DELETE production/downtime-records/:id
+  deleteDowntimeRecord: (id: string) => del(`/production/downtime-records/${id}`),
 
   // GET production/maintenance-logs
   getMaintenanceLogs: () => request<any[]>('/production/maintenance-logs'),

@@ -41,7 +41,7 @@ export default function ActivityTimelinePage() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const raw = (await crmService.activities.getAll()) as any[];
+        const raw = (await crmService.activityRecords.getAll()) as any[];
         const list = Array.isArray(raw) ? raw : [];
         const mapped: TimelineActivity[] = list.map((a) => ({
           id: String(a?.id ?? ''),
@@ -99,7 +99,7 @@ export default function ActivityTimelinePage() {
     if (!deleteTarget) return;
     const { id } = deleteTarget;
     try {
-      await crmService.activities.delete(id);
+      await crmService.activityRecords.delete(id);
       setTimelineActivities((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       setLoadError('Failed to delete activity. Please try again.');

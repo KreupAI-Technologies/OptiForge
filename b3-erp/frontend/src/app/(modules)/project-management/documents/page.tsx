@@ -939,10 +939,22 @@ export default function DocumentsPage() {
     setShowTagModal(false);
   };
 
-  const handleDelete = () => {
-    console.log('Deleting document:', selectedDocument?.id);
-    setShowDeleteModal(false);
-    setSelectedDocument(null);
+  const handleDelete = async () => {
+    const doc = selectedDocument;
+    if (!doc) {
+      setShowDeleteModal(false);
+      return;
+    }
+    try {
+      await projectManagementService.deletePmDocument(String(doc.id));
+      setMockDocuments(prev => prev.filter(d => d.id !== doc.id));
+      setSelectedDocuments(prev => prev.filter(d => d.id !== doc.id));
+    } catch (err) {
+      alert('Failed to delete document. Please try again.');
+    } finally {
+      setShowDeleteModal(false);
+      setSelectedDocument(null);
+    }
   };
 
   const handlePreview = () => {

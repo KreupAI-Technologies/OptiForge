@@ -183,8 +183,14 @@ export default function NotificationCenter() {
     console.log('Marking all as read')
   }
 
-  const deleteNotification = (id: string) => {
-    console.log('Deleting notification:', id)
+  const deleteNotification = async (id: string) => {
+    try {
+      await procurementOperationsService.deleteNotification(id)
+      setNotifications(prev => prev.filter(n => n.id !== id))
+      setSelectedNotifications(prev => prev.filter(n => n !== id))
+    } catch (e) {
+      setError('Unable to delete notification.')
+    }
   }
 
   const toggleNotificationSelection = (id: string) => {

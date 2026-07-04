@@ -61,6 +61,11 @@ export class EstimationTemplateService {
     }
     return (res as EstimateTemplate) ?? null;
   }
+
+  // DELETE /estimation/templates/boq/:id — remove a BOQ template.
+  async deleteBoqTemplate(id: string): Promise<void> {
+    await apiClient.delete(`${this.baseUrl}/boq/${id}`);
+  }
 }
 
 export const estimationTemplateService = new EstimationTemplateService();

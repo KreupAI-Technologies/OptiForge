@@ -174,8 +174,14 @@ export default function ProcurementRequisitionsPage() {
     console.log('Editing requisition:', id)
   }
 
-  const handleApprove = (id: string) => {
-    console.log('Approving requisition:', id)
+  const handleApprove = async (id: string) => {
+    try {
+      await purchaseRequisitionService.approveRequisition(id)
+      await loadRequisitions()
+    } catch (err) {
+      console.error('Error approving requisition:', err)
+      setError('Failed to approve requisition. Please try again.')
+    }
   }
 
   if (isLoading) {

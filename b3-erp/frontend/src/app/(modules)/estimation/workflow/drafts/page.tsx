@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import {
   FileText,
   Edit2,
@@ -50,10 +51,15 @@ export default function EstimateWorkflowDraftsPage() {
     router.push(`/estimation/workflow/drafts/create?copy=${draftId}`)
   }
 
-  const handleDeleteDraft = (draftId: string, projectName: string) => {
-    if (confirm(`Are you sure you want to delete draft "${projectName}"? This action cannot be undone.`)) {
-      console.log('Deleting draft:', draftId)
-      // Would make API call to delete
+  const handleDeleteDraft = async (draftId: string, projectName: string) => {
+    if (!confirm(`Are you sure you want to delete draft "${projectName}"? This action cannot be undone.`)) {
+      return
+    }
+    try {
+      await costEstimateService.delete('default', draftId)
+      setDrafts(prev => prev.filter(d => d.id !== draftId))
+    } catch (err) {
+      alert('Failed to delete draft. Please try again.')
     }
   }
 
@@ -61,7 +67,7 @@ export default function EstimateWorkflowDraftsPage() {
     router.push(`/estimation/workflow/send/${draftId}`)
   }
 
-  const [drafts] = useState<DraftEstimate[]>([
+  const [drafts, setDrafts] = useState<DraftEstimate[]>([
     {
       id: 'DRAFT-001',
       estimateNumber: 'EST-2025-0145',
