@@ -52,111 +52,61 @@ const quoteStats = {
     avgResponseTime: '2.3 days'
 };
 
-const quotes = [
-    {
-        id: 'QUO-2024-0156',
-        customer: 'ABC Manufacturing',
-        origin: 'Dubai, UAE',
-        destination: 'Riyadh, KSA',
-        weight: '2,500 kg',
-        mode: 'Road',
-        requestDate: '2024-01-20',
-        validUntil: '2024-02-20',
-        amount: 45000,
-        status: 'Pending',
-        carrier: 'Emirates Logistics',
-        transitTime: '3-4 days'
-    },
-    {
-        id: 'QUO-2024-0155',
-        customer: 'Tech Innovations LLC',
-        origin: 'Abu Dhabi, UAE',
-        destination: 'Mumbai, India',
-        weight: '850 kg',
-        mode: 'Sea',
-        requestDate: '2024-01-19',
-        validUntil: '2024-02-19',
-        amount: 28500,
-        status: 'Approved',
-        carrier: 'Gulf Shipping',
-        transitTime: '12-15 days'
-    },
-    {
-        id: 'QUO-2024-0154',
-        customer: 'Global Tech Solutions',
-        origin: 'Jebel Ali, UAE',
-        destination: 'Singapore',
-        weight: '3,200 kg',
-        mode: 'Air',
-        requestDate: '2024-01-18',
-        validUntil: '2024-01-28',
-        amount: 125000,
-        status: 'Approved',
-        carrier: 'Emirates SkyCargo',
-        transitTime: '2-3 days'
-    },
-    {
-        id: 'QUO-2024-0153',
-        customer: 'Premier Industries',
-        origin: 'Dubai, UAE',
-        destination: 'London, UK',
-        weight: '1,800 kg',
-        mode: 'Air',
-        requestDate: '2024-01-17',
-        validUntil: '2024-01-27',
-        amount: 98000,
-        status: 'Expired',
-        carrier: 'Etihad Cargo',
-        transitTime: '2-3 days'
-    },
-    {
-        id: 'QUO-2024-0152',
-        customer: 'Al Falak Trading',
-        origin: 'Sharjah, UAE',
-        destination: 'Doha, Qatar',
-        weight: '4,500 kg',
-        mode: 'Road',
-        requestDate: '2024-01-16',
-        validUntil: '2024-02-16',
-        amount: 35000,
-        status: 'Approved',
-        carrier: 'Fast Track Shipping',
-        transitTime: '2-3 days'
-    },
-    {
-        id: 'QUO-2024-0151',
-        customer: 'Sunrise Electronics',
-        origin: 'Dubai, UAE',
-        destination: 'New York, USA',
-        weight: '650 kg',
-        mode: 'Air',
-        requestDate: '2024-01-15',
-        validUntil: '2024-01-25',
-        amount: 85000,
-        status: 'Rejected',
-        carrier: 'FedEx',
-        transitTime: '3-4 days',
-        rejectionReason: 'Price too high'
-    },
-    {
-        id: 'QUO-2024-0150',
-        customer: 'Desert Steel Works',
-        origin: 'Jebel Ali, UAE',
-        destination: 'Chennai, India',
-        weight: '12,000 kg',
-        mode: 'Sea',
-        requestDate: '2024-01-14',
-        validUntil: '2024-02-14',
-        amount: 42000,
-        status: 'Pending',
-        carrier: 'Maersk',
-        transitTime: '10-12 days'
-    }
-];
-
 export default function FreightQuotesPage() {
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
+
+    const [quotes, setQuotes] = useState<FreightQuote[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = (await LogisticsService.getFreightCharges()) as any[];
+                const list = Array.isArray(raw) ? raw : [];
+                const mapped: FreightQuote[] = list.map((r, idx) => ({
+                    id: r?.id ?? r?.quoteId ?? r?.chargeId ?? `QUO-${idx + 1}`,
+                    customer: r?.customer ?? r?.customerName ?? '',
+                    origin: r?.origin ?? '',
+                    destination: r?.destination ?? '',
+                    weight: r?.weight ?? '',
+                    mode: r?.mode ?? '',
+                    requestDate: r?.requestDate ?? '',
+                    validUntil: r?.validUntil ?? '',
+                    amount: Number(r?.amount ?? r?.totalAmount ?? 0),
+                    status: r?.status ?? 'Pending',
+                    carrier: r?.carrier ?? '',
+                    transitTime: r?.transitTime ?? '',
+                    rejectionReason: r?.rejectionReason ?? undefined,
+                }));
+                if (!cancelled) setQuotes(mapped);
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load freight quotes');
+                    setQuotes([]);
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        };
+        load();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const quoteStats = {
+        total: quotes.length,
+        pending: quotes.filter(q => q.status === 'Pending').length,
+        approved: quotes.filter(q => q.status === 'Approved').length,
+        rejected: quotes.filter(q => q.status === 'Rejected').length,
+        totalValue: quotes.reduce((sum, q) => sum + q.amount, 0),
+        avgResponseTime: '—',
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
