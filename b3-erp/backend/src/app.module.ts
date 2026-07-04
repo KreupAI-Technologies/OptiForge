@@ -18,6 +18,8 @@ import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { CommonMastersModule } from './modules/common-masters/common-masters.module';
+import { CollaborationModule } from './modules/collaboration/collaboration.module';
+import { PortalModule } from './modules/portal/portal.module';
 import { CoreModule } from './modules/core/core.module';
 import { CPQModule } from './modules/cpq/cpq.module';
 import { CrmModule } from './modules/crm/crm.module';
@@ -25,6 +27,7 @@ import { EstimationModule } from './modules/estimation/estimation.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { HrModule } from './modules/hr/hr.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { IotModule } from './modules/iot/iot.module';
 import { ItAdminModule } from './modules/it-admin/it-admin.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -126,6 +129,9 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     AuthModule,
     PrismaModule,
     CommonMastersModule,
+    CollaborationModule,
+    PortalModule,
+    IotModule,
   ],
   providers: [
     {

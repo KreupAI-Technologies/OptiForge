@@ -21,4 +21,5 @@ export const supportPagesService = {
   async getSlaSettings(): Promise<any> { return await request('/support/sla/settings'); },
   async getTeamAgents(): Promise<any[]> { return asArray(await request('/support/team/agents')); },
   async getOmnichannel(): Promise<any[]> { return asArray(await request('/support/omnichannel')); },
+  async getReportTemplates(): Promise<any[]> { return asArray(await request('/support/report-templates')); },
 };

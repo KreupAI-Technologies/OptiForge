@@ -1,11 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Wifi, Activity, Thermometer, Droplets, Zap, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { iotService } from '@/services/iot.service';
 
-export default function IoTPage() {
-    const devices = [
+interface IoTDevice {
+    id: string;
+    name: string;
+    status: string;
+    temp: string;
+    vibration: string;
+    power: string;
+    uptime: string;
+    lastPing: string;
+}
+
+const FALLBACK_DEVICES: IoTDevice[] = [
         {
             id: 'DEV-001',
             name: 'CNC Milling Unit A',

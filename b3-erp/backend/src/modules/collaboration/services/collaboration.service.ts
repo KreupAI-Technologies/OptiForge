@@ -31,7 +31,7 @@ export class CollaborationService {
   async findFolders(companyId?: string): Promise<any[]> {
     const cid = companyId || 'test';
     return this.safeQuery(
-      `SELECT * FROM collab_folders WHERE company_id = $1 ORDER BY updated_at DESC LIMIT 500`,
+      `SELECT * FROM collab_folders WHERE "companyId" = $1 ORDER BY "updatedAt" DESC LIMIT 500`,
       [cid],
     );
   }
@@ -39,7 +39,7 @@ export class CollaborationService {
   async findFiles(companyId?: string): Promise<any[]> {
     const cid = companyId || 'test';
     return this.safeQuery(
-      `SELECT * FROM collab_files WHERE company_id = $1 ORDER BY updated_at DESC LIMIT 500`,
+      `SELECT * FROM collab_files WHERE "companyId" = $1 ORDER BY "updatedAt" DESC LIMIT 500`,
       [cid],
     );
   }
@@ -47,7 +47,7 @@ export class CollaborationService {
   async findChannels(companyId?: string): Promise<any[]> {
     const cid = companyId || 'test';
     return this.safeQuery(
-      `SELECT * FROM collab_channels WHERE company_id = $1 ORDER BY last_message_at DESC NULLS LAST, updated_at DESC LIMIT 500`,
+      `SELECT * FROM collab_channels WHERE "companyId" = $1 ORDER BY "lastMessageAt" DESC NULLS LAST, "updatedAt" DESC LIMIT 500`,
       [cid],
     );
   }
@@ -56,12 +56,12 @@ export class CollaborationService {
     const cid = companyId || 'test';
     if (channelId) {
       return this.safeQuery(
-        `SELECT * FROM collab_messages WHERE company_id = $1 AND channel_id = $2 ORDER BY sent_at ASC, created_at ASC LIMIT 500`,
+        `SELECT * FROM collab_messages WHERE "companyId" = $1 AND "channelId" = $2 ORDER BY "sentAt" ASC, "createdAt" ASC LIMIT 500`,
         [cid, channelId],
       );
     }
     return this.safeQuery(
-      `SELECT * FROM collab_messages WHERE company_id = $1 ORDER BY sent_at ASC, created_at ASC LIMIT 500`,
+      `SELECT * FROM collab_messages WHERE "companyId" = $1 ORDER BY "sentAt" ASC, "createdAt" ASC LIMIT 500`,
       [cid],
     );
   }

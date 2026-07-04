@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Download, Calendar, Clock, BarChart3, Filter, Plus, Play, Settings, Eye, TrendingUp } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface Report {
   id: string
@@ -29,8 +30,46 @@ interface ScheduledReport {
 export default function SupportReports() {
   const [activeTab, setActiveTab] = useState<'templates' | 'scheduled' | 'custom'>('templates')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const reports: Report[] = [
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    supportPagesService
+      .getReportTemplates()
+      .then((rows) => {
+        if (!active) return
+        const mapped: Report[] = (Array.isArray(rows) ? rows : []).map((r: any, i: number) => ({
+          id: String(r?.id ?? i + 1),
+          name: r?.name ?? 'Untitled Report',
+          category: (r?.category as Report['category']) ?? 'Operations',
+          description: r?.description ?? '',
+          lastGenerated: r?.lastGenerated ?? '—',
+          frequency: (r?.frequency as Report['frequency']) ?? 'On-Demand',
+          format: Array.isArray(r?.format) ? r.format : (r?.format ? [String(r.format)] : ['PDF']),
+          recipients: Number(r?.recipients ?? 0),
+          scheduled: Boolean(r?.scheduled),
+          popularity: Number(r?.popularity ?? 0),
+        }))
+        setReports(mapped.length ? mapped : FALLBACK_REPORTS)
+        setError(null)
+      })
+      .catch(() => {
+        if (!active) return
+        setReports(FALLBACK_REPORTS)
+        setError('Live report templates unavailable — showing sample catalog.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const FALLBACK_REPORTS: Report[] = [
     {
       id: '1',
       name: 'Ticket Volume Analysis',
@@ -310,6 +349,17 @@ export default function SupportReports() {
           Create Custom Report
         </button>
       </div>
+
+      {loading && (
+        <div className="bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-500">
+          Loading report templates…
+        </div>
+      )}
+      {error && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+          {error}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
