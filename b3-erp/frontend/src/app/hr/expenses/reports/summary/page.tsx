@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { BarChart3, Download, TrendingUp, TrendingDown, Calendar, Users, Receipt, DollarSign } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { BarChart3, Download, TrendingUp, TrendingDown, Calendar, Users, Receipt, DollarSign, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { toast } from '@/hooks/use-toast';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface MonthlySummary {
   month: string;

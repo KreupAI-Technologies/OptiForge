@@ -32,231 +32,52 @@ export default function AutomationRules() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [selectedRule, setSelectedRule] = useState<AutomationRule | null>(null)
+  const [rules, setRules] = useState<AutomationRule[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const rules: AutomationRule[] = [
-    {
-      id: '1',
-      ruleId: 'AUT-001',
-      name: 'Auto-assign critical tickets to on-call engineer',
-      description: 'Automatically assigns P0 critical tickets to the current on-call engineer for immediate response',
-      trigger: {
-        type: 'Ticket Created',
-        conditions: ['Priority = P0 (Critical)', 'Category = Infrastructure']
-      },
-      actions: [
-        { type: 'Assign', details: 'Assign to on-call rotation engineer' },
-        { type: 'Notify', details: 'Send SMS to assigned engineer' },
-        { type: 'Update Status', details: 'Set status to "Acknowledged"' }
-      ],
-      priority: 1,
-      active: true,
-      executionCount: 145,
-      successRate: 98.6,
-      lastExecuted: '2024-10-21 14:32',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-01-15',
-      category: 'Assignment'
-    },
-    {
-      id: '2',
-      ruleId: 'AUT-002',
-      name: 'Escalate tickets approaching SLA breach',
-      description: 'Automatically escalates tickets to manager when SLA breach threshold reaches 85%',
-      trigger: {
-        type: 'SLA Threshold',
-        conditions: ['SLA time remaining < 15%', 'Priority = P0 or P1']
-      },
-      actions: [
-        { type: 'Escalate', details: 'Escalate to manager' },
-        { type: 'Notify', details: 'Send email to manager and team lead' },
-        { type: 'Add Tag', details: 'Add tag "SLA-At-Risk"' }
-      ],
-      priority: 2,
-      active: true,
-      executionCount: 89,
-      successRate: 100,
-      lastExecuted: '2024-10-21 12:15',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-02-01',
-      category: 'Escalation'
-    },
-    {
-      id: '3',
-      ruleId: 'AUT-003',
-      name: 'Send satisfaction survey after ticket resolution',
-      description: 'Automatically sends CSAT survey to customers 2 hours after ticket is marked as resolved',
-      trigger: {
-        type: 'Status Changed',
-        conditions: ['Status changed to "Resolved"', 'Customer type = External']
-      },
-      actions: [
-        { type: 'Send Email', details: 'Send CSAT survey email after 2 hours' }
-      ],
-      priority: 5,
-      active: true,
-      executionCount: 342,
-      successRate: 94.7,
-      lastExecuted: '2024-10-21 15:10',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-03-10',
-      category: 'Customer Feedback'
-    },
-    {
-      id: '4',
-      ruleId: 'AUT-004',
-      name: 'Auto-resolve low priority tickets after 30 days',
-      description: 'Automatically resolves P3 tickets that have been in "Pending Customer" status for 30+ days',
-      trigger: {
-        type: 'Time-based',
-        conditions: ['Status = "Pending Customer"', 'Priority = P3', 'Last update > 30 days']
-      },
-      actions: [
-        { type: 'Update Status', details: 'Change status to "Resolved - No Response"' },
-        { type: 'Notify', details: 'Send closure notification to customer' }
-      ],
-      priority: 8,
-      active: true,
-      executionCount: 67,
-      successRate: 100,
-      lastExecuted: '2024-10-20 00:00',
-      createdBy: 'Sneha Reddy',
-      createdDate: '2024-04-05',
-      category: 'Ticket Management'
-    },
-    {
-      id: '5',
-      ruleId: 'AUT-005',
-      name: 'Route network tickets to network team',
-      description: 'Automatically assigns all network-related tickets to the network support team',
-      trigger: {
-        type: 'Ticket Created',
-        conditions: ['Category = Network', 'Keywords: VPN, firewall, router, switch']
-      },
-      actions: [
-        { type: 'Assign', details: 'Assign to Network Team queue' },
-        { type: 'Add Tag', details: 'Add tag "Network"' }
-      ],
-      priority: 3,
-      active: true,
-      executionCount: 234,
-      successRate: 96.2,
-      lastExecuted: '2024-10-21 13:45',
-      createdBy: 'Rahul Verma',
-      createdDate: '2024-01-20',
-      category: 'Assignment'
-    },
-    {
-      id: '6',
-      ruleId: 'AUT-006',
-      name: 'Notify security team of security incidents',
-      description: 'Immediately notifies security team and CISO of any security-related incidents',
-      trigger: {
-        type: 'Ticket Created',
-        conditions: ['Category = Security', 'Keywords: breach, malware, phishing, vulnerability']
-      },
-      actions: [
-        { type: 'Assign', details: 'Assign to Security Team' },
-        { type: 'Notify', details: 'Send urgent notification to security team and CISO' },
-        { type: 'Update Status', details: 'Set priority to P0' }
-      ],
-      priority: 1,
-      active: true,
-      executionCount: 23,
-      successRate: 100,
-      lastExecuted: '2024-10-19 09:22',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-02-15',
-      category: 'Security'
-    },
-    {
-      id: '7',
-      ruleId: 'AUT-007',
-      name: 'Tag VIP customer tickets',
-      description: 'Automatically tags tickets from VIP customers and sets higher priority',
-      trigger: {
-        type: 'Ticket Created',
-        conditions: ['Customer = VIP', 'Account tier = Enterprise']
-      },
-      actions: [
-        { type: 'Add Tag', details: 'Add tag "VIP-Customer"' },
-        { type: 'Update Status', details: 'Increase priority by one level' },
-        { type: 'Notify', details: 'Notify account manager' }
-      ],
-      priority: 2,
-      active: true,
-      executionCount: 178,
-      successRate: 99.4,
-      lastExecuted: '2024-10-21 11:20',
-      createdBy: 'Priya Sharma',
-      createdDate: '2024-03-01',
-      category: 'Customer Management'
-    },
-    {
-      id: '8',
-      ruleId: 'AUT-008',
-      name: 'Backup reminder for unresolved tickets',
-      description: 'Sends daily reminder to agents about their unresolved tickets older than 3 days',
-      trigger: {
-        type: 'Time-based',
-        conditions: ['Daily at 9:00 AM', 'Status != Resolved', 'Age > 3 days']
-      },
-      actions: [
-        { type: 'Send Email', details: 'Send daily digest to assigned agent' }
-      ],
-      priority: 7,
-      active: false,
-      executionCount: 456,
-      successRate: 98.2,
-      lastExecuted: '2024-10-15 09:00',
-      createdBy: 'Vikram Singh',
-      createdDate: '2024-05-10',
-      category: 'Notifications'
-    },
-    {
-      id: '9',
-      ruleId: 'AUT-009',
-      name: 'Auto-link related tickets',
-      description: 'Automatically links tickets with similar titles or descriptions for better tracking',
-      trigger: {
-        type: 'Ticket Created',
-        conditions: ['Title similarity > 80%', 'Created within last 7 days']
-      },
-      actions: [
-        { type: 'Notify', details: 'Notify agent of potential related tickets' }
-      ],
-      priority: 6,
-      active: true,
-      executionCount: 89,
-      successRate: 87.6,
-      lastExecuted: '2024-10-21 10:05',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-06-01',
-      category: 'Ticket Management'
-    },
-    {
-      id: '10',
-      ruleId: 'AUT-010',
-      name: 'Escalate high-impact incidents',
-      description: 'Automatically escalates incidents affecting more than 50 users to senior management',
-      trigger: {
-        type: 'Ticket Updated',
-        conditions: ['Impacted users > 50', 'Category = Incident']
-      },
-      actions: [
-        { type: 'Escalate', details: 'Escalate to Director level' },
-        { type: 'Notify', details: 'Send SMS and email to senior management' },
-        { type: 'Update Status', details: 'Set as major incident' }
-      ],
-      priority: 1,
-      active: true,
-      executionCount: 12,
-      successRate: 100,
-      lastExecuted: '2024-10-18 14:30',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-07-15',
-      category: 'Escalation'
-    }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getAutomationRules()
+        const mapped: AutomationRule[] = raw.map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          ruleId: r.ruleId ?? r.code ?? '',
+          name: r.name ?? '',
+          description: r.description ?? '',
+          trigger: {
+            type: r.trigger?.type ?? r.triggerType ?? 'Ticket Created',
+            conditions: Array.isArray(r.trigger?.conditions)
+              ? r.trigger.conditions
+              : Array.isArray(r.conditions) ? r.conditions : [],
+          },
+          actions: Array.isArray(r.actions)
+            ? r.actions.map((a: any) => ({ type: a.type ?? 'Assign', details: a.details ?? a.description ?? '' }))
+            : [],
+          priority: r.priority ?? 0,
+          active: r.active ?? r.isActive ?? false,
+          executionCount: r.executionCount ?? 0,
+          successRate: r.successRate ?? 0,
+          lastExecuted: r.lastExecuted ?? undefined,
+          createdBy: r.createdBy ?? '',
+          createdDate: r.createdDate ?? r.createdAt ?? '',
+          category: r.category ?? '',
+        }))
+        if (!cancelled) setRules(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setRules([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const stats = [
     {

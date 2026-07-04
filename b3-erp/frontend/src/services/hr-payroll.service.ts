@@ -80,6 +80,18 @@ export const HrPayrollService = {
     );
   },
 
+  async getBonusSchemes(status?: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/bonus-schemes${withCompany({ status })}`),
+    );
+  },
+
+  async getLoanRecoveries(status?: string): Promise<any[]> {
+    return toArray(
+      await request(`/hr/loan-recoveries${withCompany({ status })}`),
+    );
+  },
+
   async getSalaryRevisions(category?: string): Promise<any[]> {
     return toArray(
       await request(`/hr/salary-revisions${withCompany({ category })}`),
