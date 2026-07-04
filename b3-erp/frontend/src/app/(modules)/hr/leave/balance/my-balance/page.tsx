@@ -65,7 +65,7 @@ export default function MyBalancePage() {
                         lapsed: r?.lapsedDays ?? 0,
                         available: r?.balanceDays ?? 0,
                         carryForward,
-                        maxAccumulation: r?.maxAccumulation ?? (entitled + carryForward) ?? 0,
+                        maxAccumulation: r?.maxAccumulation ?? (entitled + carryForward),
                     };
                 });
                 if (!cancelled) { setLeaveBalances(mapped); setTransactions([]); }
