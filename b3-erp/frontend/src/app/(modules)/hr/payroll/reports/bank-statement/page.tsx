@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Building2,
     Search,
@@ -34,78 +35,23 @@ export default function BankStatementPage() {
     const [bankFilter, setBankFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const statements: BankStatement[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            bankName: 'HDFC Bank',
-            accountNumber: '50100XXXXXX789',
-            ifscCode: 'HDFC0001234',
-            netPay: 102500,
-            transferMode: 'NEFT',
-            status: 'Processed',
-            transactionId: 'NEFT2025012800123',
-            processedDate: '2025-01-28'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            bankName: 'ICICI Bank',
-            accountNumber: '12340XXXXXX567',
-            ifscCode: 'ICIC0005678',
-            netPay: 58667,
-            transferMode: 'NEFT',
-            status: 'Processed',
-            transactionId: 'NEFT2025012800124',
-            processedDate: '2025-01-28'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            bankName: 'State Bank of India',
-            accountNumber: '32100XXXXXX890',
-            ifscCode: 'SBIN0001234',
-            netPay: 52500,
-            transferMode: 'NEFT',
-            status: 'Processed',
-            transactionId: 'NEFT2025012800125',
-            processedDate: '2025-01-28'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            bankName: 'HDFC Bank',
-            accountNumber: '50100XXXXXX456',
-            ifscCode: 'HDFC0001234',
-            netPay: 82000,
-            transferMode: 'NEFT',
-            status: 'Pending',
-            transactionId: null,
-            processedDate: null
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            bankName: 'Axis Bank',
-            accountNumber: '91800XXXXXX234',
-            ifscCode: 'UTIB0001234',
-            netPay: 68000,
-            transferMode: 'IMPS',
-            status: 'Failed',
-            transactionId: null,
-            processedDate: null
-        }
-    ];
+    const [statements, setStatements] = useState<BankStatement[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReportsBy('bank-statement');
+                const mapped: BankStatement[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setStatements(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setStatements([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const banks = Array.from(new Set(statements.map(s => s.bankName)));
 
@@ -147,6 +93,8 @@ export default function BankStatementPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

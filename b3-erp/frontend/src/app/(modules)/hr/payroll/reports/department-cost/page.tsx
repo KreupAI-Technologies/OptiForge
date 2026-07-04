@@ -34,83 +34,23 @@ export default function DepartmentCostPage() {
     const [monthFilter, setMonthFilter] = useState('January');
     const [yearFilter, setYearFilter] = useState('2025');
 
-    const departmentCosts: DepartmentCost[] = [
-        {
-            id: '1',
-            department: 'Human Resources',
-            headCount: 8,
-            grossSalary: 850000,
-            allowances: 170000,
-            bonus: 68000,
-            benefits: 102000,
-            totalCost: 1190000,
-            avgCostPerEmployee: 148750,
-            percentageOfTotal: 15.8,
-            previousMonthCost: 1150000,
-            variance: 40000,
-            variancePercentage: 3.5
-        },
-        {
-            id: '2',
-            department: 'Production',
-            headCount: 45,
-            grossSalary: 2700000,
-            allowances: 540000,
-            bonus: 135000,
-            benefits: 324000,
-            totalCost: 3699000,
-            avgCostPerEmployee: 82200,
-            percentageOfTotal: 49.2,
-            previousMonthCost: 3600000,
-            variance: 99000,
-            variancePercentage: 2.75
-        },
-        {
-            id: '3',
-            department: 'Quality Assurance',
-            headCount: 12,
-            grossSalary: 720000,
-            allowances: 144000,
-            bonus: 57600,
-            benefits: 86400,
-            totalCost: 1008000,
-            avgCostPerEmployee: 84000,
-            percentageOfTotal: 13.4,
-            previousMonthCost: 1020000,
-            variance: -12000,
-            variancePercentage: -1.2
-        },
-        {
-            id: '4',
-            department: 'Finance',
-            headCount: 6,
-            grossSalary: 540000,
-            allowances: 108000,
-            bonus: 43200,
-            benefits: 64800,
-            totalCost: 756000,
-            avgCostPerEmployee: 126000,
-            percentageOfTotal: 10.1,
-            previousMonthCost: 740000,
-            variance: 16000,
-            variancePercentage: 2.2
-        },
-        {
-            id: '5',
-            department: 'IT',
-            headCount: 10,
-            grossSalary: 680000,
-            allowances: 136000,
-            bonus: 54400,
-            benefits: 81600,
-            totalCost: 952000,
-            avgCostPerEmployee: 95200,
-            percentageOfTotal: 12.7,
-            previousMonthCost: 920000,
-            variance: 32000,
-            variancePercentage: 3.5
-        }
-    ];
+    const [departmentCosts, setDepartmentCosts] = useState<DepartmentCost[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReportsBy('department-cost');
+                const mapped: DepartmentCost[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setDepartmentCosts(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setDepartmentCosts([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const formatCurrency = (value: number) => {
         if (value >= 10000000) {
@@ -129,6 +69,8 @@ export default function DepartmentCostPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

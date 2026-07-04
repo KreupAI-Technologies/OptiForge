@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     BarChart3,
     Download,
@@ -25,17 +26,23 @@ export default function TaxReportsPage() {
     const [fiscalYear, setFiscalYear] = useState('2024-25');
     const [reportType, setReportType] = useState('monthly');
 
-    const monthlyData: TaxReportSummary[] = [
-        { month: 'April 2024', employeesWithTDS: 85, totalTDSDeducted: 450000, totalTDSDeposited: 450000, challanNumber: 'CHL240401', depositDate: '2024-05-07' },
-        { month: 'May 2024', employeesWithTDS: 87, totalTDSDeducted: 465000, totalTDSDeposited: 465000, challanNumber: 'CHL240501', depositDate: '2024-06-07' },
-        { month: 'June 2024', employeesWithTDS: 88, totalTDSDeducted: 472000, totalTDSDeposited: 472000, challanNumber: 'CHL240601', depositDate: '2024-07-07' },
-        { month: 'July 2024', employeesWithTDS: 90, totalTDSDeducted: 485000, totalTDSDeposited: 485000, challanNumber: 'CHL240701', depositDate: '2024-08-07' },
-        { month: 'August 2024', employeesWithTDS: 92, totalTDSDeducted: 498000, totalTDSDeposited: 498000, challanNumber: 'CHL240801', depositDate: '2024-09-07' },
-        { month: 'September 2024', employeesWithTDS: 93, totalTDSDeducted: 502000, totalTDSDeposited: 502000, challanNumber: 'CHL240901', depositDate: '2024-10-07' },
-        { month: 'October 2024', employeesWithTDS: 95, totalTDSDeducted: 520000, totalTDSDeposited: 520000, challanNumber: 'CHL241001', depositDate: '2024-11-07' },
-        { month: 'November 2024', employeesWithTDS: 95, totalTDSDeducted: 525000, totalTDSDeposited: 525000, challanNumber: 'CHL241101', depositDate: '2024-12-07' },
-        { month: 'December 2024', employeesWithTDS: 98, totalTDSDeducted: 540000, totalTDSDeposited: 540000, challanNumber: 'CHL241201', depositDate: '2025-01-07' }
-    ];
+    const [monthlyData, setMonthlyData] = useState<TaxReportSummary[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getTaxRecordsBy('summary');
+                const mapped: TaxReportSummary[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setMonthlyData(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setMonthlyData([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const formatCurrency = (value: number) => {
         if (value >= 100000) {
@@ -57,6 +64,8 @@ export default function TaxReportsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

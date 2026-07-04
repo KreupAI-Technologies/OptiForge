@@ -33,6 +33,11 @@ import {
   FuelRecordController,
 } from './controllers';
 import { GatePassController } from './controllers/gate-pass.controller';
+import { CarrierRateController } from './controllers/carrier-rate.controller';
+import { CarrierContractController } from './controllers/carrier-contract.controller';
+import { CrossDockOperationController } from './controllers/cross-dock-operation.controller';
+import { DockDoorController } from './controllers/dock-door.controller';
+import { YardVehicleController } from './controllers/yard-vehicle.controller';
 
 // Services
 import {
@@ -88,6 +93,11 @@ import { LogisticsManagementService } from './services/logistics-management.serv
     DeliveryCoordinationController,
     FuelRecordController,
     GatePassController,
+    CarrierRateController,
+    CarrierContractController,
+    CrossDockOperationController,
+    DockDoorController,
+    YardVehicleController,
   ],
   providers: [
     ShipmentService,

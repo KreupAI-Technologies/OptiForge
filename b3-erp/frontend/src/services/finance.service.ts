@@ -1099,9 +1099,37 @@ export class FinanceService {
     });
   }
 
+  // Invoices list (finance/invoices) — supports invoiceType/status/party filters
+  static async getInvoices(filters?: {
+    invoiceType?: string;
+    status?: string;
+    partyId?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.invoiceType) q.set('invoiceType', filters.invoiceType);
+    if (filters?.status) q.set('status', filters.status);
+    if (filters?.partyId) q.set('partyId', filters.partyId);
+    const qs = q.toString();
+    const res = await this.request<any>(`/finance/invoices${qs ? `?${qs}` : ''}`);
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
   // Invoices detail pages
   static async getInvoice(id: string): Promise<any> {
     return this.request<any>(`/finance/invoices/${id}`);
+  }
+
+  // Payables (AP vendor accounts) list
+  static async getPayables(filters?: {
+    status?: string;
+    search?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') q.set('status', filters.status);
+    if (filters?.search) q.set('search', filters.search);
+    const qs = q.toString();
+    const res = await this.request<any>(`/finance/payables${qs ? `?${qs}` : ''}`);
+    return Array.isArray(res) ? res : (res?.data ?? []);
   }
 
   // Payments detail pages

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Shield,
     Search,
@@ -29,73 +30,23 @@ export default function ESIContributionPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [monthFilter, setMonthFilter] = useState('January 2025');
 
-    const contributions: ESIContribution[] = [
-        {
-            id: '1',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            esicNumber: '31-00-123456-000-0001',
-            grossWage: 20000,
-            employeeContribution: 150,
-            employerContribution: 650,
-            totalContribution: 800,
-            month: 'January 2025',
-            isEligible: true
-        },
-        {
-            id: '2',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            esicNumber: '31-00-123456-000-0002',
-            grossWage: 18000,
-            employeeContribution: 135,
-            employerContribution: 585,
-            totalContribution: 720,
-            month: 'January 2025',
-            isEligible: true
-        },
-        {
-            id: '3',
-            employeeId: 'EMP007',
-            employeeName: 'Lisa Wong',
-            department: 'Production',
-            esicNumber: '31-00-123456-000-0003',
-            grossWage: 17500,
-            employeeContribution: 131,
-            employerContribution: 569,
-            totalContribution: 700,
-            month: 'January 2025',
-            isEligible: true
-        },
-        {
-            id: '4',
-            employeeId: 'EMP008',
-            employeeName: 'James Kumar',
-            department: 'Warehouse',
-            esicNumber: '31-00-123456-000-0004',
-            grossWage: 15000,
-            employeeContribution: 113,
-            employerContribution: 488,
-            totalContribution: 600,
-            month: 'January 2025',
-            isEligible: true
-        },
-        {
-            id: '5',
-            employeeId: 'EMP009',
-            employeeName: 'Priya Sharma',
-            department: 'Production',
-            esicNumber: '31-00-123456-000-0005',
-            grossWage: 19000,
-            employeeContribution: 143,
-            employerContribution: 618,
-            totalContribution: 760,
-            month: 'January 2025',
-            isEligible: true
-        }
-    ];
+    const [contributions, setContributions] = useState<ESIContribution[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getStatutoryBy('esi-contribution');
+                const mapped: ESIContribution[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setContributions(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setContributions([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredContributions = contributions.filter(c => {
         const matchesSearch = c.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -116,6 +67,8 @@ export default function ESIContributionPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

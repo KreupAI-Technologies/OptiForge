@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { Search, Plus, Filter, Calendar, DollarSign, Clock, AlertTriangle, TrendingUp, Download, Eye } from 'lucide-react';
 
 interface PendingBill {
@@ -19,126 +20,47 @@ interface PendingBill {
   paymentTerms: string;
 }
 
-const mockPendingBills: PendingBill[] = [
-  {
-    id: '1',
-    invoiceNumber: 'INV-2025-10-001',
-    customerName: 'Rajesh Manufacturing',
-    email: 'accounts@rajesh-mfg.com',
-    phone: '+91-9876543210',
-    amount: 45000,
-    dueDate: '2025-10-20',
-    invoiceDate: '2025-09-20',
-    status: 'overdue',
-    daysOverdue: 3,
-    serviceType: 'Annual Maintenance Contract',
-    description: 'Preventive maintenance and inspection for production line equipment',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '2',
-    invoiceNumber: 'INV-2025-10-002',
-    customerName: 'Pune Auto Parts',
-    email: 'finance@punemauto.com',
-    phone: '+91-9123456789',
-    amount: 28500,
-    dueDate: '2025-10-25',
-    invoiceDate: '2025-09-25',
-    status: 'due-soon',
-    serviceType: 'Installation & Setup',
-    description: 'Installation and calibration of new robotic assembly system',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '3',
-    invoiceNumber: 'INV-2025-10-003',
-    customerName: 'Mumbai Electronics',
-    email: 'billing@mumbaielectronics.com',
-    phone: '+91-8765432109',
-    amount: 62000,
-    dueDate: '2025-10-22',
-    invoiceDate: '2025-09-22',
-    status: 'overdue',
-    daysOverdue: 1,
-    serviceType: 'Emergency Repair',
-    description: 'Emergency on-site repair and component replacement - production line halt',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '4',
-    invoiceNumber: 'INV-2025-10-004',
-    customerName: 'Delhi Manufacturing Hub',
-    email: 'payments@delhimfg.com',
-    phone: '+91-7654321098',
-    amount: 35500,
-    dueDate: '2025-10-28',
-    invoiceDate: '2025-09-28',
-    status: 'due-soon',
-    serviceType: 'Preventive Maintenance',
-    description: 'Quarterly preventive maintenance and spare parts replacement',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '5',
-    invoiceNumber: 'INV-2025-10-005',
-    customerName: 'Bangalore Tech Solutions',
-    email: 'ap@bangaloretech.com',
-    phone: '+91-6543210987',
-    amount: 18900,
-    dueDate: '2025-10-30',
-    invoiceDate: '2025-10-01',
-    status: 'pending',
-    serviceType: 'Technical Support',
-    description: 'Extended technical support and troubleshooting services - 40 hours',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '6',
-    invoiceNumber: 'INV-2025-10-006',
-    customerName: 'Chennai Industrial',
-    email: 'finance@chennaiindustrial.com',
-    phone: '+91-5432109876',
-    amount: 51200,
-    dueDate: '2025-10-26',
-    invoiceDate: '2025-09-26',
-    status: 'overdue',
-    daysOverdue: 2,
-    serviceType: 'Equipment Replacement',
-    description: 'Supply and installation of replacement components for legacy systems',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '7',
-    invoiceNumber: 'INV-2025-10-007',
-    customerName: 'Ahmedabad Precision',
-    email: 'accounts@ahmedprecision.com',
-    phone: '+91-4321098765',
-    amount: 42300,
-    dueDate: '2025-11-05',
-    invoiceDate: '2025-10-06',
-    status: 'pending',
-    serviceType: 'Training & Documentation',
-    description: 'Staff training and comprehensive system documentation preparation',
-    paymentTerms: 'Net 30'
-  },
-  {
-    id: '8',
-    invoiceNumber: 'INV-2025-10-008',
-    customerName: 'Hyderabad Manufacturing',
-    email: 'billing@hyderabadmfg.com',
-    phone: '+91-3210987654',
-    amount: 55800,
-    dueDate: '2025-10-24',
-    invoiceDate: '2025-09-24',
-    status: 'overdue',
-    daysOverdue: 4,
-    serviceType: 'System Upgrade',
-    description: 'Complete software upgrade and firmware updates for production systems',
-    paymentTerms: 'Net 30'
-  }
-];
+function mapPendingBill(r: any): PendingBill {
+  return {
+    id: String(r?.id ?? ''),
+    invoiceNumber: r?.invoiceNumber ?? r?.invoiceNo ?? '',
+    customerName: r?.customerName ?? '',
+    email: r?.email ?? '',
+    phone: r?.phone ?? '',
+    amount: Number(r?.amount ?? r?.totalAmount ?? 0) || 0,
+    dueDate: r?.dueDate ?? '',
+    invoiceDate: r?.invoiceDate ?? r?.createdAt ?? '',
+    status: (r?.status ?? 'pending') as PendingBill['status'],
+    daysOverdue: r?.daysOverdue,
+    serviceType: r?.serviceType ?? '',
+    description: r?.description ?? '',
+    paymentTerms: r?.paymentTerms ?? '',
+  };
+}
 
 export default function PendingBillsPage() {
+  const [mockPendingBills, setMockPendingBills] = useState<PendingBill[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.invoices()) as any[];
+        if (!cancelled) setMockPendingBills(Array.isArray(raw) ? raw.map(mapPendingBill) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pending bills');
+          setMockPendingBills([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('overdue');
   const [selectedServiceType, setSelectedServiceType] = useState<string>('all');

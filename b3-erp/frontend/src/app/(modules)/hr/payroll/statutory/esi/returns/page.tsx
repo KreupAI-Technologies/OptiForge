@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     FileSpreadsheet,
     Download,
@@ -31,64 +32,23 @@ interface ESIReturn {
 export default function ESIReturnsPage() {
     const [yearFilter, setYearFilter] = useState('2024-25');
 
-    const returns: ESIReturn[] = [
-        {
-            id: '1',
-            period: 'October - December 2024',
-            contributionPeriod: 'Q3 FY24-25',
-            totalEmployees: 45,
-            totalWages: 2700000,
-            totalContribution: 108000,
-            employeeContribution: 20250,
-            employerContribution: 87750,
-            status: 'Filed',
-            filedDate: '2025-01-10',
-            dueDate: '2025-01-15',
-            challanNumber: 'ESI20242500001'
-        },
-        {
-            id: '2',
-            period: 'July - September 2024',
-            contributionPeriod: 'Q2 FY24-25',
-            totalEmployees: 42,
-            totalWages: 2520000,
-            totalContribution: 100800,
-            employeeContribution: 18900,
-            employerContribution: 81900,
-            status: 'Filed',
-            filedDate: '2024-10-12',
-            dueDate: '2024-10-15',
-            challanNumber: 'ESI20242400001'
-        },
-        {
-            id: '3',
-            period: 'April - June 2024',
-            contributionPeriod: 'Q1 FY24-25',
-            totalEmployees: 40,
-            totalWages: 2400000,
-            totalContribution: 96000,
-            employeeContribution: 18000,
-            employerContribution: 78000,
-            status: 'Filed',
-            filedDate: '2024-07-14',
-            dueDate: '2024-07-15',
-            challanNumber: 'ESI20242300001'
-        },
-        {
-            id: '4',
-            period: 'January - March 2025',
-            contributionPeriod: 'Q4 FY24-25',
-            totalEmployees: 48,
-            totalWages: 2880000,
-            totalContribution: 115200,
-            employeeContribution: 21600,
-            employerContribution: 93600,
-            status: 'Pending',
-            filedDate: null,
-            dueDate: '2025-04-15',
-            challanNumber: null
-        }
-    ];
+    const [returns, setReturns] = useState<ESIReturn[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getStatutoryBy('esi-returns');
+                const mapped: ESIReturn[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setReturns(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setReturns([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const formatCurrency = (value: number) => {
         if (value >= 100000) {
@@ -123,6 +83,8 @@ export default function ESIReturnsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

@@ -73,3 +73,120 @@ CREATE TABLE IF NOT EXISTS "logistics_fuel_records" (
   CONSTRAINT "PK_logistics_fuel_records" PRIMARY KEY ("id"),
   CONSTRAINT "UQ_logistics_fuel_records_fuelId" UNIQUE ("fuelId")
 );
+
+-- ---------------------------------------------------------------------------
+-- Carrier Rates — backing table for the carriers/rates page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_carrier_rates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "carrier" varchar(200) NOT NULL,
+  "serviceType" varchar(30) NOT NULL DEFAULT 'standard',
+  "zone" varchar(100),
+  "origin" varchar(150),
+  "destination" varchar(150),
+  "baseRate" numeric(15,2) NOT NULL DEFAULT 0,
+  "perKgRate" numeric(15,2) NOT NULL DEFAULT 0,
+  "fuelSurcharge" numeric(10,2) NOT NULL DEFAULT 0,
+  "minWeight" numeric(10,2) NOT NULL DEFAULT 0,
+  "maxWeight" numeric(10,2) NOT NULL DEFAULT 0,
+  "volumetricDivisor" numeric(10,2) NOT NULL DEFAULT 5000,
+  "transitTime" varchar(50),
+  "effectiveFrom" date,
+  "effectiveTo" date,
+  "currency" varchar(10) NOT NULL DEFAULT 'INR',
+  "isActive" boolean NOT NULL DEFAULT true,
+  "lastUpdated" date,
+  "rateChange" numeric(10,2) NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_carrier_rates" PRIMARY KEY ("id")
+);
+
+-- ---------------------------------------------------------------------------
+-- Carrier Contracts — backing table for the carriers/contracts page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_carrier_contracts" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "contractNo" varchar(50) NOT NULL,
+  "carrier" varchar(200) NOT NULL,
+  "type" varchar(100),
+  "startDate" date,
+  "endDate" date,
+  "value" numeric(18,2) NOT NULL DEFAULT 0,
+  "status" varchar(50) NOT NULL DEFAULT 'Active',
+  "routes" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "sla" varchar(100),
+  "rateType" varchar(50),
+  "baseRate" numeric(15,2) NOT NULL DEFAULT 0,
+  "renewalStatus" varchar(50),
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_carrier_contracts" PRIMARY KEY ("id")
+);
+
+-- ---------------------------------------------------------------------------
+-- Cross-Dock Operations — backing table for the warehouse/cross-dock page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_cross_dock_operations" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "operationNo" varchar(50),
+  "inboundShipment" varchar(100),
+  "outboundShipment" varchar(100),
+  "carrier" varchar(200),
+  "dockDoor" varchar(50),
+  "status" varchar(30) NOT NULL DEFAULT 'receiving',
+  "priority" varchar(20) NOT NULL DEFAULT 'medium',
+  "itemCount" integer NOT NULL DEFAULT 0,
+  "dwellTime" integer NOT NULL DEFAULT 0,
+  "scheduledTime" varchar(50),
+  "assignedTo" varchar(150),
+  "notes" text,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_cross_dock_operations" PRIMARY KEY ("id")
+);
+
+-- ---------------------------------------------------------------------------
+-- Dock Doors — backing table for the warehouse/dock page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_dock_doors" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "doorNo" varchar(50) NOT NULL,
+  "doorName" varchar(150),
+  "type" varchar(30) NOT NULL DEFAULT 'inbound',
+  "status" varchar(30) NOT NULL DEFAULT 'available',
+  "currentVehicle" varchar(100),
+  "carrier" varchar(200),
+  "waitTime" integer NOT NULL DEFAULT 0,
+  "assignedTo" varchar(150),
+  "location" varchar(150),
+  "notes" text,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_dock_doors" PRIMARY KEY ("id")
+);
+
+-- ---------------------------------------------------------------------------
+-- Yard Vehicles — backing table for the warehouse/yard page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_yard_vehicles" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "vehicleNo" varchar(50) NOT NULL,
+  "carrierName" varchar(200),
+  "driverName" varchar(150),
+  "driverPhone" varchar(50),
+  "checkInTime" varchar(50),
+  "parkingSpot" varchar(50),
+  "vehicleType" varchar(30) NOT NULL DEFAULT 'truck',
+  "status" varchar(30) NOT NULL DEFAULT 'checked-in',
+  "appointmentNo" varchar(100),
+  "dockAssigned" varchar(50),
+  "estimatedDeparture" varchar(50),
+  "waitTime" integer NOT NULL DEFAULT 0,
+  "trailerNo" varchar(50),
+  "sealNo" varchar(50),
+  "notes" text,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_yard_vehicles" PRIMARY KEY ("id")
+);

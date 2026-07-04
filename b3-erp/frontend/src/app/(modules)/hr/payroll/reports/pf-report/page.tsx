@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Shield,
     Search,
@@ -34,88 +35,23 @@ export default function PFReportPage() {
     const [monthFilter, setMonthFilter] = useState('January');
     const [yearFilter, setYearFilter] = useState('2025');
 
-    const entries: PFReportEntry[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            uan: '101234567890',
-            pfNumber: 'BGBNG00123456000001',
-            basicWage: 68750,
-            employeeContribution: 8250,
-            employerEPF: 2523,
-            employerEPS: 5727,
-            totalContribution: 16500,
-            adminCharges: 344,
-            edliCharges: 34,
-            totalDeposit: 16878
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            uan: '101234567891',
-            pfNumber: 'BGBNG00123456000002',
-            basicWage: 38333,
-            employeeContribution: 4600,
-            employerEPF: 1408,
-            employerEPS: 3192,
-            totalContribution: 9200,
-            adminCharges: 192,
-            edliCharges: 19,
-            totalDeposit: 9411
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            uan: '101234567892',
-            pfNumber: 'BGBNG00123456000003',
-            basicWage: 33750,
-            employeeContribution: 4050,
-            employerEPF: 1240,
-            employerEPS: 2810,
-            totalContribution: 8100,
-            adminCharges: 169,
-            edliCharges: 17,
-            totalDeposit: 8286
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            uan: '101234567894',
-            pfNumber: 'BGBNG00123456000005',
-            basicWage: 55000,
-            employeeContribution: 6600,
-            employerEPF: 2020,
-            employerEPS: 4580,
-            totalContribution: 13200,
-            adminCharges: 275,
-            edliCharges: 28,
-            totalDeposit: 13503
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            uan: '101234567895',
-            pfNumber: 'BGBNG00123456000006',
-            basicWage: 45000,
-            employeeContribution: 5400,
-            employerEPF: 1653,
-            employerEPS: 3747,
-            totalContribution: 10800,
-            adminCharges: 225,
-            edliCharges: 23,
-            totalDeposit: 11048
-        }
-    ];
+    const [entries, setEntries] = useState<PFReportEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReportsBy('pf');
+                const mapped: PFReportEntry[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setEntries(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEntries([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredEntries = entries.filter(entry => {
         const matchesSearch = entry.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -141,6 +77,8 @@ export default function PFReportPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

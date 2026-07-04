@@ -210,6 +210,63 @@ export class LogisticsService {
     const qs = params.toString();
     return request<any[]>(`/logistics/tracking-events${qs ? `?${qs}` : ''}`);
   }
+
+  static async getCarrierRates(filters?: {
+    carrier?: string;
+    serviceType?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.carrier) params.set('carrier', filters.carrier);
+    if (filters?.serviceType) params.set('serviceType', filters.serviceType);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/carrier-rates${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getCarrierContracts(filters?: {
+    status?: string;
+    carrier?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.carrier) params.set('carrier', filters.carrier);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/carrier-contracts${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getCrossDockOperations(filters?: {
+    status?: string;
+    priority?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.priority) params.set('priority', filters.priority);
+    const qs = params.toString();
+    return request<any[]>(
+      `/logistics/cross-dock-operations${qs ? `?${qs}` : ''}`,
+    );
+  }
+
+  static async getDockDoors(filters?: {
+    status?: string;
+    type?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.type) params.set('type', filters.type);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/dock-doors${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getYardVehicles(filters?: {
+    status?: string;
+    vehicleType?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.vehicleType) params.set('vehicleType', filters.vehicleType);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/yard-vehicles${qs ? `?${qs}` : ''}`);
+  }
 }
 
 export const logisticsService = LogisticsService;

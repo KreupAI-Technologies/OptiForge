@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Receipt,
     Search,
@@ -35,88 +36,23 @@ export default function TDSReportPage() {
     const [yearFilter, setYearFilter] = useState('2025');
     const [regimeFilter, setRegimeFilter] = useState('all');
 
-    const entries: TDSReportEntry[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            pan: 'ABCDE1234F',
-            taxRegime: 'Old',
-            grossIncome: 1650000,
-            exemptions: 150000,
-            deductions: 250000,
-            taxableIncome: 1250000,
-            annualTax: 187500,
-            tdsDeducted: 140625,
-            tdsThisMonth: 22000,
-            remainingTax: 46875
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            pan: 'FGHIJ5678K',
-            taxRegime: 'New',
-            grossIncome: 920000,
-            exemptions: 0,
-            deductions: 50000,
-            taxableIncome: 870000,
-            annualTax: 62400,
-            tdsDeducted: 46800,
-            tdsThisMonth: 8000,
-            remainingTax: 15600
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            pan: 'KLMNO9012P',
-            taxRegime: 'Old',
-            grossIncome: 810000,
-            exemptions: 100000,
-            deductions: 150000,
-            taxableIncome: 560000,
-            annualTax: 31200,
-            tdsDeducted: 23400,
-            tdsThisMonth: 6000,
-            remainingTax: 7800
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            pan: 'QRSTU3456V',
-            taxRegime: 'Old',
-            grossIncome: 1320000,
-            exemptions: 150000,
-            deductions: 200000,
-            taxableIncome: 970000,
-            annualTax: 114400,
-            tdsDeducted: 85800,
-            tdsThisMonth: 16000,
-            remainingTax: 28600
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            pan: 'WXYZ7890A',
-            taxRegime: 'New',
-            grossIncome: 1080000,
-            exemptions: 0,
-            deductions: 50000,
-            taxableIncome: 1030000,
-            annualTax: 109200,
-            tdsDeducted: 81900,
-            tdsThisMonth: 12000,
-            remainingTax: 27300
-        }
-    ];
+    const [entries, setEntries] = useState<TDSReportEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getReportsBy('tds');
+                const mapped: TDSReportEntry[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setEntries(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setEntries([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredEntries = entries.filter(entry => {
         const matchesSearch = entry.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -144,6 +80,8 @@ export default function TDSReportPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

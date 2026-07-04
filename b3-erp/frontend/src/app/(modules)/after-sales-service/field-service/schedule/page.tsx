@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { User, MapPin, Clock, Calendar, TrendingUp, X, Eye, BarChart3, CheckCircle, AlertCircle, Phone, Mail, Wrench, Navigation, Filter } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 
@@ -51,79 +52,39 @@ export default function EngineerSchedulePage() {
     setShowJobModal(true);
   };
 
-  // Mock engineer schedules
-  const engineers: EngineerSchedule[] = [
-    {
-      id: '1',
-      name: 'Rajesh Kumar',
-      status: 'On Job',
-      todayJobs: 3,
-      completedJobs: 1,
-      hoursWorked: 4.5,
-      currentJob: {
-        jobNumber: 'FS-2025-0045',
-        customer: 'Sharma Kitchens',
-        location: 'MG Road, Koramangala',
-        startTime: '09:35',
-        estimatedEnd: '11:35'
-      },
-      upcomingJobs: [
-        { jobNumber: 'FS-2025-0050', customer: 'City Cafe Express', time: '14:00', duration: 3 },
-        { jobNumber: 'FS-2025-0052', customer: 'Paradise Banquet', time: '17:00', duration: 2 }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Amit Patel',
-      status: 'In Transit',
-      todayJobs: 2,
-      completedJobs: 1,
-      hoursWorked: 3.0,
-      currentJob: {
-        jobNumber: 'FS-2025-0046',
-        customer: 'Prestige Developers',
-        location: 'Whitefield',
-        startTime: '13:30',
-        estimatedEnd: '17:30'
-      },
-      upcomingJobs: []
-    },
-    {
-      id: '3',
-      name: 'Priya Singh',
-      status: 'Available',
-      todayJobs: 2,
-      completedJobs: 1,
-      hoursWorked: 2.5,
-      upcomingJobs: [
-        { jobNumber: 'FS-2025-0047', customer: 'Royal Restaurant', time: '11:00', duration: 3 },
-        { jobNumber: 'FS-2025-0053', customer: 'Green Valley', time: '15:00', duration: 2 }
-      ]
-    },
-    {
-      id: '4',
-      name: 'Suresh Reddy',
-      status: 'Break',
-      todayJobs: 3,
-      completedJobs: 2,
-      hoursWorked: 5.0,
-      upcomingJobs: [
-        { jobNumber: 'FS-2025-0054', customer: 'Hotel Plaza', time: '14:30', duration: 2 }
-      ]
-    },
-    {
-      id: '5',
-      name: 'Neha Sharma',
-      status: 'Available',
-      todayJobs: 2,
-      completedJobs: 0,
-      hoursWorked: 0,
-      upcomingJobs: [
-        { jobNumber: 'FS-2025-0049', customer: 'Green Valley Resorts', time: '15:00', duration: 2 },
-        { jobNumber: 'FS-2025-0055', customer: 'Spice Garden', time: '17:30', duration: 1.5 }
-      ]
-    }
-  ];
+  // Engineer schedules loaded from the after-sales field-service endpoint.
+  const [engineers, setEngineers] = useState<EngineerSchedule[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.engineersSchedule()) as any[];
+        const mapped: EngineerSchedule[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: String(r?.id ?? r?.engineerId ?? ''),
+          name: r?.name ?? r?.engineerName ?? '',
+          status: (r?.status ?? 'Available') as EngineerSchedule['status'],
+          todayJobs: Number(r?.todayJobs ?? 0) || 0,
+          completedJobs: Number(r?.completedJobs ?? 0) || 0,
+          hoursWorked: Number(r?.hoursWorked ?? 0) || 0,
+          currentJob: r?.currentJob,
+          upcomingJobs: Array.isArray(r?.upcomingJobs) ? r.upcomingJobs : [],
+        }));
+        if (!cancelled) setEngineers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load engineer schedules');
+          setEngineers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {

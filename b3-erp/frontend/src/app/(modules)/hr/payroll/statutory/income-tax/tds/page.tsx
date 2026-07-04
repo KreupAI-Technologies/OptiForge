@@ -36,88 +36,23 @@ export default function TDSCalculationPage() {
     const [regimeFilter, setRegimeFilter] = useState('all');
     const [fiscalYear] = useState('2024-25');
 
-    const calculations: TDSCalculation[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            pan: 'ABCPJ1234K',
-            regime: 'Old',
-            grossIncome: 1500000,
-            exemptions: 200000,
-            deductions: 250000,
-            taxableIncome: 1050000,
-            taxLiability: 115500,
-            tdsDeducted: 86625,
-            tdsBalance: 28875,
-            monthlyTDS: 9625
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            pan: 'DEFPC5678L',
-            regime: 'New',
-            grossIncome: 800000,
-            exemptions: 0,
-            deductions: 50000,
-            taxableIncome: 750000,
-            taxLiability: 35000,
-            tdsDeducted: 26250,
-            tdsBalance: 8750,
-            monthlyTDS: 2917
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            pan: 'GHIPD9012M',
-            regime: 'Old',
-            grossIncome: 750000,
-            exemptions: 100000,
-            deductions: 150000,
-            taxableIncome: 500000,
-            taxLiability: 12500,
-            tdsDeducted: 9375,
-            tdsBalance: 3125,
-            monthlyTDS: 1042
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            pan: 'JKLPB3456N',
-            regime: 'Old',
-            grossIncome: 1200000,
-            exemptions: 150000,
-            deductions: 200000,
-            taxableIncome: 850000,
-            taxLiability: 72500,
-            tdsDeducted: 54375,
-            tdsBalance: 18125,
-            monthlyTDS: 6042
-        },
-        {
-            id: '5',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            pan: 'MNOPB7890O',
-            regime: 'New',
-            grossIncome: 900000,
-            exemptions: 0,
-            deductions: 50000,
-            taxableIncome: 850000,
-            taxLiability: 52500,
-            tdsDeducted: 39375,
-            tdsBalance: 13125,
-            monthlyTDS: 4375
-        }
-    ];
+    const [calculations, setCalculations] = useState<TDSCalculation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getTaxRecordsBy('tds');
+                const mapped: TDSCalculation[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setCalculations(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setCalculations([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredCalculations = calculations.filter(calc => {
         const matchesSearch = calc.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,6 +75,8 @@ export default function TDSCalculationPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

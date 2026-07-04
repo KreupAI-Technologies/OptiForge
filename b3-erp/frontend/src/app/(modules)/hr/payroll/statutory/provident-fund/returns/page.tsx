@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     FileSpreadsheet,
     Download,
@@ -30,60 +31,23 @@ interface PFReturn {
 export default function PFReturnsPage() {
     const [yearFilter, setYearFilter] = useState('2024-25');
 
-    const returns: PFReturn[] = [
-        {
-            id: '1',
-            month: 'December 2024',
-            period: 'Dec-2024',
-            totalEmployees: 128,
-            totalWages: 1850000,
-            totalContribution: 444000,
-            status: 'Filed',
-            filedDate: '2025-01-10',
-            dueDate: '2025-01-15',
-            trrn: 'TRRN20241200001',
-            acknowledgement: 'ACK20241200001'
-        },
-        {
-            id: '2',
-            month: 'November 2024',
-            period: 'Nov-2024',
-            totalEmployees: 125,
-            totalWages: 1820000,
-            totalContribution: 436800,
-            status: 'Filed',
-            filedDate: '2024-12-12',
-            dueDate: '2024-12-15',
-            trrn: 'TRRN20241100001',
-            acknowledgement: 'ACK20241100001'
-        },
-        {
-            id: '3',
-            month: 'October 2024',
-            period: 'Oct-2024',
-            totalEmployees: 122,
-            totalWages: 1780000,
-            totalContribution: 427200,
-            status: 'Filed',
-            filedDate: '2024-11-14',
-            dueDate: '2024-11-15',
-            trrn: 'TRRN20241000001',
-            acknowledgement: 'ACK20241000001'
-        },
-        {
-            id: '4',
-            month: 'January 2025',
-            period: 'Jan-2025',
-            totalEmployees: 130,
-            totalWages: 1880000,
-            totalContribution: 451200,
-            status: 'Pending',
-            filedDate: null,
-            dueDate: '2025-02-15',
-            trrn: null,
-            acknowledgement: null
-        }
-    ];
+    const [returns, setReturns] = useState<PFReturn[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getStatutoryBy('pf-returns');
+                const mapped: PFReturn[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setReturns(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setReturns([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const formatCurrency = (value: number) => {
         if (value >= 100000) {
@@ -118,6 +82,8 @@ export default function PFReturnsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

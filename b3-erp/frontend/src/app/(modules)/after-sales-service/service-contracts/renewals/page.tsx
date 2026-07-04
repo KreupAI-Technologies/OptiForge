@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import { Search, Eye, Edit, FileText, Phone, RefreshCw, CheckCircle, XCircle, Clock, DollarSign, TrendingUp, Users, Calendar, Shield, Bell, Download, Filter, MoreVertical, Wrench, MapPin, Star, AlertTriangle, Send, MessageSquare } from 'lucide-react';
 
@@ -42,195 +43,70 @@ interface ContractRenewal {
   priorityLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
-const mockRenewals: ContractRenewal[] = [
-  {
-    id: '1',
-    contractNumber: 'AMC-2024-0045-R1',
-    contractType: 'AMC',
-    customerId: 'CUST001',
-    customerName: 'Royal Kitchen Designs',
-    currentStartDate: '2024-11-01',
-    currentEndDate: '2025-10-31',
-    proposedStartDate: '2025-11-01',
-    proposedEndDate: '2026-10-31',
-    currentValue: 580000,
-    proposedValue: 620000,
-    increasePercentage: 6.9,
-    renewalCount: 3,
-    accountManager: 'Rajesh Kumar',
-    location: 'Mumbai, Maharashtra',
-    healthScore: 94,
-    customerSatisfaction: 4.9,
-    renewalStatus: 'under_negotiation',
-    renewalProbability: 85,
-    competitorThreat: 'low',
-    lastContactDate: '2025-10-20',
-    nextFollowUpDate: '2025-10-25',
-    proposalSentDate: '2025-10-15',
-    decisionDeadline: '2025-10-30',
-    keyChanges: ['Enhanced response time (2 hours)', 'Additional preventive maintenance', 'Extended warranty coverage'],
-    customerFeedback: 'Satisfied with current service quality. Considering proposal.',
-    internalNotes: 'Strong relationship. Customer values service quality over price.',
-    approvalStatus: 'approved',
-    approvedBy: 'Manager',
-    approvalDate: '2025-10-14',
-    riskFactors: [],
-    opportunityScore: 92,
-    technicianAssigned: 'Suresh Patel',
-    serviceVisits: 12,
-    priorityLevel: 'high'
-  },
-  {
-    id: '2',
-    contractNumber: 'CMC-2024-0078-R1',
-    contractType: 'CMC',
-    customerId: 'CUST002',
-    customerName: 'Metro Kitchen Solutions',
-    currentStartDate: '2024-12-01',
-    currentEndDate: '2025-11-30',
-    proposedStartDate: '2025-12-01',
-    proposedEndDate: '2026-11-30',
-    currentValue: 890000,
-    proposedValue: 850000,
-    increasePercentage: -4.5,
-    renewalCount: 1,
-    accountManager: 'Priya Sharma',
-    location: 'Delhi, NCR',
-    healthScore: 76,
-    customerSatisfaction: 3.8,
-    renewalStatus: 'sent_to_customer',
-    renewalProbability: 45,
-    competitorThreat: 'high',
-    lastContactDate: '2025-10-18',
-    nextFollowUpDate: '2025-10-24',
-    proposalSentDate: '2025-10-18',
-    decisionDeadline: '2025-11-15',
-    keyChanges: ['Reduced pricing for retention', 'Improved SLA terms', 'Additional technician training'],
-    customerFeedback: 'Comparing with competitor proposals. Price sensitive.',
-    internalNotes: 'High risk renewal. Customer has outstanding payment issues. Competitor threat confirmed.',
-    approvalStatus: 'approved',
-    approvedBy: 'Senior Manager',
-    approvalDate: '2025-10-17',
-    riskFactors: ['Outstanding payments', 'Competitor proposal received', 'Service quality concerns'],
-    opportunityScore: 48,
-    technicianAssigned: 'Amit Singh',
-    serviceVisits: 18,
-    priorityLevel: 'critical'
-  },
-  {
-    id: '3',
-    contractNumber: 'AMC-2024-0089-R1',
-    contractType: 'Parts & Labor',
-    customerId: 'CUST003',
-    customerName: 'Designer Kitchen Hub',
-    currentStartDate: '2025-01-01',
-    currentEndDate: '2025-12-31',
-    proposedStartDate: '2026-01-01',
-    proposedEndDate: '2026-12-31',
-    currentValue: 420000,
-    proposedValue: 450000,
-    increasePercentage: 7.1,
-    renewalCount: 2,
-    accountManager: 'Neha Gupta',
-    location: 'Bangalore, Karnataka',
-    healthScore: 89,
-    customerSatisfaction: 4.5,
-    renewalStatus: 'customer_approved',
-    renewalProbability: 95,
-    competitorThreat: 'none',
-    lastContactDate: '2025-10-18',
-    nextFollowUpDate: '2025-11-01',
-    proposalSentDate: '2025-10-10',
-    decisionDeadline: '2025-11-30',
-    keyChanges: ['Auto-renewal clause activation', 'Loyalty discount applied', 'Enhanced parts warranty'],
-    customerFeedback: 'Very satisfied with service. Ready to renew with proposed terms.',
-    internalNotes: 'Excellent relationship. Auto-renewal discussion successful.',
-    approvalStatus: 'approved',
-    approvedBy: 'Manager',
-    approvalDate: '2025-10-09',
-    riskFactors: [],
-    opportunityScore: 96,
-    technicianAssigned: 'Ravi Kumar',
-    serviceVisits: 7,
-    priorityLevel: 'medium'
-  },
-  {
-    id: '4',
-    contractNumber: 'AMC-2024-0102-R1',
-    contractType: 'Extended Warranty',
-    customerId: 'CUST004',
-    customerName: 'Elite Modular Systems',
-    currentStartDate: '2025-02-01',
-    currentEndDate: '2026-01-31',
-    proposedStartDate: '2026-02-01',
-    proposedEndDate: '2027-01-31',
-    currentValue: 750000,
-    proposedValue: 0,
-    increasePercentage: 0,
-    renewalCount: 0,
-    accountManager: 'Vikram Rao',
-    location: 'Chennai, Tamil Nadu',
-    healthScore: 82,
-    customerSatisfaction: 4.3,
-    renewalStatus: 'draft',
-    renewalProbability: 70,
-    competitorThreat: 'medium',
-    lastContactDate: '2025-09-15',
-    nextFollowUpDate: '2025-10-25',
-    proposalSentDate: '',
-    decisionDeadline: '2026-01-15',
-    keyChanges: [],
-    customerFeedback: '',
-    internalNotes: 'Renewal discussion pending. Customer evaluation in progress.',
-    approvalStatus: 'pending',
-    approvedBy: '',
-    approvalDate: '',
-    riskFactors: ['Market competition increasing', 'Price sensitivity'],
-    opportunityScore: 75,
-    technicianAssigned: 'Deepak Sharma',
-    serviceVisits: 9,
-    priorityLevel: 'high'
-  },
-  {
-    id: '5',
-    contractNumber: 'CMC-2024-0067-R1',
-    contractType: 'Pay Per Visit',
-    customerId: 'CUST005',
-    customerName: 'Premium Kitchen Works',
-    currentStartDate: '2024-11-15',
-    currentEndDate: '2025-11-14',
-    proposedStartDate: '2025-11-15',
-    proposedEndDate: '2026-11-14',
-    currentValue: 280000,
-    proposedValue: 300000,
-    increasePercentage: 7.1,
-    renewalCount: 1,
-    accountManager: 'Anita Joshi',
-    location: 'Pune, Maharashtra',
-    healthScore: 71,
-    customerSatisfaction: 3.9,
-    renewalStatus: 'rejected',
-    renewalProbability: 25,
-    competitorThreat: 'high',
-    lastContactDate: '2025-10-19',
-    nextFollowUpDate: '2025-10-26',
-    proposalSentDate: '2025-10-12',
-    decisionDeadline: '2025-11-10',
-    keyChanges: ['Competitive pricing adjustment', 'Improved response time', 'Additional service visits'],
-    customerFeedback: 'Decided to go with competitor due to better pricing.',
-    internalNotes: 'Lost to competitor. Customer cited price as primary factor.',
-    approvalStatus: 'approved',
-    approvedBy: 'Manager',
-    approvalDate: '2025-10-11',
-    riskFactors: ['Lost to competitor', 'Price sensitivity', 'Service quality issues'],
-    opportunityScore: 30,
-    technicianAssigned: 'Manoj Kumar',
-    serviceVisits: 6,
-    priorityLevel: 'low'
-  }
-];
+function mapContractRenewal(r: any): ContractRenewal {
+  const arr = (v: any) => (Array.isArray(v) ? v : []);
+  return {
+    id: String(r?.id ?? ''),
+    contractNumber: r?.contractNumber ?? r?.contractNo ?? '',
+    contractType: (r?.contractType ?? 'AMC') as ContractRenewal['contractType'],
+    customerId: String(r?.customerId ?? ''),
+    customerName: r?.customerName ?? '',
+    currentStartDate: r?.currentStartDate ?? r?.startDate ?? '',
+    currentEndDate: r?.currentEndDate ?? r?.endDate ?? '',
+    proposedStartDate: r?.proposedStartDate ?? '',
+    proposedEndDate: r?.proposedEndDate ?? '',
+    currentValue: Number(r?.currentValue ?? r?.value ?? 0) || 0,
+    proposedValue: Number(r?.proposedValue ?? 0) || 0,
+    increasePercentage: Number(r?.increasePercentage ?? 0) || 0,
+    renewalCount: Number(r?.renewalCount ?? 0) || 0,
+    accountManager: r?.accountManager ?? '',
+    location: r?.location ?? '',
+    healthScore: Number(r?.healthScore ?? 0) || 0,
+    customerSatisfaction: Number(r?.customerSatisfaction ?? 0) || 0,
+    renewalStatus: (r?.renewalStatus ?? 'draft') as ContractRenewal['renewalStatus'],
+    renewalProbability: Number(r?.renewalProbability ?? 0) || 0,
+    competitorThreat: (r?.competitorThreat ?? 'none') as ContractRenewal['competitorThreat'],
+    lastContactDate: r?.lastContactDate ?? '',
+    nextFollowUpDate: r?.nextFollowUpDate ?? '',
+    proposalSentDate: r?.proposalSentDate ?? '',
+    decisionDeadline: r?.decisionDeadline ?? '',
+    keyChanges: arr(r?.keyChanges),
+    customerFeedback: r?.customerFeedback ?? '',
+    internalNotes: r?.internalNotes ?? '',
+    approvalStatus: (r?.approvalStatus ?? 'pending') as ContractRenewal['approvalStatus'],
+    approvedBy: r?.approvedBy ?? '',
+    approvalDate: r?.approvalDate ?? '',
+    riskFactors: arr(r?.riskFactors),
+    opportunityScore: Number(r?.opportunityScore ?? 0) || 0,
+    technicianAssigned: r?.technicianAssigned ?? '',
+    serviceVisits: Number(r?.serviceVisits ?? 0) || 0,
+    priorityLevel: (r?.priorityLevel ?? 'medium') as ContractRenewal['priorityLevel'],
+  };
+}
 
 export default function ServiceContractRenewalsPage() {
+  const [mockRenewals, setMockRenewals] = useState<ContractRenewal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.contracts()) as any[];
+        if (!cancelled) setMockRenewals(Array.isArray(raw) ? raw.map(mapContractRenewal) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contract renewals');
+          setMockRenewals([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const router = useRouter();
   const [renewals, setRenewals] = useState<ContractRenewal[]>(mockRenewals);
   const [searchTerm, setSearchTerm] = useState('');

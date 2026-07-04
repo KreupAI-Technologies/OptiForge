@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   CreditCard,
   Plus,
@@ -52,156 +53,61 @@ export default function PaymentsPage() {
   const [methodFilter, setMethodFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
 
-  // Sample payments data
-  const payments: Payment[] = [
-    {
-      id: 'PMT001',
-      paymentNumber: 'PMT-2025-001',
-      paymentDate: '2025-01-15',
-      vendorName: 'ABC Suppliers Pvt Ltd',
-      vendorCode: 'VEN-001',
-      paymentMethod: 'Bank Transfer',
-      bankAccount: 'HDFC Bank - *1234',
-      referenceNumber: 'UTR202501151234567',
-      invoiceNumber: 'PINV-2025-001',
-      amount: 500000,
-      tdsDeducted: 10000,
-      netPayment: 490000,
-      status: 'Processed',
-      approvedBy: 'John Doe',
-      approvedDate: '2025-01-15',
-      processedDate: '2025-01-15',
-      description: 'Payment for raw materials purchase',
-      costCenter: 'CC-OPS-001',
-      department: 'Operations',
-      createdBy: 'Jane Smith',
-      createdDate: '2025-01-14'
-    },
-    {
-      id: 'PMT002',
-      paymentNumber: 'PMT-2025-002',
-      paymentDate: '2025-01-18',
-      vendorName: 'XYZ Contractors Ltd',
-      vendorCode: 'VEN-002',
-      paymentMethod: 'Cheque',
-      bankAccount: 'ICICI Bank - *5678',
-      referenceNumber: 'CHQ-123456',
-      invoiceNumber: 'PINV-2025-003',
-      amount: 750000,
-      tdsDeducted: 15000,
-      netPayment: 735000,
-      status: 'Approved',
-      approvedBy: 'Robert Brown',
-      approvedDate: '2025-01-18',
-      description: 'Construction work payment',
-      costCenter: 'CC-FAC-001',
-      department: 'Facilities',
-      createdBy: 'Michael Chen',
-      createdDate: '2025-01-17'
-    },
-    {
-      id: 'PMT003',
-      paymentNumber: 'PMT-2025-003',
-      paymentDate: '2025-01-20',
-      vendorName: 'DEF Services Inc',
-      vendorCode: 'VEN-003',
-      paymentMethod: 'UPI',
-      bankAccount: 'HDFC Bank - *1234',
-      referenceNumber: 'UPI202501201234567890',
-      amount: 125000,
-      tdsDeducted: 12500,
-      netPayment: 112500,
-      status: 'Processed',
-      approvedBy: 'Sarah Wilson',
-      approvedDate: '2025-01-20',
-      processedDate: '2025-01-20',
-      description: 'Professional fees for consulting',
-      costCenter: 'CC-IT-001',
-      department: 'IT',
-      createdBy: 'Emily Davis',
-      createdDate: '2025-01-19'
-    },
-    {
-      id: 'PMT004',
-      paymentNumber: 'PMT-2025-004',
-      paymentDate: '2025-01-22',
-      vendorName: 'GHI Equipment Rentals',
-      vendorCode: 'VEN-004',
-      paymentMethod: 'Bank Transfer',
-      bankAccount: 'SBI - *9012',
-      invoiceNumber: 'PINV-2025-005',
-      amount: 300000,
-      tdsDeducted: 30000,
-      netPayment: 270000,
-      status: 'Pending Approval',
-      description: 'Equipment rental for January 2025',
-      costCenter: 'CC-OPS-001',
-      department: 'Operations',
-      createdBy: 'David Martinez',
-      createdDate: '2025-01-21'
-    },
-    {
-      id: 'PMT005',
-      paymentNumber: 'PMT-2025-005',
-      paymentDate: '2025-01-25',
-      vendorName: 'JKL Logistics Pvt Ltd',
-      vendorCode: 'VEN-005',
-      paymentMethod: 'Bank Transfer',
-      bankAccount: 'HDFC Bank - *1234',
-      referenceNumber: 'UTR202501251234567',
-      invoiceNumber: 'PINV-2025-007',
-      amount: 450000,
-      tdsDeducted: 9000,
-      netPayment: 441000,
-      status: 'Processed',
-      approvedBy: 'John Doe',
-      approvedDate: '2025-01-25',
-      processedDate: '2025-01-25',
-      description: 'Transportation charges',
-      costCenter: 'CC-LOG-001',
-      department: 'Logistics',
-      createdBy: 'Lisa Anderson',
-      createdDate: '2025-01-24'
-    },
-    {
-      id: 'PMT006',
-      paymentNumber: 'PMT-2025-006',
-      paymentDate: '2025-01-28',
-      vendorName: 'MNO Office Supplies',
-      vendorCode: 'VEN-006',
-      paymentMethod: 'Credit Card',
-      bankAccount: 'HDFC Credit Card - *3456',
-      amount: 85000,
-      tdsDeducted: 0,
-      netPayment: 85000,
-      status: 'Draft',
-      description: 'Office stationery and supplies',
-      costCenter: 'CC-HR-001',
-      department: 'Human Resources',
-      createdBy: 'Patricia White',
-      createdDate: '2025-01-27'
-    },
-    {
-      id: 'PMT007',
-      paymentNumber: 'PMT-2025-007',
-      paymentDate: '2025-01-30',
-      vendorName: 'PQR Marketing Agency',
-      vendorCode: 'VEN-007',
-      paymentMethod: 'Bank Transfer',
-      bankAccount: 'ICICI Bank - *5678',
-      referenceNumber: 'UTR202501301234567',
-      invoiceNumber: 'PINV-2025-010',
-      amount: 600000,
-      tdsDeducted: 60000,
-      netPayment: 540000,
-      status: 'Failed',
-      description: 'Marketing campaign - Q1 2025',
-      costCenter: 'CC-SAL-001',
-      department: 'Sales',
-      createdBy: 'James Taylor',
-      createdDate: '2025-01-29'
-    }
-  ];
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await FinanceService.getPayments();
+        const rows = (Array.isArray(raw) ? raw : []).filter(
+          (r: any) => !r.partyType || String(r.partyType).toLowerCase() === 'vendor',
+        );
+        const methods = ['Bank Transfer', 'Cheque', 'Cash', 'Credit Card', 'UPI'];
+        const statuses = ['Draft', 'Pending Approval', 'Approved', 'Processed', 'Failed', 'Cancelled'];
+        const mapped: Payment[] = rows.map((r: any) => {
+          const amount = Number(r.amount ?? 0);
+          const tds = Number(r.tdsAmount ?? 0);
+          const method = methods.includes(r.paymentMethod) ? r.paymentMethod : 'Bank Transfer';
+          const status = statuses.includes(r.status) ? r.status : 'Draft';
+          const firstAlloc = Array.isArray(r.invoiceAllocations) ? r.invoiceAllocations[0] : undefined;
+          return {
+            id: r.id ?? '',
+            paymentNumber: r.paymentNumber ?? '',
+            paymentDate: r.paymentDate ? String(r.paymentDate).slice(0, 10) : '',
+            vendorName: r.partyName ?? '',
+            vendorCode: r.partyId ?? '',
+            paymentMethod: method as Payment['paymentMethod'],
+            bankAccount: r.bankName ?? r.bankAccountId ?? '',
+            referenceNumber: r.transactionReference ?? r.referenceNumber ?? undefined,
+            invoiceNumber: firstAlloc?.invoiceNumber ?? undefined,
+            amount,
+            tdsDeducted: tds,
+            netPayment: Number(r.netPayment ?? (amount - tds)),
+            status: status as Payment['status'],
+            approvedBy: r.approvedBy ?? undefined,
+            description: r.notes ?? r.description ?? '',
+            createdBy: r.createdBy ?? '',
+            createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+          };
+        });
+        if (!cancelled) setPayments(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load payments');
+          setPayments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
 
   const filteredPayments = payments.filter(payment => {
     const matchesSearch =
@@ -288,6 +194,12 @@ export default function PaymentsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 p-3">
       <div className="w-full h-full px-3 space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">Loading payments…</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

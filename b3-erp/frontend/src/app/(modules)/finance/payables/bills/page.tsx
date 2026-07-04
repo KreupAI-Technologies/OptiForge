@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import {
   FileText,
   Plus,
@@ -72,179 +73,53 @@ export default function VendorBillsPage() {
     pendingAmount: 3470000
   };
 
-  const vendorBills: VendorBill[] = [
-    {
-      billId: 'B-001',
-      billNumber: 'VB-2024-001',
-      vendorId: 'V-001',
-      vendorName: 'Tata Steel Ltd',
-      billDate: '2024-03-01',
-      dueDate: '2024-04-15',
-      poNumber: 'PO-2024-045',
-      grnNumber: 'GRN-2024-089',
-      subtotal: 850000,
-      taxAmount: 153000,
-      totalAmount: 1003000,
-      paidAmount: 503000,
-      balanceAmount: 500000,
-      status: 'partially_paid',
-      paymentTerms: 'Net 45',
-      currency: '₹',
-      description: 'Steel plates and structural materials',
-      category: 'Raw Materials',
-      attachments: 3,
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-03-01',
-      approvedBy: 'Priya Sharma',
-      approvedDate: '2024-03-02',
-      lastPaymentDate: '2024-03-15',
-      notes: 'First installment paid'
-    },
-    {
-      billId: 'B-002',
-      billNumber: 'VB-2024-002',
-      vendorId: 'V-002',
-      vendorName: 'JSW Steel',
-      billDate: '2024-03-05',
-      dueDate: '2024-04-05',
-      poNumber: 'PO-2024-052',
-      grnNumber: 'GRN-2024-095',
-      subtotal: 620000,
-      taxAmount: 111600,
-      totalAmount: 731600,
-      paidAmount: 731600,
-      balanceAmount: 0,
-      status: 'paid',
-      paymentTerms: 'Net 30',
-      currency: '₹',
-      description: 'High-grade steel rods',
-      category: 'Raw Materials',
-      attachments: 2,
-      createdBy: 'Amit Sharma',
-      createdDate: '2024-03-05',
-      approvedBy: 'Suresh Reddy',
-      approvedDate: '2024-03-06',
-      lastPaymentDate: '2024-03-28'
-    },
-    {
-      billId: 'B-003',
-      billNumber: 'VB-2024-003',
-      vendorId: 'V-003',
-      vendorName: 'Hindalco Industries',
-      billDate: '2024-02-15',
-      dueDate: '2024-03-20',
-      poNumber: 'PO-2024-038',
-      grnNumber: 'GRN-2024-078',
-      subtotal: 950000,
-      taxAmount: 171000,
-      totalAmount: 1121000,
-      paidAmount: 0,
-      balanceAmount: 1121000,
-      status: 'overdue',
-      paymentTerms: 'Net 60',
-      currency: '₹',
-      description: 'Aluminum sheets and extrusions',
-      category: 'Raw Materials',
-      attachments: 4,
-      createdBy: 'Priya Patel',
-      createdDate: '2024-02-15',
-      approvedBy: 'Rajesh Kumar',
-      approvedDate: '2024-02-16',
-      notes: 'Payment delayed due to quality issues'
-    },
-    {
-      billId: 'B-004',
-      billNumber: 'VB-2024-004',
-      vendorId: 'V-004',
-      vendorName: 'L&T Construction',
-      billDate: '2024-03-10',
-      dueDate: '2024-04-25',
-      poNumber: 'PO-2024-058',
-      subtotal: 1800000,
-      taxAmount: 324000,
-      totalAmount: 2124000,
-      paidAmount: 0,
-      balanceAmount: 2124000,
-      status: 'approved',
-      paymentTerms: 'Net 45',
-      currency: '₹',
-      description: 'Construction services - Phase 2',
-      category: 'Services',
-      attachments: 5,
-      createdBy: 'Suresh Reddy',
-      createdDate: '2024-03-10',
-      approvedBy: 'Amit Patel',
-      approvedDate: '2024-03-11'
-    },
-    {
-      billId: 'B-005',
-      billNumber: 'VB-2024-005',
-      vendorId: 'V-005',
-      vendorName: 'Siemens India',
-      billDate: '2024-03-12',
-      dueDate: '2024-04-12',
-      poNumber: 'PO-2024-061',
-      grnNumber: 'GRN-2024-102',
-      subtotal: 540000,
-      taxAmount: 97200,
-      totalAmount: 637200,
-      paidAmount: 0,
-      balanceAmount: 637200,
-      status: 'approved',
-      paymentTerms: 'Net 30',
-      currency: '₹',
-      description: 'Industrial automation equipment',
-      category: 'Equipment',
-      attachments: 3,
-      createdBy: 'Michael Schmidt',
-      createdDate: '2024-03-12',
-      approvedBy: 'Kavita Desai',
-      approvedDate: '2024-03-13'
-    },
-    {
-      billId: 'B-006',
-      billNumber: 'VB-2024-006',
-      vendorId: 'V-006',
-      vendorName: 'ABB India Ltd',
-      billDate: '2024-03-14',
-      dueDate: '2024-03-16',
-      poNumber: 'PO-2024-064',
-      subtotal: 420000,
-      taxAmount: 75600,
-      totalAmount: 495600,
-      paidAmount: 0,
-      balanceAmount: 495600,
-      status: 'pending_approval',
-      paymentTerms: 'Net 45',
-      currency: '₹',
-      description: 'Electrical components and spares',
-      category: 'Equipment',
-      attachments: 2,
-      createdBy: 'Lars Andersson',
-      createdDate: '2024-03-14'
-    },
-    {
-      billId: 'B-007',
-      billNumber: 'VB-2024-007',
-      vendorId: 'V-001',
-      vendorName: 'Tata Steel Ltd',
-      billDate: '2024-03-15',
-      dueDate: '2024-03-17',
-      subtotal: 0,
-      taxAmount: 0,
-      totalAmount: 0,
-      paidAmount: 0,
-      balanceAmount: 0,
-      status: 'draft',
-      paymentTerms: 'Net 45',
-      currency: '₹',
-      description: 'Monthly steel supply - March 2024',
-      category: 'Raw Materials',
-      attachments: 0,
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-03-15'
-    }
-  ];
+  const [vendorBills, setVendorBills] = useState<VendorBill[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await FinanceService.getInvoices({ invoiceType: 'Purchase Invoice' });
+        const mapped: VendorBill[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          billId: r.id ?? '',
+          billNumber: r.invoiceNumber ?? '',
+          vendorId: r.partyId ?? '',
+          vendorName: r.partyName ?? '',
+          billDate: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '',
+          dueDate: r.dueDate ? String(r.dueDate).slice(0, 10) : '',
+          poNumber: r.referenceNumber ?? undefined,
+          grnNumber: undefined,
+          subtotal: Number(r.subtotal ?? 0),
+          taxAmount: Number(r.taxAmount ?? 0),
+          totalAmount: Number(r.totalAmount ?? 0),
+          paidAmount: Number(r.paidAmount ?? 0),
+          balanceAmount: Number(r.balanceAmount ?? (Number(r.totalAmount ?? 0) - Number(r.paidAmount ?? 0))),
+          status: (r.status ?? 'draft').toString().toLowerCase().replace(/\s+/g, '_') as VendorBill['status'],
+          paymentTerms: r.paymentTerms ?? '',
+          currency: r.currency ?? 'INR',
+          description: r.notes ?? r.description ?? '',
+          category: r.category ?? '',
+          attachments: Number(r.attachments ?? 0),
+          createdBy: r.createdBy ?? '',
+          createdDate: r.createdAt ? String(r.createdAt).slice(0, 10) : '',
+        }));
+        if (!cancelled) setVendorBills(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load bills');
+          setVendorBills([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -338,6 +213,12 @@ export default function VendorBillsPage() {
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-green-50 to-blue-50">
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="w-full h-full px-3 py-2">
+          {isLoading && (
+            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading bills…</div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>
+          )}
           {/* Header */}
           <div className="flex justify-between items-start mb-3">
             <div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { 
   Clock, 
   Calendar, 
@@ -112,617 +113,101 @@ const PendingInstallationsPage = () => {
   const [selectedInstallation, setSelectedInstallation] = useState<Installation | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  const installations: Installation[] = [
-    {
-      id: '1',
-      installationNumber: 'INST-2024-0001',
-      customer: {
-        name: 'Marcus Johnson',
-        company: 'TechFlow Industries',
-        phone: '+1-555-0101',
-        email: 'marcus.johnson@techflow.com',
-        address: '101 Innovation Drive, Tech Valley, CA 95014',
-        contactPerson: 'Marcus Johnson',
-        alternatePhone: '+1-555-0102'
-      },
-      product: {
-        name: 'Industrial Automation System',
-        model: 'IAS-5000X',
-        serialNumber: 'IAS-5000X-2024-001',
-        category: 'Automation',
-        warrantyType: 'Premium',
-        value: 125000
-      },
-      installation: {
-        type: 'New Installation',
-        priority: 'High',
-        complexity: 'Highly Complex',
-        estimatedDuration: '3 days',
-        requirements: [
-          'Clean room environment',
-          'Compressed air supply',
-          'Dedicated electrical circuit',
-          'Network connectivity',
-          'Safety lockout procedures'
-        ],
-        specialInstructions: 'Installation must be completed during weekend shutdown to avoid production disruption'
-      },
-      scheduling: {
-        requestedDate: '2024-01-20T00:00:00Z',
-        scheduledDate: '2024-01-22T00:00:00Z',
-        preferredTimeSlot: 'Weekend',
-        estimatedStartTime: '06:00',
-        estimatedEndTime: '18:00',
-        flexibility: 'Strict'
-      },
-      team: {
-        leadTechnician: 'Robert Chen',
-        assistantTechnicians: ['Sarah Martinez', 'David Kim'],
-        teamSize: 3,
-        specialistRequired: true,
-        certification: ['Automation Systems', 'Safety Protocols', 'Clean Room']
-      },
-      status: 'Scheduled',
-      progress: {
-        preparationComplete: true,
-        materialsReady: true,
-        toolsChecked: true,
-        customerNotified: true,
-        siteAccessConfirmed: false
-      },
-      location: {
-        siteType: 'Industrial',
-        accessRequirements: 'Security clearance required, safety equipment mandatory',
-        parkingAvailable: true,
-        elevatorAccess: false,
-        specialAccess: 'Loading dock access for equipment delivery'
-      },
-      materials: {
-        partsRequired: ['Control Panel', 'Sensor Array', 'Actuator Set', 'Wiring Harness'],
-        toolsRequired: ['Calibration Equipment', 'Programming Laptop', 'Multimeter', 'Torque Wrench'],
-        consumables: ['Cable Ties', 'Electrical Tape', 'Labels', 'Cleaning Supplies'],
-        documentsNeeded: ['Installation Manual', 'Safety Protocols', 'Calibration Certificate']
-      },
-      createdDate: '2024-01-10T09:00:00Z',
-      lastUpdate: '2024-01-18T16:30:00Z',
-      tags: ['High Flag', 'Weekend Work', 'Complex'],
-      attachments: 6,
-      notes: 'Customer requires minimal downtime. Installation window is critical.',
-      riskFactors: ['Time constraints', 'Clean room requirements', 'Weekend scheduling']
-    },
-    {
-      id: '2',
-      installationNumber: 'INST-2024-0002',
-      customer: {
-        name: 'Lisa Patterson',
-        company: 'GreenTech Solutions',
-        phone: '+1-555-0203',
-        email: 'lisa.patterson@greentech.com',
-        address: '203 Solar Avenue, Renewable City, NV 89123',
-        contactPerson: 'Lisa Patterson'
-      },
-      product: {
-        name: 'Solar Power Management System',
-        model: 'SPMS-3000',
-        serialNumber: 'SPMS-3000-2024-012',
-        category: 'Energy',
-        warrantyType: 'Extended',
-        value: 85000
-      },
-      installation: {
-        type: 'New Installation',
-        priority: 'Medium',
-        complexity: 'Moderate',
-        estimatedDuration: '2 days',
-        requirements: [
-          'Roof access equipment',
-          'Weather-dependent scheduling',
-          'Electrical permits',
-          'Grid connection approval'
-        ],
-        specialInstructions: 'Installation dependent on weather conditions'
-      },
-      scheduling: {
-        requestedDate: '2024-01-25T00:00:00Z',
-        scheduledDate: '2024-01-26T00:00:00Z',
-        preferredTimeSlot: 'Morning',
-        estimatedStartTime: '08:00',
-        estimatedEndTime: '17:00',
-        flexibility: 'Flexible'
-      },
-      team: {
-        leadTechnician: 'Michael Torres',
-        assistantTechnicians: ['Jennifer Lee'],
-        teamSize: 2,
-        specialistRequired: false,
-        certification: ['Solar Installation', 'Electrical Work', 'Height Safety']
-      },
-      status: 'Confirmed',
-      progress: {
-        preparationComplete: true,
-        materialsReady: true,
-        toolsChecked: false,
-        customerNotified: true,
-        siteAccessConfirmed: true
-      },
-      location: {
-        siteType: 'Commercial',
-        accessRequirements: 'Height safety equipment, weather monitoring',
-        parkingAvailable: true,
-        elevatorAccess: true,
-        specialAccess: 'Roof access via service elevator'
-      },
-      materials: {
-        partsRequired: ['Solar Panels', 'Inverter Units', 'Mounting Hardware', 'DC Cables'],
-        toolsRequired: ['Drill Set', 'Voltage Meter', 'Crimping Tools', 'Safety Harness'],
-        consumables: ['Sealant', 'Conduit', 'Wire Nuts', 'Weatherproofing'],
-        documentsNeeded: ['Installation Guide', 'Electrical Diagrams', 'Permit Documentation']
-      },
-      createdDate: '2024-01-12T11:30:00Z',
-      lastUpdate: '2024-01-19T14:20:00Z',
-      tags: ['Weather Dependent', 'Roof Work'],
-      attachments: 4,
-      notes: 'Monitor weather forecast for installation window.',
-      riskFactors: ['Weather conditions', 'Height work', 'Grid connection timing']
-    },
-    {
-      id: '3',
-      installationNumber: 'INST-2024-0003',
-      customer: {
-        name: 'James Wilson',
-        company: 'Metro Hospital System',
-        phone: '+1-555-0304',
-        email: 'james.wilson@metrohospital.com',
-        address: '304 Medical Center Drive, Healthcare City, TX 77001',
-        contactPerson: 'Dr. James Wilson',
-        alternatePhone: '+1-555-0305'
-      },
-      product: {
-        name: 'Medical Equipment Suite',
-        model: 'MES-2000',
-        serialNumber: 'MES-2000-2024-023',
-        category: 'Medical',
-        warrantyType: 'Premium',
-        value: 200000
-      },
-      installation: {
-        type: 'Upgrade',
-        priority: 'Critical',
-        complexity: 'Complex',
-        estimatedDuration: '4 days',
-        requirements: [
-          'Medical grade installation',
-          'Sterile environment protocols',
-          'FDA compliance verification',
-          'Staff training included',
-          'Minimal patient disruption'
-        ],
-        specialInstructions: 'Installation during off-peak hours only. Strict hygiene protocols required.'
-      },
-      scheduling: {
-        requestedDate: '2024-01-28T00:00:00Z',
-        scheduledDate: '2024-01-30T00:00:00Z',
-        preferredTimeSlot: 'Night Shift',
-        estimatedStartTime: '22:00',
-        estimatedEndTime: '06:00',
-        flexibility: 'Strict'
-      },
-      team: {
-        leadTechnician: 'Dr. Amanda Foster',
-        assistantTechnicians: ['Kevin Zhang', 'Maria Rodriguez'],
-        teamSize: 3,
-        specialistRequired: true,
-        certification: ['Medical Equipment', 'FDA Compliance', 'Sterile Procedures']
-      },
-      status: 'Preparing',
-      progress: {
-        preparationComplete: false,
-        materialsReady: true,
-        toolsChecked: true,
-        customerNotified: true,
-        siteAccessConfirmed: true
-      },
-      location: {
-        siteType: 'Indoor',
-        accessRequirements: 'Medical facility clearance, sterile protocols, background check',
-        parkingAvailable: true,
-        elevatorAccess: true,
-        specialAccess: 'Service elevator to medical floor, security escort required'
-      },
-      materials: {
-        partsRequired: ['Imaging Unit', 'Control Console', 'Patient Table', 'Monitor Array'],
-        toolsRequired: ['Precision Instruments', 'Calibration Kit', 'Sterile Tools', 'Alignment Laser'],
-        consumables: ['Sterile Covers', 'Medical Tape', 'Cleaning Solutions', 'Documentation'],
-        documentsNeeded: ['FDA Documentation', 'Installation Protocol', 'Training Materials', 'Compliance Checklist']
-      },
-      createdDate: '2024-01-08T15:45:00Z',
-      lastUpdate: '2024-01-19T11:00:00Z',
-      tags: ['Critical', 'Medical', 'Night Work', 'Compliance'],
-      attachments: 8,
-      notes: 'Critical medical equipment. Zero tolerance for installation delays.',
-      riskFactors: ['Patient safety', 'Compliance requirements', 'Night shift coordination']
-    },
-    {
-      id: '4',
-      installationNumber: 'INST-2024-0004',
-      customer: {
-        name: 'Carlos Rodriguez',
-        company: 'FoodSafe Processing',
-        phone: '+1-555-0405',
-        email: 'carlos.rodriguez@foodsafe.com',
-        address: '405 Processing Plant Road, Industrial Zone, IL 60601',
-        contactPerson: 'Carlos Rodriguez'
-      },
-      product: {
-        name: 'Food Safety Monitoring System',
-        model: 'FSMS-1500',
-        serialNumber: 'FSMS-1500-2024-034',
-        category: 'Safety',
-        warrantyType: 'Standard',
-        value: 65000
-      },
-      installation: {
-        type: 'Replacement',
-        priority: 'High',
-        complexity: 'Moderate',
-        estimatedDuration: '1.5 days',
-        requirements: [
-          'Food grade materials only',
-          'Wash-down rated equipment',
-          'Temperature monitoring',
-          'Data logging capability'
-        ],
-        specialInstructions: 'Installation during production downtime. Food safety protocols mandatory.'
-      },
-      scheduling: {
-        requestedDate: '2024-01-24T00:00:00Z',
-        scheduledDate: '2024-01-25T00:00:00Z',
-        preferredTimeSlot: 'Maintenance Window',
-        estimatedStartTime: '20:00',
-        estimatedEndTime: '08:00',
-        flexibility: 'Flexible'
-      },
-      team: {
-        leadTechnician: 'Patricia Lee',
-        assistantTechnicians: ['Thomas Kim'],
-        teamSize: 2,
-        specialistRequired: false,
-        certification: ['Food Safety', 'Hygiene Protocols', 'Data Systems']
-      },
-      status: 'Confirmed',
-      progress: {
-        preparationComplete: true,
-        materialsReady: true,
-        toolsChecked: true,
-        customerNotified: true,
-        siteAccessConfirmed: true
-      },
-      location: {
-        siteType: 'Industrial',
-        accessRequirements: 'Food safety training, hairnet and protective clothing',
-        parkingAvailable: true,
-        elevatorAccess: false,
-        specialAccess: 'Production floor access during maintenance window'
-      },
-      materials: {
-        partsRequired: ['Sensor Array', 'Data Logger', 'Display Panel', 'Network Interface'],
-        toolsRequired: ['Calibration Tools', 'Network Tester', 'Sanitary Tools', 'Temperature Probe'],
-        consumables: ['Food Grade Sealant', 'Sanitary Wipes', 'Cable Covers', 'Labels'],
-        documentsNeeded: ['Food Safety Manual', 'Calibration Procedures', 'Data Setup Guide']
-      },
-      createdDate: '2024-01-14T13:20:00Z',
-      lastUpdate: '2024-01-19T09:45:00Z',
-      tags: ['Food Safety', 'Replacement', 'Night Window'],
-      attachments: 3,
-      notes: 'Replacement of existing system. Minimal downtime required.',
-      riskFactors: ['Food contamination', 'Production schedule', 'Data migration']
-    },
-    {
-      id: '5',
-      installationNumber: 'INST-2024-0005',
-      customer: {
-        name: 'Rachel Thompson',
-        company: 'University Research Lab',
-        phone: '+1-555-0506',
-        email: 'rachel.thompson@university.edu',
-        address: '506 Research Boulevard, Academic Campus, MA 02139',
-        contactPerson: 'Prof. Rachel Thompson'
-      },
-      product: {
-        name: 'Laboratory Analysis System',
-        model: 'LAS-4000',
-        serialNumber: 'LAS-4000-2024-045',
-        category: 'Research',
-        warrantyType: 'Extended',
-        value: 150000
-      },
-      installation: {
-        type: 'New Installation',
-        priority: 'Medium',
-        complexity: 'Complex',
-        estimatedDuration: '3 days',
-        requirements: [
-          'Vibration isolation',
-          'Temperature control',
-          'Humidity control',
-          'Clean air supply',
-          'Specialized utilities'
-        ],
-        specialInstructions: 'Precision installation with environmental controls verification'
-      },
-      scheduling: {
-        requestedDate: '2024-02-05T00:00:00Z',
-        scheduledDate: '2024-02-05T00:00:00Z',
-        preferredTimeSlot: 'Business Hours',
-        estimatedStartTime: '09:00',
-        estimatedEndTime: '17:00',
-        flexibility: 'Flexible'
-      },
-      team: {
-        leadTechnician: 'Dr. Steven Park',
-        assistantTechnicians: ['Emily Chen', 'Robert Martinez'],
-        teamSize: 3,
-        specialistRequired: true,
-        certification: ['Precision Instruments', 'Laboratory Standards', 'Environmental Controls']
-      },
-      status: 'Scheduled',
-      progress: {
-        preparationComplete: false,
-        materialsReady: false,
-        toolsChecked: false,
-        customerNotified: true,
-        siteAccessConfirmed: false
-      },
-      location: {
-        siteType: 'Indoor',
-        accessRequirements: 'University ID, laboratory safety training',
-        parkingAvailable: true,
-        elevatorAccess: true,
-        specialAccess: 'Research building access, laboratory protocols'
-      },
-      materials: {
-        partsRequired: ['Analysis Module', 'Computer Interface', 'Sample Handler', 'Optical Components'],
-        toolsRequired: ['Precision Tools', 'Alignment Equipment', 'Environmental Meters', 'Calibration Standards'],
-        consumables: ['Optical Cleaning', 'Precision Lubricants', 'Protective Covers', 'Documentation'],
-        documentsNeeded: ['Installation Manual', 'Calibration Procedures', 'Safety Guidelines', 'Operating Manual']
-      },
-      createdDate: '2024-01-15T10:15:00Z',
-      lastUpdate: '2024-01-18T15:30:00Z',
-      tags: ['Research', 'Precision', 'Academic'],
-      attachments: 5,
-      notes: 'Research installation requiring high precision and environmental controls.',
-      riskFactors: ['Environmental requirements', 'Precision alignment', 'Academic schedule']
-    },
-    {
-      id: '6',
-      installationNumber: 'INST-2024-0006',
-      customer: {
-        name: 'Kevin Brown',
-        company: 'AutoTech Manufacturing',
-        phone: '+1-555-0607',
-        email: 'kevin.brown@autotech.com',
-        address: '607 Assembly Line Drive, Motor City, MI 48201',
-        contactPerson: 'Kevin Brown'
-      },
-      product: {
-        name: 'Robotic Assembly Station',
-        model: 'RAS-3500',
-        serialNumber: 'RAS-3500-2024-056',
-        category: 'Robotics',
-        warrantyType: 'Premium',
-        value: 180000
-      },
-      installation: {
-        type: 'New Installation',
-        priority: 'High',
-        complexity: 'Highly Complex',
-        estimatedDuration: '5 days',
-        requirements: [
-          'Foundation preparation',
-          'Power requirements 480V',
-          'Compressed air supply',
-          'Safety systems integration',
-          'Programming and commissioning'
-        ],
-        specialInstructions: 'Installation during plant shutdown. Foundation work completed prior to delivery.'
-      },
-      scheduling: {
-        requestedDate: '2024-02-10T00:00:00Z',
-        scheduledDate: '2024-02-12T00:00:00Z',
-        preferredTimeSlot: 'Plant Shutdown',
-        estimatedStartTime: '06:00',
-        estimatedEndTime: '22:00',
-        flexibility: 'Strict'
-      },
-      team: {
-        leadTechnician: 'Alex Rodriguez',
-        assistantTechnicians: ['Lisa Chang', 'Mark Thompson', 'Sarah Davis'],
-        teamSize: 4,
-        specialistRequired: true,
-        certification: ['Robotics', 'Safety Systems', 'Programming', 'Heavy Equipment']
-      },
-      status: 'Delayed',
-      progress: {
-        preparationComplete: true,
-        materialsReady: false,
-        toolsChecked: true,
-        customerNotified: true,
-        siteAccessConfirmed: true
-      },
-      location: {
-        siteType: 'Industrial',
-        accessRequirements: 'Safety training, PPE required, confined space permit',
-        parkingAvailable: true,
-        elevatorAccess: false,
-        specialAccess: 'Factory floor access via loading dock, crane available'
-      },
-      materials: {
-        partsRequired: ['Robot Arm', 'Control Cabinet', 'Safety Barriers', 'Vision System'],
-        toolsRequired: ['Lifting Equipment', 'Programming Terminal', 'Alignment Tools', 'Safety Tester'],
-        consumables: ['Hydraulic Fluid', 'Pneumatic Fittings', 'Electrical Components', 'Safety Labels'],
-        documentsNeeded: ['Installation Guide', 'Safety Manual', 'Programming Guide', 'Commissioning Checklist']
-      },
-      createdDate: '2024-01-05T08:30:00Z',
-      lastUpdate: '2024-01-19T13:15:00Z',
-      tags: ['High Value', 'Complex', 'Delayed', 'Plant Shutdown'],
-      attachments: 7,
-      notes: 'Delayed due to parts availability. Customer notified of new schedule.',
-      riskFactors: ['Parts delay', 'Plant shutdown window', 'Complex integration']
-    },
-    {
-      id: '7',
-      installationNumber: 'INST-2024-0007',
-      customer: {
-        name: 'Nicole Davis',
-        company: 'RetailMax Distribution',
-        phone: '+1-555-0708',
-        email: 'nicole.davis@retailmax.com',
-        address: '708 Distribution Center Way, Logistics Hub, GA 30309',
-        contactPerson: 'Nicole Davis'
-      },
-      product: {
-        name: 'Warehouse Management System',
-        model: 'WMS-2500',
-        serialNumber: 'WMS-2500-2024-067',
-        category: 'Logistics',
-        warrantyType: 'Standard',
-        value: 95000
-      },
-      installation: {
-        type: 'Upgrade',
-        priority: 'Medium',
-        complexity: 'Moderate',
-        estimatedDuration: '2 days',
-        requirements: [
-          'Network infrastructure',
-          'Barcode scanning stations',
-          'Data migration',
-          'Staff training',
-          'Integration testing'
-        ],
-        specialInstructions: 'Phased installation to maintain warehouse operations'
-      },
-      scheduling: {
-        requestedDate: '2024-02-01T00:00:00Z',
-        scheduledDate: '2024-02-01T00:00:00Z',
-        preferredTimeSlot: 'Night Shift',
-        estimatedStartTime: '18:00',
-        estimatedEndTime: '06:00',
-        flexibility: 'Flexible'
-      },
-      team: {
-        leadTechnician: 'Daniel Kim',
-        assistantTechnicians: ['Angela Wong'],
-        teamSize: 2,
-        specialistRequired: false,
-        certification: ['Network Systems', 'Data Migration', 'Training']
-      },
-      status: 'Confirmed',
-      progress: {
-        preparationComplete: true,
-        materialsReady: true,
-        toolsChecked: true,
-        customerNotified: true,
-        siteAccessConfirmed: true
-      },
-      location: {
-        siteType: 'Commercial',
-        accessRequirements: 'Security clearance, safety vest required',
-        parkingAvailable: true,
-        elevatorAccess: true,
-        specialAccess: 'Warehouse floor access, forklift traffic area'
-      },
-      materials: {
-        partsRequired: ['Server Hardware', 'Scanning Devices', 'Network Equipment', 'Workstations'],
-        toolsRequired: ['Network Tools', 'Laptop', 'Cable Tester', 'Label Printer'],
-        consumables: ['Network Cables', 'Cable Management', 'Labels', 'Backup Media'],
-        documentsNeeded: ['System Manual', 'Migration Plan', 'Training Materials', 'Test Procedures']
-      },
-      createdDate: '2024-01-16T14:00:00Z',
-      lastUpdate: '2024-01-19T16:45:00Z',
-      tags: ['Upgrade', 'Warehouse', 'Night Work'],
-      attachments: 4,
-      notes: 'Phased upgrade to minimize operational disruption.',
-      riskFactors: ['Data migration', 'Operational continuity', 'Staff training timeline']
-    },
-    {
-      id: '8',
-      installationNumber: 'INST-2024-0008',
-      customer: {
-        name: 'Susan Miller',
-        company: 'EcoEnergy Systems',
-        phone: '+1-555-0809',
-        email: 'susan.miller@ecoenergy.com',
-        address: '809 Wind Power Lane, Green Valley, WY 82001',
-        contactPerson: 'Susan Miller',
-        alternatePhone: '+1-555-0810'
-      },
-      product: {
-        name: 'Wind Turbine Control System',
-        model: 'WTCS-5000',
-        serialNumber: 'WTCS-5000-2024-078',
-        category: 'Energy',
-        warrantyType: 'Extended',
-        value: 110000
-      },
-      installation: {
-        type: 'New Installation',
-        priority: 'Low',
-        complexity: 'Complex',
-        estimatedDuration: '4 days',
-        requirements: [
-          'Weather dependent work',
-          'Height safety protocols',
-          'Environmental permits',
-          'Wildlife considerations',
-          'Grid connection testing'
-        ],
-        specialInstructions: 'Installation weather dependent. Environmental monitoring required.'
-      },
-      scheduling: {
-        requestedDate: '2024-02-15T00:00:00Z',
-        scheduledDate: '2024-02-15T00:00:00Z',
-        preferredTimeSlot: 'Weather Window',
-        estimatedStartTime: '07:00',
-        estimatedEndTime: '19:00',
-        flexibility: 'Emergency'
-      },
-      team: {
-        leadTechnician: 'Michael Johnson',
-        assistantTechnicians: ['Rachel Green', 'Brian Wilson'],
-        teamSize: 3,
-        specialistRequired: true,
-        certification: ['Height Safety', 'Wind Systems', 'Environmental', 'Grid Connection']
-      },
-      status: 'En Route',
-      progress: {
-        preparationComplete: true,
-        materialsReady: true,
-        toolsChecked: true,
-        customerNotified: true,
-        siteAccessConfirmed: true
-      },
-      location: {
-        siteType: 'Outdoor',
-        accessRequirements: 'Environmental permits, weather monitoring, wildlife clearance',
-        parkingAvailable: false,
-        elevatorAccess: false,
-        specialAccess: 'Off-road vehicle access, crane positioning area'
-      },
-      materials: {
-        partsRequired: ['Control Unit', 'Sensor Package', 'Communication Module', 'Safety Systems'],
-        toolsRequired: ['Climbing Equipment', 'Weather Station', 'Communication Radio', 'Precision Tools'],
-        consumables: ['Weather Sealing', 'Grounding Materials', 'Safety Rope', 'Environmental Markers'],
-        documentsNeeded: ['Environmental Permits', 'Safety Procedures', 'Installation Manual', 'Grid Connection Plan']
-      },
-      createdDate: '2024-01-11T12:00:00Z',
-      lastUpdate: '2024-01-20T08:00:00Z',
-      tags: ['Weather Dependent', 'Height Work', 'Environmental'],
-      attachments: 6,
-      notes: 'Team en route to site. Weather conditions favorable for installation.',
-      riskFactors: ['Weather conditions', 'Height safety', 'Environmental compliance', 'Remote location']
-    }
-  ];
+  // Installations loaded from the after-sales installations endpoint.
+  const [installations, setInstallations] = useState<Installation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const arr = (v: any) => (Array.isArray(v) ? v : []);
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.installations()) as any[];
+        const mapped: Installation[] = arr(raw).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          installationNumber: r?.installationNumber ?? r?.installationNo ?? '',
+          customer: {
+            name: r?.customer?.name ?? r?.customerName ?? '',
+            company: r?.customer?.company ?? '',
+            phone: r?.customer?.phone ?? '',
+            email: r?.customer?.email ?? '',
+            address: r?.customer?.address ?? r?.address ?? '',
+            contactPerson: r?.customer?.contactPerson ?? '',
+            alternatePhone: r?.customer?.alternatePhone,
+          },
+          product: {
+            name: r?.product?.name ?? r?.productName ?? '',
+            model: r?.product?.model ?? '',
+            serialNumber: r?.product?.serialNumber ?? '',
+            category: r?.product?.category ?? '',
+            warrantyType: (r?.product?.warrantyType ?? 'Standard') as Installation['product']['warrantyType'],
+            value: Number(r?.product?.value ?? 0) || 0,
+          },
+          installation: {
+            type: (r?.installation?.type ?? 'New Installation') as Installation['installation']['type'],
+            priority: (r?.installation?.priority ?? r?.priority ?? 'Medium') as Installation['installation']['priority'],
+            complexity: (r?.installation?.complexity ?? 'Moderate') as Installation['installation']['complexity'],
+            estimatedDuration: r?.installation?.estimatedDuration ?? '',
+            requirements: arr(r?.installation?.requirements),
+            specialInstructions: r?.installation?.specialInstructions,
+          },
+          scheduling: {
+            requestedDate: r?.scheduling?.requestedDate ?? r?.requestedDate ?? '',
+            scheduledDate: r?.scheduling?.scheduledDate ?? r?.scheduledDate ?? '',
+            preferredTimeSlot: r?.scheduling?.preferredTimeSlot ?? '',
+            estimatedStartTime: r?.scheduling?.estimatedStartTime ?? '',
+            estimatedEndTime: r?.scheduling?.estimatedEndTime ?? '',
+            flexibility: (r?.scheduling?.flexibility ?? 'Flexible') as Installation['scheduling']['flexibility'],
+          },
+          team: {
+            leadTechnician: r?.team?.leadTechnician ?? r?.assignedTo ?? '',
+            assistantTechnicians: arr(r?.team?.assistantTechnicians),
+            teamSize: Number(r?.team?.teamSize ?? 0) || 0,
+            specialistRequired: Boolean(r?.team?.specialistRequired),
+            certification: arr(r?.team?.certification),
+          },
+          status: (r?.status ?? 'Scheduled') as Installation['status'],
+          progress: {
+            preparationComplete: Boolean(r?.progress?.preparationComplete),
+            materialsReady: Boolean(r?.progress?.materialsReady),
+            toolsChecked: Boolean(r?.progress?.toolsChecked),
+            customerNotified: Boolean(r?.progress?.customerNotified),
+            siteAccessConfirmed: Boolean(r?.progress?.siteAccessConfirmed),
+          },
+          location: {
+            siteType: (r?.location?.siteType ?? 'Commercial') as Installation['location']['siteType'],
+            accessRequirements: r?.location?.accessRequirements ?? '',
+            parkingAvailable: Boolean(r?.location?.parkingAvailable),
+            elevatorAccess: Boolean(r?.location?.elevatorAccess),
+            specialAccess: r?.location?.specialAccess ?? '',
+          },
+          materials: {
+            partsRequired: arr(r?.materials?.partsRequired),
+            toolsRequired: arr(r?.materials?.toolsRequired),
+            consumables: arr(r?.materials?.consumables),
+            documentsNeeded: arr(r?.materials?.documentsNeeded),
+          },
+          createdDate: r?.createdDate ?? r?.createdAt ?? '',
+          lastUpdate: r?.lastUpdate ?? r?.updatedAt ?? '',
+          tags: arr(r?.tags),
+          attachments: Number(r?.attachments ?? 0) || 0,
+          notes: r?.notes ?? '',
+          riskFactors: arr(r?.riskFactors),
+        }));
+        if (!cancelled) setInstallations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load installations');
+          setInstallations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredInstallations = installations.filter(installation => {
     const matchesSearch = installation.installationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import {
   MapPin,
@@ -33,99 +34,44 @@ export default function FieldServiceDispatchPage() {
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedEngineer, setSelectedEngineer] = useState('All');
 
-  // Mock field jobs
-  const fieldJobs: FieldJob[] = [
-    {
-      id: '1',
-      jobNumber: 'FS-2025-0045',
-      customerName: 'Sharma Kitchens Pvt Ltd',
-      address: '123, MG Road, Koramangala, Bangalore',
-      jobType: 'Service Request',
-      priority: 'P1',
-      scheduledTime: '09:30',
-      duration: 2,
-      status: 'On Site',
-      engineer: 'Rajesh Kumar',
-      engineerStatus: 'On Job',
-      distance: 0,
-      estimatedArrival: 'On site'
-    },
-    {
-      id: '2',
-      jobNumber: 'FS-2025-0046',
-      customerName: 'Prestige Developers',
-      address: '45, Brigade Road, Whitefield, Bangalore',
-      jobType: 'Installation',
-      priority: 'P2',
-      scheduledTime: '14:00',
-      duration: 4,
-      status: 'In Transit',
-      engineer: 'Amit Patel',
-      engineerStatus: 'In Transit',
-      distance: 5.2,
-      estimatedArrival: '13:45'
-    },
-    {
-      id: '3',
-      jobNumber: 'FS-2025-0047',
-      customerName: 'Royal Restaurant Chain',
-      address: '78, Park Street, Indiranagar, Bangalore',
-      jobType: 'Preventive Maintenance',
-      priority: 'P3',
-      scheduledTime: '11:00',
-      duration: 3,
-      status: 'Dispatched',
-      engineer: 'Priya Singh',
-      engineerStatus: 'Available',
-      distance: 8.1,
-      estimatedArrival: '10:50'
-    },
-    {
-      id: '4',
-      jobNumber: 'FS-2025-0048',
-      customerName: 'Hotel Grand Plaza',
-      address: '56, MG Road, CBD, Bangalore',
-      jobType: 'Service Request',
-      priority: 'P2',
-      scheduledTime: '10:00',
-      duration: 2,
-      status: 'Completed',
-      engineer: 'Suresh Reddy',
-      engineerStatus: 'Available',
-      distance: 0,
-      estimatedArrival: 'Completed'
-    },
-    {
-      id: '5',
-      jobNumber: 'FS-2025-0049',
-      customerName: 'Green Valley Resorts',
-      address: '234, Hosur Road, Electronics City, Bangalore',
-      jobType: 'Service Request',
-      priority: 'P3',
-      scheduledTime: '15:00',
-      duration: 2,
-      status: 'Assigned',
-      engineer: 'Neha Sharma',
-      engineerStatus: 'Available',
-      distance: 15.3,
-      estimatedArrival: '14:45'
-    },
-    {
-      id: '6',
-      jobNumber: 'FS-2025-0050',
-      customerName: 'City Cafe Express',
-      address: '89, Church Street, MG Road, Bangalore',
-      jobType: 'Installation',
-      priority: 'P2',
-      scheduledTime: '16:00',
-      duration: 3,
-      status: 'Assigned',
-      engineer: 'Rajesh Kumar',
-      engineerStatus: 'On Job',
-      distance: 3.5,
-      estimatedArrival: '15:50'
-    }
-  ];
+  // Field jobs loaded from the after-sales field-service endpoint.
+  const [fieldJobs, setFieldJobs] = useState<FieldJob[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.fieldJobs()) as any[];
+        const mapped: FieldJob[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          jobNumber: r?.jobNumber ?? r?.jobNo ?? '',
+          customerName: r?.customerName ?? r?.customer ?? '',
+          address: r?.address ?? r?.serviceAddress ?? '',
+          jobType: (r?.jobType ?? 'Service Request') as FieldJob['jobType'],
+          priority: (r?.priority ?? 'P3') as FieldJob['priority'],
+          scheduledTime: r?.scheduledTime ?? '',
+          duration: Number(r?.duration ?? r?.estimatedDuration ?? 0) || 0,
+          status: (r?.status ?? 'Assigned') as FieldJob['status'],
+          engineer: r?.engineer ?? r?.assignedTo ?? r?.engineerName ?? '',
+          engineerStatus: (r?.engineerStatus ?? 'Available') as FieldJob['engineerStatus'],
+          distance: Number(r?.distance ?? 0) || 0,
+          estimatedArrival: r?.estimatedArrival ?? '',
+        }));
+        if (!cancelled) setFieldJobs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load field jobs');
+          setFieldJobs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const engineers = ['All', ...Array.from(new Set(fieldJobs.map(j => j.engineer)))];
 
