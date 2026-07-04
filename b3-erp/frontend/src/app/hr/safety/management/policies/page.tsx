@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Search,
@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Download
 } from 'lucide-react';
+import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
 import {
   BarChart,
   Bar,
@@ -41,62 +42,59 @@ const adherenceData = [
   { name: 'Non-Compliant', value: 5, color: '#ef4444' },
 ];
 
-const policies = [
-  {
-    id: 'POL-001',
-    title: 'Personal Protective Equipment (PPE)',
-    category: 'Operational Safety',
-    version: '2.1',
-    lastUpdated: '2024-03-15',
-    status: 'Active',
-    adherence: 98,
-    owner: 'Safety Committee'
-  },
-  {
-    id: 'POL-005',
-    title: 'Emergency Evacuation Protocol',
-    category: 'Emergency Response',
-    version: '1.4',
-    lastUpdated: '2023-11-20',
-    status: 'Review Needed',
-    adherence: 88,
-    owner: 'Facilities Team'
-  },
-  {
-    id: 'POL-012',
-    title: 'Hazardous Material Handling',
-    category: 'Operational Safety',
-    version: '3.0',
-    lastUpdated: '2024-01-10',
-    status: 'Active',
-    adherence: 95,
-    owner: 'Chemical Safety Officer'
-  },
-  {
-    id: 'POL-008',
-    title: 'Workplace Ergonomics',
-    category: 'Health & Wellness',
-    version: '1.2',
-    lastUpdated: '2023-12-05',
-    status: 'Active',
-    adherence: 92,
-    owner: 'HR Department'
-  },
-  {
-    id: 'POL-015',
-    title: 'Incident Reporting Guidelines',
-    category: 'Compliance',
-    version: '2.0',
-    lastUpdated: '2024-02-28',
-    status: 'Active',
-    adherence: 100,
-    owner: 'Safety Manager'
-  },
-];
+interface Policy {
+  id: string;
+  title: string;
+  category: string;
+  version: string;
+  lastUpdated: string;
+  status: string;
+  adherence: number;
+  owner: string;
+}
 
 export default function SafetyPoliciesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getTrainings('policy');
+        const mapped: Policy[] = rows.map((row: SafetyTraining) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.code ?? row.id ?? ''),
+            title: row.title ?? '',
+            category: row.category ?? '',
+            version: row.version ?? '',
+            lastUpdated: row.effectiveDate ?? row.completedDate ?? '',
+            status: row.status ?? '',
+            adherence: row.compliancePercent ?? meta.adherence ?? 0,
+            owner: row.owner ?? '',
+          };
+        });
+        if (!cancelled) setPolicies(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load policies');
+          setPolicies([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredPolicies = policies.filter(policy => {
     const matchesSearch = policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -107,6 +105,18 @@ export default function SafetyPoliciesPage() {
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading policies…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

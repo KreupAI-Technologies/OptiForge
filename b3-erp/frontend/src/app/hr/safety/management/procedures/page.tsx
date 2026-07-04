@@ -1,70 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardList,
   Search,
   AlertTriangle,
+  AlertCircle,
   PlayCircle,
   Clock,
   ChevronRight,
   ShieldAlert,
   FileCheck
 } from 'lucide-react';
+import { HrSafetyService, SafetyTraining } from '@/services/hr-safety.service';
 
-// Mock Data
-const procedures = [
-  {
-    id: 'SOP-EM-01',
-    title: 'Fire Emergency Response',
-    category: 'Emergency',
-    description: 'Immediate actions to take in case of fire alarm activation.',
-    steps: 8,
-    duration: '5 mins',
-    lastReview: '2024-01-15',
-    importance: 'Critical'
-  },
-  {
-    id: 'SOP-OP-05',
-    title: 'Forklift Pre-Shift Inspection',
-    category: 'Operational',
-    description: 'Daily checklist for forklift operators before beginning shift.',
-    steps: 12,
-    duration: '10 mins',
-    lastReview: '2023-11-30',
-    importance: 'High'
-  },
-  {
-    id: 'SOP-CH-03',
-    title: 'Chemical Spill Cleanup',
-    category: 'Hazmat',
-    description: 'Protocol for containing and cleaning small scale chemical spills.',
-    steps: 15,
-    duration: '20 mins',
-    lastReview: '2024-02-10',
-    importance: 'High'
-  },
-  {
-    id: 'SOP-OP-02',
-    title: 'Lockout/Tagout (LOTO)',
-    category: 'Operational',
-    description: 'Procedure to ensure equipment is shut off before maintenance.',
-    steps: 10,
-    duration: '15 mins',
-    lastReview: '2023-12-12',
-    importance: 'Critical'
-  },
-  {
-    id: 'SOP-FA-01',
-    title: 'Basic First Aid Administration',
-    category: 'Medical',
-    description: 'Guidelines for treating minor injuries waiting for responders.',
-    steps: 6,
-    duration: 'N/A',
-    lastReview: '2024-03-01',
-    importance: 'Medium'
-  },
-];
+interface Procedure {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  steps: number;
+  duration: string;
+  lastReview: string;
+  importance: string;
+}
 
 const importantContacts = [
   { name: 'Emergency Services', number: '911', type: 'External' },
@@ -75,6 +34,45 @@ const importantContacts = [
 export default function SafetyProceduresPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getTrainings('procedure');
+        const mapped: Procedure[] = rows.map((row: SafetyTraining) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.code ?? row.id ?? ''),
+            title: row.title ?? '',
+            category: row.category ?? '',
+            description: row.description ?? '',
+            steps: meta.steps ?? 0,
+            duration: row.duration ?? '',
+            lastReview: row.reviewDate ?? row.effectiveDate ?? '',
+            importance: meta.importance ?? '',
+          };
+        });
+        if (!cancelled) setProcedures(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load procedures');
+          setProcedures([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredProcedures = procedures.filter(proc => {
     const matchesSearch = proc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

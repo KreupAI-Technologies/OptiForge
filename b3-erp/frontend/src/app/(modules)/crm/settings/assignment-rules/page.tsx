@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { Cog, Plus, Edit2, Trash2, Play, Pause, ChevronDown, ChevronRight, Save, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Cog, Plus, Edit2, Trash2, Play, Pause, ChevronDown, ChevronRight, Save, X, AlertCircle } from 'lucide-react'
 import { useToast } from '@/components/ui'
+import { crmService } from '@/services/crm.service'
 
 interface AssignmentRule {
   id: string
@@ -37,82 +38,75 @@ interface Assignee {
 
 export default function AssignmentRulesPage() {
   const { addToast } = useToast()
-  const [rules, setRules] = useState<AssignmentRule[]>([
-    {
-      id: '1',
-      name: 'High-Value Lead Distribution',
-      description: 'Distribute leads with value > ₹10L to senior sales team',
-      type: 'load_balanced',
-      active: true,
-      priority: 1,
-      criteria: {
-        valueRange: { min: 1000000, max: Infinity },
-        leadSource: ['Website', 'Referral']
-      },
-      assignees: [
-        { id: 'u1', name: 'Rajesh Kumar', email: 'rajesh@example.com', currentLoad: 45, maxLoad: 50, territories: ['North', 'West'] },
-        { id: 'u2', name: 'Priya Sharma', email: 'priya@example.com', currentLoad: 38, maxLoad: 50, territories: ['South', 'East'] },
-        { id: 'u3', name: 'Amit Patel', email: 'amit@example.com', currentLoad: 42, maxLoad: 50, territories: ['Central'] }
-      ],
-      createdAt: '2025-10-15',
-      lastRun: '2025-10-28 14:30',
-      totalAssignments: 234
-    },
-    {
-      id: '2',
-      name: 'Territory-Based Assignment - North',
-      description: 'Auto-assign leads from North region to North team',
-      type: 'territory',
-      active: true,
-      priority: 2,
-      criteria: {
-        territory: ['Delhi', 'Punjab', 'Haryana', 'Himachal Pradesh', 'J&K']
-      },
-      assignees: [
-        { id: 'u4', name: 'Vikram Singh', email: 'vikram@example.com', currentLoad: 32, maxLoad: 40, territories: ['North'] },
-        { id: 'u5', name: 'Anjali Verma', email: 'anjali@example.com', currentLoad: 28, maxLoad: 40, territories: ['North'] }
-      ],
-      createdAt: '2025-10-10',
-      lastRun: '2025-10-28 15:45',
-      totalAssignments: 189
-    },
-    {
-      id: '3',
-      name: 'Round-Robin - General Leads',
-      description: 'Distribute all other leads equally among sales team',
-      type: 'round_robin',
-      active: true,
-      priority: 3,
-      criteria: {
-        leadSource: ['Cold Call', 'Email Campaign', 'Trade Show']
-      },
-      assignees: [
-        { id: 'u6', name: 'Sanjay Gupta', email: 'sanjay@example.com', currentLoad: 25, maxLoad: 35, territories: [] },
-        { id: 'u7', name: 'Neha Reddy', email: 'neha@example.com', currentLoad: 22, maxLoad: 35, territories: [] },
-        { id: 'u8', name: 'Karan Malhotra', email: 'karan@example.com', currentLoad: 27, maxLoad: 35, territories: [] }
-      ],
-      createdAt: '2025-10-05',
-      lastRun: '2025-10-28 16:00',
-      totalAssignments: 456
-    },
-    {
-      id: '4',
-      name: 'Enterprise Deals - Custom Logic',
-      description: 'Assign enterprise deals based on industry expertise',
-      type: 'custom',
-      active: false,
-      priority: 4,
-      criteria: {
-        valueRange: { min: 5000000, max: Infinity },
-        industry: ['Manufacturing', 'Automotive', 'Aerospace']
-      },
-      assignees: [
-        { id: 'u9', name: 'Rahul Khanna', email: 'rahul@example.com', currentLoad: 15, maxLoad: 20, territories: [] }
-      ],
-      createdAt: '2025-10-20',
-      totalAssignments: 12
+  const [rules, setRules] = useState<AssignmentRule[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await crmService.assignmentRules.getAll()) as any[]
+        const list = Array.isArray(raw) ? raw : []
+        const mapped: AssignmentRule[] = list.map((r, idx) => {
+          const rawCriteria = r?.criteria ?? {}
+          const rawValueRange = rawCriteria?.valueRange
+          const criteria: AssignmentCriteria = {
+            leadSource: Array.isArray(rawCriteria?.leadSource) ? rawCriteria.leadSource : undefined,
+            valueRange: rawValueRange
+              ? {
+                  min: Number(rawValueRange?.min ?? 0),
+                  max:
+                    rawValueRange?.max === null || rawValueRange?.max === undefined
+                      ? Infinity
+                      : Number(rawValueRange.max),
+                }
+              : undefined,
+            territory: Array.isArray(rawCriteria?.territory) ? rawCriteria.territory : undefined,
+            industry: Array.isArray(rawCriteria?.industry) ? rawCriteria.industry : undefined,
+            company: Array.isArray(rawCriteria?.company) ? rawCriteria.company : undefined,
+          }
+          const assignees: Assignee[] = Array.isArray(r?.assignees)
+            ? r.assignees.map((a: any, aIdx: number) => ({
+                id: a?.id ?? `${idx + 1}-${aIdx + 1}`,
+                name: a?.name ?? '',
+                email: a?.email ?? '',
+                currentLoad: Number(a?.currentLoad ?? 0),
+                maxLoad: Number(a?.maxLoad ?? 0),
+                territories: Array.isArray(a?.territories) ? a.territories : undefined,
+              }))
+            : []
+          return {
+            id: r?.id ?? String(idx + 1),
+            name: r?.name ?? '',
+            description: r?.description ?? '',
+            type: (r?.type ?? 'round_robin') as AssignmentRule['type'],
+            active: !!r?.active,
+            priority: Number(r?.priority ?? idx + 1),
+            criteria,
+            assignees,
+            createdAt: r?.createdAt ?? '',
+            lastRun: r?.lastRun ?? undefined,
+            totalAssignments: Number(r?.totalAssignments ?? 0),
+          }
+        })
+        if (!cancelled) setRules(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load assignment rules')
+          setRules([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set())
   const [editingRule, setEditingRule] = useState<string | null>(null)
@@ -254,7 +248,19 @@ export default function AssignmentRulesPage() {
 
       {/* Rules List */}
       <div className="p-6 space-y-2">
-        {rules.length === 0 ? (
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading assignment rules…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && rules.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
             <Cog className="w-16 h-16 text-gray-300 mb-2" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Assignment Rules</h3>
