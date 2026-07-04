@@ -29,58 +29,46 @@ interface RecoveryRecord {
   reference?: string
 }
 
-const mockRecoveries: RecoveryRecord[] = [
-  {
-    id: 'REC-2025-001',
-    employeeId: 'EMP045',
-    employeeName: 'Arjun Mehta',
-    loanId: 'LN-2024-089',
-    loanType: 'Home Loan',
-    amountRecovered: 10258,
-    recoveryDate: '2025-01-01',
-    method: 'salary_deduction',
-    status: 'completed'
-  },
-  {
-    id: 'REC-2025-002',
-    employeeId: 'EMP102',
-    employeeName: 'Sarah Jenkins',
-    loanId: 'LN-2024-112',
-    loanType: 'Personal Loan',
-    amountRecovered: 6956,
-    recoveryDate: '2025-01-01',
-    method: 'salary_deduction',
-    status: 'completed'
-  },
-  {
-    id: 'REC-2025-003',
-    employeeId: 'EMP088',
-    employeeName: 'Michael Chen',
-    loanId: 'LN-2023-055',
-    loanType: 'Vehicle Loan',
-    amountRecovered: 19900,
-    recoveryDate: '2025-01-05',
-    method: 'bank_transfer',
-    status: 'pending',
-    reference: 'TRX789012'
-  },
-  {
-    id: 'REC-2025-004',
-    employeeId: 'EMP156',
-    employeeName: 'Priya Sharma',
-    loanId: 'LN-2025-004',
-    loanType: 'Education Loan',
-    amountRecovered: 9330,
-    recoveryDate: '2025-01-15',
-    method: 'cheque',
-    status: 'failed',
-    reference: 'CHQ456789'
-  }
-]
-
 export default function LoanRecoveryPage() {
-  const [recoveries, setRecoveries] = useState<RecoveryRecord[]>(mockRecoveries)
+  const [recoveries, setRecoveries] = useState<RecoveryRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await HrPayrollService.getLoanRecoveries()
+        const mapped: RecoveryRecord[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? '',
+          employeeId: r.employeeId ?? '',
+          employeeName: r.employeeName ?? '',
+          loanId: r.loanId ?? '',
+          loanType: r.loanType ?? '',
+          amountRecovered: Number(r.amountRecovered ?? r.amount ?? 0),
+          recoveryDate: r.recoveryDate ?? '',
+          method: (r.method ?? 'salary_deduction') as RecoveryRecord['method'],
+          status: (r.status ?? 'pending') as RecoveryRecord['status'],
+          reference: r.reference ?? undefined,
+        }))
+        if (!cancelled) setRecoveries(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load recoveries')
+          setRecoveries([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'completed' | 'pending' | 'failed'>('all')
 

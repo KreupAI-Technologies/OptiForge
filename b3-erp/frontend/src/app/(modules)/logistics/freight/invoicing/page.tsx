@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, FileText, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Filter, Download, Eye } from 'lucide-react';
+import { ArrowLeft, Search, FileText, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, AlertCircle, Filter, Download, Eye } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface FreightInvoice {
   id: string;

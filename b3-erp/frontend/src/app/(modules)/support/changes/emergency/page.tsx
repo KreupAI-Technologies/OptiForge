@@ -34,209 +34,54 @@ export default function EmergencyChanges() {
   const [selectedStatus, setSelectedStatus] = useState<string>('All')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChange, setSelectedChange] = useState<EmergencyChange | null>(null)
+  const [emergencyChanges, setEmergencyChanges] = useState<EmergencyChange[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const emergencyChanges: EmergencyChange[] = [
-    {
-      id: '1',
-      ticketNumber: 'CHG-EMRG-2024-089',
-      title: 'Critical Security Patch - Zero-Day Vulnerability',
-      severity: 'Critical',
-      category: 'Security',
-      status: 'Completed',
-      requester: 'Sarah Johnson',
-      implementer: 'Security Team',
-      reportedDate: '2024-10-20 14:30',
-      startedDate: '2024-10-20 15:00',
-      completedDate: '2024-10-20 17:45',
-      duration: '2h 45m',
-      businessImpact: 'All external-facing systems vulnerable to exploitation. Immediate patching required.',
-      affectedSystems: ['Web Servers', 'Application Servers', 'API Gateway', 'Load Balancers'],
-      affectedUsers: 'All',
-      rootCause: 'Critical zero-day vulnerability discovered in web server software',
-      resolution: 'Applied emergency security patches to all affected systems. Verified vulnerability closure.',
-      downtime: true,
-      actualDowntime: '15 minutes',
-      approvedBy: 'CIO - Mike Chen',
-      approvalMethod: 'Verbal',
-      postImplementationReview: true,
-      rollbackExecuted: false
-    },
-    {
-      id: '2',
-      ticketNumber: 'CHG-EMRG-2024-088',
-      title: 'Database Server Failure - Primary Node',
-      severity: 'Critical',
-      category: 'Infrastructure',
-      status: 'Completed',
-      requester: 'Monitoring System',
-      implementer: 'Database Team',
-      reportedDate: '2024-10-19 03:15',
-      startedDate: '2024-10-19 03:20',
-      completedDate: '2024-10-19 05:30',
-      duration: '2h 10m',
-      businessImpact: 'Complete ERP system outage. All business operations halted.',
-      affectedSystems: ['Production Database', 'ERP System', 'Reporting System'],
-      affectedUsers: 'All',
-      rootCause: 'Hardware failure on primary database server. Storage controller malfunction.',
-      resolution: 'Executed failover to standby database node. Replaced failed hardware component.',
-      downtime: true,
-      actualDowntime: '2 hours 10 minutes',
-      approvedBy: 'IT Director - Tom Wilson',
-      approvalMethod: 'Emergency CAB',
-      postImplementationReview: true,
-      rollbackExecuted: false
-    },
-    {
-      id: '3',
-      ticketNumber: 'CHG-EMRG-2024-090',
-      title: 'Network Core Switch Failure',
-      severity: 'Critical',
-      category: 'Network',
-      status: 'In Progress',
-      requester: 'Network Operations',
-      implementer: 'Michael Zhang',
-      reportedDate: '2024-10-21 09:15',
-      startedDate: '2024-10-21 09:30',
-      completedDate: '',
-      duration: 'Ongoing',
-      businessImpact: 'Building A network connectivity lost. 200+ users affected.',
-      affectedSystems: ['Core Switch', 'Access Layer', 'VoIP System'],
-      affectedUsers: '200+',
-      rootCause: 'Core switch hardware failure. Power supply unit malfunction.',
-      resolution: 'In progress: Installing backup switch, reconfiguring network topology.',
-      downtime: true,
-      actualDowntime: 'Ongoing',
-      approvedBy: 'Network Manager - David Kumar',
-      approvalMethod: 'Verbal',
-      postImplementationReview: false,
-      rollbackExecuted: false
-    },
-    {
-      id: '4',
-      ticketNumber: 'CHG-EMRG-2024-087',
-      title: 'Ransomware Attack Response',
-      severity: 'Critical',
-      category: 'Security',
-      status: 'Completed',
-      requester: 'Security Operations Center',
-      implementer: 'Incident Response Team',
-      reportedDate: '2024-10-15 22:45',
-      startedDate: '2024-10-15 23:00',
-      completedDate: '2024-10-16 08:30',
-      duration: '9h 30m',
-      businessImpact: 'Suspected ransomware infection. File servers quarantined. Limited operations.',
-      affectedSystems: ['File Servers', 'Backup System', 'Email System'],
-      affectedUsers: 'All',
-      rootCause: 'Phishing email led to malware infection. Automated containment triggered.',
-      resolution: 'Isolated infected systems, restored from clean backups, enhanced security controls.',
-      downtime: true,
-      actualDowntime: '8 hours',
-      approvedBy: 'CISO - Emily Davis',
-      approvalMethod: 'Emergency CAB',
-      postImplementationReview: true,
-      rollbackExecuted: false
-    },
-    {
-      id: '5',
-      ticketNumber: 'CHG-EMRG-2024-086',
-      title: 'Payment Gateway Outage',
-      severity: 'High',
-      category: 'Application',
-      status: 'Completed',
-      requester: 'Finance Department',
-      implementer: 'Application Team',
-      reportedDate: '2024-10-14 11:20',
-      startedDate: '2024-10-14 11:35',
-      completedDate: '2024-10-14 13:15',
-      duration: '1h 40m',
-      businessImpact: 'Unable to process customer payments. Revenue generation stopped.',
-      affectedSystems: ['Payment Gateway', 'E-commerce Platform'],
-      affectedUsers: 'All Customers',
-      rootCause: 'SSL certificate expiration on payment gateway. Monitoring alert missed.',
-      resolution: 'Renewed and installed new SSL certificate. Restored payment processing.',
-      downtime: true,
-      actualDowntime: '1 hour 40 minutes',
-      approvedBy: 'CFO - James Wilson',
-      approvalMethod: 'Email',
-      postImplementationReview: true,
-      rollbackExecuted: false
-    },
-    {
-      id: '6',
-      ticketNumber: 'CHG-EMRG-2024-091',
-      title: 'Email System Configuration Error',
-      severity: 'High',
-      category: 'Infrastructure',
-      status: 'Pending Start',
-      requester: 'Help Desk',
-      implementer: 'Messaging Team',
-      reportedDate: '2024-10-21 14:00',
-      startedDate: '',
-      completedDate: '',
-      duration: 'Not started',
-      businessImpact: 'Emails not being delivered. Critical business communications affected.',
-      affectedSystems: ['Email Server', 'Mail Gateway'],
-      affectedUsers: 'All',
-      rootCause: 'Configuration change from previous maintenance caused mail routing failure.',
-      resolution: 'Pending: Rollback recent configuration changes, restore mail flow.',
-      downtime: false,
-      actualDowntime: 'N/A',
-      approvedBy: 'IT Manager - Lisa Chen',
-      approvalMethod: 'Verbal',
-      postImplementationReview: false,
-      rollbackExecuted: false
-    },
-    {
-      id: '7',
-      ticketNumber: 'CHG-EMRG-2024-085',
-      title: 'Data Center Cooling System Failure',
-      severity: 'Critical',
-      category: 'Facilities',
-      status: 'Completed',
-      requester: 'Facilities Team',
-      implementer: 'Infrastructure Team',
-      reportedDate: '2024-10-12 16:30',
-      startedDate: '2024-10-12 16:45',
-      completedDate: '2024-10-12 19:20',
-      duration: '2h 35m',
-      businessImpact: 'Server room temperature rising rapidly. Risk of hardware damage and outages.',
-      affectedSystems: ['All Data Center Equipment'],
-      affectedUsers: 'All',
-      rootCause: 'HVAC system compressor failure. Backup cooling insufficient.',
-      resolution: 'Emergency shutdown of non-critical systems, portable cooling deployed, HVAC repaired.',
-      downtime: true,
-      actualDowntime: '30 minutes (partial)',
-      approvedBy: 'Operations Director - Robert Brown',
-      approvalMethod: 'Emergency CAB',
-      postImplementationReview: true,
-      rollbackExecuted: false
-    },
-    {
-      id: '8',
-      ticketNumber: 'CHG-EMRG-2024-084',
-      title: 'DDoS Attack Mitigation',
-      severity: 'High',
-      category: 'Security',
-      status: 'Completed',
-      requester: 'Network Security',
-      implementer: 'Security Team',
-      reportedDate: '2024-10-10 10:15',
-      startedDate: '2024-10-10 10:25',
-      completedDate: '2024-10-10 12:40',
-      duration: '2h 15m',
-      businessImpact: 'Website and customer portal unreachable due to DDoS attack.',
-      affectedSystems: ['Web Servers', 'Firewall', 'Load Balancer'],
-      affectedUsers: 'External Users',
-      rootCause: 'Coordinated DDoS attack targeting public-facing services.',
-      resolution: 'Activated DDoS protection service, implemented rate limiting, blocked attack sources.',
-      downtime: true,
-      actualDowntime: '1 hour 30 minutes',
-      approvedBy: 'CISO - Emily Davis',
-      approvalMethod: 'Verbal',
-      postImplementationReview: true,
-      rollbackExecuted: false
-    }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getScheduledChanges()
+        const mapped: EmergencyChange[] = raw.map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          ticketNumber: r.ticketNumber ?? r.changeNumber ?? r.code ?? '',
+          title: r.title ?? r.name ?? '',
+          severity: r.severity ?? 'Critical',
+          category: r.category ?? '',
+          status: r.status ?? 'Pending Start',
+          requester: r.requester ?? r.requestedBy ?? '',
+          implementer: r.implementer ?? r.assignedTo ?? '',
+          reportedDate: r.reportedDate ?? r.createdAt ?? '',
+          startedDate: r.startedDate ?? '',
+          completedDate: r.completedDate ?? '',
+          duration: r.duration ?? '',
+          businessImpact: r.businessImpact ?? '',
+          affectedSystems: Array.isArray(r.affectedSystems) ? r.affectedSystems : [],
+          affectedUsers: r.affectedUsers ?? '',
+          rootCause: r.rootCause ?? '',
+          resolution: r.resolution ?? '',
+          downtime: r.downtime ?? false,
+          actualDowntime: r.actualDowntime ?? 'N/A',
+          approvedBy: r.approvedBy ?? '',
+          approvalMethod: r.approvalMethod ?? 'Verbal',
+          postImplementationReview: r.postImplementationReview ?? false,
+          rollbackExecuted: r.rollbackExecuted ?? false,
+        }))
+        if (!cancelled) setEmergencyChanges(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setEmergencyChanges([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // Statistics
   const stats = {
