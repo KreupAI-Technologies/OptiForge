@@ -414,7 +414,10 @@ export default function CreateSalesOrderPage() {
 
                   {showCustomerSearch && customerSearchTerm && (
                     <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                      {filteredCustomers.map((customer) => (
+                      {customersLoading && (
+                        <div className="p-4 text-center text-gray-500 text-sm">Loading customers…</div>
+                      )}
+                      {!customersLoading && filteredCustomers.map((customer) => (
                         <div
                           key={customer.id}
                           onClick={() => {

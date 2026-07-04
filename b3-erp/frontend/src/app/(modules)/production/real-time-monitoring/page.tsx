@@ -227,6 +227,60 @@ export default function RealTimeMonitoringPage() {
         // Full Dashboard View
         return (
           <div className="space-y-3">
+            {/* Live Equipment Health (backend-fetched primary data list) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Live Equipment Health</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {healthLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Loading equipment health…
+                  </div>
+                ) : healthError ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+                    <AlertTriangle className="w-4 h-4" />
+                    {healthError}
+                  </div>
+                ) : equipmentHealth.length === 0 ? (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    No equipment health records
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs uppercase text-gray-500 dark:text-gray-400">
+                          <th className="py-2 pr-4 font-medium">Equipment</th>
+                          <th className="py-2 pr-4 font-medium">Health Score</th>
+                          <th className="py-2 pr-4 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {equipmentHealth.map((item, index) => (
+                          <tr
+                            key={item?.id ?? index}
+                            className="border-b border-gray-100 dark:border-gray-800"
+                          >
+                            <td className="py-2 pr-4 text-gray-900 dark:text-gray-100">
+                              {item?.equipmentName ?? item?.name ?? item?.id ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {item?.healthScore ?? item?.score ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {item?.healthStatus ?? item?.status ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Alerts Banner */}
             <RealTimeAlertsBanner
               soundEnabled

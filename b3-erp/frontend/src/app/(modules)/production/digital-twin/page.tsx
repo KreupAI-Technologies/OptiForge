@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Heart,
@@ -21,6 +21,7 @@ import { ProductionSimulation, SimulationScenario, SimulationResults } from '@/c
 import { AssetTrackingMap, TrackedAsset, Zone } from '@/components/industry4/AssetTrackingMap';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // ============================================================================
 // Types

@@ -750,10 +750,11 @@ export default function AddRequisitionPage() {
                       deliveryAddress: location?.address || ''
                     })
                   }}
+                  disabled={isLoadingMasterData}
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.deliveryLocation ? 'border-red-500' : 'border-gray-300'
                     }`}
                 >
-                  <option value="">Select Location</option>
+                  <option value="">{isLoadingMasterData ? 'Loading...' : 'Select Location'}</option>
                   {deliveryLocations.map(loc => (
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
                   ))}
@@ -893,6 +894,7 @@ export default function AddRequisitionPage() {
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Approver <span className="text-red-500">*</span>
+                  {isLoadingMasterData && <span className="ml-2 text-xs text-gray-400">Loading…</span>}
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {approvers.map((approver) => {

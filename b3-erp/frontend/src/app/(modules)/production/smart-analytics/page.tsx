@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Brain,
   AlertTriangle,
@@ -24,6 +24,7 @@ import { SmartRecommendations, Recommendation } from '@/components/industry4/Sma
 import { NaturalLanguageQuery } from '@/components/industry4/NaturalLanguageQuery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // ============================================================================
 // Types
@@ -120,6 +121,34 @@ function ViewSelector({
 
 export default function SmartAnalyticsPage() {
   const [currentView, setCurrentView] = useState<ViewMode>('overview');
+
+  // Live OEE records (primary data list) — fetched from the NestJS domain backend.
+  const [oeeRecords, setOeeRecords] = useState<any[]>([]);
+  const [oeeLoading, setOeeLoading] = useState<boolean>(true);
+  const [oeeError, setOeeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setOeeLoading(true);
+      setOeeError(null);
+      try {
+        const raw = await ProductionOrphanService.getOeeRecords();
+        if (!cancelled) setOeeRecords(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setOeeError(err instanceof Error ? err.message : 'Failed to load OEE records');
+          setOeeRecords([]);
+        }
+      } finally {
+        if (!cancelled) setOeeLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Event handlers
   const handleInsightClick = (insight: MLPrediction) => {

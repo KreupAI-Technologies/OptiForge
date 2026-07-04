@@ -146,7 +146,7 @@ export default function CreateInvoicePage() {
     setCustomerId(custId);
     const customer = customers.find(c => c.id === custId);
     if (customer) {
-      setCustomerName(customer.name);
+      setCustomerName(mdLabel.customer(customer));
     }
   };
 
@@ -240,11 +240,12 @@ export default function CreateInvoicePage() {
                   onChange={(e) => handleCustomerChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  disabled={loadingCustomers}
                 >
-                  <option value="">Select Customer</option>
+                  <option value="">{loadingCustomers ? 'Loading…' : 'Select Customer'}</option>
                   {customers.map(customer => (
                     <option key={customer.id} value={customer.id}>
-                      {customer.name}
+                      {mdLabel.customer(customer)}
                     </option>
                   ))}
                 </select>
