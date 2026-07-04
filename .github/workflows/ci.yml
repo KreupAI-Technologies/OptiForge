@@ -184,16 +184,12 @@ jobs:
 
 
   # Frontend Build
-  # The duplicate-parallel-routes blocker (#125) is RESOLVED and the build passes
-  # locally with typecheck enforced. It remains `continue-on-error` only because
-  # `next build` of ~1670 dynamic routes needs a large Node heap (~8 GB) that
-  # exceeds the 7 GB standard GitHub runner; the step below raises the heap as far
-  # as fits. To make this blocking, move it to a larger runner (e.g. 8-core) and
-  # drop continue-on-error + add it back to ci-summary's required list.
+  # Blocking: the #125 duplicate-routes blocker is resolved, typecheck is enforced
+  # and clean, and `next build` of ~1670 dynamic routes completes within a 6 GB
+  # Node heap (verified) — which fits the 7 GB standard GitHub runner.
   frontend-build:
-    name: Frontend Build (informational — memory-bound on standard runners)
+    name: Frontend Build
     runs-on: ubuntu-latest
-    continue-on-error: true
     needs: [frontend-lint, frontend-test]
 
     defaults:
@@ -414,12 +410,14 @@ jobs:
           echo "Docker Build & Scan: ${{ needs.docker-build-scan.result }}"
 
       - name: Fail if any blocking job failed
-        # frontend-typecheck is now blocking (typecheck is clean and enforced).
-        # frontend-build (memory-bound on standard runners), security-audit, and
-        # docker-build-scan remain informational (continue-on-error: true).
+        # Blocking: backend-test, backend-build, frontend-lint, frontend-typecheck,
+        # frontend-test, and frontend-build. security-audit and docker-build-scan
+        # remain informational (continue-on-error: true).
         if: |
           needs.backend-test.result == 'failure' ||
           needs.backend-build.result == 'failure' ||
           needs.frontend-lint.result == 'failure' ||
-          needs.frontend-typecheck.result == 'failure'
+          needs.frontend-typecheck.result == 'failure' ||
+          needs.frontend-test.result == 'failure' ||
+          needs.frontend-build.result == 'failure'
         run: exit 1

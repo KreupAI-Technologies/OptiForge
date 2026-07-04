@@ -1,8 +1,11 @@
 # ADR-0004: Dual-backend architecture — OptiForge (Django) + b3-erp (NestJS)
 
-*Status: Proposed*
+*Status: Accepted — domain functionality consolidated on NestJS (updated 2026-07-04; see addendum)*
 *Date: 2026-04-24*
 *Deciders: Bosco*
+
+> **2026-07-04 addendum — Consolidation decision (accepted).**
+> The domain application is consolidated on the **NestJS backend** (`b3-erp/backend`), which owns the live schema and now exposes ~466 controllers serving the entire feature-complete frontend. The Django `/backend/` layer was **not** built out; ADR-0003's Keycloak SSO is deferred and the shipping auth is **local JWT** validated by NestS + the Next.js `AuthContext`. The Prisma schema (`b3-erp/backend/prisma/schema.prisma`) now models **every** API table (573 models). This resolves the report's "[P2] Django platform empty" gap by choosing consolidation over dual-backend build-out. Django may still host platform concerns (tenancy/identity/audit) later, but that is out of scope for pilot. Q4/Q5 below are answered by this decision: no active porting between backends; the top-level `/frontend` scaffold has been removed.
 *Related: [ADR-0001](./0001-five-layer-architecture.md), [ADR-0002](./0002-modular-monolith.md), [PRD](../prds/optiforge-layered-multi-industry-architecture.md), [`docs/architecture.md`](../architecture.md)*
 
 ## Context
