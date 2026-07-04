@@ -26,93 +26,52 @@ export default function DepartmentExpensesPage() {
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedQuarter, setSelectedQuarter] = useState('all');
   const [sortBy, setSortBy] = useState<'total' | 'perEmployee'>('total');
+  const [departmentData, setDepartmentData] = useState<DepartmentExpense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const departmentData: DepartmentExpense[] = [
-    {
-      department: 'Sales',
-      headCount: 45,
-      totalExpenses: 2850000,
-      travelExpenses: 1250000,
-      accommodationExpenses: 685000,
-      mealsExpenses: 425000,
-      suppliesExpenses: 185000,
-      communicationExpenses: 215000,
-      otherExpenses: 90000,
-      avgPerEmployee: 63333,
-      topSpender: 'Rajesh Kumar',
-      topSpenderAmount: 185000
-    },
-    {
-      department: 'Marketing',
-      headCount: 32,
-      totalExpenses: 2125000,
-      travelExpenses: 625000,
-      accommodationExpenses: 425000,
-      mealsExpenses: 285000,
-      suppliesExpenses: 385000,
-      communicationExpenses: 285000,
-      otherExpenses: 120000,
-      avgPerEmployee: 66406,
-      topSpender: 'Priya Sharma',
-      topSpenderAmount: 145000
-    },
-    {
-      department: 'Engineering',
-      headCount: 68,
-      totalExpenses: 1985000,
-      travelExpenses: 485000,
-      accommodationExpenses: 325000,
-      mealsExpenses: 225000,
-      suppliesExpenses: 685000,
-      communicationExpenses: 185000,
-      otherExpenses: 80000,
-      avgPerEmployee: 29191,
-      topSpender: 'Neha Gupta',
-      topSpenderAmount: 95000
-    },
-    {
-      department: 'Operations',
-      headCount: 52,
-      totalExpenses: 1625000,
-      travelExpenses: 385000,
-      accommodationExpenses: 285000,
-      mealsExpenses: 185000,
-      suppliesExpenses: 485000,
-      communicationExpenses: 185000,
-      otherExpenses: 100000,
-      avgPerEmployee: 31250,
-      topSpender: 'Sanjay Reddy',
-      topSpenderAmount: 85000
-    },
-    {
-      department: 'Administration',
-      headCount: 28,
-      totalExpenses: 985000,
-      travelExpenses: 125000,
-      accommodationExpenses: 85000,
-      mealsExpenses: 125000,
-      suppliesExpenses: 385000,
-      communicationExpenses: 185000,
-      otherExpenses: 80000,
-      avgPerEmployee: 35179,
-      topSpender: 'Meera Singh',
-      topSpenderAmount: 75000
-    },
-    {
-      department: 'Finance',
-      headCount: 22,
-      totalExpenses: 785000,
-      travelExpenses: 185000,
-      accommodationExpenses: 125000,
-      mealsExpenses: 85000,
-      suppliesExpenses: 225000,
-      communicationExpenses: 125000,
-      otherExpenses: 40000,
-      avgPerEmployee: 35682,
-      topSpender: 'Amit Verma',
-      topSpenderAmount: 65000
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.expenseClaims()) as any[];
+        const mapped: DepartmentExpense[] = (Array.isArray(raw) ? raw : []).map((r) => {
+          const headCount = Number(r.headCount ?? r.employeeCount ?? 0);
+          const totalExpenses = Number(r.totalExpenses ?? r.totalAmount ?? r.amount ?? 0);
+          return {
+            department: r.department ?? r.departmentName ?? r.name ?? '',
+            headCount,
+            totalExpenses,
+            travelExpenses: Number(r.travelExpenses ?? r.travel ?? 0),
+            accommodationExpenses: Number(r.accommodationExpenses ?? r.accommodation ?? 0),
+            mealsExpenses: Number(r.mealsExpenses ?? r.meals ?? 0),
+            suppliesExpenses: Number(r.suppliesExpenses ?? r.supplies ?? 0),
+            communicationExpenses: Number(r.communicationExpenses ?? r.communication ?? 0),
+            otherExpenses: Number(r.otherExpenses ?? r.other ?? 0),
+            avgPerEmployee: Number(
+              r.avgPerEmployee ?? (headCount > 0 ? Math.round(totalExpenses / headCount) : 0),
+            ),
+            topSpender: r.topSpender ?? '',
+            topSpenderAmount: Number(r.topSpenderAmount ?? 0),
+          };
+        });
+        if (!cancelled) setDepartmentData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load department expenses');
+          setDepartmentData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const sortedData = useMemo(() => {
     return [...departmentData].sort((a, b) => {

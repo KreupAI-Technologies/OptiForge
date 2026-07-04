@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Search,
@@ -12,8 +12,10 @@ import {
   Calendar,
   Award,
   Clock,
-  Briefcase
+  Briefcase,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   RadarChart,
   PolarGrid,

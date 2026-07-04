@@ -421,6 +421,8 @@ import { PrismaModule } from '../prisma/prisma.module';
       PayrollSalaryRevision,
       PayrollDisbursement,
       PayrollReport,
+      PayrollLoanRecovery,
+      PayrollBonusScheme,
       // Core HR
       Department,
       Designation,

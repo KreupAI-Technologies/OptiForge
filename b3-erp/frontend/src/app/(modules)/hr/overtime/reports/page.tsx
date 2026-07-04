@@ -40,21 +40,54 @@ export default function OvertimeReportsPage() {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [reportType, setReportType] = useState('employee');
 
-    const employeeReports: OvertimeReport[] = [
-        { id: '1', employeeId: 'EMP002', employeeName: 'Michael Chen', department: 'Production', totalHours: 24, paidHours: 20, compOffHours: 4, totalAmount: 1200, month: '2025-01' },
-        { id: '2', employeeId: 'EMP003', employeeName: 'Emily Davis', department: 'Quality Assurance', totalHours: 12, paidHours: 8, compOffHours: 4, totalAmount: 480, month: '2025-01' },
-        { id: '3', employeeId: 'EMP004', employeeName: 'David Wilson', department: 'Production', totalHours: 18, paidHours: 18, compOffHours: 0, totalAmount: 900, month: '2025-01' },
-        { id: '4', employeeId: 'EMP006', employeeName: 'Robert Martinez', department: 'IT', totalHours: 16, paidHours: 8, compOffHours: 8, totalAmount: 640, month: '2025-01' },
-        { id: '5', employeeId: 'EMP007', employeeName: 'Lisa Wong', department: 'Production', totalHours: 8, paidHours: 8, compOffHours: 0, totalAmount: 320, month: '2025-01' },
-        { id: '6', employeeId: 'EMP008', employeeName: 'James Taylor', department: 'Warehouse', totalHours: 20, paidHours: 12, compOffHours: 8, totalAmount: 720, month: '2025-01' }
-    ];
+    const [employeeReports, setEmployeeReports] = useState<OvertimeReport[]>([]);
+    const [departmentSummaries, setDepartmentSummaries] = useState<DepartmentSummary[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const departmentSummaries: DepartmentSummary[] = [
-        { department: 'Production', totalHours: 50, totalEmployees: 3, totalCost: 2420, avgHoursPerEmployee: 16.7 },
-        { department: 'Quality Assurance', totalHours: 12, totalEmployees: 1, totalCost: 480, avgHoursPerEmployee: 12 },
-        { department: 'IT', totalHours: 16, totalEmployees: 1, totalCost: 640, avgHoursPerEmployee: 16 },
-        { department: 'Warehouse', totalHours: 20, totalEmployees: 1, totalCost: 720, avgHoursPerEmployee: 20 }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrSelfServiceService.getOvertimeRequests();
+                const mapped: OvertimeReport[] = (raw as any[]).map((r) => {
+                    const totalHours = Number(r.overtimeHours ?? 0);
+                    return {
+                        id: String(r.id ?? r.requestId ?? ''),
+                        employeeId: r.employeeCode ?? '',
+                        employeeName: r.employeeName ?? '',
+                        department: r.department ?? '',
+                        totalHours,
+                        paidHours: totalHours,
+                        compOffHours: 0,
+                        totalAmount: Number(r.calculatedAmount ?? 0),
+                        month: (r.date ?? '').slice(0, 7),
+                    };
+                });
+                // Derive department summaries from the per-employee rows.
+                const byDept = new Map<string, DepartmentSummary>();
+                for (const rep of mapped) {
+                    const key = rep.department || 'Unassigned';
+                    const existing = byDept.get(key) ?? { department: key, totalHours: 0, totalEmployees: 0, totalCost: 0, avgHoursPerEmployee: 0 };
+                    existing.totalHours += rep.totalHours;
+                    existing.totalEmployees += 1;
+                    existing.totalCost += rep.totalAmount;
+                    byDept.set(key, existing);
+                }
+                const summaries = Array.from(byDept.values()).map((d) => ({
+                    ...d,
+                    avgHoursPerEmployee: d.totalEmployees > 0 ? d.totalHours / d.totalEmployees : 0,
+                }));
+                if (!cancelled) { setEmployeeReports(mapped); setDepartmentSummaries(summaries); }
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setEmployeeReports([]); setDepartmentSummaries([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(employeeReports.map(r => r.department)));
 
