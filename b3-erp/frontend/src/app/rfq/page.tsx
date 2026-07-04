@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   FileText,
@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
+import { procurementRFQService } from '@/services/procurement-rfq.service';
 
 interface RFQ {
   id: string;

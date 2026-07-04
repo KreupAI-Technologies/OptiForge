@@ -167,13 +167,6 @@ export const HrPayrollService = {
     );
   },
 
-  // ---- Loans (recoveries + EMI schedule share loan-recoveries) ------------
-  async getLoanRecoveries(status?: string): Promise<any[]> {
-    return toArray(
-      await request(`/hr/loan-recoveries${withCompany({ status })}`),
-    );
-  },
-
   // ---- Attendance summary orphan endpoints --------------------------------
   // Backs the aggregate attendance pages under /hr/attendance/*. The raw
   // per-day /hr/attendances endpoint is left alone; these summary/rollup pages

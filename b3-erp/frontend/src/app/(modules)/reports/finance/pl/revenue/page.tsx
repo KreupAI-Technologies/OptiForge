@@ -1,23 +1,49 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Badge } from '@/components/ui/badge';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function PLRevenueDetail() {
     const router = useRouter();
     const [category] = useState('all'); // Get from URL params in real implementation
 
-    const revenueData = [
-        { id: 'INV-2025-001', date: '2025-01-20', customer: 'ABC Manufacturing Ltd', category: 'Product Sales', amount: 450000, invoice: 'INV-2025-001' },
-        { id: 'INV-2025-002', date: '2025-01-18', customer: 'XYZ Industries Inc', category: 'Product Sales', amount: 385000, invoice: 'INV-2025-002' },
-        { id: 'INV-2025-003', date: '2025-01-15', customer: 'Tech Solutions Pvt', category: 'Services', amount: 125000, invoice: 'INV-2025-003' },
-        { id: 'INV-2025-004', date: '2025-01-12', customer: 'Global Exports Corp', category: 'Product Sales', amount: 520000, invoice: 'INV-2025-004' },
-    ];
+    const [revenueData, setRevenueData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/invoices?invoiceType=Sales Invoice');
+                const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r.id ?? r.invoiceNumber ?? '',
+                    date: r.invoiceDate ? String(r.invoiceDate).slice(0, 10) : '',
+                    customer: r.partyName ?? '',
+                    category: r.invoiceType ?? 'Sales Invoice',
+                    amount: Number(r.totalAmount ?? 0),
+                    invoice: r.invoiceNumber ?? r.id ?? '',
+                }));
+                if (!cancelled) setRevenueData(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRevenueData([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
+
+    const totalRevenue = revenueData.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const avgInvoice = revenueData.length ? totalRevenue / revenueData.length : 0;
 
     const handleInvoiceClick = (invoiceId: string) => {
         router.push(`/sales/invoices/${invoiceId}`);
@@ -36,30 +62,32 @@ export default function PLRevenueDetail() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('pl-revenue', revenueData)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Total Revenue</p>
-                        <p className="text-2xl font-bold text-green-600">₹14.8L</p>
+                        <p className="text-2xl font-bold text-green-600">₹{(totalRevenue / 1000).toFixed(0)}K</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Invoices</p>
-                        <p className="text-2xl font-bold">4</p>
+                        <p className="text-2xl font-bold">{revenueData.length}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
                         <p className="text-sm text-gray-600">Avg Invoice</p>
-                        <p className="text-2xl font-bold">₹3.7L</p>
+                        <p className="text-2xl font-bold">₹{(avgInvoice / 1000).toFixed(0)}K</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
-                        <p className="text-sm text-gray-600">Top Category</p>
-                        <p className="text-2xl font-bold text-blue-600">Product Sales</p>
+                        <p className="text-sm text-gray-600">Invoices</p>
+                        <p className="text-2xl font-bold text-blue-600">{revenueData.length}</p>
                     </CardContent>
                 </Card>
             </div>

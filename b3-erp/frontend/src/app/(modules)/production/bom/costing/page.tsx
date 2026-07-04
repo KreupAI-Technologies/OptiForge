@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
 import {
@@ -15,8 +15,10 @@ import {
   Layers,
   PieChart,
   Download,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { RecalculateCostsModal } from '@/components/production/bom/BOMCostingModals';
 import { ExportCostingModal } from '@/components/production/bom/BOMExportModals';
 

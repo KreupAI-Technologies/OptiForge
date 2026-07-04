@@ -162,17 +162,51 @@ export default function ProductionAnalyticsPage() {
     { shift: 'Night (10PM-6AM)', production: 4320, target: 5000, efficiency: 86.4, oee: 71.2, downtime: 5.2 }
   ];
 
-  // Mock Operator Productivity
-  const operatorProductivity: OperatorProductivity[] = [
-    { operatorId: 'OP-001', operatorName: 'Rajesh Kumar', shift: 'Morning', unitsProduced: 485, target: 450, efficiency: 107.8, qualityRate: 98.5, rank: 1 },
-    { operatorId: 'OP-012', operatorName: 'Priya Sharma', shift: 'Afternoon', unitsProduced: 472, target: 450, efficiency: 104.9, qualityRate: 99.2, rank: 2 },
-    { operatorId: 'OP-023', operatorName: 'Amit Patel', shift: 'Morning', unitsProduced: 468, target: 450, efficiency: 104.0, qualityRate: 97.8, rank: 3 },
-    { operatorId: 'OP-007', operatorName: 'Sunita Reddy', shift: 'Afternoon', unitsProduced: 461, target: 450, efficiency: 102.4, qualityRate: 98.9, rank: 4 },
-    { operatorId: 'OP-034', operatorName: 'Vikram Singh', shift: 'Night', unitsProduced: 456, target: 450, efficiency: 101.3, qualityRate: 96.7, rank: 5 },
-    { operatorId: 'OP-018', operatorName: 'Lakshmi Iyer', shift: 'Morning', unitsProduced: 453, target: 450, efficiency: 100.7, qualityRate: 99.5, rank: 6 },
-    { operatorId: 'OP-029', operatorName: 'Mohammed Ali', shift: 'Afternoon', unitsProduced: 448, target: 450, efficiency: 99.6, qualityRate: 97.2, rank: 7 },
-    { operatorId: 'OP-041', operatorName: 'Anjali Mehta', shift: 'Night', unitsProduced: 442, target: 450, efficiency: 98.2, qualityRate: 98.1, rank: 8 }
-  ];
+  // Operator Productivity — primary table, wired to production/productivity-metrics
+  const [operatorProductivity, setOperatorProductivity] = useState<OperatorProductivity[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await ProductionOrphanService.getProductivityMetrics();
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+        const mapped: OperatorProductivity[] = raw.map((m, idx) => {
+          const unitsProduced = Number(m.unitsProduced ?? m.actualOutput ?? m.output ?? m.units ?? 0);
+          const target = Number(m.target ?? m.targetOutput ?? m.plannedOutput ?? 0);
+          const efficiency = Number(
+            m.efficiency ?? (target > 0 ? (unitsProduced / target) * 100 : 0),
+          );
+          return {
+            operatorId: m.operatorId ?? m.employeeId ?? m.id ?? `OP-${idx + 1}`,
+            operatorName: m.operatorName ?? m.employeeName ?? m.name ?? 'Unknown',
+            shift: m.shift ?? m.shiftName ?? '-',
+            unitsProduced,
+            target,
+            efficiency,
+            qualityRate: Number(m.qualityRate ?? m.quality ?? 0),
+            rank: Number(m.rank ?? idx + 1),
+          };
+        });
+        if (!cancelled) setOperatorProductivity(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load productivity metrics');
+          setOperatorProductivity([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getUtilizationColor = (utilization: number): string => {
     if (utilization >= 90) return 'bg-green-500';
@@ -833,6 +867,24 @@ export default function ProductionAnalyticsPage() {
             View All Operators →
           </button>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading productivity metrics…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && operatorProductivity.length === 0 && (
+          <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            No productivity metrics found.
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full">
