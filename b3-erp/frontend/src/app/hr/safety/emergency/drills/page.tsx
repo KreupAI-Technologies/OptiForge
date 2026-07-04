@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bell,
   Search,
@@ -16,8 +16,10 @@ import {
   MoreVertical,
   ChevronRight,
   Info,
-  MapPin
+  MapPin,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyDrill } from '@/services/hr-safety.service';
 
 // Mock Data
 const drillStats = {
@@ -27,54 +29,73 @@ const drillStats = {
   successRate: 100
 };
 
-const drillHistory = [
-  {
-    id: 'DRL-2024-004',
-    type: 'Full Plant Evacuation',
-    date: '2024-03-12',
-    startTime: '10:00 AM',
-    duration: '3m 15s',
-    participants: 452,
-    rating: 'Exceeds Expectations',
-    status: 'Completed'
-  },
-  {
-    id: 'DRL-2024-003',
-    type: 'Admin Block Fire Drill',
-    date: '2024-02-05',
-    startTime: '02:30 PM',
-    duration: '2m 45s',
-    participants: 84,
-    rating: 'Satisfactory',
-    status: 'Completed'
-  },
-  {
-    id: 'DRL-2024-002',
-    type: 'Chemical Leak Simulation',
-    date: '2024-01-18',
-    startTime: '11:15 AM',
-    duration: '5m 10s',
-    participants: 120,
-    rating: 'Satisfactory',
-    status: 'Completed'
-  },
-  {
-    id: 'DRL-2023-015',
-    type: 'Night Shift Evacuation',
-    date: '2023-12-04',
-    startTime: '01:00 AM',
-    duration: '4m 05s',
-    participants: 65,
-    rating: 'Needs Improvement',
-    status: 'Completed'
-  }
-];
+interface DrillHistoryItem {
+  id: string;
+  type: string;
+  date: string;
+  startTime: string;
+  duration: string;
+  participants: number;
+  rating: string;
+  status: string;
+}
 
 export default function EvacuationDrillsPage() {
   const [filter, setFilter] = useState('All');
+  const [drillHistory, setDrillHistory] = useState<DrillHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getDrills('drill');
+        const mapped: DrillHistoryItem[] = rows.map((row: SafetyDrill) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.code ?? row.id ?? ''),
+            type: row.drillType ?? row.name ?? '',
+            date: row.conductedDate ?? row.scheduledDate ?? '',
+            startTime: meta.startTime ?? '',
+            duration: row.duration ?? '',
+            participants: row.participants ?? 0,
+            rating: row.effectiveness ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setDrillHistory(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load drill history');
+          setDrillHistory([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading drill history…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

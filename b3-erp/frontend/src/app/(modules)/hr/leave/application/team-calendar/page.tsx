@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Calendar,
     ChevronLeft,
@@ -8,6 +8,10 @@ import {
     Users,
     Filter
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
+
+const capitalizeStatus = (s: any): TeamLeave['status'] =>
+    String(s ?? '').toUpperCase() === 'APPROVED' ? 'Approved' : 'Pending';
 
 interface TeamLeave {
     id: string;
