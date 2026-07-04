@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
     BookOpen,
     Search,
@@ -12,6 +12,7 @@ import {
     Download
 } from 'lucide-react'
 import Link from 'next/link'
+import { AfterSalesManagementService } from '@/services/after-sales-management.service'
 
 interface KnowledgeArticle {
     id: string
@@ -27,53 +28,42 @@ export default function KnowledgeBasePage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [activeCategory, setActiveCategory] = useState<'All' | 'Manual' | 'Troubleshooting' | 'FAQ'>('All')
 
-    const articles: KnowledgeArticle[] = [
-        {
-            id: 'KB-001',
-            title: 'Hydraulic Press HP-500 Maintenance Manual',
-            category: 'Manual',
-            description: 'Complete guide for daily maintenance, fluid checks, and seal replacements.',
-            lastUpdated: '2025-05-12',
-            views: 1240,
-            tags: ['HP-500', 'Maintenance', 'Hydraulic']
-        },
-        {
-            id: 'KB-002',
-            title: 'Common Error Codes for CM-350 CNC',
-            category: 'Troubleshooting',
-            description: 'Detailed explanation of spindle and axis error codes with resolution steps.',
-            lastUpdated: '2025-08-20',
-            views: 850,
-            tags: ['CM-350', 'CNC', 'Errors']
-        },
-        {
-            id: 'KB-003',
-            title: 'Warranty Policy FAQ',
-            category: 'FAQ',
-            description: 'Frequently asked questions regarding international warranty coverage and claims.',
-            lastUpdated: '2025-01-10',
-            views: 2100,
-            tags: ['Warranty', 'Policy']
-        },
-        {
-            id: 'KB-004',
-            title: 'Conveyor Belt Alignment Procedure',
-            category: 'Manual',
-            description: 'Step-by-step procedure for aligning CS-200 series conveyor belts.',
-            lastUpdated: '2025-09-05',
-            views: 430,
-            tags: ['CS-200', 'Alignment']
-        },
-        {
-            id: 'KB-005',
-            title: 'Spindle Overheating Resolution',
-            category: 'Troubleshooting',
-            description: 'Emergency steps to take when motor temperature exceeds 80°C.',
-            lastUpdated: '2025-10-15',
-            views: 1120,
-            tags: ['Overheating', 'Spindle', 'Emergency']
+    const [articles, setArticles] = useState<KnowledgeArticle[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [loadError, setLoadError] = useState<string | null>(null)
+
+    useEffect(() => {
+        let cancelled = false
+        const load = async () => {
+            setIsLoading(true)
+            setLoadError(null)
+            try {
+                const raw = (await AfterSalesManagementService.getKnowledgeFaqs()) as any[]
+                const list = Array.isArray(raw) ? raw : []
+                const mapped: KnowledgeArticle[] = list.map((r, idx) => ({
+                    id: r?.id ? String(r.id) : `KB-${String(idx + 1).padStart(3, '0')}`,
+                    title: r?.question ?? r?.title ?? '',
+                    category: 'FAQ',
+                    description: r?.answer ?? r?.summary ?? '',
+                    lastUpdated: (r?.updatedAt ?? r?.createdAt ?? '').toString().slice(0, 10),
+                    views: Number(r?.views ?? 0),
+                    tags: r?.category ? [String(r.category)] : [],
+                }))
+                if (!cancelled) setArticles(mapped)
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err instanceof Error ? err.message : 'Failed to load knowledge articles')
+                    setArticles([])
+                }
+            } finally {
+                if (!cancelled) setIsLoading(false)
+            }
         }
-    ]
+        load()
+        return () => {
+            cancelled = true
+        }
+    }, [])
 
     const filteredArticles = articles.filter(article => {
         const matchesSearch = article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,6 +109,19 @@ export default function KnowledgeBasePage() {
                         </button>
                     ))}
                 </div>
+
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                        Loading knowledge articles…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredArticles.map((article) => (
