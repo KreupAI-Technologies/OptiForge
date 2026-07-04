@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     CheckCircle,
     Search,
@@ -38,98 +39,23 @@ export default function ApprovedExpensesPage() {
     const [paymentFilter, setPaymentFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('February 2025');
 
-    const expenses: ApprovedExpense[] = [
-        {
-            id: '1',
-            reportId: 'EXP-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            title: 'January Client Visit - Mumbai',
-            type: 'Travel',
-            submittedDate: '2025-01-28',
-            approvedDate: '2025-02-02',
-            approvedBy: 'Jennifer Brown',
-            totalAmount: 45000,
-            itemCount: 8,
-            paymentStatus: 'Paid',
-            paymentDate: '2025-02-05',
-            paymentRef: 'TXN-2025-00123',
-            bankAccount: 'HDFC ***4567'
-        },
-        {
-            id: '2',
-            reportId: 'EXP-2025-008',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            title: 'Training Workshop Expenses',
-            type: 'Training',
-            submittedDate: '2025-01-25',
-            approvedDate: '2025-01-30',
-            approvedBy: 'Sarah Johnson',
-            totalAmount: 22500,
-            itemCount: 5,
-            paymentStatus: 'Paid',
-            paymentDate: '2025-02-03',
-            paymentRef: 'TXN-2025-00118',
-            bankAccount: 'ICICI ***8901'
-        },
-        {
-            id: '3',
-            reportId: 'EXP-2025-012',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            title: 'Software Licenses - Q1',
-            type: 'Regular',
-            submittedDate: '2025-02-01',
-            approvedDate: '2025-02-05',
-            approvedBy: 'Jennifer Brown',
-            totalAmount: 75000,
-            itemCount: 4,
-            paymentStatus: 'Processing',
-            paymentDate: null,
-            paymentRef: null,
-            bankAccount: 'SBI ***2345'
-        },
-        {
-            id: '4',
-            reportId: 'EXP-2025-014',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            title: 'Equipment Maintenance',
-            type: 'Regular',
-            submittedDate: '2025-02-03',
-            approvedDate: '2025-02-08',
-            approvedBy: 'Sarah Johnson',
-            totalAmount: 35000,
-            itemCount: 3,
-            paymentStatus: 'Awaiting Payment',
-            paymentDate: null,
-            paymentRef: null,
-            bankAccount: 'HDFC ***6789'
-        },
-        {
-            id: '5',
-            reportId: 'EXP-2025-015',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            title: 'Client Meeting - Delhi',
-            type: 'Travel',
-            submittedDate: '2025-02-05',
-            approvedDate: '2025-02-09',
-            approvedBy: 'Jennifer Brown',
-            totalAmount: 28000,
-            itemCount: 6,
-            paymentStatus: 'Awaiting Payment',
-            paymentDate: null,
-            paymentRef: null,
-            bankAccount: 'Axis ***3456'
-        }
-    ];
+    const [expenses, setExpenses] = useState<ApprovedExpense[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getApproved();
+          const mapped: ApprovedExpense[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setExpenses(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setExpenses([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,6 +88,8 @@ export default function ApprovedExpensesPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>

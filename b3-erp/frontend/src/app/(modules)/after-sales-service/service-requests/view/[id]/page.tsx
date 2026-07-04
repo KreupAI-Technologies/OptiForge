@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import {
   Headphones,
@@ -93,59 +94,44 @@ export default function ViewServiceRequestPage({ params }: { params: { id: strin
   };
 
   // Mock Activity Timeline
-  const activities: Activity[] = [
-    {
-      id: 'A1',
-      timestamp: '2025-02-17 10:30',
-      action: 'Ticket Created',
-      description: 'Service request logged via phone call',
-      performedBy: 'Customer Service Team'
-    },
-    {
-      id: 'A2',
-      timestamp: '2025-02-17 10:45',
-      action: 'Priority Assessed',
-      description: 'Priority set to P2 (High) based on business impact',
-      performedBy: 'System'
-    },
-    {
-      id: 'A3',
-      timestamp: '2025-02-17 11:15',
-      action: 'Engineer Assigned',
-      description: 'Assigned to Rajesh Kumar (Field Engineer)',
-      performedBy: 'Dispatch Manager'
-    },
-    {
-      id: 'A4',
-      timestamp: '2025-02-17 11:45',
-      action: 'First Response',
-      description: 'Engineer contacted customer, scheduled site visit for tomorrow morning',
-      performedBy: 'Rajesh Kumar'
-    },
-    {
-      id: 'A5',
-      timestamp: '2025-02-17 15:30',
-      action: 'Parts Ordered',
-      description: 'Compressor unit and thermostat ordered from warehouse',
-      performedBy: 'Rajesh Kumar'
-    }
-  ];
+  // Activities + notes derived from the service-request record.
+  const [activities, setActivities] = useState<Activity[]>([]);
 
-  // Mock Internal Notes
-  const notes = [
-    {
-      id: 'N1',
-      timestamp: '2025-02-17 11:50',
-      author: 'Rajesh Kumar',
-      note: 'Spoke with customer. Confirmed issue started after power outage yesterday. Will inspect on-site tomorrow morning. Likely compressor or thermostat issue.'
-    },
-    {
-      id: 'N2',
-      timestamp: '2025-02-17 15:30',
-      author: 'Rajesh Kumar',
-      note: 'Ordered replacement parts as precaution. ETA: tomorrow morning before site visit. Customer informed about schedule.'
-    }
-  ];
+  const [notes, setNotes] = useState<Array<{ id: string; timestamp: string; author: string; note: string }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const sr = (await AfterSalesPagesService.serviceRequest(params.id)) as any;
+        const acts: Activity[] = (Array.isArray(sr?.activities) ? sr.activities : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          timestamp: r?.timestamp ?? r?.createdAt ?? '',
+          action: r?.action ?? '',
+          description: r?.description ?? '',
+          performedBy: r?.performedBy ?? r?.by ?? '',
+        }));
+        const nts = (Array.isArray(sr?.notes) ? sr.notes : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          timestamp: r?.timestamp ?? r?.createdAt ?? '',
+          author: r?.author ?? r?.by ?? '',
+          note: r?.note ?? r?.text ?? '',
+        }));
+        if (!cancelled) { setActivities(acts); setNotes(nts); }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load service request');
+          setActivities([]); setNotes([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [params.id]);
 
   const formatDateTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('en-IN', {

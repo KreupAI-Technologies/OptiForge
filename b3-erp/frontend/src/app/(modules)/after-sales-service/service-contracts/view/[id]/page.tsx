@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -150,56 +151,49 @@ export default function ViewContractPage({ params }: { params: { id: string } })
   };
 
   // Mock Service History
-  const serviceHistory: ServiceHistory[] = [
-    {
-      id: 'SR-001',
-      ticketNumber: 'SR-2025-0045',
-      date: '2025-02-15',
-      type: 'Preventive Maintenance',
-      status: 'Completed',
-      engineer: 'Rajesh Kumar',
-      description: 'Quarterly maintenance check - All equipment functioning normally'
-    },
-    {
-      id: 'SR-002',
-      ticketNumber: 'SR-2025-0038',
-      date: '2025-02-10',
-      type: 'Repair',
-      status: 'Completed',
-      engineer: 'Amit Patel',
-      description: 'Fixed heating element issue in commercial oven'
-    },
-    {
-      id: 'SR-003',
-      ticketNumber: 'SR-2025-0029',
-      date: '2025-02-05',
-      type: 'Emergency Repair',
-      status: 'Completed',
-      engineer: 'Rajesh Kumar',
-      description: 'Refrigeration unit compressor replacement'
-    },
-    {
-      id: 'SR-004',
-      ticketNumber: 'SR-2025-0021',
-      date: '2025-01-28',
-      type: 'Inspection',
-      status: 'Completed',
-      engineer: 'Priya Singh',
-      description: 'Safety inspection and compliance check'
-    }
-  ];
+  // Service history + invoices derived from the contract record.
+  const [serviceHistory, setServiceHistory] = useState<ServiceHistory[]>([]);
 
   // Mock Invoices
-  const invoices: Invoice[] = [
-    {
-      id: 'INV-001',
-      invoiceNumber: 'INV-2025-0123',
-      date: '2025-01-01',
-      amount: 531000,
-      status: 'Paid',
-      dueDate: '2025-01-31'
-    }
-  ];
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const c = (await AfterSalesPagesService.contract(params.id)) as any;
+        const sh: ServiceHistory[] = (Array.isArray(c?.serviceHistory) ? c.serviceHistory : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          ticketNumber: r?.ticketNumber ?? r?.requestNumber ?? '',
+          date: r?.date ?? r?.createdAt ?? '',
+          type: r?.type ?? r?.serviceType ?? '',
+          status: (r?.status ?? 'Pending') as ServiceHistory['status'],
+          engineer: r?.engineer ?? r?.assignedTo ?? '',
+          description: r?.description ?? '',
+        }));
+        const inv: Invoice[] = (Array.isArray(c?.invoices) ? c.invoices : []).map((r: any) => ({
+          id: String(r?.id ?? ''),
+          invoiceNumber: r?.invoiceNumber ?? '',
+          date: r?.date ?? r?.invoiceDate ?? '',
+          amount: Number(r?.amount ?? r?.totalAmount ?? 0) || 0,
+          status: (r?.status ?? 'Pending') as Invoice['status'],
+          dueDate: r?.dueDate ?? '',
+        }));
+        if (!cancelled) { setServiceHistory(sh); setInvoices(inv); }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load contract details');
+          setServiceHistory([]); setInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [params.id]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, Truck, MapPin, Clock, AlertTriangle, CheckCircle, Package, Filter, Eye } from 'lucide-react';
 
 interface YardVehicle {
@@ -28,152 +29,40 @@ export default function YardManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const yardVehicles: YardVehicle[] = [
-    {
-      id: '1',
-      vehicleNo: 'TN-01-AB-1234',
-      carrierName: 'Blue Dart Express',
-      driverName: 'Rajesh Kumar',
-      driverPhone: '+91-98765-43210',
-      checkInTime: '2025-10-21 07:45',
-      parkingSpot: 'YARD-A-12',
-      vehicleType: 'truck',
-      status: 'at-dock',
-      appointmentNo: 'APT-2025-1001',
-      dockAssigned: 'DOCK-A01',
-      estimatedDeparture: '2025-10-21 10:00',
-      waitTime: 30,
-      trailerNo: '',
-      sealNo: 'SEAL-98765',
-      notes: 'Unloading in progress'
-    },
-    {
-      id: '2',
-      vehicleNo: 'KA-01-CD-3456',
-      carrierName: 'VRL Logistics',
-      driverName: 'Amit Patel',
-      driverPhone: '+91-99876-54321',
-      checkInTime: '2025-10-21 08:30',
-      parkingSpot: 'YARD-B-05',
-      vehicleType: 'trailer',
-      status: 'waiting',
-      appointmentNo: 'APT-2025-1003',
-      dockAssigned: 'DOCK-B01',
-      estimatedDeparture: '2025-10-21 11:00',
-      waitTime: 45,
-      trailerNo: 'TRL-12345',
-      sealNo: 'SEAL-87654',
-      notes: 'Waiting for dock availability'
-    },
-    {
-      id: '3',
-      vehicleNo: 'TN-04-GH-5678',
-      carrierName: 'DHL Express',
-      driverName: 'Priya Sharma',
-      driverPhone: '+91-98234-56789',
-      checkInTime: '2025-10-21 10:15',
-      parkingSpot: 'YARD-A-08',
-      vehicleType: 'truck',
-      status: 'checked-in',
-      appointmentNo: 'APT-2025-1002',
-      dockAssigned: 'DOCK-A03',
-      estimatedDeparture: '2025-10-21 13:00',
-      waitTime: 0,
-      trailerNo: '',
-      sealNo: 'SEAL-76543',
-      notes: 'Early arrival - waiting for scheduled time'
-    },
-    {
-      id: '4',
-      vehicleNo: 'MH-12-EF-7890',
-      carrierName: 'Gati Ltd',
-      driverName: 'Suresh Menon',
-      driverPhone: '+91-97123-45678',
-      checkInTime: '2025-10-21 09:30',
-      parkingSpot: 'YARD-B-12',
-      vehicleType: 'truck',
-      status: 'at-dock',
-      appointmentNo: 'APT-2025-1004',
-      dockAssigned: 'DOCK-B02',
-      estimatedDeparture: '2025-10-21 12:00',
-      waitTime: 15,
-      trailerNo: '',
-      sealNo: 'SEAL-65432',
-      notes: 'Paperwork being processed'
-    },
-    {
-      id: '5',
-      vehicleNo: 'TN-07-IJ-2345',
-      carrierName: 'DTDC Courier',
-      driverName: 'Deepak Singh',
-      driverPhone: '+91-96543-21098',
-      checkInTime: '2025-10-21 07:15',
-      parkingSpot: 'YARD-C-03',
-      vehicleType: 'truck',
-      status: 'loading',
-      appointmentNo: 'APT-2025-1005',
-      dockAssigned: 'DOCK-C01',
-      estimatedDeparture: '2025-10-21 09:30',
-      waitTime: 10,
-      trailerNo: '',
-      sealNo: 'SEAL-54321',
-      notes: '85% loading complete'
-    },
-    {
-      id: '6',
-      vehicleNo: 'HR-26-KL-6789',
-      carrierName: 'FedEx',
-      driverName: 'Vikas Reddy',
-      driverPhone: '+91-95432-10987',
-      checkInTime: '2025-10-21 08:20',
-      parkingSpot: 'YARD-C-07',
-      vehicleType: 'container',
-      status: 'at-dock',
-      appointmentNo: 'APT-2025-1006',
-      dockAssigned: 'DOCK-C03',
-      estimatedDeparture: '2025-10-21 10:30',
-      waitTime: 15,
-      trailerNo: 'CNT-67890',
-      sealNo: 'SEAL-43210',
-      notes: 'Container unloading in progress'
-    },
-    {
-      id: '7',
-      vehicleNo: 'WB-01-MN-4567',
-      carrierName: 'Indian Post',
-      driverName: 'Rahul Verma',
-      driverPhone: '+91-94321-87654',
-      checkInTime: '2025-10-21 12:45',
-      parkingSpot: 'YARD-D-01',
-      vehicleType: 'truck',
-      status: 'checked-in',
-      appointmentNo: 'APT-2025-1007',
-      dockAssigned: 'DOCK-D01',
-      estimatedDeparture: '2025-10-21 15:00',
-      waitTime: 0,
-      trailerNo: '',
-      sealNo: 'SEAL-32109',
-      notes: 'Scheduled for 13:00 - waiting in yard'
-    },
-    {
-      id: '8',
-      vehicleNo: 'DL-01-OP-8901',
-      carrierName: 'Safexpress',
-      driverName: 'Manoj Kumar',
-      driverPhone: '+91-93210-98765',
-      checkInTime: '2025-10-21 09:00',
-      parkingSpot: 'YARD-B-18',
-      vehicleType: 'trailer',
-      status: 'waiting',
-      appointmentNo: 'APT-2025-1008',
-      dockAssigned: 'DOCK-B03',
-      waitTime: 60,
-      trailerNo: 'TRL-98765',
-      sealNo: 'SEAL-21098',
-      estimatedDeparture: '2025-10-21 12:30',
-      notes: 'High wait time - priority needed'
-    }
-  ];
+  const [yardVehicles, setYardVehicles] = useState<YardVehicle[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getYardVehicles();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setYardVehicles((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          vehicleNo: r.vehicleNo ?? '',
+          carrierName: r.carrierName ?? '',
+          driverName: r.driverName ?? '',
+          driverPhone: r.driverPhone ?? '',
+          checkInTime: r.checkInTime ?? '',
+          parkingSpot: r.parkingSpot ?? '',
+          vehicleType: (r.vehicleType ?? 'truck') as YardVehicle['vehicleType'],
+          status: (r.status ?? 'checked-in') as YardVehicle['status'],
+          appointmentNo: r.appointmentNo ?? '',
+          dockAssigned: r.dockAssigned ?? '',
+          estimatedDeparture: r.estimatedDeparture ?? '',
+          waitTime: Number(r.waitTime ?? 0),
+          trailerNo: r.trailerNo ?? '',
+          sealNo: r.sealNo ?? '',
+          notes: r.notes ?? '',
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load yard vehicles');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const yardStats = {
     total: yardVehicles.length,

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   FileText,
   Users,
@@ -55,83 +56,60 @@ export default function TDSManagementPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Sample TDS transactions
-  const tdsTransactions: TDSTransaction[] = [
-    {
-      id: 'TDS001',
-      date: '2025-01-15',
-      paymentRef: 'PAY-2025-001',
-      deductee: 'ABC Contractors Pvt Ltd',
-      pan: 'AAACC1234F',
-      section: '194C - Contractors',
-      grossAmount: 500000,
-      tdsRate: 2.0,
-      tdsAmount: 10000,
-      netPayment: 490000,
-      quarter: 'Q4-2024-25',
-      challanNumber: 'CH2025010112345',
-      challanDate: '2025-01-16',
-      deposited: true
-    },
-    {
-      id: 'TDS002',
-      date: '2025-01-14',
-      paymentRef: 'PAY-2025-002',
-      deductee: 'XYZ Consultancy Services',
-      pan: 'BBBDD5678G',
-      section: '194J - Professional Services',
-      grossAmount: 300000,
-      tdsRate: 10.0,
-      tdsAmount: 30000,
-      netPayment: 270000,
-      quarter: 'Q4-2024-25',
-      deposited: false
-    },
-    {
-      id: 'TDS003',
-      date: '2025-01-13',
-      paymentRef: 'PAY-2025-003',
-      deductee: 'John Doe (Rent)',
-      pan: 'CCCEE9012H',
-      section: '194I - Rent',
-      grossAmount: 100000,
-      tdsRate: 10.0,
-      tdsAmount: 10000,
-      netPayment: 90000,
-      quarter: 'Q4-2024-25',
-      deposited: false
-    },
-    {
-      id: 'TDS004',
-      date: '2025-01-12',
-      paymentRef: 'PAY-2025-004',
-      deductee: 'DEF Transport Services',
-      pan: 'DDDFF3456I',
-      section: '194C - Contractors',
-      grossAmount: 750000,
-      tdsRate: 1.0,
-      tdsAmount: 7500,
-      netPayment: 742500,
-      quarter: 'Q4-2024-25',
-      challanNumber: 'CH2025011398765',
-      challanDate: '2025-01-13',
-      deposited: true
-    },
-    {
-      id: 'TDS005',
-      date: '2025-01-11',
-      paymentRef: 'SAL-2025-001',
-      deductee: 'Employee Salary (January)',
-      pan: 'MULTIPLE',
-      section: '192 - Salaries',
-      grossAmount: 5000000,
-      tdsRate: 10.0,
-      tdsAmount: 500000,
-      netPayment: 4500000,
-      quarter: 'Q4-2024-25',
-      deposited: false
-    }
-  ];
+  const [tdsTransactions, setTdsTransactions] = useState<TDSTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const quarterOf = (d: Date) => {
+      const m = d.getMonth();
+      const fy = m >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+      const q = m >= 3 && m <= 5 ? 'Q1' : m >= 6 && m <= 8 ? 'Q2' : m >= 9 && m <= 11 ? 'Q3' : 'Q4';
+      return `${q}-${fy}-${String((fy + 1) % 100).padStart(2, '0')}`;
+    };
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await FinanceService.getPayments();
+        const withTds = (Array.isArray(raw) ? raw : []).filter(
+          (r: any) => r.hasTDS || Number(r.tdsAmount ?? 0) > 0,
+        );
+        const mapped: TDSTransaction[] = withTds.map((r: any) => {
+          const gross = Number(r.amount ?? 0);
+          const tds = Number(r.tdsAmount ?? 0);
+          const dt = r.paymentDate ? new Date(r.paymentDate) : new Date();
+          return {
+            id: r.id ?? '',
+            date: r.paymentDate ? String(r.paymentDate).slice(0, 10) : '',
+            paymentRef: r.paymentNumber ?? '',
+            deductee: r.partyName ?? '',
+            pan: r.partyPan ?? '',
+            section: r.tdsSection ?? '',
+            grossAmount: gross,
+            tdsRate: Number(r.tdsRate ?? 0),
+            tdsAmount: tds,
+            netPayment: Number(r.netPayment ?? (gross - tds)),
+            quarter: quarterOf(dt),
+            challanNumber: r.tdsChallanNumber ?? undefined,
+            challanDate: r.tdsChallanDate ? String(r.tdsChallanDate).slice(0, 10) : undefined,
+            deposited: Boolean(r.tdsDeposited ?? false),
+          };
+        });
+        if (!cancelled) setTdsTransactions(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load TDS transactions');
+          setTdsTransactions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
 
   // Sample TDS returns
   const tdsReturns: TDSReturn[] = [

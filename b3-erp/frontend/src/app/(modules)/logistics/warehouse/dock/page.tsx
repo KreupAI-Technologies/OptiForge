@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, Truck, Package, Clock, CheckCircle, AlertTriangle, TrendingUp, Filter, Edit } from 'lucide-react';
 
 interface DockDoor {
@@ -158,208 +159,42 @@ Actions:
 Note: Changes will be logged in audit trail and may trigger notifications to assigned teams and carriers.`);
   };
 
-  const dockDoors: DockDoor[] = [
-    {
-      id: '1',
-      dockNo: 'DOCK-A01',
-      type: 'inbound',
-      status: 'unloading',
-      vehicleNo: 'TN-01-AB-1234',
-      carrierName: 'Blue Dart Express',
-      appointmentNo: 'APT-2025-1001',
-      scheduledTime: '2025-10-21 08:00',
-      actualArrival: '2025-10-21 08:15',
-      expectedDeparture: '2025-10-21 10:00',
-      orderNo: 'PO-2025-5678',
-      itemsCount: 245,
-      palletCount: 12,
-      currentProgress: 65,
-      workerAssigned: 'Team A - Rajesh',
-      priority: 'high',
-      waitTime: 15,
-      notes: 'Fragile items - Handle with care'
-    },
-    {
-      id: '2',
-      dockNo: 'DOCK-A02',
-      type: 'inbound',
-      status: 'available',
-      vehicleNo: '',
-      carrierName: '',
-      appointmentNo: '',
-      scheduledTime: '',
-      actualArrival: '',
-      expectedDeparture: '',
-      orderNo: '',
-      itemsCount: 0,
-      palletCount: 0,
-      currentProgress: 0,
-      workerAssigned: '',
-      priority: 'low',
-      waitTime: 0,
-      notes: 'Ready for next shipment'
-    },
-    {
-      id: '3',
-      dockNo: 'DOCK-A03',
-      type: 'inbound',
-      status: 'reserved',
-      vehicleNo: 'TN-04-GH-5678',
-      carrierName: 'DHL Express',
-      appointmentNo: 'APT-2025-1002',
-      scheduledTime: '2025-10-21 11:00',
-      actualArrival: '',
-      expectedDeparture: '2025-10-21 13:00',
-      orderNo: 'PO-2025-5679',
-      itemsCount: 180,
-      palletCount: 9,
-      currentProgress: 0,
-      workerAssigned: 'Team B - Priya',
-      priority: 'medium',
-      waitTime: 0,
-      notes: 'Temperature controlled items'
-    },
-    {
-      id: '4',
-      dockNo: 'DOCK-B01',
-      type: 'outbound',
-      status: 'loading',
-      vehicleNo: 'KA-01-CD-3456',
-      carrierName: 'VRL Logistics',
-      appointmentNo: 'APT-2025-1003',
-      scheduledTime: '2025-10-21 09:00',
-      actualArrival: '2025-10-21 08:50',
-      expectedDeparture: '2025-10-21 11:00',
-      orderNo: 'SO-2025-8901',
-      itemsCount: 320,
-      palletCount: 16,
-      currentProgress: 45,
-      workerAssigned: 'Team C - Amit',
-      priority: 'high',
-      waitTime: 10,
-      notes: 'Express delivery - Priority loading'
-    },
-    {
-      id: '5',
-      dockNo: 'DOCK-B02',
-      type: 'outbound',
-      status: 'occupied',
-      vehicleNo: 'MH-12-EF-7890',
-      carrierName: 'Gati Ltd',
-      appointmentNo: 'APT-2025-1004',
-      scheduledTime: '2025-10-21 10:00',
-      actualArrival: '2025-10-21 09:45',
-      expectedDeparture: '2025-10-21 12:00',
-      orderNo: 'SO-2025-8902',
-      itemsCount: 150,
-      palletCount: 8,
-      currentProgress: 0,
-      workerAssigned: 'Team D - Suresh',
-      priority: 'medium',
-      waitTime: 15,
-      notes: 'Waiting for paperwork completion'
-    },
-    {
-      id: '6',
-      dockNo: 'DOCK-B03',
-      type: 'outbound',
-      status: 'available',
-      vehicleNo: '',
-      carrierName: '',
-      appointmentNo: '',
-      scheduledTime: '',
-      actualArrival: '',
-      expectedDeparture: '',
-      orderNo: '',
-      itemsCount: 0,
-      palletCount: 0,
-      currentProgress: 0,
-      workerAssigned: '',
-      priority: 'low',
-      waitTime: 0,
-      notes: ''
-    },
-    {
-      id: '7',
-      dockNo: 'DOCK-C01',
-      type: 'both',
-      status: 'loading',
-      vehicleNo: 'TN-07-IJ-2345',
-      carrierName: 'DTDC Courier',
-      appointmentNo: 'APT-2025-1005',
-      scheduledTime: '2025-10-21 07:30',
-      actualArrival: '2025-10-21 07:25',
-      expectedDeparture: '2025-10-21 09:30',
-      orderNo: 'SO-2025-8903',
-      itemsCount: 280,
-      palletCount: 14,
-      currentProgress: 85,
-      workerAssigned: 'Team A - Rajesh',
-      priority: 'high',
-      waitTime: 5,
-      notes: 'Multi-drop route - Verify all items'
-    },
-    {
-      id: '8',
-      dockNo: 'DOCK-C02',
-      type: 'both',
-      status: 'maintenance',
-      vehicleNo: '',
-      carrierName: '',
-      appointmentNo: '',
-      scheduledTime: '',
-      actualArrival: '',
-      expectedDeparture: '',
-      orderNo: '',
-      itemsCount: 0,
-      palletCount: 0,
-      currentProgress: 0,
-      workerAssigned: 'Maintenance Team',
-      priority: 'low',
-      waitTime: 0,
-      notes: 'Dock door repair - Expected completion by 14:00'
-    },
-    {
-      id: '9',
-      dockNo: 'DOCK-C03',
-      type: 'both',
-      status: 'unloading',
-      vehicleNo: 'HR-26-KL-6789',
-      carrierName: 'FedEx',
-      appointmentNo: 'APT-2025-1006',
-      scheduledTime: '2025-10-21 08:30',
-      actualArrival: '2025-10-21 08:35',
-      expectedDeparture: '2025-10-21 10:30',
-      orderNo: 'PO-2025-5680',
-      itemsCount: 195,
-      palletCount: 10,
-      currentProgress: 30,
-      workerAssigned: 'Team B - Priya',
-      priority: 'medium',
-      waitTime: 5,
-      notes: 'Verify quality inspection requirements'
-    },
-    {
-      id: '10',
-      dockNo: 'DOCK-D01',
-      type: 'inbound',
-      status: 'reserved',
-      vehicleNo: 'WB-01-MN-4567',
-      carrierName: 'Indian Post',
-      appointmentNo: 'APT-2025-1007',
-      scheduledTime: '2025-10-21 13:00',
-      actualArrival: '',
-      expectedDeparture: '2025-10-21 15:00',
-      orderNo: 'PO-2025-5681',
-      itemsCount: 420,
-      palletCount: 21,
-      currentProgress: 0,
-      workerAssigned: 'Team C - Amit',
-      priority: 'medium',
-      waitTime: 0,
-      notes: 'Large shipment - 2 hour unloading window'
-    }
-  ];
+  const [dockDoors, setDockDoors] = useState<DockDoor[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getDockDoors();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setDockDoors((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          dockNo: r.dockNo ?? r.doorNo ?? '',
+          type: (r.type ?? 'inbound') as DockDoor['type'],
+          status: (r.status ?? 'available') as DockDoor['status'],
+          vehicleNo: r.vehicleNo ?? r.currentVehicle ?? '',
+          carrierName: r.carrierName ?? r.carrier ?? '',
+          appointmentNo: r.appointmentNo ?? '',
+          scheduledTime: r.scheduledTime ?? '',
+          actualArrival: r.actualArrival ?? '',
+          expectedDeparture: r.expectedDeparture ?? '',
+          orderNo: r.orderNo ?? '',
+          itemsCount: Number(r.itemsCount ?? 0),
+          palletCount: Number(r.palletCount ?? 0),
+          currentProgress: Number(r.currentProgress ?? 0),
+          workerAssigned: r.workerAssigned ?? r.assignedTo ?? '',
+          priority: (r.priority ?? 'medium') as DockDoor['priority'],
+          waitTime: Number(r.waitTime ?? 0),
+          notes: r.notes ?? '',
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load dock doors');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const dockStats = {
     total: dockDoors.length,
@@ -416,6 +251,11 @@ Note: Changes will be logged in audit trail and may trigger notifications to ass
 
   return (
     <div className="min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
       <div className="mb-3 flex items-center gap-2">
         <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5 text-gray-600" />

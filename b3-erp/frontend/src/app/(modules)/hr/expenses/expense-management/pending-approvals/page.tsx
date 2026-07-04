@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     Clock,
     Search,
@@ -38,93 +39,23 @@ export default function PendingApprovalsPage() {
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
 
-    const expenses: PendingExpense[] = [
-        {
-            id: '1',
-            reportId: 'EXP-2025-015',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            title: 'Client Meeting - Bangalore',
-            type: 'Travel',
-            submittedDate: '2025-02-05',
-            totalAmount: 32000,
-            itemCount: 6,
-            priority: 'Normal',
-            daysAwaiting: 5,
-            previousApprovals: [],
-            policyViolations: [],
-            receiptsAttached: true
-        },
-        {
-            id: '2',
-            reportId: 'EXP-2025-016',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            title: 'Training Materials Purchase',
-            type: 'Regular',
-            submittedDate: '2025-02-08',
-            totalAmount: 15500,
-            itemCount: 4,
-            priority: 'Normal',
-            daysAwaiting: 2,
-            previousApprovals: [],
-            policyViolations: [],
-            receiptsAttached: true
-        },
-        {
-            id: '3',
-            reportId: 'EXP-2025-017',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            title: 'Conference Attendance - Tech Summit',
-            type: 'Travel',
-            submittedDate: '2025-02-01',
-            totalAmount: 85000,
-            itemCount: 12,
-            priority: 'High',
-            daysAwaiting: 9,
-            previousApprovals: ['L1 - Team Lead'],
-            policyViolations: ['Exceeds daily meal allowance by ₹500'],
-            receiptsAttached: true
-        },
-        {
-            id: '4',
-            reportId: 'EXP-2025-018',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            title: 'Equipment Repair - Urgent',
-            type: 'Regular',
-            submittedDate: '2025-02-09',
-            totalAmount: 28000,
-            itemCount: 2,
-            priority: 'Urgent',
-            daysAwaiting: 1,
-            previousApprovals: [],
-            policyViolations: [],
-            receiptsAttached: false
-        },
-        {
-            id: '5',
-            reportId: 'EXP-2025-019',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            title: 'Client Entertainment - Annual Meet',
-            type: 'Entertainment',
-            submittedDate: '2025-02-06',
-            totalAmount: 45000,
-            itemCount: 5,
-            priority: 'High',
-            daysAwaiting: 4,
-            previousApprovals: ['L1 - Sales Manager'],
-            policyViolations: ['Entertainment expense requires finance approval'],
-            receiptsAttached: true
-        }
-    ];
+    const [expenses, setExpenses] = useState<PendingExpense[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getPendingApprovals();
+          const mapped: PendingExpense[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setExpenses(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setExpenses([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredExpenses = expenses.filter(expense => {
         const matchesSearch = expense.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -170,6 +101,8 @@ export default function PendingApprovalsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
