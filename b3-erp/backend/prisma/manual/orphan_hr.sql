@@ -1596,3 +1596,33 @@ CREATE TABLE IF NOT EXISTS "hr_safety_reports" (
   CONSTRAINT "PK_hr_safety_reports" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_hr_safety_reports_companyId" ON "hr_safety_reports" ("companyId");
+
+-- Backs /hr/loan-recoveries (payroll/loans/recovery)
+CREATE TABLE IF NOT EXISTS "hr_payroll_loan_recoveries" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "employeeId" varchar, "employeeName" varchar, "loanId" varchar, "loanType" varchar,
+  "amountRecovered" numeric(14,2), "recoveryDate" varchar,
+  "method" varchar NOT NULL DEFAULT 'salary_deduction',
+  "status" varchar NOT NULL DEFAULT 'pending', "reference" varchar, "details" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_payroll_loan_recoveries" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_loan_recoveries_companyId" ON "hr_payroll_loan_recoveries" ("companyId");
+CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_loan_recoveries_status" ON "hr_payroll_loan_recoveries" ("status");
+
+-- Backs /hr/bonus-schemes (payroll/bonus/schemes)
+CREATE TABLE IF NOT EXISTS "hr_payroll_bonus_schemes" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "schemeName" varchar, "schemeType" varchar NOT NULL DEFAULT 'performance',
+  "applicableTo" varchar NOT NULL DEFAULT 'all', "eligibilityCriteria" varchar,
+  "calculationMethod" varchar, "bonusPercentage" numeric(8,2), "fixedAmount" numeric(14,2),
+  "paymentFrequency" varchar NOT NULL DEFAULT 'annual',
+  "status" varchar NOT NULL DEFAULT 'active', "effectiveFrom" varchar, "effectiveTo" varchar,
+  "createdBy" varchar, "description" text, "details" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(), "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_payroll_bonus_schemes" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_bonus_schemes_companyId" ON "hr_payroll_bonus_schemes" ("companyId");
+CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_bonus_schemes_status" ON "hr_payroll_bonus_schemes" ("status");

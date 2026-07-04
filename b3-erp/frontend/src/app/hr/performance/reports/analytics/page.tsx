@@ -67,15 +67,6 @@ export default function PerformanceAnalyticsPage() {
     { rating: 'Outstanding', count: 24 },
   ];
 
-  const departmentScores = [
-    { name: 'Engineering', score: 88, lastYear: 82 },
-    { name: 'Sales', score: 92, lastYear: 85 },
-    { name: 'Marketing', score: 84, lastYear: 80 },
-    { name: 'Product', score: 89, lastYear: 84 },
-    { name: 'HR', score: 85, lastYear: 83 },
-    { name: 'Finance', score: 86, lastYear: 85 },
-  ];
-
   const competencies = [
     { subject: 'Communication', A: 85, B: 75, fullMark: 100 },
     { subject: 'Leadership', A: 78, B: 65, fullMark: 100 },

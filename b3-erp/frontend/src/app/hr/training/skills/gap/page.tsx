@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingDown,
   Target,
@@ -8,8 +8,10 @@ import {
   ArrowRight,
   Filter,
   AlertTriangle,
+  AlertCircle,
   Lightbulb
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   Radar,
   RadarChart,

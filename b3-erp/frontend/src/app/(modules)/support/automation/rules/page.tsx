@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Play, Pause, Edit2, Trash2, Zap, Filter, Search, Copy, BarChart } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Play, Pause, Edit2, Trash2, Zap, Filter, Search, Copy, BarChart, AlertCircle } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface AutomationRule {
   id: string
