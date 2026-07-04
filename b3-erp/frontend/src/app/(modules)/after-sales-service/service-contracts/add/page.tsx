@@ -102,13 +102,24 @@ export default function AddEditContractPage() {
   const [specialTerms, setSpecialTerms] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Mock customer list for search
-  const mockCustomers = [
+  // Seed customer list kept as fallback (noUnusedLocals OFF)
+  const mockCustomersSeed = [
     { id: 'CUST-001', name: 'Sharma Kitchens Pvt Ltd', gstin: '29ABCDE1234F1Z5' },
     { id: 'CUST-002', name: 'Prestige Developers', gstin: '27FGHIJ5678K2L3' },
     { id: 'CUST-003', name: 'Royal Restaurant Chain', gstin: '29MNOPQ9012R3S4' },
     { id: 'CUST-004', name: 'Hotel Grand Plaza', gstin: '27TUVWX3456Y4Z5' },
   ];
+  const [mockCustomers, setMockCustomers] = useState<MDCustomer[]>(
+    mockCustomersSeed.map(c => ({ id: c.id, customerName: c.name }))
+  );
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+
+  useEffect(() => {
+    setLoadingCustomers(true);
+    MasterDataService.getCustomers().then(live => {
+      if (live.length > 0) setMockCustomers(live);
+    }).finally(() => setLoadingCustomers(false));
+  }, []);
 
   const addLineItem = () => {
     const newItem: ContractLineItem = {

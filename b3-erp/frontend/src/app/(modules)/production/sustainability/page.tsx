@@ -16,6 +16,34 @@ type ViewType = 'carbon' | 'energy' | 'waste' | 'water' | 'scorecard' | 'supplie
 export default function SustainabilityPage() {
   const [currentView, setCurrentView] = useState<ViewType>('scorecard');
 
+  // Live energy-consumption data (NestJS domain backend, raw ORM array).
+  const [energyRecords, setEnergyRecords] = useState<any[]>([]);
+  const [energyLoading, setEnergyLoading] = useState(true);
+  const [energyError, setEnergyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setEnergyLoading(true);
+      setEnergyError(null);
+      try {
+        const raw = await ProductionOrphanService.getEnergyConsumption();
+        if (!cancelled) setEnergyRecords(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setEnergyError(err instanceof Error ? err.message : 'Failed to load energy consumption');
+          setEnergyRecords([]);
+        }
+      } finally {
+        if (!cancelled) setEnergyLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const views: { id: ViewType; name: string; icon: string; description: string }[] = [
     { id: 'scorecard', name: 'Sustainability Scorecard', icon: '📊', description: 'ESG KPIs & targets' },
     { id: 'carbon', name: 'Carbon Footprint', icon: '🌍', description: 'CO₂ emissions tracking' },

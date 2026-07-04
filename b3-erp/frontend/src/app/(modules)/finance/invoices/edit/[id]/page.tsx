@@ -391,13 +391,14 @@ export default function EditInvoicePage() {
                     Customer <span className="text-red-500">*</span>
                   </label>
                   <select
-                    value={formData.customer}
+                    value={customers.find(c => mdLabel.customer(c) === formData.customer)?.id ?? ''}
                     onChange={(e) => handleCustomerChange(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={customersLoading}
                   >
-                    <option value="">Select Customer</option>
-                    {indianCompanies.map(company => (
-                      <option key={company.gst} value={company.name}>{company.name}</option>
+                    <option value="">{customersLoading ? 'Loading customers…' : 'Select Customer'}</option>
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.id}>{mdLabel.customer(customer)}</option>
                     ))}
                   </select>
                 </div>

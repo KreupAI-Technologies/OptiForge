@@ -783,6 +783,7 @@ export default function AddRFQPage() {
               <span className="ml-3 text-sm font-normal text-gray-600">
                 ({formData.selectedVendors.length} selected - Min: 3, Max: 10)
               </span>
+              {isLoadingVendors && <span className="ml-3 text-xs text-gray-400">Loading…</span>}
             </h2>
             <button
               type="button"

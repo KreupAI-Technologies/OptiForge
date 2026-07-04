@@ -39,6 +39,54 @@ interface Vendor {
 }
 
 export default function CreateRFPPage() {
+  const availableVendorsSeed: Vendor[] = [
+    {
+      id: '1',
+      name: 'Tata Steel Limited',
+      email: 'sales@tatasteel.com',
+      contactPerson: 'Rajesh Kumar',
+      phone: '+91 98765 43210'
+    },
+    {
+      id: '2',
+      name: 'JSW Steel',
+      email: 'business@jswsteel.in',
+      contactPerson: 'Amit Sharma',
+      phone: '+91 98765 43211'
+    },
+    {
+      id: '3',
+      name: 'Hindalco Industries',
+      email: 'procurement@hindalco.com',
+      contactPerson: 'Priya Patel',
+      phone: '+91 98765 43212'
+    },
+    {
+      id: '4',
+      name: 'Bharat Forge',
+      email: 'sales@bharatforge.com',
+      contactPerson: 'Vikram Singh',
+      phone: '+91 98765 43213'
+    },
+    {
+      id: '5',
+      name: 'L&T Heavy Engineering',
+      email: 'rfp@lntheavy.com',
+      contactPerson: 'Suresh Menon',
+      phone: '+91 98765 43214'
+    },
+    {
+      id: '6',
+      name: 'Thermax Limited',
+      email: 'business@thermaxglobal.com',
+      contactPerson: 'Neha Desai',
+      phone: '+91 98765 43215'
+    }
+  ];
+
+  const [availableVendors, setAvailableVendors] = useState<Vendor[]>(availableVendorsSeed);
+  const [vendorsLoading, setVendorsLoading] = useState(false);
+
   const [rfpTitle, setRfpTitle] = useState('');
   const [rfpDescription, setRfpDescription] = useState('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
