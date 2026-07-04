@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import { ArrowLeft, Edit, Trash2, Download, Send, Copy, FileText, DollarSign, Calendar, User, AlertCircle, CheckCircle, XCircle, Clock, Eye, Package, Mail, Phone, MapPin, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { ConfirmDialog } from '@/components/ui';
@@ -30,7 +31,7 @@ interface Proposal {
   createdDate: string;
 }
 
-const mockProposals: Proposal[] = [
+const mockProposalsSeed: Proposal[] = [
   {
     id: '1',
     proposalNumber: 'PROP-2024-001',
@@ -196,14 +197,71 @@ export default function ProposalViewPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showSendDialog, setShowSendDialog] = useState(false);
 
-  const proposal = mockProposals.find(p => p.id === proposalId);
+  const [proposal, setProposal] = useState<Proposal | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!proposalId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw: any = await crmService.proposals.getById(proposalId);
+        if (!cancelled && raw && typeof raw === 'object') {
+          setProposal({
+            id: raw.id ?? proposalId,
+            proposalNumber: raw.proposalNumber ?? raw.number ?? proposalId,
+            title: raw.title ?? '',
+            customer: raw.customerName ?? raw.contactPerson ?? '',
+            customerCompany: raw.customerCompany ?? raw.customerName ?? '',
+            contactPerson: raw.contactPerson ?? raw.contactName ?? '',
+            status: (raw.status ?? 'draft') as Proposal['status'],
+            totalValue: Number(raw.totalValue ?? raw.amount ?? 0),
+            sections: Number(raw.sections ?? (Array.isArray(raw.sectionList) ? raw.sectionList.length : 0)),
+            pages: Number(raw.pages ?? 0),
+            submittedDate: raw.submittedDate ? raw.submittedDate.toString().slice(0, 10) : undefined,
+            viewedDate: raw.viewedDate ? raw.viewedDate.toString().slice(0, 10) : undefined,
+            respondedDate: raw.respondedDate ? raw.respondedDate.toString().slice(0, 10) : undefined,
+            validUntil: (raw.validUntil ?? new Date().toISOString()).toString().slice(0, 10),
+            probability: Number(raw.probability ?? 0),
+            assignedTo: raw.assignedToName ?? raw.ownerName ?? '',
+            tags: Array.isArray(raw.tags) ? raw.tags : [],
+            notes: raw.notes ?? '',
+            attachments: Array.isArray(raw.attachments) ? raw.attachments.length : Number(raw.attachments ?? 0),
+            lastActivity: (raw.updatedAt ?? raw.createdAt ?? '').toString().slice(0, 10),
+            createdDate: (raw.createdAt ?? '').toString().slice(0, 10),
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load proposal');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [proposalId]);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-sm text-blue-700">Loading proposal…</div>
+    );
+  }
 
   if (!proposal) {
     return (
       <div className="p-8">
         <div className="text-center">
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">Proposal Not Found</h2>
-          <p className="text-gray-600 mb-2">The proposal you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-2">
+            {loadError ? loadError : "The proposal you're looking for doesn't exist."}
+          </p>
           <Link href="/crm/proposals" className="text-blue-600 hover:underline">
             Return to Proposals
           </Link>
