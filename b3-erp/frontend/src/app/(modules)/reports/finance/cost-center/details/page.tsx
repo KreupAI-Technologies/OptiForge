@@ -1,8 +1,9 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -11,13 +12,23 @@ function CostCenterDetailsContent() {
     const searchParams = useSearchParams();
     const name = searchParams.get('name') || 'Unknown Cost Center';
 
-    const expenses = [
-        { id: 'EXP-2025-005', date: '2025-01-05', category: 'Salaries', description: 'January Payroll', amount: 850000 },
-        { id: 'EXP-2025-012', date: '2025-01-12', category: 'Utilities', description: 'Electricity Bill', amount: 120000 },
-        { id: 'EXP-2025-018', date: '2025-01-18', category: 'Maintenance', description: 'Machine Repair', amount: 45000 },
-        { id: 'EXP-2025-025', date: '2025-01-25', category: 'Supplies', description: 'Office Supplies', amount: 15000 },
-        { id: 'EXP-2025-029', date: '2025-01-29', category: 'Travel', description: 'Site Visit', amount: 25000 },
-    ];
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/cost-centers');
+                const mapped = raw.map((r: any) => ({ id: r.costCenterCode ?? r.id, date: r.createdAt ?? '', category: r.department ?? '', description: r.description ?? '', amount: Number(r.actualAmount ?? 0) }));
+                if (!cancelled) setExpenses(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setExpenses([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
 
@@ -32,6 +43,8 @@ function CostCenterDetailsContent() {
                 { label: 'Details' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Expense Allocation</CardTitle>

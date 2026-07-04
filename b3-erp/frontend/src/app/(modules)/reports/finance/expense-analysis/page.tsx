@@ -1,24 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function ExpenseAnalysisReport() {
     const router = useRouter();
-    const expenses = [
-        { id: 'EXP-CAT-001', category: 'Raw Materials', amount: 2500000, budget: 2400000, variance: 100000 },
-        { id: 'EXP-CAT-002', category: 'Salaries & Wages', amount: 1800000, budget: 1800000, variance: 0 },
-        { id: 'EXP-CAT-003', category: 'Utilities', amount: 450000, budget: 400000, variance: 50000 },
-        { id: 'EXP-CAT-004', category: 'Rent', amount: 300000, budget: 300000, variance: 0 },
-        { id: 'EXP-CAT-005', category: 'Marketing', amount: 250000, budget: 300000, variance: -50000 },
-    ];
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/cost-centers');
+                const mapped = raw.map((r: any) => ({ id: r.costCenterCode ?? r.id, category: r.costCenterName ?? '', amount: Number(r.actualAmount ?? 0), budget: Number(r.budgetAmount ?? 0), variance: Number(r.actualAmount ?? 0) - Number(r.budgetAmount ?? 0) }));
+                if (!cancelled) setExpenses(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setExpenses([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">Expense Analysis</h1>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -12,11 +13,23 @@ function JournalEntryContent() {
     const id = searchParams.get('id') || 'Unknown';
 
     // Mock data for a balanced journal entry
-    const entryLines = [
-        { id: 1, accountCode: '1100', accountName: 'Accounts Receivable', debit: 500000, credit: 0, description: 'Invoice #INV-2025-001' },
-        { id: 2, accountCode: '4000', accountName: 'Sales Revenue', debit: 0, credit: 450000, description: 'Sales for Jan' },
-        { id: 3, accountCode: '2100', accountName: 'Output GST', debit: 0, credit: 50000, description: 'GST @ 10%' },
-    ];
+    const [entryLines, setEntryLines] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/journal-entries');
+                const mapped = raw.map((r: any) => ({ id: r.entryNumber ?? r.id, accountCode: r.referenceNumber ?? '', accountName: r.narration ?? '', debit: Number(r.totalDebit ?? 0), credit: Number(r.totalCredit ?? 0), description: r.description ?? r.narration ?? '' }));
+                if (!cancelled) setEntryLines(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setEntryLines([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const totalDebit = entryLines.reduce((sum, line) => sum + line.debit, 0);
     const totalCredit = entryLines.reduce((sum, line) => sum + line.credit, 0);
@@ -32,6 +45,8 @@ function JournalEntryContent() {
                 { label: 'Journal Entry' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Entry Details</CardTitle>

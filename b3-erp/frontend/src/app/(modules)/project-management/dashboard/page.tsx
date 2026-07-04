@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   FolderKanban,
   TrendingUp,
@@ -123,19 +124,35 @@ export default function ProjectDashboardPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
 
-  // Statistics
-  const stats = {
-    totalProjects: 10,
-    activeProjects: 7,
-    completedProjects: 1,
-    delayedProjects: 2,
-    totalBudget: 95000000,
-    spentAmount: 47400000,
-    plannedRevenue: 118750000,
-    actualRevenue: 62000000,
-    resourceUtilization: 78,
-    avgProjectHealth: 72,
-  };
+  // Statistics — derived from fetched projects/resources where possible.
+  const stats = useMemo(() => {
+    const totalProjects = recentProjects.length;
+    const activeProjects = recentProjects.filter(
+      (p) => !/complete|closed|done/i.test(p.status),
+    ).length;
+    const completedProjects = recentProjects.filter((p) => /complete|closed|done/i.test(p.status)).length;
+    const delayedProjects = recentProjects.filter((p) => /delay|at risk|overdue/i.test(p.status)).length;
+    const totalBudget = recentProjects.reduce((s, p) => s + (p.budget || 0), 0);
+    const spentAmount = recentProjects.reduce((s, p) => s + (p.spent || 0), 0);
+    const resourceUtilization = resourceData.length
+      ? Math.round(resourceData.reduce((s, r) => s + (r.utilization || 0), 0) / resourceData.length)
+      : 0;
+    const avgProjectHealth = totalProjects
+      ? Math.round(recentProjects.reduce((s, p) => s + (p.progress || 0), 0) / totalProjects)
+      : 0;
+    return {
+      totalProjects,
+      activeProjects,
+      completedProjects,
+      delayedProjects,
+      totalBudget,
+      spentAmount,
+      plannedRevenue: 0,
+      actualRevenue: 0,
+      resourceUtilization,
+      avgProjectHealth,
+    };
+  }, [recentProjects, resourceData]);
 
   // Upcoming Milestones
   const upcomingMilestones = [
@@ -143,15 +160,6 @@ export default function ProjectDashboardPage() {
     { project: 'BigBasket Cold Storage', milestone: 'Panel Assembly Complete', date: '2024-03-30', days: 13 },
     { project: 'L&T Switchgear', milestone: 'Final Testing & Documentation', date: '2024-03-20', days: 3 },
     { project: 'ITC Grand Kitchen', milestone: 'Design Approval', date: '2024-01-15', days: -2 },
-  ];
-
-  // Resource Utilization
-  const resourceData = [
-    { role: 'Project Managers', allocated: 8, available: 2, utilization: 80 },
-    { role: 'Civil Engineers', allocated: 12, available: 3, utilization: 80 },
-    { role: 'Installation Team', allocated: 45, available: 8, utilization: 85 },
-    { role: 'QC Inspectors', allocated: 6, available: 2, utilization: 75 },
-    { role: 'Commissioning Team', allocated: 10, available: 4, utilization: 71 },
   ];
 
   // Project Health Trend (last 6 months)
@@ -349,6 +357,17 @@ export default function ProjectDashboardPage() {
               Deep Dive <ArrowRight className="w-2.5 h-2.5" />
             </Link>
           </div>
+          {loadError && (
+            <div className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg p-2">
+              {loadError}
+            </div>
+          )}
+          {isLoading && !loadError && (
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight p-2">Loading projects…</div>
+          )}
+          {!isLoading && !loadError && recentProjects.length === 0 && (
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-tight p-2">No projects to display</div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {recentProjects.map((project) => (
               <PremiumCard

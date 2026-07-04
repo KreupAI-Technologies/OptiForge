@@ -1,24 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function CostCenterReport() {
     const router = useRouter();
-    const costCenters = [
-        { id: 'CC-001', name: 'Manufacturing Plant A', manager: 'Robert Chen', budget: 12000000, actual: 11500000, variance: 500000 },
-        { id: 'CC-002', name: 'Sales & Marketing', manager: 'Sarah Williams', budget: 4500000, actual: 4800000, variance: -300000 },
-        { id: 'CC-003', name: 'Research & Development', manager: 'Dr. Emily Wong', budget: 6000000, actual: 5800000, variance: 200000 },
-        { id: 'CC-004', name: 'Corporate HQ', manager: 'David Miller', budget: 3000000, actual: 2900000, variance: 100000 },
-        { id: 'CC-005', name: 'Logistics & Distribution', manager: 'Michael Brown', budget: 2500000, actual: 2700000, variance: -200000 },
-    ];
+    const [costCenters, setCostCenters] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/cost-centers');
+                const mapped = raw.map((r: any) => ({ id: r.costCenterCode ?? r.id, name: r.costCenterName ?? '', manager: r.managerName ?? '', budget: Number(r.budgetAmount ?? 0), actual: Number(r.actualAmount ?? 0), variance: Number(r.budgetAmount ?? 0) - Number(r.actualAmount ?? 0) }));
+                if (!cancelled) setCostCenters(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setCostCenters([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">Cost Center Analysis</h1>

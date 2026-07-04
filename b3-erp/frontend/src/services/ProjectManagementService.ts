@@ -2894,6 +2894,13 @@ class ProjectManagementService {
     getPmDeliverablesRaw() { return this.pmModuleGet<any>('/project-management/deliverables'); }
     getPmBomItems() { return this.pmModuleGet<any>('/project-management/bom-items'); }
 
+    // Reference-data list endpoints for form-wizard dropdowns (additive)
+    getPmMachineStatusRaw() { return this.pmModuleGet<any>('/project-management/machine-status'); }
+    getPmEquipmentCatalogRaw() { return this.pmModuleGet<any>('/project-management/equipment-catalog'); }
+    getHrEmployeesRaw() { return this.pmModuleGet<any>('/hr/employees'); }
+    getProcurementVendorsRaw() { return this.pmModuleGet<any>('/procurement/vendors'); }
+    getCpqProductsRaw() { return this.pmModuleGet<any>('/cpq/products'); }
+
     // (modules)/project-management page wiring — project-scoped (UUID) endpoints
     getProcurementPr(projectId: string) { return this.pmModuleGet<any>(`/api/procurement/pr/${projectId}`); }
     getProductionNesting(projectId: string) { return this.pmModuleGet<any>(`/api/production/nesting/${projectId}`); }

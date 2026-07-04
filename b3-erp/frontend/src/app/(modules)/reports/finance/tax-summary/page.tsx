@@ -1,24 +1,43 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function TaxSummaryReport() {
     const router = useRouter();
-    const taxes = [
-        { code: 'GST-IN-18', name: 'Input GST @ 18%', collected: 0, paid: 450000, net: -450000 },
-        { code: 'GST-OUT-18', name: 'Output GST @ 18%', collected: 630000, paid: 0, net: 630000 },
-        { code: 'GST-IN-12', name: 'Input GST @ 12%', collected: 0, paid: 120000, net: -120000 },
-        { code: 'GST-OUT-12', name: 'Output GST @ 12%', collected: 180000, paid: 0, net: 180000 },
-        { code: 'TDS-PAY', name: 'TDS Payable', collected: 50000, paid: 0, net: 50000 },
-    ];
+    const [taxes, setTaxes] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/tax-masters');
+                const mapped = raw.map((r: any) => ({
+                    code: r.taxCode ?? r.id,
+                    name: r.taxName ?? '',
+                    collected: Number(r.collected ?? 0),
+                    paid: Number(r.paid ?? 0),
+                    net: Number(r.collected ?? 0) - Number(r.paid ?? 0),
+                }));
+                if (!cancelled) setTaxes(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTaxes([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">Tax Summary</h1>

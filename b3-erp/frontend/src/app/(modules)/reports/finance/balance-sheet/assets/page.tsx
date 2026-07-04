@@ -1,25 +1,32 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function AssetsDetailContent() {
     const router = useRouter();
 
-    const assets = [
-        { id: '1000', name: 'Cash on Hand', type: 'Current Asset', balance: 500000 },
-        { id: '1010', name: 'Bank - HDFC', type: 'Current Asset', balance: 4500000 },
-        { id: '1020', name: 'Bank - SBI', type: 'Current Asset', balance: 1500000 },
-        { id: '1200', name: 'Accounts Receivable', type: 'Current Asset', balance: 2500000 },
-        { id: '1300', name: 'Inventory - Raw Materials', type: 'Current Asset', balance: 1800000 },
-        { id: '1500', name: 'Machinery & Equipment', type: 'Fixed Asset', balance: 7500000 },
-        { id: '1510', name: 'Furniture & Fixtures', type: 'Fixed Asset', balance: 800000 },
-        { id: '1520', name: 'Vehicles', type: 'Fixed Asset', balance: 1200000 },
-        { id: '1600', name: 'Accumulated Depreciation', type: 'Fixed Asset', balance: -500000 },
-    ];
+    const [assets, setAssets] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/chart-of-accounts');
+                const mapped = raw.filter((a: any) => String(a.accountType ?? '').toLowerCase().includes('asset')).map((a: any) => ({ id: a.accountCode ?? a.id, name: a.accountName ?? '', type: a.accountType ?? '', balance: Number(a.currentBalance ?? a.balance ?? 0) }));
+                if (!cancelled) setAssets(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setAssets([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -32,6 +39,8 @@ function AssetsDetailContent() {
                 { label: 'Assets' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Asset Accounts</CardTitle>

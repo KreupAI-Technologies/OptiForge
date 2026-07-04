@@ -1,24 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function GeneralLedgerReport() {
     const router = useRouter();
-    const journalEntries = [
-        { id: 'JRN-2025-001', date: '2025-01-01', description: 'Opening Balance', amount: 2000000, type: 'Opening' },
-        { id: 'JRN-2025-015', date: '2025-01-05', description: 'Invoice #INV-2025-001', amount: 500000, type: 'Sales' },
-        { id: 'JRN-2025-023', date: '2025-01-10', description: 'Payment Received', amount: 500000, type: 'Receipt' },
-        { id: 'JRN-2025-045', date: '2025-01-15', description: 'Purchase of Goods', amount: 200000, type: 'Purchase' },
-        { id: 'JRN-2025-067', date: '2025-01-20', description: 'Utility Bill Payment', amount: 50000, type: 'Expense' },
-    ];
+    const [journalEntries, setJournalEntries] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/journal-entries');
+                const mapped = raw.map((r: any) => ({ id: r.entryNumber ?? r.id, date: r.entryDate ?? r.date ?? '', description: r.narration ?? r.description ?? '', amount: Number(r.totalDebit ?? r.amount ?? 0), type: r.entryType ?? r.status ?? '' }));
+                if (!cancelled) setJournalEntries(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setJournalEntries([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">General Ledger</h1>

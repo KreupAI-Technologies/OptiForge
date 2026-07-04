@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Calendar,
@@ -33,6 +33,7 @@ import {
   FormProgressIndicator,
 } from '@/components/ui/FormUX';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 // Field help content
 const FIELD_HELP = {

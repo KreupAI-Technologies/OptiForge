@@ -1,8 +1,9 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -11,13 +12,23 @@ function RevenueDetailsContent() {
     const searchParams = useSearchParams();
     const product = searchParams.get('product') || 'Unknown Product';
 
-    const invoices = [
-        { id: 'INV-2025-001', date: '2025-01-05', customer: 'Acme Corp', amount: 150000, status: 'Paid' },
-        { id: 'INV-2025-008', date: '2025-01-12', customer: 'Global Tech', amount: 220000, status: 'Paid' },
-        { id: 'INV-2025-015', date: '2025-01-18', customer: 'BuildRight Inc', amount: 85000, status: 'Pending' },
-        { id: 'INV-2025-022', date: '2025-01-25', customer: 'Metro Infra', amount: 125000, status: 'Paid' },
-        { id: 'INV-2025-029', date: '2025-01-28', customer: 'City Works', amount: 95000, status: 'Overdue' },
-    ];
+    const [invoices, setInvoices] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/invoices');
+                const mapped = raw.map((r: any) => ({ id: r.invoiceNumber ?? r.id, date: r.invoiceDate ?? '', customer: r.partyName ?? '', amount: Number(r.totalAmount ?? 0), status: r.status ?? '' }));
+                if (!cancelled) setInvoices(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setInvoices([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -30,6 +41,8 @@ function RevenueDetailsContent() {
                 { label: 'Details' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Sales Invoices</CardTitle>

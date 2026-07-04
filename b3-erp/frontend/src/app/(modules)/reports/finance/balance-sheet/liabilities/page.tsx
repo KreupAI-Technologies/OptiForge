@@ -1,22 +1,32 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function LiabilitiesDetailContent() {
     const router = useRouter();
 
-    const liabilities = [
-        { id: '2000', name: 'Accounts Payable', type: 'Current Liability', balance: 1800000 },
-        { id: '2010', name: 'GST Payable', type: 'Current Liability', balance: 450000 },
-        { id: '2020', name: 'Salaries Payable', type: 'Current Liability', balance: 850000 },
-        { id: '2030', name: 'TDS Payable', type: 'Current Liability', balance: 100000 },
-        { id: '2500', name: 'Bank Loan - HDFC', type: 'Long Term Liability', balance: 3500000 },
-        { id: '2510', name: 'Term Loan - SBI', type: 'Long Term Liability', balance: 1500000 },
-    ];
+    const [liabilities, setLiabilities] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/chart-of-accounts');
+                const mapped = raw.filter((a: any) => String(a.accountType ?? '').toLowerCase().includes('liab')).map((a: any) => ({ id: a.accountCode ?? a.id, name: a.accountName ?? '', type: a.accountType ?? '', balance: Number(a.currentBalance ?? a.balance ?? 0) }));
+                if (!cancelled) setLiabilities(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setLiabilities([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -29,6 +39,8 @@ function LiabilitiesDetailContent() {
                 { label: 'Liabilities' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Liability Accounts</CardTitle>

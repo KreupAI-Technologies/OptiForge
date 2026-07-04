@@ -1,30 +1,40 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function TrialBalanceReport() {
     const router = useRouter();
-    const accounts = [
-        { code: '1000', name: 'Cash and Bank', debit: 2500000, credit: 0 },
-        { code: '1100', name: 'Accounts Receivable', debit: 2100000, credit: 0 },
-        { code: '1200', name: 'Inventory', debit: 4500000, credit: 0 },
-        { code: '2000', name: 'Accounts Payable', debit: 0, credit: 1800000 },
-        { code: '3000', name: 'Capital', debit: 0, credit: 5000000 },
-        { code: '4000', name: 'Sales Revenue', debit: 0, credit: 3500000 },
-        { code: '5000', name: 'Cost of Goods Sold', debit: 2000000, credit: 0 },
-        { code: '6000', name: 'Operating Expenses', debit: 1200000, credit: 0 },
-    ];
+    const [accounts, setAccounts] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/chart-of-accounts');
+                const mapped = raw.map((r: any) => ({ code: r.accountCode ?? r.id, name: r.accountName ?? '', debit: Number(r.debitBalance ?? r.debitTotal ?? 0), credit: Number(r.creditBalance ?? r.creditTotal ?? 0) }));
+                if (!cancelled) setAccounts(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setAccounts([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const totalDebit = accounts.reduce((sum, acc) => sum + acc.debit, 0);
     const totalCredit = accounts.reduce((sum, acc) => sum + acc.credit, 0);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">Trial Balance</h1>

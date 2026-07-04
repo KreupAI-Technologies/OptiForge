@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
@@ -11,13 +12,23 @@ import { Badge } from '@/components/ui/badge';
 export default function PLExpensesDetail() {
     const router = useRouter();
 
-    const expensesData = [
-        { id: 'EXP-001', date: '2025-01-22', category: 'Salaries', employee: 'All Employees', amount: 450000, type: 'Payroll' },
-        { id: 'EXP-002', date: '2025-01-20', category: 'Rent', vendor: 'Property Management Inc', amount: 85000, type: 'Facility' },
-        { id: 'EXP-003', date: '2025-01-18', category: 'Utilities', vendor: 'Power Corporation', amount: 32000, type: 'Utility' },
-        { id: 'EXP-004', date: '2025-01-15', category: 'Marketing', vendor: 'Digital Ads Co', amount: 75000, type: 'Marketing' },
-        { id: 'EXP-005', date: '2025-01-12', category: 'Travel', employee: 'Sales Team', amount: 28000, type: 'Travel' },
-    ];
+    const [expensesData, setExpensesData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/journal-entries');
+                const mapped = raw.map((r: any) => ({ id: r.entryNumber ?? r.id, date: r.entryDate ?? '', category: r.entryType ?? '', employee: '', amount: Number(r.totalDebit ?? 0), type: r.entryType ?? '' }));
+                if (!cancelled) setExpensesData(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setExpensesData([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const handleExpenseClick = (expenseId: string) => {
         router.push(`/accounts/expense-claims/${expenseId}`);
@@ -36,6 +47,8 @@ export default function PLExpensesDetail() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('pl-expenses', expensesData)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Card>

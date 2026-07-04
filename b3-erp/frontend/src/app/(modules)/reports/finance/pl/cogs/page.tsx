@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { exportToCsv } from '@/lib/export';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
@@ -11,12 +12,23 @@ import { Badge } from '@/components/ui/badge';
 export default function PLCOGSDetail() {
     const router = useRouter();
 
-    const cogsData = [
-        { id: 'MAT-001', date: '2025-01-22', category: 'Raw Materials', item: 'Steel Sheets', quantity: 450, amount: 450000 },
-        { id: 'MAT-002', date: '2025-01-20', category: 'Raw Materials', item: 'Aluminum Rods', amount: 280000 },
-        { id: 'LAB-001', date: '2025-01-22', category: 'Direct Labor', item: 'Production Workers', amount: 450000 },
-        { id: 'OH-001', date: '2025-01-20', category: 'Manufacturing Overhead', item: 'Factory Utilities', amount: 120000 },
-    ];
+    const [cogsData, setCogsData] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/journal-entries');
+                const mapped = raw.map((r: any) => ({ id: r.entryNumber ?? r.id, date: r.entryDate ?? '', category: r.entryType ?? '', item: r.narration ?? '', quantity: 0, amount: Number(r.totalDebit ?? 0) }));
+                if (!cancelled) setCogsData(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setCogsData([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -31,6 +43,8 @@ export default function PLCOGSDetail() {
             onBack={() => router.back()}
             onExport={() => exportToCsv('pl-cogs', cogsData)}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <Card>
                     <CardContent className="pt-6">

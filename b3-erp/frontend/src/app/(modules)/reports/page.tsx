@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { fetchSavedReportItems } from '@/services/reports-management.service';
 import {
   BarChart3,
   FileText,
@@ -101,15 +102,27 @@ const quickReports = [
   { name: 'Pending Approvals', icon: Clock, color: 'text-blue-600 bg-blue-50', href: '/reports/approvals/pending' },
 ];
 
-const recentReports = [
-  { name: 'Monthly P&L Statement - Oct 2025', date: '2025-10-27', user: 'Finance Team', category: 'Financial' },
-  { name: 'Production Efficiency Report - Week 43', date: '2025-10-26', user: 'Production Manager', category: 'Production' },
-  { name: 'Inventory Aging Analysis - Q3 2025', date: '2025-10-25', user: 'Warehouse Manager', category: 'Inventory' },
-  { name: 'Sales Performance Dashboard - Oct 2025', date: '2025-10-24', user: 'Sales Team', category: 'Sales' },
-];
-
 export default function ReportsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [recentReports, setRecentReports] = useState<{ name: string; date: string; user: string; category: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const items = await fetchSavedReportItems();
+        const mapped = items.map((r) => ({
+          name: r.name,
+          date: r.lastRunAt ? new Date(r.lastRunAt).toISOString().slice(0, 10) : '',
+          user: r.createdByName ?? '',
+          category: r.category ?? '',
+        }));
+        if (!cancelled) setRecentReports(mapped);
+      } catch {
+        if (!cancelled) setRecentReports([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredCategories = reportCategories.filter(
     (cat) =>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -11,12 +12,23 @@ function VarianceContent() {
     const searchParams = useSearchParams();
     const category = searchParams.get('category') || 'Unknown Category';
 
-    const transactions = [
-        { id: 'TXN-2025-001', date: '2025-01-05', description: 'Q1 Allocation', budget: 1250000, actual: 1200000, variance: 50000 },
-        { id: 'TXN-2025-015', date: '2025-01-15', description: 'Emergency Procurement', budget: 0, actual: 50000, variance: -50000 },
-        { id: 'TXN-2025-022', date: '2025-01-22', description: 'Vendor Refund', budget: 0, actual: -10000, variance: 10000 },
-        { id: 'TXN-2025-028', date: '2025-01-28', description: 'Monthly Adjustment', budget: 100000, actual: 110000, variance: -10000 },
-    ];
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/budgets');
+                const mapped = raw.map((r: any) => ({ id: r.budgetCode ?? r.id, date: r.periodStart ?? '', description: r.budgetName ?? r.category ?? '', budget: Number(r.budgetAmount ?? r.amount ?? 0), actual: Number(r.actualAmount ?? 0), variance: Number(r.budgetAmount ?? 0) - Number(r.actualAmount ?? 0) }));
+                if (!cancelled) setTransactions(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTransactions([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -29,6 +41,8 @@ function VarianceContent() {
                 { label: 'Variance' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Transaction Details</CardTitle>

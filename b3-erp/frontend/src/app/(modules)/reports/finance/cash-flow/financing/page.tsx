@@ -1,17 +1,32 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function FinancingActivitiesContent() {
     const router = useRouter();
 
-    const transactions = [
-        { id: 'FIN-001', date: '2025-01-05', description: 'Loan Repayment - HDFC', category: 'Loan Repayment', amount: -50000 },
-    ];
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/payments');
+                const mapped = raw.map((r: any) => ({ id: r.paymentNumber ?? r.id, date: r.paymentDate ?? '', description: r.notes ?? r.partyName ?? '', category: r.paymentType ?? 'Financing', amount: Number(r.amount ?? 0) }));
+                if (!cancelled) setTransactions(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTransactions([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <ReportDetailPage
@@ -24,6 +39,8 @@ function FinancingActivitiesContent() {
                 { label: 'Financing' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Financing Transactions</CardTitle>

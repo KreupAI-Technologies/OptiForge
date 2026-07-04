@@ -1,24 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 export default function BudgetVsActualReport() {
     const router = useRouter();
-    const budgetItems = [
-        { id: 'BGT-001', category: 'Sales Revenue', budget: 5000000, actual: 4800000, variance: -200000, percent: -4 },
-        { id: 'BGT-002', category: 'Cost of Goods Sold', budget: 3000000, actual: 2800000, variance: 200000, percent: 6.7 },
-        { id: 'BGT-003', category: 'Operating Expenses', budget: 1500000, actual: 1600000, variance: -100000, percent: -6.7 },
-        { id: 'BGT-004', category: 'Marketing', budget: 500000, actual: 450000, variance: 50000, percent: 10 },
-        { id: 'BGT-005', category: 'R&D', budget: 800000, actual: 800000, variance: 0, percent: 0 },
-    ];
+    const [budgetItems, setBudgetItems] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/budgets');
+                const mapped = raw.map((r: any) => ({ id: r.budgetCode ?? r.id, category: r.category ?? r.budgetName ?? '', budget: Number(r.budgetAmount ?? r.amount ?? 0), actual: Number(r.actualAmount ?? 0), variance: Number(r.budgetAmount ?? r.amount ?? 0) - Number(r.actualAmount ?? 0), percent: 0 }));
+                if (!cancelled) setBudgetItems(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setBudgetItems([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">Budget vs Actual</h1>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
+import { fetchDomainList } from '@/services/reports-data.service';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -11,13 +12,23 @@ function TaxDetailsContent() {
     const searchParams = useSearchParams();
     const code = searchParams.get('code') || 'Unknown';
 
-    const transactions = [
-        { id: 'INV-2025-001', date: '2025-01-05', party: 'Acme Corp', taxable: 100000, tax: 18000, type: 'Sales' },
-        { id: 'INV-2025-005', date: '2025-01-12', party: 'Global Tech', taxable: 250000, tax: 45000, type: 'Sales' },
-        { id: 'INV-2025-012', date: '2025-01-18', party: 'Local Retail', taxable: 50000, tax: 9000, type: 'Sales' },
-        { id: 'PUR-2025-003', date: '2025-01-08', party: 'Office Supplies Co', taxable: 20000, tax: 3600, type: 'Purchase' },
-        { id: 'PUR-2025-009', date: '2025-01-15', party: 'Raw Materials Ltd', taxable: 500000, tax: 90000, type: 'Purchase' },
-    ];
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('finance/invoices');
+                const mapped = raw.map((r: any) => ({ id: r.invoiceNumber ?? r.id, date: r.invoiceDate ?? '', party: r.partyName ?? '', taxable: Number(r.subtotal ?? 0), tax: Number(r.taxAmount ?? 0), type: r.invoiceType ?? '' }));
+                if (!cancelled) setTransactions(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTransactions([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Filter logic would go here based on code (Input vs Output)
     // For mock purposes, we'll just show a mix
@@ -33,6 +44,8 @@ function TaxDetailsContent() {
                 { label: 'Details' }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Tax Transactions</CardTitle>
