@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   CheckCircle,
   XCircle,
@@ -174,22 +175,34 @@ export default function AdjustmentApprovalsPage() {
     }
   };
 
-  const handleApprove = (id: number) => {
-    console.log('Approving adjustment:', id);
-    setApprovals(approvals.map(approval =>
-      approval.id === id
-        ? { ...approval, status: 'approved' as const, approver: 'Current User', reviewDate: new Date().toISOString().split('T')[0] }
-        : approval
-    ));
+  const handleApprove = async (id: number) => {
+    const target = approvals.find(a => a.id === id);
+    if (!target) return;
+    try {
+      await inventoryService.approveStockAdjustment(target.adjustmentNumber);
+      setApprovals(approvals.map(approval =>
+        approval.id === id
+          ? { ...approval, status: 'approved' as const, approver: 'Current User', reviewDate: new Date().toISOString().split('T')[0] }
+          : approval
+      ));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve adjustment.');
+    }
   };
 
-  const handleReject = (id: number) => {
-    console.log('Rejecting adjustment:', id);
-    setApprovals(approvals.map(approval =>
-      approval.id === id
-        ? { ...approval, status: 'rejected' as const, approver: 'Current User', reviewDate: new Date().toISOString().split('T')[0] }
-        : approval
-    ));
+  const handleReject = async (id: number) => {
+    const target = approvals.find(a => a.id === id);
+    if (!target) return;
+    try {
+      await inventoryService.rejectStockAdjustment(target.adjustmentNumber);
+      setApprovals(approvals.map(approval =>
+        approval.id === id
+          ? { ...approval, status: 'rejected' as const, approver: 'Current User', reviewDate: new Date().toISOString().split('T')[0] }
+          : approval
+      ));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject adjustment.');
+    }
   };
 
   const totalPending = approvals.filter(a => a.status === 'pending').length;

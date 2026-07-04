@@ -438,6 +438,36 @@ export class WarrantyService {
       `/after-sales/warranties/claims?${queryParams.toString()}`
     );
   }
+
+  /**
+   * Get a single warranty claim by ID.
+   * Backed by GET /after-sales/warranties/claims/:id.
+   */
+  static async getClaimById(id: string): Promise<WarrantyClaimRecord> {
+    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}`);
+  }
+
+  /**
+   * Approve a warranty claim.
+   * Backed by PUT /after-sales/warranties/claims/:id.
+   */
+  static async approveClaim(id: string, approvedAmount?: number): Promise<WarrantyClaimRecord> {
+    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'approved', approvedAmount }),
+    });
+  }
+
+  /**
+   * Reject a warranty claim.
+   * Backed by PUT /after-sales/warranties/claims/:id.
+   */
+  static async rejectClaim(id: string, rejectionReason?: string): Promise<WarrantyClaimRecord> {
+    return this.request<WarrantyClaimRecord>(`/after-sales/warranties/claims/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'rejected', rejectionReason }),
+    });
+  }
 }
 
 /**

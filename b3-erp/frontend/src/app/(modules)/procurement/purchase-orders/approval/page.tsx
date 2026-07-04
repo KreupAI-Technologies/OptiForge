@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { POApprovalWorkflowUI } from '@/components/procurement/POApprovalWorkflowUI';
+import { purchaseOrderService } from '@/services/purchase-order.service';
 
 export default function POApprovalWorkflowPage() {
   const router = useRouter();
@@ -30,13 +31,19 @@ export default function POApprovalWorkflowPage() {
       {/* PO Approval Workflow Component */}
       <div className="p-6">
         <POApprovalWorkflowUI
-          onApprove={(poId, stepId, comments) => {
-            console.log('Approved:', poId, stepId, comments);
-            // In a real app, this would call an API to approve
+          onApprove={async (poId) => {
+            try {
+              await purchaseOrderService.approvePurchaseOrder(poId);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : 'Failed to approve purchase order.');
+            }
           }}
-          onReject={(poId, stepId, reason) => {
-            console.log('Rejected:', poId, stepId, reason);
-            // In a real app, this would call an API to reject
+          onReject={async (poId, _stepId, reason) => {
+            try {
+              await purchaseOrderService.rejectPurchaseOrder(poId, reason);
+            } catch (err) {
+              alert(err instanceof Error ? err.message : 'Failed to reject purchase order.');
+            }
           }}
           onDelegate={(poId, stepId, delegateToId) => {
             console.log('Delegated:', poId, stepId, delegateToId);

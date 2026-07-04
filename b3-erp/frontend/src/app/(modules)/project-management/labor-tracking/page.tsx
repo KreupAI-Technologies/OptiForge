@@ -72,10 +72,13 @@ export default function LaborTrackingPage() {
   const [selectedEntry, setSelectedEntry] = useState<LaborEntry | null>(null);
 
   const [mockLaborEntries, setMockLaborEntries] = useState<LaborEntry[]>([]);
-  useEffect(() => {
+  const loadLaborEntries = () => {
     projectManagementService.listLaborEntries().then((rows) => {
       if (Array.isArray(rows)) setMockLaborEntries(rows as unknown as LaborEntry[]);
     });
+  };
+  useEffect(() => {
+    loadLaborEntries();
   }, []);
 
   const stats = {
@@ -147,14 +150,28 @@ export default function LaborTrackingPage() {
     setSelectedEntry(null);
   };
 
-  const handleApproveHours = (data: any) => {
-    console.log('Approving hours:', data);
+  const handleApproveHours = async (data: any) => {
+    if (selectedEntry) {
+      try {
+        await projectManagementService.updateLaborEntry(selectedEntry.id, { status: 'approved', ...data } as any);
+        loadLaborEntries();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to approve hours');
+      }
+    }
     setShowApproveModal(false);
     setSelectedEntry(null);
   };
 
-  const handleRejectHours = (reason: string) => {
-    console.log('Rejecting hours:', reason);
+  const handleRejectHours = async (reason: string) => {
+    if (selectedEntry) {
+      try {
+        await projectManagementService.updateLaborEntry(selectedEntry.id, { status: 'rejected', remarks: reason } as any);
+        loadLaborEntries();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to reject hours');
+      }
+    }
     setShowRejectModal(false);
     setSelectedEntry(null);
   };

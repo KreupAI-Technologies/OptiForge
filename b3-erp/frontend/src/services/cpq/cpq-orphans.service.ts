@@ -40,6 +40,36 @@ async function getJson<T>(path: string): Promise<T[]> {
   }
 }
 
+async function patchJson<T>(path: string, body: unknown): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: companyHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
+    return (await res.json()) as T;
+  } catch (error) {
+    console.error(`Error patching ${path}:`, error);
+    return null;
+  }
+}
+
+async function deleteJson(path: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: companyHeaders(),
+    });
+    return res.ok;
+  } catch (error) {
+    console.error(`Error deleting ${path}:`, error);
+    return false;
+  }
+}
+
 // ==================== Config Rules (products/rules) ====================
 
 export interface CPQConfigRuleItem {
@@ -241,6 +271,9 @@ export const cpqWorkflowRequestService = {
       q ? `/cpq/workflow-requests?${q}` : '/cpq/workflow-requests',
     );
   },
+  update: (id: string, data: Partial<CPQWorkflowRequest>) =>
+    patchJson<CPQWorkflowRequest>(`/cpq/workflow-requests/${id}`, data),
+  remove: (id: string) => deleteJson(`/cpq/workflow-requests/${id}`),
 };
 
 // -------- Quote versions (quotes/versions) ------------------------------

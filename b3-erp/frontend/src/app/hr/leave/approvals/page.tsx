@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { CheckCircle, XCircle, Search, Filter, X, Calendar, AlertCircle, User, FileText, Clock } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { mockPendingLeaveApprovals, LeaveTransaction } from '@/data/hr/leave-balances';
+import { LeaveService } from '@/services/leave.service';
 
 export default function LeaveApprovalsPage() {
   const [applications, setApplications] = useState<LeaveTransaction[]>(mockPendingLeaveApprovals);
@@ -260,27 +261,40 @@ export default function LeaveApprovalsPage() {
     searchTerm !== ''
   ].filter(Boolean).length;
 
-  const handleApprove = (id: string) => {
-    console.log('Approving application:', id);
-    setApplications(prev => prev.filter(app => app.id !== id));
-    alert(`Application ${id} has been approved successfully.`);
+  const handleApprove = async (id: string) => {
+    try {
+      await LeaveService.approveLeave(id);
+      setApplications(prev => prev.filter(app => app.id !== id));
+      alert(`Application ${id} has been approved successfully.`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve application.');
+    }
   };
 
-  const handleReject = (id: string, reason: string) => {
-    console.log('Rejecting application:', id, 'Reason:', reason);
-    setApplications(prev => prev.filter(app => app.id !== id));
-    alert(`Application ${id} has been rejected.`);
+  const handleReject = async (id: string, reason: string) => {
+    try {
+      await LeaveService.rejectLeave(id, reason);
+      setApplications(prev => prev.filter(app => app.id !== id));
+      alert(`Application ${id} has been rejected.`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject application.');
+    }
   };
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
     if (selectedApplications.size === 0) {
       alert('Please select applications to approve');
       return;
     }
-    console.log('Bulk approving:', Array.from(selectedApplications));
-    setApplications(prev => prev.filter(app => !selectedApplications.has(app.id)));
-    setSelectedApplications(new Set());
-    alert(`${selectedApplications.size} applications approved successfully.`);
+    const ids = Array.from(selectedApplications);
+    try {
+      await Promise.all(ids.map(id => LeaveService.approveLeave(id)));
+      setApplications(prev => prev.filter(app => !selectedApplications.has(app.id)));
+      setSelectedApplications(new Set());
+      alert(`${ids.length} applications approved successfully.`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve some applications.');
+    }
   };
 
   return (

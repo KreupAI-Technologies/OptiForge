@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqWorkflowRequestService } from '@/services/cpq/cpq-orphans.service'
 import {
   Percent,
   Search,
@@ -35,7 +36,7 @@ export default function CPQWorkflowDiscountsPage() {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedDiscount, setSelectedDiscount] = useState<DiscountRequest | null>(null)
 
-  const [discounts] = useState<DiscountRequest[]>([
+  const [discounts, setDiscounts] = useState<DiscountRequest[]>([
     {
       id: 'DISC-001',
       quoteNumber: 'QT-2024-1234',
@@ -398,15 +399,31 @@ export default function CPQWorkflowDiscountsPage() {
     setIsViewOpen(true)
   }
 
-  const handleApproveSubmit = (data: { comments: string; conditions?: string }) => {
-    console.log('Approved discount:', selectedDiscount?.quoteNumber, data)
-    // TODO: API call to approve the discount
+  const handleApproveSubmit = async (data: { comments: string; conditions?: string }) => {
+    if (selectedDiscount) {
+      try {
+        await cpqWorkflowRequestService.update(selectedDiscount.id, { status: 'approved' })
+      } catch {
+        // best-effort backend update; still reflect the decision locally
+      }
+      setDiscounts((prev) =>
+        prev.map((d) => (d.id === selectedDiscount.id ? { ...d, status: 'approved' } : d)),
+      )
+    }
     setIsApproveOpen(false)
   }
 
-  const handleRejectSubmit = (data: { reason: string; comments: string; alternativeSuggestion?: string }) => {
-    console.log('Rejected discount:', selectedDiscount?.quoteNumber, data)
-    // TODO: API call to reject the discount
+  const handleRejectSubmit = async (data: { reason: string; comments: string; alternativeSuggestion?: string }) => {
+    if (selectedDiscount) {
+      try {
+        await cpqWorkflowRequestService.update(selectedDiscount.id, { status: 'rejected' })
+      } catch {
+        // best-effort backend update; still reflect the decision locally
+      }
+      setDiscounts((prev) =>
+        prev.map((d) => (d.id === selectedDiscount.id ? { ...d, status: 'rejected' } : d)),
+      )
+    }
     setIsRejectOpen(false)
   }
 

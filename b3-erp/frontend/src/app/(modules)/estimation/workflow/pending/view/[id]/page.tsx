@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, XCircle, Clock, User, DollarSign, Calendar, FileText, MessageSquare, Download } from 'lucide-react'
+import { estimationWorkflowStageService } from '@/services/estimation-workflow-stage.service'
 
 interface EstimateItem {
   id: string
@@ -127,19 +128,25 @@ export default function ViewPendingEstimatePage() {
     ]
   }
 
-  const handleApprove = () => {
-    if (confirm(`Are you sure you want to approve "${estimateData.projectName}"?`)) {
-      console.log('Approving estimate:', estimateId)
-      // Would make API call here
+  const COMPANY_ID = 'company-001'
+
+  const handleApprove = async () => {
+    if (!confirm(`Are you sure you want to approve "${estimateData.projectName}"?`)) return
+    try {
+      await estimationWorkflowStageService.update(COMPANY_ID, estimateId, { status: 'active' })
       router.push('/estimation/workflow/pending')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve estimate.')
     }
   }
 
-  const handleReject = () => {
-    if (confirm(`Are you sure you want to reject "${estimateData.projectName}"? Please provide a reason in comments.`)) {
-      console.log('Rejecting estimate:', estimateId)
-      // Would make API call here
+  const handleReject = async () => {
+    if (!confirm(`Are you sure you want to reject "${estimateData.projectName}"? Please provide a reason in comments.`)) return
+    try {
+      await estimationWorkflowStageService.update(COMPANY_ID, estimateId, { status: 'inactive' })
       router.push('/estimation/workflow/pending')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject estimate.')
     }
   }
 

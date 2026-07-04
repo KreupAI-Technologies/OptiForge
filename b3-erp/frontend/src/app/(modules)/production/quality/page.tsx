@@ -123,6 +123,7 @@ const mockInspections: QualityInspection[] = [
 ]
 
 const ProductionQualityPage = () => {
+  const [inspections, setInspections] = useState<QualityInspection[]>(mockInspections)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [inspectionTypeFilter, setInspectionTypeFilter] = useState('all')

@@ -250,10 +250,14 @@ export default function AllocationMatrixPage() {
     setShowExportModal(false);
   };
 
-  const handleDelete = () => {
-    console.log('Delete allocation:', selectedAllocation);
+  const handleDelete = async () => {
     if (selectedAllocation) {
-      setAllocations(allocations.filter(a => a.id !== selectedAllocation.id));
+      try {
+        await projectManagementService.deleteResourceAllocation(selectedAllocation.id);
+        setAllocations(allocations.filter(a => a.id !== selectedAllocation.id));
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed to delete allocation');
+      }
     }
     setShowDeleteModal(false);
     setSelectedAllocation(null);

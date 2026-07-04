@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react'
 import {
   CreateTransferModal,
@@ -207,8 +208,24 @@ const InventoryTransfersPage = () => {
     exportToCsv('stock-transfers', filteredTransfers as unknown as Record<string, unknown>[])
   }
 
-  const handleApprove = (transferId: string) => {
-    console.log('Approving transfer:', transferId)
+  const handleApprove = async (transferId: string) => {
+    try {
+      await stockTransferService.approveTransfer(transferId)
+      await fetchTransfers()
+    } catch (err) {
+      console.error('Failed to approve transfer:', err)
+      setError('Failed to approve transfer. Please try again.')
+    }
+  }
+
+  const handleDelete = async (transferId: string) => {
+    try {
+      await stockTransferService.deleteTransfer(transferId)
+      await fetchTransfers()
+    } catch (err) {
+      console.error('Failed to delete transfer:', err)
+      setError('Failed to delete transfer. Please try again.')
+    }
   }
 
   // Modal handler functions
@@ -274,10 +291,24 @@ const InventoryTransfersPage = () => {
     setIsApproveOpen(true)
   }
 
-  const handleApproveSubmit = (data: ApproveTransferData) => {
-    console.log('Approving transfer:', data)
-    // TODO: Implement API call
-    setIsApproveOpen(false)
+  const handleApproveSubmit = async (data: ApproveTransferData) => {
+    if (!selectedTransfer) {
+      setIsApproveOpen(false)
+      return
+    }
+    try {
+      if (data.decision === 'reject') {
+        await stockTransferService.rejectTransfer(selectedTransfer.id, data.rejectionReason ?? data.notes)
+      } else {
+        await stockTransferService.approveTransfer(selectedTransfer.id)
+      }
+      await fetchTransfers()
+    } catch (err) {
+      console.error('Failed to process transfer approval:', err)
+      setError('Failed to process transfer. Please try again.')
+    } finally {
+      setIsApproveOpen(false)
+    }
   }
 
   const handleDispatch = () => {
@@ -302,9 +333,16 @@ const InventoryTransfersPage = () => {
     setIsReceiveOpen(false)
   }
 
-  const handleReceiveReject = () => {
-    console.log('Rejecting transfer receipt')
-    // TODO: Implement API call
+  const handleReceiveReject = async () => {
+    if (selectedTransfer) {
+      try {
+        await stockTransferService.rejectTransfer(selectedTransfer.id)
+        await fetchTransfers()
+      } catch (err) {
+        console.error('Failed to reject transfer receipt:', err)
+        setError('Failed to reject transfer. Please try again.')
+      }
+    }
     setIsReceiveOpen(false)
     setIsViewDetailsOpen(true)
   }
@@ -341,9 +379,16 @@ const InventoryTransfersPage = () => {
     setIsCreateOpen(true)
   }
 
-  const handleCancel = () => {
-    console.log('Cancelling transfer')
-    // TODO: Implement cancel API call
+  const handleCancel = async () => {
+    if (selectedTransfer) {
+      try {
+        await stockTransferService.deleteTransfer(selectedTransfer.id)
+        await fetchTransfers()
+      } catch (err) {
+        console.error('Failed to cancel transfer:', err)
+        setError('Failed to cancel transfer. Please try again.')
+      }
+    }
     setIsViewDetailsOpen(false)
   }
 
@@ -584,17 +629,30 @@ const InventoryTransfersPage = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         {transfer.status === 'draft' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleViewTransfer(transfer)
-                              setTimeout(() => handleApproveTransfer(), 100)
-                            }}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
-                            title="Approve Transfer"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleApprove(transfer.id)
+                              }}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              title="Approve Transfer"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm(`Delete transfer ${transfer.transferId}? This action cannot be undone.`)) {
+                                  handleDelete(transfer.id)
+                                }
+                              }}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete Transfer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>

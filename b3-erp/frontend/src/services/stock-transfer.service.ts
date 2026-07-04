@@ -698,6 +698,53 @@ class StockTransferService {
   }
 
   /**
+   * Reject transfer
+   */
+  async rejectTransfer(id: string, rejectionReason?: string): Promise<StockTransfer> {
+    if (USE_MOCK_DATA) {
+      await this.simulateDelay(300);
+      const index = MOCK_STOCK_TRANSFERS.findIndex((t) => t.id === id);
+      if (index === -1) {
+        throw new Error('Stock transfer not found');
+      }
+
+      MOCK_STOCK_TRANSFERS[index] = {
+        ...MOCK_STOCK_TRANSFERS[index],
+        status: TransferStatus.REJECTED,
+        rejectedBy: 'current-user',
+        rejectedByName: 'Current User',
+        rejectedAt: new Date().toISOString(),
+        rejectionReason,
+        updatedAt: new Date().toISOString(),
+      };
+
+      return MOCK_STOCK_TRANSFERS[index];
+    }
+
+    const response = await apiClient.post<StockTransfer>(
+      `/inventory/stock-transfers/${id}/reject`,
+      { rejectionReason }
+    );
+    return response.data;
+  }
+
+  /**
+   * Delete transfer
+   */
+  async deleteTransfer(id: string): Promise<void> {
+    if (USE_MOCK_DATA) {
+      await this.simulateDelay(300);
+      const index = MOCK_STOCK_TRANSFERS.findIndex((t) => t.id === id);
+      if (index !== -1) {
+        MOCK_STOCK_TRANSFERS.splice(index, 1);
+      }
+      return;
+    }
+
+    await apiClient.delete(`/inventory/stock-transfers/${id}`);
+  }
+
+  /**
    * Dispatch transfer
    */
   async dispatchTransfer(id: string, data?: DispatchTransferDto): Promise<StockTransfer> {

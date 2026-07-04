@@ -71,12 +71,10 @@ export default function CPQWorkflowLegalPage() {
 
   const [reviews, setReviews] = useState<LegalReview[]>([])
 
-  useEffect(() => {
-    let active = true
-    cpqWorkflowRequestService
+  const loadReviews = () => {
+    return cpqWorkflowRequestService
       .findAll({ requestType: 'legal' })
       .then((rows) => {
-        if (!active) return
         const mapped: LegalReview[] = (Array.isArray(rows) ? rows : []).map((r) => {
           const p = (r.payload || {}) as any
           return {
@@ -103,9 +101,10 @@ export default function CPQWorkflowLegalPage() {
         setReviews(mapped)
       })
       .catch(() => {})
-    return () => {
-      active = false
-    }
+  }
+
+  useEffect(() => {
+    loadReviews()
   }, [])
 
   const getDocTypeColor = (type: string) => {
@@ -205,21 +204,30 @@ export default function CPQWorkflowLegalPage() {
     setIsViewOpen(true)
   }
 
-  const handleApproveSubmit = (data: { comments: string; conditions?: string }) => {
-    console.log('Approved:', selectedReview?.documentNumber, data)
-    // TODO: API call to approve the legal review
+  const handleApproveSubmit = async (data: { comments: string; conditions?: string }) => {
+    if (selectedReview) {
+      await cpqWorkflowRequestService.update(selectedReview.id, { status: 'approved' })
+      await loadReviews()
+    }
     setIsApproveOpen(false)
   }
 
-  const handleRejectSubmit = (data: { reason: string; comments: string }) => {
-    console.log('Rejected:', selectedReview?.documentNumber, data)
-    // TODO: API call to reject the legal review
+  const handleRejectSubmit = async (data: { reason: string; comments: string }) => {
+    if (selectedReview) {
+      await cpqWorkflowRequestService.update(selectedReview.id, {
+        status: 'rejected',
+        payload: { ...(selectedReview as any).payload, rejectionReason: data.reason, rejectionComments: data.comments },
+      })
+      await loadReviews()
+    }
     setIsRejectOpen(false)
   }
 
-  const handleRevisionSubmit = (data: { changes: string[] }) => {
-    console.log('Revision requested:', selectedReview?.documentNumber, data)
-    // TODO: API call to request revision
+  const handleRevisionSubmit = async (data: { changes: string[] }) => {
+    if (selectedReview) {
+      await cpqWorkflowRequestService.update(selectedReview.id, { status: 'revision-needed' })
+      await loadReviews()
+    }
     setIsRevisionOpen(false)
   }
 

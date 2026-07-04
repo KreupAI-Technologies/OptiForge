@@ -66,10 +66,13 @@ export default function MaterialConsumptionPage() {
  const [selectedConsumption, setSelectedConsumption] = useState<MaterialConsumption | null>(null);
 
  const [mockConsumptions, setMockConsumptions] = useState<MaterialConsumption[]>([]);
- useEffect(() => {
+ const loadConsumptions = () => {
    projectManagementService.listMaterialConsumption().then((rows) => {
      if (Array.isArray(rows)) setMockConsumptions(rows as unknown as MaterialConsumption[]);
    });
+ };
+ useEffect(() => {
+   loadConsumptions();
  }, []);
 
  const stats = {
@@ -119,18 +122,30 @@ export default function MaterialConsumptionPage() {
   console.log('Analyzing variance:', consumption);
  };
 
- const handleApprove = (data: any) => {
-  console.log('Approving consumption:', selectedConsumption?.id, data);
+ const handleApprove = async (data: any) => {
+  if (selectedConsumption) {
+   try {
+    await projectManagementService.updateMaterialConsumption(selectedConsumption.id, { status: 'approved', ...data } as any);
+    loadConsumptions();
+   } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to approve consumption');
+   }
+  }
   setShowApproveModal(false);
   setSelectedConsumption(null);
-  // API call would go here
  };
 
- const handleReject = (data: any) => {
-  console.log('Rejecting consumption:', selectedConsumption?.id, data);
+ const handleReject = async (data: any) => {
+  if (selectedConsumption) {
+   try {
+    await projectManagementService.updateMaterialConsumption(selectedConsumption.id, { status: 'rejected', ...data } as any);
+    loadConsumptions();
+   } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to reject consumption');
+   }
+  }
   setShowRejectModal(false);
   setSelectedConsumption(null);
-  // API call would go here
  };
 
  const handleBulkUpload = (data: any) => {

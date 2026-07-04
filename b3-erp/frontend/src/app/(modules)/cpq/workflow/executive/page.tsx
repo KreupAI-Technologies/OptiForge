@@ -101,12 +101,10 @@ export default function CPQWorkflowExecutivePage() {
 
   const [approvals, setApprovals] = useState<ExecutiveApproval[]>([])
 
-  useEffect(() => {
-    let active = true
-    cpqWorkflowRequestService
+  const loadApprovals = () => {
+    return cpqWorkflowRequestService
       .findAll({ requestType: 'executive' })
       .then((rows) => {
-        if (!active) return
         const mapped: ExecutiveApproval[] = (Array.isArray(rows) ? rows : []).map((r) => {
           const p = (r.payload || {}) as any
           return {
@@ -142,9 +140,10 @@ export default function CPQWorkflowExecutivePage() {
         setApprovals(mapped)
       })
       .catch(() => {})
-    return () => {
-      active = false
-    }
+  }
+
+  useEffect(() => {
+    loadApprovals()
   }, [])
 
   const getTypeColor = (type: string) => {
@@ -227,21 +226,30 @@ export default function CPQWorkflowExecutivePage() {
     setIsViewOpen(true)
   }
 
-  const handleApproveSubmit = (data: { comments: string; conditions?: string }) => {
-    console.log('Approved:', selectedApproval?.documentNumber, data)
-    // TODO: API call to approve the executive deal
+  const handleApproveSubmit = async (data: { comments: string; conditions?: string }) => {
+    if (selectedApproval) {
+      await cpqWorkflowRequestService.update(selectedApproval.id, { status: 'approved' })
+      await loadApprovals()
+    }
     setIsApproveOpen(false)
   }
 
-  const handleRejectSubmit = (data: { reason: string; comments: string }) => {
-    console.log('Rejected:', selectedApproval?.documentNumber, data)
-    // TODO: API call to reject the executive deal
+  const handleRejectSubmit = async (data: { reason: string; comments: string }) => {
+    if (selectedApproval) {
+      await cpqWorkflowRequestService.update(selectedApproval.id, {
+        status: 'rejected',
+        payload: { ...(selectedApproval as any).payload, rejectionReason: data.reason, rejectionComments: data.comments },
+      })
+      await loadApprovals()
+    }
     setIsRejectOpen(false)
   }
 
-  const handleHoldSubmit = (data: { reason: string; reviewDate: string }) => {
-    console.log('Put on Hold:', selectedApproval?.documentNumber, data)
-    // TODO: API call to put deal on hold
+  const handleHoldSubmit = async (data: { reason: string; reviewDate: string }) => {
+    if (selectedApproval) {
+      await cpqWorkflowRequestService.update(selectedApproval.id, { status: 'on-hold' })
+      await loadApprovals()
+    }
     setIsHoldOpen(false)
   }
 

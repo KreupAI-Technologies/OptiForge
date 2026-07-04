@@ -167,8 +167,15 @@ export default function MilestoneTemplatesPage() {
   setSelectedTemplate(null);
  };
 
- const handleDeleteConfirm = () => {
-  console.log('Delete template:', selectedTemplate?.id);
+ const handleDeleteConfirm = async () => {
+  if (selectedTemplate) {
+   try {
+    await projectManagementService.deleteMilestoneTemplate(selectedTemplate.id);
+    setTemplates((prev) => prev.filter((t) => t.id !== selectedTemplate.id));
+   } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to delete template');
+   }
+  }
   setShowDeleteModal(false);
   setSelectedTemplate(null);
  };

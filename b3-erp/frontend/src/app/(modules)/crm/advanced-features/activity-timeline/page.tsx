@@ -95,9 +95,15 @@ export default function ActivityTimelinePage() {
     setShowDeleteConfirm(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (deleteTarget) {
-      console.log('Deleted:', deleteTarget);
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { id } = deleteTarget;
+    try {
+      await crmService.activities.delete(id);
+      setTimelineActivities((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      setLoadError('Failed to delete activity. Please try again.');
+    } finally {
       setDeleteTarget(null);
       setShowDeleteConfirm(false);
     }

@@ -33,6 +33,7 @@ import { exportToCsv } from '@/lib/export';
 
 interface Adjustment {
   id: number;
+  backendId?: string;
   adjustmentNumber: string;
   date: string;
   warehouse: string;
@@ -65,60 +66,57 @@ export default function AdjustmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const loadAdjustments = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Backend returns raw ORM shape (adjustmentNumber/adjustmentDate/
+      // warehouseName/adjustmentType/status/totalAdjustmentValue/referenceType/
+      // approvedByName/approvedAt); map it to the page's Adjustment model.
+      const raw = (await inventoryService.getStockAdjustments()) as any[];
+      const typeMap: Record<string, Adjustment['type']> = {
+        Quantity: 'quantity', QUANTITY: 'quantity', 'Stock Adjustment': 'quantity',
+        Value: 'value', VALUE: 'value', Revaluation: 'value',
+        WriteOff: 'write-off', 'Write-Off': 'write-off', WRITE_OFF: 'write-off', WriteOn: 'quantity',
+      };
+      const statusMap: Record<string, Adjustment['status']> = {
+        Draft: 'draft', DRAFT: 'draft',
+        PendingApproval: 'pending-approval', PENDING_APPROVAL: 'pending-approval', Pending: 'pending-approval', Submitted: 'pending-approval',
+        Approved: 'approved', APPROVED: 'approved', Posted: 'approved',
+        Rejected: 'rejected', REJECTED: 'rejected',
+      };
+      const toDate = (d: any): string => (d ? String(d).split('T')[0] : '');
+      const mapped: Adjustment[] = raw.map((a, idx) => {
+        const total = Number(a.totalAdjustmentValue ?? 0);
+        return {
+          id: idx + 1,
+          backendId: a.id != null ? String(a.id) : undefined,
+          adjustmentNumber: a.adjustmentNumber ?? '',
+          date: toDate(a.adjustmentDate),
+          warehouse: a.warehouseName ?? a.warehouseId ?? '-',
+          type: typeMap[a.adjustmentType] ?? 'quantity',
+          reason: a.referenceType ?? a.approvalRemarks ?? '-',
+          itemsCount: Number(a.itemsCount ?? (Array.isArray(a.items) ? a.items.length : 0)),
+          adjustmentValue: Math.abs(total),
+          adjustmentType: total < 0 ? 'decrease' : 'increase',
+          createdBy: a.createdByName ?? a.counterName ?? a.createdBy ?? '-',
+          status: statusMap[a.status] ?? 'draft',
+          approvedBy: a.approvedByName ?? undefined,
+          approvedDate: toDate(a.approvedAt) || undefined,
+        };
+      });
+      setAdjustments(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load stock adjustments');
+      setAdjustments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        // Backend returns raw ORM shape (adjustmentNumber/adjustmentDate/
-        // warehouseName/adjustmentType/status/totalAdjustmentValue/referenceType/
-        // approvedByName/approvedAt); map it to the page's Adjustment model.
-        const raw = (await inventoryService.getStockAdjustments()) as any[];
-        const typeMap: Record<string, Adjustment['type']> = {
-          Quantity: 'quantity', QUANTITY: 'quantity', 'Stock Adjustment': 'quantity',
-          Value: 'value', VALUE: 'value', Revaluation: 'value',
-          WriteOff: 'write-off', 'Write-Off': 'write-off', WRITE_OFF: 'write-off', WriteOn: 'quantity',
-        };
-        const statusMap: Record<string, Adjustment['status']> = {
-          Draft: 'draft', DRAFT: 'draft',
-          PendingApproval: 'pending-approval', PENDING_APPROVAL: 'pending-approval', Pending: 'pending-approval', Submitted: 'pending-approval',
-          Approved: 'approved', APPROVED: 'approved', Posted: 'approved',
-          Rejected: 'rejected', REJECTED: 'rejected',
-        };
-        const toDate = (d: any): string => (d ? String(d).split('T')[0] : '');
-        const mapped: Adjustment[] = raw.map((a, idx) => {
-          const total = Number(a.totalAdjustmentValue ?? 0);
-          return {
-            id: idx + 1,
-            adjustmentNumber: a.adjustmentNumber ?? '',
-            date: toDate(a.adjustmentDate),
-            warehouse: a.warehouseName ?? a.warehouseId ?? '-',
-            type: typeMap[a.adjustmentType] ?? 'quantity',
-            reason: a.referenceType ?? a.approvalRemarks ?? '-',
-            itemsCount: Number(a.itemsCount ?? (Array.isArray(a.items) ? a.items.length : 0)),
-            adjustmentValue: Math.abs(total),
-            adjustmentType: total < 0 ? 'decrease' : 'increase',
-            createdBy: a.createdByName ?? a.counterName ?? a.createdBy ?? '-',
-            status: statusMap[a.status] ?? 'draft',
-            approvedBy: a.approvedByName ?? undefined,
-            approvedDate: toDate(a.approvedAt) || undefined,
-          };
-        });
-        if (!cancelled) setAdjustments(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load stock adjustments');
-          setAdjustments([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadAdjustments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -281,38 +279,36 @@ export default function AdjustmentsPage() {
     setIsViewModalOpen(true);
   };
 
-  const handleApproveAdjustment = () => {
+  const handleApproveAdjustment = async () => {
     if (!selectedAdjustment) return;
-
-    // TODO: Integrate with API to approve adjustment
-    console.log('Approving adjustment:', selectedAdjustment.id);
-
-    // Mock: Update local state
-    setAdjustments(adjustments.map(adj =>
-      adj.id === selectedAdjustment.id
-        ? { ...adj, status: 'approved', approvedBy: 'Current User', approvedDate: new Date().toISOString().split('T')[0] }
-        : adj
-    ));
-
-    setIsViewModalOpen(false);
-    setSelectedAdjustment(null);
+    if (!selectedAdjustment.backendId) {
+      alert('Cannot approve: missing adjustment identifier.');
+      return;
+    }
+    try {
+      await inventoryService.approveStockAdjustment(selectedAdjustment.backendId);
+      setIsViewModalOpen(false);
+      setSelectedAdjustment(null);
+      await loadAdjustments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve adjustment.');
+    }
   };
 
-  const handleRejectAdjustment = () => {
+  const handleRejectAdjustment = async () => {
     if (!selectedAdjustment) return;
-
-    // TODO: Integrate with API to reject adjustment
-    console.log('Rejecting adjustment:', selectedAdjustment.id);
-
-    // Mock: Update local state
-    setAdjustments(adjustments.map(adj =>
-      adj.id === selectedAdjustment.id
-        ? { ...adj, status: 'rejected' }
-        : adj
-    ));
-
-    setIsViewModalOpen(false);
-    setSelectedAdjustment(null);
+    if (!selectedAdjustment.backendId) {
+      alert('Cannot reject: missing adjustment identifier.');
+      return;
+    }
+    try {
+      await inventoryService.rejectStockAdjustment(selectedAdjustment.backendId);
+      setIsViewModalOpen(false);
+      setSelectedAdjustment(null);
+      await loadAdjustments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject adjustment.');
+    }
   };
 
   return (

@@ -928,6 +928,26 @@ class PurchaseOrderService {
     return response.data;
   }
 
+  async rejectPurchaseOrder(id: string, reason?: string): Promise<PurchaseOrder> {
+    if (USE_MOCK_DATA) {
+      await this.simulateDelay(500);
+      const index = MOCK_PURCHASE_ORDERS.findIndex(p => p.id === id);
+      if (index === -1) {
+        throw new Error('Purchase Order not found');
+      }
+      MOCK_PURCHASE_ORDERS[index] = {
+        ...MOCK_PURCHASE_ORDERS[index],
+        status: 'Cancelled',
+        notes: reason ?? MOCK_PURCHASE_ORDERS[index].notes,
+        updatedAt: new Date().toISOString()
+      };
+      return MOCK_PURCHASE_ORDERS[index];
+    }
+
+    const response = await apiClient.post<PurchaseOrder>(`/procurement/purchase-orders/${id}/reject`, { reason });
+    return response.data;
+  }
+
   async closePurchaseOrder(id: string): Promise<PurchaseOrder> {
     if (USE_MOCK_DATA) {
       await this.simulateDelay(500);

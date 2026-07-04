@@ -42,8 +42,6 @@ export default function CPQWorkflowApprovalsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
     async function load() {
       try {
         setLoading(true)
@@ -80,20 +78,17 @@ export default function CPQWorkflowApprovalsPage() {
             timeRemaining: (payload.timeRemaining as string) ?? '',
           }
         })
-        if (!cancelled) setApprovals(mapped)
+        setApprovals(mapped)
       } catch (err) {
-        if (!cancelled) {
-          setError('Failed to load approval requests')
-          setApprovals([])
-        }
+        setError('Failed to load approval requests')
+        setApprovals([])
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
+
+  useEffect(() => {
     load()
-    return () => {
-      cancelled = true
-    }
   }, [])
 
   const getTypeColor = (type: string) => {
@@ -173,15 +168,19 @@ export default function CPQWorkflowApprovalsPage() {
     setIsViewOpen(true)
   }
 
-  const handleApproveSubmit = (data: { comments: string; conditions?: string }) => {
-    console.log('Approved:', selectedRequest?.documentNumber, data)
-    // TODO: API call to approve the request
+  const handleApproveSubmit = async (data: { comments: string; conditions?: string }) => {
+    if (selectedRequest) {
+      await cpqApprovalService.decide(selectedRequest.id, 'approved')
+      await load()
+    }
     setIsApproveOpen(false)
   }
 
-  const handleRejectSubmit = (data: { reason: string; comments: string }) => {
-    console.log('Rejected:', selectedRequest?.documentNumber, data)
-    // TODO: API call to reject the request
+  const handleRejectSubmit = async (data: { reason: string; comments: string }) => {
+    if (selectedRequest) {
+      await cpqApprovalService.decide(selectedRequest.id, 'rejected')
+      await load()
+    }
     setIsRejectOpen(false)
   }
 

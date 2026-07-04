@@ -540,9 +540,13 @@ export default function ProjectReportsPage() {
   // API call would go here
  };
 
- const handleDeleteReport = (report: Report) => {
-  console.log('Delete report:', report);
-  // API call would go here
+ const handleDeleteReport = async (report: Report) => {
+  try {
+   await projectManagementService.deletePmReport(report.id);
+   setMockReports((prev) => prev.filter((r) => r.id !== report.id));
+  } catch (err) {
+   alert(err instanceof Error ? err.message : 'Failed to delete report');
+  }
  };
 
  // Helper functions to open modals with context

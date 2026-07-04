@@ -202,6 +202,23 @@ class InventoryService {
         return this.unwrapArray(response);
     }
 
+    async deleteStockAdjustment(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/stock-adjustments/${id}`);
+    }
+
+    async approveStockAdjustment(id: string): Promise<any> {
+        const response = await apiClient.patch<any>(`/inventory/stock-adjustments/${id}`, { status: 'Approved' });
+        return response.data;
+    }
+
+    async rejectStockAdjustment(id: string, reason?: string): Promise<any> {
+        const response = await apiClient.patch<any>(`/inventory/stock-adjustments/${id}`, {
+            status: 'Rejected',
+            approvalRemarks: reason,
+        });
+        return response.data;
+    }
+
     async getSerialNumbers(): Promise<any[]> {
         const response = await apiClient.get<any[]>('/inventory/serial-numbers');
         return this.unwrapArray(response);

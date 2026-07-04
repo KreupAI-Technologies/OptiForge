@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { estimationWorkflowStageService } from '@/services/estimation-workflow-stage.service'
 import {
   Clock,
   CheckCircle,
@@ -49,17 +50,25 @@ export default function EstimateWorkflowPendingPage() {
     router.push(`/estimation/workflow/pending/comments/${estimateId}`)
   }
 
-  const handleApprove = (estimateId: string, projectName: string) => {
-    if (confirm(`Are you sure you want to approve "${projectName}"?`)) {
-      console.log('Approving estimate:', estimateId)
-      // Would make API call here
+  const COMPANY_ID = 'company-001'
+
+  const handleApprove = async (estimateId: string, projectName: string) => {
+    if (!confirm(`Are you sure you want to approve "${projectName}"?`)) return
+    try {
+      await estimationWorkflowStageService.update(COMPANY_ID, estimateId, { status: 'active' })
+      setPendingEstimates(prev => prev.filter(e => e.id !== estimateId))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve estimate.')
     }
   }
 
-  const handleReject = (estimateId: string, projectName: string) => {
-    if (confirm(`Are you sure you want to reject "${projectName}"? Please provide a reason in comments.`)) {
-      console.log('Rejecting estimate:', estimateId)
-      // Would make API call here
+  const handleReject = async (estimateId: string, projectName: string) => {
+    if (!confirm(`Are you sure you want to reject "${projectName}"? Please provide a reason in comments.`)) return
+    try {
+      await estimationWorkflowStageService.update(COMPANY_ID, estimateId, { status: 'inactive' })
+      setPendingEstimates(prev => prev.filter(e => e.id !== estimateId))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject estimate.')
     }
   }
 
@@ -67,7 +76,7 @@ export default function EstimateWorkflowPendingPage() {
     exportToCsv('pending-estimates', pendingEstimates)
   }
 
-  const [pendingEstimates] = useState<PendingEstimate[]>([
+  const [pendingEstimates, setPendingEstimates] = useState<PendingEstimate[]>([
     {
       id: 'PEND-001',
       estimateNumber: 'EST-2025-0142',

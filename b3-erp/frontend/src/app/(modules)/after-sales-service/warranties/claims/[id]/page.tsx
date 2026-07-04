@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { WarrantyService } from '@/services/warranty.service';
 import {
   FileText,
   Edit,
@@ -235,18 +236,33 @@ export default function ClaimDetailsPage({ params }: { params: { id: string } })
     }
   };
 
-  const handleApprove = () => {
-    // Simulate approval
-    console.log('Approving claim for amount:', approvalAmount);
-    setShowApprovalModal(false);
-    // router.push('/after-sales-service/warranties/claims');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleApprove = async () => {
+    setIsSubmitting(true);
+    try {
+      const amount = approvalAmount ? Number(approvalAmount) : undefined;
+      await WarrantyService.approveClaim(params.id, amount);
+      setShowApprovalModal(false);
+      router.push('/after-sales-service/warranties/claims');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to approve claim.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleReject = () => {
-    // Simulate rejection
-    console.log('Rejecting claim. Reason:', rejectionReason);
-    setShowRejectionModal(false);
-    // router.push('/after-sales-service/warranties/claims');
+  const handleReject = async () => {
+    setIsSubmitting(true);
+    try {
+      await WarrantyService.rejectClaim(params.id, rejectionReason);
+      setShowRejectionModal(false);
+      router.push('/after-sales-service/warranties/claims');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject claim.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -642,9 +658,10 @@ export default function ClaimDetailsPage({ params }: { params: { id: string } })
               </button>
               <button
                 onClick={handleApprove}
-                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Approve Claim
+                {isSubmitting ? 'Approving…' : 'Approve Claim'}
               </button>
             </div>
           </div>
@@ -695,9 +712,10 @@ export default function ClaimDetailsPage({ params }: { params: { id: string } })
               </button>
               <button
                 onClick={handleReject}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Reject Claim
+                {isSubmitting ? 'Rejecting…' : 'Reject Claim'}
               </button>
             </div>
           </div>

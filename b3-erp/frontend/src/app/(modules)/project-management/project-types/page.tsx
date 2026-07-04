@@ -131,8 +131,15 @@ export default function ProjectTypesPage() {
   setSelectedType(null);
  };
 
- const handleDeleteConfirm = () => {
-  console.log('Delete type:', selectedType?.id);
+ const handleDeleteConfirm = async () => {
+  if (selectedType) {
+   try {
+    await projectManagementService.deletePmProjectType(selectedType.id);
+    setMockProjectTypes((prev) => prev.filter((t) => t.id !== selectedType.id));
+   } catch (err) {
+    alert(err instanceof Error ? err.message : 'Failed to delete project type');
+   }
+  }
   setShowDeleteTypeModal(false);
   setSelectedType(null);
  };
