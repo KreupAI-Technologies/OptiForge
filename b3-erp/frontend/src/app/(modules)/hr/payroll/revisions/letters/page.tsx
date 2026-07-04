@@ -38,93 +38,23 @@ export default function RevisionLettersPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
 
-    const letters: RevisionLetter[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            revisionType: 'Annual Increment',
-            letterDate: '2025-03-15',
-            effectiveDate: '2025-04-01',
-            previousCTC: 1500000,
-            newCTC: 1650000,
-            incrementPercentage: 10,
-            status: 'Sent',
-            generatedBy: 'Jennifer Brown',
-            sentDate: '2025-03-16',
-            acknowledgedDate: null
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            revisionType: 'Promotion',
-            letterDate: '2025-01-20',
-            effectiveDate: '2025-01-01',
-            previousCTC: 800000,
-            newCTC: 920000,
-            incrementPercentage: 15,
-            status: 'Acknowledged',
-            generatedBy: 'Sarah Johnson',
-            sentDate: '2025-01-21',
-            acknowledgedDate: '2025-01-22'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            revisionType: 'Performance',
-            letterDate: '2025-02-10',
-            effectiveDate: '2025-02-01',
-            previousCTC: 900000,
-            newCTC: 1080000,
-            incrementPercentage: 20,
-            status: 'Generated',
-            generatedBy: 'Sarah Johnson',
-            sentDate: null,
-            acknowledgedDate: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            revisionType: 'Annual Increment',
-            letterDate: '2025-03-15',
-            effectiveDate: '2025-04-01',
-            previousCTC: 750000,
-            newCTC: 810000,
-            incrementPercentage: 8,
-            status: 'Draft',
-            generatedBy: 'Sarah Johnson',
-            sentDate: null,
-            acknowledgedDate: null
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            designation: 'Senior Accountant',
-            revisionType: 'Annual Increment',
-            letterDate: '2025-03-15',
-            effectiveDate: '2025-04-01',
-            previousCTC: 1200000,
-            newCTC: 1320000,
-            incrementPercentage: 10,
-            status: 'Sent',
-            generatedBy: 'Sarah Johnson',
-            sentDate: '2025-03-16',
-            acknowledgedDate: null
-        }
-    ];
+    const [letters, setLetters] = useState<RevisionLetter[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getSalaryRevisionsBy('letters');
+                const mapped: RevisionLetter[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setLetters(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setLetters([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredLetters = letters.filter(letter => {
         const matchesSearch = letter.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,6 +108,8 @@ export default function RevisionLettersPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

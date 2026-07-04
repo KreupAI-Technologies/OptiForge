@@ -1,8 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft, BarChart3, PieChart, TrendingUp, TrendingDown, DollarSign, Percent, Package, FileText } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, BarChart3, PieChart, TrendingUp, TrendingDown, DollarSign, Percent, Package, FileText, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { estimationBOQService } from '@/services/estimation-boq.service'
+
+// Maps the backend BOQ status vocabulary onto this page's status set.
+const STATUS_MAP: Record<string, BOQAnalysis['status']> = {
+  Draft: 'draft',
+  'Under Review': 'submitted',
+  Approved: 'approved',
+  Rejected: 'draft',
+}
 
 interface BOQAnalysis {
   id: string

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { ClipboardList, Search, Plus, Send, Eye, Download, Filter, Calendar, User, TrendingUp, MessageSquare, BarChart3, CheckCircle, Clock, X, Target, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,138 +22,49 @@ interface Survey {
   featured: boolean;
 }
 
-const mockSurveys: Survey[] = [
-  {
-    id: '1',
-    title: 'Service Quality & Satisfaction Survey',
-    description: 'Comprehensive survey measuring customer satisfaction with recent service call',
-    type: 'customer',
-    category: 'Service Quality',
-    status: 'active',
-    startDate: '2025-10-01',
-    endDate: '2025-10-31',
-    responses: 156,
-    responseRate: 72,
-    questions: 15,
-    createdBy: 'Rajesh Kumar',
-    averageCompletionTime: 8,
-    featured: true
-  },
-  {
-    id: '2',
-    title: 'Technician Performance Feedback',
-    description: 'Rate the professionalism and technical knowledge of your service technician',
-    type: 'customer',
-    category: 'Technician',
-    status: 'active',
-    startDate: '2025-10-01',
-    endDate: '2025-10-31',
-    responses: 189,
-    responseRate: 68,
-    questions: 12,
-    createdBy: 'Priya Sharma',
-    averageCompletionTime: 6,
-    featured: true
-  },
-  {
-    id: '3',
-    title: 'Installation Experience Survey',
-    description: 'Share your feedback about the installation process and experience',
-    type: 'installation',
-    category: 'Installation',
-    status: 'active',
-    startDate: '2025-09-15',
-    endDate: '2025-10-30',
-    responses: 234,
-    responseRate: 75,
-    questions: 18,
-    createdBy: 'Amit Singh',
-    averageCompletionTime: 10,
-    featured: true
-  },
-  {
-    id: '4',
-    title: 'Product Reliability Feedback',
-    description: 'How reliable has your appliance been since installation?',
-    type: 'customer',
-    category: 'Product Quality',
-    status: 'active',
-    startDate: '2025-10-05',
-    endDate: '2025-11-05',
-    responses: 92,
-    responseRate: 65,
-    questions: 8,
-    createdBy: 'Vikram Patel',
-    averageCompletionTime: 5,
-    featured: false
-  },
-  {
-    id: '5',
-    title: 'Technician Internal Assessment',
-    description: 'Self-assessment survey for field technicians on job satisfaction',
-    type: 'technician',
-    category: 'Internal',
-    status: 'active',
-    startDate: '2025-10-15',
-    endDate: '2025-10-31',
-    responses: 42,
-    responseRate: 85,
-    questions: 20,
-    createdBy: 'Neha Desai',
-    averageCompletionTime: 12,
-    featured: false
-  },
-  {
-    id: '6',
-    title: 'Warranty Claim Process Feedback',
-    description: 'How satisfied are you with our warranty claim process?',
-    type: 'customer',
-    category: 'Warranty',
-    status: 'active',
-    startDate: '2025-10-01',
-    endDate: '2025-10-31',
-    responses: 78,
-    responseRate: 70,
-    questions: 10,
-    createdBy: 'Sanjay Verma',
-    averageCompletionTime: 7,
-    featured: false
-  },
-  {
-    id: '7',
-    title: 'Support Team Communication',
-    description: 'Rate the communication and responsiveness of our support team',
-    type: 'customer',
-    category: 'Support',
-    status: 'closed',
-    startDate: '2025-09-01',
-    endDate: '2025-09-30',
-    responses: 213,
-    responseRate: 78,
-    questions: 14,
-    createdBy: 'Isha Nair',
-    averageCompletionTime: 9,
-    featured: true
-  },
-  {
-    id: '8',
-    title: 'Parts Availability & Delivery',
-    description: 'Feedback on parts ordering, availability, and delivery times',
-    type: 'customer',
-    category: 'Parts',
-    status: 'draft',
-    startDate: '2025-11-01',
-    endDate: '2025-11-30',
-    responses: 0,
-    responseRate: 0,
-    questions: 11,
-    createdBy: 'Rohan Gupta',
-    averageCompletionTime: 0,
-    featured: false
-  }
-];
+// Defensive mapper: backend feedback row -> page Survey model.
+function mapSurvey(r: any): Survey {
+  return {
+    id: String(r?.id ?? r?.reference ?? ''),
+    title: r?.title ?? r?.subject ?? '',
+    description: r?.description ?? '',
+    type: (r?.type ?? 'customer') as Survey['type'],
+    category: r?.category ?? 'General',
+    status: (r?.status ?? 'draft') as Survey['status'],
+    startDate: r?.startDate ?? '',
+    endDate: r?.endDate ?? '',
+    responses: Number(r?.responses ?? 0),
+    responseRate: Number(r?.responseRate ?? 0),
+    questions: Number(r?.questions ?? 0),
+    createdBy: r?.createdBy ?? '',
+    averageCompletionTime: Number(r?.averageCompletionTime ?? 0),
+    featured: Boolean(r?.featured ?? false),
+  };
+}
 
 export default function SurveysPage() {
+  const [mockSurveys, setMockSurveys] = useState<Survey[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.surveys()) as any[];
+        if (!cancelled) setMockSurveys(Array.isArray(raw) ? raw.map(mapSurvey) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load surveys');
+          setMockSurveys([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,21 +17,42 @@ import {
     CircleDollarSign,
     Briefcase
 } from 'lucide-react';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function PipelineByStageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const stage = searchParams.get('stage') || 'All Stages';
 
-    const opportunities = [
-        { id: 'OPP-001', name: 'Office Expansion', account: 'Acme Corp', stage: 'Proposal', value: 120000, probability: 60, closeDate: '2025-03-15' },
-        { id: 'OPP-002', name: 'New Machinery', account: 'Industrial Ltd', stage: 'Negotiation', value: 450000, probability: 80, closeDate: '2025-03-20' },
-        { id: 'OPP-003', name: 'Software License', account: 'Tech Start', stage: 'Qualification', value: 25000, probability: 40, closeDate: '2025-04-10' },
-        { id: 'OPP-004', name: 'Consulting Project', account: 'Global Services', stage: 'Proposal', value: 85000, probability: 50, closeDate: '2025-03-25' },
-        { id: 'OPP-005', name: 'Maintenance Contract', account: 'City Infra', stage: 'Closed Won', value: 200000, probability: 100, closeDate: '2025-02-05' },
-        { id: 'OPP-006', name: 'Solar Farm Setup', account: 'EcoPower', stage: 'Negotiation', value: 1250000, probability: 85, closeDate: '2025-04-15' },
-        { id: 'OPP-007', name: 'Fleet Upgrade', account: 'LogiTrans', stage: 'Qualification', value: 340000, probability: 35, closeDate: '2025-05-01' },
-    ];
+    const [opportunities, setOpportunities] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('crm/leads');
+                const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r.id ?? '',
+                    name: r.title ?? [r.firstName, r.lastName].filter(Boolean).join(' ') || r.company || '',
+                    account: r.company ?? '',
+                    stage: r.status ?? '',
+                    value: Number(r.estimatedValue ?? 0),
+                    probability: Number(r.probability ?? 0),
+                    closeDate: r.estimatedCloseDate ? String(r.estimatedCloseDate).slice(0, 10) : '',
+                }));
+                if (!cancelled) setOpportunities(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOpportunities([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredOpps = stage === 'All Stages' || stage === 'All' ? opportunities : opportunities.filter(o => o.stage === stage);
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { TrendingUp, Search, Filter, BarChart3, PieChart, LineChart, Download, Calendar, User, MessageSquare, Award, Target, AlertCircle } from 'lucide-react';
 
 interface NPSResponse {
@@ -15,120 +16,49 @@ interface NPSResponse {
   region: string;
 }
 
-const mockNPSResponses: NPSResponse[] = [
-  {
-    id: '1',
-    respondentName: 'Anjali Patel',
-    email: 'anjali.patel@example.com',
-    score: 10,
-    category: 'promoter',
-    feedback: 'Excellent service! Would definitely recommend to friends and family.',
-    date: '2025-10-18',
-    serviceType: 'Service Call',
-    region: 'Mumbai'
-  },
-  {
-    id: '2',
-    respondentName: 'Rajesh Kumar',
-    email: 'rajesh.kumar@example.com',
-    score: 9,
-    category: 'promoter',
-    feedback: 'Great experience overall. Very professional team.',
-    date: '2025-10-17',
-    serviceType: 'Installation',
-    region: 'Bangalore'
-  },
-  {
-    id: '3',
-    respondentName: 'Priya Sharma',
-    email: 'priya.sharma@example.com',
-    score: 8,
-    category: 'promoter',
-    feedback: 'Good service with minor delays. Overall satisfied.',
-    date: '2025-10-16',
-    serviceType: 'Parts Delivery',
-    region: 'Delhi'
-  },
-  {
-    id: '4',
-    respondentName: 'Vikram Singh',
-    email: 'vikram.singh@example.com',
-    score: 7,
-    category: 'passive',
-    feedback: 'Service was okay. Expected faster response time.',
-    date: '2025-10-15',
-    serviceType: 'Service Call',
-    region: 'Pune'
-  },
-  {
-    id: '5',
-    respondentName: 'Neha Desai',
-    email: 'neha.desai@example.com',
-    score: 8,
-    category: 'promoter',
-    feedback: 'Satisfied with the technician\'s expertise and professionalism.',
-    date: '2025-10-14',
-    serviceType: 'Maintenance',
-    region: 'Ahmedabad'
-  },
-  {
-    id: '6',
-    respondentName: 'Sanjay Verma',
-    email: 'sanjay.verma@example.com',
-    score: 6,
-    category: 'passive',
-    feedback: 'Average experience. Some communication gaps occurred.',
-    date: '2025-10-13',
-    serviceType: 'Installation',
-    region: 'Hyderabad'
-  },
-  {
-    id: '7',
-    respondentName: 'Isha Nair',
-    email: 'isha.nair@example.com',
-    score: 10,
-    category: 'promoter',
-    feedback: 'Outstanding! Best service I\'ve had. Will definitely refer others.',
-    date: '2025-10-12',
-    serviceType: 'Service Call',
-    region: 'Chennai'
-  },
-  {
-    id: '8',
-    respondentName: 'Rohan Gupta',
-    email: 'rohan.gupta@example.com',
-    score: 5,
-    category: 'detractor',
-    feedback: 'Not satisfied with the service quality. Technician was unprofessional.',
-    date: '2025-10-11',
-    serviceType: 'Warranty',
-    region: 'Kolkata'
-  },
-  {
-    id: '9',
-    respondentName: 'Meera Nair',
-    email: 'meera.nair@example.com',
-    score: 9,
-    category: 'promoter',
-    feedback: 'Excellent service and very supportive team. Highly recommend!',
-    date: '2025-10-10',
-    serviceType: 'Installation',
-    region: 'Pune'
-  },
-  {
-    id: '10',
-    respondentName: 'Arjun Patel',
-    email: 'arjun.patel@example.com',
-    score: 3,
-    category: 'detractor',
-    feedback: 'Poor experience. Issue not resolved and poor customer service.',
-    date: '2025-10-09',
-    serviceType: 'Service Call',
-    region: 'Mumbai'
-  }
-];
+// Defensive mapper: backend feedback row -> page NPSResponse model.
+function mapNps(r: any): NPSResponse {
+  const score = Number(r?.score ?? 0);
+  const category: NPSResponse['category'] =
+    r?.category === 'promoter' || r?.category === 'passive' || r?.category === 'detractor'
+      ? r.category
+      : score >= 9 ? 'promoter' : score >= 7 ? 'passive' : 'detractor';
+  return {
+    id: String(r?.id ?? r?.reference ?? ''),
+    respondentName: r?.respondentName ?? r?.customerName ?? '',
+    email: r?.email ?? '',
+    score,
+    category,
+    feedback: r?.feedback ?? r?.description ?? '',
+    date: r?.date ?? r?.createdAt ?? '',
+    serviceType: r?.serviceType ?? '',
+    region: r?.region ?? '',
+  };
+}
 
 export default function NPSPage() {
+  const [mockNPSResponses, setMockNPSResponses] = useState<NPSResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.nps()) as any[];
+        if (!cancelled) setMockNPSResponses(Array.isArray(raw) ? raw.map(mapNps) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load NPS responses');
+          setMockNPSResponses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { Star, Search, Filter, TrendingUp, BarChart3, Calendar, User, MessageSquare, ThumbsUp, Eye, Download, Award } from 'lucide-react';
 
 interface Rating {
@@ -17,140 +18,46 @@ interface Rating {
   unhelpful: number;
 }
 
-const mockRatings: Rating[] = [
-  {
-    id: '1',
-    serviceName: 'Microwave Repair Service',
-    serviceType: 'service-call',
-    customerName: 'Anjali Patel',
-    rating: 5,
-    comment: 'Excellent service! The technician was very professional and fixed the issue quickly. Highly satisfied with the experience.',
-    date: '2025-10-18',
-    category: 'Repair',
-    verified: true,
-    helpful: 45,
-    unhelpful: 2
-  },
-  {
-    id: '2',
-    serviceName: 'Installation of Kitchen Appliances',
-    serviceType: 'installation',
-    customerName: 'Rajesh Kumar',
-    rating: 5,
-    comment: 'Perfect installation! The team was punctual, careful with the setup, and provided clear instructions on usage.',
-    date: '2025-10-17',
-    category: 'Installation',
-    verified: true,
-    helpful: 38,
-    unhelpful: 1
-  },
-  {
-    id: '3',
-    serviceName: 'Refrigerator Maintenance',
-    serviceType: 'service-call',
-    customerName: 'Priya Sharma',
-    rating: 4,
-    comment: 'Good service overall. Technician was knowledgeable but could have been a bit faster. Still very satisfied.',
-    date: '2025-10-16',
-    category: 'Maintenance',
-    verified: true,
-    helpful: 28,
-    unhelpful: 3
-  },
-  {
-    id: '4',
-    serviceName: 'Washing Machine Repair',
-    serviceType: 'service-call',
-    customerName: 'Vikram Singh',
-    rating: 4,
-    comment: 'The technician diagnosed the issue correctly and fixed it efficiently. Parts were replaced properly.',
-    date: '2025-10-15',
-    category: 'Repair',
-    verified: true,
-    helpful: 32,
-    unhelpful: 2
-  },
-  {
-    id: '5',
-    serviceName: 'Dishwasher Parts Delivery',
-    serviceType: 'parts-delivery',
-    customerName: 'Neha Desai',
-    rating: 5,
-    comment: 'Fast and reliable delivery! Parts arrived on time and were exactly as ordered. Perfect!',
-    date: '2025-10-14',
-    category: 'Parts',
-    verified: true,
-    helpful: 52,
-    unhelpful: 0
-  },
-  {
-    id: '6',
-    serviceName: 'AC Installation Service',
-    serviceType: 'installation',
-    customerName: 'Sanjay Verma',
-    rating: 3,
-    comment: 'Service was average. Installation was done but the team could have been more careful with the house. Some minor damage to walls.',
-    date: '2025-10-13',
-    category: 'Installation',
-    verified: true,
-    helpful: 15,
-    unhelpful: 8
-  },
-  {
-    id: '7',
-    serviceName: 'Oven Maintenance Call',
-    serviceType: 'service-call',
-    customerName: 'Isha Nair',
-    rating: 5,
-    comment: 'Outstanding service! Very professional, courteous, and the oven works perfectly now. Will definitely call again.',
-    date: '2025-10-12',
-    category: 'Maintenance',
-    verified: true,
-    helpful: 56,
-    unhelpful: 1
-  },
-  {
-    id: '8',
-    serviceName: 'Refrigerator Parts Replacement',
-    serviceType: 'parts-delivery',
-    customerName: 'Rohan Gupta',
-    rating: 4,
-    comment: 'Good service. Parts delivered quickly but packaging could have been better. No damage though.',
-    date: '2025-10-11',
-    category: 'Parts',
-    verified: true,
-    helpful: 22,
-    unhelpful: 4
-  },
-  {
-    id: '9',
-    serviceName: 'Kitchen Appliance Installation',
-    serviceType: 'installation',
-    customerName: 'Meera Nair',
-    rating: 5,
-    comment: 'Amazing experience! The installation team was very professional, clean, and thorough. Everything works perfectly!',
-    date: '2025-10-10',
-    category: 'Installation',
-    verified: true,
-    helpful: 48,
-    unhelpful: 0
-  },
-  {
-    id: '10',
-    serviceName: 'Microwave Warranty Repair',
-    serviceType: 'service-call',
-    customerName: 'Arjun Patel',
-    rating: 2,
-    comment: 'Not satisfied. The technician took too long and the microwave stopped working again after a few days.',
-    date: '2025-10-09',
-    category: 'Warranty',
-    verified: true,
-    helpful: 12,
-    unhelpful: 34
-  }
-];
+// Defensive mapper: backend feedback row -> page Rating model.
+function mapRating(r: any): Rating {
+  return {
+    id: String(r?.id ?? r?.reference ?? ''),
+    serviceName: r?.serviceName ?? r?.subject ?? '',
+    serviceType: (r?.serviceType ?? 'service-call') as Rating['serviceType'],
+    customerName: r?.customerName ?? '',
+    rating: Number(r?.rating ?? r?.score ?? 0),
+    comment: r?.comment ?? r?.description ?? '',
+    date: r?.date ?? r?.createdAt ?? '',
+    category: r?.category ?? 'General',
+    verified: Boolean(r?.verified ?? false),
+    helpful: Number(r?.helpful ?? 0),
+    unhelpful: Number(r?.unhelpful ?? 0),
+  };
+}
 
 export default function RatingsPage() {
+  const [mockRatings, setMockRatings] = useState<Rating[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.ratings()) as any[];
+        if (!cancelled) setMockRatings(Array.isArray(raw) ? raw.map(mapRating) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load ratings');
+          setMockRatings([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedServiceType, setSelectedServiceType] = useState<string>('all');
   const [selectedRating, setSelectedRating] = useState<string>('all');
