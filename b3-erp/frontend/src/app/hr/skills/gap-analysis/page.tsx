@@ -20,85 +20,6 @@ import {
 import { SkillGap, SkillGapPriority, SkillGapStatus, SkillGapCategory, SkillType } from '@/types/skill';
 import { MOCK_SKILLS } from '@/services/skill.service';
 
-// Mock Skill Gaps Data for the 3 skills
-const MOCK_SKILL_GAPS: SkillGap[] = [
-  {
-    id: 'gap-1',
-    code: 'GAP-SOL-ARCH',
-    name: 'Solution Architecture Capability Gap',
-    description: 'Critical gap in solution architecture capabilities for enterprise RFP responses and custom solution design. Currently lacking senior architects who can analyze complex customer requirements and propose comprehensive SaaS solutions.',
-    category: SkillGapCategory.ROLE_REQUIREMENT,
-    roleName: 'Solution Architect',
-    departmentName: 'Engineering',
-    skillId: 'skill-8',
-    skill: MOCK_SKILLS.find(s => s.code === 'kreupai-solution-architect'),
-    requiredProficiencyLevel: 4,
-    currentAverageProficiency: 2,
-    employeesWithSkill: 2,
-    employeesRequired: 5,
-    gapPercentage: 60,
-    priority: SkillGapPriority.CRITICAL,
-    impact: 'Unable to respond to large enterprise RFPs effectively. Lost 3 major opportunities in Q4 due to inadequate solution proposals. Revenue impact estimated at $2.5M.',
-    recommendation: 'Hire 2 senior solution architects with enterprise SaaS experience. Implement internal training program for existing engineers. Partner with consulting firm for complex RFPs.',
-    trainingPlan: '1. Enterprise Architecture Fundamentals (4 weeks)\n2. RFP Response Best Practices (2 weeks)\n3. Cloud Solution Design Patterns (3 weeks)\n4. Customer Requirements Analysis Workshop (1 week)',
-    targetDate: new Date('2024-06-30'),
-    requiredCompetencies: ['Enterprise Architecture', 'RFP Analysis', 'Solution Design', 'Technical Writing', 'Cloud Platforms'],
-    status: SkillGapStatus.ACTIVE,
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-10'),
-  },
-  {
-    id: 'gap-2',
-    code: 'GAP-BACKEND',
-    name: 'Backend Engineering Proficiency Gap',
-    description: 'Significant gap in backend engineering skills, particularly in database schema design from UI/UX specifications, API development, and frontend-backend integration. Team struggles with translating design requirements into efficient backend implementations.',
-    category: SkillGapCategory.TEAM_CAPABILITY,
-    roleName: 'Backend Engineer',
-    departmentName: 'Engineering',
-    skillId: 'skill-10',
-    skill: MOCK_SKILLS.find(s => s.code === 'backend-engineer'),
-    requiredProficiencyLevel: 4,
-    currentAverageProficiency: 2,
-    employeesWithSkill: 4,
-    employeesRequired: 8,
-    gapPercentage: 50,
-    priority: SkillGapPriority.HIGH,
-    impact: 'Development velocity reduced by 30%. Technical debt accumulating due to suboptimal database designs. API inconsistencies causing frontend integration delays.',
-    recommendation: 'Conduct intensive backend bootcamp for existing developers. Hire 2 senior backend engineers. Establish code review standards and architectural guidelines.',
-    trainingPlan: '1. Database Design & Prisma Mastery (3 weeks)\n2. RESTful API Design Patterns (2 weeks)\n3. Node.js Advanced Concepts (2 weeks)\n4. Frontend-Backend Integration Workshop (1 week)',
-    targetDate: new Date('2024-05-15'),
-    requiredCompetencies: ['Database Design', 'Prisma ORM', 'Node.js', 'API Development', 'TypeScript'],
-    status: SkillGapStatus.ACTIVE,
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-10'),
-  },
-  {
-    id: 'gap-3',
-    code: 'GAP-QA',
-    name: 'Quality Assurance Engineering Gap',
-    description: 'Gap in QA engineering capabilities affecting product quality and release cycles. Limited automation testing coverage, inconsistent test case documentation, and reactive rather than proactive quality processes.',
-    category: SkillGapCategory.TEAM_CAPABILITY,
-    roleName: 'QA Engineer',
-    departmentName: 'Quality Assurance',
-    skillId: 'skill-11',
-    skill: MOCK_SKILLS.find(s => s.code === 'quality-assurance-engineer'),
-    requiredProficiencyLevel: 3,
-    currentAverageProficiency: 2,
-    employeesWithSkill: 3,
-    employeesRequired: 5,
-    gapPercentage: 40,
-    priority: SkillGapPriority.HIGH,
-    impact: 'Bug escape rate increased by 25% in last quarter. Customer-reported issues doubled. Release cycles extended due to manual testing bottlenecks.',
-    recommendation: 'Implement test automation framework. Train existing QA team on automation tools. Establish quality metrics and KPIs. Hire 1 senior QA automation engineer.',
-    trainingPlan: '1. Test Automation with Playwright/Cypress (3 weeks)\n2. API Testing with Postman/Jest (2 weeks)\n3. CI/CD Integration for Testing (1 week)\n4. Quality Metrics & Reporting (1 week)',
-    targetDate: new Date('2024-04-30'),
-    requiredCompetencies: ['Test Automation', 'Manual Testing', 'CI/CD', 'Bug Tracking', 'Test Planning'],
-    status: SkillGapStatus.ACTIVE,
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-10'),
-  },
-];
-
 const getPriorityConfig = (priority: SkillGapPriority) => {
   switch (priority) {
     case SkillGapPriority.CRITICAL:
@@ -128,21 +49,78 @@ const getSkillIcon = (skillCode?: string) => {
 };
 
 export default function SkillGapAnalysisPage() {
-  const [gaps, setGaps] = useState<SkillGap[]>(MOCK_SKILL_GAPS);
+  const [skillGaps, setSkillGaps] = useState<SkillGap[]>([]);
   const [expandedGap, setExpandedGap] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<string>('');
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+        const res = await fetch(`${base}/hr/user-skills`, {
+          headers: { 'x-company-id': 'test' },
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error('Failed to load skill gaps');
+        const raw = await res.json();
+        const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
+        const mapped: SkillGap[] = rows.map((r) => ({
+          id: r.id ?? r.skillId ?? '',
+          code: r.code ?? '',
+          name: r.name ?? r.skillName ?? 'Skill Gap',
+          description: r.description ?? '',
+          category: r.category ?? SkillGapCategory.ROLE_REQUIREMENT,
+          roleName: r.roleName ?? r.role ?? '',
+          departmentName: r.departmentName ?? r.department ?? '',
+          skillId: r.skillId ?? r.id ?? '',
+          skill: MOCK_SKILLS.find((s) => s.code === (r.skillCode ?? r.code)),
+          requiredProficiencyLevel: r.requiredProficiencyLevel ?? 0,
+          currentAverageProficiency: r.currentAverageProficiency ?? r.proficiencyLevel ?? 0,
+          employeesWithSkill: r.employeesWithSkill ?? 0,
+          employeesRequired: r.employeesRequired ?? 0,
+          gapPercentage: r.gapPercentage ?? 0,
+          priority: r.priority ?? SkillGapPriority.MEDIUM,
+          impact: r.impact ?? '',
+          recommendation: r.recommendation ?? '',
+          trainingPlan: r.trainingPlan ?? '',
+          targetDate: r.targetDate ? new Date(r.targetDate) : undefined,
+          requiredCompetencies: r.requiredCompetencies ?? [],
+          status: r.status ?? SkillGapStatus.ACTIVE,
+          createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+          updatedAt: r.updatedAt ? new Date(r.updatedAt) : new Date(),
+        }));
+        if (!cancelled) setSkillGaps(mapped);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setSkillGaps([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredGaps = filterPriority
-    ? gaps.filter((g) => g.priority === filterPriority)
-    : gaps;
+    ? skillGaps.filter((g) => g.priority === filterPriority)
+    : skillGaps;
 
   const summary = {
-    totalGaps: gaps.length,
-    criticalGaps: gaps.filter((g) => g.priority === SkillGapPriority.CRITICAL).length,
-    highPriorityGaps: gaps.filter((g) => g.priority === SkillGapPriority.HIGH).length,
-    averageGapPercentage: gaps.reduce((sum, g) => sum + g.gapPercentage, 0) / gaps.length,
-    totalEmployeesNeeded: gaps.reduce((sum, g) => sum + (g.employeesRequired - g.employeesWithSkill), 0),
+    totalGaps: skillGaps.length,
+    criticalGaps: skillGaps.filter((g) => g.priority === SkillGapPriority.CRITICAL).length,
+    highPriorityGaps: skillGaps.filter((g) => g.priority === SkillGapPriority.HIGH).length,
+    averageGapPercentage: skillGaps.length
+      ? skillGaps.reduce((sum, g) => sum + g.gapPercentage, 0) / skillGaps.length
+      : 0,
+    totalEmployeesNeeded: skillGaps.reduce((sum, g) => sum + (g.employeesRequired - g.employeesWithSkill), 0),
   };
 
   const toggleExpand = (gapId: string) => {
@@ -159,6 +137,17 @@ export default function SkillGapAnalysisPage() {
         </h1>
         <p className="text-gray-600 mt-2">Identify and address organizational skill gaps</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-3">

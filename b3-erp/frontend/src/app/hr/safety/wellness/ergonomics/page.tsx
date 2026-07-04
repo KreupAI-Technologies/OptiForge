@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dumbbell,
   Search,
@@ -9,6 +9,7 @@ import {
   Armchair,
   Activity,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   ChevronRight,
   MoreVertical,
@@ -20,6 +21,16 @@ import {
   ShieldCheck,
   ClipboardList
 } from 'lucide-react';
+import { HrSafetyService, SafetyWellness } from '@/services/hr-safety.service';
+
+interface AssessmentRow {
+  id: string;
+  employee: string;
+  station: string;
+  riskLevel: string;
+  date: string;
+  status: string;
+}
 
 // Mock Data
 const ergoStats = {
@@ -29,15 +40,45 @@ const ergoStats = {
   siteRiskScore: 2.4 // Out of 5, lower is better
 };
 
-const assessmentQueue = [
-  { id: 'ERG-2024-102', employee: 'John Smith', station: 'Assembly Line B-4', riskLevel: 'Low', date: '2024-03-21', status: 'Pending Review' },
-  { id: 'ERG-2024-098', employee: 'Maria Garcia', station: 'Quality Lab Desk 2', riskLevel: 'Medium', date: '2024-03-18', status: 'In Progress' },
-  { id: 'ERG-2024-095', employee: 'Sam Taylor', station: 'Admin Block Office 12', riskLevel: 'High', date: '2024-03-15', status: 'Action Required' },
-  { id: 'ERG-2024-082', employee: 'Mike Ross', station: 'CNC Machining Center 1', riskLevel: 'Low', date: '2024-03-10', status: 'Completed' }
-];
-
 export default function ErgonomicsPage() {
   const [filter, setFilter] = useState('All');
+  const [assessmentQueue, setAssessmentQueue] = useState<AssessmentRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getWellness('ergonomics');
+        const mapped: AssessmentRow[] = rows.map((row: SafetyWellness) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            employee: row.employeeName ?? '',
+            station: row.title ?? meta.station ?? '',
+            riskLevel: row.riskLevel ?? '',
+            date: row.scheduledDate ?? row.completedDate ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setAssessmentQueue(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load ergonomic assessments');
+          setAssessmentQueue([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
@@ -59,6 +100,19 @@ export default function ErgonomicsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading ergonomic assessments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Site Risk Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

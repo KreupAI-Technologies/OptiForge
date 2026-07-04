@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Stethoscope,
   Plus,
@@ -18,6 +18,17 @@ import {
   User,
   BellRing
 } from 'lucide-react';
+import { HrSafetyService, SafetyWellness } from '@/services/hr-safety.service';
+
+interface CheckupRow {
+  id: string;
+  employee: string;
+  type: string;
+  date: string;
+  status: string;
+  compliance: string;
+  location: string;
+}
 
 // Mock Data
 const checkupStats = {
@@ -27,47 +38,46 @@ const checkupStats = {
   remindersSent: 12
 };
 
-const checkupLog = [
-  {
-    id: 'CHK-2024-055',
-    employee: 'Alex Johnson',
-    type: 'Annual Physical',
-    date: '2024-03-20',
-    status: 'Scheduled',
-    compliance: 'On Track',
-    location: 'Main Medical Center'
-  },
-  {
-    id: 'CHK-2024-042',
-    employee: 'Maria Garcia',
-    type: 'Hearing Assessment',
-    date: '2024-03-15',
-    status: 'Completed',
-    compliance: 'Compliant',
-    location: 'Mobile Clinic A'
-  },
-  {
-    id: 'CHK-2024-038',
-    employee: 'Sam Taylor',
-    type: 'Vision Screening',
-    date: '2024-03-10',
-    status: 'Completed',
-    compliance: 'Compliant',
-    location: 'On-site Suite'
-  },
-  {
-    id: 'CHK-2024-012',
-    employee: 'Mike Ross',
-    type: 'Respiratory Function',
-    date: '2024-02-28',
-    status: 'Overdue',
-    compliance: 'Action Required',
-    location: 'Specialized Lab'
-  },
-];
-
 export default function WellnessCheckupsPage() {
   const [filter, setFilter] = useState('All');
+  const [checkupLog, setCheckupLog] = useState<CheckupRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getWellness('checkup');
+        const mapped: CheckupRow[] = rows.map((row: SafetyWellness) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            employee: row.employeeName ?? '',
+            type: row.title ?? row.category ?? '',
+            date: row.scheduledDate ?? row.completedDate ?? '',
+            status: row.status ?? '',
+            compliance: row.result ?? meta.compliance ?? '',
+            location: row.provider ?? meta.location ?? '',
+          };
+        });
+        if (!cancelled) setCheckupLog(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load wellness checkups');
+          setCheckupLog([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -91,6 +101,19 @@ export default function WellnessCheckupsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading wellness checkups…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   User, Building2, FileText, Package, DollarSign, TrendingUp, Bell, Settings,
   Clock, CheckCircle, XCircle, AlertCircle, Upload, Download, Eye, Edit,
@@ -8,6 +8,16 @@ import {
   Award, BarChart3, ShoppingCart, Truck, CreditCard, MessageSquare, HelpCircle,
   LogOut, ChevronRight, Star, ArrowUp, ArrowDown, Paperclip, Send, Zap, Target, Activity
 } from 'lucide-react'
+import { procurementPagesService } from '@/services/procurement-pages.service'
+
+interface SupplierPurchaseOrder {
+  id: string
+  date: string
+  items: number
+  value: number
+  status: string
+  delivery: string
+}
 
 export default function SupplierPortal() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -41,12 +51,40 @@ export default function SupplierPortal() {
   }
 
   // Purchase Orders
-  const purchaseOrders = [
-    { id: 'PO-2024-001', date: '2024-03-15', items: 5, value: 45000, status: 'In Progress', delivery: '2024-03-25' },
-    { id: 'PO-2024-002', date: '2024-03-12', items: 3, value: 28000, status: 'Delivered', delivery: '2024-03-20' },
-    { id: 'PO-2024-003', date: '2024-03-10', items: 8, value: 62000, status: 'Pending', delivery: '2024-03-30' },
-    { id: 'PO-2024-004', date: '2024-03-08', items: 2, value: 15000, status: 'In Progress', delivery: '2024-03-22' },
-  ]
+  const [purchaseOrders, setPurchaseOrders] = useState<SupplierPurchaseOrder[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+    setLoadError(null)
+    procurementPagesService
+      .getPurchaseOrders()
+      .then((rows) => {
+        if (cancelled) return
+        const mapped: SupplierPurchaseOrder[] = (rows ?? []).map((r: any) => ({
+          id: r.poNumber ?? r.id ?? '',
+          date: (r.poDate ?? '').toString().split('T')[0] || '',
+          items: Number(r.lineItemCount ?? r.itemCount ?? r.items ?? 0) || 0,
+          value: Number(r.totalAmount ?? 0) || 0,
+          status: r.status ?? '',
+          delivery: (r.deliveryDate ?? '').toString().split('T')[0] || '',
+        }))
+        setPurchaseOrders(mapped)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(err?.message ?? 'Failed to load purchase orders')
+        setPurchaseOrders([])
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // RFQs
   const rfqs = [
@@ -912,6 +950,18 @@ export default function SupplierPortal() {
 
       {/* Content */}
       <div className="w-full px-3 py-2">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading purchase orders…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'orders' && renderPurchaseOrders()}
         {activeTab === 'rfqs' && renderRFQs()}

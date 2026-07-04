@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Briefcase,
   Search,
@@ -14,29 +14,72 @@ import {
   TrendingUp,
   Users,
   CheckCircle2,
+  AlertCircle,
   AlertTriangle,
   MoreVertical,
   ChevronRight,
   Database,
   BarChart3
 } from 'lucide-react';
+import { HrSafetyService, SafetyWellness } from '@/services/hr-safety.service';
 
-// Mock Data
+interface SurveillanceRow {
+  id: string;
+  employee: string;
+  hazard: string;
+  lastCheck: string;
+  nextCheck: string;
+  result: string;
+  status: string;
+}
+
+// Mock Data (chart)
 const exposureMetrics = [
   { label: 'Ambient Noise', value: '72 dB', limit: '85 dB', status: 'Safe', icon: Volume2, color: 'text-blue-500' },
   { label: 'Airborne Dust', value: '1.2 mg/m³', limit: '5.0 mg/m³', status: 'Safe', icon: Wind, color: 'text-teal-500' },
   { label: 'Chemical Vapor', value: '0.04 ppm', limit: '0.10 ppm', status: 'Warning', icon: ShieldAlert, color: 'text-orange-500' }
 ];
 
-const surveillanceLog = [
-  { id: 'OH-502', employee: 'John Smith', hazard: 'High Power Vibration', lastCheck: '2024-02-15', nextCheck: '2024-08-15', result: 'Normal', status: 'Compliant' },
-  { id: 'OH-498', employee: 'Maria Garcia', hazard: 'Industrial Solvents', lastCheck: '2024-01-10', nextCheck: '2024-07-10', result: 'Monitoring', status: 'In Progress' },
-  { id: 'OH-450', employee: 'Sam Taylor', hazard: 'Auditory Stress', lastCheck: '2023-11-20', nextCheck: '2024-05-20', result: 'Normal', status: 'Compliant' },
-  { id: 'OH-412', employee: 'Mike Ross', hazard: 'Fine Particulates', lastCheck: '2023-10-05', nextCheck: '2024-04-05', result: 'Correction Needed', status: 'Action Required' }
-];
-
 export default function OccupationalHealthPage() {
   const [filter, setFilter] = useState('All');
+  const [surveillanceLog, setSurveillanceLog] = useState<SurveillanceRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getWellness('occupational');
+        const mapped: SurveillanceRow[] = rows.map((row: SafetyWellness) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            employee: row.employeeName ?? '',
+            hazard: row.exposureType ?? row.category ?? '',
+            lastCheck: row.completedDate ?? row.scheduledDate ?? '',
+            nextCheck: row.nextDue ?? '',
+            result: row.result ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setSurveillanceLog(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load surveillance records');
+          setSurveillanceLog([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3 text-sm font-medium">
@@ -58,6 +101,19 @@ export default function OccupationalHealthPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading surveillance records…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Real-time Exposure Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

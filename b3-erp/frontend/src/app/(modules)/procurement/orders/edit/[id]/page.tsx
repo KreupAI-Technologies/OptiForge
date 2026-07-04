@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   ArrowLeft,
   Save,
@@ -93,89 +94,17 @@ interface POFormData {
   termsConditions: string;
 }
 
-// Indian vendors for manufacturing
-const indianVendors = [
-  {
-    name: 'JSW Steel Limited',
-    gst: '27AABCJ8578D1ZS',
-    pan: 'AABCJ8578D',
-    state: 'Maharashtra',
-    contact: 'Rajesh Kumar',
-    email: 'sales@jswsteel.in',
-    phone: '+91 836 2513333',
-    address: 'JSW Centre, Bandra Kurla Complex, Mumbai, Maharashtra, 400051',
-  },
-  {
-    name: 'Tata Steel Limited',
-    gst: '27AAACT2727Q1ZV',
-    pan: 'AAACT2727Q',
-    state: 'West Bengal',
-    contact: 'Amit Patel',
-    email: 'procurement@tatasteel.com',
-    phone: '+91 657 2345678',
-    address: 'Tata Centre, 43 Jawaharlal Nehru Road, Kolkata, West Bengal, 700071',
-  },
-  {
-    name: 'Hindalco Industries Limited',
-    gst: '27AAACH6781G1ZN',
-    pan: 'AAACH6781G',
-    state: 'Maharashtra',
-    contact: 'Suresh Reddy',
-    email: 'sales@hindalco.com',
-    phone: '+91 22 66911700',
-    address: 'Century Bhavan, Dr. Annie Besant Road, Worli, Mumbai, Maharashtra, 400030',
-  },
-  {
-    name: 'ACC Cement Limited',
-    gst: '27AAACA3803M1ZY',
-    pan: 'AAACA3803M',
-    state: 'Maharashtra',
-    contact: 'Priya Singh',
-    email: 'sales@acclimited.com',
-    phone: '+91 22 33023000',
-    address: 'Cement House, 121 Maharshi Karve Road, Mumbai, Maharashtra, 400020',
-  },
-  {
-    name: 'UltraTech Cement Limited',
-    gst: '27AAACU0179K1Z3',
-    pan: 'AAACU0179K',
-    state: 'Maharashtra',
-    contact: 'Vikram Malhotra',
-    email: 'info@ultratechcement.com',
-    phone: '+91 22 66917800',
-    address: 'B-Wing, Ahura Centre, Mahakali Caves Road, Mumbai, Maharashtra, 400093',
-  },
-  {
-    name: 'Asian Paints Limited',
-    gst: '27AAACA9887J1ZD',
-    pan: 'AAACA9887J',
-    state: 'Maharashtra',
-    contact: 'Neha Gupta',
-    email: 'corporate@asianpaints.com',
-    phone: '+91 22 66569000',
-    address: 'Asian Paints House, 6A Shantinagar, Santacruz (E), Mumbai, Maharashtra, 400055',
-  },
-  {
-    name: 'Bharat Petroleum Corporation',
-    gst: '27AAACB2902B1ZW',
-    pan: 'AAACB2902B',
-    state: 'Maharashtra',
-    contact: 'Rajiv Desai',
-    email: 'corporate@bharatpetroleum.in',
-    phone: '+91 22 22713000',
-    address: 'Bharat Bhavan, 4&6 Currimbhoy Road, Ballard Estate, Mumbai, Maharashtra, 400001',
-  },
-  {
-    name: 'Indian Oil Corporation',
-    gst: '07AAACI1681G1ZM',
-    pan: 'AAACI1681G',
-    state: 'Delhi',
-    contact: 'Anjali Sharma',
-    email: 'procurement@iocl.com',
-    phone: '+91 11 23352819',
-    address: 'Indian Oil Bhavan, G-9 Ali Yavar Jung Marg, Bandra East, Mumbai, Maharashtra, 400051',
-  },
-];
+// Vendor record shape used by the PO form (populated from the live vendors endpoint).
+interface VendorOption {
+  name: string;
+  gst: string;
+  pan: string;
+  state: string;
+  contact: string;
+  email: string;
+  phone: string;
+  address: string;
+}
 
 const indianStates = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
@@ -211,6 +140,42 @@ export default function EditPurchaseOrderPage() {
   const poId = params.id as string;
 
   const [companyState] = useState('Maharashtra'); // Our company state
+  const [indianVendors, setIndianVendors] = useState<VendorOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
+    procurementPagesService
+      .getVendors()
+      .then((rows) => {
+        if (cancelled) return;
+        const mapped: VendorOption[] = (rows ?? []).map((r: any) => ({
+          name: r.name ?? r.vendorName ?? r.legalName ?? '',
+          gst: r.gst ?? r.gstNumber ?? r.gstin ?? '',
+          pan: r.pan ?? r.panNumber ?? '',
+          state: r.state ?? r.stateName ?? '',
+          contact: r.contact ?? r.contactPerson ?? r.contactName ?? '',
+          email: r.email ?? r.contactEmail ?? '',
+          phone: r.phone ?? r.contactPhone ?? r.phoneNumber ?? '',
+          address: r.address ?? r.addressLine ?? '',
+        }));
+        setIndianVendors(mapped);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(err?.message ?? 'Failed to load vendors');
+        setIndianVendors([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock existing PO data
   const [poNumber] = useState('PO-2025-00142');
@@ -528,6 +493,19 @@ export default function EditPurchaseOrderPage() {
               </div>
             </div>
           </div>
+
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading vendors…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertCircle className="h-4 w-4" />
+              {loadError}
+            </div>
+          )}
 
           <div className="space-y-3">
             {/* Vendor Selection */}

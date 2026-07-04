@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Heart,
   Search,
@@ -15,58 +15,30 @@ import {
   Brain,
   Apple,
   Sparkles,
+  AlertCircle,
   MoreVertical,
   CheckCircle2,
   Clock
 } from 'lucide-react';
+import { HrSafetyService, SafetyWellness } from '@/services/hr-safety.service';
 
-// Mock Data
-const activePrograms = [
-  {
-    id: 'PRG-001',
-    title: 'Precision Focus: Mental Reset',
-    icon: Brain,
-    category: 'Mental Health',
-    participants: 124,
-    status: 'In Progress',
-    impact: 'High',
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50'
-  },
-  {
-    id: 'PRG-002',
-    title: 'Manufacturing Marathon',
-    icon: Dumbbell,
-    category: 'Physical Fitness',
-    participants: 450,
-    status: 'In Progress',
-    impact: 'Extreme',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50'
-  },
-  {
-    id: 'PRG-003',
-    title: 'Nutrition for Night Shifts',
-    icon: Apple,
-    category: 'Nutrition',
-    participants: 85,
-    status: 'Upcoming',
-    impact: 'Medium',
-    color: 'text-green-600',
-    bgColor: 'bg-green-50'
-  },
-  {
-    id: 'PRG-004',
-    title: 'Mindful Machining',
-    icon: Sparkles,
-    category: 'Mental Health',
-    participants: 62,
-    status: 'In Progress',
-    impact: 'Medium',
-    color: 'text-teal-600',
-    bgColor: 'bg-teal-50'
-  },
-];
+interface ProgramRow {
+  id: string;
+  title: string;
+  icon: any;
+  category: string;
+  participants: number;
+  status: string;
+  impact: string;
+  color: string;
+  bgColor: string;
+}
+
+const PROGRAM_STYLES: Record<string, { icon: any; color: string; bgColor: string }> = {
+  'Mental Health': { icon: Brain, color: 'text-purple-600', bgColor: 'bg-purple-50' },
+  'Physical Fitness': { icon: Dumbbell, color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  Nutrition: { icon: Apple, color: 'text-green-600', bgColor: 'bg-green-50' },
+};
 
 const engagementStats = {
   totalEnrolled: 842,
@@ -77,6 +49,48 @@ const engagementStats = {
 
 export default function WellnessProgramsPage() {
   const [filter, setFilter] = useState('All');
+  const [activePrograms, setActivePrograms] = useState<ProgramRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getWellness('program');
+        const mapped: ProgramRow[] = rows.map((row: SafetyWellness) => {
+          const meta = (row.meta || {}) as any;
+          const category = row.category ?? '';
+          const style = PROGRAM_STYLES[category] || { icon: Sparkles, color: 'text-teal-600', bgColor: 'bg-teal-50' };
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            icon: style.icon,
+            category,
+            participants: row.participants ?? 0,
+            status: row.status ?? '',
+            impact: row.riskLevel ?? meta.impact ?? '',
+            color: style.color,
+            bgColor: style.bgColor,
+          };
+        });
+        if (!cancelled) setActivePrograms(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load wellness programs');
+          setActivePrograms([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -94,6 +108,19 @@ export default function WellnessProgramsPage() {
           Launch Program
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading wellness programs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Engagement Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
