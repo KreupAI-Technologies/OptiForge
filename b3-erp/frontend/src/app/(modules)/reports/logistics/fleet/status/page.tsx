@@ -1,23 +1,45 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ReportDetailPage } from '@/components/reports/ReportDetailPage';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function FleetStatusContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const status = searchParams.get('status') || 'All';
 
-    const vehicles = [
-        { id: 'VEH-001', vehicle: 'Truck - TRK-001', type: 'Delivery Truck', utilization: 92, mileage: 8500, fuel: 2100, status: 'Active' },
-        { id: 'VEH-002', vehicle: 'Van - VAN-003', type: 'Cargo Van', utilization: 85, mileage: 6200, fuel: 1400, status: 'Active' },
-        { id: 'VEH-003', vehicle: 'Truck - TRK-002', type: 'Delivery Truck', utilization: 78, mileage: 7100, fuel: 1850, status: 'Maintenance' },
-        { id: 'VEH-004', vehicle: 'Van - VAN-001', type: 'Cargo Van', utilization: 65, mileage: 4800, fuel: 1100, status: 'Active' },
-        { id: 'VEH-005', vehicle: 'Truck - TRK-003', type: 'Delivery Truck', utilization: 0, mileage: 0, fuel: 0, status: 'Maintenance' },
-    ];
+    const [vehicles, setVehicles] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('logistics/vehicles');
+                const mapped = raw.map((r: any) => ({
+                    id: r.vehicleCode ?? r.id,
+                    vehicle: r.vehicleName ?? r.registrationNumber ?? '',
+                    type: r.vehicleType ?? '',
+                    utilization: Number(r.utilization ?? 0),
+                    mileage: Number(r.mileage ?? r.odometer ?? 0),
+                    fuel: Number(r.fuelLevel ?? 0),
+                    status: r.status ?? '',
+                }));
+                if (!cancelled) setVehicles(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setVehicles([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredVehicles = status === 'All'
         ? vehicles
@@ -34,6 +56,8 @@ function FleetStatusContent() {
                 { label: status }
             ]}
         >
+            {isLoading && <div className="mb-3 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+            {loadError && !isLoading && <div className="mb-3 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
             <Card>
                 <CardHeader>
                     <CardTitle>Vehicle List</CardTitle>

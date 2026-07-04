@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   Package,
   Plus,
@@ -118,53 +119,7 @@ const PROJECTS = [
   { label: 'PRJ-2025-003 - L&T Campus - Industrial Kitchen', value: 'PRJ-2025-003' },
 ];
 
-const initialItems: AccessoryItem[] = [
-  {
-    id: '1',
-    category: 'Hinges',
-    subcategory: 'Soft Close',
-    name: 'Soft Close Hinge 110°',
-    description: 'Full overlay soft close hinge',
-    quantity: 24,
-    unit: 'pcs',
-    brand: 'Hettich',
-    unitPrice: 185,
-    totalPrice: 4440,
-    leadTime: 3,
-    stockStatus: 'in-stock',
-    notes: 'For base and wall cabinets',
-  },
-  {
-    id: '2',
-    category: 'Handles',
-    subcategory: 'Bar',
-    name: 'Bar Handle 128mm',
-    description: 'Brushed nickel finish',
-    quantity: 18,
-    unit: 'pcs',
-    brand: 'Hafele',
-    unitPrice: 320,
-    totalPrice: 5760,
-    leadTime: 5,
-    stockStatus: 'in-stock',
-    notes: 'Center to center 128mm',
-  },
-  {
-    id: '3',
-    category: 'Drawer Systems',
-    subcategory: 'Tandem',
-    name: 'Tandem Runner 450mm',
-    description: 'Soft close full extension',
-    quantity: 8,
-    unit: 'sets',
-    brand: 'Blum',
-    unitPrice: 1850,
-    totalPrice: 14800,
-    leadTime: 7,
-    stockStatus: 'low-stock',
-    notes: '30kg load capacity',
-  },
-];
+const initialItems: AccessoryItem[] = [];
 
 const initialFormData: FormData = {
   project: '',
@@ -183,6 +138,60 @@ export default function AccessoriesBOMEnhancedPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Fetch BOM accessory items from the backend
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await projectManagementService.getPmBomItems();
+        const mapped: AccessoryItem[] = (raw || []).map((r: any, idx: number) => {
+          const quantity = Number(r.quantity ?? r.qty ?? 0);
+          const unitPrice = Number(r.unitPrice ?? r.unit_price ?? r.rate ?? 0);
+          const totalPrice = Number(
+            r.totalPrice ?? r.total_price ?? r.amount ?? quantity * unitPrice
+          );
+          const status = (r.stockStatus ?? r.stock_status ?? 'in-stock') as AccessoryItem['stockStatus'];
+          return {
+            id: String(r.id ?? r.itemId ?? r.item_id ?? idx + 1),
+            category: r.category ?? '',
+            subcategory: r.subcategory ?? r.sub_category ?? '',
+            name: r.name ?? r.itemName ?? r.item_name ?? '',
+            description: r.description ?? '',
+            quantity,
+            unit: r.unit ?? 'pcs',
+            brand: r.brand ?? 'Any',
+            unitPrice,
+            totalPrice,
+            leadTime: Number(r.leadTime ?? r.lead_time ?? 0),
+            stockStatus:
+              status === 'in-stock' || status === 'low-stock' || status === 'out-of-stock'
+                ? status
+                : 'in-stock',
+            notes: r.notes ?? '',
+          };
+        });
+        if (!cancelled) {
+          setFormData(prev => ({ ...prev, items: mapped }));
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setFormData(prev => ({ ...prev, items: [] }));
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [newItem, setNewItem] = useState<Partial<AccessoryItem>>({
     category: '',
     subcategory: '',
@@ -524,6 +533,19 @@ export default function AccessoriesBOMEnhancedPage() {
                 ))}
               </select>
             </div>
+
+            {isLoading && (
+              <div className="flex items-center gap-2 p-3 text-sm text-gray-500">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                Loading BOM items...
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <p className="text-sm text-red-700">Failed to load BOM items: {loadError}</p>
+              </div>
+            )}
 
             {/* Items Table */}
             <div className="border rounded-lg overflow-hidden">

@@ -36,7 +36,82 @@ import {
 import { StatHighlight, PremiumCard } from '@/components/dashboard/DashboardWidgets';
 import { ProjectProfitabilityGauge } from '@/components/project-management/ProjectProfitabilityGauge';
 
+interface RecentProject {
+  id: string;
+  name: string;
+  progress: number;
+  status: string;
+  dueDate: string;
+  manager: string;
+  budget: number;
+  spent: number;
+}
+
+interface ResourceRow {
+  role: string;
+  allocated: number;
+  available: number;
+  utilization: number;
+}
+
 export default function ProjectDashboardPage() {
+  // Data + fetch states
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+  const [resourceData, setResourceData] = useState<ResourceRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [plansRaw, utilRaw] = await Promise.all([
+          projectManagementService.getPmProjectPlansRaw(),
+          projectManagementService.getPmResourceUtilization(),
+        ]);
+        const projects: RecentProject[] = (plansRaw || []).map((p: any) => ({
+          id: String(p.id ?? p.projectId ?? p.projectCode ?? ''),
+          name: p.projectName ?? p.name ?? p.projectCode ?? 'Project',
+          progress: Number(p.progressPercentage ?? p.progress ?? 0),
+          status: p.status ?? 'On Track',
+          dueDate: p.endDate ?? p.dueDate ?? '',
+          manager: p.projectManager ?? p.manager ?? '',
+          budget: Number(p.estimatedBudget ?? p.budget ?? 0),
+          spent: Number(p.actualBudget ?? p.spent ?? 0),
+        }));
+        const resources: ResourceRow[] = (utilRaw || []).map((r: any) => {
+          const allocated = Number(r.allocated ?? r.allocatedCount ?? r.utilized ?? 0);
+          const available = Number(r.available ?? r.availableCount ?? 0);
+          return {
+            role: r.role ?? r.resourceType ?? r.name ?? 'Resource',
+            allocated,
+            available,
+            utilization: Number(
+              r.utilization ?? r.utilizationPercentage ??
+              (allocated + available > 0 ? Math.round((allocated / (allocated + available)) * 100) : 0),
+            ),
+          };
+        });
+        if (!cancelled) {
+          setRecentProjects(projects);
+          setResourceData(resources);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load dashboard');
+          setRecentProjects([]);
+          setResourceData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showQuickActionsModal, setShowQuickActionsModal] = useState(false);
@@ -61,50 +136,6 @@ export default function ProjectDashboardPage() {
     resourceUtilization: 78,
     avgProjectHealth: 72,
   };
-
-  // Recent Projects
-  const recentProjects = [
-    {
-      id: '1',
-      name: 'Taj Hotel Commercial Kitchen Installation',
-      progress: 65,
-      status: 'On Track',
-      dueDate: '2024-04-30',
-      manager: 'Rajesh Kumar',
-      budget: 8500000,
-      spent: 5200000,
-    },
-    {
-      id: '2',
-      name: 'BigBasket Cold Storage Facility',
-      progress: 45,
-      status: 'On Track',
-      dueDate: '2024-05-15',
-      manager: 'Priya Sharma',
-      budget: 12000000,
-      spent: 4800000,
-    },
-    {
-      id: '3',
-      name: 'L&T Switchgear Panel Manufacturing',
-      progress: 75,
-      status: 'At Risk',
-      dueDate: '2024-03-20',
-      manager: 'Amit Patel',
-      budget: 6500000,
-      spent: 5400000,
-    },
-    {
-      id: '4',
-      name: 'Siemens HT Switchgear Project',
-      progress: 35,
-      status: 'On Track',
-      dueDate: '2024-06-15',
-      manager: 'Manoj Kumar',
-      budget: 15000000,
-      spent: 4500000,
-    },
-  ];
 
   // Upcoming Milestones
   const upcomingMilestones = [
