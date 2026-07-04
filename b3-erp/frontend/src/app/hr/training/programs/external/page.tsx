@@ -1,6 +1,8 @@
 'use client';
 
-import { ExternalLink, DollarSign, Search, CheckCircle, Book } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ExternalLink, DollarSign, Search, CheckCircle, Book, AlertCircle } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Vendor {
   id: string;
@@ -27,11 +29,39 @@ export default function ExternalTrainingPage() {
     { id: '4', name: 'CodeAcademy', category: 'Coding', rating: 4.5, status: 'Pending', cost: '$2,000/yr' },
   ];
 
-  const courses: ExternalCourse[] = [
-    { id: 'c1', title: 'Data Science Specialization', provider: 'Coursera', duration: '3 Months', price: '$49/mo' },
-    { id: 'c2', title: 'Agile Project Management', provider: 'Global Leadership Inst.', duration: '2 Days', price: '$800' },
-    { id: 'c3', title: 'AWS Solutions Architect', provider: 'Udemy', duration: '40 Hours', price: '$120' },
-  ];
+  const [courses, setCourses] = useState<ExternalCourse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingPrograms()) as any[];
+        const mapped: ExternalCourse[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: String(r.id ?? ''),
+          title: r.title ?? '',
+          provider: r.provider ?? '',
+          duration: r.duration ?? '',
+          price: r.price ?? '',
+        }));
+        if (!cancelled) setCourses(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load courses');
+          setCourses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">

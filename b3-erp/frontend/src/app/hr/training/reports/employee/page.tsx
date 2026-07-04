@@ -26,15 +26,25 @@ import {
   Tooltip
 } from 'recharts';
 
-// Mock Data
-const employees = [
+interface EmployeeRecord {
+  id: number | string;
+  name: string;
+  role: string;
+  department: string;
+  location: string;
+  email: string;
+  phone: string;
+  avatar: string;
+}
+
+const seedEmployees = [
   { id: 1, name: 'Alice Johnson', role: 'Senior Engineer', department: 'Engineering', location: 'New York', email: 'alice.j@optiforge.com', phone: '+1 (555) 123-4567', avatar: 'AJ' },
   { id: 2, name: 'Bob Smith', role: 'Product Manager', department: 'Product', location: 'London', email: 'bob.s@optiforge.com', phone: '+44 20 7123 4567', avatar: 'BS' },
   { id: 3, name: 'Charlie Davis', role: 'Sales Executive', department: 'Sales', location: 'San Francisco', email: 'charlie.d@optiforge.com', phone: '+1 (555) 987-6543', avatar: 'CD' },
 ];
 
 const selectedEmployeeData = {
-  ...employees[0],
+  ...seedEmployees[0],
   joinedDate: '2022-03-15',
   totalHours: 145,
   certifications: 4,

@@ -80,7 +80,7 @@ export default function DepartmentExpensesPage() {
       }
       return b.avgPerEmployee - a.avgPerEmployee;
     });
-  }, [sortBy]);
+  }, [sortBy, departmentData]);
 
   const totals = useMemo(() => {
     return departmentData.reduce(
@@ -105,7 +105,7 @@ export default function DepartmentExpensesPage() {
         otherExpenses: 0
       }
     );
-  }, []);
+  }, [departmentData]);
 
   const avgPerEmployee = totals.headCount > 0 ? Math.round(totals.totalExpenses / totals.headCount) : 0;
 
