@@ -115,6 +115,74 @@ export class LogisticsService {
       `/logistics/fuel-records${qs ? `?${qs}` : ''}`,
     );
   }
+
+  static async getTrips(filters?: {
+    status?: string;
+    driverId?: string;
+    vehicleId?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.driverId) params.set('driverId', filters.driverId);
+    if (filters?.vehicleId) params.set('vehicleId', filters.vehicleId);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/trips${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getDrivers(filters?: {
+    status?: string;
+    availability?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.availability) params.set('availability', filters.availability);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/drivers${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getVehicles(filters?: {
+    status?: string;
+    vehicleType?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.vehicleType) params.set('vehicleType', filters.vehicleType);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/vehicles${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getRoutes(filters?: {
+    status?: string;
+    routeType?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.routeType) params.set('routeType', filters.routeType);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/routes${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getShipments(filters?: {
+    status?: string;
+    priority?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.priority) params.set('priority', filters.priority);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/shipments${qs ? `?${qs}` : ''}`);
+  }
+
+  static async getFreightCharges(filters?: {
+    status?: string;
+    carrier?: string;
+  }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.carrier) params.set('carrier', filters.carrier);
+    const qs = params.toString();
+    return request<any[]>(`/logistics/freight-charges${qs ? `?${qs}` : ''}`);
+  }
 }
 
 export const logisticsService = LogisticsService;

@@ -44,20 +44,54 @@ export default function CompOffPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [viewType, setViewType] = useState<'balance' | 'requests'>('balance');
 
-    const balances: CompOffBalance[] = [
-        { id: '1', employeeId: 'EMP002', employeeName: 'Michael Chen', department: 'Production', earnedHours: 24, usedHours: 8, balanceHours: 16, expiringHours: 8, expiryDate: '2025-03-31' },
-        { id: '2', employeeId: 'EMP003', employeeName: 'Emily Davis', department: 'Quality Assurance', earnedHours: 12, usedHours: 4, balanceHours: 8, expiringHours: 0, expiryDate: null },
-        { id: '3', employeeId: 'EMP006', employeeName: 'Robert Martinez', department: 'IT', earnedHours: 16, usedHours: 0, balanceHours: 16, expiringHours: 8, expiryDate: '2025-02-28' },
-        { id: '4', employeeId: 'EMP008', employeeName: 'James Taylor', department: 'Warehouse', earnedHours: 20, usedHours: 12, balanceHours: 8, expiringHours: 0, expiryDate: null },
-        { id: '5', employeeId: 'EMP009', employeeName: 'Anna Martin', department: 'Quality Assurance', earnedHours: 8, usedHours: 0, balanceHours: 8, expiringHours: 8, expiryDate: '2025-04-15' }
-    ];
+    const [balances, setBalances] = useState<CompOffBalance[]>([]);
+    const [requests, setRequests] = useState<CompOffRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const requests: CompOffRequest[] = [
-        { id: '1', employeeId: 'EMP002', employeeName: 'Michael Chen', department: 'Production', requestDate: '2025-01-28', compOffDate: '2025-02-10', hours: 8, reason: 'Family function', status: 'Pending' },
-        { id: '2', employeeId: 'EMP006', employeeName: 'Robert Martinez', department: 'IT', requestDate: '2025-01-25', compOffDate: '2025-02-05', hours: 8, reason: 'Personal work', status: 'Approved', approvedBy: 'IT Manager' },
-        { id: '3', employeeId: 'EMP003', employeeName: 'Emily Davis', department: 'Quality Assurance', requestDate: '2025-01-20', compOffDate: '2025-01-30', hours: 4, reason: 'Medical appointment', status: 'Approved', approvedBy: 'QA Manager' },
-        { id: '4', employeeId: 'EMP008', employeeName: 'James Taylor', department: 'Warehouse', requestDate: '2025-01-30', compOffDate: '2025-02-12', hours: 8, reason: 'Travel plans', status: 'Pending' }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrSelfServiceService.getOvertimeRequests();
+                // Overtime requests map naturally onto comp-off requests; balances
+                // are derived per-employee from comp-off hours in the raw data.
+                const mappedRequests: CompOffRequest[] = (raw as any[]).map((r) => ({
+                    id: String(r.id ?? r.requestId ?? ''),
+                    employeeId: r.employeeCode ?? '',
+                    employeeName: r.employeeName ?? '',
+                    department: r.department ?? '',
+                    requestDate: r.requestDate ?? '',
+                    compOffDate: r.date ?? '',
+                    hours: Number(r.overtimeHours ?? 0),
+                    reason: r.reason ?? '',
+                    status: (r.status ?? 'Pending') as CompOffRequest['status'],
+                    approvedBy: r.approvedBy,
+                }));
+                const mappedBalances: CompOffBalance[] = (raw as any[]).map((r) => {
+                    const earned = Number(r.overtimeHours ?? 0);
+                    return {
+                        id: String(r.id ?? r.requestId ?? ''),
+                        employeeId: r.employeeCode ?? '',
+                        employeeName: r.employeeName ?? '',
+                        department: r.department ?? '',
+                        earnedHours: earned,
+                        usedHours: 0,
+                        balanceHours: earned,
+                        expiringHours: 0,
+                        expiryDate: null,
+                    };
+                });
+                if (!cancelled) { setRequests(mappedRequests); setBalances(mappedBalances); }
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRequests([]); setBalances([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredBalances = balances.filter(b =>
         b.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
