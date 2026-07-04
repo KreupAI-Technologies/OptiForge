@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertTriangle, Clock, TrendingDown, Filter, Search, Calendar, User, FileText } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { AlertTriangle, Clock, TrendingDown, Filter, Search, Calendar, User, FileText, AlertCircle } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface SLABreach {
   id: string
@@ -27,153 +28,51 @@ export default function SLABreaches() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [selectedBreach, setSelectedBreach] = useState<SLABreach | null>(null)
+  const [breaches, setBreaches] = useState<SLABreach[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const breaches: SLABreach[] = [
-    {
-      id: '1',
-      breachId: 'BRH-2024-156',
-      ticketId: 'TKT-2024-1245',
-      title: 'Production database connection timeout',
-      priority: 'P0',
-      slaType: 'Response Time',
-      target: '15 minutes',
-      actual: '28 minutes',
-      breachTime: '2024-10-21 14:28',
-      breachDuration: '13 minutes',
-      assignedTo: 'Amit Patel',
-      category: 'Infrastructure',
-      status: 'Active',
-      rootCause: 'All available database administrators were in a meeting',
-      preventiveAction: 'Implement on-call rotation with minimum 2 DBAs available',
-      impactLevel: 'Critical'
-    },
-    {
-      id: '2',
-      breachId: 'BRH-2024-155',
-      ticketId: 'TKT-2024-1238',
-      title: 'Email server not responding',
-      priority: 'P1',
-      slaType: 'Resolution Time',
-      target: '8 hours',
-      actual: '10.5 hours',
-      breachTime: '2024-10-21 08:30',
-      breachDuration: '2.5 hours',
-      assignedTo: 'Priya Sharma',
-      category: 'Email System',
-      status: 'Resolved',
-      rootCause: 'Required escalation to vendor support, delayed response',
-      preventiveAction: 'Establish direct escalation path with vendor',
-      impactLevel: 'High'
-    },
-    {
-      id: '3',
-      breachId: 'BRH-2024-154',
-      ticketId: 'TKT-2024-1232',
-      title: 'VPN connectivity issues for remote users',
-      priority: 'P1',
-      slaType: 'Response Time',
-      target: '1 hour',
-      actual: '1 hour 35 minutes',
-      breachTime: '2024-10-20 16:35',
-      breachDuration: '35 minutes',
-      assignedTo: 'Rahul Verma',
-      category: 'Network',
-      status: 'Resolved',
-      rootCause: 'Ticket was misclassified initially as P2',
-      preventiveAction: 'Improve ticket classification training for L1 support',
-      impactLevel: 'High'
-    },
-    {
-      id: '4',
-      breachId: 'BRH-2024-153',
-      ticketId: 'TKT-2024-1225',
-      title: 'Application performance degradation',
-      priority: 'P2',
-      slaType: 'Response Time',
-      target: '4 hours',
-      actual: '5 hours 15 minutes',
-      breachTime: '2024-10-20 11:15',
-      breachDuration: '1 hour 15 minutes',
-      assignedTo: 'Sneha Reddy',
-      category: 'Application',
-      status: 'Acknowledged',
-      rootCause: 'Resource shortage during peak business hours',
-      preventiveAction: 'Add buffer capacity during peak hours',
-      impactLevel: 'Medium'
-    },
-    {
-      id: '5',
-      breachId: 'BRH-2024-152',
-      ticketId: 'TKT-2024-1218',
-      title: 'Printer driver installation failure',
-      priority: 'P3',
-      slaType: 'Resolution Time',
-      target: '5 days',
-      actual: '5 days 8 hours',
-      breachTime: '2024-10-19 17:00',
-      breachDuration: '8 hours',
-      assignedTo: 'Vikram Singh',
-      category: 'Desktop Support',
-      status: 'Resolved',
-      rootCause: 'Awaiting approved software from procurement',
-      preventiveAction: 'Pre-approve common drivers and software',
-      impactLevel: 'Low'
-    },
-    {
-      id: '6',
-      breachId: 'BRH-2024-151',
-      ticketId: 'TKT-2024-1212',
-      title: 'File server access denied error',
-      priority: 'P1',
-      slaType: 'Response Time',
-      target: '1 hour',
-      actual: '1 hour 22 minutes',
-      breachTime: '2024-10-19 09:22',
-      breachDuration: '22 minutes',
-      assignedTo: 'Amit Patel',
-      category: 'Storage',
-      status: 'Resolved',
-      rootCause: 'Authentication service intermittent issue',
-      preventiveAction: 'Implement redundant authentication servers',
-      impactLevel: 'High'
-    },
-    {
-      id: '7',
-      breachId: 'BRH-2024-150',
-      ticketId: 'TKT-2024-1205',
-      title: 'Critical security patch deployment failed',
-      priority: 'P0',
-      slaType: 'Resolution Time',
-      target: '4 hours',
-      actual: '4 hours 45 minutes',
-      breachTime: '2024-10-18 20:45',
-      breachDuration: '45 minutes',
-      assignedTo: 'Rajesh Kumar',
-      category: 'Security',
-      status: 'Resolved',
-      rootCause: 'Unforeseen compatibility issue with legacy systems',
-      preventiveAction: 'Establish pre-production testing environment',
-      impactLevel: 'Critical'
-    },
-    {
-      id: '8',
-      breachId: 'BRH-2024-149',
-      ticketId: 'TKT-2024-1198',
-      title: 'Backup job failure notification',
-      priority: 'P2',
-      slaType: 'Resolution Time',
-      target: '24 hours',
-      actual: '26 hours 30 minutes',
-      breachTime: '2024-10-18 14:30',
-      breachDuration: '2 hours 30 minutes',
-      assignedTo: 'Priya Sharma',
-      category: 'Backup',
-      status: 'Resolved',
-      rootCause: 'Storage capacity reached unexpectedly',
-      preventiveAction: 'Implement proactive storage monitoring',
-      impactLevel: 'Medium'
-    }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const settings = await supportPagesService.getSlaSettings()
+        // Settings is an object; escalationRules is the closest breach-adjacent source.
+        const source: any[] = Array.isArray(settings?.escalationRules)
+          ? settings.escalationRules
+          : Array.isArray(settings?.breaches) ? settings.breaches : []
+        const mapped: SLABreach[] = source.map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          breachId: r.breachId ?? r.id ?? '',
+          ticketId: r.ticketId ?? '',
+          title: r.title ?? r.name ?? '',
+          priority: r.priority ?? 'P3',
+          slaType: r.slaType ?? 'Response Time',
+          target: r.target ?? '',
+          actual: r.actual ?? '',
+          breachTime: r.breachTime ?? '',
+          breachDuration: r.breachDuration ?? '',
+          assignedTo: r.assignedTo ?? '',
+          category: r.category ?? '',
+          status: r.status ?? 'Active',
+          rootCause: r.rootCause ?? undefined,
+          preventiveAction: r.preventiveAction ?? undefined,
+          impactLevel: r.impactLevel ?? 'Medium',
+        }))
+        if (!cancelled) setBreaches(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setBreaches([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const stats = [
     {
@@ -269,6 +168,19 @@ export default function SLABreaches() {
         <h1 className="text-3xl font-bold text-gray-900">SLA Breaches</h1>
         <p className="text-gray-600 mt-1">Track, analyze, and resolve SLA violations</p>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading SLA breaches…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">

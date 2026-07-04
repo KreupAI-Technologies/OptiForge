@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, Edit, CreditCard, Calendar, Percent, DollarSign, CheckCircle, AlertCircle } from 'lucide-react'
+import { salesPagesService } from '@/services/sales-pages.service';
 import { useRouter } from 'next/navigation'
 
 interface PaymentTerm {
@@ -24,184 +25,41 @@ export default function PaymentTermsPage() {
   const router = useRouter()
   const [selectedFilter, setSelectedFilter] = useState('all')
 
-  const [paymentTerms] = useState<PaymentTerm[]>([
-    {
-      id: 'PT-001',
-      name: 'Net 30',
-      code: 'NET30',
-      dueDays: 30,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment due within 30 days from invoice date. Standard payment terms for regular customers.',
-      applicableTo: ['All Customers', 'Dealers', 'Retailers'],
-      creditLimit: 1000000,
-      interestRate: 2.0,
-      status: 'active',
-      isDefault: true,
-      usageCount: 2345
-    },
-    {
-      id: 'PT-002',
-      name: 'Net 45',
-      code: 'NET45',
-      dueDays: 45,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment due within 45 days from invoice date. Extended credit for approved builders and contractors.',
-      applicableTo: ['Builders', 'Contractors', 'Large Projects'],
-      creditLimit: 3000000,
-      interestRate: 2.0,
-      status: 'active',
-      isDefault: false,
-      usageCount: 567
-    },
-    {
-      id: 'PT-003',
-      name: 'Net 60',
-      code: 'NET60',
-      dueDays: 60,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment due within 60 days from invoice date. For institutional buyers like hospitals, hotels, government agencies.',
-      applicableTo: ['Institutions', 'Hospitals', 'Hotels', 'Government'],
-      creditLimit: 5000000,
-      interestRate: 1.5,
-      status: 'active',
-      isDefault: false,
-      usageCount: 234
-    },
-    {
-      id: 'PT-004',
-      name: '2/10 Net 30',
-      code: '2-10-N30',
-      dueDays: 30,
-      discountPercent: 2,
-      discountDays: 10,
-      description: '2% discount if paid within 10 days, otherwise full payment due in 30 days. Encourages early payment.',
-      applicableTo: ['Premium Customers', 'VIP Accounts'],
-      creditLimit: 2000000,
-      interestRate: 2.0,
-      status: 'active',
-      isDefault: false,
-      usageCount: 456
-    },
-    {
-      id: 'PT-005',
-      name: 'Cash on Delivery (COD)',
-      code: 'COD',
-      dueDays: 0,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment collected at the time of delivery. No credit extended. Suitable for new or small customers.',
-      applicableTo: ['New Customers', 'Retail', 'Walk-in'],
-      status: 'active',
-      isDefault: false,
-      usageCount: 1234
-    },
-    {
-      id: 'PT-006',
-      name: 'Advance Payment',
-      code: 'ADV100',
-      dueDays: -30,
-      discountPercent: 3,
-      discountDays: -30,
-      description: '100% advance payment before production/delivery. 3% discount offered. For custom kitchen products.',
-      applicableTo: ['Custom Orders', 'Countertops', 'Modular Kitchens'],
-      status: 'active',
-      isDefault: false,
-      usageCount: 345
-    },
-    {
-      id: 'PT-007',
-      name: '30-40-30 Installment',
-      code: 'INST-30-40-30',
-      dueDays: 60,
-      discountPercent: 0,
-      discountDays: 0,
-      description: '30% advance, 40% on delivery, 30% on installation. For modular kitchen and large projects.',
-      applicableTo: ['Modular Kitchen', 'Large Projects', 'Builders'],
-      creditLimit: 5000000,
-      interestRate: 1.5,
-      status: 'active',
-      isDefault: false,
-      usageCount: 189
-    },
-    {
-      id: 'PT-008',
-      name: 'Net 15',
-      code: 'NET15',
-      dueDays: 15,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment due within 15 days. For small orders and new dealers establishing credit history.',
-      applicableTo: ['New Dealers', 'Small Orders'],
-      creditLimit: 500000,
-      interestRate: 2.5,
-      status: 'active',
-      isDefault: false,
-      usageCount: 678
-    },
-    {
-      id: 'PT-009',
-      name: '3/15 Net 45',
-      code: '3-15-N45',
-      dueDays: 45,
-      discountPercent: 3,
-      discountDays: 15,
-      description: '3% discount if paid within 15 days, full payment in 45 days. For loyal builder customers.',
-      applicableTo: ['Premium Builders', 'Long-term Partners'],
-      creditLimit: 4000000,
-      interestRate: 1.5,
-      status: 'active',
-      isDefault: false,
-      usageCount: 123
-    },
-    {
-      id: 'PT-010',
-      name: 'Letter of Credit (LC)',
-      code: 'LC',
-      dueDays: 60,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment through bank letter of credit. For large institutional orders and exports.',
-      applicableTo: ['Large Institutions', 'Export Orders', 'Government Tenders'],
-      creditLimit: 10000000,
-      interestRate: 0,
-      status: 'active',
-      isDefault: false,
-      usageCount: 45
-    },
-    {
-      id: 'PT-011',
-      name: 'Net 90 - Government',
-      code: 'NET90-GOV',
-      dueDays: 90,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Payment within 90 days. Special terms for government contracts and public sector undertakings.',
-      applicableTo: ['Government', 'PSU', 'Public Sector'],
-      creditLimit: 10000000,
-      interestRate: 0,
-      status: 'active',
-      isDefault: false,
-      usageCount: 67
-    },
-    {
-      id: 'PT-012',
-      name: 'Net 7 (Old)',
-      code: 'NET7',
-      dueDays: 7,
-      discountPercent: 0,
-      discountDays: 0,
-      description: 'Deprecated payment term. Replaced by Net 15. Kept for historical records only.',
-      applicableTo: ['Legacy Customers'],
-      creditLimit: 100000,
-      interestRate: 3.0,
-      status: 'inactive',
-      isDefault: false,
-      usageCount: 234
-    }
-  ])
+  const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getPaymentTerms();
+        const mapped: PaymentTerm[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          name: r.name ?? '',
+          code: r.code ?? '',
+          dueDays: r.dueDays ?? 0,
+          discountPercent: r.discountPercent ?? 0,
+          discountDays: r.discountDays ?? 0,
+          description: r.description ?? '',
+          applicableTo: r.applicableTo ?? [],
+          creditLimit: r.creditLimit,
+          interestRate: r.interestRate,
+          status: (r.status ?? 'active') as PaymentTerm['status'],
+          isDefault: r.isDefault ?? false,
+          usageCount: r.usageCount ?? 0,
+        }));
+        if (!cancelled) setPaymentTerms(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setPaymentTerms([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [])
 
   const filters = ['all', 'active', 'inactive', 'with-discount']
 
@@ -222,6 +80,18 @@ export default function PaymentTermsPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Inline Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

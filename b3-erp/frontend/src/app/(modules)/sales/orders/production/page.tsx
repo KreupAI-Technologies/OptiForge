@@ -56,186 +56,49 @@ export default function ProductionOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
-  const orders: ProductionOrder[] = [
-    {
-      id: 'PO-001',
-      orderNumber: 'SO-2025-001',
-      productionOrderNumber: 'PRO-2025-001',
-      customerName: 'Rajesh Sharma',
-      customerCompany: 'Tech Innovations Pvt Ltd',
-      customerEmail: 'rajesh@techinnovations.com',
-      customerPhone: '+91 98765 43210',
-      orderDate: '2025-10-02',
-      productionStartDate: '2025-10-05',
-      expectedCompletion: '2025-10-20',
-      totalAmount: 12500000,
-      items: 8,
-      assignedTo: 'Production Team A',
-      productionStatus: 'in_progress',
-      completionPercentage: 65,
-      currentStage: 'Assembly',
-      priority: 'high',
-      qualityStatus: 'pending',
-      deliveryDate: '2025-10-22',
-      notes: 'Priority customer - maintain quality standards'
-    },
-    {
-      id: 'PO-002',
-      orderNumber: 'SO-2025-003',
-      productionOrderNumber: 'PRO-2025-003',
-      customerName: 'Amit Kumar',
-      customerCompany: 'Industrial Automation Ltd',
-      customerEmail: 'amit@indauto.com',
-      customerPhone: '+91 97654 32109',
-      orderDate: '2025-10-09',
-      productionStartDate: '2025-10-12',
-      expectedCompletion: '2025-10-26',
-      totalAmount: 15300000,
-      items: 15,
-      assignedTo: 'Production Team B',
-      productionStatus: 'in_progress',
-      completionPercentage: 45,
-      currentStage: 'Fabrication',
-      priority: 'urgent',
-      qualityStatus: 'pending',
-      deliveryDate: '2025-10-28',
-      notes: 'Large order - requires additional resources'
-    },
-    {
-      id: 'PO-003',
-      orderNumber: 'SO-2025-005',
-      productionOrderNumber: 'PRO-2025-005',
-      customerName: 'Vikram Singh',
-      customerCompany: 'Engineering Works Ltd',
-      customerEmail: 'vikram@engworks.com',
-      customerPhone: '+91 99876 54321',
-      orderDate: '2025-09-29',
-      productionStartDate: '2025-10-02',
-      expectedCompletion: '2025-10-18',
-      actualCompletion: '2025-10-17',
-      totalAmount: 9800000,
-      items: 10,
-      assignedTo: 'Production Team A',
-      productionStatus: 'quality_check',
-      completionPercentage: 100,
-      currentStage: 'Quality Inspection',
-      priority: 'normal',
-      qualityStatus: 'in_review',
-      deliveryDate: '2025-10-20',
-      notes: 'Ahead of schedule - quality check in progress'
-    },
-    {
-      id: 'PO-004',
-      orderNumber: 'SO-2025-007',
-      productionOrderNumber: 'PRO-2025-007',
-      customerName: 'Ravi Krishnan',
-      customerCompany: 'Precision Tools Ltd',
-      customerEmail: 'ravi@precisiontools.com',
-      customerPhone: '+91 97123 45678',
-      orderDate: '2025-10-03',
-      productionStartDate: '2025-10-08',
-      expectedCompletion: '2025-10-23',
-      totalAmount: 18200000,
-      items: 18,
-      assignedTo: 'Production Team C',
-      productionStatus: 'in_progress',
-      completionPercentage: 30,
-      currentStage: 'Material Preparation',
-      priority: 'urgent',
-      qualityStatus: 'pending',
-      deliveryDate: '2025-10-25',
-      notes: 'High-value order - close monitoring required'
-    },
-    {
-      id: 'PO-005',
-      orderNumber: 'SO-2025-009',
-      productionOrderNumber: 'PRO-2025-009',
-      customerName: 'Priya Menon',
-      customerCompany: 'Manufacturing Solutions Inc',
-      customerEmail: 'priya.menon@mansol.com',
-      customerPhone: '+91 98123 45678',
-      orderDate: '2025-10-11',
-      productionStartDate: '2025-10-15',
-      expectedCompletion: '2025-10-28',
-      totalAmount: 11200000,
-      items: 12,
-      assignedTo: 'Production Team B',
-      productionStatus: 'scheduled',
-      completionPercentage: 0,
-      currentStage: 'Awaiting Start',
-      priority: 'high',
-      qualityStatus: 'pending',
-      deliveryDate: '2025-10-30',
-      notes: 'Materials ready - production starts tomorrow'
-    },
-    {
-      id: 'PO-006',
-      orderNumber: 'SO-2025-011',
-      productionOrderNumber: 'PRO-2025-011',
-      customerName: 'Sneha Patel',
-      customerCompany: 'Global Machinery Corp',
-      customerEmail: 'sneha.p@globalmach.com',
-      customerPhone: '+91 98234 56789',
-      orderDate: '2025-10-13',
-      productionStartDate: '2025-10-14',
-      expectedCompletion: '2025-10-30',
-      totalAmount: 7500000,
-      items: 9,
-      assignedTo: 'Production Team A',
-      productionStatus: 'on_hold',
-      completionPercentage: 20,
-      currentStage: 'Material Waiting',
-      priority: 'normal',
-      qualityStatus: 'pending',
-      deliveryDate: '2025-11-01',
-      notes: 'On hold - waiting for specific component delivery'
-    },
-    {
-      id: 'PO-007',
-      orderNumber: 'SO-2025-013',
-      productionOrderNumber: 'PRO-2025-013',
-      customerName: 'Anita Desai',
-      customerCompany: 'Production Systems Inc',
-      customerEmail: 'anita@prodsys.com',
-      customerPhone: '+91 98765 12345',
-      orderDate: '2025-10-16',
-      productionStartDate: '2025-10-17',
-      expectedCompletion: '2025-10-24',
-      totalAmount: 5600000,
-      items: 6,
-      assignedTo: 'Production Team C',
-      productionStatus: 'in_progress',
-      completionPercentage: 80,
-      currentStage: 'Finishing',
-      priority: 'high',
-      qualityStatus: 'pending',
-      deliveryDate: '2025-10-26',
-      notes: 'Fast-track order - on schedule'
-    },
-    {
-      id: 'PO-008',
-      orderNumber: 'SO-2025-002',
-      productionOrderNumber: 'PRO-2025-002',
-      customerName: 'Karthik Reddy',
-      customerCompany: 'Heavy Industries Ltd',
-      customerEmail: 'karthik@heavyind.com',
-      customerPhone: '+91 98456 78901',
-      orderDate: '2025-09-25',
-      productionStartDate: '2025-09-28',
-      expectedCompletion: '2025-10-15',
-      actualCompletion: '2025-10-14',
-      totalAmount: 8700000,
-      items: 11,
-      assignedTo: 'Production Team B',
-      productionStatus: 'completed',
-      completionPercentage: 100,
-      currentStage: 'Completed',
-      priority: 'normal',
-      qualityStatus: 'passed',
-      deliveryDate: '2025-10-17',
-      notes: 'Production completed - ready for shipment'
-    }
-  ];
+  const [orders, setOrders] = useState<ProductionOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: ProductionOrder[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          orderNumber: r.orderNumber ?? '',
+          productionOrderNumber: r.productionOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerCompany: r.customerCompany ?? '',
+          customerEmail: r.customerEmail ?? '',
+          customerPhone: r.customerPhone ?? '',
+          orderDate: r.orderDate ?? '',
+          productionStartDate: r.productionStartDate ?? '',
+          expectedCompletion: r.expectedCompletion ?? '',
+          actualCompletion: r.actualCompletion,
+          totalAmount: r.totalAmount ?? 0,
+          items: r.items ?? 0,
+          assignedTo: r.assignedTo ?? '',
+          productionStatus: (r.productionStatus ?? 'scheduled') as ProductionOrder['productionStatus'],
+          completionPercentage: r.completionPercentage ?? 0,
+          currentStage: r.currentStage ?? '',
+          priority: (r.priority ?? 'normal') as ProductionOrder['priority'],
+          qualityStatus: (r.qualityStatus ?? 'pending') as ProductionOrder['qualityStatus'],
+          deliveryDate: r.deliveryDate ?? '',
+          notes: r.notes ?? '',
+        }));
+        if (!cancelled) setOrders(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -320,6 +183,18 @@ export default function ProductionOrdersPage() {
   return (
     <div className="w-full h-full px-4 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading orders…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           {stats.map((stat, index) => {

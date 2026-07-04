@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Plus,
@@ -17,6 +17,7 @@ import {
   Activity,
   Percent
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface VehicleUtilization {
   id: number;

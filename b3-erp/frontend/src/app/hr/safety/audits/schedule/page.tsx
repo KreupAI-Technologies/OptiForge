@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar,
   Search,
@@ -13,48 +13,10 @@ import {
   ShieldAlert,
   Globe,
   CheckCircle2,
-  Users
+  Users,
+  AlertCircle
 } from 'lucide-react';
-
-// Mock Data
-const upcomingAudits = [
-  {
-    id: 'AUD-0012',
-    title: 'Q1 Regulatory Compliance Audit',
-    type: 'Regulatory',
-    date: '2024-04-25',
-    auditor: 'OSHA Site Inspector',
-    priority: 'Critical',
-    notify: true
-  },
-  {
-    id: 'AUD-0013',
-    title: 'Internal ISO 45001 Readiness',
-    type: 'Internal',
-    date: '2024-04-28',
-    auditor: 'Internal Quality Team',
-    priority: 'High',
-    notify: false
-  },
-  {
-    id: 'AUD-0014',
-    title: 'Electrical Safety Recertification',
-    type: 'Compliance',
-    date: '2024-05-02',
-    auditor: 'External Agency (SAFE-Co)',
-    priority: 'Medium',
-    notify: true
-  },
-  {
-    id: 'AUD-0015',
-    title: 'Departmental Walkthrough',
-    type: 'Internal',
-    date: '2024-05-05',
-    auditor: 'HSE Committee',
-    priority: 'Low',
-    notify: false
-  },
-];
+import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 
 const auditTypes = [
   { name: 'Regulatory', icon: Globe, color: 'text-red-600', count: 1 },
@@ -62,8 +24,56 @@ const auditTypes = [
   { name: 'Compliance', icon: ShieldAlert, color: 'text-orange-600', count: 5 },
 ];
 
+interface AuditItem {
+  id: string;
+  title: string;
+  type: string;
+  date: string;
+  auditor: string;
+  priority: string;
+  notify: boolean;
+}
+
 export default function AuditSchedulePage() {
   const [activeType, setActiveType] = useState('All');
+  const [upcomingAudits, setUpcomingAudits] = useState<AuditItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getInspections('schedule');
+        const mapped: AuditItem[] = rows.map((row: SafetyInspection) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            type: row.auditType ?? '',
+            date: row.scheduledDate ?? '',
+            auditor: row.auditor ?? '',
+            priority: row.priority ?? '',
+            notify: Boolean(meta.notify ?? false),
+          };
+        });
+        if (!cancelled) setUpcomingAudits(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load audit schedule');
+          setUpcomingAudits([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -81,6 +91,19 @@ export default function AuditSchedulePage() {
           Schedule Audit
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading audit schedule…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Quick Type Filter Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

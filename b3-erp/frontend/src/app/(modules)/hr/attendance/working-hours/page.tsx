@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Clock,
     Plus,
@@ -14,6 +14,7 @@ import {
     Users,
     CheckCircle
 } from 'lucide-react';
+import { AttendanceService } from '@/services/attendance.service';
 
 interface WorkingHours {
     id: string;
@@ -32,73 +33,36 @@ interface WorkingHours {
 export default function WorkingHoursPage() {
     const [searchTerm, setSearchTerm] = useState('');
 
-    const workingHours: WorkingHours[] = [
-        {
-            id: '1',
-            name: 'Standard Office Hours',
-            description: 'Regular 9 AM to 6 PM office timing',
-            startTime: '09:00',
-            endTime: '18:00',
-            breakDuration: 60,
-            totalHours: 8,
-            type: 'Regular',
-            appliedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-            employeeCount: 85,
-            status: 'Active'
-        },
-        {
-            id: '2',
-            name: 'Morning Shift',
-            description: 'Early morning production shift',
-            startTime: '06:00',
-            endTime: '14:00',
-            breakDuration: 30,
-            totalHours: 7.5,
-            type: 'Morning',
-            appliedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-            employeeCount: 25,
-            status: 'Active'
-        },
-        {
-            id: '3',
-            name: 'Evening Shift',
-            description: 'Afternoon to evening production shift',
-            startTime: '14:00',
-            endTime: '22:00',
-            breakDuration: 30,
-            totalHours: 7.5,
-            type: 'Evening',
-            appliedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-            employeeCount: 22,
-            status: 'Active'
-        },
-        {
-            id: '4',
-            name: 'Night Shift',
-            description: 'Overnight shift for continuous operations',
-            startTime: '22:00',
-            endTime: '06:00',
-            breakDuration: 30,
-            totalHours: 7.5,
-            type: 'Night',
-            appliedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-            employeeCount: 18,
-            status: 'Active'
-        },
-        {
-            id: '5',
-            name: 'Flexible Hours',
-            description: 'Flexible timing for remote and senior staff',
-            startTime: '08:00',
-            endTime: '20:00',
-            breakDuration: 60,
-            totalHours: 8,
-            type: 'Flexible',
-            appliedDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-            employeeCount: 12,
-            status: 'Active'
-        }
-    ];
+    const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await AttendanceService.getAttendance();
+                const mapped: WorkingHours[] = (raw as any[]).map((r, i) => ({
+                    id: String(r?.id ?? i),
+                    name: r?.name ?? r?.shift ?? r?.employeeName ?? '',
+                    description: r?.description ?? '',
+                    startTime: r?.startTime ?? '',
+                    endTime: r?.endTime ?? '',
+                    breakDuration: r?.breakDuration ?? 0,
+                    totalHours: r?.totalHours ?? 0,
+                    type: (r?.type as WorkingHours['type']) ?? 'Regular',
+                    appliedDays: Array.isArray(r?.appliedDays) ? r.appliedDays : [],
+                    employeeCount: r?.employeeCount ?? 0,
+                    status: (r?.status === 'Inactive' ? 'Inactive' : 'Active') as WorkingHours['status'],
+                }));
+                if (!cancelled) setWorkingHours(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setWorkingHours([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredHours = workingHours.filter(wh =>
         wh.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -130,6 +94,8 @@ export default function WorkingHoursPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

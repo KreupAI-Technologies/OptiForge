@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     CheckCircle,
     XCircle,
@@ -13,6 +13,7 @@ import {
     Wifi,
     Save
 } from 'lucide-react';
+import { EmployeeService } from '@/services/employee.service';
 
 interface Employee {
     id: string;
@@ -31,68 +32,34 @@ export default function MarkAttendancePage() {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-    const employees: Employee[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            name: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'Senior HR Manager',
-            status: 'Present',
-            checkIn: '09:00',
-            checkOut: '18:00',
-            workHours: '9h 0m'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            name: 'Michael Chen',
-            department: 'Production',
-            designation: 'Production Supervisor',
-            status: 'Late',
-            checkIn: '09:45',
-            checkOut: '18:30',
-            workHours: '8h 45m'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            name: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'Quality Analyst',
-            status: 'On Leave'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            name: 'David Wilson',
-            department: 'Production',
-            designation: 'Machine Operator',
-            status: 'Not Marked'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            name: 'Jennifer Brown',
-            department: 'Finance',
-            designation: 'Finance Manager',
-            status: 'Present',
-            checkIn: '08:55',
-            checkOut: '18:15',
-            workHours: '9h 20m'
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            name: 'Robert Martinez',
-            department: 'Sales',
-            designation: 'Sales Manager',
-            status: 'Half Day',
-            checkIn: '09:00',
-            checkOut: '13:00',
-            workHours: '4h 0m'
-        }
-    ];
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await EmployeeService.getAllEmployeesRaw();
+                const mapped: Employee[] = (raw as any[]).map((r) => {
+                    const fullName = r?.fullName ?? [r?.firstName, r?.lastName].filter(Boolean).join(' ').trim();
+                    return {
+                        id: String(r?.id ?? ''),
+                        employeeId: r?.employeeCode ?? '',
+                        name: fullName || '',
+                        department: r?.departmentName ?? r?.department ?? '',
+                        designation: r?.designation ?? '',
+                        status: 'Not Marked' as Employee['status'],
+                    };
+                });
+                if (!cancelled) setEmployees(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setEmployees([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(employees.map(e => e.department)));
 
@@ -134,6 +101,8 @@ export default function MarkAttendancePage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

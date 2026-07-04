@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft, Search, Filter, RefreshCw, Package, Truck, CheckCircle, Clock, ArrowRight, MapPin } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Search, Filter, RefreshCw, Package, Truck, CheckCircle, Clock, ArrowRight, MapPin, AlertCircle } from 'lucide-react'
+import { salesPagesService } from '@/services/sales-pages.service';
 import { useRouter } from 'next/navigation'
 
 interface Replacement {
@@ -40,259 +41,56 @@ export default function ReplacementsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
 
-  const [replacements] = useState<Replacement[]>([
-    {
-      id: 'REP-001',
-      replacementNumber: 'REP-2025-001',
-      returnNumber: 'RET-2025-002',
-      orderNumber: 'ORD-2025-1189',
-      customerName: 'Modern Kitchen Solutions',
-      originalProduct: {
-        code: 'KIT-FC-002',
-        name: 'Brass Kitchen Faucet with Pull-Out Spray (Defective)',
-        category: 'Kitchen Faucets',
-        quantity: 3
-      },
-      replacementProduct: {
-        code: 'KIT-FC-002',
-        name: 'Brass Kitchen Faucet with Pull-Out Spray (New)',
-        category: 'Kitchen Faucets',
-        quantity: 3
-      },
-      reason: 'Pull-out spray mechanism defect',
-      status: 'shipped',
-      initiatedDate: '2025-10-17',
-      shippedDate: '2025-10-18',
-      expectedDelivery: '2025-10-21',
-      trackingNumber: 'DTDC789456123',
-      carrier: 'DTDC',
-      shippingAddress: 'Shop 12, MG Road, Bangalore - 560001',
-      priority: 'high',
-      notes: 'Priority replacement - customer is a premium dealer'
-    },
-    {
-      id: 'REP-002',
-      replacementNumber: 'REP-2025-002',
-      returnNumber: 'RET-2025-003',
-      orderNumber: 'ORD-2025-1456',
-      customerName: 'VIP Homes & Interiors',
-      originalProduct: {
-        code: 'KIT-CW-001',
-        name: 'Granite Coated Non-Stick Cookware Set (Defective)',
-        category: 'Cookware',
-        quantity: 2
-      },
-      replacementProduct: {
-        code: 'KIT-CW-001',
-        name: 'Granite Coated Non-Stick Cookware Set (New)',
-        category: 'Cookware',
-        quantity: 2
-      },
-      reason: 'Coating peeling defect',
-      status: 'delivered',
-      initiatedDate: '2025-10-14',
-      shippedDate: '2025-10-15',
-      expectedDelivery: '2025-10-18',
-      deliveredDate: '2025-10-18',
-      trackingNumber: 'BLUE456789012',
-      carrier: 'Blue Dart',
-      shippingAddress: '45, Palm Avenue, Mumbai - 400050',
-      priority: 'urgent',
-      notes: 'VIP customer - expedited shipping used'
-    },
-    {
-      id: 'REP-003',
-      replacementNumber: 'REP-2025-003',
-      returnNumber: 'RET-2025-004',
-      orderNumber: 'ORD-2025-1378',
-      customerName: 'Elite Contractors Pvt Ltd',
-      originalProduct: {
-        code: 'KIT-CB-001',
-        name: 'Modular Kitchen Base Cabinet 24" (Wrong Size)',
-        category: 'Kitchen Storage',
-        quantity: 4
-      },
-      replacementProduct: {
-        code: 'KIT-CB-003',
-        name: 'Modular Kitchen Base Cabinet 30" (Correct Size)',
-        category: 'Kitchen Storage',
-        quantity: 4
-      },
-      reason: 'Wrong dimensions shipped',
-      status: 'picking',
-      initiatedDate: '2025-10-18',
-      expectedDelivery: '2025-10-23',
-      shippingAddress: 'Construction Site, Plot 45, Sector 21, Noida - 201301',
-      priority: 'high',
-      notes: 'Site delivery required - coordinate with project manager'
-    },
-    {
-      id: 'REP-004',
-      replacementNumber: 'REP-2025-004',
-      returnNumber: 'RET-2025-005',
-      orderNumber: 'ORD-2025-1523',
-      customerName: 'Home Decor Plus (Dealer)',
-      originalProduct: {
-        code: 'KIT-AP-001',
-        name: '750W Mixer Grinder (Defective Motor)',
-        category: 'Kitchen Appliances',
-        quantity: 6
-      },
-      replacementProduct: {
-        code: 'KIT-AP-001',
-        name: '750W Mixer Grinder (New)',
-        category: 'Kitchen Appliances',
-        quantity: 6
-      },
-      reason: 'Motor defect and overheating',
-      status: 'delivered',
-      initiatedDate: '2025-10-07',
-      shippedDate: '2025-10-08',
-      expectedDelivery: '2025-10-11',
-      deliveredDate: '2025-10-10',
-      trackingNumber: 'VRL234567890',
-      carrier: 'VRL Logistics',
-      shippingAddress: '23, Market Complex, Pune - 411001',
-      priority: 'normal',
-      notes: 'Replacement completed successfully'
-    },
-    {
-      id: 'REP-005',
-      replacementNumber: 'REP-2025-005',
-      returnNumber: 'RET-2025-009',
-      orderNumber: 'ORD-2025-1434',
-      customerName: 'City Hospital Kitchen Department',
-      originalProduct: {
-        code: 'KIT-CW-002',
-        name: 'Stainless Steel Pressure Cooker 5L (Safety Valve Defect)',
-        category: 'Cookware',
-        quantity: 8
-      },
-      replacementProduct: {
-        code: 'KIT-CW-002',
-        name: 'Stainless Steel Pressure Cooker 5L (New)',
-        category: 'Cookware',
-        quantity: 8
-      },
-      reason: 'Safety valve defect - critical',
-      status: 'shipped',
-      initiatedDate: '2025-10-13',
-      shippedDate: '2025-10-14',
-      expectedDelivery: '2025-10-20',
-      trackingNumber: 'DTDC345678901',
-      carrier: 'DTDC',
-      shippingAddress: 'City Hospital, Central Store, Medical Road, Delhi - 110001',
-      priority: 'urgent',
-      notes: 'Safety critical - expedited processing'
-    },
-    {
-      id: 'REP-006',
-      replacementNumber: 'REP-2025-006',
-      returnNumber: 'RET-2025-010',
-      orderNumber: 'ORD-2025-1556',
-      customerName: 'Smart Contractors Ltd',
-      originalProduct: {
-        code: 'KIT-SS-002',
-        name: 'Stainless Steel Kitchen Sink Double Bowl (Incomplete)',
-        category: 'Kitchen Sinks',
-        quantity: 3
-      },
-      replacementProduct: {
-        code: 'KIT-DRAIN-001',
-        name: 'Complete Drain Assembly Kit',
-        category: 'Kitchen Accessories',
-        quantity: 3
-      },
-      reason: 'Missing drain assembly parts',
-      status: 'delivered',
-      initiatedDate: '2025-10-08',
-      shippedDate: '2025-10-09',
-      expectedDelivery: '2025-10-12',
-      deliveredDate: '2025-10-11',
-      trackingNumber: 'BLUE567890123',
-      carrier: 'Blue Dart',
-      shippingAddress: 'Office 301, Tower B, Cyber City, Hyderabad - 500081',
-      priority: 'normal',
-      notes: 'Partial replacement - missing parts only'
-    },
-    {
-      id: 'REP-007',
-      replacementNumber: 'REP-2025-007',
-      returnNumber: 'RET-2025-001',
-      orderNumber: 'ORD-2025-1245',
-      customerName: 'Sharma Builders Pvt Ltd',
-      originalProduct: {
-        code: 'KIT-SS-001',
-        name: 'Stainless Steel Kitchen Sink Single Bowl (Damaged)',
-        category: 'Kitchen Sinks',
-        quantity: 5
-      },
-      replacementProduct: {
-        code: 'KIT-SS-001',
-        name: 'Stainless Steel Kitchen Sink Single Bowl (New)',
-        category: 'Kitchen Sinks',
-        quantity: 5
-      },
-      reason: 'Transit damage - scratches and dents',
-      status: 'packed',
-      initiatedDate: '2025-10-19',
-      expectedDelivery: '2025-10-24',
-      shippingAddress: 'Sharma Complex, Building Site 7, Gurgaon - 122001',
-      priority: 'normal',
-      notes: 'Extra protective packaging added'
-    },
-    {
-      id: 'REP-008',
-      replacementNumber: 'REP-2025-008',
-      returnNumber: 'RET-2025-006',
-      orderNumber: 'ORD-2025-1298',
-      customerName: 'Premium Builders Group',
-      originalProduct: {
-        code: 'KIT-CH-001',
-        name: 'Chimney Hood 60cm (Auto-clean Not Working)',
-        category: 'Kitchen Ventilation',
-        quantity: 2
-      },
-      replacementProduct: {
-        code: 'KIT-CH-001',
-        name: 'Chimney Hood 60cm (New)',
-        category: 'Kitchen Ventilation',
-        quantity: 2
-      },
-      reason: 'Auto-clean feature malfunction',
-      status: 'on_hold',
-      initiatedDate: '2025-10-16',
-      shippingAddress: 'Premium Towers, Site Office, Chennai - 600001',
-      priority: 'normal',
-      notes: 'On hold - awaiting stock arrival. ETA: 2 days'
-    },
-    {
-      id: 'REP-009',
-      replacementNumber: 'REP-2025-009',
-      returnNumber: 'RET-2025-011',
-      orderNumber: 'ORD-2025-1823',
-      customerName: 'Builders Association India',
-      originalProduct: {
-        code: 'KIT-AP-002',
-        name: '2000W Induction Cooktop (Display Issue)',
-        category: 'Kitchen Appliances',
-        quantity: 10
-      },
-      replacementProduct: {
-        code: 'KIT-AP-002',
-        name: '2000W Induction Cooktop (New)',
-        category: 'Kitchen Appliances',
-        quantity: 10
-      },
-      reason: 'Display panel not responding',
-      status: 'initiated',
-      initiatedDate: '2025-10-19',
-      expectedDelivery: '2025-10-25',
-      shippingAddress: 'Association Office, Trade Center, Kolkata - 700001',
-      priority: 'high',
-      notes: 'Bulk replacement - quality check all units before dispatch'
-    }
-  ])
+  const [replacements, setReplacements] = useState<Replacement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: Replacement[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          replacementNumber: r.replacementNumber ?? '',
+          returnNumber: r.returnNumber ?? '',
+          orderNumber: r.orderNumber ?? '',
+          customerName: r.customerName ?? '',
+          originalProduct: {
+            code: r.originalProduct?.code ?? '',
+            name: r.originalProduct?.name ?? '',
+            category: r.originalProduct?.category ?? '',
+            quantity: r.originalProduct?.quantity ?? 0,
+          },
+          replacementProduct: {
+            code: r.replacementProduct?.code ?? '',
+            name: r.replacementProduct?.name ?? '',
+            category: r.replacementProduct?.category ?? '',
+            quantity: r.replacementProduct?.quantity ?? 0,
+          },
+          reason: r.reason ?? '',
+          status: (r.status ?? 'initiated') as Replacement['status'],
+          initiatedDate: r.initiatedDate ?? '',
+          shippedDate: r.shippedDate,
+          expectedDelivery: r.expectedDelivery,
+          deliveredDate: r.deliveredDate,
+          trackingNumber: r.trackingNumber,
+          carrier: r.carrier,
+          shippingAddress: r.shippingAddress ?? '',
+          priority: (r.priority ?? 'normal') as Replacement['priority'],
+          notes: r.notes,
+        }));
+        if (!cancelled) setReplacements(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setReplacements([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const statuses = ['all', 'initiated', 'picking', 'packed', 'shipped', 'delivered', 'on_hold']
 

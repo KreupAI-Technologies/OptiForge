@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TrendingUp, Target, Award, AlertCircle, Users, Calendar, Download, BarChart3 } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface ComplianceData {
   month: string

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Scale,
   Search,
   AlertTriangle,
+  AlertCircle,
   ArrowRight,
   TrendingDown,
   Info,
@@ -12,6 +13,7 @@ import {
   ClipboardList,
   Clock
 } from 'lucide-react';
+import { HrSafetyService, SafetyHazard } from '@/services/hr-safety.service';
 
 // Mock Data
 const riskMatrix = [
@@ -22,38 +24,58 @@ const riskMatrix = [
   ['Medium', 'High', 'High', 'Critical', 'Critical'],
 ];
 
-const pendingEvaluations = [
-  {
-    id: 'HAZ-2024-012',
-    title: 'Exposed Wiring in Grinding Station',
-    location: 'Main Factory Floor',
-    daysOpen: 2,
-    source: 'Hazard Identification'
-  },
-  {
-    id: 'INC-2024-004',
-    title: 'Machine Guard Tamper Found',
-    location: 'Assembly Line 1',
-    daysOpen: 1,
-    source: 'Incident Investigation'
-  },
-  {
-    id: 'TR-2024-005',
-    title: 'New Operator Training Required',
-    location: 'Unit 4 Shop',
-    daysOpen: 3,
-    source: 'Competency Review'
-  },
-];
-
 const evalMetrics = {
   likelihood: [1, 2, 3, 4, 5],
   severity: [1, 2, 3, 4, 5]
 };
 
+interface EvaluationItem {
+  id: string;
+  title: string;
+  location: string;
+  daysOpen: number;
+  source: string;
+}
+
 export default function RiskEvaluationPage() {
   const [selectedLikelihood, setSelectedLikelihood] = useState<number | null>(null);
   const [selectedSeverity, setSelectedSeverity] = useState<number | null>(null);
+  const [pendingEvaluations, setPendingEvaluations] = useState<EvaluationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getHazards('evaluation');
+        const mapped: EvaluationItem[] = rows.map((row: SafetyHazard) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            location: row.location ?? '',
+            daysOpen: Number(meta.daysOpen ?? 0) || 0,
+            source: meta.source ?? row.category ?? '',
+          };
+        });
+        if (!cancelled) setPendingEvaluations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pending evaluations');
+          setPendingEvaluations([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getRiskResult = (l: number, s: number) => {
     return riskMatrix[l - 1][s - 1];
@@ -83,6 +105,19 @@ export default function RiskEvaluationPage() {
           <p className="text-gray-500 mt-1">Quantify risks using standard assessment matrices to prioritize mitigation</p>
         </div>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading pending evaluations…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Risk Assessment Tool */}

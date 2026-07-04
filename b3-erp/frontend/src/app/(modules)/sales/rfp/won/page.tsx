@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -24,6 +24,7 @@ import {
   ExternalLink,
   AlertCircle
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface WonRFP {
   id: string;
@@ -70,7 +71,67 @@ export default function WonRFPPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const wonRFPs: WonRFP[] = [
+  const [wonRFPs, setWonRFPs] = useState<WonRFP[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: WonRFP[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          rfpNumber: r.rfpNumber ?? '',
+          title: r.title ?? '',
+          category: r.category ?? '',
+          rfpIssueDate: r.rfpIssueDate ?? '',
+          evaluationDate: r.evaluationDate ?? '',
+          awardDate: r.awardDate ?? '',
+          contractValue: r.contractValue ?? 0,
+          originalEstimate: r.originalEstimate ?? 0,
+          savings: r.savings ?? 0,
+          savingsPercent: r.savingsPercent ?? 0,
+          selectedVendor: {
+            name: r.selectedVendor?.name ?? '',
+            contactPerson: r.selectedVendor?.contactPerson ?? '',
+            email: r.selectedVendor?.email ?? '',
+            phone: r.selectedVendor?.phone ?? '',
+            location: r.selectedVendor?.location ?? ''
+          },
+          contractStatus: (r.contractStatus ?? 'contract_pending') as WonRFP['contractStatus'],
+          poNumber: r.poNumber,
+          deliveryTimeline: r.deliveryTimeline ?? 0,
+          expectedDeliveryDate: r.expectedDeliveryDate ?? '',
+          paymentTerms: r.paymentTerms ?? '',
+          warranty: r.warranty ?? '',
+          itemsCount: r.itemsCount ?? 0,
+          totalResponses: r.totalResponses ?? 0,
+          evaluationScore: r.evaluationScore ?? 0,
+          competitiveAdvantage: r.competitiveAdvantage ?? [],
+          keyDeliverables: r.keyDeliverables ?? [],
+          milestones: (r.milestones ?? []).map((m: any) => ({
+            name: m.name ?? '',
+            dueDate: m.dueDate ?? '',
+            status: (m.status ?? 'pending') as WonRFP['milestones'][number]['status'],
+            completionPercent: m.completionPercent ?? 0
+          })),
+          contractDocument: r.contractDocument,
+          notes: r.notes
+        }));
+        if (!cancelled) setWonRFPs(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setWonRFPs([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const _seedWonRFPs: WonRFP[] = [
     {
       id: '1',
       rfpNumber: 'RFP-2025-001',

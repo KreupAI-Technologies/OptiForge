@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Plus,
@@ -10,6 +10,7 @@ import {
   Award,
   Star,
   AlertTriangle,
+  AlertCircle,
   CheckCircle,
   XCircle,
   Clock,
@@ -18,6 +19,7 @@ import {
   Target,
   TrendingDown
 } from 'lucide-react';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface DriverPerformance {
   id: number;
@@ -71,62 +73,78 @@ export default function DriverPerformancePage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [sortBy, setSortBy] = useState('performanceScore');
 
-  const [performanceData, setPerformanceData] = useState<DriverPerformance[]>([
-    {
-      id: 1,
-      driverId: 'DRV-001',
-      driverName: 'Ramesh Sharma',
-      vehicleNumber: 'MH-01-AB-1234',
-      vehicleType: '32-Ft Truck',
-      employmentDate: '2022-01-15',
-      totalExperience: 12,
-      period: 'Last 6 Months',
-      totalTrips: 156,
-      completedTrips: 154,
-      cancelledTrips: 2,
-      completionRate: 98.7,
-      totalDistance: 185600,
-      avgTripDistance: 1205,
-      onTimeDeliveries: 148,
-      lateDeliveries: 6,
-      onTimePercentage: 96.1,
-      avgDelay: 12,
-      totalRevenue: 9280000,
-      revenuePerTrip: 60260,
-      revenuePerKm: 50,
-      fuelEfficiency: 5.2,
-      avgFuelConsumption: 232,
-      fuelCostPerKm: 18.5,
-      safetyScore: 96,
-      accidentsCount: 0,
-      violationsCount: 1,
-      incidentsCount: 2,
-      customerRating: 4.8,
-      customerComplaints: 2,
-      customerCompliments: 28,
-      utilizationRate: 86.7,
-      averageSpeed: 62,
-      idleTime: 48,
-      restCompliance: 98,
-      maintenanceAlerts: 3,
-      performanceRating: 'excellent',
-      performanceScore: 95,
-      strengths: [
-        'Excellent safety record',
-        'High on-time delivery rate',
-        'Strong customer satisfaction',
-        'Consistent fuel efficiency'
-      ],
-      improvements: [
-        'Reduce idle time by 10%'
-      ],
-      awards: [
-        'Driver of the Quarter - Q2 2024',
-        'Safety Excellence Award 2024'
-      ],
-      penalties: [],
-      status: 'active'
-    },
+  const [performanceData, setPerformanceData] = useState<DriverPerformance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getDrivers()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: DriverPerformance[] = list.map((r, idx) => ({
+          id: idx + 1,
+          driverId: r?.driverId ?? '',
+          driverName: r?.driverName ?? '',
+          vehicleNumber: r?.vehicleNumber ?? '',
+          vehicleType: r?.vehicleType ?? '',
+          employmentDate: r?.employmentDate ?? '',
+          totalExperience: Number(r?.totalExperience ?? 0),
+          period: r?.period ?? '',
+          totalTrips: Number(r?.totalTrips ?? 0),
+          completedTrips: Number(r?.completedTrips ?? 0),
+          cancelledTrips: Number(r?.cancelledTrips ?? 0),
+          completionRate: Number(r?.completionRate ?? 0),
+          totalDistance: Number(r?.totalDistance ?? 0),
+          avgTripDistance: Number(r?.avgTripDistance ?? 0),
+          onTimeDeliveries: Number(r?.onTimeDeliveries ?? 0),
+          lateDeliveries: Number(r?.lateDeliveries ?? 0),
+          onTimePercentage: Number(r?.onTimePercentage ?? 0),
+          avgDelay: Number(r?.avgDelay ?? 0),
+          totalRevenue: Number(r?.totalRevenue ?? 0),
+          revenuePerTrip: Number(r?.revenuePerTrip ?? 0),
+          revenuePerKm: Number(r?.revenuePerKm ?? 0),
+          fuelEfficiency: Number(r?.fuelEfficiency ?? 0),
+          avgFuelConsumption: Number(r?.avgFuelConsumption ?? 0),
+          fuelCostPerKm: Number(r?.fuelCostPerKm ?? 0),
+          safetyScore: Number(r?.safetyScore ?? 0),
+          accidentsCount: Number(r?.accidentsCount ?? 0),
+          violationsCount: Number(r?.violationsCount ?? 0),
+          incidentsCount: Number(r?.incidentsCount ?? 0),
+          customerRating: Number(r?.customerRating ?? 0),
+          customerComplaints: Number(r?.customerComplaints ?? 0),
+          customerCompliments: Number(r?.customerCompliments ?? 0),
+          utilizationRate: Number(r?.utilizationRate ?? 0),
+          averageSpeed: Number(r?.averageSpeed ?? 0),
+          idleTime: Number(r?.idleTime ?? 0),
+          restCompliance: Number(r?.restCompliance ?? 0),
+          maintenanceAlerts: Number(r?.maintenanceAlerts ?? 0),
+          performanceRating: (r?.performanceRating ?? 'average') as DriverPerformance['performanceRating'],
+          performanceScore: Number(r?.performanceScore ?? 0),
+          strengths: Array.isArray(r?.strengths) ? r.strengths : [],
+          improvements: Array.isArray(r?.improvements) ? r.improvements : [],
+          awards: Array.isArray(r?.awards) ? r.awards : [],
+          penalties: Array.isArray(r?.penalties) ? r.penalties : [],
+          status: (r?.status ?? 'active') as DriverPerformance['status'],
+        }));
+        if (!cancelled) setPerformanceData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load drivers');
+          setPerformanceData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
     {
       id: 2,
       driverId: 'DRV-002',

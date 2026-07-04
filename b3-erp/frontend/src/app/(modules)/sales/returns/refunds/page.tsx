@@ -43,272 +43,60 @@ export default function RefundsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
 
-  const [refunds] = useState<Refund[]>([
-    {
-      id: 'REF-001',
-      refundNumber: 'REF-2025-001',
-      returnNumber: 'RET-2025-012',
-      orderNumber: 'ORD-2025-1267',
-      invoiceNumber: 'INV-2025-456',
-      customerName: 'College Hostel Management',
-      productCode: 'KIT-FC-001',
-      productName: 'Chrome Kitchen Faucet Single Handle',
-      category: 'Kitchen Faucets',
-      quantity: 12,
-      unitPrice: 9750,
-      refundAmount: 117000,
-      taxAmount: 21060,
-      totalRefund: 138060,
-      reason: 'Chrome plating quality issue - customer opted for refund',
-      status: 'processing',
-      requestDate: '2025-10-15',
-      approvedDate: '2025-10-17',
-      processedDate: '2025-10-18',
-      refundMethod: 'bank_transfer',
-      bankDetails: {
-        accountName: 'College Hostel Management',
-        accountNumber: '1234567890123',
-        ifscCode: 'SBIN0001234',
-        bankName: 'State Bank of India'
-      },
-      approvedBy: 'Finance Manager',
-      processingDays: 3,
-      notes: 'Priority refund approved due to quality issue'
-    },
-    {
-      id: 'REF-002',
-      refundNumber: 'REF-2025-002',
-      returnNumber: 'RET-2025-007',
-      orderNumber: 'ORD-2025-1601',
-      invoiceNumber: 'INV-2025-389',
-      customerName: 'Luxury Homes & Villas',
-      productCode: 'KIT-CT-002',
-      productName: 'Premium Quartz Countertop (per sq.ft)',
-      category: 'Countertops',
-      quantity: 120,
-      unitPrice: 595,
-      refundAmount: 71400,
-      taxAmount: 12852,
-      totalRefund: 84252,
-      reason: 'Return rejected but partial refund approved as goodwill',
-      status: 'completed',
-      requestDate: '2025-10-10',
-      approvedDate: '2025-10-12',
-      processedDate: '2025-10-13',
-      completedDate: '2025-10-14',
-      refundMethod: 'original_payment',
-      approvedBy: 'Sales Director',
-      processingDays: 4,
-      notes: 'Partial refund (10%) as goodwill gesture for VIP customer'
-    },
-    {
-      id: 'REF-003',
-      refundNumber: 'REF-2025-003',
-      returnNumber: 'RET-2025-008',
-      orderNumber: 'ORD-2025-1712',
-      invoiceNumber: 'INV-2025-512',
-      customerName: 'Kitchen World (Dealer Network)',
-      productCode: 'KIT-AC-001',
-      productName: 'Modular Kitchen Basket Organizer',
-      category: 'Kitchen Accessories',
-      quantity: 15,
-      unitPrice: 2625,
-      refundAmount: 39375,
-      taxAmount: 7087,
-      totalRefund: 46462,
-      reason: 'Size mismatch - customer unable to use product',
-      status: 'pending',
-      requestDate: '2025-10-19',
-      refundMethod: 'bank_transfer',
-      bankDetails: {
-        accountName: 'Kitchen World Pvt Ltd',
-        accountNumber: '9876543210987',
-        ifscCode: 'HDFC0001234',
-        bankName: 'HDFC Bank'
-      },
-      processingDays: 1,
-      notes: 'Awaiting quality inspection report'
-    },
-    {
-      id: 'REF-004',
-      refundNumber: 'REF-2025-004',
-      returnNumber: 'RET-2025-003',
-      orderNumber: 'ORD-2025-1456',
-      invoiceNumber: 'INV-2025-298',
-      customerName: 'VIP Homes & Interiors',
-      productCode: 'KIT-CW-001',
-      productName: 'Granite Coated Non-Stick Cookware Set (7 Pcs)',
-      category: 'Cookware',
-      quantity: 2,
-      unitPrice: 10000,
-      refundAmount: 20000,
-      taxAmount: 3600,
-      totalRefund: 23600,
-      reason: 'Manufacturing defect - coating peeling',
-      status: 'approved',
-      requestDate: '2025-10-14',
-      approvedDate: '2025-10-16',
-      refundMethod: 'original_payment',
-      approvedBy: 'Quality Manager',
-      processingDays: 2,
-      notes: 'Fast-track approval due to confirmed defect. Customer opted for refund instead of replacement.'
-    },
-    {
-      id: 'REF-005',
-      refundNumber: 'REF-2025-005',
-      returnNumber: 'RET-2025-001',
-      orderNumber: 'ORD-2025-1245',
-      invoiceNumber: 'INV-2025-234',
-      customerName: 'Sharma Builders Pvt Ltd',
-      productCode: 'KIT-SS-001',
-      productName: 'Stainless Steel Kitchen Sink (Single Bowl)',
-      category: 'Kitchen Sinks',
-      quantity: 5,
-      unitPrice: 11250,
-      refundAmount: 56250,
-      taxAmount: 10125,
-      totalRefund: 66375,
-      reason: 'Transit damage - customer requested refund',
-      status: 'on_hold',
-      requestDate: '2025-10-18',
-      refundMethod: 'cheque',
-      processingDays: 2,
-      notes: 'On hold - awaiting carrier liability confirmation'
-    },
-    {
-      id: 'REF-006',
-      refundNumber: 'REF-2025-006',
-      returnNumber: 'RET-2025-009',
-      orderNumber: 'ORD-2025-1434',
-      invoiceNumber: 'INV-2025-367',
-      customerName: 'City Hospital Kitchen Department',
-      productCode: 'KIT-CW-002',
-      productName: 'Stainless Steel Pressure Cooker 5L',
-      category: 'Cookware',
-      quantity: 8,
-      unitPrice: 3375,
-      refundAmount: 27000,
-      taxAmount: 4860,
-      totalRefund: 31860,
-      reason: 'Safety valve defect - customer chose refund',
-      status: 'completed',
-      requestDate: '2025-10-13',
-      approvedDate: '2025-10-14',
-      processedDate: '2025-10-15',
-      completedDate: '2025-10-16',
-      refundMethod: 'bank_transfer',
-      bankDetails: {
-        accountName: 'City Hospital Trust',
-        accountNumber: '4567890123456',
-        ifscCode: 'ICIC0001234',
-        bankName: 'ICICI Bank'
-      },
-      approvedBy: 'Finance Director',
-      processingDays: 3,
-      notes: 'Priority refund - safety critical issue'
-    },
-    {
-      id: 'REF-007',
-      refundNumber: 'REF-2025-007',
-      returnNumber: 'RET-2025-005',
-      orderNumber: 'ORD-2025-1523',
-      invoiceNumber: 'INV-2025-401',
-      customerName: 'Home Decor Plus (Dealer)',
-      productCode: 'KIT-AP-001',
-      productName: '750W Mixer Grinder with 3 Jars',
-      category: 'Kitchen Appliances',
-      quantity: 6,
-      unitPrice: 6375,
-      refundAmount: 38250,
-      taxAmount: 6885,
-      totalRefund: 45135,
-      reason: 'Motor defect - customer preference for refund',
-      status: 'completed',
-      requestDate: '2025-10-07',
-      approvedDate: '2025-10-08',
-      processedDate: '2025-10-09',
-      completedDate: '2025-10-10',
-      refundMethod: 'credit_note',
-      approvedBy: 'Sales Manager',
-      processingDays: 3,
-      notes: 'Credit note issued for future purchases'
-    },
-    {
-      id: 'REF-008',
-      refundNumber: 'REF-2025-008',
-      returnNumber: 'RET-2025-011',
-      orderNumber: 'ORD-2025-1823',
-      invoiceNumber: 'INV-2025-567',
-      customerName: 'Builders Association India',
-      productCode: 'KIT-AP-002',
-      productName: '2000W Induction Cooktop Digital',
-      category: 'Kitchen Appliances',
-      quantity: 10,
-      unitPrice: 5200,
-      refundAmount: 52000,
-      taxAmount: 9360,
-      totalRefund: 61360,
-      reason: 'Display panel defect - bulk order refund',
-      status: 'pending',
-      requestDate: '2025-10-19',
-      refundMethod: 'bank_transfer',
-      bankDetails: {
-        accountName: 'Builders Association of India',
-        accountNumber: '7890123456789',
-        ifscCode: 'AXIS0001234',
-        bankName: 'Axis Bank'
-      },
-      processingDays: 1,
-      notes: 'Large refund - requires director approval'
-    },
-    {
-      id: 'REF-009',
-      refundNumber: 'REF-2025-009',
-      returnNumber: 'RET-2025-004',
-      orderNumber: 'ORD-2025-1378',
-      invoiceNumber: 'INV-2025-289',
-      customerName: 'Elite Contractors Pvt Ltd',
-      productCode: 'KIT-CB-001',
-      productName: 'Modular Kitchen Base Cabinet (24")',
-      category: 'Kitchen Storage',
-      quantity: 4,
-      unitPrice: 17500,
-      refundAmount: 70000,
-      taxAmount: 12600,
-      totalRefund: 82600,
-      reason: 'Wrong size shipped - customer requested refund instead of exchange',
-      status: 'rejected',
-      requestDate: '2025-10-12',
-      approvedDate: '2025-10-14',
-      refundMethod: 'bank_transfer',
-      processingDays: 2,
-      notes: 'Refund rejected - replacement already shipped and accepted by customer'
-    },
-    {
-      id: 'REF-010',
-      refundNumber: 'REF-2025-010',
-      returnNumber: 'RET-2025-006',
-      orderNumber: 'ORD-2025-1298',
-      invoiceNumber: 'INV-2025-223',
-      customerName: 'Premium Builders Group',
-      productCode: 'KIT-CH-001',
-      productName: 'Chimney Hood 60cm with Auto-Clean',
-      category: 'Kitchen Ventilation',
-      quantity: 2,
-      unitPrice: 15400,
-      refundAmount: 30800,
-      taxAmount: 5544,
-      totalRefund: 36344,
-      reason: 'Auto-clean feature not working - customer declined repair',
-      status: 'approved',
-      requestDate: '2025-10-16',
-      approvedDate: '2025-10-18',
-      refundMethod: 'cheque',
-      approvedBy: 'Sales Director',
-      processingDays: 2,
-      notes: 'Cheque being prepared - will be dispatched tomorrow'
-    }
-  ])
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: Refund[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          refundNumber: r.refundNumber ?? '',
+          returnNumber: r.returnNumber ?? '',
+          orderNumber: r.orderNumber ?? '',
+          invoiceNumber: r.invoiceNumber ?? '',
+          customerName: r.customerName ?? '',
+          productCode: r.productCode ?? '',
+          productName: r.productName ?? '',
+          category: r.category ?? '',
+          quantity: r.quantity ?? 0,
+          unitPrice: r.unitPrice ?? 0,
+          refundAmount: r.refundAmount ?? 0,
+          taxAmount: r.taxAmount ?? 0,
+          totalRefund: r.totalRefund ?? 0,
+          reason: r.reason ?? '',
+          status: (r.status ?? 'pending') as Refund['status'],
+          requestDate: r.requestDate ?? '',
+          approvedDate: r.approvedDate,
+          processedDate: r.processedDate,
+          completedDate: r.completedDate,
+          refundMethod: (r.refundMethod ?? 'original_payment') as Refund['refundMethod'],
+          bankDetails: r.bankDetails
+            ? {
+                accountName: r.bankDetails.accountName ?? '',
+                accountNumber: r.bankDetails.accountNumber ?? '',
+                ifscCode: r.bankDetails.ifscCode ?? '',
+                bankName: r.bankDetails.bankName ?? '',
+              }
+            : undefined,
+          approvedBy: r.approvedBy,
+          processingDays: r.processingDays,
+          notes: r.notes,
+        }));
+        if (!cancelled) setRefunds(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRefunds([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const statuses = ['all', 'pending', 'approved', 'processing', 'completed', 'rejected', 'on_hold']
 
@@ -399,6 +187,18 @@ export default function RefundsPage() {
 
   return (
     <div className="w-full h-full px-4 py-2">
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Inline Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
