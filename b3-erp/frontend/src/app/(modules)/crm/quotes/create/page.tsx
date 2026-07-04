@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Send, Eye, Plus, X, Search, Calculator, Percent, DollarSign, Calendar, User, Building2, Mail, Phone, FileText, Package, Trash2 } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface QuoteItem {
   id: string;
@@ -22,14 +23,21 @@ interface Customer {
   phone: string;
 }
 
-const mockCustomers: Customer[] = [
+interface ProductOption {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+}
+
+const mockCustomersSeed: Customer[] = [
   { id: '1', name: 'John Smith', company: 'Acme Corp', email: 'john@acme.com', phone: '+1 555-0101' },
   { id: '2', name: 'Sarah Johnson', company: 'TechStart Inc', email: 'sarah@techstart.com', phone: '+1 555-0102' },
   { id: '3', name: 'Michael Chen', company: 'Global Industries', email: 'michael@global.com', phone: '+1 555-0103' },
   { id: '4', name: 'Emily Davis', company: 'Innovate Solutions', email: 'emily@innovate.com', phone: '+1 555-0104' },
 ];
 
-const mockProducts = [
+const mockProductsSeed: ProductOption[] = [
   { id: '1', name: 'Enterprise Software License', price: 5000, description: 'Annual license for up to 100 users' },
   { id: '2', name: 'Professional Services', price: 150, description: 'Per hour consulting and implementation' },
   { id: '3', name: 'Training Package', price: 2500, description: 'Comprehensive team training (5 sessions)' },
@@ -55,18 +63,59 @@ export default function CreateQuotePage() {
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [globalDiscountType, setGlobalDiscountType] = useState<'percentage' | 'fixed'>('percentage');
 
-  const filteredCustomers = mockCustomers.filter(customer =>
+  // Live-loaded picker lists (customer + product catalogue).
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [customersRaw, productsRaw] = await Promise.all([
+          crmService.customers.getAll().then((r: any) => (Array.isArray(r) ? r : r?.data ?? [])).catch(() => []),
+          crmService.products.getAll().catch(() => []),
+        ]);
+        if (!cancelled) {
+          setCustomers(
+            (customersRaw as any[]).map((c, i) => ({
+              id: c.id ?? String(i),
+              name: c.contactName ?? c.customerName ?? c.name ?? '',
+              company: c.customerName ?? c.legalName ?? c.company ?? '',
+              email: c.generalEmail ?? c.email ?? '',
+              phone: c.generalPhone ?? c.phone ?? '',
+            })),
+          );
+          setProducts(
+            (productsRaw as any[]).map((p, i) => ({
+              id: p.id ?? String(i),
+              name: p.name ?? p.productName ?? 'Product',
+              price: Number(p.basePrice ?? p.price ?? p.unitPrice ?? 0),
+              description: p.description ?? '',
+            })),
+          );
+        }
+      } catch {
+        /* leave picker lists empty on failure */
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
     customer.company.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
     customer.email.toLowerCase().includes(customerSearchTerm.toLowerCase())
   );
 
-  const filteredProducts = mockProducts.filter(product =>
+  const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
     product.description.toLowerCase().includes(productSearchTerm.toLowerCase())
   );
 
-  const addProduct = (product: typeof mockProducts[0]) => {
+  const addProduct = (product: ProductOption) => {
     const newItem: QuoteItem = {
       id: Date.now().toString(),
       productName: product.name,
