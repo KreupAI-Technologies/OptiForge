@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AlertTriangle, Search, Plus, Filter, Calendar, User, MessageSquare, CheckCircle, Clock, TrendingDown, Zap, Inbox } from 'lucide-react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 
 interface Complaint {
   id: string;

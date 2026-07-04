@@ -1,8 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Flag, Search, Filter, PlusCircle, Download, CalendarDays, Link2, TrendingUp, AlertTriangle, CheckCircle2, Clock, Target, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Flag, Search, Filter, PlusCircle, Download, CalendarDays, Link2, TrendingUp, AlertTriangle, CheckCircle2, Clock, Target, Users, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+// Maps the backend milestone status vocabulary onto this page's status set.
+const STATUS_MAP: Record<string, Milestone['status']> = {
+  pending: 'planned',
+  planned: 'planned',
+  in_progress: 'in_progress',
+  'in-progress': 'in_progress',
+  achieved: 'achieved',
+  completed: 'achieved',
+  done: 'achieved',
+  overdue: 'overdue',
+  at_risk: 'at_risk',
+  cancelled: 'cancelled',
+};
 
 type Milestone = {
   id: string;

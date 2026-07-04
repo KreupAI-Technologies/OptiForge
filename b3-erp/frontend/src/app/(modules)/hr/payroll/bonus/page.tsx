@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Gift,
     Search,
@@ -38,88 +39,23 @@ export default function BonusIncentivesPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const bonusRecords: BonusRecord[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            designation: 'HR Manager',
-            bonusType: 'Annual Bonus',
-            financialYear: '2024-25',
-            grossSalary: 1500000,
-            bonusAmount: 150000,
-            bonusPercentage: 10,
-            effectiveDate: '2025-03-31',
-            status: 'Approved',
-            approvedBy: 'CEO',
-            paidDate: null
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Senior Production Engineer',
-            bonusType: 'Performance Bonus',
-            financialYear: '2024-25',
-            grossSalary: 920000,
-            bonusAmount: 92000,
-            bonusPercentage: 10,
-            effectiveDate: '2025-01-31',
-            status: 'Paid',
-            approvedBy: 'Sarah Johnson',
-            paidDate: '2025-02-15'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            bonusType: 'Spot Award',
-            financialYear: '2024-25',
-            grossSalary: 1080000,
-            bonusAmount: 25000,
-            bonusPercentage: 2.3,
-            effectiveDate: '2025-02-28',
-            status: 'Pending Approval',
-            approvedBy: null,
-            paidDate: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            bonusType: 'Festival Bonus',
-            financialYear: '2024-25',
-            grossSalary: 810000,
-            bonusAmount: 40500,
-            bonusPercentage: 5,
-            effectiveDate: '2024-11-01',
-            status: 'Paid',
-            approvedBy: 'Sarah Johnson',
-            paidDate: '2024-11-05'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP010',
-            employeeName: 'Alex Kumar',
-            department: 'Sales',
-            designation: 'Sales Executive',
-            bonusType: 'Retention Bonus',
-            financialYear: '2024-25',
-            grossSalary: 750000,
-            bonusAmount: 150000,
-            bonusPercentage: 20,
-            effectiveDate: '2025-01-15',
-            status: 'Approved',
-            approvedBy: 'Sarah Johnson',
-            paidDate: null
-        }
-    ];
+    const [bonusRecords, setBonusRecords] = useState<BonusRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getBonusRecords();
+                const mapped: BonusRecord[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setBonusRecords(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setBonusRecords([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredRecords = bonusRecords.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,6 +101,8 @@ export default function BonusIncentivesPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

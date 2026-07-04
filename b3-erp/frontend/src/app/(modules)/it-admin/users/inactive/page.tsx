@@ -75,7 +75,7 @@ export default function InactiveUsersPage() {
         const mapped: InactiveUser[] = list.map((u: any) => ({
           id: (u.id ?? '').toString(),
           name:
-            (u.displayName ??
+            (u.displayName ||
               [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
               u.name ||
               '') as string,

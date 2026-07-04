@@ -131,6 +131,8 @@ export default function CustomerAcquisitionDetail() {
                     </Card>
                 </div>
 
+                {isLoading && <div className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+                {loadError && !isLoading && <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
                 {/* Main Data Table */}
                 <Card className="border-gray-100 shadow-sm overflow-hidden">
                     <CardHeader className="bg-white border-b border-gray-100 py-4 flex flex-row items-center justify-between">
