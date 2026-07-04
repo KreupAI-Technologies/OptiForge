@@ -57,308 +57,61 @@ export default function CustomStatusesPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [statusToDelete, setStatusToDelete] = useState<CustomStatus | null>(null);
 
-  const [statuses, setStatuses] = useState<CustomStatus[]>([
-    {
-      id: 'STS-001',
-      name: 'New Lead',
-      category: 'lead',
-      color: '#3B82F6',
-      icon: 'circle',
-      type: 'open',
-      isActive: true,
-      isDefault: true,
-      order: 1,
-      description: 'Newly captured lead, not yet contacted',
-      usageCount: 248,
-      conversion: { rate: 45, avgDays: 3 },
-      canDelete: false,
-      allowedTransitions: ['STS-002', 'STS-003', 'STS-007'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-002',
-      name: 'Contacted',
-      category: 'lead',
-      color: '#8B5CF6',
-      icon: 'clock',
-      type: 'in_progress',
-      isActive: true,
-      isDefault: false,
-      order: 2,
-      description: 'Lead has been contacted, awaiting response',
-      usageCount: 167,
-      conversion: { rate: 62, avgDays: 5 },
-      canDelete: true,
-      allowedTransitions: ['STS-003', 'STS-004', 'STS-007'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-003',
-      name: 'Qualified',
-      category: 'lead',
-      color: '#10B981',
-      icon: 'check-circle',
-      type: 'in_progress',
-      isActive: true,
-      isDefault: false,
-      order: 3,
-      description: 'Lead is qualified and ready for conversion',
-      usageCount: 134,
-      conversion: { rate: 78, avgDays: 7 },
-      canDelete: true,
-      allowedTransitions: ['STS-004', 'STS-005', 'STS-007'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-004',
-      name: 'Converted',
-      category: 'lead',
-      color: '#059669',
-      icon: 'check-circle',
-      type: 'won',
-      isActive: true,
-      isDefault: false,
-      order: 4,
-      description: 'Lead successfully converted to opportunity',
-      usageCount: 89,
-      conversion: { rate: 100, avgDays: 12 },
-      canDelete: false,
-      allowedTransitions: [],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-005',
-      name: 'Nurturing',
-      category: 'lead',
-      color: '#F59E0B',
-      icon: 'pause',
-      type: 'on_hold',
-      isActive: true,
-      isDefault: false,
-      order: 5,
-      description: 'Lead is being nurtured for future conversion',
-      usageCount: 56,
-      conversion: { rate: 25, avgDays: 45 },
-      canDelete: true,
-      allowedTransitions: ['STS-002', 'STS-003', 'STS-007'],
-      createdAt: '2024-02-10',
-      createdBy: 'Sarah Johnson'
-    },
-    {
-      id: 'STS-006',
-      name: 'Discovery',
-      category: 'opportunity',
-      color: '#3B82F6',
-      icon: 'circle',
-      type: 'open',
-      isActive: true,
-      isDefault: true,
-      order: 1,
-      description: 'Initial discovery phase with prospect',
-      usageCount: 92,
-      conversion: { rate: 55, avgDays: 8 },
-      canDelete: false,
-      allowedTransitions: ['STS-008', 'STS-009', 'STS-013'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-007',
-      name: 'Disqualified',
-      category: 'lead',
-      color: '#EF4444',
-      icon: 'x-circle',
-      type: 'lost',
-      isActive: true,
-      isDefault: false,
-      order: 6,
-      description: 'Lead does not meet qualification criteria',
-      usageCount: 43,
-      canDelete: false,
-      allowedTransitions: [],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-008',
-      name: 'Proposal Sent',
-      category: 'opportunity',
-      color: '#8B5CF6',
-      icon: 'clock',
-      type: 'in_progress',
-      isActive: true,
-      isDefault: false,
-      order: 2,
-      description: 'Proposal has been sent to customer',
-      usageCount: 78,
-      conversion: { rate: 68, avgDays: 12 },
-      canDelete: true,
-      allowedTransitions: ['STS-009', 'STS-010', 'STS-011', 'STS-013'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-009',
-      name: 'Negotiation',
-      category: 'opportunity',
-      color: '#F59E0B',
-      icon: 'alert-circle',
-      type: 'in_progress',
-      isActive: true,
-      isDefault: false,
-      order: 3,
-      description: 'Actively negotiating terms with customer',
-      usageCount: 64,
-      conversion: { rate: 75, avgDays: 9 },
-      canDelete: true,
-      allowedTransitions: ['STS-010', 'STS-011', 'STS-013'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-010',
-      name: 'Closed Won',
-      category: 'opportunity',
-      color: '#10B981',
-      icon: 'check-circle',
-      type: 'won',
-      isActive: true,
-      isDefault: false,
-      order: 4,
-      description: 'Deal successfully closed and won',
-      usageCount: 125,
-      conversion: { rate: 100, avgDays: 28 },
-      canDelete: false,
-      allowedTransitions: [],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-011',
-      name: 'On Hold',
-      category: 'opportunity',
-      color: '#6B7280',
-      icon: 'pause',
-      type: 'on_hold',
-      isActive: true,
-      isDefault: false,
-      order: 5,
-      description: 'Deal temporarily on hold',
-      usageCount: 31,
-      conversion: { rate: 35, avgDays: 45 },
-      canDelete: true,
-      allowedTransitions: ['STS-008', 'STS-009', 'STS-013'],
-      createdAt: '2024-02-20',
-      createdBy: 'Michael Chen'
-    },
-    {
-      id: 'STS-012',
-      name: 'Awaiting Approval',
-      category: 'opportunity',
-      color: '#EC4899',
-      icon: 'clock',
-      type: 'in_progress',
-      isActive: true,
-      isDefault: false,
-      order: 6,
-      description: 'Waiting for internal approval before closing',
-      usageCount: 22,
-      conversion: { rate: 88, avgDays: 3 },
-      canDelete: true,
-      allowedTransitions: ['STS-010', 'STS-013'],
-      createdAt: '2024-03-05',
-      createdBy: 'Emily Rodriguez'
-    },
-    {
-      id: 'STS-013',
-      name: 'Closed Lost',
-      category: 'opportunity',
-      color: '#EF4444',
-      icon: 'x-circle',
-      type: 'lost',
-      isActive: true,
-      isDefault: false,
-      order: 7,
-      description: 'Deal lost to competitor or no decision',
-      usageCount: 47,
-      canDelete: false,
-      allowedTransitions: [],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-014',
-      name: 'Active',
-      category: 'customer',
-      color: '#10B981',
-      icon: 'check-circle',
-      type: 'won',
-      isActive: true,
-      isDefault: true,
-      order: 1,
-      description: 'Active customer with ongoing engagement',
-      usageCount: 342,
-      canDelete: false,
-      allowedTransitions: ['STS-015', 'STS-016', 'STS-017'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-015',
-      name: 'At Risk',
-      category: 'customer',
-      color: '#F59E0B',
-      icon: 'alert-circle',
-      type: 'custom',
-      isActive: true,
-      isDefault: false,
-      order: 2,
-      description: 'Customer showing signs of churn risk',
-      usageCount: 28,
-      canDelete: true,
-      allowedTransitions: ['STS-014', 'STS-016', 'STS-017'],
-      createdAt: '2024-02-15',
-      createdBy: 'Sarah Johnson'
-    },
-    {
-      id: 'STS-016',
-      name: 'Churned',
-      category: 'customer',
-      color: '#EF4444',
-      icon: 'x-circle',
-      type: 'lost',
-      isActive: true,
-      isDefault: false,
-      order: 3,
-      description: 'Customer has churned',
-      usageCount: 15,
-      canDelete: false,
-      allowedTransitions: [],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    },
-    {
-      id: 'STS-017',
-      name: 'Inactive',
-      category: 'customer',
-      color: '#6B7280',
-      icon: 'pause',
-      type: 'on_hold',
-      isActive: true,
-      isDefault: false,
-      order: 4,
-      description: 'Customer account is inactive',
-      usageCount: 19,
-      canDelete: true,
-      allowedTransitions: ['STS-014', 'STS-016'],
-      createdAt: '2024-01-15',
-      createdBy: 'System'
-    }
-  ]);
+  const [statuses, setStatuses] = useState<CustomStatus[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.pipelineStageConfigs.getAll()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: CustomStatus[] = list.map((r, idx) => {
+          const rawConversion = r?.conversion;
+          const conversion =
+            rawConversion && (rawConversion.rate !== undefined || rawConversion.avgDays !== undefined)
+              ? {
+                  rate: Number(rawConversion?.rate ?? 0),
+                  avgDays: Number(rawConversion?.avgDays ?? 0),
+                }
+              : undefined;
+          return {
+            id: r?.id ?? `STS-${idx + 1}`,
+            name: r?.name ?? '',
+            category: (r?.category ?? 'lead') as CustomStatus['category'],
+            color: r?.color ?? '#3B82F6',
+            icon: r?.icon ?? 'circle',
+            type: (r?.type ?? 'custom') as CustomStatus['type'],
+            isActive: r?.isActive ?? true,
+            isDefault: !!r?.isDefault,
+            order: Number(r?.order ?? idx + 1),
+            description: r?.description ?? '',
+            usageCount: Number(r?.usageCount ?? 0),
+            conversion,
+            canDelete: r?.canDelete ?? true,
+            allowedTransitions: Array.isArray(r?.allowedTransitions) ? r.allowedTransitions : [],
+            createdAt: r?.createdAt ?? '',
+            createdBy: r?.createdBy ?? '',
+          };
+        });
+        if (!cancelled) setStatuses(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load statuses');
+          setStatuses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredStatuses = statuses.filter(status =>
     categoryFilter === 'all' || status.category === categoryFilter
@@ -557,6 +310,19 @@ export default function CustomStatusesPage() {
           </div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading statuses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statuses List */}
       <div className="space-y-3">
