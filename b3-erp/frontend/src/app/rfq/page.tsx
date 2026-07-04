@@ -33,68 +33,16 @@ interface RFQ {
   itemCount: number;
 }
 
-const mockRFQs: RFQ[] = [
-  {
-    id: '1',
-    rfqNumber: 'RFQ-2025-0142',
-    title: 'CNC Machine Spare Parts Procurement',
-    category: 'Components',
-    issueDate: '2025-01-15',
-    closingDate: '2025-01-25',
-    status: 'issued',
-    vendorCount: 5,
-    responseCount: 3,
-    itemCount: 8,
-  },
-  {
-    id: '2',
-    rfqNumber: 'RFQ-2025-0135',
-    title: 'Raw Materials - Plywood and Hardware Q1',
-    category: 'Raw Materials',
-    issueDate: '2025-01-10',
-    closingDate: '2025-01-22',
-    status: 'responses_received',
-    vendorCount: 8,
-    responseCount: 7,
-    itemCount: 12,
-  },
-  {
-    id: '3',
-    rfqNumber: 'RFQ-2025-0128',
-    title: 'Annual Maintenance Contract for Equipment',
-    category: 'Services',
-    issueDate: '2025-01-05',
-    closingDate: '2025-01-20',
-    status: 'under_evaluation',
-    vendorCount: 4,
-    responseCount: 4,
-    itemCount: 6,
-  },
-  {
-    id: '4',
-    rfqNumber: 'RFQ-2025-0121',
-    title: 'Hydraulic Systems and Pumps',
-    category: 'Equipment',
-    issueDate: '2025-01-02',
-    closingDate: '2025-01-15',
-    status: 'awarded',
-    vendorCount: 6,
-    responseCount: 5,
-    itemCount: 4,
-  },
-  {
-    id: '5',
-    rfqNumber: 'RFQ-2025-0115',
-    title: 'Office Furniture and Supplies',
-    category: 'Equipment',
-    issueDate: '2024-12-28',
-    closingDate: '2025-01-10',
-    status: 'closed',
-    vendorCount: 7,
-    responseCount: 6,
-    itemCount: 15,
-  },
-];
+// Maps the backend RFQStatus (Title Case) onto this page's status vocabulary.
+const STATUS_MAP: Record<string, RFQ['status']> = {
+  Draft: 'draft',
+  Sent: 'issued',
+  'Responses Received': 'responses_received',
+  'Under Evaluation': 'under_evaluation',
+  Awarded: 'awarded',
+  Cancelled: 'cancelled',
+  Expired: 'closed',
+};
 
 const statusConfig = {
   draft: { label: 'Draft', color: 'bg-gray-100 text-gray-800', icon: Edit },
@@ -109,8 +57,47 @@ const statusConfig = {
 export default function RFQListPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [rfqs, setRfqs] = useState<RFQ[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const filteredRFQs = mockRFQs.filter(rfq => {
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const result = await procurementRFQService.getAllRFQs();
+        const raw = Array.isArray(result?.data) ? result.data : [];
+        const mapped: RFQ[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          rfqNumber: r.rfqNumber ?? '',
+          title: r.title ?? '',
+          category: r.department ?? r.category ?? '—',
+          issueDate: (r.createdDate ?? r.createdAt ?? '').slice(0, 10),
+          closingDate: (r.responseDeadline ?? '').slice(0, 10),
+          status: STATUS_MAP[r.status] ?? 'draft',
+          vendorCount: Array.isArray(r.invitedVendors) ? r.invitedVendors.length : 0,
+          responseCount: Array.isArray(r.quotes) ? r.quotes.length : 0,
+          itemCount: Array.isArray(r.items) ? r.items.length : 0,
+        }));
+        if (!cancelled) setRfqs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load RFQs');
+          setRfqs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredRFQs = rfqs.filter(rfq => {
     const matchesSearch = rfq.rfqNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       rfq.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || rfq.status === statusFilter;
@@ -118,10 +105,10 @@ export default function RFQListPage() {
   });
 
   const stats = {
-    total: mockRFQs.length,
-    active: mockRFQs.filter(r => ['issued', 'responses_received', 'under_evaluation'].includes(r.status)).length,
-    awarded: mockRFQs.filter(r => r.status === 'awarded').length,
-    draft: mockRFQs.filter(r => r.status === 'draft').length,
+    total: rfqs.length,
+    active: rfqs.filter(r => ['issued', 'responses_received', 'under_evaluation'].includes(r.status)).length,
+    awarded: rfqs.filter(r => r.status === 'awarded').length,
+    draft: rfqs.filter(r => r.status === 'draft').length,
   };
 
   return (
@@ -134,6 +121,24 @@ export default function RFQListPage() {
         </h1>
         <p className="text-gray-600 mt-2">Manage vendor quotation requests and responses</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading RFQs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && rfqs.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No RFQs found.
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">

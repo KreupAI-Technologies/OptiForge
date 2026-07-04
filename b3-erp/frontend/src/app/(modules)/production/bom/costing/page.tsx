@@ -62,211 +62,64 @@ export default function BOMCostingPage() {
     { code: 'KIT-FAUC-001', name: 'Chrome Finish Kitchen Faucet - Single Lever' }
   ];
 
-  const costComponents: CostComponent[] = [
-    // Materials
-    {
-      id: '1',
-      itemCode: 'RM-SS304-18G',
-      itemName: 'SS304 Steel Sheet - 18 Gauge',
-      category: 'Raw Material',
-      quantity: 2.5,
-      unit: 'Sq.Ft',
-      unitCost: 195,
-      totalCost: 487.5,
-      costType: 'material',
-      percentage: 4.3,
-      supplier: 'Steel India',
-      lastUpdated: '2025-10-15'
-    },
-    {
-      id: '2',
-      itemCode: 'RM-GASKET',
-      itemName: 'Silicone Gasket - Food Grade',
-      category: 'Raw Material',
-      quantity: 4,
-      unit: 'Meter',
-      unitCost: 25,
-      totalCost: 100,
-      costType: 'material',
-      percentage: 0.9,
-      supplier: 'Rubber Products Ltd',
-      lastUpdated: '2025-10-12'
-    },
-    {
-      id: '3',
-      itemCode: 'COMP-STRAINER',
-      itemName: 'Stainless Steel Strainer Basket',
-      category: 'Component',
-      quantity: 2,
-      unit: 'PC',
-      unitCost: 145,
-      totalCost: 290,
-      costType: 'material',
-      percentage: 2.6,
-      supplier: 'Kitchen Components Co',
-      lastUpdated: '2025-10-10'
-    },
-    {
-      id: '4',
-      itemCode: 'COMP-DRAIN-PIPE',
-      itemName: 'PVC Drain Pipe - 40mm',
-      category: 'Component',
-      quantity: 2,
-      unit: 'Meter',
-      unitCost: 85,
-      totalCost: 170,
-      costType: 'material',
-      percentage: 1.5,
-      supplier: 'PVC Suppliers',
-      lastUpdated: '2025-10-08'
-    },
-    {
-      id: '5',
-      itemCode: 'COMP-DRAIN-VALVE',
-      itemName: 'Drain Control Valve - SS',
-      category: 'Component',
-      quantity: 2,
-      unit: 'PC',
-      unitCost: 180,
-      totalCost: 360,
-      costType: 'material',
-      percentage: 3.2,
-      supplier: 'Valve Technologies',
-      lastUpdated: '2025-10-05'
-    },
-    {
-      id: '6',
-      itemCode: 'COMP-BRACKET',
-      itemName: 'SS Mounting Bracket',
-      category: 'Component',
-      quantity: 4,
-      unit: 'PC',
-      unitCost: 45,
-      totalCost: 180,
-      costType: 'material',
-      percentage: 1.6,
-      supplier: 'Metal Fabricators',
-      lastUpdated: '2025-10-01'
-    },
-    {
-      id: '7',
-      itemCode: 'COMP-FASTENERS',
-      itemName: 'Fasteners Kit (Screws, Washers)',
-      category: 'Component',
-      quantity: 1,
-      unit: 'SET',
-      unitCost: 128,
-      totalCost: 128,
-      costType: 'material',
-      percentage: 1.1,
-      supplier: 'Fasteners Direct',
-      lastUpdated: '2025-09-28'
-    },
-    {
-      id: '8',
-      itemCode: 'PKG-SINK',
-      itemName: 'Sink Packaging Material',
-      category: 'Packaging',
-      quantity: 1,
-      unit: 'SET',
-      unitCost: 180,
-      totalCost: 180,
-      costType: 'material',
-      percentage: 1.6,
-      supplier: 'Packaging Solutions',
-      lastUpdated: '2025-09-25'
-    },
+  // Cost components — primary table, wired to production/bom
+  const [costComponents, setCostComponents] = useState<CostComponent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-    // Labor
-    {
-      id: '9',
-      itemCode: 'LAB-WELD-SS',
-      itemName: 'SS Welding - Bowl Assembly',
-      category: 'Direct Labor',
-      quantity: 2.5,
-      unit: 'Hours',
-      unitCost: 485,
-      totalCost: 1212.5,
-      costType: 'labor',
-      percentage: 10.8,
-      supplier: 'In-House',
-      lastUpdated: '2025-10-15'
-    },
-    {
-      id: '10',
-      itemCode: 'LAB-POLISH',
-      itemName: 'Surface Polishing & Finishing',
-      category: 'Direct Labor',
-      quantity: 1.5,
-      unit: 'Hours',
-      unitCost: 420,
-      totalCost: 630,
-      costType: 'labor',
-      percentage: 5.6,
-      supplier: 'In-House',
-      lastUpdated: '2025-10-15'
-    },
-
-    // Overhead
-    {
-      id: '11',
-      itemCode: 'OH-ELEC',
-      itemName: 'Electricity - Production',
-      category: 'Manufacturing Overhead',
-      quantity: 3.2,
-      unit: 'Units',
-      unitCost: 180,
-      totalCost: 576,
-      costType: 'overhead',
-      percentage: 5.1,
-      supplier: 'Utility Provider',
-      lastUpdated: '2025-10-01'
-    },
-    {
-      id: '12',
-      itemCode: 'OH-MAINT',
-      itemName: 'Equipment Maintenance Allocation',
-      category: 'Manufacturing Overhead',
-      quantity: 1,
-      unit: 'Unit',
-      unitCost: 285,
-      totalCost: 285,
-      costType: 'overhead',
-      percentage: 2.5,
-      supplier: 'In-House',
-      lastUpdated: '2025-10-01'
-    },
-    {
-      id: '13',
-      itemCode: 'OH-QC',
-      itemName: 'Quality Control & Inspection',
-      category: 'Manufacturing Overhead',
-      quantity: 1,
-      unit: 'Unit',
-      unitCost: 195,
-      totalCost: 195,
-      costType: 'overhead',
-      percentage: 1.7,
-      supplier: 'In-House',
-      lastUpdated: '2025-10-01'
-    },
-
-    // Subcontract
-    {
-      id: '14',
-      itemCode: 'SUB-CHROME',
-      itemName: 'Chrome Plating Service',
-      category: 'Subcontract Work',
-      quantity: 8,
-      unit: 'Sq.Ft',
-      unitCost: 120,
-      totalCost: 960,
-      costType: 'subcontract',
-      percentage: 8.5,
-      supplier: 'Chrome Solutions',
-      lastUpdated: '2025-10-18'
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await ProductionOrphanService.getBoms();
+        const raw: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+        // BOM records may expose line items under components/items/lines; fall back
+        // to treating each BOM record itself as a costed row.
+        const rows: any[] = raw.flatMap((b) => {
+          const lines = b.components ?? b.items ?? b.lines ?? b.costComponents;
+          return Array.isArray(lines) && lines.length ? lines : [b];
+        });
+        const mapped: CostComponent[] = rows.map((c, idx) => {
+          const quantity = Number(c.quantity ?? c.qty ?? 0);
+          const unitCost = Number(c.unitCost ?? c.rate ?? c.cost ?? 0);
+          const totalCost = Number(c.totalCost ?? c.amount ?? quantity * unitCost);
+          const rawType = String(c.costType ?? c.type ?? 'material').toLowerCase();
+          const costType: CostComponent['costType'] =
+            rawType === 'labor' || rawType === 'overhead' || rawType === 'subcontract'
+              ? (rawType as CostComponent['costType'])
+              : 'material';
+          return {
+            id: String(c.id ?? c.bomId ?? idx + 1),
+            itemCode: c.itemCode ?? c.code ?? c.bomCode ?? c.materialCode ?? '-',
+            itemName: c.itemName ?? c.name ?? c.description ?? c.productName ?? '-',
+            category: c.category ?? '-',
+            quantity,
+            unit: c.unit ?? c.uom ?? '',
+            unitCost,
+            totalCost,
+            costType,
+            percentage: Number(c.percentage ?? 0),
+            supplier: c.supplier ?? c.vendor ?? '-',
+            lastUpdated: (c.lastUpdated ?? c.updatedAt ?? c.createdAt ?? '').toString().slice(0, 10),
+          };
+        });
+        if (!cancelled) setCostComponents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load BOM cost components');
+          setCostComponents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const costSummary: CostSummary = {
     totalMaterialCost: costComponents.filter(c => c.costType === 'material').reduce((sum, c) => sum + c.totalCost, 0),
@@ -538,6 +391,25 @@ export default function BOMCostingPage() {
           </select>
         </div>
       </div>
+
+      {/* Load status banners */}
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading BOM cost components…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && costComponents.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No cost components found.
+        </div>
+      )}
 
       {/* Cost Components Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">

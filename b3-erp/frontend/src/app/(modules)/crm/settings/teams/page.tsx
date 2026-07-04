@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   UserPlus,
@@ -29,6 +29,7 @@ import {
   Activity,
   MapPin
 } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface TeamMember {
   id: string;
@@ -99,8 +100,53 @@ export default function TeamsPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const teams: Team[] = [
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await crmService.salesTeams.getAll()) as any[];
+        const mapped: Team[] = (Array.isArray(raw) ? raw : []).map((t: any) => ({
+          id: String(t.id ?? ''),
+          name: t.name ?? t.teamName ?? '',
+          description: t.description ?? '',
+          type: (t.type ?? 'sales') as Team['type'],
+          manager: t.manager ?? t.managerName ?? '',
+          members: Number(t.members ?? t.memberCount ?? 0),
+          status: (t.status ?? 'active') as Team['status'],
+          performance: {
+            totalRevenue: Number(t.performance?.totalRevenue ?? t.totalRevenue ?? 0),
+            totalQuota: Number(t.performance?.totalQuota ?? t.totalQuota ?? 0),
+            quotaAttainment: Number(t.performance?.quotaAttainment ?? t.quotaAttainment ?? 0),
+            activeDeals: Number(t.performance?.activeDeals ?? t.activeDeals ?? 0),
+            wonDeals: Number(t.performance?.wonDeals ?? t.wonDeals ?? 0),
+            avgWinRate: Number(t.performance?.avgWinRate ?? t.avgWinRate ?? 0),
+          },
+          territories: Array.isArray(t.territories) ? t.territories.map((x: any) => String(x)) : [],
+          createdAt: t.createdAt ?? '',
+        }));
+        if (!cancelled) setTeams(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load teams');
+          setTeams([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const teamsSeed: Team[] = [
     {
       id: 'TEAM-001',
       name: 'Enterprise Sales',

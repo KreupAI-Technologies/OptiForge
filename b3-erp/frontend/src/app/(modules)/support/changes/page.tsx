@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Filter, Calendar, Users, AlertTriangle, CheckCircle2, Clock, XCircle, GitBranch, Shield } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service';
 
 interface Change {
   id: string
