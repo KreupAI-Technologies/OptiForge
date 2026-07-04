@@ -91,7 +91,7 @@ export default function ExpenseSummaryPage() {
       }),
       { totalClaims: 0, totalAmount: 0, approvedAmount: 0, rejectedAmount: 0, pendingAmount: 0 }
     );
-  }, []);
+  }, [monthlyData]);
 
   const avgClaimAmount = yearlyTotals.totalClaims > 0
     ? Math.round(yearlyTotals.totalAmount / yearlyTotals.totalClaims)
@@ -199,6 +199,19 @@ export default function ExpenseSummaryPage() {
           Export Report
         </button>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading expense summary…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -393,7 +406,7 @@ export default function ExpenseSummaryPage() {
             <Calendar className="h-5 w-5 text-orange-600" />
           </div>
           <p className="text-2xl font-bold text-orange-900">₹{(yearlyTotals.pendingAmount / 100000).toFixed(1)}L</p>
-          <p className="text-sm text-orange-700 mt-1">{Math.round((yearlyTotals.pendingAmount / yearlyTotals.totalAmount) * 100)}% of total claims</p>
+          <p className="text-sm text-orange-700 mt-1">{yearlyTotals.totalAmount > 0 ? Math.round((yearlyTotals.pendingAmount / yearlyTotals.totalAmount) * 100) : 0}% of total claims</p>
         </div>
       </div>
     </div>

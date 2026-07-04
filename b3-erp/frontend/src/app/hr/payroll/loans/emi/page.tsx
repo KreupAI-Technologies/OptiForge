@@ -44,81 +44,50 @@ interface ActiveLoan {
   schedule: EMISchedule[]
 }
 
-const mockActiveLoans: ActiveLoan[] = [
-  {
-    id: 'LN-2024-089',
-    employeeId: 'EMP045',
-    employeeName: 'Arjun Mehta',
-    loanType: 'Home Loan',
-    totalAmount: 500000,
-    outstandingAmount: 425600,
-    tenureMonths: 60,
-    remainingTenure: 52,
-    interestRate: 8.5,
-    emiAmount: 10258,
-    startDate: '2024-05-01',
-    endDate: '2029-04-01',
-    status: 'active',
-    schedule: [
-      {
-        id: 'EMI-001',
-        installmentNo: 1,
-        dueDate: '2024-06-01',
-        amount: 10258,
-        principalComponent: 6716,
-        interestComponent: 3542,
-        status: 'paid',
-        paymentDate: '2024-06-01'
-      },
-      // ... more history would go here
-      {
-        id: 'EMI-009',
-        installmentNo: 9,
-        dueDate: '2025-02-01',
-        amount: 10258,
-        principalComponent: 7100,
-        interestComponent: 3158,
-        status: 'pending'
-      }
-    ]
-  },
-  {
-    id: 'LN-2024-112',
-    employeeId: 'EMP102',
-    employeeName: 'Sarah Jenkins',
-    loanType: 'Personal Loan',
-    totalAmount: 150000,
-    outstandingAmount: 98000,
-    tenureMonths: 24,
-    remainingTenure: 16,
-    interestRate: 10.5,
-    emiAmount: 6956,
-    startDate: '2024-08-15',
-    endDate: '2026-08-15',
-    status: 'active',
-    schedule: []
-  },
-  {
-    id: 'LN-2023-055',
-    employeeId: 'EMP088',
-    employeeName: 'Michael Chen',
-    loanType: 'Vehicle Loan',
-    totalAmount: 800000,
-    outstandingAmount: 250000,
-    tenureMonths: 48,
-    remainingTenure: 12,
-    interestRate: 9.0,
-    emiAmount: 19900,
-    startDate: '2023-02-10',
-    endDate: '2027-02-10',
-    status: 'active',
-    schedule: []
-  }
-]
-
 export default function LoanEMIPage() {
-  const [activeLoans, setActiveLoans] = useState<ActiveLoan[]>(mockActiveLoans)
+  const [activeLoans, setActiveLoans] = useState<ActiveLoan[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await HrPayrollService.getLoans()
+        const mapped: ActiveLoan[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: r.id ?? r.loanId ?? r.loanNumber ?? '',
+          employeeId: r.employeeId ?? r.employeeCode ?? '',
+          employeeName: r.employeeName ?? r.employee?.name ?? '',
+          loanType: r.loanType ?? r.type ?? 'Loan',
+          totalAmount: Number(r.totalAmount ?? r.loanAmount ?? r.principalAmount ?? r.amount ?? 0),
+          outstandingAmount: Number(r.outstandingAmount ?? r.outstandingBalance ?? r.balance ?? 0),
+          tenureMonths: Number(r.tenureMonths ?? r.tenure ?? r.requestedTenure ?? 0),
+          remainingTenure: Number(r.remainingTenure ?? r.remainingEMIs ?? 0),
+          interestRate: Number(r.interestRate ?? r.rate ?? 0),
+          emiAmount: Number(r.emiAmount ?? r.emi ?? 0),
+          startDate: r.startDate ?? r.disbursedDate ?? r.disbursementDate ?? '',
+          endDate: r.endDate ?? r.maturityDate ?? '',
+          status: (r.status === 'closed' || r.status === 'defaulted' ? r.status : 'active') as ActiveLoan['status'],
+          schedule: Array.isArray(r.schedule) ? r.schedule : [],
+        }))
+        if (!cancelled) setActiveLoans(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load loans')
+          setActiveLoans([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Calculator State
   const [calcAmount, setCalcAmount] = useState(100000)

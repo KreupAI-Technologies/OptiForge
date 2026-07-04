@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   TrendingDown,
   Search,
@@ -14,6 +14,7 @@ import {
   MoreVertical,
   X
 } from 'lucide-react'
+import { HrPayrollService } from '@/services/hr-payroll.service'
 
 interface RecoveryRecord {
   id: string

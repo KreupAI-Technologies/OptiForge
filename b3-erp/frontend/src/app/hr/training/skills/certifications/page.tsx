@@ -30,13 +30,16 @@ const expiryAlerts = [
   { id: 3, employee: 'Bob Wilson', cert: 'Cisco CCNP', expiry: '2025-02-28', daysLeft: 37, status: 'Warning' },
 ];
 
-const certifications = [
-  { id: 1, employee: 'Sarah Johnson', role: 'Senior Dev', cert: 'Google Cloud Professional', provider: 'Google', issued: '2024-05-10', expires: '2026-05-10', status: 'Active' },
-  { id: 2, employee: 'Mike Chen', role: 'DevOps Lead', cert: 'Kubernetes Administrator (CKA)', provider: 'CNCF', issued: '2023-11-20', expires: '2025-11-20', status: 'Active' },
-  { id: 3, employee: 'Emily Davis', role: 'Data Scientist', cert: 'TensorFlow Developer', provider: 'Google', issued: '2023-08-15', expires: '2025-01-30', status: 'Expiring Soon' },
-  { id: 4, employee: 'David Brown', role: 'Security Analyst', cert: 'CISSP', provider: 'ISC2', issued: '2022-03-01', expires: '2025-03-01', status: 'Active' },
-  { id: 5, employee: 'Lisa Wang', role: 'Product Manager', cert: 'CSM (Scrum Master)', provider: 'Scrum Alliance', issued: '2024-01-10', expires: '2026-01-10', status: 'Active' },
-];
+interface CertificationRecord {
+  id: number | string;
+  employee: string;
+  role: string;
+  cert: string;
+  provider: string;
+  issued: string;
+  expires: string;
+  status: string;
+}
 
 const complianceData = [
   { name: 'Compliant', value: 350, color: '#22c55e' },
@@ -46,6 +49,42 @@ const complianceData = [
 
 export default function CertificationsPage() {
   const [filterStatus, setFilterStatus] = useState('All');
+  const [certifications, setCertifications] = useState<CertificationRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.skillAssessments()) as any[];
+        const mapped: CertificationRecord[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          employee: r.employee ?? '',
+          role: r.role ?? '',
+          cert: r.cert ?? r.certification ?? '',
+          provider: r.provider ?? '',
+          issued: r.issued ?? '',
+          expires: r.expires ?? '',
+          status: r.status ?? 'Active',
+        }));
+        if (!cancelled) setCertifications(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load certifications');
+          setCertifications([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -69,6 +108,19 @@ export default function CertificationsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading certifications…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Expiry Alerts & Compliance */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
