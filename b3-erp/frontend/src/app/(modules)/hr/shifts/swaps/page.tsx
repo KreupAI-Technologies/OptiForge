@@ -38,76 +38,43 @@ export default function ShiftSwapsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const swaps: ShiftSwap[] = [
-        {
-            id: '1',
-            requesterId: 'EMP002',
-            requesterName: 'Michael Chen',
-            requesterDepartment: 'Production',
-            requesterShift: 'Morning Shift',
-            requesterDate: '2025-02-05',
-            targetId: 'EMP004',
-            targetName: 'David Wilson',
-            targetDepartment: 'Production',
-            targetShift: 'Evening Shift',
-            targetDate: '2025-02-05',
-            reason: 'Medical appointment in the afternoon',
-            status: 'Pending',
-            requestDate: '2025-01-30'
-        },
-        {
-            id: '2',
-            requesterId: 'EMP005',
-            requesterName: 'Jennifer Brown',
-            requesterDepartment: 'Warehouse',
-            requesterShift: 'Night Shift',
-            requesterDate: '2025-02-03',
-            targetId: 'EMP008',
-            targetName: 'James Taylor',
-            targetDepartment: 'Warehouse',
-            targetShift: 'Night Shift',
-            targetDate: '2025-02-04',
-            reason: 'Family event on Feb 3rd',
-            status: 'Approved',
-            requestDate: '2025-01-28',
-            approvedBy: 'Warehouse Manager',
-            approvedDate: '2025-01-29'
-        },
-        {
-            id: '3',
-            requesterId: 'EMP007',
-            requesterName: 'Lisa Wong',
-            requesterDepartment: 'Production',
-            requesterShift: 'Morning Shift',
-            requesterDate: '2025-02-10',
-            targetId: 'EMP002',
-            targetName: 'Michael Chen',
-            targetDepartment: 'Production',
-            targetShift: 'Morning Shift',
-            targetDate: '2025-02-12',
-            reason: 'Personal commitment',
-            status: 'Rejected',
-            requestDate: '2025-01-25',
-            approvedBy: 'Production Manager',
-            approvedDate: '2025-01-26'
-        },
-        {
-            id: '4',
-            requesterId: 'EMP003',
-            requesterName: 'Emily Davis',
-            requesterDepartment: 'Quality Assurance',
-            requesterShift: 'Day Shift',
-            requesterDate: '2025-02-07',
-            targetId: 'EMP009',
-            targetName: 'Anna Martin',
-            targetDepartment: 'Quality Assurance',
-            targetShift: 'Day Shift',
-            targetDate: '2025-02-08',
-            reason: 'Training session rescheduled',
-            status: 'Pending',
-            requestDate: '2025-01-31'
-        }
-    ];
+    const [swaps, setSwaps] = useState<ShiftSwap[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrShiftsService.getShiftSwaps();
+                const mapped: ShiftSwap[] = (raw as any[]).map((r) => ({
+                    id: String(r.id ?? ''),
+                    requesterId: r.requesterId ?? '',
+                    requesterName: r.requesterName ?? '',
+                    requesterDepartment: r.requesterDepartment ?? '',
+                    requesterShift: r.requesterShift ?? '',
+                    requesterDate: r.requesterDate ?? '',
+                    targetId: r.targetId ?? '',
+                    targetName: r.targetName ?? '',
+                    targetDepartment: r.targetDepartment ?? '',
+                    targetShift: r.targetShift ?? '',
+                    targetDate: r.targetDate ?? '',
+                    reason: r.reason ?? '',
+                    status: (r.status ?? 'Pending') as ShiftSwap['status'],
+                    requestDate: r.requestDate ?? '',
+                    approvedBy: r.approvedBy,
+                    approvedDate: r.approvedDate,
+                }));
+                if (!cancelled) setSwaps(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setSwaps([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredSwaps = swaps.filter(swap => {
         const matchesSearch = swap.requesterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
