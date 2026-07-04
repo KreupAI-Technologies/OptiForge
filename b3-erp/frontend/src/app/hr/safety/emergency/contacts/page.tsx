@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Phone,
   Search,
@@ -16,29 +16,101 @@ import {
   ChevronRight,
   ExternalLink,
   MessageCircle,
-  Stethoscope
+  Stethoscope,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyDrill } from '@/services/hr-safety.service';
 
-// Mock Data
-const internalContacts = [
-  { id: 'ERT-001', name: 'John Smith', role: 'Head of Emergency Response', dept: 'Health & Safety', ext: '101', mobile: '+1 (555) 900-1234', status: 'On Duty' },
-  { id: 'ERT-002', name: 'Maria Garcia', role: 'Fires Warden (Block A)', dept: 'Production', ext: '105', mobile: '+1 (555) 900-1235', status: 'On Duty' },
-  { id: 'ERT-003', name: 'Sam Taylor', role: 'First Aid Officer', dept: 'Human Resources', ext: '201', mobile: '+1 (555) 900-1236', status: 'Off Duty' },
-  { id: 'ERT-004', name: 'Robert Smith', role: 'Chemical Safety Lead', dept: 'Quality Control', ext: '310', mobile: '+1 (555) 900-1237', status: 'On Duty' }
-];
+interface InternalContact {
+  id: string;
+  name: string;
+  role: string;
+  dept: string;
+  ext: string;
+  mobile: string;
+  status: string;
+}
 
-const externalServices = [
-  { name: 'City Fire Department', service: 'Fire & Rescue', phone: '911', alt: '(555) 111-2222' },
-  { name: 'General Hospital', service: 'Medical Emergency', phone: '911', alt: '(555) 111-3333' },
-  { name: 'Poison Control Center', service: 'Toxicology', phone: '(800) 222-1222', alt: '-' },
-  { name: 'Electric Grid Support', service: 'Utility Outage', phone: '(555) 111-4444', alt: '-' }
-];
+interface ExternalService {
+  name: string;
+  service: string;
+  phone: string;
+  alt: string;
+}
 
 export default function EmergencyContactsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [internalContacts, setInternalContacts] = useState<InternalContact[]>([]);
+  const [externalServices, setExternalServices] = useState<ExternalService[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getDrills('contact');
+        const internal: InternalContact[] = rows
+          .filter((r: SafetyDrill) => !r.serviceType)
+          .map((row: SafetyDrill) => {
+            const meta = (row.meta || {}) as any;
+            return {
+              id: String(row.code ?? row.id ?? ''),
+              name: row.contactName ?? row.name ?? '',
+              role: row.role ?? '',
+              dept: row.department ?? '',
+              ext: meta.ext ?? '',
+              mobile: row.phone ?? '',
+              status: row.status ?? '',
+            };
+          });
+        const external: ExternalService[] = rows
+          .filter((r: SafetyDrill) => r.serviceType)
+          .map((row: SafetyDrill) => {
+            const meta = (row.meta || {}) as any;
+            return {
+              name: row.contactName ?? row.name ?? '',
+              service: row.serviceType ?? '',
+              phone: row.phone ?? '',
+              alt: meta.alt ?? '-',
+            };
+          });
+        if (!cancelled) {
+          setInternalContacts(internal);
+          setExternalServices(external);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load emergency contacts');
+          setInternalContacts([]);
+          setExternalServices([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading emergency contacts…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>

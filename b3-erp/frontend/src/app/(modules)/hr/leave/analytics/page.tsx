@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LineChart,
     Download,
@@ -11,6 +11,7 @@ import {
     AlertCircle,
     BarChart3
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
 
 interface Metric {
     label: string;
@@ -34,23 +35,64 @@ export default function LeaveAnalyticsPage() {
         { label: 'Encashment Requests', value: '24', change: 8, trend: 'up' }
     ];
 
-    const weekdayPatterns: LeavePattern[] = [
-        { day: 'Monday', requests: 145 },
-        { day: 'Tuesday', requests: 82 },
-        { day: 'Wednesday', requests: 65 },
-        { day: 'Thursday', requests: 78 },
-        { day: 'Friday', requests: 180 }
-    ];
+    const [weekdayPatterns, setWeekdayPatterns] = useState<LeavePattern[]>([]);
+    const [monthlyTrends, setMonthlyTrends] = useState<{ month: string; value: number }[]>([]);
+    const [topLeaveReasons, setTopLeaveReasons] = useState<{ reason: string; percentage: number }[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const monthlyTrends = [
-        { month: 'Jul', value: 85 },
-        { month: 'Aug', value: 92 },
-        { month: 'Sep', value: 78 },
-        { month: 'Oct', value: 105 },
-        { month: 'Nov', value: 120 },
-        { month: 'Dec', value: 180 },
-        { month: 'Jan', value: 95 }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await LeaveService.getAllLeaveApplicationsRaw();
+                const apps = Array.isArray(raw) ? raw : [];
+
+                // Derive weekday patterns from application start dates
+                const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                const dayCounts: Record<string, number> = { Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0 };
+                const allDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                apps.forEach((a: any) => {
+                    const d = a?.startDate ? new Date(a.startDate) : null;
+                    if (d && !isNaN(d.getTime())) {
+                        const name = allDays[d.getDay()];
+                        if (name in dayCounts) dayCounts[name] += 1;
+                    }
+                });
+                const wp: LeavePattern[] = dayNames.map((day) => ({ day, requests: dayCounts[day] ?? 0 }));
+
+                // Derive monthly trends from application start dates
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthCounts: Record<string, number> = {};
+                apps.forEach((a: any) => {
+                    const d = a?.startDate ? new Date(a.startDate) : null;
+                    if (d && !isNaN(d.getTime())) {
+                        const m = monthNames[d.getMonth()];
+                        monthCounts[m] = (monthCounts[m] ?? 0) + 1;
+                    }
+                });
+                const mt = monthNames.filter((m) => monthCounts[m] != null).map((month) => ({ month, value: monthCounts[month] }));
+
+                // Derive top leave reasons
+                const reasonCounts: Record<string, number> = {};
+                apps.forEach((a: any) => {
+                    const reason = a?.reason ?? 'Other';
+                    reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+                });
+                const total = apps.length || 1;
+                const tr = Object.entries(reasonCounts)
+                    .map(([reason, count]) => ({ reason, percentage: Math.round((count / total) * 100) }))
+                    .sort((a, b) => b.percentage - a.percentage)
+                    .slice(0, 6);
+
+                if (!cancelled) { setWeekdayPatterns(wp); setMonthlyTrends(mt); setTopLeaveReasons(tr); }
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setWeekdayPatterns([]); setMonthlyTrends([]); setTopLeaveReasons([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const insights = [
         { type: 'warning', title: 'High Friday Leave Requests', description: 'Friday has 2.8x more leave requests than midweek average. Consider reviewing extended weekend policies.' },

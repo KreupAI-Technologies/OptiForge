@@ -26,14 +26,36 @@ export default function TeamLeaveCalendarPage() {
     const [currentMonth, setCurrentMonth] = useState(new Date(2025, 1, 1));
     const [departmentFilter, setDepartmentFilter] = useState('all');
 
-    const teamLeaves: TeamLeave[] = [
-        { id: '1', employeeName: 'Sarah Johnson', leaveType: 'Annual Leave', startDate: '2025-02-03', endDate: '2025-02-05', status: 'Approved' },
-        { id: '2', employeeName: 'Michael Chen', leaveType: 'Sick Leave', startDate: '2025-02-10', endDate: '2025-02-10', status: 'Approved' },
-        { id: '3', employeeName: 'Emily Davis', leaveType: 'Casual Leave', startDate: '2025-02-14', endDate: '2025-02-14', status: 'Pending' },
-        { id: '4', employeeName: 'Robert Martinez', leaveType: 'Annual Leave', startDate: '2025-02-17', endDate: '2025-02-21', status: 'Approved' },
-        { id: '5', employeeName: 'Lisa Wong', leaveType: 'Compensatory Off', startDate: '2025-02-24', endDate: '2025-02-24', status: 'Pending' },
-        { id: '6', employeeName: 'David Wilson', leaveType: 'Sick Leave', startDate: '2025-02-07', endDate: '2025-02-08', status: 'Approved' }
-    ];
+    const [teamLeaves, setTeamLeaves] = useState<TeamLeave[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        const fmtDate = (v: any): string => {
+            if (!v) return '';
+            const d = new Date(v);
+            return isNaN(d.getTime()) ? String(v) : d.toISOString().split('T')[0];
+        };
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await LeaveService.getAllLeaveApplicationsRaw();
+                const mapped: TeamLeave[] = (raw as any[]).map((r, i) => ({
+                    id: String(r?.id ?? i),
+                    employeeName: r?.employeeName ?? '',
+                    leaveType: r?.leaveTypeName ?? r?.leaveType ?? '',
+                    startDate: fmtDate(r?.startDate),
+                    endDate: fmtDate(r?.endDate),
+                    status: capitalizeStatus(r?.status),
+                }));
+                if (!cancelled) setTeamLeaves(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setTeamLeaves([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = ['Human Resources', 'Production', 'IT', 'Quality Assurance', 'Finance'];
 
@@ -78,6 +100,8 @@ export default function TeamLeaveCalendarPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

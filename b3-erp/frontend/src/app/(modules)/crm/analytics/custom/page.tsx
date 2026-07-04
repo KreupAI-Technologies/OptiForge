@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   PieChart,
@@ -23,8 +23,10 @@ import {
   Target,
   Activity,
   FileText,
-  Settings
+  Settings,
+  AlertCircle
 } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface CustomReport {
   id: string;

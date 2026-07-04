@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Wallet,
     Calendar,
@@ -11,6 +11,7 @@ import {
     Download,
     RefreshCw
 } from 'lucide-react';
+import { LeaveService } from '@/services/leave.service';
 
 interface LeaveBalance {
     type: string;
@@ -40,77 +41,40 @@ export default function MyBalancePage() {
     const [selectedYear, setSelectedYear] = useState('2025');
     const [activeTab, setActiveTab] = useState<'balances' | 'transactions'>('balances');
 
-    const leaveBalances: LeaveBalance[] = [
-        {
-            type: 'Annual Leave',
-            code: 'AL',
-            openingBalance: 5,
-            accrued: 16,
-            used: 5,
-            pending: 2,
-            lapsed: 0,
-            available: 14,
-            carryForward: 5,
-            maxAccumulation: 30
-        },
-        {
-            type: 'Sick Leave',
-            code: 'SL',
-            openingBalance: 0,
-            accrued: 12,
-            used: 3,
-            pending: 0,
-            lapsed: 0,
-            available: 9,
-            carryForward: 0,
-            maxAccumulation: 12
-        },
-        {
-            type: 'Casual Leave',
-            code: 'CL',
-            openingBalance: 0,
-            accrued: 6,
-            used: 2,
-            pending: 1,
-            lapsed: 0,
-            available: 3,
-            carryForward: 0,
-            maxAccumulation: 6
-        },
-        {
-            type: 'Compensatory Off',
-            code: 'CO',
-            openingBalance: 2,
-            accrued: 2,
-            used: 1,
-            pending: 0,
-            lapsed: 0,
-            available: 3,
-            carryForward: 0,
-            maxAccumulation: 10
-        },
-        {
-            type: 'Maternity Leave',
-            code: 'ML',
-            openingBalance: 0,
-            accrued: 0,
-            used: 0,
-            pending: 0,
-            lapsed: 0,
-            available: 182,
-            carryForward: 0,
-            maxAccumulation: 182
-        }
-    ];
+    const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+    const [transactions, setTransactions] = useState<LeaveTransaction[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const transactions: LeaveTransaction[] = [
-        { id: '1', date: '2025-02-01', type: 'Accrual', leaveType: 'Annual Leave', description: 'Monthly accrual', credit: 1.75, debit: 0, balance: 15.75 },
-        { id: '2', date: '2025-01-27', type: 'Used', leaveType: 'Annual Leave', description: 'LV-2025-001 Approved', credit: 0, debit: 3, balance: 14 },
-        { id: '3', date: '2025-01-25', type: 'Used', leaveType: 'Sick Leave', description: 'LV-2025-002 Approved', credit: 0, debit: 1, balance: 9 },
-        { id: '4', date: '2025-01-15', type: 'Pending', leaveType: 'Casual Leave', description: 'LV-2025-003 Pending approval', credit: 0, debit: 2, balance: 3 },
-        { id: '5', date: '2025-01-01', type: 'Opening', leaveType: 'Annual Leave', description: 'Carry forward from 2024', credit: 5, debit: 0, balance: 5 },
-        { id: '6', date: '2025-01-01', type: 'Accrual', leaveType: 'Annual Leave', description: 'Monthly accrual', credit: 1.75, debit: 0, balance: 6.75 }
-    ];
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await LeaveService.getAllLeaveBalances();
+                const mapped: LeaveBalance[] = (raw as any[]).map((r) => {
+                    const entitled = r?.entitledDays ?? 0;
+                    const carryForward = r?.carryForwardDays ?? 0;
+                    return {
+                        type: r?.leaveTypeName ?? '',
+                        code: r?.leaveTypeCode ?? r?.leaveTypeName ?? '',
+                        openingBalance: carryForward,
+                        accrued: entitled,
+                        used: r?.usedDays ?? 0,
+                        pending: r?.pendingDays ?? 0,
+                        lapsed: r?.lapsedDays ?? 0,
+                        available: r?.balanceDays ?? 0,
+                        carryForward,
+                        maxAccumulation: r?.maxAccumulation ?? (entitled + carryForward) ?? 0,
+                    };
+                });
+                if (!cancelled) { setLeaveBalances(mapped); setTransactions([]); }
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setLeaveBalances([]); setTransactions([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const totalAvailable = leaveBalances.reduce((sum, b) => sum + b.available, 0);
     const totalUsed = leaveBalances.reduce((sum, b) => sum + b.used, 0);
@@ -126,6 +90,8 @@ export default function MyBalancePage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, TrendingUp, TrendingDown, Target, Users, AlertCircle, Download, Calendar } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface FRTMetric {
   period: string
@@ -34,6 +35,38 @@ interface TimeDistribution {
 
 export default function FirstResponseTime() {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month')
+  const [timeDistribution, setTimeDistribution] = useState<TimeDistribution[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getOmnichannel()
+        // Omnichannel conversations; only records carrying a response-time bucket map here.
+        const mapped: TimeDistribution[] = raw
+          .filter((r: any) => r?.range || r?.responseRange)
+          .map((r: any) => ({
+            range: r.range ?? r.responseRange ?? '',
+            count: r.count ?? 0,
+            percentage: r.percentage ?? 0,
+            priority: r.priority ?? '',
+          }))
+        if (!cancelled) setTimeDistribution(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setTimeDistribution([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const frtMetrics: FRTMetric[] = [
     { period: 'Week 1', avgFRT: 28, target: 30, compliance: 94.5, p0: 6, p1: 22, p2: 35, p3: 45 },
@@ -49,16 +82,6 @@ export default function FirstResponseTime() {
     { teamName: 'Security', agent: 'Rajesh Kumar', ticketsHandled: 34, avgFRT: '8 min', slaCompliance: 100, withinSLA: 34, breached: 0, trend: 'up' },
     { teamName: 'Database', agent: 'Sneha Reddy', ticketsHandled: 56, avgFRT: '22 min', slaCompliance: 92.9, withinSLA: 52, breached: 4, trend: 'down' },
     { teamName: 'Desktop Support', agent: 'Vikram Singh', ticketsHandled: 167, avgFRT: '35 min', slaCompliance: 89.2, withinSLA: 149, breached: 18, trend: 'down' }
-  ]
-
-  const timeDistribution: TimeDistribution[] = [
-    { range: '0-5 minutes', count: 89, percentage: 17.0, priority: 'P0' },
-    { range: '5-15 minutes', count: 156, percentage: 29.8, priority: 'P0, P1' },
-    { range: '15-30 minutes', count: 178, percentage: 34.0, priority: 'P1, P2' },
-    { range: '30-60 minutes', count: 67, percentage: 12.8, priority: 'P2' },
-    { range: '1-2 hours', count: 23, percentage: 4.4, priority: 'P2, P3' },
-    { range: '2-4 hours', count: 8, percentage: 1.5, priority: 'P3' },
-    { range: '4+ hours', count: 2, percentage: 0.4, priority: 'Breached' }
   ]
 
   const currentWeek = frtMetrics[frtMetrics.length - 1]
@@ -150,6 +173,19 @@ export default function FirstResponseTime() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading first response time analytics…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">

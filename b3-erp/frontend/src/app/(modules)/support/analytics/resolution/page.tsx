@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Clock, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Download, Filter } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface ResolutionMetric {
   period: string
@@ -37,6 +38,39 @@ interface BottleneckAnalysis {
 
 export default function ResolutionAnalytics() {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month')
+  const [bottleneckAnalysis, setBottleneckAnalysis] = useState<BottleneckAnalysis[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getOmnichannel()
+        // Omnichannel conversations; only stage-bearing records map to bottleneck rows.
+        const mapped: BottleneckAnalysis[] = raw
+          .filter((r: any) => r?.stage)
+          .map((r: any) => ({
+            stage: r.stage ?? '',
+            avgTime: r.avgTime ?? '',
+            percentage: r.percentage ?? 0,
+            tickets: r.tickets ?? 0,
+            status: (r.status ?? 'good') as BottleneckAnalysis['status'],
+          }))
+        if (!cancelled) setBottleneckAnalysis(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setBottleneckAnalysis([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const resolutionMetrics: ResolutionMetric[] = [
     { period: 'Week 1', avgResolution: 6.2, target: 8.0, totalResolved: 124, withinSLA: 118, breached: 6, p0: 2.1, p1: 4.5, p2: 7.8, p3: 12.5 },
@@ -52,14 +86,6 @@ export default function ResolutionAnalytics() {
     { category: 'Access & Permissions', avgResolution: '2.1 hrs', target: '4 hrs', efficiency: 98.5, resolved: 67, firstTimeFixed: 66, reopened: 1, trend: 'up' },
     { category: 'Email Issues', avgResolution: '3.4 hrs', target: '6 hrs', efficiency: 93.3, resolved: 45, firstTimeFixed: 42, reopened: 3, trend: 'stable' },
     { category: 'Security Incidents', avgResolution: '1.8 hrs', target: '2 hrs', efficiency: 100, resolved: 23, firstTimeFixed: 23, reopened: 0, trend: 'up' }
-  ]
-
-  const bottleneckAnalysis: BottleneckAnalysis[] = [
-    { stage: 'Initial Assessment', avgTime: '0.8 hrs', percentage: 15.4, tickets: 523, status: 'good' },
-    { stage: 'Diagnosis', avgTime: '1.5 hrs', percentage: 28.8, tickets: 523, status: 'warning' },
-    { stage: 'Solution Implementation', avgTime: '2.1 hrs', percentage: 40.4, tickets: 523, status: 'critical' },
-    { stage: 'Testing & Verification', avgTime: '0.5 hrs', percentage: 9.6, tickets: 523, status: 'good' },
-    { stage: 'Documentation', avgTime: '0.3 hrs', percentage: 5.8, tickets: 523, status: 'good' }
   ]
 
   const currentWeek = resolutionMetrics[resolutionMetrics.length - 1]
@@ -160,6 +186,19 @@ export default function ResolutionAnalytics() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading resolution analytics…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">

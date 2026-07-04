@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileWarning,
   Search,
@@ -17,62 +17,89 @@ import {
   Zap,
   CheckCircle2,
   ChevronRight,
-  MoreVertical
+  MoreVertical,
+  AlertCircle
 } from 'lucide-react';
+import { HrSafetyService, SafetyDrill } from '@/services/hr-safety.service';
 
-// Mock Data
-const emergencyPlans = [
-  {
-    id: 'ERP-001',
-    title: 'Fire Evacuation Plan',
-    icon: Flame,
-    color: 'text-red-600',
-    backgroundColor: 'bg-red-50',
-    status: 'Active',
-    lastReviewed: '2024-01-15',
-    coordinators: ['John Smith', 'Maria Garcia'],
-    priority: 'Critical'
-  },
-  {
-    id: 'ERP-002',
-    title: 'Chemical Spill Response',
-    icon: Droplets,
-    color: 'text-amber-600',
-    backgroundColor: 'bg-amber-50',
-    status: 'Under Review',
-    lastReviewed: '2023-11-20',
-    coordinators: ['Sam Taylor'],
-    priority: 'High'
-  },
-  {
-    id: 'ERP-003',
-    title: 'Medical Emergency Protocol',
-    icon: Stethoscope,
-    color: 'text-blue-600',
-    backgroundColor: 'bg-blue-50',
-    status: 'Active',
-    lastReviewed: '2024-02-10',
-    coordinators: ['Emma Blunt', 'Robert Smith'],
-    priority: 'High'
-  },
-  {
-    id: 'ERP-004',
-    title: 'Power Outage & Machinery Safety',
-    icon: Zap,
-    color: 'text-orange-600',
-    backgroundColor: 'bg-orange-50',
-    status: 'Revision Needed',
-    lastReviewed: '2023-06-05',
-    coordinators: ['David Miller'],
-    priority: 'Medium'
-  }
-];
+interface EmergencyPlan {
+  id: string;
+  title: string;
+  icon: any;
+  color: string;
+  backgroundColor: string;
+  status: string;
+  lastReviewed: string;
+  coordinators: string[];
+  priority: string;
+}
 
 export default function EmergencyPlansPage() {
-  const [selectedPlan, setSelectedPlan] = useState<any>(emergencyPlans[0]);
+  const [emergencyPlans, setEmergencyPlans] = useState<EmergencyPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<EmergencyPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getDrills('plan');
+        const mapped: EmergencyPlan[] = rows.map((row: SafetyDrill) => {
+          const meta = (row.meta || {}) as any;
+          const coordinators = Array.isArray(meta.coordinators)
+            ? meta.coordinators
+            : row.coordinator
+              ? [row.coordinator]
+              : [];
+          return {
+            id: String(row.code ?? row.id ?? ''),
+            title: row.name ?? row.drillType ?? '',
+            icon: ShieldAlert,
+            color: meta.color ?? 'text-orange-600',
+            backgroundColor: meta.backgroundColor ?? 'bg-orange-50',
+            status: row.status ?? '',
+            lastReviewed: row.conductedDate ?? row.scheduledDate ?? '',
+            coordinators,
+            priority: meta.priority ?? '',
+          };
+        });
+        if (!cancelled) {
+          setEmergencyPlans(mapped);
+          setSelectedPlan(mapped[0] ?? null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load emergency plans');
+          setEmergencyPlans([]);
+          setSelectedPlan(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading emergency plans…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
@@ -105,7 +132,7 @@ export default function EmergencyPlansPage() {
               <div
                 key={plan.id}
                 onClick={() => setSelectedPlan(plan)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer group flex items-start justify-between ${selectedPlan.id === plan.id
+                className={`p-4 rounded-xl border transition-all cursor-pointer group flex items-start justify-between ${selectedPlan?.id === plan.id
                     ? 'bg-orange-50 border-orange-200 shadow-sm'
                     : 'bg-white border-gray-100 hover:border-orange-100'
                   }`}
@@ -115,11 +142,11 @@ export default function EmergencyPlansPage() {
                     <plan.icon className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className={`font-bold text-sm ${selectedPlan.id === plan.id ? 'text-orange-900' : 'text-gray-900'}`}>{plan.title}</h3>
+                    <h3 className={`font-bold text-sm ${selectedPlan?.id === plan.id ? 'text-orange-900' : 'text-gray-900'}`}>{plan.title}</h3>
                     <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-tighter">ID: {plan.id} · {plan.status}</p>
                   </div>
                 </div>
-                <ChevronRight className={`w-4 h-4 mt-1 transition-transform ${selectedPlan.id === plan.id ? 'translate-x-1 text-orange-400' : 'text-gray-300'}`} />
+                <ChevronRight className={`w-4 h-4 mt-1 transition-transform ${selectedPlan?.id === plan.id ? 'translate-x-1 text-orange-400' : 'text-gray-300'}`} />
               </div>
             ))}
           </div>
@@ -140,6 +167,7 @@ export default function EmergencyPlansPage() {
 
         {/* Plan Detail View */}
         <div className="lg:col-span-2 space-y-3">
+          {selectedPlan && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden text-sm">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -227,6 +255,7 @@ export default function EmergencyPlansPage() {
               <button className="px-6 py-2 bg-gray-900 text-white rounded-lg text-xs font-bold shadow-sm hover:bg-black transition-colors uppercase tracking-widest">Acknowledge Training</button>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>
