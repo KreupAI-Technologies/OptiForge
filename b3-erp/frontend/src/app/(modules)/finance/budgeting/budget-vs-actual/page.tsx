@@ -85,156 +85,6 @@ export default function BudgetVsActualPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const _unusedSample: BudgetLine[] = [
-    // Revenue
-    {
-      category: 'Revenue',
-      subcategory: 'Product Sales',
-      budgeted: 8000000,
-      actual: 8500000,
-      variance: 500000,
-      variancePercent: 6.25,
-      ytdBudgeted: 8000000,
-      ytdActual: 8500000,
-      ytdVariance: 500000,
-      ytdVariancePercent: 6.25
-    },
-    {
-      category: 'Revenue',
-      subcategory: 'Service Income',
-      budgeted: 2000000,
-      actual: 1800000,
-      variance: -200000,
-      variancePercent: -10.0,
-      ytdBudgeted: 2000000,
-      ytdActual: 1800000,
-      ytdVariance: -200000,
-      ytdVariancePercent: -10.0
-    },
-    {
-      category: 'Revenue',
-      subcategory: 'Other Income',
-      budgeted: 500000,
-      actual: 600000,
-      variance: 100000,
-      variancePercent: 20.0,
-      ytdBudgeted: 500000,
-      ytdActual: 600000,
-      ytdVariance: 100000,
-      ytdVariancePercent: 20.0
-    },
-    // COGS
-    {
-      category: 'Cost of Goods Sold',
-      subcategory: 'Raw Materials',
-      budgeted: 3000000,
-      actual: 3200000,
-      variance: -200000,
-      variancePercent: -6.67,
-      ytdBudgeted: 3000000,
-      ytdActual: 3200000,
-      ytdVariance: -200000,
-      ytdVariancePercent: -6.67
-    },
-    {
-      category: 'Cost of Goods Sold',
-      subcategory: 'Direct Labor',
-      budgeted: 1500000,
-      actual: 1450000,
-      variance: 50000,
-      variancePercent: 3.33,
-      ytdBudgeted: 1500000,
-      ytdActual: 1450000,
-      ytdVariance: 50000,
-      ytdVariancePercent: 3.33
-    },
-    {
-      category: 'Cost of Goods Sold',
-      subcategory: 'Manufacturing Overhead',
-      budgeted: 800000,
-      actual: 850000,
-      variance: -50000,
-      variancePercent: -6.25,
-      ytdBudgeted: 800000,
-      ytdActual: 850000,
-      ytdVariance: -50000,
-      ytdVariancePercent: -6.25
-    },
-    // Operating Expenses
-    {
-      category: 'Operating Expenses',
-      subcategory: 'Salaries & Wages',
-      budgeted: 2000000,
-      actual: 1950000,
-      variance: 50000,
-      variancePercent: 2.5,
-      ytdBudgeted: 2000000,
-      ytdActual: 1950000,
-      ytdVariance: 50000,
-      ytdVariancePercent: 2.5
-    },
-    {
-      category: 'Operating Expenses',
-      subcategory: 'Rent & Utilities',
-      budgeted: 500000,
-      actual: 520000,
-      variance: -20000,
-      variancePercent: -4.0,
-      ytdBudgeted: 500000,
-      ytdActual: 520000,
-      ytdVariance: -20000,
-      ytdVariancePercent: -4.0
-    },
-    {
-      category: 'Operating Expenses',
-      subcategory: 'Marketing & Advertising',
-      budgeted: 600000,
-      actual: 550000,
-      variance: 50000,
-      variancePercent: 8.33,
-      ytdBudgeted: 600000,
-      ytdActual: 550000,
-      ytdVariance: 50000,
-      ytdVariancePercent: 8.33
-    },
-    {
-      category: 'Operating Expenses',
-      subcategory: 'Administrative Expenses',
-      budgeted: 400000,
-      actual: 430000,
-      variance: -30000,
-      variancePercent: -7.5,
-      ytdBudgeted: 400000,
-      ytdActual: 430000,
-      ytdVariance: -30000,
-      ytdVariancePercent: -7.5
-    },
-    // Financial Expenses
-    {
-      category: 'Financial Expenses',
-      subcategory: 'Interest Expense',
-      budgeted: 200000,
-      actual: 195000,
-      variance: 5000,
-      variancePercent: 2.5,
-      ytdBudgeted: 200000,
-      ytdActual: 195000,
-      ytdVariance: 5000,
-      ytdVariancePercent: 2.5
-    },
-    {
-      category: 'Financial Expenses',
-      subcategory: 'Bank Charges',
-      budgeted: 50000,
-      actual: 48000,
-      variance: 2000,
-      variancePercent: 4.0,
-      ytdBudgeted: 50000,
-      ytdActual: 48000,
-      ytdVariance: 2000,
-      ytdVariancePercent: 4.0
-    }
-  ];
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => ({
@@ -396,6 +246,12 @@ export default function BudgetVsActualPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 p-3">
       <div className="w-full space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">Loading budget data…</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

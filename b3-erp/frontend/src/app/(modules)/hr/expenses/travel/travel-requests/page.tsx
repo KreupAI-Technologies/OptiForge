@@ -43,122 +43,23 @@ export default function TravelRequestsPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
 
-    const requests: TravelRequest[] = [
-        {
-            id: '1',
-            requestId: 'TR-2025-001',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            purpose: 'Annual HR Conference 2025',
-            travelType: 'Domestic',
-            fromLocation: 'Bangalore',
-            toLocation: 'Mumbai',
-            departureDate: '2025-02-20',
-            returnDate: '2025-02-23',
-            estimatedCost: 75000,
-            status: 'HR Approved',
-            approvalLevel: 'All approvals complete',
-            travelers: 1,
-            accommodation: true,
-            transport: ['Flight', 'Cab']
-        },
-        {
-            id: '2',
-            requestId: 'TR-2025-002',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            purpose: 'Factory Audit - Chennai Plant',
-            travelType: 'Domestic',
-            fromLocation: 'Bangalore',
-            toLocation: 'Chennai',
-            departureDate: '2025-02-25',
-            returnDate: '2025-02-26',
-            estimatedCost: 25000,
-            status: 'Manager Approved',
-            approvalLevel: 'Pending HR approval',
-            travelers: 2,
-            accommodation: true,
-            transport: ['Flight', 'Cab']
-        },
-        {
-            id: '3',
-            requestId: 'TR-2025-003',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            purpose: 'Tech Summit Singapore',
-            travelType: 'International',
-            fromLocation: 'Bangalore',
-            toLocation: 'Singapore',
-            departureDate: '2025-03-10',
-            returnDate: '2025-03-15',
-            estimatedCost: 250000,
-            status: 'Submitted',
-            approvalLevel: 'Pending manager approval',
-            travelers: 1,
-            accommodation: true,
-            transport: ['Flight', 'Cab']
-        },
-        {
-            id: '4',
-            requestId: 'TR-2025-004',
-            employeeId: 'EMP010',
-            employeeName: 'Priya Sharma',
-            department: 'Sales',
-            purpose: 'Client Meeting - Delhi',
-            travelType: 'Domestic',
-            fromLocation: 'Bangalore',
-            toLocation: 'Delhi',
-            departureDate: '2025-02-18',
-            returnDate: '2025-02-19',
-            estimatedCost: 35000,
-            status: 'HR Approved',
-            approvalLevel: 'All approvals complete',
-            travelers: 1,
-            accommodation: true,
-            transport: ['Flight', 'Cab']
-        },
-        {
-            id: '5',
-            requestId: 'TR-2025-005',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            purpose: 'Quality Training Program',
-            travelType: 'Domestic',
-            fromLocation: 'Bangalore',
-            toLocation: 'Pune',
-            departureDate: '2025-03-01',
-            returnDate: '2025-03-05',
-            estimatedCost: 55000,
-            status: 'Rejected',
-            approvalLevel: 'Rejected by manager',
-            travelers: 1,
-            accommodation: true,
-            transport: ['Train', 'Cab']
-        },
-        {
-            id: '6',
-            requestId: 'TR-2025-006',
-            employeeId: 'EMP008',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            purpose: 'Vendor Visit - Hyderabad',
-            travelType: 'Domestic',
-            fromLocation: 'Bangalore',
-            toLocation: 'Hyderabad',
-            departureDate: '2025-02-28',
-            returnDate: '2025-02-28',
-            estimatedCost: 8000,
-            status: 'Draft',
-            approvalLevel: 'Not submitted',
-            travelers: 1,
-            accommodation: false,
-            transport: ['Train']
-        }
-    ];
+    const [requests, setRequests] = useState<TravelRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        setIsLoading(true); setLoadError(null);
+        try {
+          const raw = await HrExpensesService.getTravelRequests();
+          const mapped: TravelRequest[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+          if (!cancelled) setRequests(mapped);
+        } catch (err) {
+          if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setRequests([]); }
+        } finally { if (!cancelled) setIsLoading(false); }
+      })();
+      return () => { cancelled = true; };
+    }, []);
 
     const filteredRequests = requests.filter(request => {
         const matchesSearch = request.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -205,6 +106,8 @@ export default function TravelRequestsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
+            {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+            {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
             <div className="w-full space-y-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
