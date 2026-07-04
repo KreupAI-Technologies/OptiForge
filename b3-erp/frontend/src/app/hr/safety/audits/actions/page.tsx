@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle,
   Search,
@@ -11,10 +11,12 @@ import {
   Clock,
   User,
   AlertTriangle,
+  AlertCircle,
   History,
   CheckCheck,
   ExternalLink
 } from 'lucide-react';
+import { HrSafetyService, SafetyInspection } from '@/services/hr-safety.service';
 
 // Mock Data
 const actionStats = {
@@ -24,51 +26,58 @@ const actionStats = {
   avgClosureTime: '5.2 days'
 };
 
-const correctiveActions = [
-  {
-    id: 'CAPA-00456',
-    title: 'Install Permanent Barriers - Area G',
-    source: 'FND-2024-056',
-    owner: 'David Miller',
-    dueDate: '2024-04-25',
-    progress: 35,
-    status: 'In Progress',
-    priority: 'Critical'
-  },
-  {
-    id: 'CAPA-00457',
-    title: 'Replace Defective MSDS Binder',
-    source: 'FND-2024-057',
-    owner: 'Emma Watson',
-    dueDate: '2024-04-18',
-    progress: 90,
-    status: 'Pending Verification',
-    priority: 'Minor'
-  },
-  {
-    id: 'CAPA-00458',
-    title: 'Conduct Site-wide LOTO Retraining',
-    source: 'Safety Committee Meeting',
-    owner: 'Robert Chen',
-    dueDate: '2024-05-02',
-    progress: 0,
-    status: 'Not Started',
-    priority: 'Major'
-  },
-  {
-    id: 'CAPA-00455',
-    title: 'Repair Ventilation Unit 4X',
-    source: 'HSE Inspection',
-    owner: 'Sam Green',
-    dueDate: '2024-04-05',
-    progress: 100,
-    status: 'Completed',
-    priority: 'Major'
-  },
-];
+interface ActionItem {
+  id: string;
+  title: string;
+  source: string;
+  owner: string;
+  dueDate: string;
+  progress: number;
+  status: string;
+  priority: string;
+}
 
 export default function CorrectiveActionsPage() {
   const [activeTab, setActiveTab] = useState('Active');
+  const [correctiveActions, setCorrectiveActions] = useState<ActionItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getInspections('action');
+        const mapped: ActionItem[] = rows.map((row: SafetyInspection) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            source: meta.source ?? row.code ?? '',
+            owner: row.assignedTo ?? row.auditor ?? '',
+            dueDate: row.dueDate ?? '',
+            progress: Number(meta.progress ?? row.score ?? 0) || 0,
+            status: row.status ?? '',
+            priority: row.priority ?? row.severity ?? '',
+          };
+        });
+        if (!cancelled) setCorrectiveActions(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load corrective actions');
+          setCorrectiveActions([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -86,6 +95,19 @@ export default function CorrectiveActionsPage() {
           Create Action
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading corrective actions…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

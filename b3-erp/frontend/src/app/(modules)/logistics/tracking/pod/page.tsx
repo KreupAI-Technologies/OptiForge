@@ -38,208 +38,58 @@ export default function ProofOfDeliveryPage() {
   const [podTypeFilter, setPodTypeFilter] = useState<string>('all');
   const [selectedPOD, setSelectedPOD] = useState<ProofOfDelivery | null>(null);
 
-  const podRecords: ProofOfDelivery[] = [
-    {
-      id: '1',
-      shipmentNo: 'OB-2025-0534',
-      trackingNumber: 'TRK-CHN-2025-4524',
-      orderNo: 'SO-2025-1237',
-      customer: 'Global Traders Inc',
-      deliveryAddress: 'Plot 45, Industrial Area, Pune, Maharashtra - 411001',
-      deliveredDate: '2025-10-23',
-      deliveredTime: '15:45',
-      receiverName: 'Ramesh Kumar',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-98765-43210',
-      deliveryAgent: 'Vijay Singh',
-      agentId: 'DA-CHN-2025',
-      items: 20,
-      totalWeight: 890,
-      vehicleNo: 'TN-04-GH-3456',
-      podType: 'signature',
-      images: ['delivery_photo_1.jpg', 'package_condition.jpg'],
-      notes: 'Delivery completed successfully. All packages in good condition.',
-      condition: 'good',
-      verificationStatus: 'verified',
-      verifiedBy: 'Logistics Manager',
-      verifiedDate: '2025-10-23 16:30'
-    },
-    {
-      id: '2',
-      shipmentNo: 'OB-2025-0538',
-      trackingNumber: 'TRK-CHN-2025-4528',
-      orderNo: 'SO-2025-1241',
-      customer: 'Southern Suppliers',
-      deliveryAddress: '78, MG Road, Kochi, Kerala - 682001',
-      deliveredDate: '2025-10-22',
-      deliveredTime: '16:30',
-      receiverName: 'Suresh Menon',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-99876-54321',
-      deliveryAgent: 'Arun Nair',
-      agentId: 'DA-CHN-2031',
-      items: 14,
-      totalWeight: 410,
-      vehicleNo: 'KL-07-BC-5678',
-      podType: 'photo',
-      images: ['delivery_photo_2.jpg', 'receiver_id.jpg', 'package_stack.jpg'],
-      notes: 'Contactless delivery due to COVID protocols. Photos captured.',
-      condition: 'good',
-      verificationStatus: 'verified',
-      verifiedBy: 'Operations Head',
-      verifiedDate: '2025-10-22 17:15'
-    },
-    {
-      id: '3',
-      shipmentNo: 'OB-2025-0542',
-      trackingNumber: 'TRK-CHN-2025-4532',
-      orderNo: 'SO-2025-1245',
-      customer: 'Apex Engineering',
-      deliveryAddress: 'Unit 12, Tech Park, Hyderabad, Telangana - 500081',
-      deliveredDate: '2025-10-21',
-      deliveredTime: '14:20',
-      receiverName: 'Prakash Reddy',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-98234-56789',
-      deliveryAgent: 'Mohan Rao',
-      agentId: 'DA-CHN-2018',
-      items: 18,
-      totalWeight: 625,
-      vehicleNo: 'TN-01-EF-7890',
-      podType: 'otp',
-      images: ['otp_verification.jpg'],
-      notes: 'OTP verified successfully. Quick delivery process.',
-      condition: 'good',
-      verificationStatus: 'verified',
-      verifiedBy: 'Warehouse Manager',
-      verifiedDate: '2025-10-21 15:00'
-    },
-    {
-      id: '4',
-      shipmentNo: 'OB-2025-0545',
-      trackingNumber: 'TRK-CHN-2025-4535',
-      orderNo: 'SO-2025-1248',
-      customer: 'Metro Manufacturing',
-      deliveryAddress: '23, Industrial Estate, Bangalore, Karnataka - 560045',
-      deliveredDate: '2025-10-20',
-      deliveredTime: '11:30',
-      receiverName: 'Lakshmi Iyer',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-97123-45678',
-      deliveryAgent: 'Rajesh Kumar',
-      agentId: 'DA-CHN-2003',
-      items: 12,
-      totalWeight: 450,
-      vehicleNo: 'TN-01-AB-1234',
-      podType: 'signature',
-      images: ['delivery_complete.jpg', 'signed_invoice.jpg'],
-      notes: 'Delivered to warehouse receiving dock. Invoice signed.',
-      condition: 'good',
-      verificationStatus: 'verified',
-      verifiedBy: 'Senior Manager',
-      verifiedDate: '2025-10-20 12:15'
-    },
-    {
-      id: '5',
-      shipmentNo: 'OB-2025-0548',
-      trackingNumber: 'TRK-CHN-2025-4538',
-      orderNo: 'SO-2025-1251',
-      customer: 'Precision Tools Ltd',
-      deliveryAddress: '56, Phase II, Noida, Uttar Pradesh - 201301',
-      deliveredDate: '2025-10-19',
-      deliveredTime: '13:45',
-      receiverName: 'Amit Sharma',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-96543-21098',
-      deliveryAgent: 'Vikram Singh',
-      agentId: 'DA-CHN-2012',
-      items: 16,
-      totalWeight: 520,
-      vehicleNo: 'UP-16-CD-2345',
-      podType: 'contactless',
-      images: ['contactless_delivery.jpg', 'package_location.jpg'],
-      notes: 'Left at designated location as per customer instructions.',
-      condition: 'good',
-      verificationStatus: 'verified',
-      verifiedBy: 'QC Team',
-      verifiedDate: '2025-10-19 14:30'
-    },
-    {
-      id: '6',
-      shipmentNo: 'OB-2025-0551',
-      trackingNumber: 'TRK-CHN-2025-4541',
-      orderNo: 'SO-2025-1254',
-      customer: 'Central Distributors',
-      deliveryAddress: '89, Market Road, Indore, Madhya Pradesh - 452001',
-      deliveredDate: '2025-10-18',
-      deliveredTime: '10:15',
-      receiverName: 'Deepak Jain',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-95432-10987',
-      deliveryAgent: 'Sanjay Patel',
-      agentId: 'DA-CHN-2027',
-      items: 22,
-      totalWeight: 780,
-      vehicleNo: 'MP-09-GH-3456',
-      podType: 'signature',
-      images: ['delivery_receipt.jpg', 'unloading_process.jpg'],
-      notes: 'Large shipment delivered. Customer assisted in unloading.',
-      condition: 'good',
-      verificationStatus: 'pending',
-      verifiedBy: '',
-      verifiedDate: ''
-    },
-    {
-      id: '7',
-      shipmentNo: 'OB-2025-0553',
-      trackingNumber: 'TRK-CHN-2025-4543',
-      orderNo: 'SO-2025-1256',
-      customer: 'Tech Solutions Inc',
-      deliveryAddress: '34, Sector 62, Gurgaon, Haryana - 122001',
-      deliveredDate: '2025-10-17',
-      deliveredTime: '16:50',
-      receiverName: 'Priya Malhotra',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-94321-87654',
-      deliveryAgent: 'Harish Kumar',
-      agentId: 'DA-CHN-2035',
-      items: 9,
-      totalWeight: 285,
-      vehicleNo: 'HR-26-IJ-4567',
-      podType: 'photo',
-      images: ['damaged_box.jpg', 'condition_report.jpg'],
-      notes: 'Minor damage to outer packaging. Contents verified intact.',
-      condition: 'damaged',
-      verificationStatus: 'disputed',
-      verifiedBy: 'Claims Team',
-      verifiedDate: '2025-10-18 09:30'
-    },
-    {
-      id: '8',
-      shipmentNo: 'OB-2025-0556',
-      trackingNumber: 'TRK-CHN-2025-4546',
-      orderNo: 'SO-2025-1259',
-      customer: 'Eastern Electronics',
-      deliveryAddress: '12, Park Street, Kolkata, West Bengal - 700016',
-      deliveredDate: '2025-10-16',
-      deliveredTime: '12:30',
-      receiverName: 'Abhijit Sen',
-      receiverSignature: 'Available',
-      receiverPhone: '+91-93210-98765',
-      deliveryAgent: 'Ravi Das',
-      agentId: 'DA-CHN-2041',
-      items: 15,
-      totalWeight: 495,
-      vehicleNo: 'WB-01-KL-5678',
-      podType: 'otp',
-      images: ['otp_screen.jpg', 'delivery_confirmation.jpg'],
-      notes: 'Express delivery completed ahead of schedule.',
-      condition: 'good',
-      verificationStatus: 'verified',
-      verifiedBy: 'Delivery Supervisor',
-      verifiedDate: '2025-10-16 13:00'
-    }
-  ];
+  const [podRecords, setPodRecords] = useState<ProofOfDelivery[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getShipments()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: ProofOfDelivery[] = list.map((r, idx) => ({
+          id: r?.id ?? String(idx + 1),
+          shipmentNo: r?.shipmentNo ?? '',
+          trackingNumber: r?.trackingNumber ?? '',
+          orderNo: r?.orderNo ?? '',
+          customer: r?.customer ?? '',
+          deliveryAddress: r?.deliveryAddress ?? '',
+          deliveredDate: r?.deliveredDate ?? '',
+          deliveredTime: r?.deliveredTime ?? '',
+          receiverName: r?.receiverName ?? '',
+          receiverSignature: r?.receiverSignature ?? '',
+          receiverPhone: r?.receiverPhone ?? '',
+          deliveryAgent: r?.deliveryAgent ?? '',
+          agentId: r?.agentId ?? '',
+          items: Number(r?.items ?? 0),
+          totalWeight: Number(r?.totalWeight ?? 0),
+          vehicleNo: r?.vehicleNo ?? '',
+          podType: (r?.podType ?? 'signature') as ProofOfDelivery['podType'],
+          images: Array.isArray(r?.images) ? r.images : [],
+          notes: r?.notes ?? '',
+          condition: (r?.condition ?? 'good') as ProofOfDelivery['condition'],
+          verificationStatus: (r?.verificationStatus ?? 'pending') as ProofOfDelivery['verificationStatus'],
+          verifiedBy: r?.verifiedBy ?? '',
+          verifiedDate: r?.verifiedDate ?? '',
+        }));
+        if (!cancelled) setPodRecords(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load POD records');
+          setPodRecords([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const podStats = {
     total: podRecords.length,
@@ -305,6 +155,19 @@ export default function ProofOfDeliveryPage() {
           <p className="text-sm text-gray-500 mt-1">Digital delivery confirmations and signatures</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 mb-3">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading proof of delivery…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-3">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-3">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-3 shadow-sm">

@@ -38,98 +38,40 @@ export default function DailyPunchPage() {
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [departmentFilter, setDepartmentFilter] = useState('all');
 
-    const punches: DailyPunch[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            date: '2025-01-31',
-            punchIn: '08:55',
-            punchOut: '18:10',
-            totalHours: '9h 15m',
-            status: 'Present',
-            location: 'Main Office',
-            deviceType: 'Biometric',
-            breakTime: 60,
-            overtimeHours: 0.25
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            date: '2025-01-31',
-            punchIn: '09:15',
-            punchOut: '18:30',
-            totalHours: '9h 15m',
-            status: 'Late',
-            location: 'Production Floor',
-            deviceType: 'Biometric',
-            breakTime: 30,
-            overtimeHours: 0.5
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            date: '2025-01-31',
-            punchIn: '09:00',
-            punchOut: '13:00',
-            totalHours: '4h 0m',
-            status: 'Half Day',
-            location: 'QA Lab',
-            deviceType: 'Web',
-            breakTime: 0,
-            overtimeHours: 0
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            date: '2025-01-31',
-            punchIn: null,
-            punchOut: null,
-            totalHours: null,
-            status: 'Absent',
-            location: '-',
-            deviceType: 'Biometric',
-            breakTime: 0,
-            overtimeHours: 0
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            date: '2025-01-31',
-            punchIn: '08:50',
-            punchOut: '18:00',
-            totalHours: '9h 10m',
-            status: 'Present',
-            location: 'Main Office',
-            deviceType: 'Mobile',
-            breakTime: 60,
-            overtimeHours: 0.16
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            date: '2025-01-31',
-            punchIn: '09:00',
-            punchOut: null,
-            totalHours: null,
-            status: 'Not Punched',
-            location: 'IT Department',
-            deviceType: 'Web',
-            breakTime: 0,
-            overtimeHours: 0
-        }
-    ];
+    const [punches, setPunches] = useState<DailyPunch[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const res = await fetch(`${TS_API_BASE}/hr/timesheets`, { headers: { 'x-company-id': 'test' }, cache: 'no-store' });
+                if (!res.ok) throw new Error('Failed to load timesheets');
+                const raw = await res.json();
+                const mapped: DailyPunch[] = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => ({
+                    id: String(r?.id ?? i),
+                    employeeId: r?.employeeCode ?? r?.employeeId ?? '',
+                    employeeName: r?.employeeName ?? '',
+                    department: r?.department ?? r?.departmentName ?? '',
+                    date: r?.date ?? '',
+                    punchIn: r?.punchIn ?? r?.checkIn ?? null,
+                    punchOut: r?.punchOut ?? r?.checkOut ?? null,
+                    totalHours: r?.totalHours ?? null,
+                    status: (r?.status as DailyPunch['status']) ?? 'Not Punched',
+                    location: r?.location ?? '-',
+                    deviceType: (r?.deviceType as DailyPunch['deviceType']) ?? 'Web',
+                    breakTime: r?.breakTime ?? 0,
+                    overtimeHours: r?.overtimeHours ?? 0,
+                }));
+                if (!cancelled) setPunches(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setPunches([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(punches.map(p => p.department)));
 
@@ -170,6 +112,8 @@ export default function DailyPunchPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

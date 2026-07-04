@@ -46,169 +46,61 @@ interface TeamComparison {
 export default function TeamPerformance() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('month')
   const [selectedTeam, setSelectedTeam] = useState<string>('All')
+  const [performanceData, setPerformanceData] = useState<TeamPerformanceData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const performanceData: TeamPerformanceData[] = [
-    {
-      agentId: '1',
-      agentName: 'Sarah Johnson',
-      team: 'Infrastructure',
-      avatar: 'SJ',
-      metrics: {
-        ticketsResolved: 127,
-        avgResolutionTime: '2.4h',
-        firstResponseTime: '8 min',
-        customerSatisfaction: 4.9,
-        slaCompliance: 98.5,
-        reopenRate: 2.3,
-        productivityScore: 96
-      },
-      thisMonth: { resolved: 127, avgTime: '2.4h', csat: 4.9 },
-      lastMonth: { resolved: 115, avgTime: '2.8h', csat: 4.7 },
-      trend: 'up',
-      achievements: ['Highest CSAT this month', 'SLA champion', '100+ tickets resolved'],
-      areasForImprovement: ['Documentation could be improved']
-    },
-    {
-      agentId: '2',
-      agentName: 'Michael Chen',
-      team: 'Application Support',
-      avatar: 'MC',
-      metrics: {
-        ticketsResolved: 98,
-        avgResolutionTime: '3.1h',
-        firstResponseTime: '12 min',
-        customerSatisfaction: 4.7,
-        slaCompliance: 95.2,
-        reopenRate: 3.8,
-        productivityScore: 89
-      },
-      thisMonth: { resolved: 98, avgTime: '3.1h', csat: 4.7 },
-      lastMonth: { resolved: 102, avgTime: '2.9h', csat: 4.8 },
-      trend: 'down',
-      achievements: ['Complex issue resolution expert'],
-      areasForImprovement: ['Response time needs improvement', 'Reduce reopen rate']
-    },
-    {
-      agentId: '3',
-      agentName: 'Emily Davis',
-      team: 'Security',
-      avatar: 'ED',
-      metrics: {
-        ticketsResolved: 82,
-        avgResolutionTime: '1.8h',
-        firstResponseTime: '5 min',
-        customerSatisfaction: 5.0,
-        slaCompliance: 99.8,
-        reopenRate: 0.5,
-        productivityScore: 98
-      },
-      thisMonth: { resolved: 82, avgTime: '1.8h', csat: 5.0 },
-      lastMonth: { resolved: 78, avgTime: '2.0h', csat: 5.0 },
-      trend: 'up',
-      achievements: ['Perfect CSAT', 'Fastest response time', 'Lowest reopen rate'],
-      areasForImprovement: []
-    },
-    {
-      agentId: '4',
-      agentName: 'David Kumar',
-      team: 'Network',
-      avatar: 'DK',
-      metrics: {
-        ticketsResolved: 145,
-        avgResolutionTime: '1.5h',
-        firstResponseTime: '7 min',
-        customerSatisfaction: 4.8,
-        slaCompliance: 97.3,
-        reopenRate: 1.8,
-        productivityScore: 94
-      },
-      thisMonth: { resolved: 145, avgTime: '1.5h', csat: 4.8 },
-      lastMonth: { resolved: 140, avgTime: '1.6h', csat: 4.7 },
-      trend: 'up',
-      achievements: ['Most tickets resolved', 'Fastest resolution time'],
-      areasForImprovement: ['Maintain quality while handling volume']
-    },
-    {
-      agentId: '5',
-      agentName: 'Lisa Martinez',
-      team: 'Desktop Support',
-      avatar: 'LM',
-      metrics: {
-        ticketsResolved: 112,
-        avgResolutionTime: '2.8h',
-        firstResponseTime: '15 min',
-        customerSatisfaction: 4.6,
-        slaCompliance: 93.1,
-        reopenRate: 4.2,
-        productivityScore: 85
-      },
-      thisMonth: { resolved: 112, avgTime: '2.8h', csat: 4.6 },
-      lastMonth: { resolved: 108, avgTime: '3.0h', csat: 4.5 },
-      trend: 'up',
-      achievements: ['Consistent improvement'],
-      areasForImprovement: ['Response time', 'SLA compliance', 'Reduce reopens']
-    },
-    {
-      agentId: '6',
-      agentName: 'Robert Brown',
-      team: 'Database',
-      avatar: 'RB',
-      metrics: {
-        ticketsResolved: 56,
-        avgResolutionTime: '4.2h',
-        firstResponseTime: '10 min',
-        customerSatisfaction: 4.9,
-        slaCompliance: 96.8,
-        reopenRate: 1.2,
-        productivityScore: 92
-      },
-      thisMonth: { resolved: 56, avgTime: '4.2h', csat: 4.9 },
-      lastMonth: { resolved: 58, avgTime: '4.1h', csat: 4.9 },
-      trend: 'stable',
-      achievements: ['High complexity resolution expert'],
-      areasForImprovement: ['Volume could be increased']
-    },
-    {
-      agentId: '7',
-      agentName: 'Anna Lee',
-      team: 'Application Support',
-      avatar: 'AL',
-      metrics: {
-        ticketsResolved: 134,
-        avgResolutionTime: '2.2h',
-        firstResponseTime: '9 min',
-        customerSatisfaction: 4.8,
-        slaCompliance: 97.8,
-        reopenRate: 2.1,
-        productivityScore: 95
-      },
-      thisMonth: { resolved: 134, avgTime: '2.2h', csat: 4.8 },
-      lastMonth: { resolved: 125, avgTime: '2.4h', csat: 4.7 },
-      trend: 'up',
-      achievements: ['Top performer', 'Excellent balance of speed and quality'],
-      areasForImprovement: []
-    },
-    {
-      agentId: '8',
-      agentName: 'Tom Wilson',
-      team: 'Infrastructure',
-      avatar: 'TW',
-      metrics: {
-        ticketsResolved: 119,
-        avgResolutionTime: '2.6h',
-        firstResponseTime: '11 min',
-        customerSatisfaction: 4.7,
-        slaCompliance: 96.2,
-        reopenRate: 2.9,
-        productivityScore: 91
-      },
-      thisMonth: { resolved: 119, avgTime: '2.6h', csat: 4.7 },
-      lastMonth: { resolved: 115, avgTime: '2.7h', csat: 4.6 },
-      trend: 'up',
-      achievements: ['Consistent performer'],
-      areasForImprovement: ['Response time optimization']
-    }
-  ]
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getTeamAgents()
+        const mapped: TeamPerformanceData[] = raw.map((r: any, i: number) => {
+          const name: string = r.agentName ?? r.name ?? ''
+          const m = r.metrics ?? {}
+          return {
+            agentId: String(r.agentId ?? r.id ?? i),
+            agentName: name,
+            team: r.team ?? '',
+            avatar: r.avatar ?? (name ? name.split(' ').map((p: string) => p[0]).join('').slice(0, 2).toUpperCase() : '?'),
+            metrics: {
+              ticketsResolved: m.ticketsResolved ?? r.ticketsResolved ?? 0,
+              avgResolutionTime: m.avgResolutionTime ?? r.avgResolutionTime ?? '',
+              firstResponseTime: m.firstResponseTime ?? r.firstResponseTime ?? '',
+              customerSatisfaction: m.customerSatisfaction ?? r.customerSatisfaction ?? 0,
+              slaCompliance: m.slaCompliance ?? r.slaCompliance ?? 0,
+              reopenRate: m.reopenRate ?? r.reopenRate ?? 0,
+              productivityScore: m.productivityScore ?? r.productivityScore ?? 0,
+            },
+            thisMonth: {
+              resolved: r.thisMonth?.resolved ?? 0,
+              avgTime: r.thisMonth?.avgTime ?? '',
+              csat: r.thisMonth?.csat ?? 0,
+            },
+            lastMonth: {
+              resolved: r.lastMonth?.resolved ?? 0,
+              avgTime: r.lastMonth?.avgTime ?? '',
+              csat: r.lastMonth?.csat ?? 0,
+            },
+            trend: r.trend ?? 'stable',
+            achievements: Array.isArray(r.achievements) ? r.achievements : [],
+            areasForImprovement: Array.isArray(r.areasForImprovement) ? r.areasForImprovement : [],
+          }
+        })
+        if (!cancelled) setPerformanceData(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setPerformanceData([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const teamComparison: TeamComparison[] = [
     { teamName: 'Network', agents: 2, avgResolutionTime: '1.5h', avgCSAT: 4.8, slaCompliance: 97.3, totalResolved: 145, rank: 1 },
@@ -219,14 +111,17 @@ export default function TeamPerformance() {
     { teamName: 'Database', agents: 1, avgResolutionTime: '4.2h', avgCSAT: 4.9, slaCompliance: 96.8, totalResolved: 56, rank: 6 }
   ]
 
+  const hasPerf = performanceData.length > 0
   const overallStats = {
     totalResolved: performanceData.reduce((sum, agent) => sum + agent.metrics.ticketsResolved, 0),
-    avgCSAT: (performanceData.reduce((sum, agent) => sum + agent.metrics.customerSatisfaction, 0) / performanceData.length).toFixed(1),
-    avgSLA: (performanceData.reduce((sum, agent) => sum + agent.metrics.slaCompliance, 0) / performanceData.length).toFixed(1),
-    topPerformer: performanceData.reduce((prev, current) =>
-      current.metrics.productivityScore > prev.metrics.productivityScore ? current : prev
-    ),
-    avgProductivity: (performanceData.reduce((sum, agent) => sum + agent.metrics.productivityScore, 0) / performanceData.length).toFixed(0)
+    avgCSAT: hasPerf ? (performanceData.reduce((sum, agent) => sum + agent.metrics.customerSatisfaction, 0) / performanceData.length).toFixed(1) : '0.0',
+    avgSLA: hasPerf ? (performanceData.reduce((sum, agent) => sum + agent.metrics.slaCompliance, 0) / performanceData.length).toFixed(1) : '0.0',
+    topPerformer: hasPerf
+      ? performanceData.reduce((prev, current) =>
+          current.metrics.productivityScore > prev.metrics.productivityScore ? current : prev
+        )
+      : null,
+    avgProductivity: hasPerf ? (performanceData.reduce((sum, agent) => sum + agent.metrics.productivityScore, 0) / performanceData.length).toFixed(0) : '0'
   }
 
   const filteredData = selectedTeam === 'All'
@@ -261,6 +156,19 @@ export default function TeamPerformance() {
           </select>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading team performance…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Overall Statistics */}
       <div className="grid grid-cols-5 gap-2">
@@ -308,7 +216,7 @@ export default function TeamPerformance() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Top Performer</p>
-              <p className="text-lg font-bold mt-1 truncate">{overallStats.topPerformer.agentName.split(' ')[0]}</p>
+              <p className="text-lg font-bold mt-1 truncate">{overallStats.topPerformer ? overallStats.topPerformer.agentName.split(' ')[0] : '—'}</p>
             </div>
             <Award className="h-8 w-8 text-yellow-600" />
           </div>

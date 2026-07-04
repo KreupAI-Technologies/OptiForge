@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Briefcase,
     Search,
@@ -13,6 +13,8 @@ import {
     ChevronDown,
     ChevronRight
 } from 'lucide-react';
+
+const TS_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface ProjectHours {
     id: string;

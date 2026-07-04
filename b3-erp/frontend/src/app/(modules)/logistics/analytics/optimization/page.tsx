@@ -341,116 +341,51 @@ Timestamp: ${new Date().toLocaleString()}`);
     }
   ]);
 
-  const [routeOptimizations, setRouteOptimizations] = useState<RouteOptimization[]>([
-    {
-      id: 1,
-      routeName: 'Mumbai-Pune-Mumbai',
-      origin: 'Mumbai DC',
-      destination: 'Pune Hub',
-      currentDistance: 148,
-      optimizedDistance: 142,
-      distanceSaving: 6,
-      currentTime: 4.5,
-      optimizedTime: 4.2,
-      timeSaving: 0.3,
-      currentCost: 8880,
-      optimizedCost: 8520,
-      costSaving: 360,
-      savingPercentage: 4.1,
-      recommendation: 'Use NH48 instead of old highway to avoid traffic congestion',
-      status: 'pending'
-    },
-    {
-      id: 2,
-      routeName: 'Delhi-Jaipur-Delhi',
-      origin: 'Delhi Hub',
-      destination: 'Jaipur Center',
-      currentDistance: 268,
-      optimizedDistance: 254,
-      distanceSaving: 14,
-      currentTime: 5.8,
-      optimizedTime: 5.3,
-      timeSaving: 0.5,
-      currentCost: 16080,
-      optimizedCost: 15240,
-      costSaving: 840,
-      savingPercentage: 5.2,
-      recommendation: 'Bypass Gurgaon using Eastern Peripheral Expressway',
-      status: 'pending'
-    },
-    {
-      id: 3,
-      routeName: 'Bangalore-Chennai-Bangalore',
-      origin: 'Bangalore Plant',
-      destination: 'Chennai Port',
-      currentDistance: 346,
-      optimizedDistance: 338,
-      distanceSaving: 8,
-      currentTime: 7.2,
-      optimizedTime: 6.9,
-      timeSaving: 0.3,
-      currentCost: 20760,
-      optimizedCost: 20280,
-      costSaving: 480,
-      savingPercentage: 2.3,
-      recommendation: 'Use NH44 with planned rest stops for better time management',
-      status: 'implemented'
-    },
-    {
-      id: 4,
-      routeName: 'Kolkata-Bhubaneswar-Kolkata',
-      origin: 'Kolkata Depot',
-      destination: 'Bhubaneswar Hub',
-      currentDistance: 442,
-      optimizedDistance: 418,
-      distanceSaving: 24,
-      currentTime: 9.5,
-      optimizedTime: 8.7,
-      timeSaving: 0.8,
-      currentCost: 26520,
-      optimizedCost: 25080,
-      costSaving: 1440,
-      savingPercentage: 5.4,
-      recommendation: 'Use NH16 coastal route with optimized delivery sequence',
-      status: 'pending'
-    },
-    {
-      id: 5,
-      routeName: 'Ahmedabad-Mumbai-Ahmedabad',
-      origin: 'Ahmedabad Hub',
-      destination: 'Mumbai Industrial',
-      currentDistance: 524,
-      optimizedDistance: 496,
-      distanceSaving: 28,
-      currentTime: 9.8,
-      optimizedTime: 9.2,
-      timeSaving: 0.6,
-      currentCost: 31440,
-      optimizedCost: 29760,
-      costSaving: 1680,
-      savingPercentage: 5.3,
-      recommendation: 'Combine with return load to improve utilization',
-      status: 'pending'
-    },
-    {
-      id: 6,
-      routeName: 'Hyderabad-Vijayawada-Hyderabad',
-      origin: 'Hyderabad Workshop',
-      destination: 'Vijayawada Center',
-      currentDistance: 274,
-      optimizedDistance: 262,
-      distanceSaving: 12,
-      currentTime: 6.2,
-      optimizedTime: 5.8,
-      timeSaving: 0.4,
-      currentCost: 16440,
-      optimizedCost: 15720,
-      costSaving: 720,
-      savingPercentage: 4.4,
-      recommendation: 'Avoid city center during peak hours, use bypass',
-      status: 'pending'
-    }
-  ]);
+  const [routeOptimizations, setRouteOptimizations] = useState<RouteOptimization[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await LogisticsService.getRoutes()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: RouteOptimization[] = list.map((r, idx) => ({
+          id: idx + 1,
+          routeName: r?.routeName ?? '',
+          origin: r?.origin ?? '',
+          destination: r?.destination ?? '',
+          currentDistance: Number(r?.currentDistance ?? 0),
+          optimizedDistance: Number(r?.optimizedDistance ?? 0),
+          distanceSaving: Number(r?.distanceSaving ?? 0),
+          currentTime: Number(r?.currentTime ?? 0),
+          optimizedTime: Number(r?.optimizedTime ?? 0),
+          timeSaving: Number(r?.timeSaving ?? 0),
+          currentCost: Number(r?.currentCost ?? 0),
+          optimizedCost: Number(r?.optimizedCost ?? 0),
+          costSaving: Number(r?.costSaving ?? 0),
+          savingPercentage: Number(r?.savingPercentage ?? 0),
+          recommendation: r?.recommendation ?? '',
+          status: (r?.status ?? 'pending') as RouteOptimization['status'],
+        }));
+        if (!cancelled) setRouteOptimizations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load routes');
+          setRouteOptimizations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [loadOptimizations, setLoadOptimizations] = useState<LoadOptimization[]>([
     {
@@ -604,6 +539,19 @@ Timestamp: ${new Date().toLocaleString()}`);
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading routes…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Potential Savings Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
