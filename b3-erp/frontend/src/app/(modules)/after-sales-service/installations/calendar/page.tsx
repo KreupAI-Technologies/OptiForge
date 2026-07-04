@@ -43,89 +43,63 @@ export default function InstallationCalendarPage() {
   const [showInstallationModal, setShowInstallationModal] = useState(false);
   const [selectedInstallation, setSelectedInstallation] = useState<Installation | null>(null);
 
-  // Mock installations data
-  const installations: Record<string, Installation[]> = {
-    '2025-02-18': [
-      {
-        id: '1',
-        jobNumber: 'INS-2025-0012',
-        customerName: 'Sharma Kitchens',
-        time: '09:00',
-        duration: 6,
-        status: 'In Progress',
-        teamLead: 'Rajesh Kumar',
-        equipmentCount: 3
-      },
-      {
-        id: '2',
-        jobNumber: 'INS-2025-0013',
-        customerName: 'City Cafe Express',
-        time: '14:00',
-        duration: 4,
-        status: 'Scheduled',
-        teamLead: 'Amit Patel',
-        equipmentCount: 2
+  const [installations, setInstallations] = useState<Record<string, Installation[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const mapStatus = (s: string): Installation['status'] => {
+      switch ((s || '').toLowerCase()) {
+        case 'in_progress': return 'In Progress';
+        case 'completed': return 'Completed';
+        case 'scheduled':
+        case 'pending':
+        case 'rescheduled':
+        default: return 'Scheduled';
       }
-    ],
-    '2025-02-19': [
-      {
-        id: '3',
-        jobNumber: 'INS-2025-0014',
-        customerName: 'Hotel Grand Plaza',
-        time: '10:00',
-        duration: 8,
-        status: 'Scheduled',
-        teamLead: 'Priya Singh',
-        equipmentCount: 5
+    };
+
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesManagementService.getInstallationsLive()) as any[];
+        const list = Array.isArray(raw) ? raw : [];
+        const grouped: Record<string, Installation[]> = {};
+        list.forEach((r, idx) => {
+          const scheduled = r?.scheduledDate ? new Date(r.scheduledDate) : null;
+          if (!scheduled || isNaN(scheduled.getTime())) return;
+          const dateKey = `${scheduled.getFullYear()}-${String(scheduled.getMonth() + 1).padStart(2, '0')}-${String(scheduled.getDate()).padStart(2, '0')}`;
+          const inst: Installation = {
+            id: r?.id ? String(r.id) : `${idx + 1}`,
+            jobNumber: r?.installationNumber ?? r?.installationCode ?? '',
+            customerName: r?.customerName ?? '',
+            time: r?.scheduledTimeSlot ?? '',
+            duration: Number(r?.estimatedDuration ?? r?.supportPeriod ?? 0),
+            status: mapStatus(r?.status),
+            teamLead: r?.teamLeaderName ?? r?.teamLeaderId ?? '',
+            equipmentCount: Number(r?.equipmentQuantity ?? r?.totalItems ?? 0),
+          };
+          if (!grouped[dateKey]) grouped[dateKey] = [];
+          grouped[dateKey].push(inst);
+        });
+        if (!cancelled) setInstallations(grouped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load installations');
+          setInstallations({});
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    ],
-    '2025-02-20': [
-      {
-        id: '4',
-        jobNumber: 'INS-2025-0015',
-        customerName: 'Paradise Banquet',
-        time: '09:00',
-        duration: 5,
-        status: 'Scheduled',
-        teamLead: 'Rajesh Kumar',
-        equipmentCount: 4
-      }
-    ],
-    '2025-02-21': [
-      {
-        id: '5',
-        jobNumber: 'INS-2025-0016',
-        customerName: 'Royal Restaurant',
-        time: '11:00',
-        duration: 6,
-        status: 'Scheduled',
-        teamLead: 'Suresh Reddy',
-        equipmentCount: 3
-      },
-      {
-        id: '6',
-        jobNumber: 'INS-2025-0017',
-        customerName: 'Green Valley Resorts',
-        time: '15:00',
-        duration: 3,
-        status: 'Scheduled',
-        teamLead: 'Neha Sharma',
-        equipmentCount: 2
-      }
-    ],
-    '2025-02-17': [
-      {
-        id: '7',
-        jobNumber: 'INS-2025-0011',
-        customerName: 'Prestige Developers',
-        time: '10:00',
-        duration: 7,
-        status: 'Completed',
-        teamLead: 'Amit Patel',
-        equipmentCount: 4
-      }
-    ]
-  };
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const engineers = ['All', 'Rajesh Kumar', 'Amit Patel', 'Priya Singh', 'Suresh Reddy', 'Neha Sharma'];
 
@@ -250,6 +224,19 @@ export default function InstallationCalendarPage() {
           <div className="text-xs text-gray-500 mt-1">This month</div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading installations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Calendar Controls */}
       <div className="bg-white p-3 rounded-lg border border-gray-200">

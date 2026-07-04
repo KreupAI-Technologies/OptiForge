@@ -1,18 +1,50 @@
 'use client';
 
-import { Scale, Download, Eye, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Scale, Download, Eye, FileText, AlertCircle } from 'lucide-react';
+import { HrComplianceDocsService } from '@/services/hr-compliance-docs.service';
+
+interface PolicyTopic {
+  id: string;
+  title: string;
+  description: string;
+}
 
 export default function ConductPolicyPage() {
-  const policyTopics = [
-    { id: 1, title: 'Professional Behavior', description: 'Expected standards of workplace conduct' },
-    { id: 2, title: 'Dress Code', description: 'Professional attire guidelines' },
-    { id: 3, title: 'Anti-Harassment Policy', description: 'Zero tolerance for harassment of any kind' },
-    { id: 4, title: 'Conflict of Interest', description: 'Guidelines for avoiding conflicts' },
-    { id: 5, title: 'Confidentiality & Data Protection', description: 'Handling company and client information' },
-    { id: 6, title: 'Social Media Policy', description: 'Guidelines for online presence' },
-    { id: 7, title: 'Substance Abuse Policy', description: 'Workplace substance-free policy' },
-    { id: 8, title: 'Disciplinary Actions', description: 'Consequences for policy violations' }
-  ];
+  const [policyTopics, setPolicyTopics] = useState<PolicyTopic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrComplianceDocsService.getDocuments('policy-conduct');
+        const mapped: PolicyTopic[] = rows.map((row) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            description: meta.description ?? row.remarks ?? '',
+          };
+        });
+        if (!cancelled) setPolicyTopics(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load code of conduct topics');
+          setPolicyTopics([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="w-full h-full px-3 py-2">
@@ -20,6 +52,19 @@ export default function ConductPolicyPage() {
         <h1 className="text-2xl font-bold text-gray-900">Code of Conduct</h1>
         <p className="text-sm text-gray-600 mt-1">Workplace behavior and ethical guidelines</p>
       </div>
+
+      {loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading code of conduct topics…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 border border-purple-200">
