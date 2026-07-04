@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { MasterDataService, MDWarehouse, MDProduct } from '@/services/master-data.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -93,6 +94,46 @@ interface ShipmentForm {
 
 export default function AddShipmentPage() {
   const router = useRouter();
+
+  // Seed fallbacks — kept as unused backup per wiring convention
+  const mockWarehousesSeed = [
+    {
+      code: 'WH-001',
+      name: 'Main Warehouse - Pune',
+      address: 'Plot No. 45, MIDC Industrial Area',
+      city: 'Pune',
+      state: 'Maharashtra',
+      pincode: '411019',
+      contact: 'Suresh Patil',
+      phone: '+91 98765 11111',
+    },
+    {
+      code: 'WH-002',
+      name: 'Distribution Center - Mumbai',
+      address: 'Unit 23, Logistics Park, Bhiwandi',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      pincode: '421302',
+      contact: 'Rajesh Sharma',
+      phone: '+91 98765 22222',
+    },
+  ];
+
+  const mockStockItemsSeed = [
+    { code: 'RM-001', name: 'Steel Sheets - Grade 304', stock: 150, weight: 50, volume: 0.25 },
+    { code: 'RM-002', name: 'Aluminum Rods', stock: 200, weight: 15, volume: 0.08 },
+    { code: 'COMP-001', name: 'Electric Motors - 5HP', stock: 80, weight: 25, volume: 0.15 },
+    { code: 'FG-001', name: 'Finished Panel Assembly', stock: 45, weight: 120, volume: 1.5 },
+  ];
+
+  type WarehouseItem = typeof mockWarehousesSeed[0];
+  type StockItem = typeof mockStockItemsSeed[0];
+
+  const [mockWarehouses, setMockWarehouses] = useState<WarehouseItem[]>(mockWarehousesSeed);
+  const [mockStockItems, setMockStockItems] = useState<StockItem[]>(mockStockItemsSeed);
+  const [warehousesLoading, setWarehousesLoading] = useState(false);
+  const [stockItemsLoading, setStockItemsLoading] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showOrderSearch, setShowOrderSearch] = useState(false);

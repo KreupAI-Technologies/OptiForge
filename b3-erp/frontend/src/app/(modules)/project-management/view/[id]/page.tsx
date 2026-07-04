@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
  ArrowLeft,
@@ -19,55 +19,134 @@ import {
  Mail,
  Building2,
  MoreVertical,
+ AlertCircle,
 } from 'lucide-react';
+import { ProjectViewService } from '@/services/project-view.service';
+
+// Map a raw backend status onto the page's display status vocabulary.
+function normalizeStatus(status?: string): string {
+ switch ((status || '').toLowerCase()) {
+  case 'completed':
+  case 'closed':
+   return 'Completed';
+  case 'in_progress':
+  case 'in progress':
+  case 'active':
+  case 'execution':
+   return 'In Progress';
+  case 'delayed':
+  case 'at_risk':
+   return 'Delayed';
+  case 'planning':
+  case 'pending':
+  default:
+   return 'Pending';
+ }
+}
 
 export default function ViewProjectPage({ params }: { params: { id: string } }) {
  const [activeTab, setActiveTab] = useState('overview');
 
- // Mock project data
- const project = {
+ const [isLoading, setIsLoading] = useState(true);
+ const [loadError, setLoadError] = useState<string | null>(null);
+
+ // Fields the backend does not model (team, deliverables, activity feed,
+ // contract/invoicing) keep their showcase defaults; project header, financials,
+ // milestones and task counts are wired to live data.
+ const [project, setProject] = useState({
   id: params.id,
-  projectNumber: 'PRJ-2024-001',
-  projectName: 'Taj Hotel Commercial Kitchen Installation',
-  projectType: 'Commercial Kitchen',
-  customer: 'Taj Hotels Limited',
-  customerId: 'CUST-001',
-  location: 'Mumbai, Maharashtra',
-  salesOrderNumber: 'SO-2024-456',
-  description: 'Complete commercial kitchen setup including cooking equipment, refrigeration units, exhaust systems, and supporting infrastructure for the new Taj Hotel property',
-
-  // Timeline
-  startDate: '2024-01-15',
-  endDate: '2024-04-30',
-  actualStartDate: '2024-01-15',
-  status: 'In Progress',
-  progress: 65,
-  phase: 'Installation',
-
-  // Financial
-  budget: 8500000,
-  actualCost: 5200000,
-  contractValue: 10200000,
-  invoicedAmount: 4080000,
-  receivedAmount: 3570000,
-
-  // Project Management
-  projectManager: 'Rajesh Kumar',
-  projectManagerEmail: 'rajesh.kumar@b3macbis.com',
-  projectManagerPhone: '+91-98765-43210',
-  priority: 'P1',
+  projectNumber: '',
+  projectName: '',
+  projectType: '—',
+  customer: '',
+  customerId: '',
+  location: '',
+  salesOrderNumber: '—',
+  description: '',
+  startDate: '',
+  endDate: '',
+  actualStartDate: '',
+  status: 'Pending',
+  progress: 0,
+  phase: '—',
+  budget: 0,
+  actualCost: 0,
+  contractValue: 0,
+  invoicedAmount: 0,
+  receivedAmount: 0,
+  projectManager: '—',
+  projectManagerEmail: '',
+  projectManagerPhone: '',
+  priority: '—',
   department: 'Project Management',
-
-  // Metrics
-  completedTasks: 42,
-  totalTasks: 65,
+  completedTasks: 0,
+  totalTasks: 0,
   completedDeliverables: 5,
   totalDeliverables: 8,
   openIssues: 2,
   totalIssues: 7,
- };
+ });
 
- // Team members
+ const [milestones, setMilestones] = useState<{ id: string; name: string; date: string; status: string }[]>([]);
+
+ useEffect(() => {
+  let cancelled = false;
+  const load = async () => {
+   setIsLoading(true);
+   setLoadError(null);
+   try {
+    const [p, tasks, ms] = await Promise.all([
+     ProjectViewService.getProject(params.id),
+     ProjectViewService.getTasks(params.id).catch(() => []),
+     ProjectViewService.getMilestones(params.id).catch(() => []),
+    ]);
+    if (cancelled) return;
+    if (p) {
+     const completedTasks = tasks.filter((t) => normalizeStatus(t.status) === 'Completed').length;
+     setProject((prev) => ({
+      ...prev,
+      id: p.id ?? params.id,
+      projectNumber: p.projectCode ?? prev.projectNumber,
+      projectName: p.name ?? prev.projectName,
+      projectType: p.projectType ?? prev.projectType,
+      customer: p.clientName ?? prev.customer,
+      customerId: p.clientContactPerson ?? prev.customerId,
+      location: p.location ?? prev.location,
+      description: p.description ?? prev.description,
+      startDate: p.plannedStart ?? p.startDate ?? prev.startDate,
+      endDate: p.plannedEnd ?? p.endDate ?? prev.endDate,
+      status: normalizeStatus(p.status),
+      progress: Math.round(Number(p.progress ?? 0)),
+      priority: p.priority ?? prev.priority,
+      budget: Number(p.budgetAllocated ?? 0),
+      actualCost: Number(p.budgetSpent ?? p.totalExpenditure ?? 0),
+      contractValue: Number(p.totalIncome ?? p.budgetAllocated ?? 0),
+      projectManagerEmail: p.clientContactEmail ?? prev.projectManagerEmail,
+      completedTasks,
+      totalTasks: tasks.length,
+     }));
+    }
+    setMilestones(
+     ms.map((m, i) => ({
+      id: String(m.id ?? i),
+      name: m.name ?? 'Milestone',
+      date: m.dueDate ?? m.completedDate ?? '',
+      status: normalizeStatus(m.status),
+     })),
+    );
+   } catch (err) {
+    if (!cancelled) {
+     setLoadError(err instanceof Error ? err.message : 'Failed to load project');
+    }
+   } finally {
+    if (!cancelled) setIsLoading(false);
+   }
+  };
+  load();
+  return () => { cancelled = true; };
+ }, [params.id]);
+
+ // Team members (no backend endpoint — showcase defaults)
  const teamMembers = [
   { id: '1', name: 'Rajesh Kumar', role: 'Project Manager', allocation: 100, email: 'rajesh.kumar@b3macbis.com' },
   { id: '2', name: 'Suresh Patel', role: 'Installation Supervisor', allocation: 100, email: 'suresh.patel@b3macbis.com' },
@@ -76,23 +155,13 @@ export default function ViewProjectPage({ params }: { params: { id: string } }) 
   { id: '5', name: 'Installation Team', role: 'Technicians', allocation: 100, email: 'operations@b3macbis.com' },
  ];
 
- // Recent activities
+ // Recent activities (no backend endpoint — showcase defaults)
  const activities = [
   { id: '1', date: '2024-03-14', type: 'Progress Update', description: 'Equipment installation 70% complete', user: 'Suresh Patel' },
   { id: '2', date: '2024-03-12', type: 'Issue Reported', description: 'Delay in equipment delivery from supplier', user: 'Rajesh Kumar' },
   { id: '3', date: '2024-03-10', type: 'Milestone Completed', description: 'Civil work and foundation completed', user: 'Ramesh Nair' },
   { id: '4', date: '2024-03-08', type: 'Payment Received', description: 'Second milestone payment received (₹12L)', user: 'Finance Team' },
   { id: '5', date: '2024-03-05', type: 'Quality Check', description: 'Installation quality inspection passed', user: 'Anjali Verma' },
- ];
-
- // Milestones
- const milestones = [
-  { id: '1', name: 'Site Survey & Planning', date: '2024-01-20', status: 'Completed' },
-  { id: '2', name: 'Civil Work & Foundation', date: '2024-03-01', status: 'Completed' },
-  { id: '3', name: 'Equipment Installation', date: '2024-03-25', status: 'In Progress' },
-  { id: '4', name: 'Exhaust System Setup', date: '2024-04-05', status: 'Pending' },
-  { id: '5', name: 'Testing & Commissioning', date: '2024-04-20', status: 'Pending' },
-  { id: '6', name: 'Training & Handover', date: '2024-04-30', status: 'Pending' },
  ];
 
  // Deliverables
@@ -116,7 +185,10 @@ export default function ViewProjectPage({ params }: { params: { id: string } }) 
  };
 
  const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-IN', {
+  if (!dateString) return '—';
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', {
    day: '2-digit',
    month: 'short',
    year: 'numeric',
@@ -134,14 +206,18 @@ export default function ViewProjectPage({ params }: { params: { id: string } }) 
  };
 
  const calculateDaysRemaining = () => {
+  if (!project.endDate) return 0;
   const today = new Date();
   const endDate = new Date(project.endDate);
+  if (isNaN(endDate.getTime())) return 0;
   const diff = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   return diff;
  };
 
  const daysRemaining = calculateDaysRemaining();
- const profitMargin = ((project.contractValue - project.budget) / project.contractValue) * 100;
+ const profitMargin = project.contractValue > 0
+  ? ((project.contractValue - project.budget) / project.contractValue) * 100
+  : 0;
  const costOverrun = project.actualCost - (project.budget * (project.progress / 100));
 
  return (
@@ -180,6 +256,19 @@ export default function ViewProjectPage({ params }: { params: { id: string } }) 
      </button>
     </div>
    </div>
+
+   {isLoading && (
+    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+     <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+     Loading project…
+    </div>
+   )}
+   {loadError && !isLoading && (
+    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+     <AlertCircle className="h-4 w-4" />
+     {loadError}
+    </div>
+   )}
 
    {/* Key Metrics */}
    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { MasterDataService, MDCustomer, MDEmployee, mdLabel, fetchRecordById } from '@/services/master-data.service';
 
 interface Proposal {
   id: string;
@@ -29,7 +30,7 @@ interface Proposal {
   createdDate: string;
 }
 
-const mockProposals: Proposal[] = [
+const mockProposalsSeed: Proposal[] = [
   {
     id: '1',
     proposalNumber: 'PROP-2024-001',
@@ -192,7 +193,27 @@ export default function ProposalEditPage() {
   const params = useParams();
   const proposalId = params?.id as string;
 
-  const existingProposal = mockProposals.find(p => p.id === proposalId);
+  const existingProposal = mockProposalsSeed.find(p => p.id === proposalId);
+
+  // Live customer picker — initialized empty, filled on mount
+  const [customers, setCustomers] = useState<MDCustomer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+
+  // Live employee picker for "Assigned To" — initialized empty, filled on mount
+  const [employees, setEmployees] = useState<MDEmployee[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
+
+  useEffect(() => {
+    setCustomersLoading(true);
+    MasterDataService.getCustomers().then(live => {
+      if (live.length > 0) setCustomers(live);
+    }).finally(() => setCustomersLoading(false));
+
+    setEmployeesLoading(true);
+    MasterDataService.getEmployees().then(live => {
+      if (live.length > 0) setEmployees(live);
+    }).finally(() => setEmployeesLoading(false));
+  }, []);
 
   const [formData, setFormData] = useState({
     title: existingProposal?.title || '',
@@ -208,6 +229,27 @@ export default function ProposalEditPage() {
 
   const [tags, setTags] = useState<string[]>(existingProposal?.tags || ['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fetch the real proposal record and prefill form if found
+  useEffect(() => {
+    if (!proposalId) return;
+    fetchRecordById<Partial<Proposal>>('/crm/proposals', proposalId).then(record => {
+      if (!record) return;
+      setFormData(prev => ({
+        ...prev,
+        title: record.title ?? prev.title,
+        customerCompany: record.customerCompany ?? prev.customerCompany,
+        contactPerson: record.contactPerson ?? prev.contactPerson,
+        status: record.status ?? prev.status,
+        totalValue: record.totalValue ?? prev.totalValue,
+        validUntil: record.validUntil ?? prev.validUntil,
+        probability: record.probability ?? prev.probability,
+        assignedTo: record.assignedTo ?? prev.assignedTo,
+        notes: record.notes ?? prev.notes,
+      }));
+      if (record.tags && record.tags.length > 0) setTags(record.tags);
+    });
+  }, [proposalId]);
 
   if (!existingProposal) {
     return (
@@ -335,16 +377,24 @@ export default function ProposalEditPage() {
                     <label htmlFor="customerCompany" className="block text-sm font-medium text-gray-700 mb-1">
                       Customer Company *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       id="customerCompany"
                       value={formData.customerCompany}
                       onChange={(e) => setFormData({ ...formData, customerCompany: e.target.value })}
                       className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                         errors.customerCompany ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Enter customer company"
-                    />
+                      disabled={customersLoading}
+                    >
+                      <option value="">{customersLoading ? 'Loading customers…' : 'Select customer'}</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={mdLabel.customer(c)}>{mdLabel.customer(c)}</option>
+                      ))}
+                      {/* Keep existing value selectable even if not yet in live list */}
+                      {formData.customerCompany && !customers.find(c => mdLabel.customer(c) === formData.customerCompany) && (
+                        <option value={formData.customerCompany}>{formData.customerCompany}</option>
+                      )}
+                    </select>
                     {errors.customerCompany && (
                       <p className="text-sm text-red-600 mt-1">{errors.customerCompany}</p>
                     )}
@@ -456,16 +506,24 @@ export default function ProposalEditPage() {
                     <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-1">
                       Assigned To *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       id="assignedTo"
                       value={formData.assignedTo}
                       onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
                       className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                         errors.assignedTo ? 'border-red-500' : 'border-gray-300'
                       }`}
-                      placeholder="Enter assigned person"
-                    />
+                      disabled={employeesLoading}
+                    >
+                      <option value="">{employeesLoading ? 'Loading employees…' : 'Select assignee'}</option>
+                      {employees.map(e => (
+                        <option key={e.id} value={mdLabel.employee(e)}>{mdLabel.employee(e)}</option>
+                      ))}
+                      {/* Keep existing value selectable even if not yet in live list */}
+                      {formData.assignedTo && !employees.find(e => mdLabel.employee(e) === formData.assignedTo) && (
+                        <option value={formData.assignedTo}>{formData.assignedTo}</option>
+                      )}
+                    </select>
                     {errors.assignedTo && (
                       <p className="text-sm text-red-600 mt-1">{errors.assignedTo}</p>
                     )}
