@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Calculator,
     Search,
@@ -36,80 +37,23 @@ export default function ArrearsCalculationPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const arrearsData: ArrearsCalculation[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            revisionType: 'Annual Increment',
-            effectiveFrom: '2025-04-01',
-            processedFrom: '2025-06-01',
-            arrearMonths: 2,
-            oldCTC: 1500000,
-            newCTC: 1650000,
-            monthlyDifference: 12500,
-            totalArrears: 25000,
-            taxOnArrears: 7500,
-            netArrears: 17500,
-            status: 'Calculated',
-            paidDate: null
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            revisionType: 'Promotion',
-            effectiveFrom: '2025-01-01',
-            processedFrom: '2025-02-01',
-            arrearMonths: 1,
-            oldCTC: 800000,
-            newCTC: 920000,
-            monthlyDifference: 10000,
-            totalArrears: 10000,
-            taxOnArrears: 2000,
-            netArrears: 8000,
-            status: 'Paid',
-            paidDate: '2025-02-28'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            revisionType: 'Performance Increment',
-            effectiveFrom: '2025-02-01',
-            processedFrom: '2025-03-01',
-            arrearMonths: 1,
-            oldCTC: 900000,
-            newCTC: 1080000,
-            monthlyDifference: 15000,
-            totalArrears: 15000,
-            taxOnArrears: 4500,
-            netArrears: 10500,
-            status: 'Processing',
-            paidDate: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Finance',
-            revisionType: 'Annual Increment',
-            effectiveFrom: '2025-04-01',
-            processedFrom: '2025-06-01',
-            arrearMonths: 2,
-            oldCTC: 1200000,
-            newCTC: 1320000,
-            monthlyDifference: 10000,
-            totalArrears: 20000,
-            taxOnArrears: 6000,
-            netArrears: 14000,
-            status: 'Pending',
-            paidDate: null
-        }
-    ];
+    const [arrearsData, setArrearsData] = useState<ArrearsCalculation[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getSalaryRevisionsBy('arrears');
+                const mapped: ArrearsCalculation[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setArrearsData(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setArrearsData([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredArrears = arrearsData.filter(arrear => {
         const matchesSearch = arrear.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -152,6 +96,8 @@ export default function ArrearsCalculationPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

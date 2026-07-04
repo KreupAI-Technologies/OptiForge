@@ -477,15 +477,17 @@ export default function MilestonesPage() {
       const matchPriority = priorityFilter === 'all' || m.priority === priorityFilter;
       return matchSearch && matchProject && matchStatus && matchCategory && matchPriority;
     });
-  }, [searchTerm, projectFilter, statusFilter, categoryFilter, priorityFilter]);
+  }, [milestones, searchTerm, projectFilter, statusFilter, categoryFilter, priorityFilter]);
 
   // Calculate stats
-  const totalMilestones = MILESTONES.length;
-  const achieved = MILESTONES.filter(m => m.status === 'achieved').length;
-  const inProgress = MILESTONES.filter(m => m.status === 'in_progress').length;
-  const overdue = MILESTONES.filter(m => m.status === 'overdue').length;
-  const atRisk = MILESTONES.filter(m => m.status === 'at_risk').length;
-  const avgProgress = Math.round(MILESTONES.reduce((sum, m) => sum + m.progress, 0) / totalMilestones);
+  const totalMilestones = milestones.length;
+  const achieved = milestones.filter(m => m.status === 'achieved').length;
+  const inProgress = milestones.filter(m => m.status === 'in_progress').length;
+  const overdue = milestones.filter(m => m.status === 'overdue').length;
+  const atRisk = milestones.filter(m => m.status === 'at_risk').length;
+  const avgProgress = totalMilestones > 0
+    ? Math.round(milestones.reduce((sum, m) => sum + m.progress, 0) / totalMilestones)
+    : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -530,6 +532,24 @@ export default function MilestonesPage() {
         </h1>
         <p className="text-gray-600 mt-2">Track key project milestones, deliverables, and approval gates</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading milestones…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && milestones.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No milestones found.
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">

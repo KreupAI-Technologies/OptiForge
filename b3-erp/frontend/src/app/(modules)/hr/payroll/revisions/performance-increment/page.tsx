@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
     Award,
     Search,
@@ -37,76 +38,23 @@ export default function PerformanceIncrementPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
 
-    const increments: PerformanceIncrement[] = [
-        {
-            id: '1',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            designation: 'Production Engineer',
-            currentCTC: 800000,
-            proposedCTC: 920000,
-            incrementPercentage: 15,
-            incrementType: 'Outstanding',
-            effectiveDate: '2025-02-01',
-            status: 'Approved',
-            performanceRating: 4.8,
-            justification: 'Led process optimization saving 20% costs',
-            recommendedBy: 'Robert Martinez',
-            approvedBy: 'Sarah Johnson'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            designation: 'Software Developer',
-            currentCTC: 900000,
-            proposedCTC: 1080000,
-            incrementPercentage: 20,
-            incrementType: 'Exceptional',
-            effectiveDate: '2025-02-01',
-            status: 'Pending Approval',
-            performanceRating: 5.0,
-            justification: 'Developed critical system reducing downtime by 40%',
-            recommendedBy: 'Jennifer Brown',
-            approvedBy: null
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            designation: 'QA Analyst',
-            currentCTC: 750000,
-            proposedCTC: 825000,
-            incrementPercentage: 10,
-            incrementType: 'Merit',
-            effectiveDate: '2025-02-01',
-            status: 'Pending Approval',
-            performanceRating: 4.3,
-            justification: 'Consistent high-quality work and process improvements',
-            recommendedBy: 'Sarah Johnson',
-            approvedBy: null
-        },
-        {
-            id: '4',
-            employeeId: 'EMP010',
-            employeeName: 'Alex Kumar',
-            department: 'Sales',
-            designation: 'Sales Executive',
-            currentCTC: 650000,
-            proposedCTC: 750000,
-            incrementPercentage: 15.4,
-            incrementType: 'Retention',
-            effectiveDate: '2025-01-15',
-            status: 'Approved',
-            performanceRating: 4.5,
-            justification: 'Retention offer to match competitor',
-            recommendedBy: 'Jennifer Brown',
-            approvedBy: 'Sarah Johnson'
-        }
-    ];
+    const [increments, setIncrements] = useState<PerformanceIncrement[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrPayrollService.getSalaryRevisionsBy('performance');
+                const mapped: PerformanceIncrement[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({ ...r }));
+                if (!cancelled) setIncrements(mapped);
+            } catch (err) {
+                if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setIncrements([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredIncrements = increments.filter(inc => {
         const matchesSearch = inc.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -161,6 +109,8 @@ export default function PerformanceIncrementPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {loadError && <div className="text-red-400 text-sm mb-2">{loadError}</div>}
+                {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

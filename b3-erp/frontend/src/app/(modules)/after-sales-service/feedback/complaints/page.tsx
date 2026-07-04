@@ -22,129 +22,54 @@ interface Complaint {
   attachments: number;
 }
 
-const mockComplaints: Complaint[] = [
-  {
-    id: '1',
-    title: 'Service technician was unprofessional',
-    description: 'The technician who came for the service call was rude and did not properly diagnose the issue. The problem persisted after service.',
-    complainantName: 'Rohan Gupta',
-    email: 'rohan.gupta@example.com',
-    phone: '+91-9876543210',
-    status: 'in-progress',
-    priority: 'high',
-    category: 'Technician Behavior',
-    date: '2025-10-16',
-    assignedTo: 'Rajesh Kumar',
-    attachments: 2
-  },
-  {
-    id: '2',
-    title: 'Product failure within warranty period',
-    description: 'The refrigerator stopped working after just 3 months. Previously reported issue was not properly fixed. Need immediate replacement.',
-    complainantName: 'Arjun Patel',
-    email: 'arjun.patel@example.com',
-    phone: '+91-9123456789',
-    status: 'in-progress',
-    priority: 'critical',
-    category: 'Product Quality',
-    date: '2025-10-15',
-    assignedTo: 'Priya Sharma',
-    attachments: 3
-  },
-  {
-    id: '3',
-    title: 'Installation damage to property',
-    description: 'During installation, the team damaged the kitchen tiles and cabinet. They left without offering any compensation or apology.',
-    complainantName: 'Vikram Singh',
-    email: 'vikram.singh@example.com',
-    phone: '+91-8765432109',
-    status: 'in-progress',
-    priority: 'high',
-    category: 'Installation Quality',
-    date: '2025-10-14',
-    assignedTo: 'Amit Singh',
-    attachments: 4
-  },
-  {
-    id: '4',
-    title: 'Overcharged for repair service',
-    description: 'The billing amount is significantly higher than the quoted price. No proper explanation provided for the additional charges.',
-    complainantName: 'Meera Nair',
-    email: 'meera.nair@example.com',
-    phone: '+91-7654321098',
-    status: 'resolved',
-    priority: 'medium',
-    category: 'Billing Issue',
-    date: '2025-10-10',
-    resolvedDate: '2025-10-13',
-    responseTime: 24,
-    resolutionTime: 72,
-    assignedTo: 'Neha Desai',
-    attachments: 2
-  },
-  {
-    id: '5',
-    title: 'Delayed parts delivery',
-    description: 'Ordered parts 10 days ago. Still waiting for delivery despite multiple follow-ups. Expected parts urgently to complete repair.',
-    complainantName: 'Sanjay Verma',
-    email: 'sanjay.verma@example.com',
-    phone: '+91-6543210987',
-    status: 'open',
-    priority: 'high',
-    category: 'Delivery',
-    date: '2025-10-11',
-    attachments: 1
-  },
-  {
-    id: '6',
-    title: 'Warranty claim rejected without justification',
-    description: 'Submitted warranty claim for a manufacturing defect. Claim was rejected with minimal explanation. Need clarification and appeal process.',
-    complainantName: 'Isha Nair',
-    email: 'isha.nair@example.com',
-    phone: '+91-5432109876',
-    status: 'open',
-    priority: 'medium',
-    category: 'Warranty',
-    date: '2025-10-12',
-    attachments: 3
-  },
-  {
-    id: '7',
-    title: 'Poor communication from support team',
-    description: 'Support team not responding to emails and calls. Had to wait 5+ days to get basic information about service status.',
-    complainantName: 'Ananya Sharma',
-    email: 'ananya.sharma@example.com',
-    phone: '+91-4321098765',
-    status: 'resolved',
-    priority: 'medium',
-    category: 'Customer Support',
-    date: '2025-10-05',
-    resolvedDate: '2025-10-09',
-    responseTime: 48,
-    resolutionTime: 96,
-    assignedTo: 'Sanjay Verma',
-    attachments: 1
-  },
-  {
-    id: '8',
-    title: 'Service appointment not honored',
-    description: 'Technician did not show up for scheduled appointment. No notification or apology provided. Requested alternative time.',
-    complainantName: 'Ravi Kumar',
-    email: 'ravi.kumar@example.com',
-    phone: '+91-3210987654',
-    status: 'closed',
-    priority: 'low',
-    category: 'Service Scheduling',
-    date: '2025-10-01',
-    resolvedDate: '2025-10-04',
-    responseTime: 2,
-    resolutionTime: 72,
-    assignedTo: 'Vikram Patel',
-    attachments: 0
-  }
-];
+// Defensive mapper: backend feedback row -> page Complaint model.
+function mapComplaint(r: any): Complaint {
+  return {
+    id: String(r?.id ?? r?.reference ?? ''),
+    title: r?.title ?? r?.subject ?? '',
+    description: r?.description ?? '',
+    complainantName: r?.complainantName ?? r?.customerName ?? '',
+    email: r?.email ?? '',
+    phone: r?.phone ?? '',
+    status: (r?.status ?? 'open') as Complaint['status'],
+    priority: (r?.priority ?? 'medium') as Complaint['priority'],
+    category: r?.category ?? 'General',
+    date: r?.date ?? r?.createdAt ?? '',
+    resolvedDate: r?.resolvedDate,
+    responseTime: r?.responseTime,
+    resolutionTime: r?.resolutionTime,
+    assignedTo: r?.assignedTo,
+    attachments: Number(r?.attachments ?? 0),
+  };
+}
 
 export default function ComplaintsPage() {
+  const [mockComplaints, setMockComplaints] = useState<Complaint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.complaints()) as any[];
+        if (!cancelled) setMockComplaints(Array.isArray(raw) ? raw.map(mapComplaint) : []);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load complaints');
+          setMockComplaints([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('open');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');

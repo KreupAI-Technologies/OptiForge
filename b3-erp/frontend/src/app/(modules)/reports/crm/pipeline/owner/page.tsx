@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,21 +17,41 @@ import {
     Trophy,
     PieChart
 } from 'lucide-react';
+import { fetchDomainList } from '@/services/reports-data.service';
 
 function PipelineByOwnerContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const owner = searchParams.get('owner') || 'All Sales Reps';
 
-    const opportunities = [
-        { id: 'OPP-001', name: 'Office Expansion', account: 'Acme Corp', owner: 'Sarah Johnson', stage: 'Proposal', value: 120000 },
-        { id: 'OPP-002', name: 'New Machinery', account: 'Industrial Ltd', owner: 'Mike Smith', stage: 'Negotiation', value: 450000 },
-        { id: 'OPP-003', name: 'Software License', account: 'Tech Start', owner: 'Sarah Johnson', stage: 'Qualification', value: 25000 },
-        { id: 'OPP-004', name: 'Consulting Project', account: 'Global Services', owner: 'Mike Smith', stage: 'Proposal', value: 85000 },
-        { id: 'OPP-005', name: 'Maintenance Contract', account: 'City Infra', owner: 'Sarah Johnson', stage: 'Closed Won', value: 200000 },
-        { id: 'OPP-010', name: 'AI Integration', account: 'Nexus Dev', owner: 'Eleanor S.', stage: 'Qualification', value: 750000 },
-        { id: 'OPP-011', name: 'Warehouse Automation', account: 'ShipRight', owner: 'Chidi A.', stage: 'Proposal', value: 380000 },
-    ];
+    const [opportunities, setOpportunities] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const raw = await fetchDomainList<any>('crm/leads');
+                const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+                    id: r.id ?? '',
+                    name: r.title ?? [r.firstName, r.lastName].filter(Boolean).join(' ') || r.company || '',
+                    account: r.company ?? '',
+                    owner: r.assignedTo ?? r.teamAssignment ?? 'Unassigned',
+                    stage: r.status ?? '',
+                    value: Number(r.estimatedValue ?? 0),
+                }));
+                if (!cancelled) setOpportunities(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOpportunities([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredOpps = owner === 'All Sales Reps' || owner === 'All' ? opportunities : opportunities.filter(o => o.owner === owner);
 
@@ -72,6 +92,8 @@ function PipelineByOwnerContent() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && <div className="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">Loading…</div>}
+                {loadError && !isLoading && <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{loadError}</div>}
                 {/* Visual Stats Row */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <Card className="bg-white border-gray-100 shadow-sm border-l-4 border-l-green-500">
@@ -99,7 +121,7 @@ function PipelineByOwnerContent() {
                         <CardContent className="p-6">
                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Avg Ticket Size</p>
                             <p className="text-3xl font-black text-gray-900 mt-1 italic tracking-tighter">
-                                ${Math.round(filteredOpps.reduce((sum, o) => sum + o.value, 0) / filteredOpps.length / 1000).toFixed(0)}K
+                                ${filteredOpps.length ? Math.round(filteredOpps.reduce((sum, o) => sum + o.value, 0) / filteredOpps.length / 1000) : 0}K
                             </p>
                             <p className="mt-3 text-[10px] font-bold text-blue-600 uppercase tracking-wider">Medium Complexity</p>
                         </CardContent>
