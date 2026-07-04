@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileCheck,
   Search,
@@ -10,8 +10,10 @@ import {
   CheckCircle2,
   XCircle,
   MoreVertical,
-  ArrowUpRight
+  ArrowUpRight,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   BarChart,
   Bar,
@@ -38,16 +40,51 @@ const topPerformers = [
   { id: 4, name: 'James Rodriguez', role: 'Sales Lead', avgScore: 94, assessments: 15 },
 ];
 
-const recentResults = [
-  { id: 1, employee: 'Michael Chang', test: 'Advanced Cyber Security', date: '2025-01-22', score: 92, status: 'Pass' },
-  { id: 2, employee: 'Lisa Patel', test: 'Cloud Architecture Basics', date: '2025-01-21', score: 68, status: 'Fail' },
-  { id: 3, employee: 'Robert Fox', test: 'Agile Methodologies', date: '2025-01-21', score: 88, status: 'Pass' },
-  { id: 4, employee: 'Emily Blunt', test: 'Python for Data Science', date: '2025-01-20', score: 95, status: 'Pass' },
-  { id: 5, employee: 'John Smith', test: 'Leadership Fundamentals', date: '2025-01-20', score: 72, status: 'Pass' },
-];
+interface AssessmentResult {
+  id: number | string;
+  employee: string;
+  test: string;
+  date: string;
+  score: number;
+  status: string;
+}
 
 export default function AssessmentsPage() {
   const [timeRange, setTimeRange] = useState('This Month');
+  const [recentResults, setRecentResults] = useState<AssessmentResult[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.skillAssessments()) as any[];
+        const mapped: AssessmentResult[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          employee: r.employee ?? r.employeeName ?? '',
+          test: r.test ?? r.testName ?? r.assessmentName ?? '',
+          date: r.date ?? r.completedDate ?? '',
+          score: Number(r.score ?? 0),
+          status: r.status ?? (Number(r.score ?? 0) >= 70 ? 'Pass' : 'Fail'),
+        }));
+        if (!cancelled) setRecentResults(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load assessment results');
+          setRecentResults([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -75,6 +112,19 @@ export default function AssessmentsPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading assessment results…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Score Distribution Chart */}

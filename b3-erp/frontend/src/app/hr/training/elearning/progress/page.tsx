@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Search,
@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Download
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   BarChart,
   Bar,
@@ -35,16 +36,53 @@ const progressHistory = [
   { week: 'Week 6', hours: 6.2 },
 ];
 
-const courseDetails = [
-  { id: 1, name: 'Advanced Leadership', progress: 100, status: 'Completed', score: 95, cert: 'Available', date: 'Jan 15, 2025' },
-  { id: 2, name: 'Cyber Security Basics', progress: 100, status: 'Completed', score: 88, cert: 'Available', date: 'Jan 10, 2025' },
-  { id: 3, name: 'React Performance', progress: 65, status: 'In Progress', score: null, cert: 'Locked', date: 'Started Jan 20' },
-  { id: 4, name: 'Agile Methodologies', progress: 30, status: 'In Progress', score: null, cert: 'Locked', date: 'Started Jan 21' },
-  { id: 5, name: 'Data Privacy 101', progress: 0, status: 'Not Started', score: null, cert: 'Locked', date: 'Assigned' },
-];
+interface CourseDetail {
+  id: number | string;
+  name: string;
+  progress: number;
+  status: string;
+  score: number | null;
+  cert: string;
+  date: string;
+}
 
 export default function ProgressPage() {
   const [timeRange, setTimeRange] = useState('Last 30 Days');
+  const [courseDetails, setCourseDetails] = useState<CourseDetail[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.elearningCourses()) as any[];
+        const mapped: CourseDetail[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          name: r.name ?? r.title ?? '',
+          progress: Number(r.progress ?? 0),
+          status: r.status ?? 'Not Started',
+          score: r.score !== undefined && r.score !== null ? Number(r.score) : null,
+          cert: r.cert ?? 'Locked',
+          date: r.date ?? '',
+        }));
+        if (!cancelled) setCourseDetails(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load courses');
+          setCourseDetails([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -73,6 +111,19 @@ export default function ProgressPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading courses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

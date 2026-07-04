@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   Search,
@@ -10,8 +10,10 @@ import {
   TrendingUp,
   DollarSign,
   Users,
-  Lightbulb
+  Lightbulb,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   BarChart,
   Bar,
@@ -38,13 +40,13 @@ const costPerEmployeeData = [
   { month: 'Jun', cost: 155 },
 ];
 
-const vendorSpendData = [
-  { name: 'Udemy Business', value: 45000, color: '#8b5cf6' },
-  { name: 'Coursera', value: 30000, color: '#ec4899' },
-  { name: 'LinkedIn Learning', value: 25000, color: '#06b6d4' },
-  { name: 'Pluralsight', value: 20000, color: '#f59e0b' },
-  { name: 'Internal Workshops', value: 15000, color: '#10b981' },
-];
+interface VendorSpend {
+  name: string;
+  value: number;
+  color: string;
+}
+
+const VENDOR_COLORS = ['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981'];
 
 const optimizationInsights = [
   { id: 1, title: 'Consolidate Vendor Licenses', impact: 'High', savings: '$12,000/yr', description: 'Merging Coursera and LinkedIn Learning licenses could reduce overhead.' },
@@ -54,6 +56,37 @@ const optimizationInsights = [
 
 export default function CostsPage() {
   const [timeRange, setTimeRange] = useState('YTD');
+  const [vendorSpendData, setVendorSpendData] = useState<VendorSpend[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.expenseBudgets()) as any[];
+        const mapped: VendorSpend[] = (Array.isArray(raw) ? raw : []).map((r, i) => ({
+          name: r.name ?? r.vendor ?? r.category ?? r.department ?? '',
+          value: Number(r.value ?? r.amount ?? r.spend ?? r.spent ?? 0),
+          color: r.color ?? VENDOR_COLORS[i % VENDOR_COLORS.length],
+        }));
+        if (!cancelled) setVendorSpendData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load vendor spend');
+          setVendorSpendData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);

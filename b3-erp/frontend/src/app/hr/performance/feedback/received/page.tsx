@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Inbox, Star, ThumbsUp, MessageSquare, Filter, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Inbox, Star, ThumbsUp, MessageSquare, Filter, Search, AlertCircle } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface Feedback {
   id: string;
@@ -15,35 +16,42 @@ interface Feedback {
 
 export default function ReceivedFeedbackPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [feedbackData, setFeedbackData] = useState<Feedback[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const feedbackData: Feedback[] = [
-    {
-      id: '1',
-      sender: 'Sarah Jenkins',
-      senderRole: 'Senior Frontend Dev',
-      date: '2024-03-15',
-      category: 'appreciation',
-      content: 'Great job on the new dashboard implementation! The performance improvements are noticeable.',
-      anonymous: false
-    },
-    {
-      id: '2',
-      sender: 'Anonymous',
-      date: '2024-03-10',
-      category: 'performance',
-      content: 'Consistent delivery on sprint tasks. appreciated the extra effort on the documentation.',
-      anonymous: true
-    },
-    {
-      id: '3',
-      sender: 'Michael Chen',
-      senderRole: 'Product Manager',
-      date: '2024-03-05',
-      category: 'development',
-      content: 'Would love to see you take lead on more technical design discussions in the future.',
-      anonymous: false
-    }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.performanceReviews()) as any[];
+        const validCategories: Feedback['category'][] = ['appreciation', 'performance', 'development'];
+        const mapped: Feedback[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: String(r.id ?? ''),
+          sender: r.sender ?? r.reviewerName ?? r.reviewer ?? 'Anonymous',
+          senderRole: r.senderRole ?? r.reviewerRole ?? undefined,
+          date: r.date ?? r.reviewDate ?? r.createdAt ?? '',
+          category: validCategories.includes(r.category) ? r.category : 'performance',
+          content: r.content ?? r.comments ?? r.feedback ?? '',
+          anonymous: Boolean(r.anonymous),
+        }));
+        if (!cancelled) setFeedbackData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load feedback');
+          setFeedbackData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -78,6 +86,19 @@ export default function ReceivedFeedbackPage() {
           <p className="text-gray-500 mt-1">View feedback received from your peers and managers.</p>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading feedback…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2 pb-2">

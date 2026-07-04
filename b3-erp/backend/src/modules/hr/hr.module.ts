@@ -90,6 +90,29 @@ import { OvertimeRequestService } from './services/overtime-request.service';
 import { SafetyIncidentService } from './services/safety-incident.service';
 import { TrainingProgramService } from './services/training-program.service';
 
+// HR Safety orphan-endpoint build (shared discriminator tables) — direct imports
+import { SafetyHazard } from './entities/safety-hazard.entity';
+import { SafetyInspection } from './entities/safety-inspection.entity';
+import { SafetyPpe } from './entities/safety-ppe.entity';
+import { SafetyDrill } from './entities/safety-drill.entity';
+import { SafetyTraining } from './entities/safety-training.entity';
+import { SafetyWellness } from './entities/safety-wellness.entity';
+import { SafetyReport } from './entities/safety-report.entity';
+import { SafetyHazardController } from './controllers/safety-hazard.controller';
+import { SafetyInspectionController } from './controllers/safety-inspection.controller';
+import { SafetyPpeController } from './controllers/safety-ppe.controller';
+import { SafetyDrillController } from './controllers/safety-drill.controller';
+import { SafetyTrainingController } from './controllers/safety-training.controller';
+import { SafetyWellnessController } from './controllers/safety-wellness.controller';
+import { SafetyReportController } from './controllers/safety-report.controller';
+import { SafetyHazardService } from './services/safety-hazard.service';
+import { SafetyInspectionService } from './services/safety-inspection.service';
+import { SafetyPpeService } from './services/safety-ppe.service';
+import { SafetyDrillService } from './services/safety-drill.service';
+import { SafetyTrainingService } from './services/safety-training.service';
+import { SafetyWellnessService } from './services/safety-wellness.service';
+import { SafetyReportService } from './services/safety-report.service';
+
 // HR Asset Management (orphan-endpoint build) — direct imports
 import { AssetItem } from './entities/asset-item.entity';
 import { AssetRequest } from './entities/asset-request.entity';

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Search,
@@ -11,8 +11,10 @@ import {
   Download,
   Smile,
   Meh,
-  Frown
+  Frown,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   AreaChart,
   Area,
@@ -33,15 +35,55 @@ const feedbackTrends = [
   { month: 'Dec', overall: 4.8, engagement: 4.6 },
 ];
 
-const reviews = [
-  { id: 1, employee: 'Alice Chang', role: 'Product Designer', course: 'Advanced UX Research', rating: 5, date: '2 days ago', comment: 'Excellent workshop! The practical exercises were incredibly helpful. Would highly recommend to the team.', sentiment: 'positive' },
-  { id: 2, employee: 'Mark Wilson', role: 'Sales Executive', course: 'Negotiation Tactics', rating: 4, date: '1 week ago', comment: 'Great content, but the session felt a bit rushed towards the end. Maybe extend it to 2 days?', sentiment: 'positive' },
-  { id: 3, employee: 'Sarah Kay', role: 'Jr. Developer', course: 'Cloud Security Basics', rating: 3, date: '2 weeks ago', comment: 'The material was good but the instructor had connectivity issues which disrupted the flow.', sentiment: 'neutral' },
-  { id: 4, employee: 'James Lee', role: 'Marketing Manager', course: 'Data Analytics', rating: 5, date: '3 weeks ago', comment: 'Game changer for our department. I can already see how to apply these new skills.', sentiment: 'positive' },
-];
+interface Review {
+  id: number | string;
+  employee: string;
+  role: string;
+  course: string;
+  rating: number;
+  date: string;
+  comment: string;
+  sentiment: string;
+}
 
 export default function FeedbackPage() {
   const [filterPeriod, setFilterPeriod] = useState('Last 6 Months');
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.trainingEnrollments()) as any[];
+        const mapped: Review[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          employee: r.employee ?? r.employeeName ?? '',
+          role: r.role ?? '',
+          course: r.course ?? r.courseName ?? r.programName ?? '',
+          rating: Number(r.rating ?? 0),
+          date: r.date ?? r.createdAt ?? '',
+          comment: r.comment ?? r.feedback ?? '',
+          sentiment: r.sentiment ?? 'neutral',
+        }));
+        if (!cancelled) setReviews(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load feedback');
+          setReviews([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const renderStars = (rating: number) => {
     return [...Array(5)].map((_, i) => (

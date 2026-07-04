@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     UserCheck,
     Plus,
@@ -14,6 +14,7 @@ import {
     Edit,
     Trash2
 } from 'lucide-react';
+import { HrShiftsService } from '@/services/hr-shifts.service';
 
 interface ShiftAssignment {
     id: string;
@@ -34,86 +35,38 @@ export default function ShiftAssignmentPage() {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    const assignments: ShiftAssignment[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            shiftCode: 'DAY',
-            shiftName: 'Day Shift',
-            effectiveFrom: '2025-01-01',
-            effectiveTo: null,
-            status: 'Active',
-            assignedBy: 'Admin',
-            assignedDate: '2024-12-20'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            shiftCode: 'MOR',
-            shiftName: 'Morning Shift',
-            effectiveFrom: '2025-01-01',
-            effectiveTo: '2025-03-31',
-            status: 'Active',
-            assignedBy: 'HR Manager',
-            assignedDate: '2024-12-15'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            shiftCode: 'DAY',
-            shiftName: 'Day Shift',
-            effectiveFrom: '2025-02-01',
-            effectiveTo: null,
-            status: 'Pending',
-            assignedBy: 'Supervisor',
-            assignedDate: '2025-01-25'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            shiftCode: 'EVE',
-            shiftName: 'Evening Shift',
-            effectiveFrom: '2025-01-01',
-            effectiveTo: null,
-            status: 'Active',
-            assignedBy: 'Production Manager',
-            assignedDate: '2024-12-28'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jennifer Brown',
-            department: 'Warehouse',
-            shiftCode: 'NGT',
-            shiftName: 'Night Shift',
-            effectiveFrom: '2024-10-01',
-            effectiveTo: '2024-12-31',
-            status: 'Expired',
-            assignedBy: 'Warehouse Manager',
-            assignedDate: '2024-09-25'
-        },
-        {
-            id: '6',
-            employeeId: 'EMP006',
-            employeeName: 'Robert Martinez',
-            department: 'IT',
-            shiftCode: 'DAY',
-            shiftName: 'Day Shift',
-            effectiveFrom: '2025-01-01',
-            effectiveTo: null,
-            status: 'Active',
-            assignedBy: 'IT Manager',
-            assignedDate: '2024-12-20'
-        }
-    ];
+    const [assignments, setAssignments] = useState<ShiftAssignment[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await HrShiftsService.getShiftAssignments();
+                const mapped: ShiftAssignment[] = (raw as any[]).map((r) => ({
+                    id: String(r.id ?? ''),
+                    employeeId: r.employeeId ?? '',
+                    employeeName: r.employeeName ?? '',
+                    department: r.department ?? '',
+                    shiftCode: r.shiftCode ?? '',
+                    shiftName: r.shiftName ?? '',
+                    effectiveFrom: r.effectiveFrom ?? '',
+                    effectiveTo: r.effectiveTo ?? null,
+                    status: (r.status ?? 'Active') as ShiftAssignment['status'],
+                    assignedBy: r.assignedBy ?? '',
+                    assignedDate: r.assignedDate ?? '',
+                }));
+                if (!cancelled) setAssignments(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setAssignments([]); }
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const departments = Array.from(new Set(assignments.map(a => a.department)));
 
@@ -147,6 +100,8 @@ export default function ShiftAssignmentPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-3">
             <div className="w-full space-y-3">
+                {isLoading && (<div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">Loading…</div>)}
+                {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{loadError}</div>)}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                         <h1 className="text-3xl font-bold text-white flex items-center gap-3">

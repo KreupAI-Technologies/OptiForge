@@ -223,6 +223,43 @@ export interface ExportDatasetDto {
   updatedAt: string;
 }
 
+export interface AuditLogDto {
+  id: string;
+  userId?: string;
+  userName?: string;
+  action?: string;
+  module?: string;
+  entityType?: string;
+  entityId?: string;
+  description?: string;
+  status?: string;
+  severity?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface AuditLogPageDto {
+  data: AuditLogDto[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface RoleDto {
+  id: string;
+  code?: string;
+  name: string;
+  description?: string;
+  roleType?: string;
+  status?: string;
+  userCount?: number;
+  applicableModules?: string[];
+  permissions?: any[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -517,6 +554,25 @@ class ItAdminServiceClass {
     category?: string;
   }): Promise<ExportDatasetDto[]> {
     return request<ExportDatasetDto[]>(`/it-admin/export-datasets${qs(params)}`);
+  }
+
+  // --- Audit Logs ---
+  async getAuditLogs(params?: {
+    userId?: string;
+    module?: string;
+    action?: string;
+    page?: string;
+    limit?: string;
+  }): Promise<AuditLogPageDto> {
+    return request<AuditLogPageDto>(`/it-admin/audit-logs${qs(params)}`);
+  }
+
+  // --- Roles ---
+  async getRoles(params?: {
+    status?: string;
+    roleType?: string;
+  }): Promise<RoleDto[]> {
+    return request<RoleDto[]>(`/it-admin/roles${qs(params)}`);
   }
 }
 

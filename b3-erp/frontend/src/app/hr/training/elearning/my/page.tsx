@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BookOpen,
   Search,
@@ -11,15 +11,22 @@ import {
   Calendar,
   CheckCircle,
   MoreVertical,
-  ArrowRight
+  ArrowRight,
+  AlertCircle
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 
-// Mock Data
-const activeCourses = [
-  { id: 1, title: 'Leadership Fundamentals', progress: 65, totalModules: 8, completedModules: 5, lastAccessed: '2 hours ago', image: 'bg-blue-100', icon: '👑', timeLeft: '2h 15m' },
-  { id: 2, title: 'Data Security Awareness', progress: 30, totalModules: 5, completedModules: 1, lastAccessed: '1 day ago', image: 'bg-emerald-100', icon: '🔒', timeLeft: '3h 45m' },
-  { id: 3, title: 'Agile Project Management', progress: 12, totalModules: 12, completedModules: 1, lastAccessed: '3 days ago', image: 'bg-purple-100', icon: '🚀', timeLeft: '8h 30m' },
-];
+interface ActiveCourse {
+  id: number | string;
+  title: string;
+  progress: number;
+  totalModules: number;
+  completedModules: number;
+  lastAccessed: string;
+  image: string;
+  icon: string;
+  timeLeft: string;
+}
 
 const assignedPath = [
   { id: 1, title: 'Company Onboarding', status: 'Completed', date: 'Jan 10, 2025', type: 'Mandatory' },
@@ -36,6 +43,43 @@ const upcomingDeadlines = [
 
 export default function MyCoursesPage() {
   const [filterType, setFilterType] = useState('All');
+  const [activeCourses, setActiveCourses] = useState<ActiveCourse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.elearningCourses()) as any[];
+        const mapped: ActiveCourse[] = (Array.isArray(raw) ? raw : []).map((r) => ({
+          id: r.id ?? '',
+          title: r.title ?? '',
+          progress: Number(r.progress ?? 0),
+          totalModules: Number(r.totalModules ?? r.modules ?? 0),
+          completedModules: Number(r.completedModules ?? 0),
+          lastAccessed: r.lastAccessed ?? '',
+          image: r.image ?? 'bg-blue-100',
+          icon: r.icon ?? '📘',
+          timeLeft: r.timeLeft ?? '',
+        }));
+        if (!cancelled) setActiveCourses(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load courses');
+          setActiveCourses([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -63,6 +107,19 @@ export default function MyCoursesPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading courses…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Content: Active Courses */}

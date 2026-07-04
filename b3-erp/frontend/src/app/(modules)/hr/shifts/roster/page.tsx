@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Calendar,
     ChevronLeft,
@@ -13,6 +13,7 @@ import {
     Sunrise,
     Clock
 } from 'lucide-react';
+import { HrShiftsService } from '@/services/hr-shifts.service';
 
 interface RosterEntry {
     employeeId: string;
