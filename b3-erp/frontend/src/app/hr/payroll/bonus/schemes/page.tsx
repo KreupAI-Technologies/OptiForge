@@ -43,8 +43,59 @@ interface BonusScheme {
 
 
 export default function BonusSchemesPage() {
-  const [schemes, setSchemes] = useState<BonusScheme[]>(mockSchemes)
+  const [schemes, setSchemes] = useState<BonusScheme[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await HrPayrollService.getBonusSchemes()
+        const mapped: BonusScheme[] = (Array.isArray(raw) ? raw : []).map((r: any) => {
+          const d = r.details ?? {}
+          return {
+            id: r.id ?? '',
+            schemeName: r.schemeName ?? '',
+            schemeType: (r.schemeType ?? 'performance') as BonusScheme['schemeType'],
+            applicableTo: (r.applicableTo ?? 'all') as BonusScheme['applicableTo'],
+            targetDepartments: Array.isArray(d.targetDepartments) ? d.targetDepartments : undefined,
+            targetDesignations: Array.isArray(d.targetDesignations) ? d.targetDesignations : undefined,
+            eligibilityCriteria: r.eligibilityCriteria ?? '',
+            calculationMethod: r.calculationMethod ?? '',
+            bonusPercentage: r.bonusPercentage != null ? Number(r.bonusPercentage) : undefined,
+            fixedAmount: r.fixedAmount != null ? Number(r.fixedAmount) : undefined,
+            minThreshold: d.minThreshold != null ? Number(d.minThreshold) : undefined,
+            maxCap: d.maxCap != null ? Number(d.maxCap) : undefined,
+            paymentFrequency: (r.paymentFrequency ?? 'annual') as BonusScheme['paymentFrequency'],
+            status: (r.status ?? 'active') as BonusScheme['status'],
+            effectiveFrom: r.effectiveFrom ?? '',
+            effectiveTo: r.effectiveTo ?? undefined,
+            createdBy: r.createdBy ?? '',
+            createdDate: d.createdDate ?? (r.createdAt ? String(r.createdAt).split('T')[0] : ''),
+            lastModified: d.lastModified ?? (r.updatedAt ? String(r.updatedAt).split('T')[0] : ''),
+            description: r.description ?? '',
+            termsAndConditions: Array.isArray(d.termsAndConditions) ? d.termsAndConditions : [],
+          }
+        })
+        if (!cancelled) setSchemes(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load bonus schemes')
+          setSchemes([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
 

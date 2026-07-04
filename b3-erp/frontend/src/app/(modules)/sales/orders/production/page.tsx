@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Factory,
   Package,
@@ -25,6 +25,7 @@ import {
   BarChart3,
   Wrench
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface ProductionOrder {
   id: string;

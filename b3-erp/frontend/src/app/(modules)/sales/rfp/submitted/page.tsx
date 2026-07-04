@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Search,
@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Package
 } from 'lucide-react';
+import { salesPagesService } from '@/services/sales-pages.service';
 
 interface Vendor {
   id: string;
@@ -61,7 +62,59 @@ export default function SubmittedRFPPage() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const rfps: SubmittedRFP[] = [
+  const [rfps, setRfps] = useState<SubmittedRFP[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: SubmittedRFP[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          rfpNumber: r.rfpNumber ?? '',
+          title: r.title ?? '',
+          category: r.category ?? '',
+          priority: (r.priority ?? 'normal') as SubmittedRFP['priority'],
+          issueDate: r.issueDate ?? '',
+          dueDate: r.dueDate ?? '',
+          status: (r.status ?? 'open') as SubmittedRFP['status'],
+          itemsCount: r.itemsCount ?? 0,
+          vendorsInvited: r.vendorsInvited ?? 0,
+          responsesReceived: r.responsesReceived ?? 0,
+          responsesDeclined: r.responsesDeclined ?? 0,
+          noBidsReceived: r.noBidsReceived ?? 0,
+          estimatedValue: r.estimatedValue ?? 0,
+          lowestQuote: r.lowestQuote,
+          highestQuote: r.highestQuote,
+          avgResponseTime: r.avgResponseTime,
+          vendors: (r.vendors ?? []).map((v: any) => ({
+            id: String(v.id ?? ''),
+            name: v.name ?? '',
+            email: v.email ?? '',
+            phone: v.phone ?? '',
+            responseStatus: (v.responseStatus ?? 'pending') as Vendor['responseStatus'],
+            responseDate: v.responseDate,
+            quotedAmount: v.quotedAmount,
+            responseTime: v.responseTime
+          })),
+          description: r.description ?? '',
+          daysRemaining: r.daysRemaining ?? 0
+        }));
+        if (!cancelled) setRfps(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRfps([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const _seedRfps: SubmittedRFP[] = [
     {
       id: '1',
       rfpNumber: 'RFP-2025-001',

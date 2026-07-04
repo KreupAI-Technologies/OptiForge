@@ -38,120 +38,43 @@ export default function FAQs() {
     updatedThisWeek: 5
   })
 
-  const [faqs] = useState<FAQ[]>([
-    {
-      id: '1',
-      faqId: 'FAQ-001',
-      question: 'How do I reset my password?',
-      answer: 'To reset your password:\n\n1. Click on "Forgot Password?" link on the login page\n2. Enter your registered email address\n3. Check your email for a password reset link (valid for 24 hours)\n4. Click the link and enter your new password\n5. Confirm the new password and submit\n\nIf you don\'t receive the email within 5 minutes, check your spam folder or contact support.',
-      category: 'Account',
-      tags: ['password', 'login', 'security', 'account'],
-      views: 3245,
-      helpful: 298,
-      notHelpful: 12,
-      lastUpdated: '2024-10-18',
-      author: 'Priya Sharma',
-      featured: true
-    },
-    {
-      id: '2',
-      faqId: 'FAQ-002',
-      question: 'How do I export data to Excel?',
-      answer: 'Exporting data to Excel is simple:\n\n1. Navigate to any list view (e.g., Orders, Customers, Products)\n2. Apply any filters you need to narrow down the data\n3. Click the "Export" button in the top-right corner\n4. Select "Excel (.xlsx)" from the format dropdown\n5. Choose which columns to include (or select "All Columns")\n6. Click "Download Export"\n\nThe file will be downloaded to your default downloads folder. Large exports may take a few moments to process.',
-      category: 'General',
-      tags: ['export', 'excel', 'data', 'download'],
-      views: 2876,
-      helpful: 245,
-      notHelpful: 8,
-      lastUpdated: '2024-10-15',
-      author: 'Rajesh Kumar',
-      featured: true
-    },
-    {
-      id: '3',
-      faqId: 'FAQ-003',
-      question: 'What are the different user roles and permissions?',
-      answer: 'Our system has 5 primary user roles:\n\n**Administrator** - Full access to all modules, user management, and system settings\n\n**Manager** - Access to operational modules, reporting, and team management\n\n**Operator** - Access to production modules, work orders, and shop floor operations\n\n**Viewer** - Read-only access to assigned modules for monitoring and reporting\n\n**Custom** - Configurable role with specific permissions tailored to your needs\n\nPermissions can be customized for each role under Admin > User Management > Roles.',
-      category: 'Security',
-      tags: ['roles', 'permissions', 'access', 'security', 'users'],
-      views: 2134,
-      helpful: 189,
-      notHelpful: 15,
-      lastUpdated: '2024-10-20',
-      author: 'Sneha Reddy',
-      featured: true
-    },
-    {
-      id: '4',
-      faqId: 'FAQ-004',
-      question: 'How do I configure email notifications?',
-      answer: 'To configure email notifications:\n\n1. Click on your profile icon in the top-right corner\n2. Select "Settings" from the dropdown\n3. Navigate to the "Notifications" tab\n4. Choose which events you want to be notified about:\n   - Order updates\n   - Production alerts\n   - System maintenance\n   - Performance reports\n5. Select notification frequency (real-time, daily digest, weekly summary)\n6. Save your preferences\n\nYou can also configure team-wide notification settings from Admin > System Settings > Notifications.',
-      category: 'Technical',
-      tags: ['notifications', 'email', 'settings', 'alerts'],
-      views: 1892,
-      helpful: 156,
-      notHelpful: 7,
-      lastUpdated: '2024-10-17',
-      author: 'Amit Patel',
-      featured: false
-    },
-    {
-      id: '5',
-      faqId: 'FAQ-005',
-      question: 'Can I integrate with third-party systems?',
-      answer: 'Yes! We support multiple integration methods:\n\n**REST API** - Full-featured API for custom integrations. Documentation available at /api/docs\n\n**Webhooks** - Real-time event notifications to your endpoints\n\n**Pre-built Connectors** - Ready-to-use integrations for:\n- Accounting software (QuickBooks, Xero)\n- CRM systems (Salesforce, HubSpot)\n- E-commerce platforms (Shopify, WooCommerce)\n- Shipping providers (FedEx, UPS, DHL)\n\n**File-based Import/Export** - CSV, Excel, XML formats supported\n\nContact our integration team for assistance with complex integration requirements.',
-      category: 'Technical',
-      tags: ['integration', 'api', 'webhooks', 'third-party'],
-      views: 1645,
-      helpful: 142,
-      notHelpful: 18,
-      lastUpdated: '2024-10-19',
-      author: 'Vikram Singh',
-      featured: false
-    },
-    {
-      id: '6',
-      faqId: 'FAQ-006',
-      question: 'What browsers are supported?',
-      answer: 'We support the latest versions of all major browsers:\n\n**Fully Supported:**\n- Google Chrome (recommended)\n- Mozilla Firefox\n- Microsoft Edge (Chromium)\n- Safari 14+\n\n**Limited Support:**\n- Internet Explorer 11 (basic functionality only, not recommended)\n\nFor the best experience, we recommend using the latest version of Chrome or Edge. Mobile browsers on iOS and Android are also supported.',
-      category: 'Technical',
-      tags: ['browser', 'compatibility', 'support', 'technical'],
-      views: 1234,
-      helpful: 98,
-      notHelpful: 5,
-      lastUpdated: '2024-10-12',
-      author: 'Priya Sharma',
-      featured: false
-    },
-    {
-      id: '7',
-      faqId: 'FAQ-007',
-      question: 'How do I change my subscription plan?',
-      answer: 'To upgrade or downgrade your subscription:\n\n1. Go to Admin > Billing > Subscription\n2. Click "Change Plan"\n3. Review available plans and features\n4. Select your desired plan\n5. Review the pricing change (prorated for current billing period)\n6. Confirm the change\n\n**Upgrades** take effect immediately with prorated billing.\n\n**Downgrades** take effect at the end of your current billing cycle.\n\nContact our sales team for enterprise or custom plans.',
-      category: 'Billing',
-      tags: ['subscription', 'billing', 'plan', 'upgrade', 'pricing'],
-      views: 1567,
-      helpful: 134,
-      notHelpful: 9,
-      lastUpdated: '2024-10-16',
-      author: 'Rajesh Kumar',
-      featured: false
-    },
-    {
-      id: '8',
-      faqId: 'FAQ-008',
-      question: 'How is my data backed up?',
-      answer: 'Your data security is our priority:\n\n**Automated Backups:**\n- Full backups: Daily at 2:00 AM UTC\n- Incremental backups: Every 6 hours\n- Retention: 30 days of daily backups, 12 months of monthly backups\n\n**Storage:**\n- Encrypted at rest using AES-256\n- Geo-redundant storage across multiple data centers\n- 99.99% durability guarantee\n\n**Recovery:**\n- Point-in-time recovery available for the last 30 days\n- Full system restoration typically within 4 hours\n- Contact support to request a restore\n\nEnterprise plans include custom backup schedules and dedicated backup storage.',
-      category: 'Security',
-      tags: ['backup', 'data', 'security', 'recovery', 'storage'],
-      views: 1423,
-      helpful: 178,
-      notHelpful: 3,
-      lastUpdated: '2024-10-14',
-      author: 'Sneha Reddy',
-      featured: true
-    }
-  ])
+  const [faqs, setFaqs] = useState<FAQ[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = await supportPagesService.getFaqs()
+        const mapped: FAQ[] = raw.map((r: any, i: number) => ({
+          id: String(r.id ?? i),
+          faqId: r.faqId ?? r.code ?? '',
+          question: r.question ?? '',
+          answer: r.answer ?? '',
+          category: r.category ?? '',
+          tags: Array.isArray(r.tags) ? r.tags : [],
+          views: r.views ?? 0,
+          helpful: r.helpful ?? 0,
+          notHelpful: r.notHelpful ?? 0,
+          lastUpdated: r.lastUpdated ?? r.updatedAt ?? '',
+          author: r.author ?? '',
+          featured: r.featured ?? false,
+        }))
+        if (!cancelled) setFaqs(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setFaqs([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const categories = ['all', 'General', 'Account', 'Billing', 'Technical', 'Security']
 
@@ -198,6 +121,19 @@ export default function FAQs() {
           Add FAQ
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading FAQs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-2">

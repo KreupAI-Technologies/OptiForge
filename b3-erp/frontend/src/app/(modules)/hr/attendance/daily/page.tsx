@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Calendar as CalendarIcon,
     Clock,
@@ -14,6 +14,25 @@ import {
     ChevronLeft,
     ChevronRight
 } from 'lucide-react';
+import { AttendanceService } from '@/services/attendance.service';
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const fmtTime = (v: any): string | null => {
+    if (!v) return null;
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+const mapAttStatus = (s: any): AttendanceRecord['status'] => {
+    switch (String(s ?? '').toUpperCase()) {
+        case 'PRESENT': return 'Present';
+        case 'ABSENT': return 'Absent';
+        case 'LATE': return 'Late';
+        case 'HALF_DAY': return 'Half Day';
+        case 'ON_LEAVE': return 'On Leave';
+        default: return 'Present';
+    }
+};
 
 interface AttendanceRecord {
     id: string;
@@ -34,69 +53,35 @@ export default function DailyAttendancePage() {
     const [departmentFilter, setDepartmentFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    // Mock Data
-    const attendanceData: AttendanceRecord[] = [
-        {
-            id: '1',
-            employeeId: 'EMP001',
-            employeeName: 'Sarah Johnson',
-            department: 'Human Resources',
-            shift: 'General (9:00 - 18:00)',
-            checkIn: '08:55',
-            checkOut: '18:05',
-            status: 'Present',
-            workHours: '09:10',
-            overtime: '00:00'
-        },
-        {
-            id: '2',
-            employeeId: 'EMP002',
-            employeeName: 'Michael Chen',
-            department: 'Production',
-            shift: 'Morning (6:00 - 14:00)',
-            checkIn: '06:15',
-            checkOut: '14:30',
-            status: 'Late',
-            workHours: '08:15',
-            overtime: '00:15'
-        },
-        {
-            id: '3',
-            employeeId: 'EMP003',
-            employeeName: 'Emily Davis',
-            department: 'Quality Assurance',
-            shift: 'General (9:00 - 18:00)',
-            checkIn: null,
-            checkOut: null,
-            status: 'On Leave',
-            workHours: '00:00',
-            overtime: '00:00'
-        },
-        {
-            id: '4',
-            employeeId: 'EMP004',
-            employeeName: 'David Wilson',
-            department: 'Production',
-            shift: 'Night (22:00 - 06:00)',
-            checkIn: '21:50',
-            checkOut: null,
-            status: 'Present',
-            workHours: 'Running',
-            overtime: '00:00'
-        },
-        {
-            id: '5',
-            employeeId: 'EMP005',
-            employeeName: 'Jessica Brown',
-            department: 'Procurement',
-            shift: 'General (9:00 - 18:00)',
-            checkIn: '09:30',
-            checkOut: '13:30',
-            status: 'Half Day',
-            workHours: '04:00',
-            overtime: '00:00'
-        }
-    ];
+    const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true); setLoadError(null);
+            try {
+                const raw = await AttendanceService.getAttendance();
+                const mapped: AttendanceRecord[] = (raw as any[]).map((r) => ({
+                    id: String(r?.id ?? ''),
+                    employeeId: r?.employeeCode ?? r?.employeeId ?? '',
+                    employeeName: r?.employeeName ?? '',
+                    department: r?.departmentName ?? '',
+                    shift: r?.shift ?? '',
+                    checkIn: fmtTime(r?.checkInTime),
+                    checkOut: fmtTime(r?.checkOutTime),
+                    status: mapAttStatus(r?.status),
+                    workHours: r?.totalHours != null ? `${r.totalHours}` : '00:00',
+                    overtime: r?.overtimeHours != null ? `${r.overtimeHours}` : '00:00',
+                }));
+                if (!cancelled) setAttendanceData(mapped);
+            } catch (e) {
+                if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setAttendanceData([]); }
+            } finally { if (!cancelled) setIsLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     const filteredData = attendanceData.filter(record => {
         const matchesSearch = record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||

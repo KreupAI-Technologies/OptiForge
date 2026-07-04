@@ -27,47 +27,56 @@ const hierarchyData = [
   { level: 'PPE', icon: HardHat, color: 'text-green-600', bg: 'bg-green-50', desc: 'Protect the worker with PPE', count: 12 },
 ];
 
-const activeControls = [
-  {
-    id: 'CTRL-098',
-    title: 'Interlocking Guards on Line 4',
-    type: 'Engineering',
-    targetRisk: 'Mechanical Trapping',
-    lastReview: '2024-03-15',
-    efficiency: 95,
-    status: 'Active'
-  },
-  {
-    id: 'CTRL-105',
-    title: 'Mandatory Cut-Resistant Gloves',
-    type: 'PPE',
-    targetRisk: 'Sharp Edges',
-    lastReview: '2024-04-01',
-    efficiency: 80,
-    status: 'Review Required'
-  },
-  {
-    id: 'CTRL-112',
-    title: 'Lockout/Tagout Training',
-    type: 'Administrative',
-    targetRisk: 'Unexpected Startup',
-    lastReview: '2024-02-20',
-    efficiency: 90,
-    status: 'Active'
-  },
-  {
-    id: 'CTRL-120',
-    title: 'Automated Dust Extraction',
-    type: 'Engineering',
-    targetRisk: 'Respiratory Irritants',
-    lastReview: '2024-04-05',
-    efficiency: 88,
-    status: 'Active'
-  },
-];
+interface ControlItem {
+  id: string;
+  title: string;
+  type: string;
+  targetRisk: string;
+  lastReview: string;
+  efficiency: number;
+  status: string;
+}
 
 export default function ControlMeasuresPage() {
   const [activeLevel, setActiveLevel] = useState('All');
+  const [activeControls, setActiveControls] = useState<ControlItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getHazards('control');
+        const mapped: ControlItem[] = rows.map((row: SafetyHazard) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            title: row.title ?? '',
+            type: row.category ?? '',
+            targetRisk: meta.targetRisk ?? row.remarks ?? '',
+            lastReview: meta.lastReview ?? row.date ?? '',
+            efficiency: Number(meta.efficiency ?? row.riskScore ?? 0) || 0,
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setActiveControls(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load control measures');
+          setActiveControls([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -85,6 +94,19 @@ export default function ControlMeasuresPage() {
           Implement Control
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading control measures…
+        </div>
+      )}
+      {loadError && !loading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* Hierarchy of Controls Visualization */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-2">

@@ -66,289 +66,62 @@ export default function DeliveredOrdersPage() {
   const [selectedDeliveryStatus, setSelectedDeliveryStatus] = useState<string>('all');
   const [selectedRating, setSelectedRating] = useState<string>('all');
 
-  const orders: DeliveredOrder[] = [
-    {
-      id: '1',
-      orderNumber: 'DLV-2025-001',
-      salesOrderNumber: 'SO-2025-056',
-      customerName: 'Tata Motors Limited',
-      customerPhone: '+91 98765 43210',
-      customerEmail: 'procurement@tatamotors.com',
-      totalAmount: 1245000,
-      priority: 'urgent',
-      shippedDate: '2025-10-15',
-      deliveredDate: '2025-10-18',
-      deliveryTime: '2:30 PM',
-      shippingAddress: {
-        street: 'Tata Motors Plant, Sanand',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        pincode: '382170'
-      },
-      deliveryMethod: 'express',
-      carrier: 'Blue Dart Express',
-      trackingNumber: 'BD123456789IN',
-      itemsCount: 250,
-      weight: 1500,
-      deliveryStatus: 'delivered',
-      signedBy: 'Rajesh Kumar (Procurement Manager)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 5,
-      customerFeedback: 'Excellent service! Items delivered on time and in perfect condition.',
-      transitDays: 3,
-      onTimeDelivery: true,
-      invoiceGenerated: true,
-      paymentReceived: true,
-      warrantyActivated: true
-    },
-    {
-      id: '2',
-      orderNumber: 'DLV-2025-002',
-      salesOrderNumber: 'SO-2025-062',
-      customerName: 'Larsen & Toubro',
-      customerPhone: '+91 98765 43211',
-      customerEmail: 'orders@lnt.com',
-      totalAmount: 856000,
-      priority: 'high',
-      shippedDate: '2025-10-14',
-      deliveredDate: '2025-10-19',
-      deliveryTime: '11:15 AM',
-      shippingAddress: {
-        street: 'L&T Construction Site, GIFT City',
-        city: 'Gandhinagar',
-        state: 'Gujarat',
-        pincode: '382355'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'DTDC Courier',
-      trackingNumber: 'DTDC987654321IN',
-      itemsCount: 180,
-      weight: 1200,
-      deliveryStatus: 'delivered',
-      signedBy: 'Amit Patel (Site Engineer)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 4,
-      customerFeedback: 'Good delivery. One day delay but items were intact.',
-      transitDays: 5,
-      onTimeDelivery: false,
-      invoiceGenerated: true,
-      paymentReceived: true,
-      warrantyActivated: false
-    },
-    {
-      id: '3',
-      orderNumber: 'DLV-2025-003',
-      salesOrderNumber: 'SO-2025-058',
-      customerName: 'Reliance Industries',
-      customerPhone: '+91 98765 43212',
-      customerEmail: 'procurement@ril.com',
-      totalAmount: 2340000,
-      priority: 'urgent',
-      shippedDate: '2025-10-13',
-      deliveredDate: '2025-10-17',
-      deliveryTime: '9:45 AM',
-      shippingAddress: {
-        street: 'Reliance Refinery Complex',
-        city: 'Jamnagar',
-        state: 'Gujarat',
-        pincode: '361280'
-      },
-      deliveryMethod: 'express',
-      carrier: 'FedEx India',
-      trackingNumber: 'FDX456789123IN',
-      itemsCount: 400,
-      weight: 2500,
-      deliveryStatus: 'delivered',
-      signedBy: 'Vikram Shah (Operations Head)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 5,
-      customerFeedback: 'Outstanding delivery service. Very professional team.',
-      transitDays: 4,
-      onTimeDelivery: true,
-      invoiceGenerated: true,
-      paymentReceived: true,
-      warrantyActivated: true
-    },
-    {
-      id: '4',
-      orderNumber: 'DLV-2025-004',
-      salesOrderNumber: 'SO-2025-064',
-      customerName: 'Adani Ports',
-      customerPhone: '+91 98765 43213',
-      customerEmail: 'logistics@adaniports.com',
-      totalAmount: 675000,
-      priority: 'normal',
-      shippedDate: '2025-10-12',
-      deliveredDate: '2025-10-18',
-      deliveryTime: '4:20 PM',
-      shippingAddress: {
-        street: 'Mundra Port Container Terminal',
-        city: 'Mundra',
-        state: 'Gujarat',
-        pincode: '370421'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'Delhivery',
-      trackingNumber: 'DLV789456123IN',
-      itemsCount: 120,
-      weight: 800,
-      deliveryStatus: 'partially_delivered',
-      signedBy: 'Suresh Menon (Warehouse Manager)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 3,
-      customerFeedback: 'Partial delivery - 10 items missing. Awaiting second shipment.',
-      deliveryIssues: '10 items short - Follow-up delivery scheduled',
-      transitDays: 6,
-      onTimeDelivery: false,
-      invoiceGenerated: true,
-      paymentReceived: false,
-      warrantyActivated: false
-    },
-    {
-      id: '5',
-      orderNumber: 'DLV-2025-005',
-      salesOrderNumber: 'SO-2025-067',
-      customerName: 'Mahindra & Mahindra',
-      customerPhone: '+91 98765 43214',
-      customerEmail: 'purchase@mahindra.com',
-      totalAmount: 445000,
-      priority: 'high',
-      shippedDate: '2025-10-16',
-      deliveredDate: '2025-10-19',
-      deliveryTime: '1:10 PM',
-      shippingAddress: {
-        street: 'Mahindra Manufacturing Plant',
-        city: 'Chakan',
-        state: 'Maharashtra',
-        pincode: '410501'
-      },
-      deliveryMethod: 'express',
-      carrier: 'Blue Dart Express',
-      trackingNumber: 'BD987654321IN',
-      itemsCount: 90,
-      weight: 650,
-      deliveryStatus: 'delivered',
-      signedBy: 'Priya Sharma (Quality Manager)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 5,
-      transitDays: 3,
-      onTimeDelivery: true,
-      invoiceGenerated: true,
-      paymentReceived: true,
-      warrantyActivated: true
-    },
-    {
-      id: '6',
-      orderNumber: 'DLV-2025-006',
-      salesOrderNumber: 'SO-2025-070',
-      customerName: 'Godrej Industries',
-      customerPhone: '+91 98765 43215',
-      customerEmail: 'orders@godrej.com',
-      totalAmount: 325000,
-      priority: 'normal',
-      shippedDate: '2025-10-11',
-      deliveredDate: '2025-10-17',
-      deliveryTime: '10:30 AM',
-      shippingAddress: {
-        street: 'Godrej Complex, Vikhroli',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        pincode: '400079'
-      },
-      deliveryMethod: 'standard',
-      carrier: 'India Post',
-      trackingNumber: 'IP123789456IN',
-      itemsCount: 60,
-      weight: 400,
-      deliveryStatus: 'damaged',
-      signedBy: 'Neha Desai (Receiving Clerk)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 2,
-      customerFeedback: 'Multiple items damaged during transit. Poor packaging.',
-      deliveryIssues: '5 items damaged - Replacement requested',
-      transitDays: 6,
-      onTimeDelivery: true,
-      invoiceGenerated: true,
-      paymentReceived: false,
-      warrantyActivated: false
-    },
-    {
-      id: '7',
-      orderNumber: 'DLV-2025-007',
-      salesOrderNumber: 'SO-2025-073',
-      customerName: 'Bharat Heavy Electricals',
-      customerPhone: '+91 98765 43216',
-      customerEmail: 'procurement@bhel.in',
-      totalAmount: 1890000,
-      priority: 'high',
-      shippedDate: '2025-10-14',
-      deliveredDate: '2025-10-18',
-      deliveryTime: '3:45 PM',
-      shippingAddress: {
-        street: 'BHEL Township',
-        city: 'Bhopal',
-        state: 'Madhya Pradesh',
-        pincode: '462022'
-      },
-      deliveryMethod: 'express',
-      carrier: 'DHL Express',
-      trackingNumber: 'DHL456123789IN',
-      itemsCount: 320,
-      weight: 1800,
-      deliveryStatus: 'delivered',
-      signedBy: 'Arun Verma (Stores Superintendent)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 4,
-      customerFeedback: 'Satisfactory delivery. Good handling of heavy items.',
-      transitDays: 4,
-      onTimeDelivery: true,
-      invoiceGenerated: true,
-      paymentReceived: true,
-      warrantyActivated: true
-    },
-    {
-      id: '8',
-      orderNumber: 'DLV-2025-008',
-      salesOrderNumber: 'SO-2025-069',
-      customerName: 'Hindustan Zinc Limited',
-      customerPhone: '+91 98765 43217',
-      customerEmail: 'purchase@hzl.com',
-      totalAmount: 567000,
-      priority: 'normal',
-      shippedDate: '2025-10-10',
-      deliveredDate: '2025-10-15',
-      deliveryTime: '11:50 AM',
-      shippingAddress: {
-        street: 'Zinc Smelter Complex',
-        city: 'Udaipur',
-        state: 'Rajasthan',
-        pincode: '313001'
-      },
-      deliveryMethod: 'customer_pickup',
-      carrier: 'Self Pickup',
-      trackingNumber: 'N/A',
-      itemsCount: 100,
-      weight: 750,
-      deliveryStatus: 'delivered',
-      signedBy: 'Karan Singh (Transport Coordinator)',
-      signatureAvailable: true,
-      proofOfDelivery: true,
-      customerRating: 5,
-      customerFeedback: 'Smooth pickup process. Everything ready on time.',
-      transitDays: 0,
-      onTimeDelivery: true,
-      invoiceGenerated: true,
-      paymentReceived: true,
-      warrantyActivated: false
-    }
-  ];
+  const [orders, setOrders] = useState<DeliveredOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = await salesPagesService.getQuotations();
+        const mapped: DeliveredOrder[] = raw.map((r: any) => ({
+          id: String(r.id ?? ''),
+          orderNumber: r.orderNumber ?? '',
+          salesOrderNumber: r.salesOrderNumber ?? '',
+          customerName: r.customerName ?? '',
+          customerPhone: r.customerPhone ?? '',
+          customerEmail: r.customerEmail ?? '',
+          totalAmount: r.totalAmount ?? 0,
+          priority: (r.priority ?? 'normal') as DeliveredOrder['priority'],
+          shippedDate: r.shippedDate ?? '',
+          deliveredDate: r.deliveredDate ?? '',
+          deliveryTime: r.deliveryTime ?? '',
+          shippingAddress: {
+            street: r.shippingAddress?.street ?? '',
+            city: r.shippingAddress?.city ?? '',
+            state: r.shippingAddress?.state ?? '',
+            pincode: r.shippingAddress?.pincode ?? '',
+          },
+          deliveryMethod: (r.deliveryMethod ?? 'standard') as DeliveredOrder['deliveryMethod'],
+          carrier: r.carrier ?? '',
+          trackingNumber: r.trackingNumber ?? '',
+          itemsCount: r.itemsCount ?? 0,
+          weight: r.weight ?? 0,
+          deliveryStatus: (r.deliveryStatus ?? 'delivered') as DeliveredOrder['deliveryStatus'],
+          signedBy: r.signedBy ?? '',
+          signatureAvailable: r.signatureAvailable ?? false,
+          proofOfDelivery: r.proofOfDelivery ?? false,
+          customerRating: r.customerRating,
+          customerFeedback: r.customerFeedback,
+          deliveryIssues: r.deliveryIssues,
+          transitDays: r.transitDays ?? 0,
+          onTimeDelivery: r.onTimeDelivery ?? false,
+          invoiceGenerated: r.invoiceGenerated ?? false,
+          paymentReceived: r.paymentReceived ?? false,
+          warrantyActivated: r.warrantyActivated ?? false,
+        }));
+        if (!cancelled) setOrders(mapped);
+      } catch (e) {
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setOrders([]); }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch =
@@ -418,6 +191,18 @@ export default function DeliveredOrdersPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50 px-3 py-2">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading orders…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Inline Header */}
         <div className="flex items-center justify-between gap-2">
           <button
