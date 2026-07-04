@@ -148,131 +148,6 @@ export default function InvoicesPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const _unusedSample: Invoice[] = [
-    {
-      id: 'INV001',
-      invoiceNumber: 'INV-2025-001',
-      invoiceDate: '2025-01-15',
-      dueDate: '2025-02-14',
-      customerName: 'ABC Corporation Pvt Ltd',
-      customerCode: 'CUST-001',
-      gstin: '29AAACC1234F1Z5',
-      billToAddress: '123 MG Road, Bangalore, Karnataka - 560001',
-      items: [
-        { description: 'Product A - Premium Grade', quantity: 10, rate: 50000, amount: 500000, hsnCode: '84212100' },
-        { description: 'Product B - Standard', quantity: 20, rate: 25000, amount: 500000, hsnCode: '84213100' }
-      ],
-      subtotal: 1000000,
-      cgst: 90000,
-      sgst: 90000,
-      igst: 0,
-      totalAmount: 1180000,
-      paidAmount: 1180000,
-      balanceAmount: 0,
-      status: 'Paid',
-      paymentTerms: 'Net 30 Days',
-      createdBy: 'John Doe',
-      createdDate: '2025-01-15'
-    },
-    {
-      id: 'INV002',
-      invoiceNumber: 'INV-2025-002',
-      invoiceDate: '2025-01-18',
-      dueDate: '2025-02-17',
-      customerName: 'XYZ Enterprises Ltd',
-      customerCode: 'CUST-002',
-      gstin: '27BBBDD5678G2Z6',
-      billToAddress: '456 Brigade Road, Mumbai, Maharashtra - 400001',
-      items: [
-        { description: 'Service Package - Annual', quantity: 1, rate: 750000, amount: 750000, hsnCode: '998313' }
-      ],
-      subtotal: 750000,
-      cgst: 0,
-      sgst: 0,
-      igst: 135000,
-      totalAmount: 885000,
-      paidAmount: 0,
-      balanceAmount: 885000,
-      status: 'Sent',
-      paymentTerms: 'Net 30 Days',
-      notes: 'Annual maintenance contract',
-      createdBy: 'Jane Smith',
-      createdDate: '2025-01-18'
-    },
-    {
-      id: 'INV003',
-      invoiceNumber: 'INV-2025-003',
-      invoiceDate: '2025-01-20',
-      dueDate: '2025-02-19',
-      customerName: 'DEF Industries',
-      customerCode: 'CUST-003',
-      gstin: '06CCCEE9012H3Z7',
-      billToAddress: '789 Sector 18, Gurgaon, Haryana - 122001',
-      items: [
-        { description: 'Custom Solution Development', quantity: 5, rate: 100000, amount: 500000, hsnCode: '998314' },
-        { description: 'Training Services', quantity: 10, rate: 15000, amount: 150000, hsnCode: '998315' }
-      ],
-      subtotal: 650000,
-      cgst: 0,
-      sgst: 0,
-      igst: 117000,
-      totalAmount: 767000,
-      paidAmount: 400000,
-      balanceAmount: 367000,
-      status: 'Partially Paid',
-      paymentTerms: 'Net 30 Days',
-      createdBy: 'Robert Brown',
-      createdDate: '2025-01-20'
-    },
-    {
-      id: 'INV004',
-      invoiceNumber: 'INV-2025-004',
-      invoiceDate: '2024-12-25',
-      dueDate: '2025-01-24',
-      customerName: 'GHI Enterprises',
-      customerCode: 'CUST-004',
-      gstin: '33DDDFF3456I4Z8',
-      billToAddress: '321 Anna Salai, Chennai, Tamil Nadu - 600001',
-      items: [
-        { description: 'Product C - Bulk Order', quantity: 50, rate: 10000, amount: 500000, hsnCode: '84801000' }
-      ],
-      subtotal: 500000,
-      cgst: 0,
-      sgst: 0,
-      igst: 90000,
-      totalAmount: 590000,
-      paidAmount: 0,
-      balanceAmount: 590000,
-      status: 'Overdue',
-      paymentTerms: 'Net 30 Days',
-      createdBy: 'Sarah Wilson',
-      createdDate: '2024-12-25'
-    },
-    {
-      id: 'INV005',
-      invoiceNumber: 'INV-2025-005',
-      invoiceDate: '2025-01-25',
-      dueDate: '2025-02-24',
-      customerName: 'JKL Corporation',
-      customerCode: 'CUST-005',
-      gstin: '29EEEGG7890J5Z9',
-      billToAddress: '654 Indiranagar, Bangalore, Karnataka - 560038',
-      items: [
-        { description: 'Premium Package', quantity: 3, rate: 200000, amount: 600000, hsnCode: '84212200' }
-      ],
-      subtotal: 600000,
-      cgst: 54000,
-      sgst: 54000,
-      igst: 0,
-      totalAmount: 708000,
-      paidAmount: 0,
-      balanceAmount: 708000,
-      status: 'Draft',
-      paymentTerms: 'Net 45 Days',
-      createdBy: 'Michael Chen',
-      createdDate: '2025-01-25'
-    }
-  ];
 
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch =
@@ -349,6 +224,12 @@ export default function InvoicesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-green-900 to-gray-900 p-3">
       <div className="space-y-3">
+        {isLoading && (
+          <div className="rounded-lg border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm text-blue-200">Loading invoices…</div>
+        )}
+        {loadError && !isLoading && (
+          <div className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">{loadError}</div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

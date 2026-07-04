@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, Package, Truck, ArrowRight, Clock, CheckCircle, AlertTriangle, TrendingUp, Filter } from 'lucide-react';
 
 interface CrossDockOperation {
@@ -34,192 +35,45 @@ export default function CrossDockPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
-  const crossDockOps: CrossDockOperation[] = [
-    {
-      id: '1',
-      operationNo: 'XD-2025-0101',
-      inboundVehicle: 'TN-01-AB-1234',
-      outboundVehicle: 'KA-01-CD-3456',
-      inboundCarrier: 'Blue Dart Express',
-      outboundCarrier: 'VRL Logistics',
-      receiptTime: '2025-10-21 08:15',
-      dispatchTime: '2025-10-21 11:30',
-      itemCount: 245,
-      palletCount: 12,
-      totalWeight: 3500,
-      status: 'sorting',
-      priority: 'high',
-      inboundDock: 'DOCK-A01',
-      outboundDock: 'DOCK-B01',
-      dwellTime: 180,
-      targetDwellTime: 240,
-      progress: 45,
-      orderNos: ['SO-2025-8901', 'SO-2025-8902'],
-      destination: 'Bangalore',
-      notes: 'Express shipment - Priority sorting'
-    },
-    {
-      id: '2',
-      operationNo: 'XD-2025-0102',
-      inboundVehicle: 'TN-04-GH-5678',
-      outboundVehicle: 'MH-12-EF-7890',
-      inboundCarrier: 'DHL Express',
-      outboundCarrier: 'Gati Ltd',
-      receiptTime: '2025-10-21 11:00',
-      dispatchTime: '2025-10-21 14:00',
-      itemCount: 180,
-      palletCount: 9,
-      totalWeight: 2700,
-      status: 'receiving',
-      priority: 'medium',
-      inboundDock: 'DOCK-A03',
-      outboundDock: 'DOCK-B02',
-      dwellTime: 0,
-      targetDwellTime: 180,
-      progress: 15,
-      orderNos: ['SO-2025-8903'],
-      destination: 'Mumbai',
-      notes: 'Temperature controlled items - Handle with care'
-    },
-    {
-      id: '3',
-      operationNo: 'XD-2025-0103',
-      inboundVehicle: 'TN-07-IJ-2345',
-      outboundVehicle: 'TN-09-KL-5678',
-      inboundCarrier: 'DTDC Courier',
-      outboundCarrier: 'DTDC Courier',
-      receiptTime: '2025-10-21 07:25',
-      dispatchTime: '2025-10-21 09:30',
-      itemCount: 280,
-      palletCount: 14,
-      totalWeight: 4200,
-      status: 'loading',
-      priority: 'high',
-      inboundDock: 'DOCK-C01',
-      outboundDock: 'DOCK-C02',
-      dwellTime: 115,
-      targetDwellTime: 120,
-      progress: 85,
-      orderNos: ['SO-2025-8904', 'SO-2025-8905', 'SO-2025-8906'],
-      destination: 'Coimbatore',
-      notes: 'Multi-drop route - 85% loaded'
-    },
-    {
-      id: '4',
-      operationNo: 'XD-2025-0104',
-      inboundVehicle: 'HR-26-KL-6789',
-      outboundVehicle: 'WB-01-MN-4567',
-      inboundCarrier: 'FedEx',
-      outboundCarrier: 'Indian Post',
-      receiptTime: '2025-10-21 08:35',
-      dispatchTime: '2025-10-21 13:00',
-      itemCount: 195,
-      palletCount: 10,
-      totalWeight: 2900,
-      status: 'staging',
-      priority: 'medium',
-      inboundDock: 'DOCK-C03',
-      outboundDock: 'DOCK-D01',
-      dwellTime: 140,
-      targetDwellTime: 270,
-      progress: 60,
-      orderNos: ['SO-2025-8907', 'SO-2025-8908'],
-      destination: 'Kolkata',
-      notes: 'Quality inspection in progress'
-    },
-    {
-      id: '5',
-      operationNo: 'XD-2025-0105',
-      inboundVehicle: 'DL-01-OP-8901',
-      outboundVehicle: 'UP-16-QR-2345',
-      inboundCarrier: 'Safexpress',
-      outboundCarrier: 'Safexpress',
-      receiptTime: '2025-10-21 09:45',
-      dispatchTime: '2025-10-21 15:00',
-      itemCount: 420,
-      palletCount: 21,
-      totalWeight: 6300,
-      status: 'delayed',
-      priority: 'low',
-      inboundDock: 'DOCK-B03',
-      outboundDock: 'DOCK-D02',
-      dwellTime: 280,
-      targetDwellTime: 240,
-      progress: 30,
-      orderNos: ['SO-2025-8909'],
-      destination: 'Delhi',
-      notes: 'Delayed due to outbound vehicle late arrival'
-    },
-    {
-      id: '6',
-      operationNo: 'XD-2025-0106',
-      inboundVehicle: 'GJ-01-ST-6789',
-      outboundVehicle: 'RJ-14-UV-3456',
-      inboundCarrier: 'Rivigo',
-      outboundCarrier: 'Rivigo',
-      receiptTime: '2025-10-21 06:30',
-      dispatchTime: '2025-10-21 08:45',
-      itemCount: 320,
-      palletCount: 16,
-      totalWeight: 4800,
-      status: 'completed',
-      priority: 'high',
-      inboundDock: 'DOCK-A02',
-      outboundDock: 'DOCK-B04',
-      dwellTime: 135,
-      targetDwellTime: 150,
-      progress: 100,
-      orderNos: ['SO-2025-8910', 'SO-2025-8911'],
-      destination: 'Ahmedabad',
-      notes: 'Completed on time - Good performance'
-    },
-    {
-      id: '7',
-      operationNo: 'XD-2025-0107',
-      inboundVehicle: 'MP-09-WX-7890',
-      outboundVehicle: 'CG-04-YZ-4567',
-      inboundCarrier: 'TCI Express',
-      outboundCarrier: 'TCI Express',
-      receiptTime: '2025-10-21 10:00',
-      dispatchTime: '2025-10-21 12:30',
-      itemCount: 150,
-      palletCount: 8,
-      totalWeight: 2250,
-      status: 'sorting',
-      priority: 'medium',
-      inboundDock: 'DOCK-D03',
-      outboundDock: 'DOCK-C04',
-      dwellTime: 90,
-      targetDwellTime: 150,
-      progress: 50,
-      orderNos: ['SO-2025-8912'],
-      destination: 'Indore',
-      notes: 'Standard cross-dock operation'
-    },
-    {
-      id: '8',
-      operationNo: 'XD-2025-0108',
-      inboundVehicle: 'AP-01-BC-5678',
-      outboundVehicle: 'AP-03-DE-8901',
-      inboundCarrier: 'Aegis Logistics',
-      outboundCarrier: 'Aegis Logistics',
-      receiptTime: '2025-10-21 12:00',
-      dispatchTime: '2025-10-21 15:30',
-      itemCount: 385,
-      palletCount: 19,
-      totalWeight: 5775,
-      status: 'receiving',
-      priority: 'high',
-      inboundDock: 'DOCK-A04',
-      outboundDock: 'DOCK-B05',
-      dwellTime: 0,
-      targetDwellTime: 210,
-      progress: 20,
-      orderNos: ['SO-2025-8913', 'SO-2025-8914', 'SO-2025-8915'],
-      destination: 'Visakhapatnam',
-      notes: 'Large shipment - Extended sorting time'
-    }
-  ];
+  const [crossDockOps, setCrossDockOps] = useState<CrossDockOperation[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await LogisticsService.getCrossDockOperations();
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? (res as any)?.items ?? []);
+        if (cancelled) return;
+        setCrossDockOps((list as any[]).map((r, i) => ({
+          id: String(r.id ?? i),
+          operationNo: r.operationNo ?? '',
+          inboundVehicle: r.inboundVehicle ?? r.inboundShipment ?? '',
+          outboundVehicle: r.outboundVehicle ?? r.outboundShipment ?? '',
+          inboundCarrier: r.inboundCarrier ?? r.carrier ?? '',
+          outboundCarrier: r.outboundCarrier ?? r.carrier ?? '',
+          receiptTime: r.receiptTime ?? r.scheduledTime ?? '',
+          dispatchTime: r.dispatchTime ?? '',
+          itemCount: Number(r.itemCount ?? 0),
+          palletCount: Number(r.palletCount ?? 0),
+          totalWeight: Number(r.totalWeight ?? 0),
+          status: (r.status ?? 'receiving') as CrossDockOperation['status'],
+          priority: (r.priority ?? 'medium') as CrossDockOperation['priority'],
+          inboundDock: r.inboundDock ?? r.dockDoor ?? '',
+          outboundDock: r.outboundDock ?? '',
+          dwellTime: Number(r.dwellTime ?? 0),
+          targetDwellTime: Number(r.targetDwellTime ?? 0),
+          progress: Number(r.progress ?? 0),
+          orderNos: Array.isArray(r.orderNos) ? r.orderNos : (r.orderNos ? [r.orderNos] : []),
+          destination: r.destination ?? '',
+          notes: r.notes ?? '',
+        })));
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load cross-dock operations');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const crossDockStats = {
     total: crossDockOps.length,

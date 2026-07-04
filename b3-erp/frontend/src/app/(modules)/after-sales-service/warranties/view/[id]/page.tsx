@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -101,36 +102,38 @@ export default function ViewWarrantyPage({ params }: { params: { id: string } })
     lastModified: '2024-12-20'
   };
 
-  // Mock Claims
-  const claims: WarrantyClaim[] = [
-    {
-      id: 'CLM-001',
-      claimNumber: 'CLM-2024-0045',
-      dateRaised: '2024-12-15',
-      issueDescription: 'Gas burner ignition failure - control valve replacement required',
-      claimAmount: 8500,
-      status: 'Completed',
-      approvedAmount: 8500
-    },
-    {
-      id: 'CLM-002',
-      claimNumber: 'CLM-2024-0028',
-      dateRaised: '2024-10-20',
-      issueDescription: 'Refrigerator compressor not cooling - compressor replacement',
-      claimAmount: 5500,
-      status: 'Completed',
-      approvedAmount: 5000
-    },
-    {
-      id: 'CLM-003',
-      claimNumber: 'CLM-2024-0012',
-      dateRaised: '2024-08-10',
-      issueDescription: 'Thermostat malfunction - temperature control issues',
-      claimAmount: 2000,
-      status: 'Completed',
-      approvedAmount: 1000
-    }
-  ];
+  // Claims loaded from the after-sales warranty-claims endpoint.
+  const [claims, setClaims] = useState<WarrantyClaim[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await AfterSalesPagesService.warrantyClaims(params.id)) as any[];
+        const mapped: WarrantyClaim[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+          id: String(r?.id ?? r?.claimNumber ?? ''),
+          claimNumber: r?.claimNumber ?? r?.claimNo ?? String(r?.id ?? ''),
+          dateRaised: r?.dateRaised ?? r?.claimDate ?? r?.createdAt ?? '',
+          issueDescription: r?.issueDescription ?? r?.faultDescription ?? r?.description ?? '',
+          claimAmount: Number(r?.claimAmount ?? r?.oemClaim ?? r?.companyBearing ?? 0) || 0,
+          status: (r?.status ?? 'Pending') as WarrantyClaim['status'],
+          approvedAmount: r?.approvedAmount != null ? Number(r.approvedAmount) : undefined,
+        }));
+        if (!cancelled) setClaims(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load claims');
+          setClaims([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [params.id]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
