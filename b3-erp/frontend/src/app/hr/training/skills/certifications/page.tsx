@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Award,
   Search,
   Filter,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   Calendar,
   Download,
   MoreVertical,
   Plus
 } from 'lucide-react';
+import { HrPagesService } from '@/services/hr-pages.service';
 import {
   PieChart,
   Pie,

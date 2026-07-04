@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertTriangle, Clock, CheckCircle, XCircle, Play, FileText, Users, Calendar, Eye, MessageSquare, Filter, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { AlertTriangle, Clock, CheckCircle, XCircle, Play, FileText, Users, Calendar, Eye, MessageSquare, Filter, Search, AlertCircle } from 'lucide-react'
+import { supportPagesService } from '@/services/support-pages.service'
 
 interface EmergencyChange {
   id: string

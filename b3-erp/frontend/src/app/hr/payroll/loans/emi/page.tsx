@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Calendar,
   Calculator,
@@ -14,6 +14,7 @@ import {
   Search,
   ArrowRight
 } from 'lucide-react'
+import { HrPayrollService } from '@/services/hr-payroll.service'
 
 interface EMISchedule {
   id: string

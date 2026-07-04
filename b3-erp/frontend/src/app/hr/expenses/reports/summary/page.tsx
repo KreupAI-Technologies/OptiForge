@@ -27,21 +27,47 @@ export default function ExpenseSummaryPage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedPeriod, setSelectedPeriod] = useState('yearly');
+  const [monthlyData, setMonthlyData] = useState<MonthlySummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const monthlyData: MonthlySummary[] = [
-    { month: 'Jan 2025', totalClaims: 145, totalAmount: 892000, approvedAmount: 785000, rejectedAmount: 45000, pendingAmount: 62000, avgClaimAmount: 6152 },
-    { month: 'Feb 2025', totalClaims: 132, totalAmount: 825000, approvedAmount: 742000, rejectedAmount: 38000, pendingAmount: 45000, avgClaimAmount: 6250 },
-    { month: 'Mar 2025', totalClaims: 168, totalAmount: 1045000, approvedAmount: 952000, rejectedAmount: 52000, pendingAmount: 41000, avgClaimAmount: 6220 },
-    { month: 'Apr 2025', totalClaims: 155, totalAmount: 965000, approvedAmount: 875000, rejectedAmount: 42000, pendingAmount: 48000, avgClaimAmount: 6226 },
-    { month: 'May 2025', totalClaims: 178, totalAmount: 1125000, approvedAmount: 1015000, rejectedAmount: 58000, pendingAmount: 52000, avgClaimAmount: 6320 },
-    { month: 'Jun 2025', totalClaims: 162, totalAmount: 1008000, approvedAmount: 912000, rejectedAmount: 48000, pendingAmount: 48000, avgClaimAmount: 6222 },
-    { month: 'Jul 2025', totalClaims: 148, totalAmount: 925000, approvedAmount: 835000, rejectedAmount: 45000, pendingAmount: 45000, avgClaimAmount: 6250 },
-    { month: 'Aug 2025', totalClaims: 165, totalAmount: 1035000, approvedAmount: 945000, rejectedAmount: 48000, pendingAmount: 42000, avgClaimAmount: 6273 },
-    { month: 'Sep 2025', totalClaims: 172, totalAmount: 1085000, approvedAmount: 982000, rejectedAmount: 52000, pendingAmount: 51000, avgClaimAmount: 6308 },
-    { month: 'Oct 2025', totalClaims: 185, totalAmount: 1165000, approvedAmount: 1058000, rejectedAmount: 55000, pendingAmount: 52000, avgClaimAmount: 6297 },
-    { month: 'Nov 2025', totalClaims: 158, totalAmount: 982000, approvedAmount: 892000, rejectedAmount: 45000, pendingAmount: 45000, avgClaimAmount: 6215 },
-    { month: 'Dec 2025', totalClaims: 142, totalAmount: 885000, approvedAmount: 805000, rejectedAmount: 42000, pendingAmount: 38000, avgClaimAmount: 6232 }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await HrPagesService.expenseClaims()) as any[];
+        const mapped: MonthlySummary[] = (Array.isArray(raw) ? raw : []).map((r) => {
+          const totalClaims = Number(r.totalClaims ?? r.claims ?? 0);
+          const totalAmount = Number(r.totalAmount ?? r.amount ?? 0);
+          return {
+            month: r.month ?? r.period ?? '',
+            totalClaims,
+            totalAmount,
+            approvedAmount: Number(r.approvedAmount ?? r.approved ?? 0),
+            rejectedAmount: Number(r.rejectedAmount ?? r.rejected ?? 0),
+            pendingAmount: Number(r.pendingAmount ?? r.pending ?? 0),
+            avgClaimAmount: Number(
+              r.avgClaimAmount ?? (totalClaims > 0 ? Math.round(totalAmount / totalClaims) : 0),
+            ),
+          };
+        });
+        if (!cancelled) setMonthlyData(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load expense summary');
+          setMonthlyData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categoryData: CategorySummary[] = [
     { category: 'Travel', totalClaims: 485, totalAmount: 3250000, percentageOfTotal: 28 },
