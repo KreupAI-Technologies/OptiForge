@@ -454,3 +454,92 @@ class CollaborationService {
 }
 
 export const collaborationService = new CollaborationService();
+
+// ============================================================================
+// COLLABORATION ORPHAN PAGES — files / folders / channels / messages
+// Direct fetch against the NestJS collaboration module (port 3001, /api/v1)
+// with the x-company-id header. Reads are defensive and resolve to an array.
+// ============================================================================
+
+const COLLAB_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+async function collabGetJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${COLLAB_API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  return res.json() as Promise<T>;
+}
+
+function collabToArray<T = any>(raw: unknown): T[] {
+  if (Array.isArray(raw)) return raw as T[];
+  if (raw && typeof raw === 'object' && Array.isArray((raw as any).data)) {
+    return (raw as any).data as T[];
+  }
+  return [];
+}
+
+export interface CollabFolderItem {
+  id: string;
+  name?: string;
+  itemCount?: number;
+  sizeBytes?: number | string;
+  owner?: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+export interface CollabFileItem {
+  id: string;
+  name?: string;
+  fileType?: string;
+  sizeBytes?: number | string;
+  owner?: string;
+  isStarred?: boolean;
+  isShared?: boolean;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
+export interface CollabChannelItem {
+  id: string;
+  name?: string;
+  channelType?: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount?: number;
+  memberCount?: number;
+  status?: string;
+  [key: string]: any;
+}
+
+export interface CollabMessageItem {
+  id: string;
+  channelId?: string;
+  senderName?: string;
+  senderId?: string;
+  content?: string;
+  messageType?: string;
+  status?: string;
+  sentAt?: string;
+  createdAt?: string;
+  [key: string]: any;
+}
+
+export const collaborationOrphanService = {
+  async getFolders(): Promise<CollabFolderItem[]> {
+    return collabToArray<CollabFolderItem>(await collabGetJson('/collaboration/folders'));
+  },
+  async getFiles(): Promise<CollabFileItem[]> {
+    return collabToArray<CollabFileItem>(await collabGetJson('/collaboration/files'));
+  },
+  async getChannels(): Promise<CollabChannelItem[]> {
+    return collabToArray<CollabChannelItem>(await collabGetJson('/collaboration/channels'));
+  },
+  async getMessages(channelId?: string): Promise<CollabMessageItem[]> {
+    const q = channelId ? `?channelId=${encodeURIComponent(channelId)}` : '';
+    return collabToArray<CollabMessageItem>(await collabGetJson(`/collaboration/messages${q}`));
+  },
+};

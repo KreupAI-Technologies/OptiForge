@@ -48,9 +48,29 @@ export interface PortalOrderItem {
   [key: string]: any;
 }
 
+export interface PortalDocumentItem {
+  id: string;
+  name?: string;
+  docType?: string; // 'folder' | 'file'
+  category?: string;
+  customerId?: string;
+  parentId?: string;
+  sizeBytes?: number | string;
+  itemCount?: number;
+  downloadUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: any;
+}
+
 export const PortalService = {
   /** Customer orders — reuses the sales-order list (double-prefixed path). */
   async getOrders(): Promise<PortalOrderItem[]> {
     return toArray<PortalOrderItem>(await getJson('/api/v1/sales/orders'));
+  },
+
+  /** Customer-portal documents (folders + files) from the additive portal module. */
+  async getDocuments(): Promise<PortalDocumentItem[]> {
+    return toArray<PortalDocumentItem>(await getJson('/portal/documents'));
   },
 };

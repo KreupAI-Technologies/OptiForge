@@ -77,7 +77,45 @@ const FALLBACK_DEVICES: IoTDevice[] = [
             uptime: '5d 8h',
             lastPing: '2s ago'
         }
-    ];
+];
+
+export default function IoTPage() {
+    const [devices, setDevices] = useState<IoTDevice[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        setLoading(true);
+        iotService
+            .getDevices()
+            .then((rows) => {
+                if (!active) return;
+                const mapped: IoTDevice[] = (Array.isArray(rows) ? rows : []).map((d: any, i: number) => ({
+                    id: String(d?.code ?? d?.id ?? i + 1),
+                    name: d?.name ?? 'Unknown Device',
+                    status: d?.status ?? 'offline',
+                    temp: d?.temperature ?? d?.temp ?? '-',
+                    vibration: d?.vibration ?? '-',
+                    power: d?.power ?? '0 kW',
+                    uptime: d?.uptime ?? '-',
+                    lastPing: d?.lastPing ?? '-',
+                }));
+                setDevices(mapped.length ? mapped : FALLBACK_DEVICES);
+                setError(null);
+            })
+            .catch(() => {
+                if (!active) return;
+                setDevices(FALLBACK_DEVICES);
+                setError('Live device telemetry unavailable — showing sample devices.');
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 p-3">
@@ -100,6 +138,17 @@ const FALLBACK_DEVICES: IoTDevice[] = [
                     Live Connection
                 </div>
             </div>
+
+            {loading && (
+                <div className="mb-3 bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-500">
+                    Loading device telemetry…
+                </div>
+            )}
+            {error && (
+                <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
+                    {error}
+                </div>
+            )}
 
             {/* Network Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-8">
