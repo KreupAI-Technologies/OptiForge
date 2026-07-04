@@ -225,6 +225,63 @@ export default function SupplyChainPage() {
         // Overview - show all components in a compact layout
         return (
           <div className="space-y-3">
+            {/* Live Supply-Chain Risks (primary data list) */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-5 h-5 text-red-600" />
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Live Supply-Chain Risks
+                  </h2>
+                </div>
+
+                {risksLoading ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 py-4">Loading supply-chain risks…</p>
+                ) : risksError ? (
+                  <div className="flex items-center gap-2 text-sm text-red-600 py-4">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>{risksError}</span>
+                  </div>
+                ) : risks.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 py-4">No supply-chain risk records</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                          <th className="py-2 pr-4 font-medium">Name</th>
+                          <th className="py-2 pr-4 font-medium">Severity</th>
+                          <th className="py-2 pr-4 font-medium">Status</th>
+                          <th className="py-2 pr-4 font-medium">Category</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {risks.map((r: any, index: number) => (
+                          <tr
+                            key={r.id ?? index}
+                            className="border-b border-gray-100 dark:border-gray-800 last:border-0"
+                          >
+                            <td className="py-2 pr-4 text-gray-900 dark:text-white">
+                              {r.name ?? r.riskName ?? r.vendorName ?? r.id ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {r.severity ?? r.riskLevel ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {r.status ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {r.category ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Supply Chain Map - Featured */}
             <SupplyChainMap
               onShipmentClick={handleShipmentClick}

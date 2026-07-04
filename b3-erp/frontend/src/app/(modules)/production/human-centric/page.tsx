@@ -16,6 +16,33 @@ type ViewType = 'personalized' | 'role-based' | 'workstation' | 'skills' | 'work
 export default function HumanCentricPage() {
   const [currentView, setCurrentView] = useState<ViewType>('personalized');
 
+  const [skillMatrices, setSkillMatrices] = useState<any[]>([]);
+  const [smLoading, setSmLoading] = useState(true);
+  const [smError, setSmError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setSmLoading(true);
+      setSmError(null);
+      try {
+        const raw = await ProductionOrphanService.getSkillMatrices();
+        if (!cancelled) setSkillMatrices(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setSmError(err instanceof Error ? err.message : 'Failed to load skill matrix records');
+          setSkillMatrices([]);
+        }
+      } finally {
+        if (!cancelled) setSmLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const views: { id: ViewType; name: string; icon: string; description: string }[] = [
     { id: 'personalized', name: 'Personalized Dashboard', icon: '🎨', description: 'Customizable widget layout' },
     { id: 'role-based', name: 'Role-Based Views', icon: '👔', description: 'Pre-configured interfaces' },

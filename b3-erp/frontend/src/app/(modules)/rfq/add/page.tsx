@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { MasterDataService, mdLabel, MDVendor } from '@/services/master-data.service';
 import {
   ArrowLeft,
   Save,
@@ -127,8 +128,8 @@ const mockPRs = [
   { id: 'PR-2025-0128', title: 'Consumables for Q4 2025', itemCount: 12 },
 ];
 
-// Mock vendors with detailed info
-const mockVendors: Vendor[] = [
+// Seed vendor list — used as initial state; overwritten by live API when available
+const mockVendorsSeed: Vendor[] = [
   {
     id: '1',
     vendorId: 'V-001',

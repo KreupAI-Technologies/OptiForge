@@ -157,6 +157,24 @@ export default function Form16Page() {
                     </div>
                 </div>
 
+                {isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/40 border-t-blue-300" />
+                        Loading Form 16 records…
+                    </div>
+                )}
+                {loadError && !isLoading && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                        <AlertCircle className="h-4 w-4" />
+                        {loadError}
+                    </div>
+                )}
+                {!isLoading && !loadError && form16Records.length === 0 && (
+                    <div className="rounded-xl border border-gray-600 bg-gray-800/50 px-4 py-3 text-sm text-gray-300">
+                        No Form 16 records found.
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
                         <p className="text-purple-400 text-sm">Total Employees</p>

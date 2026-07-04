@@ -244,6 +244,70 @@ export default function AutomationPage() {
         // Overview - show all components in a compact layout
         return (
           <div className="space-y-3">
+            {/* Live Automation Workflows (primary data list from backend) */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-5 h-5 text-orange-600" />
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Live Automation Workflows
+                  </h2>
+                </div>
+
+                {wfLoading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                    Loading automation workflows…
+                  </div>
+                )}
+
+                {wfError && !wfLoading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                    <Activity className="h-4 w-4" />
+                    {wfError}
+                  </div>
+                )}
+
+                {!wfLoading && !wfError && workflows.length === 0 && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    No automation workflows
+                  </div>
+                )}
+
+                {!wfLoading && !wfError && workflows.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-xs uppercase text-gray-500 dark:text-gray-400">
+                          <th className="py-2 pr-4 font-medium">Name</th>
+                          <th className="py-2 pr-4 font-medium">Status</th>
+                          <th className="py-2 pr-4 font-medium">Trigger</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {workflows.map((w: any, index: number) => (
+                          <tr
+                            key={w.id ?? index}
+                            className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          >
+                            <td className="py-2 pr-4 font-medium text-gray-900 dark:text-white">
+                              {w.name ?? w.workflowName ?? w.id ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {w.status ?? '—'}
+                            </td>
+                            <td className="py-2 pr-4 text-gray-700 dark:text-gray-300">
+                              {w.trigger ?? w.triggerType ?? '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* MES Integration */}
             <MESIntegrationDashboard
               onEntityClick={handleEntityClick}

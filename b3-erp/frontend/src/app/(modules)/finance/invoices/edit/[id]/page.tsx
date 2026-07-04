@@ -84,7 +84,18 @@ export default function EditInvoicePage() {
   const params = useParams();
   const invoiceId = params.id as string;
 
-  // Pre-populated with existing invoice data
+  // Live customer picker — initialized from seed so UI renders immediately
+  const [customers, setCustomers] = useState<MDCustomer[]>(indianCompaniesSeed);
+  const [customersLoading, setCustomersLoading] = useState(false);
+
+  useEffect(() => {
+    setCustomersLoading(true);
+    MasterDataService.getCustomers().then(live => {
+      if (live.length > 0) setCustomers(live);
+    }).finally(() => setCustomersLoading(false));
+  }, []);
+
+  // Pre-populated with existing invoice data (mock default)
   const [formData, setFormData] = useState<InvoiceFormData>({
     invoiceNumber: 'INV-2024-00125',
     customer: 'Tata Steel Limited',
@@ -132,6 +143,31 @@ export default function EditInvoicePage() {
     notes: 'Please make payment within 30 days. Bank details: HDFC Bank, A/C: 50200012345678, IFSC: HDFC0001234',
     termsConditions: '1. Payment due within 30 days\n2. Late payment subject to 2% monthly interest\n3. Goods once sold cannot be returned\n4. Subject to West Bengal jurisdiction',
   });
+
+  // Fetch the real invoice record and prefill form if found
+  useEffect(() => {
+    if (!invoiceId) return;
+    fetchRecordById<Partial<InvoiceFormData>>('/finance/invoices', invoiceId).then(record => {
+      if (!record) return;
+      setFormData(prev => ({
+        ...prev,
+        invoiceNumber: record.invoiceNumber ?? prev.invoiceNumber,
+        customer: record.customer ?? prev.customer,
+        customerGST: record.customerGST ?? prev.customerGST,
+        invoiceDate: record.invoiceDate ?? prev.invoiceDate,
+        dueDate: record.dueDate ?? prev.dueDate,
+        poReference: record.poReference ?? prev.poReference,
+        paymentTerms: record.paymentTerms ?? prev.paymentTerms,
+        billingAddress: record.billingAddress ?? prev.billingAddress,
+        shippingAddress: record.shippingAddress ?? prev.shippingAddress,
+        lineItems: record.lineItems ?? prev.lineItems,
+        discountType: record.discountType ?? prev.discountType,
+        discountValue: record.discountValue ?? prev.discountValue,
+        notes: record.notes ?? prev.notes,
+        termsConditions: record.termsConditions ?? prev.termsConditions,
+      }));
+    });
+  }, [invoiceId]);
 
   const [companyState, setCompanyState] = useState('West Bengal'); // Our company state
 
