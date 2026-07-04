@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   Edit,
@@ -80,7 +81,7 @@ interface Product {
 }
 
 // Mock opportunity data
-const mockOpportunity: Opportunity = {
+const mockOpportunitySeed: Opportunity = {
   id: '1',
   name: 'Premium Kitchen Installation - Luxury Apartments',
   account: 'Skyline Properties Inc',
@@ -97,7 +98,7 @@ const mockOpportunity: Opportunity = {
 };
 
 // Mock activities
-const mockActivities: OpportunityActivity[] = [
+const mockActivitiesSeed: OpportunityActivity[] = [
   {
     id: 'a1',
     opportunityId: '1',
@@ -161,7 +162,7 @@ const mockActivities: OpportunityActivity[] = [
 ];
 
 // Mock products
-const mockProducts: Product[] = [
+const mockProductsSeed: Product[] = [
   { name: 'Premium Modular Kitchen Units', quantity: 15, unitPrice: 12000, total: 180000 },
   { name: 'Granite Countertops', quantity: 15, unitPrice: 8000, total: 120000 },
   { name: 'Installation & Setup', quantity: 1, unitPrice: 30000, total: 30000 },
@@ -229,8 +230,87 @@ export default function ViewOpportunityPage() {
   const router = useRouter();
   const params = useParams();
   const opportunityId = params.id as string;
-  const opportunity = mockOpportunity; // In real app, fetch by opportunityId
   const { addToast } = useToast();
+
+  const [opportunity, setOpportunity] = useState<Opportunity>(mockOpportunitySeed);
+  const [activities, setActivities] = useState<OpportunityActivity[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!opportunityId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // (a) primary entity
+        const raw: any = await crmService.opportunities.getById(opportunityId);
+        if (!cancelled && raw && typeof raw === 'object') {
+          setOpportunity({
+            ...mockOpportunitySeed,
+            id: raw.id ?? opportunityId,
+            name: raw.name ?? mockOpportunitySeed.name,
+            account: raw.customerName ?? raw.account ?? mockOpportunitySeed.account,
+            contact: raw.contactName ?? mockOpportunitySeed.contact,
+            stage: (raw.stage ?? mockOpportunitySeed.stage) as Opportunity['stage'],
+            amount: Number(raw.amount ?? mockOpportunitySeed.amount),
+            probability: Number(raw.probability ?? mockOpportunitySeed.probability),
+            expectedCloseDate: (raw.expectedCloseDate ?? mockOpportunitySeed.expectedCloseDate)?.toString().slice(0, 10),
+            owner: raw.ownerName ?? mockOpportunitySeed.owner,
+            createdAt: (raw.createdAt ?? mockOpportunitySeed.createdAt)?.toString().slice(0, 10),
+            type: raw.type ?? mockOpportunitySeed.type,
+            leadSource: raw.leadSource ?? mockOpportunitySeed.leadSource,
+            description: raw.description ?? mockOpportunitySeed.description,
+          });
+          // Products are carried on the opportunity record itself.
+          if (Array.isArray(raw.products)) {
+            setProducts(
+              raw.products.map((p: any) => ({
+                name: p.name ?? p.productName ?? 'Item',
+                quantity: Number(p.quantity ?? 1),
+                unitPrice: Number(p.unitPrice ?? p.price ?? 0),
+                total: Number(p.total ?? (p.quantity ?? 1) * (p.unitPrice ?? p.price ?? 0)),
+              })),
+            );
+          }
+        }
+
+        // (b) related activity timeline
+        const activitiesRaw = await crmService.opportunities
+          .getActivities(opportunityId)
+          .catch(() => []);
+        if (!cancelled) {
+          setActivities(
+            (activitiesRaw as any[]).map((a, i) => ({
+              id: a.id ?? String(i),
+              opportunityId,
+              type:
+                ['call', 'email', 'meeting', 'note', 'task'].includes(a.type)
+                  ? a.type
+                  : 'note',
+              title: a.subject ?? a.title ?? 'Activity',
+              description: a.description ?? a.notes ?? '',
+              performedBy: a.performedByName ?? a.assignedToName ?? 'System',
+              timestamp: (a.startDate ?? a.createdAt ?? '').toString().slice(0, 16).replace('T', ' '),
+              metadata: a.outcome ? { outcome: a.outcome } : undefined,
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load opportunity');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'products'>('overview');
 
@@ -297,6 +377,17 @@ export default function ViewOpportunityPage() {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+      {loadError && (
+        <div className="mb-3 flex items-center space-x-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          <span>{loadError}</span>
+        </div>
+      )}
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading opportunity…
+        </div>
+      )}
       {/* Header */}
       <div className="mb-3">
         <button
@@ -591,11 +682,11 @@ export default function ViewOpportunityPage() {
 
             {/* Activities List */}
             <div className="space-y-2">
-              {mockActivities
+              {activities
                 .filter(activity => activity.opportunityId === opportunityId)
                 .map((activity, index) => {
                   const ActivityIcon = activityIcons[activity.type];
-                  const isLast = index === mockActivities.filter(a => a.opportunityId === opportunityId).length - 1;
+                  const isLast = index === activities.filter(a => a.opportunityId === opportunityId).length - 1;
 
                   return (
                     <div key={activity.id} className="relative">
@@ -686,7 +777,7 @@ export default function ViewOpportunityPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {mockProducts.map((product, index) => (
+                    {products.map((product, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-3 py-2 text-sm font-medium text-gray-900">{product.name}</td>
                         <td className="px-3 py-2 text-sm text-gray-900 text-right">{product.quantity}</td>
@@ -697,7 +788,7 @@ export default function ViewOpportunityPage() {
                     <tr className="bg-blue-50">
                       <td colSpan={3} className="px-3 py-2 text-sm font-bold text-gray-900 text-right">Grand Total</td>
                       <td className="px-3 py-2 text-lg font-bold text-blue-900 text-right">
-                        ${mockProducts.reduce((sum, p) => sum + p.total, 0).toLocaleString()}
+                        ${products.reduce((sum, p) => sum + p.total, 0).toLocaleString()}
                       </td>
                     </tr>
                   </tbody>
