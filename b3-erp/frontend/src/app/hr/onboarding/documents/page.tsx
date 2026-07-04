@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FileText, Search, Filter, X, Upload, Check, AlertTriangle, Clock, Download, Eye, CheckCircle, XCircle, User, Users } from 'lucide-react';
 import DataTable from '@/components/DataTable';
-import { mockCandidates, OnboardingCandidate, getCandidateStats, documentCategories } from '@/data/hr/onboarding-documents';
+import { OnboardingCandidate, documentCategories } from '@/data/hr/onboarding-documents';
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+const DEFAULT_COMPANY_ID =
+  process.env.NEXT_PUBLIC_DEFAULT_COMPANY_ID || 'company-1';
 
 export default function OnboardingDocumentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,10 +18,57 @@ export default function OnboardingDocumentsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<OnboardingCandidate | null>(null);
 
-  const stats = getCandidateStats();
+  const [candidates, setCandidates] = useState<OnboardingCandidate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/hr/onboarding-tasks?companyId=${DEFAULT_COMPANY_ID}`,
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+        if (!res.ok) throw new Error(`API Error ${res.status}: ${res.statusText}`);
+        const json = await res.json();
+        const rows: any[] = Array.isArray(json) ? json : (json?.data ?? []);
+        if (!cancelled) setCandidates(rows.map((r: any) => ({ ...r })) as OnboardingCandidate[]);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load onboarding documents');
+          setCandidates([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const stats = useMemo(
+    () => ({
+      total: candidates.length,
+      pending: candidates.filter((c) => c.status === 'pending').length,
+      inProgress: candidates.filter((c) => c.status === 'in_progress').length,
+      completed: candidates.filter((c) => c.status === 'completed').length,
+      overdue: candidates.filter((c) => c.status === 'overdue').length,
+      avgCompletion: candidates.length
+        ? Math.round(
+            candidates.reduce((sum, c) => sum + (c.completionPercentage ?? 0), 0) /
+              candidates.length,
+          )
+        : 0,
+    }),
+    [candidates],
+  );
 
   const filteredCandidates = useMemo(() => {
-    return mockCandidates.filter(candidate => {
+    return candidates.filter(candidate => {
       const matchesSearch = searchTerm === '' ||
         candidate.candidateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         candidate.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -28,7 +80,7 @@ export default function OnboardingDocumentsPage() {
 
       return matchesSearch && matchesStatus && matchesDepartment && matchesVerification;
     });
-  }, [searchTerm, statusFilter, departmentFilter, verificationFilter]);
+  }, [candidates, searchTerm, statusFilter, departmentFilter, verificationFilter]);
 
   const getStatusColor = (status: OnboardingCandidate['status']) => {
     const colors = {
@@ -207,10 +259,14 @@ export default function OnboardingDocumentsPage() {
     }
   ];
 
-  const departments = Array.from(new Set(mockCandidates.map(c => c.department)));
+  const departments = Array.from(
+    new Set(candidates.map((c) => c.department)),
+  ) as string[];
 
   return (
     <div className="p-6">
+      {loadError && <div className="text-red-500 text-sm mb-2">{loadError}</div>}
+      {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
       <div className="mb-3">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
           <FileText className="h-8 w-8 text-blue-600" />

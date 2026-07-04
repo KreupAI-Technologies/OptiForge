@@ -1,66 +1,136 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, MapPin, CreditCard, Download, FileText } from 'lucide-react';
+import { HrExpensesService } from '@/services/hr-expenses.service';
+
+interface DeptRow { name: string; trips: number; expenses: number; avgCost: number }
+interface TravelerRow { name: string; trips: number; expenses: number }
+interface BreakdownRow { category: string; amount: number; percentage: number }
+interface TrendRow { month: string; trips: number; expenses: number }
+interface DestRow { city: string; trips: number; expenses: number }
 
 export default function Page() {
   const [selectedPeriod, setSelectedPeriod] = useState('current-month');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const travelStats = {
-    totalTrips: 45,
-    totalExpenses: 2450000,
-    avgTripCost: 54444,
-    totalAdvances: 750000,
-    cardExpenses: 1650000,
-    cashExpenses: 550000,
-    outstandingSettlements: 12,
-    pendingApprovals: 8
-  };
+  const [travelStats, setTravelStats] = useState({
+    totalTrips: 0,
+    totalExpenses: 0,
+    avgTripCost: 0,
+    totalAdvances: 0,
+    cardExpenses: 0,
+    cashExpenses: 0,
+    outstandingSettlements: 0,
+    pendingApprovals: 0,
+  });
+  const [departmentData, setDepartmentData] = useState<DeptRow[]>([]);
+  const [topTravelers, setTopTravelers] = useState<TravelerRow[]>([]);
+  const [expenseBreakdown, setExpenseBreakdown] = useState<BreakdownRow[]>([]);
+  const [monthlyTrend, setMonthlyTrend] = useState<TrendRow[]>([]);
+  const [topDestinations, setTopDestinations] = useState<DestRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const departmentData = [
-    { name: 'Sales', trips: 18, expenses: 980000, avgCost: 54444 },
-    { name: 'Engineering', trips: 12, expenses: 720000, avgCost: 60000 },
-    { name: 'Operations', trips: 8, expenses: 450000, avgCost: 56250 },
-    { name: 'Quality', trips: 4, expenses: 180000, avgCost: 45000 },
-    { name: 'Maintenance', trips: 3, expenses: 120000, avgCost: 40000 }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // Travel reports are aggregated from travel requests + advances. The
+        // backend returns raw rows; derive lightweight rollups defensively.
+        const [requests, advances] = await Promise.all([
+          HrExpensesService.getTravelRequests(),
+          HrExpensesService.getTravelAdvances(),
+        ]);
+        const reqs: any[] = Array.isArray(requests) ? requests : [];
+        const advs: any[] = Array.isArray(advances) ? advances : [];
+        if (cancelled) return;
 
-  const topTravelers = [
-    { name: 'Rajesh Kumar', trips: 8, expenses: 420000 },
-    { name: 'Priya Sharma', trips: 6, expenses: 380000 },
-    { name: 'Amit Singh', trips: 5, expenses: 290000 },
-    { name: 'Meena Rao', trips: 4, expenses: 185000 },
-    { name: 'Suresh Patel', trips: 4, expenses: 160000 }
-  ];
+        const num = (v: any) => Number(v ?? 0) || 0;
+        const totalExpenses = reqs.reduce(
+          (s, r) => s + num(r.totalCost ?? r.estimatedCost ?? r.amount),
+          0,
+        );
+        const totalAdvances = advs.reduce((s, a) => s + num(a.amount ?? a.advanceAmount), 0);
 
-  const expenseBreakdown = [
-    { category: 'Accommodation', amount: 980000, percentage: 40 },
-    { category: 'Transport', amount: 735000, percentage: 30 },
-    { category: 'Meals', amount: 490000, percentage: 20 },
-    { category: 'Fuel', amount: 147000, percentage: 6 },
-    { category: 'Other', amount: 98000, percentage: 4 }
-  ];
+        // Department rollup
+        const deptMap = new Map<string, { trips: number; expenses: number }>();
+        reqs.forEach((r) => {
+          const key = r.department ?? r.departmentName ?? 'Unknown';
+          const cur = deptMap.get(key) ?? { trips: 0, expenses: 0 };
+          cur.trips += 1;
+          cur.expenses += num(r.totalCost ?? r.estimatedCost ?? r.amount);
+          deptMap.set(key, cur);
+        });
+        const dept: DeptRow[] = Array.from(deptMap.entries()).map(([name, v]) => ({
+          name,
+          trips: v.trips,
+          expenses: v.expenses,
+          avgCost: v.trips ? Math.round(v.expenses / v.trips) : 0,
+        }));
 
-  const monthlyTrend = [
-    { month: 'Jun', trips: 38, expenses: 2100000 },
-    { month: 'Jul', trips: 42, expenses: 2300000 },
-    { month: 'Aug', trips: 36, expenses: 1950000 },
-    { month: 'Sep', trips: 40, expenses: 2200000 },
-    { month: 'Oct', trips: 44, expenses: 2400000 },
-    { month: 'Nov', trips: 45, expenses: 2450000 }
-  ];
+        // Top travellers rollup
+        const travMap = new Map<string, { trips: number; expenses: number }>();
+        reqs.forEach((r) => {
+          const key = r.employeeName ?? r.travelerName ?? r.employeeId ?? 'Unknown';
+          const cur = travMap.get(key) ?? { trips: 0, expenses: 0 };
+          cur.trips += 1;
+          cur.expenses += num(r.totalCost ?? r.estimatedCost ?? r.amount);
+          travMap.set(key, cur);
+        });
+        const travelers: TravelerRow[] = Array.from(travMap.entries())
+          .map(([name, v]) => ({ name, trips: v.trips, expenses: v.expenses }))
+          .sort((a, b) => b.expenses - a.expenses)
+          .slice(0, 5);
 
-  const topDestinations = [
-    { city: 'Bangalore', trips: 12, expenses: 620000 },
-    { city: 'Mumbai', trips: 10, expenses: 580000 },
-    { city: 'Delhi', trips: 8, expenses: 520000 },
-    { city: 'Pune', trips: 7, expenses: 360000 },
-    { city: 'Chennai', trips: 5, expenses: 280000 }
-  ];
+        // Destination rollup
+        const destMap = new Map<string, { trips: number; expenses: number }>();
+        reqs.forEach((r) => {
+          const key = r.destination ?? r.destinationCity ?? r.city ?? 'Unknown';
+          const cur = destMap.get(key) ?? { trips: 0, expenses: 0 };
+          cur.trips += 1;
+          cur.expenses += num(r.totalCost ?? r.estimatedCost ?? r.amount);
+          destMap.set(key, cur);
+        });
+        const destinations: DestRow[] = Array.from(destMap.entries())
+          .map(([city, v]) => ({ city, trips: v.trips, expenses: v.expenses }))
+          .sort((a, b) => b.expenses - a.expenses)
+          .slice(0, 5);
+
+        setTravelStats({
+          totalTrips: reqs.length,
+          totalExpenses,
+          avgTripCost: reqs.length ? Math.round(totalExpenses / reqs.length) : 0,
+          totalAdvances,
+          cardExpenses: 0,
+          cashExpenses: 0,
+          outstandingSettlements: advs.filter((a) => (a.status ?? '') !== 'Settled').length,
+          pendingApprovals: reqs.filter((r) => (r.status ?? '') === 'Pending').length,
+        });
+        setDepartmentData(dept);
+        setTopTravelers(travelers);
+        setTopDestinations(destinations);
+        setExpenseBreakdown([]);
+        setMonthlyTrend([]);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load travel reports');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6">
+      {loadError && <div className="text-red-500 text-sm mb-2">{loadError}</div>}
+      {isLoading && <div className="text-gray-400 text-sm mb-2">Loading...</div>}
       <div className="mb-3">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
           <BarChart3 className="h-8 w-8 text-blue-600" />
