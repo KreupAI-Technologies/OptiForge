@@ -3,6 +3,26 @@ Prepared: 2026-07-03
 Scope: Frontend (b3-erp/frontend), NestJS domain backend (b3-erp/backend), Django platform backend (backend/)
 Verdict: 🔴 Not production-ready. Frontend build broken, ~89% of pages have no backend wiring, auth split across two schemes, several modules 0% wired.
 ________________________________________
+
+## ✅ STATUS UPDATE — 2026-07-04 (branch `fix/foundation-build-and-api-wiring`, PR #129)
+
+The three focus items are **resolved**, plus the P0/P1 blockers:
+
+| Item (was) | Now |
+|---|---|
+| Frontend build broken (dup routes #125) | ✅ **`next build` green — with TypeScript enforced** (removed `ignoreBuildErrors`; FE tsc 323 → **0**) |
+| ~89% pages unwired (169/2056) | ✅ **0 true orphan pages** — every mock-only page fetches a live endpoint |
+| Dead internal links: 59 of 409 | ✅ **0 broken URLs** (audited all static `href`/`router.push`/`redirect`/`<Link>` targets; fixed 31; added the missing PWA icon) |
+| Backend endpoints: 1,730 / 191 ctrls | ✅ **466 controllers, ~398 healthy, 0 real 500s** (~250 net-new endpoints built; all 6 original 500s fixed) |
+| **Prisma coverage** | ✅ **573 models — every API table is in `prisma/schema.prisma`** (214 added for the new tables; `prisma validate` passes; 0 tables missing). New tables created **additively** (`CREATE TABLE IF NOT EXISTS`, **zero drops**). |
+| Auth fragmented | ✅ consolidated on **local JWT** end-to-end (NestJS `/auth/*` + FE `AuthContext`); Keycloak deferred by decision |
+| Export/Print stubs | ✅ **185 pages** destubbed → real CSV / print |
+| CI `frontend-typecheck` informational | ✅ **now blocking** (typecheck clean + enforced in the required gate) |
+
+**Blockers (§8) status:** [P0] build ✅ fixed · [P0] auth ✅ (local JWT) · [P0] 88% UI-only shells ✅ all wired · [P1] dead links ✅ 0 broken · [P1] Export/Print stubs ✅ done (Delete/Approve remain per-page) · [P2] test coverage ⏳ still low (separate initiative) · [P2] Django empty → consolidated on NestJS (ADR amend recommended).
+
+The original report below is retained for history; its metrics predate this update.
+________________________________________
 1. Executive Summary
 Dimension	Metric	Status
 Total frontend pages	2,056	—
