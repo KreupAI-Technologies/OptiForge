@@ -182,11 +182,11 @@ export default function EditInvoicePage() {
     }));
   };
 
-  const handleCustomerChange = (customerName: string) => {
-    const customer = indianCompanies.find(c => c.name === customerName);
+  const handleCustomerChange = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
     if (customer) {
-      updateFormData('customer', customer.name);
-      updateFormData('customerGST', customer.gst);
+      updateFormData('customer', mdLabel.customer(customer));
+      updateFormData('customerGST', (customer as MDCustomer & { gst?: string }).gst ?? '');
     }
   };
 

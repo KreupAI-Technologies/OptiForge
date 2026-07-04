@@ -125,6 +125,47 @@ export default function HumanCentricPage() {
 
       {/* Main Content */}
       <div className="p-6">
+        {/* Live Skill Matrix Records */}
+        <div className="mb-3 bg-gray-900/50 border border-gray-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-white">Live Skill Matrix Records</h3>
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+          </div>
+          {smLoading && (
+            <p className="text-sm text-gray-400">Loading skill matrix records…</p>
+          )}
+          {smError && !smLoading && (
+            <p className="text-sm text-red-400">{smError}</p>
+          )}
+          {!smLoading && !smError && skillMatrices.length === 0 && (
+            <p className="text-sm text-gray-400">No skill matrix records</p>
+          )}
+          {!smLoading && !smError && skillMatrices.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-gray-800">
+                    <th className="py-2 pr-4 font-medium">Employee</th>
+                    <th className="py-2 pr-4 font-medium">Skill</th>
+                    <th className="py-2 pr-4 font-medium">Level</th>
+                    <th className="py-2 pr-4 font-medium">Department</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {skillMatrices.map((m: any, i: number) => (
+                    <tr key={m.id ?? i} className="border-b border-gray-800/50">
+                      <td className="py-2 pr-4 text-white">{m.employeeName ?? m.name ?? m.id ?? '—'}</td>
+                      <td className="py-2 pr-4 text-gray-400">{m.skillName ?? m.skill ?? '—'}</td>
+                      <td className="py-2 pr-4 text-gray-400">{m.level ?? m.proficiency ?? '—'}</td>
+                      <td className="py-2 pr-4 text-gray-400">{m.department ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* Feature Info Card */}
         <div className="mb-3 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-700/50 rounded-xl p-3">
           <div className="flex items-start gap-2">

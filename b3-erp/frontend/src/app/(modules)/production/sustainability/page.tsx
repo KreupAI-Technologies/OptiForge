@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CarbonFootprintTracker,
   EnergyConsumptionDashboard,
@@ -9,6 +9,7 @@ import {
   SustainabilityScorecard,
   GreenSupplierBadges,
 } from '@/components/industry4';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 type ViewType = 'carbon' | 'energy' | 'waste' | 'water' | 'scorecard' | 'suppliers';
 
