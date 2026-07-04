@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   MapPin,
@@ -23,6 +23,15 @@ import {
   Bar,
   Cell
 } from 'recharts';
+import { HrSafetyService, SafetyIncident } from '@/services/hr-safety.service';
+
+interface NearMissRow {
+  id: string;
+  hazard: string;
+  location: string;
+  date: string;
+  status: string;
+}
 
 // Mock Data
 const nearMissTrend = [
@@ -40,16 +49,46 @@ const hazardMapData = [
   { zone: 'Zone C', type: 'Electrical', level: 20, color: '#10b981' },
 ];
 
-const detailedLogs = [
-  { id: 'NM-2024-045', hazard: 'Loose Handrail', location: 'Stairwell B', date: '2024-04-10', status: 'Resolved' },
-  { id: 'NM-2024-046', hazard: 'Oil Spot', location: 'Machine Shop', date: '2024-04-11', status: 'Pending' },
-  { id: 'NM-2024-047', hazard: 'Blocked Fire Extinguisher', location: 'Warehouse Loading', date: '2024-04-11', status: 'Pending' },
-  { id: 'NM-2024-048', hazard: 'Unsecured Pallet', location: 'Rack 4', date: '2024-04-12', status: 'Investigating' },
-];
-
 const safetyScore = 88;
 
 export default function NearMissPage() {
+  const [detailedLogs, setDetailedLogs] = useState<NearMissRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getIncidents('near-miss');
+        const mapped: NearMissRow[] = rows.map((row: SafetyIncident) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.incidentNumber ?? row.id),
+            hazard: row.description ?? meta.hazard ?? row.type ?? '',
+            location: row.location ?? '',
+            date: row.reportedDate ?? row.incidentDate ?? '',
+            status: row.status ?? '',
+          };
+        });
+        if (!cancelled) setDetailedLogs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load near-miss reports');
+          setDetailedLogs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="p-6 space-y-3">
       {/* Header */}
@@ -66,6 +105,19 @@ export default function NearMissPage() {
           Report Near Miss
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading near-miss reports…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Chart Section */}

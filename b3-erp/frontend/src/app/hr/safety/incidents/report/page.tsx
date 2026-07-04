@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertCircle,
   Search,
@@ -27,6 +27,18 @@ import {
   Cell,
   Legend
 } from 'recharts';
+import { HrSafetyService, SafetyIncident } from '@/services/hr-safety.service';
+
+interface IncidentRow {
+  id: string;
+  title: string;
+  location: string;
+  date: string;
+  reportedBy: string;
+  severity: string;
+  status: string;
+  type: string;
+}
 
 // Mock Data
 const incidentStats = {
@@ -44,62 +56,48 @@ const severityData = [
   { name: 'Critical', value: 1, color: '#7f1d1d' },
 ];
 
-const incidents = [
-  {
-    id: 'INC-2024-001',
-    title: 'Minor Slip on Wet Floor',
-    location: 'Warehouse Zone B',
-    date: '2024-04-01',
-    reportedBy: 'Mike Johnson',
-    severity: 'Low',
-    status: 'Closed',
-    type: 'Injury'
-  },
-  {
-    id: 'INC-2024-002',
-    title: 'Forklift Near Collision',
-    location: 'Loading Dock',
-    date: '2024-04-03',
-    reportedBy: 'Sarah Smith',
-    severity: 'High',
-    status: 'Investigating',
-    type: 'Near Miss'
-  },
-  {
-    id: 'INC-2024-003',
-    title: 'Chemical Odor Reported',
-    location: 'Lab 2',
-    date: '2024-04-05',
-    reportedBy: 'Dr. Emily Chen',
-    severity: 'Medium',
-    status: 'Open',
-    type: 'Environmental'
-  },
-  {
-    id: 'INC-2024-004',
-    title: 'Machine Guard Tampered',
-    location: 'Assembly Line 1',
-    date: '2024-04-06',
-    reportedBy: 'Robert Fox',
-    severity: 'Critical',
-    status: 'Investigating',
-    type: 'Safety Violation'
-  },
-  {
-    id: 'INC-2024-005',
-    title: 'First Aid Kit Missing Items',
-    location: 'Break Room',
-    date: '2024-04-07',
-    reportedBy: 'Jenny Wilson',
-    severity: 'Low',
-    status: 'Open',
-    type: 'Compliance'
-  },
-];
-
 export default function IncidentReportPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [incidents, setIncidents] = useState<IncidentRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getIncidents();
+        const mapped: IncidentRow[] = rows.map((row: SafetyIncident) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.incidentNumber ?? row.id),
+            title: meta.title ?? row.description ?? '',
+            location: row.location ?? '',
+            date: row.reportedDate ?? row.incidentDate ?? '',
+            reportedBy: row.reportedBy ?? '',
+            severity: row.severity ?? '',
+            status: row.status ?? '',
+            type: row.type ?? '',
+          };
+        });
+        if (!cancelled) setIncidents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load incidents');
+          setIncidents([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredIncidents = incidents.filter(inc => {
     const matchesSearch = inc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -124,6 +122,19 @@ export default function IncidentReportPage() {
           Report New Incident
         </button>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading incidents…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -10,42 +10,21 @@ import {
   Clock,
   ArrowRight,
   ZoomIn,
+  AlertCircle,
   Users
 } from 'lucide-react';
+import { HrSafetyService, SafetyIncident } from '@/services/hr-safety.service';
 
-// Mock Data
-const investigations = [
-  {
-    id: 'INV-2024-002',
-    incidentId: 'INC-2024-002',
-    title: 'Forklift Near Collision - Loading Dock',
-    leadInvestigator: 'Cody Fisher',
-    startDate: '2024-04-04',
-    status: 'In Progress',
-    stage: 'Root Cause Analysis',
-    completion: 60
-  },
-  {
-    id: 'INV-2024-004',
-    incidentId: 'INC-2024-004',
-    title: 'Machine Guard Tampering Inquiry',
-    leadInvestigator: 'Kristin Watson',
-    startDate: '2024-04-07',
-    status: 'In Progress',
-    stage: 'Evidence Collection',
-    completion: 30
-  },
-  {
-    id: 'INV-2024-001',
-    incidentId: 'INC-2024-001',
-    title: 'Slip Risk Assessment - Zone B',
-    leadInvestigator: 'Robert Fox',
-    startDate: '2024-04-02',
-    status: 'Completed',
-    stage: 'Report Finalized',
-    completion: 100
-  }
-];
+interface InvestigationRow {
+  id: string;
+  incidentId: string;
+  title: string;
+  leadInvestigator: string;
+  startDate: string;
+  status: string;
+  stage: string;
+  completion: number;
+}
 
 const rcaMethods = [
   { id: 'fishbone', name: 'Fishbone Diagram', desc: 'Cause and effect visualization', active: true },
@@ -55,6 +34,45 @@ const rcaMethods = [
 
 export default function IncidentInvestigationPage() {
   const [activeTab, setActiveTab] = useState('Active');
+  const [investigations, setInvestigations] = useState<InvestigationRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await HrSafetyService.getIncidents('investigation');
+        const mapped: InvestigationRow[] = rows.map((row: SafetyIncident) => {
+          const meta = (row.meta || {}) as any;
+          return {
+            id: String(row.id),
+            incidentId: row.incidentNumber ?? meta.incidentId ?? '',
+            title: meta.title ?? row.description ?? '',
+            leadInvestigator: row.investigator ?? '',
+            startDate: row.reportedDate ?? row.incidentDate ?? '',
+            status: row.status ?? '',
+            stage: meta.stage ?? row.rootCause ?? '',
+            completion: meta.completion ?? 0,
+          };
+        });
+        if (!cancelled) setInvestigations(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load investigations');
+          setInvestigations([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -74,6 +92,19 @@ export default function IncidentInvestigationPage() {
           </button>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading investigations…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Column: Active Investigations */}
