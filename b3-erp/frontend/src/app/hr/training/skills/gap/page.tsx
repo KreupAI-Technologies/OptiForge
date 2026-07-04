@@ -33,13 +33,16 @@ const gapData = [
   { subject: 'Communication', A: 5.0, B: 4.5, fullMark: 5 },
 ];
 
-const skillGaps = [
-  { id: 1, skill: 'DevOps / Kubernetes', dept: 'Engineering', expected: 4.5, actual: 2.8, gap: -1.7, impact: 'High', employees: 12 },
-  { id: 2, skill: 'AI Model Tuning', dept: 'Data Science', expected: 4.0, actual: 2.5, gap: -1.5, impact: 'High', employees: 5 },
-  { id: 3, skill: 'Advanced Sales Negotiation', dept: 'Sales', expected: 4.2, actual: 3.1, gap: -1.1, impact: 'Medium', employees: 8 },
-  { id: 4, skill: 'Cloud Security', dept: 'IT Security', expected: 4.8, actual: 3.9, gap: -0.9, impact: 'Medium', employees: 6 },
-  { id: 5, skill: 'Project Management', dept: 'Operations', expected: 3.5, actual: 3.0, gap: -0.5, impact: 'Low', employees: 15 },
-];
+interface SkillGap {
+  id: number | string;
+  skill: string;
+  dept: string;
+  expected: number;
+  actual: number;
+  gap: number;
+  impact: string;
+  employees: number;
+}
 
 const recommendations = [
   { id: 1, title: 'Advanced Kubernetes Workshop', provider: 'CloudNative Training', duration: '3 Days', type: 'External' },
