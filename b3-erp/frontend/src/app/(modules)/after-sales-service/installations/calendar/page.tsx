@@ -15,9 +15,11 @@ import {
   Wrench,
   CheckCircle,
   AlertTriangle,
+  AlertCircle,
   BarChart3,
   MapPin
 } from 'lucide-react';
+import { AfterSalesManagementService } from '@/services/after-sales-management.service';
 
 interface Installation {
   id: string;
