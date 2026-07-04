@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { MasterDataService, MDCustomer } from '@/services/master-data.service';
 import {
   Save,
   Send,
@@ -52,46 +53,7 @@ interface Customer {
 }
 
 export default function CreateSalesOrderPage() {
-  const [orderNumber, setOrderNumber] = useState('SO-' + new Date().getFullYear() + '-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'));
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(
-    new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  );
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
-  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
-  const [paymentTerms, setPaymentTerms] = useState('net_30');
-  const [deliveryTerms, setDeliveryTerms] = useState('');
-  const [shippingMethod, setShippingMethod] = useState('');
-  const [priority, setPriority] = useState<'normal' | 'high' | 'urgent'>('normal');
-  const [notes, setNotes] = useState('');
-  const [termsAndConditions, setTermsAndConditions] = useState('');
-  const [documents, setDocuments] = useState<{
-    po?: File;
-    specs?: File;
-    drawings?: File;
-    others: File[];
-  }>({ others: [] });
-  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
-
-  const [items, setItems] = useState<OrderItem[]>([
-    {
-      id: '1',
-      productCode: '',
-      productName: '',
-      description: '',
-      quantity: 1,
-      unit: 'pcs',
-      unitPrice: 0,
-      discount: 0,
-      discountType: 'percent',
-      tax: 18,
-      taxType: 'GST',
-      lineTotal: 0
-    }
-  ]);
-
-  const customers: Customer[] = [
+  const customersSeed: Customer[] = [
     {
       id: 'CUST-001',
       name: 'Rajesh Sharma',
@@ -129,6 +91,66 @@ export default function CreateSalesOrderPage() {
       shippingAddress: '654 Distribution Center, Gandhinagar, Gujarat 382010'
     }
   ];
+
+  const [customers, setCustomers] = useState<Customer[]>(customersSeed);
+  const [customersLoading, setCustomersLoading] = useState(false);
+
+  const [orderNumber, setOrderNumber] = useState('SO-' + new Date().getFullYear() + '-' + Math.floor(Math.random() * 10000).toString().padStart(4, '0'));
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState(
+    new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState('net_30');
+  const [deliveryTerms, setDeliveryTerms] = useState('');
+  const [shippingMethod, setShippingMethod] = useState('');
+  const [priority, setPriority] = useState<'normal' | 'high' | 'urgent'>('normal');
+  const [notes, setNotes] = useState('');
+  const [termsAndConditions, setTermsAndConditions] = useState('');
+  const [documents, setDocuments] = useState<{
+    po?: File;
+    specs?: File;
+    drawings?: File;
+    others: File[];
+  }>({ others: [] });
+  const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    setCustomersLoading(true);
+    MasterDataService.getCustomers().then((live) => {
+      if (live.length > 0) {
+        setCustomers(live.map((c: MDCustomer): Customer => ({
+          id: c.id,
+          name: c.customerName || c.name || c.customerCode || c.id,
+          company: c.customerName || c.name || '',
+          email: c.email || '',
+          phone: c.phone || '',
+          billingAddress: '',
+          shippingAddress: '',
+        })));
+      }
+      setCustomersLoading(false);
+    });
+  }, []);
+
+  const [items, setItems] = useState<OrderItem[]>([
+    {
+      id: '1',
+      productCode: '',
+      productName: '',
+      description: '',
+      quantity: 1,
+      unit: 'pcs',
+      unitPrice: 0,
+      discount: 0,
+      discountType: 'percent',
+      tax: 18,
+      taxType: 'GST',
+      lineTotal: 0
+    }
+  ]);
 
   const filteredCustomers = customers.filter(
     (customer) =>

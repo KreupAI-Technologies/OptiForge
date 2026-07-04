@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Activity,
   Gauge,
@@ -22,6 +22,7 @@ import { ProductionLineFlow, Station } from '@/components/industry4/ProductionLi
 import { RealTimeAlertsBanner, ProductionAlert } from '@/components/industry4/RealTimeAlertsBanner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // ============================================================================
 // Types
@@ -120,6 +121,34 @@ export default function RealTimeMonitoringPage() {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const [selectedProductionLine, setSelectedProductionLine] = useState('line-1');
+
+  // Live primary data list — equipment health from the NestJS domain backend.
+  const [equipmentHealth, setEquipmentHealth] = useState<any[]>([]);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [healthError, setHealthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setHealthLoading(true);
+      setHealthError(null);
+      try {
+        const raw = await ProductionOrphanService.getEquipmentHealth();
+        if (!cancelled) setEquipmentHealth(Array.isArray(raw) ? raw : []);
+      } catch (err) {
+        if (!cancelled) {
+          setHealthError(err instanceof Error ? err.message : 'Failed to load equipment health');
+          setEquipmentHealth([]);
+        }
+      } finally {
+        if (!cancelled) setHealthLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleMachineClick = (machine: Machine) => {
     setSelectedMachine(machine);

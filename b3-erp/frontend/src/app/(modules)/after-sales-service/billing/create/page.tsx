@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Save, Send, Calculator, FileText } from 'lucide-react';
+import { MasterDataService, mdLabel, MDCustomer } from '@/services/master-data.service';
 
 interface LineItem {
   id: string;
@@ -39,14 +40,25 @@ export default function CreateInvoicePage() {
     },
   ]);
 
-  // Mock customer data
-  const customers = [
+  // Seed customer data (kept as unused fallback per convention)
+  const customersSeed = [
     { id: 'CUST001', name: 'Sharma Modular Kitchens Pvt Ltd', gstin: '29ABCDE1234F1Z5' },
     { id: 'CUST002', name: 'Prestige Developers Bangalore', gstin: '29XYZAB5678G2Z6' },
     { id: 'CUST003', name: 'Urban Interiors & Designers', gstin: '29PQRST9012H3Z7' },
     { id: 'CUST004', name: 'Elite Contractors & Builders', gstin: '27LMNOP3456I4Z8' },
     { id: 'CUST005', name: 'DLF Universal Projects', gstin: '07UVWXY7890J5Z9' },
   ];
+  const [customers, setCustomers] = useState<MDCustomer[]>(
+    customersSeed.map(c => ({ id: c.id, customerName: c.name }))
+  );
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+
+  useEffect(() => {
+    setLoadingCustomers(true);
+    MasterDataService.getCustomers().then(live => {
+      if (live.length > 0) setCustomers(live);
+    }).finally(() => setLoadingCustomers(false));
+  }, []);
 
   const invoiceTypes = ['Service', 'AMC', 'Installation', 'Parts', 'Warranty'];
   const itemTypes = [

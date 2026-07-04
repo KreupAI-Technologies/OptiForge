@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { MasterDataService, mdLabel, MDEmployee, MDWarehouse } from '@/services/master-data.service'
 import {
   ArrowLeft,
   ArrowRight,
@@ -139,7 +140,8 @@ const categories = [
 
 const units = ['Pcs', 'Kg', 'Lt', 'Mt', 'Box', 'Roll', 'Set', 'Pack', 'Hour', 'Day', 'Month']
 
-const deliveryLocations = [
+// Seed data — used as initial state; overwritten by live API when available
+const deliveryLocationsSeed = [
   { id: 'warehouse-main', name: 'Main Warehouse', address: '123 Industrial Ave, Sector 5' },
   { id: 'warehouse-secondary', name: 'Secondary Warehouse', address: '456 Storage Rd, Sector 8' },
   { id: 'production-floor', name: 'Production Floor', address: 'Building A, Ground Floor' },
@@ -147,7 +149,7 @@ const deliveryLocations = [
   { id: 'rd-lab', name: 'R&D Laboratory', address: 'Innovation Center, Building C' }
 ]
 
-const approvers = [
+const approversSeed = [
   { id: '1', name: 'Amit Sharma', role: 'Department Head', department: 'Operations', limit: 500000, email: 'amit.sharma@company.com' },
   { id: '2', name: 'Priya Patel', role: 'Finance Manager', department: 'Finance', limit: 1000000, email: 'priya.patel@company.com' },
   { id: '3', name: 'Rajesh Kumar', role: 'GM Operations', department: 'Operations', limit: 2500000, email: 'rajesh.kumar@company.com' },
@@ -173,6 +175,41 @@ export default function AddRequisitionPage() {
   const [searchingItems, setSearchingItems] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingMasterData, setIsLoadingMasterData] = useState(false)
+
+  // Live master-data state — seeds are the fallback until API responds
+  const [approvers, setApprovers] = useState<Array<{ id: string; name: string; role: string; department: string; limit: number; email: string }>>(approversSeed)
+  const [deliveryLocations, setDeliveryLocations] = useState<Array<{ id: string; name: string; address: string }>>(deliveryLocationsSeed)
+
+  useEffect(() => {
+    setIsLoadingMasterData(true)
+    Promise.all([
+      MasterDataService.getEmployees(),
+      MasterDataService.getWarehouses(),
+    ]).then(([employees, warehouses]) => {
+      if (employees.length > 0) {
+        setApprovers(
+          employees.map((e: MDEmployee) => ({
+            id: e.id,
+            name: mdLabel.employee(e),
+            role: e.designation || 'Employee',
+            department: e.department || '',
+            limit: 500000,
+            email: '',
+          }))
+        )
+      }
+      if (warehouses.length > 0) {
+        setDeliveryLocations(
+          warehouses.map((w: MDWarehouse) => ({
+            id: w.id,
+            name: w.warehouseName || w.warehouseCode || w.id,
+            address: [w.warehouseCode, w.city].filter(Boolean).join(', '),
+          }))
+        )
+      }
+    }).finally(() => setIsLoadingMasterData(false))
+  }, [])
 
   const steps = [
     { id: 1, title: 'Basic Information', icon: FileText, description: 'Requester and purpose details' },

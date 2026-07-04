@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { MasterDataService, MDVendor, mdLabel } from '@/services/master-data.service';
 import {
   ArrowLeft,
   Save,
@@ -64,8 +65,8 @@ interface PayableFormData {
   attachments: File[];
 }
 
-// Indian Vendors
-const indianVendors = [
+// Indian Vendors — seed/fallback (kept as unused fallback per wiring contract)
+const indianVendorsSeed = [
   { id: 'VEN-001', name: 'JSW Steel Limited', category: 'Raw Material', gst: '27AAACJ8564D1ZV', city: 'Mumbai' },
   { id: 'VEN-002', name: 'Tata Steel Limited', category: 'Raw Material', gst: '20AAACT2727Q1ZV', city: 'Jamshedpur' },
   { id: 'VEN-003', name: 'Hindalco Industries Ltd', category: 'Raw Material', gst: '27AAACH6454L1ZM', city: 'Mumbai' },
@@ -91,6 +92,19 @@ const units = ['MT', 'KG', 'PC', 'BOX', 'SET', 'LTR', 'SQM', 'RM', 'NOS', 'FT', 
 
 export default function AddPayablePage() {
   const router = useRouter();
+
+  // Live vendor picker — initialized from seed so UI renders immediately
+  const [vendors, setVendors] = useState<MDVendor[]>(
+    indianVendorsSeed.map(v => ({ id: v.id, vendorName: v.name, vendorCode: v.id, category: v.category }))
+  );
+  const [vendorsLoading, setVendorsLoading] = useState(false);
+
+  useEffect(() => {
+    setVendorsLoading(true);
+    MasterDataService.getVendors().then(live => {
+      if (live.length > 0) setVendors(live);
+    }).finally(() => setVendorsLoading(false));
+  }, []);
 
   const [formData, setFormData] = useState<PayableFormData>({
     vendorId: '',
@@ -266,10 +280,11 @@ export default function AddPayablePage() {
   };
 
   const generateBillNumber = () => {
-    const vendor = indianVendors.find(v => v.id === formData.vendorId);
+    const vendor = vendors.find(v => v.id === formData.vendorId);
     if (!vendor) return '';
 
-    const vendorCode = vendor.name.split(' ')[0].toUpperCase();
+    const vendorName = mdLabel.vendor(vendor);
+    const vendorCode = vendorName.split(' ')[0].toUpperCase();
     const year = new Date().getFullYear();
     const random = Math.floor(1000 + Math.random() * 9000);
     return `${vendorCode}/${year}/INV-${random}`;
@@ -341,30 +356,26 @@ export default function AddPayablePage() {
               <select
                 value={formData.vendorId}
                 onChange={(e) => {
-                  const vendor = indianVendors.find(v => v.id === e.target.value);
-                  const newBillNumber = vendor ? generateBillNumber() : '';
-                  setFormData({
-                    ...formData,
+                  const vendor = vendors.find(v => v.id === e.target.value);
+                  const vendorName = vendor ? mdLabel.vendor(vendor) : '';
+                  setFormData(prev => ({
+                    ...prev,
                     vendorId: e.target.value,
-                    vendorName: vendor?.name || '',
-                    billNumber: newBillNumber,
-                  });
+                    vendorName,
+                    billNumber: vendor ? generateBillNumber() : '',
+                  }));
                 }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 required
+                disabled={vendorsLoading}
               >
-                <option value="">Select Vendor</option>
-                {indianVendors.map((vendor) => (
+                <option value="">{vendorsLoading ? 'Loading vendors…' : 'Select Vendor'}</option>
+                {vendors.map((vendor) => (
                   <option key={vendor.id} value={vendor.id}>
-                    {vendor.name} - {vendor.city} ({vendor.category})
+                    {mdLabel.vendor(vendor)}{vendor.category ? ` (${vendor.category})` : ''}
                   </option>
                 ))}
               </select>
-              {formData.vendorId && (
-                <p className="text-xs text-gray-600 mt-1">
-                  GST: {indianVendors.find(v => v.id === formData.vendorId)?.gst}
-                </p>
-              )}
             </div>
 
             {/* Bill Type */}
