@@ -1,3 +1,11 @@
+// ⚠️  SCHEMA OWNERSHIP: TypeORM owns the database schema, NOT Prisma.
+// This Prisma schema is READ-side only and is intentionally allowed to diverge.
+// NEVER run `prisma db push` or `prisma migrate` against a real database — it
+// would clobber the TypeORM-managed schema. Apply schema changes via TypeORM
+// migrations (src/migrations) or the manual runner (prisma/manual). The
+// `guard:no-db-push` npm script + CI step enforce that no `db push` command
+// enters the repo. See docs/architecture-dual-backend.md.
+
 generator client {
   provider = "prisma-client-js"
 }

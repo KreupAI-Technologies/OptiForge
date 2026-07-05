@@ -47,6 +47,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Guard — no 'prisma db push' (TypeORM owns the schema)
+        run: npm run guard:no-db-push
+
       - name: Run linting
         run: npm run lint
 
@@ -279,15 +282,21 @@ jobs:
         working-directory: b3-erp/frontend
 
       - name: Start backend server
+        # NestJS reads DB_* (not DATABASE_*); DB_SYNCHRONIZE=true lets TypeORM
+        # create the schema in the ephemeral test DB and the admin-user seeder
+        # run, so the E2E login (admin/Admin@123) has something to authenticate.
         run: npm run start:prod &
         working-directory: b3-erp/backend
         env:
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_USER: test
-          DATABASE_PASSWORD: test
-          DATABASE_NAME: test_db
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: test
+          DB_PASSWORD: test
+          DB_DATABASE: test_db
+          DB_SYNCHRONIZE: 'true'
           JWT_SECRET: test-secret-key
+          FRONTEND_URL: http://localhost:3000
           PORT: 3001
 
       - name: Wait for backend

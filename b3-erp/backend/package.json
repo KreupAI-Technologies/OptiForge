@@ -24,7 +24,8 @@
     "migration:revert": "ts-node run-migrations.ts revert",
     "migration:status": "ts-node run-migrations.ts status",
     "db:manual": "ts-node prisma/manual/run-manual-migrations.ts",
-    "db:manual:status": "ts-node prisma/manual/run-manual-migrations.ts --dry-run"
+    "db:manual:status": "ts-node prisma/manual/run-manual-migrations.ts --dry-run",
+    "guard:no-db-push": "bash scripts/guard-no-prisma-push.sh"
   },
   "dependencies": {
     "@nestjs/bull": "^10.0.1",
