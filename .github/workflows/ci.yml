@@ -225,6 +225,9 @@ jobs:
           name: frontend-build
           path: b3-erp/frontend/.next
           retention-days: 7
+          # .next is a dotfile dir; upload-artifact@v4 excludes hidden files by
+          # default, which would ship an empty artifact and break the E2E download.
+          include-hidden-files: true
 
   # E2E Tests (only on main and develop)
   e2e-tests:

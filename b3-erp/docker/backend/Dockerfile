@@ -19,8 +19,10 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 
-# Install only production dependencies
+# Install only production dependencies. The postinstall hook runs
+# `prisma generate`, which needs the schema — copy prisma/ BEFORE npm ci.
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci --only=production
 
 # Copy built assets from builder
