@@ -3,8 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first (better caching)
+# Install dependencies first (better caching). The postinstall hook runs
+# `prisma generate`, so the schema must be present before npm ci.
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 # Copy source and build

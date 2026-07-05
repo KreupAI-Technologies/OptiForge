@@ -250,6 +250,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # The backend wires Bull (and cache) to Redis at boot; without it the
+      # server never becomes healthy.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -288,7 +299,7 @@ jobs:
         # NestJS reads DB_* (not DATABASE_*); DB_SYNCHRONIZE=true lets TypeORM
         # create the schema in the ephemeral test DB and the admin-user seeder
         # run, so the E2E login (admin/Admin@123) has something to authenticate.
-        run: npm run start:prod &
+        run: npm run start:prod > /tmp/backend.log 2>&1 &
         working-directory: b3-erp/backend
         env:
           NODE_ENV: test
@@ -298,12 +309,21 @@ jobs:
           DB_PASSWORD: test
           DB_DATABASE: test_db
           DB_SYNCHRONIZE: 'true'
+          BULL_REDIS_HOST: localhost
+          BULL_REDIS_PORT: 6379
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
           JWT_SECRET: test-secret-key
           FRONTEND_URL: http://localhost:3000
           PORT: 3001
 
       - name: Wait for backend
-        run: npx wait-on http://localhost:3001/health -t 60000
+        # Schema sync (DB_SYNCHRONIZE) + seeders can take a while on first boot.
+        run: npx wait-on http://localhost:3001/health -t 120000
+
+      - name: Backend logs (on failure)
+        if: failure()
+        run: tail -n 200 /tmp/backend.log || true
 
       - name: Start frontend server
         run: npm run start &
