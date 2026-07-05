@@ -89,6 +89,11 @@ htmlcov/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+# ...but the deployable app lockfiles MUST be committed so `npm ci` and the
+# CI npm cache work (they need a lockfile). Without these, CI's Setup Node.js
+# and npm ci fail before any test runs.
+!b3-erp/backend/package-lock.json
+!b3-erp/frontend/package-lock.json
 
 # OS generated files
 .DS_Store
