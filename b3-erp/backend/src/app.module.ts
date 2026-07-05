@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { rateLimitConfig, CustomThrottlerGuard } from './common/security/rate-limit.config';
+import { CsrfGuard } from './common/security/csrf.guard';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { AuditLogger } from './common/logging/audit-logger.service';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
@@ -139,6 +140,11 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard,
+    },
+    // CSRF: reject cross-origin mutating requests before doing auth work.
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
     // Global authentication: every route requires a valid JWT unless it is
     // annotated with @Public(). Default-deny for the whole API surface.
