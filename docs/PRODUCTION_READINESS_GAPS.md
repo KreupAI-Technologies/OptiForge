@@ -163,4 +163,13 @@ Closed the final two P0 items.
 
 **Verification:** backend `npm run build` ✅ · `jest --coverage` → **35 suites / 290 tests** pass, coverage 3.63% (above gate) · frontend `tsc --noEmit` ✅.
 
-**Remaining before pilot:** a **live browser login smoke test** of the cookie flow (couldn't run servers/DB here). **Before external customers:** the P1 list + raise coverage level.
+### CI made green (2026-07-05, post-merge)
+
+Watching CI after the push surfaced that **"CI Pipeline" had been red on `main` for 8+ consecutive runs** — pre-existing, unrelated to the P0 code. Two root causes fixed:
+
+- **Missing backend lockfile** — `.gitignore` ignored all `package-lock.json`, so `b3-erp/backend/package-lock.json` was never committed → CI `Setup Node.js` (npm cache) and `npm ci` failed before any test ran. Generated + committed the lockfile and un-ignored the app lockfiles.
+- **Case-sensitive import** — `src/components/ui/index.tsx` imported `./radio` but the tracked file is `Radio.tsx`; fine on macOS, fails the Linux frontend type-check. Matched the case.
+
+**Result:** the required gate **CI Summary is now `success`** — all real jobs green (Backend Tests/Build, Frontend Tests/TypeCheck/Lint/Build). The run's overall "failure" is only the three **intentionally informational** (`continue-on-error`) jobs — Security Audit (known dep vulns), Docker Scan, and E2E Tests (need a live app/DB). Those are pre-existing follow-ups, not gates.
+
+**Remaining before pilot:** a **live browser login smoke test** of the cookie flow (couldn't run servers/DB here). **Before external customers:** the P1 list + raise coverage level + green the informational jobs (E2E, dep-audit).
