@@ -29,17 +29,19 @@ describe('ApprovalWorkflowService', () => {
     taskRepository = createMockRepository<UserTask>();
     chainService = createMockService<ApprovalChainService>(['getChainForEntity']);
     // ApprovalWorkflowService calls notifyApprovalApproved + notifyApprovalRejected
-    // (see approval-workflow.service.ts:207, :308) as fire-and-forget promises
-    // (`.catch(...)` chained on the call). Mocks must return a resolved Promise
-    // — `undefined.catch(...)` throws.
+    // + notifyApprovalAssigned (first- and next-level approver notifications) as
+    // fire-and-forget promises (`.catch(...)` chained on the call). Mocks must
+    // return a resolved Promise — `undefined.catch(...)` throws.
     notificationService = createMockService<NotificationService>([
       'notifyApprovalApproved',
       'notifyApprovalRejected',
+      'notifyApprovalAssigned',
     ]);
     // mockResolvedValue's type is the method's return type; we don't care
     // about the value, only that the awaited result is a settled Promise.
     notificationService.notifyApprovalApproved.mockResolvedValue({} as never);
     notificationService.notifyApprovalRejected.mockResolvedValue({} as never);
+    notificationService.notifyApprovalAssigned.mockResolvedValue({} as never);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

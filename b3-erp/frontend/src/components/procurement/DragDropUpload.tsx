@@ -525,18 +525,30 @@ export const DragDropUpload: React.FC<DragDropUploadProps> = ({
                           {file.preview && (
                             <button
                               onClick={() => {
+                                // Build nodes via DOM APIs (not innerHTML) so a
+                                // malicious file name/preview can never inject markup.
                                 const modal = document.createElement('div')
                                 modal.className = 'fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-3'
-                                modal.innerHTML = `
-                                  <div class="bg-white rounded-lg p-3  max-h-full overflow-auto">
-                                    <img src="${file.preview}" alt="${file.name}" class="max-w-full h-auto" />
-                                    <button class="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">Close</button>
-                                  </div>
-                                `
-                                document.body.appendChild(modal)
-                                modal.querySelector('button')?.addEventListener('click', () => {
+
+                                const box = document.createElement('div')
+                                box.className = 'bg-white rounded-lg p-3 max-h-full overflow-auto'
+
+                                const img = document.createElement('img')
+                                img.src = file.preview as string
+                                img.alt = file.name
+                                img.className = 'max-w-full h-auto'
+
+                                const closeBtn = document.createElement('button')
+                                closeBtn.textContent = 'Close'
+                                closeBtn.className = 'mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600'
+                                closeBtn.addEventListener('click', () => {
                                   document.body.removeChild(modal)
                                 })
+
+                                box.appendChild(img)
+                                box.appendChild(closeBtn)
+                                modal.appendChild(box)
+                                document.body.appendChild(modal)
                               }}
                               className="p-1 text-gray-400 hover:text-gray-600"
                               title="Preview"

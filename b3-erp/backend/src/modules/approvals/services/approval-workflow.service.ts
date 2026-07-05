@@ -76,6 +76,21 @@ export class ApprovalWorkflowService {
         // Create tasks for level 1 approvers
         await this.createApproverTasks(savedRequest, chain.levels[0]);
 
+        // Notify level 1 approvers (fire-and-forget — delivery must not block creation).
+        const firstApproverIds: string[] = chain.levels[0]?.approverIds || [];
+        await Promise.all(
+            firstApproverIds.map((approverId: string) =>
+                this.notificationService
+                    .notifyApprovalAssigned(
+                        approverId,
+                        savedRequest.id,
+                        savedRequest.entityType,
+                        savedRequest.entityId,
+                    )
+                    .catch(() => { /* fire-and-forget */ }),
+            ),
+        );
+
         const result = await this.requestRepository.findOne({
             where: { id: savedRequest.id },
             relations: ['history', 'comments', 'attachments'],
@@ -284,7 +299,21 @@ export class ApprovalWorkflowService {
         }
         await this.createApproverTasks(updatedRequest, nextLevelConfig);
 
-        // TODO: Send notifications to next level approvers
+        // Notify each approver configured for the new level. Fire-and-forget so a
+        // notification/email failure never rolls back the level advancement.
+        const nextApproverIds: string[] = nextLevelConfig.approverIds || [];
+        await Promise.all(
+            nextApproverIds.map((approverId) =>
+                this.notificationService
+                    .notifyApprovalAssigned(
+                        approverId,
+                        updatedRequest.id,
+                        updatedRequest.entityType,
+                        updatedRequest.entityId,
+                    )
+                    .catch(() => { /* fire-and-forget: delivery failures must not block the workflow */ }),
+            ),
+        );
 
         const nextLevelResult = await this.requestRepository.findOne({
             where: { id: request.id },

@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bull';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { rateLimitConfig, CustomThrottlerGuard } from './common/security/rate-limit.config';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { AuditLogger } from './common/logging/audit-logger.service';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 
@@ -134,9 +135,16 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     IotModule,
   ],
   providers: [
+    // Rate limiting runs first so floods are rejected before auth work.
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard,
+    },
+    // Global authentication: every route requires a valid JWT unless it is
+    // annotated with @Public(). Default-deny for the whole API surface.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
     AuditLogger,
   ],

@@ -22,7 +22,9 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "ts-node run-migrations.ts run",
     "migration:revert": "ts-node run-migrations.ts revert",
-    "migration:status": "ts-node run-migrations.ts status"
+    "migration:status": "ts-node run-migrations.ts status",
+    "db:manual": "ts-node prisma/manual/run-manual-migrations.ts",
+    "db:manual:status": "ts-node prisma/manual/run-manual-migrations.ts --dry-run"
   },
   "dependencies": {
     "@nestjs/bull": "^10.0.1",
@@ -123,7 +125,15 @@
       "!src/main.ts"
     ],
     "coverageDirectory": "./coverage",
-    "_comment_coverageThreshold": "Coverage gate temporarily disabled — current actual coverage is ~2%, the 50% target is aspirational. Issue #125 tracks the uplift effort. Re-enable by restoring `coverageThreshold` block once coverage clears 50% globally.",
+    "_comment_coverageThreshold": "RATCHET GATE. Global floor is set just below the measured baseline (stmts 3.57 / branch 3.06 / func 2.62 / lines 3.58 as of 2026-07-04) so coverage can only rise — a merge that DROPS coverage fails. This is regression protection, not the 50% target. When you add tests, raise these numbers to lock in the gains. Issue #125 tracks the uplift to 50%.",
+    "coverageThreshold": {
+      "global": {
+        "statements": 3.5,
+        "branches": 3,
+        "functions": 2.5,
+        "lines": 3.5
+      }
+    },
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^src/(.*)$": "<rootDir>/src/$1"
