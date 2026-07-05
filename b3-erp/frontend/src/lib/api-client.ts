@@ -1,58 +1,42 @@
 import axios from 'axios';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Auth is carried by an HttpOnly `access_token` cookie set by the backend on
+  // login. `withCredentials` makes the browser attach that cookie to every
+  // request. We deliberately do NOT read a token from localStorage — an
+  // HttpOnly cookie is not reachable by JS, which is what makes it XSS-safe.
+  withCredentials: true,
 });
 
-// Request interceptor for adding auth token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor for handling errors
+// Response interceptor: transparently refresh an expired access token once.
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    // If the error status is 401 and there is no originalRequest._retry flag,
-    // it means the token has expired and we need to refresh it
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 401 → the access-token cookie is missing/expired. Hit /auth/refresh, which
+    // validates the refresh cookie and re-sets rotated auth cookies, then retry.
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
-          refresh_token: refreshToken,
-        });
-
-        const { access_token } = response.data;
-
-        localStorage.setItem('access_token', access_token);
-
-        // Retry the original request with the new token
-        originalRequest.headers.Authorization = `Bearer ${access_token}`;
-        return axios(originalRequest);
-      } catch (error) {
-        // If refresh token fails, redirect to login
+        await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
+        // Cookies are now refreshed; replay the original request (cookie re-sent).
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed → session is truly over. Clear cached profile and bounce
+        // to login. No tokens to clear — they live only in HttpOnly cookies.
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
           window.location.href = '/login';
         }
-        return Promise.reject(error);
+        return Promise.reject(refreshError);
       }
     }
 

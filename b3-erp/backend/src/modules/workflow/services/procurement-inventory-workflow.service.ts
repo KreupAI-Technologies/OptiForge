@@ -115,6 +115,24 @@ export class ProcurementInventoryWorkflowService {
   }
 
   /**
+   * When a material shortage is detected against an order (by the
+   * check-material-availability job), route it to the handle-material-shortage
+   * job so procurement and production planning are notified. Without this
+   * listener the MATERIAL_SHORTAGE event was a dead end.
+   */
+  @OnEvent(WorkflowEventType.MATERIAL_SHORTAGE)
+  async handleMaterialShortageEvent(payload: StockEventPayload): Promise<void> {
+    const p = payload as any;
+    this.logger.log(`Handling material shortage event for Order ${p.orderNumber ?? '(unknown)'}`);
+    await this.workflowQueue.add('handle-material-shortage', {
+      orderId: p.orderId,
+      orderNumber: p.orderNumber,
+      shortages: p.shortages ?? [],
+      userId: payload.userId,
+    });
+  }
+
+  /**
    * When a purchase order is created, notify vendor and track delivery
    */
   @OnEvent(WorkflowEventType.PURCHASE_ORDER_CREATED)

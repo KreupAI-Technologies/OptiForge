@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 
 import * as bcrypt from 'bcryptjs';
@@ -14,10 +15,18 @@ describe('AuthService', () => {
     let service: AuthService;
     let userService: jest.Mocked<UserService>;
     let jwtService: jest.Mocked<JwtService>;
+    let configService: jest.Mocked<ConfigService>;
 
     beforeEach(async () => {
         userService = createMockService<UserService>(['findByUsername', 'findOne']);
-        jwtService = createMockService<JwtService>(['sign']);
+        jwtService = createMockService<JwtService>(['sign', 'verify']);
+        configService = createMockService<ConfigService>(['get']);
+        // Default: no dedicated refresh secret configured → falls back to JWT_SECRET.
+        configService.get.mockImplementation((key: string, def?: any) => {
+            if (key === 'JWT_SECRET') return 'test-secret';
+            if (key === 'JWT_REFRESH_EXPIRES_IN') return def ?? '7d';
+            return def;
+        });
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -29,6 +38,10 @@ describe('AuthService', () => {
                 {
                     provide: JwtService,
                     useValue: jwtService,
+                },
+                {
+                    provide: ConfigService,
+                    useValue: configService,
                 },
             ],
         }).compile();
@@ -133,25 +146,52 @@ describe('AuthService', () => {
     });
 
     describe('login', () => {
-        it('should return access_token and profile info', async () => {
+        it('should return access_token, refresh_token and profile info', async () => {
             const user = { username: 'testuser', id: 'uuid-1' };
-            const profile = {
-                id: 'uuid-1',
-                username: 'testuser',
-                isSystemAdmin: false,
-                permissions: ['READ']
-            };
 
-            // Mock getProfile (which is a private method but we can mock finding the user)
-            // Actually login calls getProfile which calls userService.findOne
+            // login calls getProfile which calls userService.findOne
             userService.findOne.mockResolvedValue(UserFactory.create({ id: 'uuid-1', username: 'testuser' }) as any);
             jwtService.sign.mockReturnValue('mock-jwt-token');
 
             const result = await service.login(user);
 
             expect(result.access_token).toBe('mock-jwt-token');
+            expect(result.refresh_token).toBe('mock-jwt-token');
             expect(result.user.username).toBe('testuser');
-            expect(jwtService.sign).toHaveBeenCalled();
+            // signed twice: once for access, once for refresh
+            expect(jwtService.sign).toHaveBeenCalledTimes(2);
+        });
+    });
+
+    describe('refreshTokens', () => {
+        it('should reject a missing refresh token', async () => {
+            await expect(service.refreshTokens(undefined)).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should reject an invalid/expired refresh token', async () => {
+            jwtService.verify.mockImplementation(() => {
+                throw new Error('jwt expired');
+            });
+
+            await expect(service.refreshTokens('bad-token')).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should reject a token that is not of type refresh', async () => {
+            jwtService.verify.mockReturnValue({ sub: 'uuid-1', username: 'testuser' } as any); // no type: 'refresh'
+
+            await expect(service.refreshTokens('access-token-as-refresh')).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should mint a rotated pair for a valid refresh token', async () => {
+            jwtService.verify.mockReturnValue({ sub: 'uuid-1', username: 'testuser', type: 'refresh' } as any);
+            userService.findOne.mockResolvedValue(UserFactory.create({ id: 'uuid-1', username: 'testuser' }) as any);
+            jwtService.sign.mockReturnValue('rotated-token');
+
+            const result = await service.refreshTokens('valid-refresh');
+
+            expect(result.access_token).toBe('rotated-token');
+            expect(result.refresh_token).toBe('rotated-token');
+            expect(result.user.username).toBe('testuser');
         });
     });
 });

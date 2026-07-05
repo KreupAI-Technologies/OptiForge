@@ -2,21 +2,24 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
-    const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
         try {
-            const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+            // Hit the same backend the rest of the app uses (NEXT_PUBLIC_API_URL),
+            // so the HttpOnly auth cookies it sets are the ones every subsequent
+            // request (and /auth/refresh, /auth/profile) rely on. `credentials:
+            // 'include'` lets the browser store the Set-Cookie response.
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+            const response = await fetch(`${apiUrl}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -28,8 +31,8 @@ export default function LoginPage() {
             }
 
             const data = await response.json();
-            login(data.user, data.access_token);
-            router.push('/dashboard');
+            // Tokens are in HttpOnly cookies now; the body only carries the profile.
+            login(data.user);
         } catch (err: any) {
             setError(err.message);
         }

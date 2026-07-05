@@ -21,7 +21,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (userData: User, accessToken?: string) => void;
+    login: (userData: User) => void;
     logout: () => void;
     refreshUser: () => Promise<void>;
     hasPermission: (permission: string) => boolean;
@@ -79,11 +79,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const login = (userData: User, accessToken?: string) => {
+    const login = (userData: User) => {
+        // Only the (non-secret) user profile is cached for fast reloads. The auth
+        // tokens live exclusively in HttpOnly cookies set by the backend — never
+        // in localStorage, so they are not reachable by injected scripts.
         localStorage.setItem('user', JSON.stringify(userData));
-        if (accessToken) {
-            localStorage.setItem('access_token', accessToken);
-        }
         setUser(userData);
         router.push('/dashboard');
     };

@@ -15,6 +15,7 @@ import { StockEntryType } from '../../inventory/entities/stock-entry.entity';
 import { InspectionService } from '../../quality/services/inspection.service';
 import { NCRService } from '../../quality/services/ncr.service';
 import { InspectionStatus } from '../../quality/entities/inspection.entity';
+import { NotificationService } from '../services/notification.service';
 
 @Processor('workflow')
 export class WorkflowProcessor {
@@ -30,6 +31,7 @@ export class WorkflowProcessor {
     private readonly stockEntryService: StockEntryService,
     private readonly inspectionService: InspectionService,
     private readonly ncrService: NCRService,
+    private readonly notificationService: NotificationService,
   ) { }
 
   @Process('create-order-from-rfp')
@@ -264,13 +266,32 @@ export class WorkflowProcessor {
 
   @Process('handle-material-shortage')
   async handleMaterialShortage(job: Job): Promise<void> {
-    this.logger.log(`Processing job: handle-material-shortage for Order ${job.data.orderNumber}`);
+    const { orderId, orderNumber, shortages = [], userId } = job.data;
+    this.logger.log(`Processing job: handle-material-shortage for Order ${orderNumber}`);
 
     try {
-      const { orderNumber } = job.data;
-      this.logger.log(`Handling material shortage for Order ${orderNumber}`);
-      // Logic commented out to isolate module
-      this.logger.log(`Material shortage handled for Order ${orderNumber}`);
+      const summary = (shortages as any[])
+        .map((s) => `${s.itemName || s.itemId} (need ${s.required}, have ${s.available}, short ${s.shortage})`)
+        .join('; ') || 'unspecified items';
+
+      // Route the shortage to procurement so purchase requisitions can be raised,
+      // and warn production planning that the order is blocked. This turns a
+      // detected shortage into actionable work instead of a silent log line.
+      await this.notificationService.notifyTeam('procurement', {
+        title: `Material shortage blocking Order ${orderNumber}`,
+        message: `Order ${orderNumber} cannot proceed until stock is replenished. Shortages: ${summary}. Please raise purchase requisitions.`,
+        priority: 'high',
+        data: { orderId, orderNumber, shortages, userId },
+      });
+
+      await this.notificationService.notifyTeam('production_planning', {
+        title: `Order ${orderNumber} blocked by material shortage`,
+        message: `Production for Order ${orderNumber} is on hold pending procurement of: ${summary}.`,
+        priority: 'high',
+        data: { orderId, orderNumber, shortages },
+      });
+
+      this.logger.log(`Material shortage for Order ${orderNumber} routed to procurement + production planning (${(shortages as any[]).length} item(s))`);
     } catch (error) {
       this.logger.error(`Failed to handle material shortage: ${error.message}`, error.stack);
       throw error;
