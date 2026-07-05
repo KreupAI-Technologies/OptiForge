@@ -11,7 +11,7 @@
 **Minimum bar for a supervised internal pilot:** close all **P0-SEC** and **P0-DATA** items. — _✅ **met** as of 2026-07-05 (pending a live login smoke test for the cookie switch)._
 **Minimum bar for external customers / real transactions:** close all **P0** and **P1**. — _P0 ✅ done; **P1 list remains**._
 
-> **2026-07-05 update:** **all 10 P0 items are now closed** across two autonomous passes (several were already fixed in code — the older gap docs were badly stale). Backend build + **290 tests** green, frontend `tsc` clean. See the resolution logs below. Remaining: raise coverage *level* (P0-TEST-01 ongoing) and the P1 list before external customers.
+> **2026-07-05 update:** **all P0 (10), P1 (5), and P2 (5) items are now closed** across several autonomous passes (many were already fixed in code — the older gap docs were badly stale). Backend build + **296 tests** green, frontend `tsc` clean, required CI gate green, Security Audit green. See the resolution logs below. Remaining (non-gating): raise coverage *level*, a live login smoke test, and the two informational CI jobs (E2E, Docker Trivy).
 
 ---
 
@@ -88,11 +88,11 @@
 
 ## P2 — Fix before scale
 
-- [ ] **P2-01 — Repo hygiene** ✅ — root cluttered with one-off audit artifacts (`404-audit-report.json`, `BUTTON_IMPLEMENTATION_GUIDE.csv`, `all_pages.txt`, `routes_catalog.csv`, `check-*.js`, `fix-*.js`, `parse_*.py`, `file_issues.sh`). Move to `scripts/` or delete.
-- [ ] **P2-02 — ~140 TODO/FIXME markers in source** ✅ — triage; convert real ones to tracked issues.
-- [ ] **P2-03 — `eslint.ignoreDuringBuilds: true`** ✅ — acceptable (lint runs in CI separately) but note it; ensure the CI lint job is blocking.
-- [ ] **P2-04 — E2E only on main/develop** 📄 — feature PRs skip E2E; consider running smoke E2E on PRs.
-- [ ] **P2-05 — Residual 31 unwired pages** 📄 — nav hubs / config forms / intentional showcase per `optiforge_gaps.md`; confirm none are user-facing dead-ends.
+- [x] **P2-01 — Repo hygiene** ✅ **DONE 2026-07-05** — moved 16 one-off audit artifacts/scripts (`404-audit-report.json`, `BUTTON_IMPLEMENTATION_GUIDE.csv`, `all_pages.txt`, `routes_catalog.csv`, `check-*.js`, `fix-*.js`, `parse_*.py`, `file_issues.sh`, …) out of the repo root into [archive/](../archive/) with a README. Root now holds only real project files (README, CLAUDE.md, docker-compose, package.json, env example). None were referenced by app/CI.
+- [x] **P2-02 — TODO/FIXME markers** ✅ **DONE 2026-07-05** — triaged into [TODO_INVENTORY.md](TODO_INVENTORY.md). Reality: backend has **12** (2 false positives, ~6 real P2-level polish); frontend has **319**, almost all "action not wired to API" placeholders (the known FE≫BE gap) — a wiring-progress metric, not defects. Recommendation: burn down per-page as endpoints are wired; don't file 300+ issues.
+- [x] **P2-03 — `eslint.ignoreDuringBuilds`** ✅ **VERIFIED 2026-07-05** — `next.config` already documents it (lint runs separately; `ignoreBuildErrors:false` enforces typecheck). CI **Frontend Lint is a blocking gate**: `ci-summary` does `exit 1` when `frontend-lint.result == 'failure'`. No change needed.
+- [x] **P2-04 — E2E only on main/develop** ✅ **DECISION 2026-07-05** — deliberately **not** enabling E2E on PRs yet: the job is still `continue-on-error` and not green, so running it per-PR would add red noise. Revisit once E2E is green (see the E2E residual under the P1 log).
+- [x] **P2-05 — Residual unwired pages** ✅ **CONFIRMED 2026-07-05** — per `optiforge_gaps.md` §2 the residual are nav/module-hub landing pages (route to sub-pages), config-only POST forms, and by-design showcase pages, plus a non-routed deprecated folder — **none are data-list dead-ends**, and the dead-link audit shows **0 broken internal URLs**. Spot-checked `finance/tax` and `settings` — both render with working `<Link>` navigation.
 
 ---
 
@@ -128,11 +128,11 @@ These are flagged as open in older gap docs but are **done** in current code. Ke
 |---|---|---|---|
 | P0 | 10 | **10** | — (coverage *level* uplift ongoing under P0-TEST-01) |
 | P1 | 5 | **5** | — |
-| P2 | 5 | 0 | 5 |
+| P2 | 5 | **5** | — |
 
 _Update the Done column as items close._
 
-> **All P0 and P1 items are now closed.** Remaining: raise test-coverage *level* (gate stops regression; number ~3.7%), the P2 list, a live login smoke test, and greening the E2E CI job (fixes shipped — see below — but needs a live run to confirm).
+> **All P0, P1, and P2 items are now closed.** The required CI gate (CI Summary) is green and Security Audit is green. Genuinely remaining, all non-gating: raise test-coverage *level* (gate stops regression; number ~3.7%), a live login smoke test of the cookie flow, and greening the two informational CI jobs (E2E — advanced to backend-startup, needs a live-run diagnosis; Docker Trivy — base-image vuln scan).
 
 ## Resolution log — 2026-07-05 (P1 pass)
 
