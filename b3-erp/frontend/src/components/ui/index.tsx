@@ -52,8 +52,8 @@ export type { TextareaProps } from './textarea';
 export { Checkbox } from './checkbox';
 export type { CheckboxProps } from './checkbox';
 
-export { Radio, RadioGroup } from './radio';
-export type { RadioProps, RadioGroupProps, RadioOption } from './radio';
+export { Radio, RadioGroup } from './Radio';
+export type { RadioProps, RadioGroupProps, RadioOption } from './Radio';
 
 // ============================================================================
 // Phase 2 Components - Modal & Dialog Components
