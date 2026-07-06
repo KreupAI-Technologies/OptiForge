@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqContractService } from '@/services/cpq/cpq-contract.service'
 import {
   FileText,
   Plus,
@@ -74,12 +75,47 @@ export default function CPQContractsGeneratePage() {
 
   const [selectedTemplate, setSelectedTemplate] = useState('standard-sales')
 
-  const templates = [
+  const [templates, setTemplates] = useState<{ id: string; name: string; description: string }[]>([
     { id: 'standard-sales', name: 'Standard Sales Contract', description: 'Standard B2B sales agreement' },
     { id: 'premium-service', name: 'Premium Service Contract', description: 'With extended warranty and support' },
     { id: 'bulk-order', name: 'Bulk Order Contract', description: 'For volume purchases with special terms' },
     { id: 'custom', name: 'Custom Contract', description: 'Build from scratch with custom clauses' }
-  ]
+  ])
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await cpqContractService.findAllTemplates()
+      const list = Array.isArray(data) ? data : []
+      if (list.length > 0) {
+        setTemplates(list.map((t: any) => ({
+          id: t?.id ?? '',
+          name: t?.templateName ?? '',
+          description: t?.description ?? '',
+        })))
+      }
+    }
+    load()
+  }, [])
+
+  const handleGenerate = async () => {
+    const payload: any = {
+      customerName: contractData.customerName,
+      title: templates.find(t => t.id === selectedTemplate)?.name ?? contractData.customerName,
+      contractType: (contractData.contractType === 'standard' ? 'sales' : contractData.contractType) as any,
+      totalValue: contractData.contractValue ?? 0,
+      currency: contractData.currency ?? 'INR',
+      startDate: contractData.startDate,
+      endDate: contractData.endDate,
+      paymentTerms: contractData.paymentTerms,
+      notes: contractData.additionalTerms,
+    }
+    if (selectedTemplate) {
+      await cpqContractService.createFromTemplate(selectedTemplate, payload)
+    } else {
+      await cpqContractService.createContract(payload)
+    }
+    router.push('/cpq/contracts')
+  }
 
   const clauseCategories = [
     {
@@ -128,7 +164,7 @@ export default function CPQContractsGeneratePage() {
             <Download className="h-4 w-4" />
             Save Draft
           </button>
-          <button className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <button onClick={handleGenerate} className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Generate Contract
           </button>
@@ -412,7 +448,7 @@ export default function CPQContractsGeneratePage() {
                 <p className="text-xs text-gray-600">Legal clauses included</p>
               </div>
 
-              <button className="w-full mt-4 px-4 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium">
+              <button onClick={handleGenerate} className="w-full mt-4 px-4 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-medium">
                 <FileText className="h-5 w-5" />
                 Generate Contract
               </button>

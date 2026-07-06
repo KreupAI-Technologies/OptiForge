@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqContractService } from '@/services/cpq/cpq-contract.service'
 import {
   FileCheck,
   Search,
@@ -62,7 +63,47 @@ interface Payment {
 export default function CPQContractsExecutionPage() {
   const router = useRouter()
 
-  const [contracts] = useState<ExecutedContract[]>([
+  const [contracts, setContracts] = useState<ExecutedContract[]>([])
+
+  useEffect(() => {
+    const load = async () => {
+      const data = await cpqContractService.findAllContracts({ status: 'active' as any })
+      const list = Array.isArray(data) ? data : []
+      const mapped: ExecutedContract[] = list.map((c: any) => ({
+        id: c?.id ?? '',
+        contractNumber: c?.contractNumber ?? '',
+        contractType: c?.title ?? c?.contractType ?? '',
+        customerName: c?.customerName ?? '',
+        customerContact: '',
+        customerEmail: '',
+        contractValue: c?.totalValue ?? c?.value ?? 0,
+        signedDate: c?.executedAt ?? c?.createdAt ?? '',
+        startDate: c?.startDate ?? '',
+        endDate: c?.endDate ?? '',
+        status: (c?.status ?? 'active') as any,
+        executionStatus: 'on-track' as any,
+        paymentStatus: 'pending' as any,
+        deliveryStatus: 'scheduled' as any,
+        warrantyEndDate: c?.endDate ?? '',
+        supportLevel: c?.supportLevel ?? '',
+        renewalEligible: Boolean(c?.autoRenew),
+        milestones: Array.isArray(c?.milestones) ? c.milestones : [],
+        payments: Array.isArray(c?.paymentSchedule)
+          ? c.paymentSchedule.map((p: any, i: number) => ({
+              id: `PAY-${i}`,
+              description: p?.description ?? '',
+              amount: p?.amount ?? 0,
+              dueDate: p?.dueDate ?? '',
+              status: 'pending' as any,
+            }))
+          : (Array.isArray(c?.payments) ? c.payments : []),
+      }))
+      setContracts(mapped)
+    }
+    load()
+  }, [])
+
+  const _mockContracts: ExecutedContract[] = [
     {
       id: 'EXEC-001',
       contractNumber: 'CONT-2024-1234',
@@ -424,7 +465,8 @@ export default function CPQContractsExecutionPage() {
         }
       ]
     }
-  ])
+  ]
+  void _mockContracts
 
   const getStatusColor = (status: string) => {
     const colors: any = {

@@ -31,6 +31,7 @@ import {
   ProposalSection as ProposalSectionType
 } from '@/components/cpq/ProposalBuilderModals'
 import { exportToCsv } from '@/lib/export'
+import { cpqProposalService } from '@/services/cpq/cpq-proposal.service'
 
 interface ProposalSection {
   id: string
@@ -150,23 +151,66 @@ export default function CPQProposalsBuilderPage() {
   }
 
   // Modal handlers
-  const handleSendProposal = (data: any) => {
-    console.log('Sending proposal:', data)
-    // Add send logic here
+  const mapProposalPayload = (data: any) => ({
+    title: data?.title ?? proposalData.title,
+    customerName: data?.customerName ?? proposalData.customer,
+    proposalNumber: data?.proposalNumber ?? proposalData.quoteNumber,
+    quoteId: proposalData.quoteNumber,
+    validUntil: data?.validUntil ?? proposalData.validUntil,
+    totalValue: fullProposal.totalValue,
+    sections: (Array.isArray(sections) ? sections : []).map((s, i) => ({
+      sectionId: s.id,
+      title: s.title,
+      content: s.content,
+      displayOrder: s.order ?? i + 1,
+      isIncluded: s.visible,
+    })),
+  })
+
+  const handleSendProposal = async (data: any) => {
+    try {
+      const created = await cpqProposalService.createProposal({
+        ...mapProposalPayload(data),
+        status: 'draft',
+      } as any)
+      if (created?.id) {
+        await cpqProposalService.sendProposal(created.id, 'current-user')
+      }
+      setIsSendOpen(false)
+    } catch (e) {
+      // service handles fallback; swallow to avoid crashing UI
+    }
   }
 
   const handleExportPDF = (settings: any) => {
     exportToCsv('proposal-builder', sections)
   }
 
-  const handleSaveDraft = (data: any) => {
-    console.log('Saving draft:', data)
-    // Add save logic here
+  const handleSaveDraft = async (data: any) => {
+    try {
+      await cpqProposalService.createProposal({
+        ...mapProposalPayload(data),
+        status: 'draft',
+      } as any)
+      setIsSaveDraftOpen(false)
+    } catch (e) {
+      // service handles fallback; swallow to avoid crashing UI
+    }
   }
 
-  const handleSaveSettings = (settings: any) => {
-    console.log('Saving settings:', settings)
-    // Add settings save logic here
+  const handleSaveSettings = async (settings: any) => {
+    try {
+      const created = await cpqProposalService.createProposal({
+        ...mapProposalPayload(proposalData),
+        status: 'draft',
+      } as any)
+      if (created?.id) {
+        await cpqProposalService.updateProposal(created.id, { ...(settings || {}) } as any)
+      }
+      setIsSettingsOpen(false)
+    } catch (e) {
+      // service handles fallback; swallow to avoid crashing UI
+    }
   }
 
   const handleEditSection = (section: ProposalSection) => {
