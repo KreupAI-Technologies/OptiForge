@@ -2,12 +2,40 @@
 
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MilestoneTimeline } from '@/components/project-management/MilestoneTimeline';
+import { projectManagementService } from '@/services/ProjectManagementService';
+
+const STATUS_MAP: Record<string, 'completed' | 'on-track' | 'at-risk' | 'delayed' | 'upcoming'> = {
+ completed: 'completed', done: 'completed', 'in-progress': 'on-track', 'in_progress': 'on-track',
+ 'on-track': 'on-track', 'at-risk': 'at-risk', delayed: 'delayed', overdue: 'delayed',
+ upcoming: 'upcoming', pending: 'upcoming', planned: 'upcoming',
+};
 
 export default function MilestoneTimelinePage() {
  const router = useRouter();
  const [variant, setVariant] = useState<'horizontal' | 'vertical'>('horizontal');
+ const [milestones, setMilestones] = useState<any[] | undefined>(undefined);
+
+ useEffect(() => {
+  projectManagementService.listAllMilestones()
+   .then((rows) => {
+    const list = Array.isArray(rows) ? rows : [];
+    if (list.length === 0) { setMilestones(undefined); return; }
+    setMilestones(list.map((m: any, idx: number) => ({
+     id: String(m.id ?? m.milestoneId ?? idx),
+     name: m.name ?? m.title ?? m.milestoneName ?? 'Milestone',
+     description: m.description ?? '',
+     date: m.dueDate ? new Date(m.dueDate) : (m.targetDate ? new Date(m.targetDate) : new Date()),
+     status: STATUS_MAP[String(m.status ?? '').toLowerCase()] ?? 'upcoming',
+     type: (m.type ?? 'major') as any,
+     phase: m.phase,
+     owner: m.owner ?? m.assignedTo,
+     percentComplete: m.percentComplete ?? m.progress,
+    })));
+   })
+   .catch(() => setMilestones(undefined));
+ }, []);
 
  return (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -58,6 +86,7 @@ export default function MilestoneTimelinePage() {
    {/* Milestone Timeline Component */}
    <div className="p-6">
     <MilestoneTimeline
+     milestones={milestones}
      variant={variant}
      showPhases={true}
      highlightUpcoming={true}
