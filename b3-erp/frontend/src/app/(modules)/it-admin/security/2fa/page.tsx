@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, Smartphone, Key, QrCode, CheckCircle2, XCircle, Clock, AlertTriangle, Mail, MessageSquare, Settings, Users, Download, X, BarChart3, Eye, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface TwoFactorSettings {
   enabled: boolean;
@@ -114,6 +115,25 @@ const TwoFactorAuthPage = () => {
       requireApproval: true,
     },
   });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const dto = await ItAdminService.getPasswordPolicy();
+        if (!mounted || !dto) return;
+        setSettings((prev) => ({
+          ...prev,
+          mandatory: dto.mfaRequired ?? prev.mandatory,
+        }));
+      } catch {
+        // keep defaults if policy not found
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [userStatuses] = useState<UserTwoFactorStatus[]>([
     {
@@ -279,8 +299,13 @@ const TwoFactorAuthPage = () => {
     }
   };
 
-  const handleSaveSettings = () => {
-    setToast({ message: '2FA settings saved successfully!', type: 'success' });
+  const handleSaveSettings = async () => {
+    try {
+      await ItAdminService.savePasswordPolicy({ mfaRequired: settings.mandatory });
+      setToast({ message: '2FA settings saved successfully!', type: 'success' });
+    } catch {
+      setToast({ message: 'Failed to save 2FA settings. Please try again.', type: 'error' });
+    }
   };
 
   const handleSendReminder = (userId: string) => {

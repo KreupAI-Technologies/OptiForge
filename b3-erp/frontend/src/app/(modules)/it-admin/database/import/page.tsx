@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, FileText, Database, CheckCircle, XCircle, AlertTriangle, Clock, Play, Pause, RotateCcw } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ImportJob {
   id: string;
@@ -37,85 +38,41 @@ export default function DatabaseImportPage() {
   const [validateOnly, setValidateOnly] = useState(false);
   const [skipErrors, setSkipErrors] = useState(true);
 
-  const [importJobs, setImportJobs] = useState<ImportJob[]>([
-    {
-      id: '1',
-      filename: 'customers_20240120.csv',
-      format: 'csv',
-      status: 'completed',
-      progress: 100,
-      totalRecords: 1856,
-      importedRecords: 1856,
-      failedRecords: 0,
-      startTime: '2024-01-20 14:30:00',
-      endTime: '2024-01-20 14:32:15',
-      duration: '2m 15s',
-      warnings: ['2 duplicate entries skipped']
-    },
-    {
-      id: '2',
-      filename: 'products_update.xlsx',
-      format: 'excel',
-      status: 'importing',
-      progress: 67,
-      totalRecords: 8934,
-      importedRecords: 5986,
-      failedRecords: 12,
-      startTime: '2024-01-20 15:00:00',
-      errorLog: ['Row 234: Invalid price format', 'Row 567: Missing required field SKU']
-    },
-    {
-      id: '3',
-      filename: 'inventory_snapshot.json',
-      format: 'json',
-      status: 'validating',
-      progress: 25,
-      totalRecords: 15678,
-      importedRecords: 0,
-      failedRecords: 0,
-      startTime: '2024-01-20 15:15:00'
-    },
-    {
-      id: '4',
-      filename: 'sales_orders_Q4.csv',
-      format: 'csv',
-      status: 'failed',
-      progress: 23,
-      totalRecords: 5847,
-      importedRecords: 1345,
-      failedRecords: 234,
-      startTime: '2024-01-19 16:00:00',
-      endTime: '2024-01-19 16:08:30',
-      duration: '8m 30s',
-      errorLog: [
-        'Critical error: Foreign key constraint violation',
-        'Table lock timeout',
-        'Import aborted due to critical errors'
-      ]
-    },
-    {
-      id: '5',
-      filename: 'suppliers_master.csv',
-      format: 'csv',
-      status: 'paused',
-      progress: 45,
-      totalRecords: 456,
-      importedRecords: 205,
-      failedRecords: 3,
-      startTime: '2024-01-20 14:45:00',
-      warnings: ['Import paused by user']
-    },
-    {
-      id: '6',
-      filename: 'bom_export_backup.sql',
-      format: 'sql',
-      status: 'pending',
-      progress: 0,
-      totalRecords: 1234,
-      importedRecords: 0,
-      failedRecords: 0
+  const [importJobs, setImportJobs] = useState<ImportJob[]>([]);
+
+  const loadImportJobs = useCallback(async () => {
+    try {
+      const records = await ItAdminService.getBackupRecords({ type: 'import' });
+      const mapped: ImportJob[] = (records ?? []).map((rec) => {
+        const validStatuses: ImportJob['status'][] = ['pending', 'validating', 'importing', 'completed', 'failed', 'paused'];
+        const status = (validStatuses.includes(rec.status as ImportJob['status'])
+          ? rec.status
+          : rec.status === 'running'
+            ? 'importing'
+            : 'pending') as ImportJob['status'];
+        return {
+          id: rec.id,
+          filename: rec.name,
+          format: 'csv',
+          status,
+          progress: status === 'completed' ? 100 : 0,
+          totalRecords: 0,
+          importedRecords: 0,
+          failedRecords: 0,
+          startTime: rec.startedAt ?? undefined,
+          endTime: rec.completedAt ?? undefined,
+          duration: rec.duration ?? undefined,
+        };
+      });
+      setImportJobs(mapped);
+    } catch {
+      setImportJobs([]);
     }
-  ]);
+  }, []);
+
+  useEffect(() => {
+    loadImportJobs();
+  }, [loadImportJobs]);
 
   const tables = [
     'users', 'roles', 'permissions', 'sales_orders', 'quotations', 'invoices',
@@ -158,14 +115,18 @@ export default function DatabaseImportPage() {
     }
   };
 
-  const handleStartImport = () => {
-    console.log('Starting import:', {
-      file: selectedFile?.name,
-      table: selectedTable,
-      mode: importMode,
-      validateOnly,
-      skipErrors
-    });
+  const handleStartImport = async () => {
+    try {
+      await ItAdminService.createBackupRecord({
+        name: selectedFile?.name ?? `Import ${selectedTable}`,
+        type: 'import',
+        status: 'running',
+        automated: false,
+      });
+      await loadImportJobs();
+    } catch {
+      // best-effort; keep UI responsive on failure
+    }
   };
 
   const handlePauseImport = (jobId: string) => {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, Server, Database, Cpu, HardDrive, Globe, Zap, TrendingUp, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Filter, Download, Eye, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface SystemHealthMetric {
   id: string;
@@ -71,128 +72,35 @@ const SystemHealthPage = () => {
     showToast(`Viewing details for: ${itemId}`, 'info');
   };
 
-  const [services] = useState<SystemHealthMetric[]>([
-    {
-      id: '1',
-      category: 'Application',
-      service: 'Web Application',
-      status: 'Healthy',
-      uptime: '99.98%',
-      responseTime: 145,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'https://erp.company.com',
-      errorCount: 0,
-      warningCount: 2,
-    },
-    {
-      id: '2',
-      category: 'Application',
-      service: 'API Gateway',
-      status: 'Healthy',
-      uptime: '99.95%',
-      responseTime: 89,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'https://api.company.com',
-      errorCount: 0,
-      warningCount: 0,
-    },
-    {
-      id: '3',
-      category: 'Database',
-      service: 'Primary Database',
-      status: 'Healthy',
-      uptime: '99.99%',
-      responseTime: 12,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'postgresql://db.company.com:5432',
-      errorCount: 0,
-      warningCount: 1,
-    },
-    {
-      id: '4',
-      category: 'Database',
-      service: 'Replica Database',
-      status: 'Degraded',
-      uptime: '98.50%',
-      responseTime: 245,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'postgresql://db-replica.company.com:5432',
-      errorCount: 3,
-      warningCount: 5,
-    },
-    {
-      id: '5',
-      category: 'Cache',
-      service: 'Redis Cache',
-      status: 'Healthy',
-      uptime: '99.97%',
-      responseTime: 5,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'redis://cache.company.com:6379',
-      errorCount: 0,
-      warningCount: 0,
-    },
-    {
-      id: '6',
-      category: 'Message Queue',
-      service: 'RabbitMQ',
-      status: 'Healthy',
-      uptime: '99.92%',
-      responseTime: 23,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'amqp://mq.company.com:5672',
-      errorCount: 0,
-      warningCount: 1,
-    },
-    {
-      id: '7',
-      category: 'Storage',
-      service: 'File Storage',
-      status: 'Healthy',
-      uptime: '99.96%',
-      responseTime: 156,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 's3://storage.company.com',
-      errorCount: 0,
-      warningCount: 0,
-    },
-    {
-      id: '8',
-      category: 'External',
-      service: 'Payment Gateway',
-      status: 'Down',
-      uptime: '95.20%',
-      responseTime: 0,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'https://payment.provider.com/api',
-      errorCount: 12,
-      warningCount: 8,
-    },
-    {
-      id: '9',
-      category: 'External',
-      service: 'SMS Gateway',
-      status: 'Healthy',
-      uptime: '99.80%',
-      responseTime: 342,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'https://sms.provider.com/api',
-      errorCount: 0,
-      warningCount: 3,
-    },
-    {
-      id: '10',
-      category: 'External',
-      service: 'Email Service',
-      status: 'Healthy',
-      uptime: '99.85%',
-      responseTime: 567,
-      lastCheck: '2025-10-21 18:30:00',
-      endpoint: 'smtp://mail.provider.com:587',
-      errorCount: 0,
-      warningCount: 2,
-    },
-  ]);
+  const [services, setServices] = useState<SystemHealthMetric[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await ItAdminService.getMonitoring({ kind: 'health' });
+        if (!active) return;
+        const mapped: SystemHealthMetric[] = (data ?? []).map((dto) => ({
+          id: dto.id,
+          category: dto.category ?? 'General',
+          service: dto.name,
+          status: dto.status,
+          uptime: (dto.metadata?.uptime as string) ?? (dto.unit === '%' && dto.value !== undefined && dto.value !== null ? `${dto.value}%` : 'N/A'),
+          responseTime: (dto.metadata?.responseTime as number) ?? dto.value ?? 0,
+          lastCheck: dto.lastOccurred ?? dto.updatedAt ?? '',
+          endpoint: (dto.metadata?.endpoint as string) ?? dto.source,
+          errorCount: (dto.metadata?.errorCount as number) ?? 0,
+          warningCount: (dto.metadata?.warningCount as number) ?? 0,
+        }));
+        setServices(mapped);
+      } catch {
+        if (active) setServices([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [servers] = useState<ServerHealth[]>([
     {

@@ -25,13 +25,15 @@ export class SystemMonitorController {
   @ApiQuery({ name: 'kind', required: false })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'severity', required: false })
+  @ApiQuery({ name: 'category', required: false })
   async findAll(
     @Query('companyId') companyId?: string,
     @Query('kind') kind?: string,
     @Query('status') status?: string,
     @Query('severity') severity?: string,
+    @Query('category') category?: string,
   ): Promise<SystemMonitor[]> {
-    return this.service.findAll({ companyId, kind, status, severity });
+    return this.service.findAll({ companyId, kind, status, severity, category });
   }
 
   @Get('summary')

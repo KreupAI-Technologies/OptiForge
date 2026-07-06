@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Gauge, TrendingUp, TrendingDown, Activity, Zap, Clock, Database, Cpu, HardDrive, Globe, Filter, Download, Calendar, BarChart3, X, CheckCircle, AlertTriangle, Eye, AlertCircle, XCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface PerformanceMetric {
   id: string;
@@ -63,152 +64,35 @@ const PerformanceMonitoringPage = () => {
     showToast(`Viewing details for metric: ${metricId}`, 'info');
   };
 
-  const [metrics] = useState<PerformanceMetric[]>([
-    {
-      id: '1',
-      metric: 'CPU Usage',
-      category: 'System',
-      current: 45,
-      average: 42,
-      peak: 78,
-      unit: '%',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 80,
-    },
-    {
-      id: '2',
-      metric: 'Memory Usage',
-      category: 'System',
-      current: 68,
-      average: 65,
-      peak: 85,
-      unit: '%',
-      trend: 'increasing',
-      status: 'normal',
-      threshold: 85,
-    },
-    {
-      id: '3',
-      metric: 'Disk I/O',
-      category: 'System',
-      current: 234,
-      average: 210,
-      peak: 450,
-      unit: 'MB/s',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 500,
-    },
-    {
-      id: '4',
-      metric: 'Network Bandwidth',
-      category: 'Network',
-      current: 156,
-      average: 142,
-      peak: 320,
-      unit: 'Mbps',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 500,
-    },
-    {
-      id: '5',
-      metric: 'Response Time',
-      category: 'Application',
-      current: 145,
-      average: 132,
-      peak: 480,
-      unit: 'ms',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 500,
-    },
-    {
-      id: '6',
-      metric: 'Throughput',
-      category: 'Application',
-      current: 1250,
-      average: 1180,
-      peak: 2340,
-      unit: 'req/s',
-      trend: 'increasing',
-      status: 'normal',
-      threshold: 3000,
-    },
-    {
-      id: '7',
-      metric: 'Database Connections',
-      category: 'Database',
-      current: 45,
-      average: 42,
-      peak: 95,
-      unit: 'connections',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 100,
-    },
-    {
-      id: '8',
-      metric: 'Query Response Time',
-      category: 'Database',
-      current: 23,
-      average: 20,
-      peak: 156,
-      unit: 'ms',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 200,
-    },
-    {
-      id: '9',
-      metric: 'Cache Hit Rate',
-      category: 'Cache',
-      current: 94,
-      average: 92,
-      peak: 98,
-      unit: '%',
-      trend: 'stable',
-      status: 'optimal',
-      threshold: 80,
-    },
-    {
-      id: '10',
-      metric: 'Queue Length',
-      category: 'Application',
-      current: 234,
-      average: 210,
-      peak: 890,
-      unit: 'messages',
-      trend: 'increasing',
-      status: 'warning',
-      threshold: 1000,
-    },
-    {
-      id: '11',
-      metric: 'Error Rate',
-      category: 'Application',
-      current: 0.8,
-      average: 0.6,
-      peak: 2.3,
-      unit: '%',
-      trend: 'increasing',
-      status: 'warning',
-      threshold: 1.0,
-    },
-    {
-      id: '12',
-      metric: 'SSL Connections',
-      category: 'Network',
-      current: 456,
-      average: 420,
-      peak: 780,
-      unit: 'connections',
-      trend: 'stable',
-      status: 'normal',
-      threshold: 1000,
-    },
-  ]);
+  const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await ItAdminService.getMonitoring({ kind: 'performance' });
+        if (!active) return;
+        const mapped: PerformanceMetric[] = (data ?? []).map((dto) => ({
+          id: dto.id,
+          metric: dto.name,
+          category: dto.category ?? 'System',
+          current: dto.value ?? 0,
+          average: (dto.metadata?.average as number) ?? dto.value ?? 0,
+          peak: (dto.metadata?.peak as number) ?? dto.value ?? 0,
+          unit: dto.unit ?? '',
+          trend: (dto.metadata?.trend as string) ?? 'stable',
+          status: dto.status,
+          threshold: dto.threshold ?? 0,
+        }));
+        setMetrics(mapped);
+      } catch {
+        if (active) setMetrics([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [history] = useState<PerformanceHistory[]>([
     { timestamp: '18:00', cpu: 42, memory: 65, disk: 210, network: 142, responseTime: 132, throughput: 1180 },

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, GitBranch, Play, Pause, Edit, Trash2, CheckCircle, ArrowRight, Mail, Bell, Database, AlertTriangle } from 'lucide-react';
+import { ItAdminService, AutomationRuleDto } from '@/services/it-admin.service';
 
 interface WorkflowAction {
   type: 'email' | 'notification' | 'update_field' | 'create_record' | 'approval' | 'webhook';
@@ -32,184 +33,59 @@ export default function WorkflowsPage() {
   const [selectedModule, setSelectedModule] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  const [workflows, setWorkflows] = useState<Workflow[]>([
-    {
-      id: '1',
-      name: 'New Order Notification',
-      description: 'Send email and notification when a new sales order is created',
-      module: 'Sales Orders',
-      trigger: 'onCreate',
-      conditions: ['status = "pending"', 'amount > 10000'],
-      actions: [
-        { type: 'email', config: { to: 'sales@company.com', template: 'new_order' } },
-        { type: 'notification', config: { users: ['sales_manager'], message: 'New high-value order created' } }
-      ],
-      active: true,
-      executionCount: 1247,
-      lastExecuted: '2024-01-20 14:23:00',
-      createdAt: '2024-01-05',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      name: 'Order Approval Workflow',
-      description: 'Require manager approval for orders above $50,000',
-      module: 'Sales Orders',
-      trigger: 'onCreate',
-      conditions: ['amount > 50000'],
-      actions: [
-        { type: 'approval', config: { approver_role: 'manager', timeout: 24 } },
-        { type: 'email', config: { to: 'manager@company.com', template: 'approval_required' } }
-      ],
-      active: true,
-      executionCount: 89,
-      lastExecuted: '2024-01-19 16:45:00',
-      createdAt: '2024-01-08',
-      priority: 'high'
-    },
-    {
-      id: '3',
-      name: 'Low Stock Alert',
-      description: 'Alert when inventory falls below minimum level',
-      module: 'Inventory',
-      trigger: 'onUpdate',
-      triggerConfig: 'quantity_on_hand changed',
-      conditions: ['quantity_on_hand < reorder_point'],
-      actions: [
-        { type: 'notification', config: { users: ['inventory_manager'], message: 'Low stock alert' } },
-        { type: 'create_record', config: { module: 'purchase_requisitions', auto_populate: true } }
-      ],
-      active: true,
-      executionCount: 456,
-      lastExecuted: '2024-01-20 11:30:00',
-      createdAt: '2024-01-10',
-      priority: 'high'
-    },
-    {
-      id: '4',
-      name: 'Work Order Completion',
-      description: 'Update inventory and notify customer when work order completes',
-      module: 'Work Orders',
-      trigger: 'onStatusChange',
-      triggerConfig: 'status changed to "completed"',
-      conditions: ['quality_check_passed = true'],
-      actions: [
-        { type: 'update_field', config: { module: 'inventory', field: 'quantity_on_hand', operation: 'increment' } },
-        { type: 'email', config: { to: 'customer.email', template: 'order_ready' } },
-        { type: 'notification', config: { users: ['production_manager'], message: 'Work order completed' } }
-      ],
-      active: true,
-      executionCount: 2847,
-      lastExecuted: '2024-01-20 15:10:00',
-      createdAt: '2024-01-03',
-      priority: 'medium'
-    },
-    {
-      id: '5',
-      name: 'Customer Welcome Email',
-      description: 'Send welcome email to new customers',
-      module: 'Customers',
-      trigger: 'onCreate',
-      conditions: [],
-      actions: [
-        { type: 'email', config: { to: 'customer.email', template: 'welcome' } }
-      ],
-      active: true,
-      executionCount: 234,
-      lastExecuted: '2024-01-20 09:15:00',
-      createdAt: '2024-01-12',
-      priority: 'low'
-    },
-    {
-      id: '6',
-      name: 'Invoice Payment Reminder',
-      description: 'Send reminder for overdue invoices',
-      module: 'Invoices',
-      trigger: 'scheduled',
-      triggerConfig: 'daily at 09:00',
-      conditions: ['due_date < today()', 'status = "unpaid"'],
-      actions: [
-        { type: 'email', config: { to: 'customer.email', template: 'payment_reminder' } }
-      ],
-      active: true,
-      executionCount: 1567,
-      lastExecuted: '2024-01-20 09:00:00',
-      createdAt: '2024-01-07',
-      priority: 'medium'
-    },
-    {
-      id: '7',
-      name: 'Quality Check Failed',
-      description: 'Alert when quality check fails on production',
-      module: 'Quality Checks',
-      trigger: 'onCreate',
-      conditions: ['result = "failed"'],
-      actions: [
-        { type: 'notification', config: { users: ['quality_manager', 'production_manager'], message: 'Quality check failed - immediate attention required' } },
-        { type: 'update_field', config: { module: 'work_orders', field: 'status', value: 'on_hold' } },
-        { type: 'webhook', config: { url: 'https://api.company.com/quality-alert', method: 'POST' } }
-      ],
-      active: true,
-      executionCount: 45,
-      lastExecuted: '2024-01-18 14:20:00',
-      createdAt: '2024-01-15',
-      priority: 'high'
-    },
-    {
-      id: '8',
-      name: 'Supplier Order Auto-Create',
-      description: 'Automatically create purchase orders for low stock items',
-      module: 'Inventory',
-      trigger: 'scheduled',
-      triggerConfig: 'weekly on Monday at 08:00',
-      conditions: ['quantity_on_hand < reorder_point', 'auto_reorder = true'],
-      actions: [
-        { type: 'create_record', config: { module: 'purchase_orders', auto_populate: true } },
-        { type: 'email', config: { to: 'purchasing@company.com', template: 'auto_po_created' } }
-      ],
-      active: false,
-      executionCount: 23,
-      lastExecuted: '2024-01-15 08:00:00',
-      createdAt: '2024-01-11',
-      priority: 'medium'
-    },
-    {
-      id: '9',
-      name: 'Shipment Tracking Update',
-      description: 'Notify customer when shipment status changes',
-      module: 'Shipments',
-      trigger: 'onUpdate',
-      triggerConfig: 'tracking_status changed',
-      conditions: [],
-      actions: [
-        { type: 'email', config: { to: 'customer.email', template: 'shipment_update' } },
-        { type: 'notification', config: { users: ['customer'], message: 'Your shipment status has been updated' } }
-      ],
-      active: true,
-      executionCount: 3456,
-      lastExecuted: '2024-01-20 13:45:00',
-      createdAt: '2024-01-06',
-      priority: 'low'
-    },
-    {
-      id: '10',
-      name: 'Employee Onboarding',
-      description: 'Automate employee onboarding tasks',
-      module: 'Employees',
-      trigger: 'onCreate',
-      conditions: ['status = "active"'],
-      actions: [
-        { type: 'email', config: { to: 'employee.email', template: 'onboarding_welcome' } },
-        { type: 'create_record', config: { module: 'tasks', tasks: ['Setup workstation', 'Assign equipment', 'Schedule training'] } },
-        { type: 'notification', config: { users: ['hr_manager'], message: 'New employee onboarding initiated' } }
-      ],
-      active: true,
-      executionCount: 12,
-      lastExecuted: '2024-01-17 10:00:00',
-      createdAt: '2024-01-14',
-      priority: 'medium'
-    }
-  ]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+
+  useEffect(() => {
+    const allowedTriggers: Workflow['trigger'][] = ['onCreate', 'onUpdate', 'onDelete', 'onStatusChange', 'scheduled'];
+    const allowedActionTypes: WorkflowAction['type'][] = ['email', 'notification', 'update_field', 'create_record', 'approval', 'webhook'];
+    const allowedPriorities: Workflow['priority'][] = ['low', 'medium', 'high'];
+
+    const mapRule = (rule: AutomationRuleDto): Workflow => {
+      const rawTrigger = rule.triggerType || rule.trigger || 'onCreate';
+      const trigger = allowedTriggers.includes(rawTrigger as Workflow['trigger'])
+        ? (rawTrigger as Workflow['trigger'])
+        : 'onCreate';
+      const priority = allowedPriorities.includes(rule.priority as Workflow['priority'])
+        ? (rule.priority as Workflow['priority'])
+        : 'low';
+      const actions: WorkflowAction[] = (rule.actions ?? []).map((a) => ({
+        type: allowedActionTypes.includes(a as WorkflowAction['type'])
+          ? (a as WorkflowAction['type'])
+          : 'notification',
+        config: {},
+      }));
+      return {
+        id: rule.id,
+        name: rule.name,
+        description: rule.description ?? '',
+        module: rule.category ?? 'all',
+        trigger,
+        triggerConfig: rule.trigger,
+        conditions: rule.conditions ?? [],
+        actions,
+        active: rule.enabled,
+        executionCount: rule.executionCount ?? 0,
+        lastExecuted: rule.lastTriggered,
+        createdAt: rule.createdAt,
+        priority,
+      };
+    };
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const rules = await ItAdminService.getAutomationRules({ category: 'workflow' });
+        if (!cancelled) {
+          setWorkflows(Array.isArray(rules) ? rules.map(mapRule) : []);
+        }
+      } catch {
+        if (!cancelled) setWorkflows([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const modules = [
     'all',
@@ -272,11 +148,23 @@ export default function WorkflowsPage() {
     : workflows.filter(w => w.module === selectedModule);
 
   const handleToggleActive = (workflowId: string) => {
+    let nextEnabled = false;
     setWorkflows(prev =>
-      prev.map(w =>
-        w.id === workflowId ? { ...w, active: !w.active } : w
-      )
+      prev.map(w => {
+        if (w.id === workflowId) {
+          nextEnabled = !w.active;
+          return { ...w, active: nextEnabled };
+        }
+        return w;
+      })
     );
+    void (async () => {
+      try {
+        await ItAdminService.updateAutomationRule(workflowId, { enabled: nextEnabled });
+      } catch {
+        // best-effort persistence; keep optimistic UI state
+      }
+    })();
   };
 
   const handleDelete = (workflowId: string) => {

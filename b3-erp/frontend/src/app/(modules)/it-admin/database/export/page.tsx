@@ -150,8 +150,21 @@ export default function DatabaseExportPage() {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     exportToCsv('database-export', filteredTables as unknown as Record<string, unknown>[]);
+    const selected = tables.filter((t) => t.selected);
+    for (const t of selected) {
+      try {
+        await ItAdminService.createExportDataset({
+          name: t.name,
+          category: t.category,
+          recordCount: t.recordCount,
+          exportable: true,
+        });
+      } catch {
+        // best-effort logging of export; ignore failures
+      }
+    }
   };
 
   const filteredTables = selectedCategory === 'All'

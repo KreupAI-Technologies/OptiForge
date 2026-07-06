@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { History, CheckCircle2, XCircle, AlertTriangle, Clock, Calendar, Filter, Download, Eye, Search, TrendingUp, BarChart3, X, PieChart } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ExecutionHistory {
   id: string;
@@ -46,183 +47,36 @@ const SchedulerHistoryPage = () => {
     }
   }, [toast]);
 
-  const [history] = useState<ExecutionHistory[]>([
-    {
-      id: '1',
-      jobId: 'JOB-001',
-      jobName: 'Database Backup',
-      jobType: 'Backup',
-      executionTime: '2025-10-21 02:00:00',
-      startTime: '2025-10-21 02:00:00',
-      endTime: '2025-10-21 02:45:23',
-      duration: '45m 23s',
-      status: 'Success',
-      result: 'Backup completed successfully. All tables backed up.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 1250000,
-      outputFile: '/backups/db_backup_20251021_020000.sql.gz',
-    },
-    {
-      id: '2',
-      jobId: 'JOB-002',
-      jobName: 'Daily Sales Report',
-      jobType: 'Report',
-      executionTime: '2025-10-21 08:00:00',
-      startTime: '2025-10-21 08:00:00',
-      endTime: '2025-10-21 08:12:45',
-      duration: '12m 45s',
-      status: 'Success',
-      result: 'Report generated and emailed to 15 recipients.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 8450,
-      outputFile: '/reports/sales_daily_20251021.pdf',
-    },
-    {
-      id: '3',
-      jobId: 'JOB-004',
-      jobName: 'Inventory Sync',
-      jobType: 'Data Sync',
-      executionTime: '2025-10-21 16:00:00',
-      startTime: '2025-10-21 16:00:00',
-      endTime: '2025-10-21 16:23:12',
-      duration: '23m 12s',
-      status: 'Failed',
-      result: 'Sync failed due to API timeout.',
-      errorMessage: 'Connection timeout: External API did not respond within 30 seconds. Retry count exceeded (3/3).',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 0,
-    },
-    {
-      id: '4',
-      jobId: 'JOB-007',
-      jobName: 'System Health Check',
-      jobType: 'Monitoring',
-      executionTime: '2025-10-21 18:15:00',
-      startTime: '2025-10-21 18:15:00',
-      endTime: '2025-10-21 18:17:08',
-      duration: '2m 8s',
-      status: 'Success',
-      result: 'All systems healthy. No alerts triggered.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 156,
-    },
-    {
-      id: '5',
-      jobId: 'JOB-008',
-      jobName: 'Customer Feedback Digest',
-      jobType: 'Report',
-      executionTime: '2025-10-21 09:00:00',
-      startTime: '2025-10-21 09:00:00',
-      endTime: '2025-10-21 09:18:34',
-      duration: '18m 34s',
-      status: 'Success',
-      result: 'Feedback digest compiled from 234 responses.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 234,
-      outputFile: '/reports/feedback_digest_20251021.pdf',
-    },
-    {
-      id: '6',
-      jobId: 'JOB-003',
-      jobName: 'Cleanup Temp Files',
-      jobType: 'Cleanup',
-      executionTime: '2025-10-20 03:00:00',
-      startTime: '2025-10-20 03:00:00',
-      endTime: '2025-10-20 03:08:15',
-      duration: '8m 15s',
-      status: 'Success',
-      result: 'Cleaned up 4.2 GB of temporary files older than 7 days.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 8456,
-    },
-    {
-      id: '7',
-      jobId: 'JOB-001',
-      jobName: 'Database Backup',
-      jobType: 'Backup',
-      executionTime: '2025-10-20 02:00:00',
-      startTime: '2025-10-20 02:00:00',
-      endTime: '2025-10-20 02:43:56',
-      duration: '43m 56s',
-      status: 'Success',
-      result: 'Backup completed successfully. All tables backed up.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 1248000,
-      outputFile: '/backups/db_backup_20251020_020000.sql.gz',
-    },
-    {
-      id: '8',
-      jobId: 'JOB-002',
-      jobName: 'Daily Sales Report',
-      jobType: 'Report',
-      executionTime: '2025-10-20 08:00:00',
-      startTime: '2025-10-20 08:00:00',
-      endTime: '2025-10-20 08:11:23',
-      duration: '11m 23s',
-      status: 'Warning',
-      result: 'Report generated but email delivery failed for 2 recipients.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 7890,
-      outputFile: '/reports/sales_daily_20251020.pdf',
-    },
-    {
-      id: '9',
-      jobId: 'JOB-004',
-      jobName: 'Inventory Sync',
-      jobType: 'Data Sync',
-      executionTime: '2025-10-21 12:00:00',
-      startTime: '2025-10-21 12:00:00',
-      endTime: '2025-10-21 12:22:45',
-      duration: '22m 45s',
-      status: 'Success',
-      result: 'Synchronized 5,678 inventory records successfully.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 5678,
-    },
-    {
-      id: '10',
-      jobId: 'JOB-007',
-      jobName: 'System Health Check',
-      jobType: 'Monitoring',
-      executionTime: '2025-10-21 18:00:00',
-      startTime: '2025-10-21 18:00:00',
-      endTime: '2025-10-21 18:02:15',
-      duration: '2m 15s',
-      status: 'Success',
-      result: 'All systems healthy. No alerts triggered.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 156,
-    },
-    {
-      id: '11',
-      jobId: 'JOB-006',
-      jobName: 'Data Archive',
-      jobType: 'Archive',
-      executionTime: '2025-10-01 01:00:00',
-      startTime: '2025-10-01 01:00:00',
-      endTime: '2025-10-01 03:15:42',
-      duration: '2h 15m 42s',
-      status: 'Success',
-      result: 'Archived 340,000 old transaction records to cold storage.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 340000,
-      outputFile: '/archives/transactions_202409.tar.gz',
-    },
-    {
-      id: '12',
-      jobId: 'JOB-004',
-      jobName: 'Inventory Sync',
-      jobType: 'Data Sync',
-      executionTime: '2025-10-21 08:00:00',
-      startTime: '2025-10-21 08:00:00',
-      endTime: '2025-10-21 08:21:34',
-      duration: '21m 34s',
-      status: 'Success',
-      result: 'Synchronized 5,234 inventory records successfully.',
-      triggeredBy: 'Scheduler',
-      recordsProcessed: 5234,
-    },
-  ]);
+  const [history, setHistory] = useState<ExecutionHistory[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const jobs = await ItAdminService.getScheduledJobs();
+        if (!active) return;
+        const mapped: ExecutionHistory[] = (jobs ?? []).map((job) => ({
+          id: job.id,
+          jobId: job.id,
+          jobName: job.name,
+          jobType: job.type,
+          executionTime: job.lastRun ?? '',
+          startTime: job.lastRun ?? '',
+          endTime: job.nextRun ?? '',
+          duration: job.duration ?? '',
+          status: job.lastRunStatus ?? job.status,
+          result: job.description,
+          triggeredBy: 'Scheduler',
+        }));
+        setHistory(mapped);
+      } catch {
+        if (active) setHistory([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats: HistoryStats = {
     totalExecutions: history.length,

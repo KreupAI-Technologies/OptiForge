@@ -71,6 +71,19 @@ export default function LicenseUsers() {
     suspendedUsers: 4
   })
 
+  const handleRemoveUser = async (userId: string) => {
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId ? { ...u, status: 'inactive' as const } : u,
+      ),
+    )
+    try {
+      await ItAdminService.updateLicenseUser(userId, { status: 'inactive' })
+    } catch {
+      // best-effort persistence; local state already updated
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -356,7 +369,7 @@ export default function LicenseUsers() {
                     <button className="text-purple-600 hover:text-purple-900 mr-3">
                       View
                     </button>
-                    <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                    <button onClick={() => handleRemoveUser(user.id)} className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
                       <UserMinus className="h-4 w-4 text-red-600" />
                       <span className="text-red-600">Remove</span>
                     </button>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell, Save, Mail, MessageSquare, Smartphone, CheckSquare, Volume2, AlertTriangle } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface NotificationChannel {
   email: boolean;
@@ -26,152 +27,39 @@ export default function NotificationSettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const [notifications, setNotifications] = useState<NotificationSetting[]>([
-    {
-      id: '1',
-      category: 'System',
-      name: 'System Downtime',
-      description: 'Scheduled maintenance and unexpected outages',
-      channels: { email: true, sms: true, push: true, inApp: true },
-      priority: 'critical',
-      roles: ['admin', 'it-support']
-    },
-    {
-      id: '2',
-      category: 'System',
-      name: 'Security Alerts',
-      description: 'Unauthorized access attempts and security breaches',
-      channels: { email: true, sms: true, push: true, inApp: true },
-      priority: 'critical',
-      roles: ['admin', 'it-support']
-    },
-    {
-      id: '3',
-      category: 'System',
-      name: 'Backup Status',
-      description: 'Daily backup completion and failure alerts',
-      channels: { email: true, sms: false, push: false, inApp: true },
-      priority: 'high',
-      roles: ['admin', 'it-support']
-    },
-    {
-      id: '4',
-      category: 'User',
-      name: 'New User Registration',
-      description: 'When a new user creates an account',
-      channels: { email: true, sms: false, push: false, inApp: true },
-      priority: 'medium',
-      roles: ['admin', 'manager']
-    },
-    {
-      id: '5',
-      category: 'User',
-      name: 'Password Reset',
-      description: 'User password change requests',
-      channels: { email: true, sms: true, push: false, inApp: false },
-      priority: 'high',
-      roles: ['admin', 'it-support']
-    },
-    {
-      id: '6',
-      category: 'User',
-      name: 'Login from New Device',
-      description: 'User logs in from unrecognized device',
-      channels: { email: true, sms: false, push: true, inApp: true },
-      priority: 'medium',
-      roles: ['admin', 'it-support']
-    },
-    {
-      id: '7',
-      category: 'Production',
-      name: 'Work Order Completed',
-      description: 'Production work order marked as complete',
-      channels: { email: true, sms: false, push: true, inApp: true },
-      priority: 'medium',
-      roles: ['manager', 'supervisor']
-    },
-    {
-      id: '8',
-      category: 'Production',
-      name: 'Quality Check Failed',
-      description: 'Product fails quality inspection',
-      channels: { email: true, sms: true, push: true, inApp: true },
-      priority: 'high',
-      roles: ['manager', 'supervisor']
-    },
-    {
-      id: '9',
-      category: 'Production',
-      name: 'Machine Downtime',
-      description: 'Production machine goes offline',
-      channels: { email: true, sms: true, push: true, inApp: true },
-      priority: 'critical',
-      roles: ['manager', 'supervisor', 'operator']
-    },
-    {
-      id: '10',
-      category: 'Inventory',
-      name: 'Low Stock Alert',
-      description: 'Stock level falls below minimum threshold',
-      channels: { email: true, sms: false, push: true, inApp: true },
-      priority: 'high',
-      roles: ['manager', 'supervisor']
-    },
-    {
-      id: '11',
-      category: 'Inventory',
-      name: 'Stock Transfer Approved',
-      description: 'Inter-warehouse stock transfer approved',
-      channels: { email: true, sms: false, push: false, inApp: true },
-      priority: 'medium',
-      roles: ['manager', 'supervisor']
-    },
-    {
-      id: '12',
-      category: 'Sales',
-      name: 'New Order Received',
-      description: 'Customer places a new order',
-      channels: { email: true, sms: false, push: true, inApp: true },
-      priority: 'medium',
-      roles: ['manager', 'supervisor']
-    },
-    {
-      id: '13',
-      category: 'Sales',
-      name: 'Order Cancelled',
-      description: 'Customer cancels an existing order',
-      channels: { email: true, sms: true, push: true, inApp: true },
-      priority: 'high',
-      roles: ['manager']
-    },
-    {
-      id: '14',
-      category: 'Sales',
-      name: 'Payment Received',
-      description: 'Customer payment successfully processed',
-      channels: { email: true, sms: false, push: false, inApp: true },
-      priority: 'medium',
-      roles: ['manager']
-    },
-    {
-      id: '15',
-      category: 'Approval',
-      name: 'Pending Approval',
-      description: 'Document requires your approval',
-      channels: { email: true, sms: false, push: true, inApp: true },
-      priority: 'high',
-      roles: ['manager', 'supervisor']
-    },
-    {
-      id: '16',
-      category: 'Approval',
-      name: 'Approval Deadline',
-      description: 'Approval request approaching deadline',
-      channels: { email: true, sms: true, push: true, inApp: true },
-      priority: 'high',
-      roles: ['manager', 'supervisor']
-    }
-  ]);
+  const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    ItAdminService.getNotificationSettings()
+      .then((data) => {
+        if (cancelled) return;
+        const mapped: NotificationSetting[] = (data ?? []).map((dto) => {
+          const ch = dto.channels ?? {};
+          return {
+            id: dto.id,
+            category: dto.category,
+            name: dto.name,
+            description: dto.description ?? '',
+            channels: {
+              email: !!ch.email,
+              sms: !!ch.sms,
+              push: !!ch.push,
+              inApp: !!ch.inApp,
+            },
+            priority: (dto.priority as NotificationSetting['priority']) ?? 'low',
+            roles: dto.roles ?? [],
+          };
+        });
+        setNotifications(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setNotifications([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = [
     { id: 'all', name: 'All Notifications', icon: Bell, count: notifications.length },
@@ -200,8 +88,27 @@ export default function NotificationSettingsPage() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    console.log('Saving notification settings:', notifications);
+  const handleSave = async () => {
+    try {
+      await ItAdminService.saveNotificationSettings(
+        notifications.map((n) => ({
+          id: n.id,
+          category: n.category,
+          name: n.name,
+          description: n.description,
+          channels: {
+            email: n.channels.email,
+            sms: n.channels.sms,
+            push: n.channels.push,
+            inApp: n.channels.inApp,
+          },
+          priority: n.priority,
+          roles: n.roles,
+        })),
+      );
+    } catch {
+      // best-effort persistence
+    }
     setHasChanges(false);
   };
 

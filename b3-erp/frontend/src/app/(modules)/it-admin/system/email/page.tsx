@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mail, Save, Send, CheckCircle, XCircle, Server, Lock, AlertCircle, TestTube } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface EmailSettings {
   smtp: {
@@ -74,6 +75,23 @@ export default function EmailSettingsPage() {
     }
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    ItAdminService.getConfigValue('it.system.email')
+      .then((res) => {
+        if (cancelled) return;
+        if (res && res.value) {
+          setSettings((prev) => ({ ...prev, ...(res.value as Partial<EmailSettings>) }));
+        }
+      })
+      .catch(() => {
+        // no stored config yet; keep defaults
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleChange = (section: keyof EmailSettings, field: string, value: any) => {
     setSettings((prev) => ({
       ...prev,
@@ -85,8 +103,12 @@ export default function EmailSettingsPage() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    console.log('Saving email settings:', settings);
+  const handleSave = async () => {
+    try {
+      await ItAdminService.setConfigValue('it.system.email', settings);
+    } catch {
+      // best-effort persistence
+    }
     setHasChanges(false);
   };
 

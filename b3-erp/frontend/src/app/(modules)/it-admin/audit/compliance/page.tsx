@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Shield, FileCheck, AlertTriangle, CheckCircle2, XCircle, TrendingUp, BarChart3, Filter, Download, Eye, Search, Calendar, Award, Target, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ComplianceRequirement {
   id: string;
@@ -180,122 +181,41 @@ const ComplianceAuditPage = () => {
     },
   ]);
 
-  const [violations] = useState<ComplianceViolation[]>([
-    {
-      id: '1',
-      violationId: 'VIO-20251021-001',
-      timestamp: '2025-10-21 09:30:45',
-      category: 'SOC 2',
-      requirement: 'Access Control',
-      severity: 'High',
-      description: 'User account found with excessive permissions beyond role requirements',
-      affectedEntity: 'User: Amit Patel (Sales)',
-      detectedBy: 'Automated Compliance Scanner',
-      status: 'Open',
-      assignedTo: 'Vikram Singh',
-      dueDate: '2025-10-25',
-    },
-    {
-      id: '2',
-      violationId: 'VIO-20251021-002',
-      timestamp: '2025-10-21 08:15:22',
-      category: 'ISO 27001',
-      requirement: 'Incident Response',
-      severity: 'Critical',
-      description: 'Security incident occurred without documented response procedure being followed',
-      affectedEntity: 'Security Alert: SES-2025-1021-034',
-      detectedBy: 'Manual Audit',
-      status: 'In Progress',
-      assignedTo: 'Anjali Desai',
-      dueDate: '2025-10-23',
-    },
-    {
-      id: '3',
-      violationId: 'VIO-20251020-003',
-      timestamp: '2025-10-20 14:20:11',
-      category: 'GDPR',
-      requirement: 'Data Retention',
-      severity: 'Medium',
-      description: 'Customer data retained beyond the specified retention period',
-      affectedEntity: 'Customer Records: 2019 Batch',
-      detectedBy: 'Automated Compliance Scanner',
-      status: 'Resolved',
-      assignedTo: 'Priya Sharma',
-      dueDate: '2025-10-24',
-      resolvedDate: '2025-10-21',
-    },
-    {
-      id: '4',
-      violationId: 'VIO-20251020-004',
-      timestamp: '2025-10-20 11:45:33',
-      category: 'SOC 2',
-      requirement: 'Access Control',
-      severity: 'High',
-      description: 'Shared credentials detected for administrative access',
-      affectedEntity: 'Admin Account: db_admin',
-      detectedBy: 'Security Monitoring',
-      status: 'Open',
-      assignedTo: 'Rajesh Kumar',
-      dueDate: '2025-10-24',
-    },
-    {
-      id: '5',
-      violationId: 'VIO-20251019-005',
-      timestamp: '2025-10-19 16:30:45',
-      category: 'HIPAA',
-      requirement: 'Data Privacy',
-      severity: 'Critical',
-      description: 'Unencrypted health records found in backup storage',
-      affectedEntity: 'Backup Server: BKP-SRV-02',
-      detectedBy: 'Automated Compliance Scanner',
-      status: 'In Progress',
-      assignedTo: 'Deepika Rao',
-      dueDate: '2025-10-22',
-    },
-    {
-      id: '6',
-      violationId: 'VIO-20251019-006',
-      timestamp: '2025-10-19 10:15:20',
-      category: 'ISO 27001',
-      requirement: 'Security Policy',
-      severity: 'Low',
-      description: 'Security policy documentation not updated for 6 months',
-      affectedEntity: 'Document: Security Policy v2.3',
-      detectedBy: 'Manual Audit',
-      status: 'Open',
-      assignedTo: 'Rajesh Kumar',
-      dueDate: '2025-10-26',
-    },
-    {
-      id: '7',
-      violationId: 'VIO-20251018-007',
-      timestamp: '2025-10-18 13:45:12',
-      category: 'SOC 2',
-      requirement: 'Encryption',
-      severity: 'Medium',
-      description: 'Database connection not using TLS encryption',
-      affectedEntity: 'Database: legacy_db_01',
-      detectedBy: 'Network Scanner',
-      status: 'Resolved',
-      assignedTo: 'Sneha Reddy',
-      dueDate: '2025-10-22',
-      resolvedDate: '2025-10-20',
-    },
-    {
-      id: '8',
-      violationId: 'VIO-20251018-008',
-      timestamp: '2025-10-18 09:20:33',
-      category: 'HIPAA',
-      requirement: 'Audit Logging',
-      severity: 'High',
-      description: 'Audit logs not retained for the required 6-year period',
-      affectedEntity: 'Log Server: LOG-SRV-01',
-      detectedBy: 'Automated Compliance Scanner',
-      status: 'Open',
-      assignedTo: 'Deepika Rao',
-      dueDate: '2025-10-25',
-    },
-  ]);
+  const [violations, setViolations] = useState<ComplianceViolation[]>([]);
+
+  useEffect(() => {
+    const loadViolations = async () => {
+      try {
+        const res = await ItAdminService.getAuditLogs({ limit: '50' });
+        const logs = Array.isArray(res?.data) ? res.data : [];
+        const mapped: ComplianceViolation[] = logs
+          .filter((log) => {
+            const sev = (log.severity || '').toLowerCase();
+            return sev === 'high' || sev === 'critical';
+          })
+          .map((log) => ({
+            id: log.id,
+            violationId: log.entityId || log.id,
+            timestamp: log.createdAt || '',
+            category: log.module || 'General',
+            requirement: log.entityType || log.action || '',
+            severity: log.severity || 'High',
+            description: log.description || '',
+            affectedEntity: log.entityType
+              ? `${log.entityType}${log.entityId ? `: ${log.entityId}` : ''}`
+              : (log.entityId || ''),
+            detectedBy: log.userName || 'System',
+            status: log.status || 'Open',
+            assignedTo: log.userName || '',
+            dueDate: '',
+          }));
+        setViolations(mapped);
+      } catch {
+        setViolations([]);
+      }
+    };
+    loadViolations();
+  }, []);
 
   const stats: ComplianceStats = {
     overallCompliance: Math.round(requirements.reduce((acc, req) => acc + req.compliance, 0) / requirements.length),

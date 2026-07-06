@@ -613,6 +613,7 @@ class ItAdminServiceClass {
     kind?: string;
     status?: string;
     severity?: string;
+    category?: string;
   }): Promise<SystemMonitorDto[]> {
     return request<SystemMonitorDto[]>(`/it-admin/monitoring${qs(params)}`);
   }

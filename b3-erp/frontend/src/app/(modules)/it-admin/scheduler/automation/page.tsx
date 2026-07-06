@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Zap, Play, Pause, Plus, Edit, Trash2, Eye, Filter, Download, XCircle, CheckCircle2, AlertTriangle, ArrowRight, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface AutomationRule {
   id: string;
@@ -53,183 +54,44 @@ const SchedulerAutomationPage = () => {
     setToast({ message, type });
   };
 
-  const [rules, setRules] = useState<AutomationRule[]>([
-    {
-      id: '1',
-      name: 'Auto-assign Support Tickets',
-      description: 'Automatically assign incoming support tickets to available team members',
-      category: 'Support',
-      trigger: 'New Support Ticket Created',
-      triggerType: 'Event',
-      conditions: ['Ticket priority is High or Critical', 'Team member is available'],
-      actions: ['Assign to available team member', 'Send notification email', 'Update ticket status to "Assigned"'],
-      status: 'Active',
-      enabled: true,
-      priority: 'High',
-      lastTriggered: '2025-10-21 18:15:00',
-      executionCount: 234,
-      successCount: 230,
-      failureCount: 4,
-      successRate: 98.3,
-      createdBy: 'Rajesh Kumar',
-      createdAt: '2024-05-15',
-      updatedAt: '2025-09-10',
-    },
-    {
-      id: '2',
-      name: 'Low Stock Alert',
-      description: 'Send alerts when inventory falls below minimum threshold',
-      category: 'Inventory',
-      trigger: 'Inventory Level Check',
-      triggerType: 'Schedule',
-      conditions: ['Stock quantity < Minimum threshold', 'Item status is Active'],
-      actions: ['Send email to procurement team', 'Create purchase requisition', 'Log alert in system'],
-      status: 'Active',
-      enabled: true,
-      priority: 'Critical',
-      lastTriggered: '2025-10-21 18:00:00',
-      executionCount: 450,
-      successCount: 448,
-      failureCount: 2,
-      successRate: 99.6,
-      createdBy: 'Sneha Reddy',
-      createdAt: '2024-02-01',
-      updatedAt: '2025-08-20',
-    },
-    {
-      id: '3',
-      name: 'Invoice Payment Reminder',
-      description: 'Send payment reminders for overdue invoices',
-      category: 'Finance',
-      trigger: 'Daily at 9:00 AM',
-      triggerType: 'Schedule',
-      conditions: ['Invoice is overdue', 'Payment not received', 'Customer has email'],
-      actions: ['Send reminder email to customer', 'CC finance team', 'Update reminder count', 'Add follow-up task'],
-      status: 'Active',
-      enabled: true,
-      priority: 'High',
-      lastTriggered: '2025-10-21 09:00:00',
-      executionCount: 189,
-      successCount: 185,
-      failureCount: 4,
-      successRate: 97.9,
-      createdBy: 'Priya Sharma',
-      createdAt: '2024-03-20',
-      updatedAt: '2025-07-15',
-    },
-    {
-      id: '4',
-      name: 'Employee Onboarding Workflow',
-      description: 'Automate new employee onboarding tasks',
-      category: 'HR',
-      trigger: 'New Employee Record Created',
-      triggerType: 'Event',
-      conditions: ['Employee status is Active', 'Start date is within 7 days'],
-      actions: [
-        'Create user account',
-        'Assign email address',
-        'Add to default groups',
-        'Generate onboarding checklist',
-        'Send welcome email',
-        'Notify IT and HR teams',
-      ],
-      status: 'Active',
-      enabled: true,
-      priority: 'Critical',
-      lastTriggered: '2025-10-18 14:30:00',
-      executionCount: 45,
-      successCount: 44,
-      failureCount: 1,
-      successRate: 97.8,
-      createdBy: 'Vikram Singh',
-      createdAt: '2024-01-10',
-      updatedAt: '2025-06-05',
-    },
-    {
-      id: '5',
-      name: 'Order Fulfillment Alert',
-      description: 'Notify warehouse when orders are ready for shipment',
-      category: 'Sales',
-      trigger: 'Order Status Changed to "Ready for Shipment"',
-      triggerType: 'Event',
-      conditions: ['Order is confirmed', 'Payment received', 'Items in stock'],
-      actions: ['Create shipment record', 'Send notification to warehouse', 'Update order status', 'Generate packing slip'],
-      status: 'Paused',
-      enabled: false,
-      priority: 'Medium',
-      lastTriggered: '2025-10-15 16:45:00',
-      executionCount: 312,
-      successCount: 308,
-      failureCount: 4,
-      successRate: 98.7,
-      createdBy: 'Anjali Desai',
-      createdAt: '2024-04-05',
-      updatedAt: '2025-10-15',
-    },
-    {
-      id: '6',
-      name: 'Customer Feedback Follow-up',
-      description: 'Send follow-up to customers after service completion',
-      category: 'CRM',
-      trigger: 'Service Ticket Closed',
-      triggerType: 'Event',
-      conditions: ['Ticket was closed successfully', 'Customer has email', 'No follow-up sent in last 30 days'],
-      actions: ['Wait 24 hours', 'Send feedback survey email', 'Log communication', 'Create follow-up task if negative'],
-      status: 'Active',
-      enabled: true,
-      priority: 'Medium',
-      lastTriggered: '2025-10-21 17:30:00',
-      executionCount: 156,
-      successCount: 154,
-      failureCount: 2,
-      successRate: 98.7,
-      createdBy: 'Deepika Rao',
-      createdAt: '2024-06-12',
-      updatedAt: '2025-09-01',
-    },
-    {
-      id: '7',
-      name: 'Security Alert Response',
-      description: 'Automatically respond to security threats',
-      category: 'Security',
-      trigger: 'Security Alert Detected',
-      triggerType: 'Event',
-      conditions: ['Alert severity is High or Critical', 'Source IP not whitelisted'],
-      actions: ['Block IP address', 'Terminate active sessions', 'Send alert to security team', 'Create incident ticket', 'Log to SIEM'],
-      status: 'Active',
-      enabled: true,
-      priority: 'Critical',
-      lastTriggered: '2025-10-21 12:20:00',
-      executionCount: 28,
-      successCount: 28,
-      failureCount: 0,
-      successRate: 100,
-      createdBy: 'System',
-      createdAt: '2024-01-01',
-      updatedAt: '2025-05-10',
-    },
-    {
-      id: '8',
-      name: 'Project Milestone Notification',
-      description: 'Notify stakeholders when project milestones are reached',
-      category: 'Projects',
-      trigger: 'Milestone Status Changed to "Completed"',
-      triggerType: 'Event',
-      conditions: ['Milestone is critical', 'Project is active'],
-      actions: ['Send email to project manager', 'Notify stakeholders', 'Update project dashboard', 'Create celebration announcement'],
-      status: 'Active',
-      enabled: true,
-      priority: 'Medium',
-      lastTriggered: '2025-10-19 11:00:00',
-      executionCount: 67,
-      successCount: 65,
-      failureCount: 2,
-      successRate: 97.0,
-      createdBy: 'Rahul Mehta',
-      createdAt: '2024-07-20',
-      updatedAt: '2025-09-25',
-    },
-  ]);
+  const [rules, setRules] = useState<AutomationRule[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await ItAdminService.getAutomationRules();
+        if (!active) return;
+        const mapped: AutomationRule[] = (data ?? []).map((dto) => ({
+          id: dto.id,
+          name: dto.name,
+          description: dto.description ?? '',
+          category: dto.category,
+          trigger: dto.trigger ?? '',
+          triggerType: dto.triggerType ?? '',
+          conditions: dto.conditions ?? [],
+          actions: dto.actions ?? [],
+          status: dto.status,
+          enabled: dto.enabled,
+          priority: dto.priority,
+          lastTriggered: dto.lastTriggered,
+          executionCount: dto.executionCount ?? 0,
+          successCount: dto.successCount ?? 0,
+          failureCount: dto.failureCount ?? 0,
+          successRate: dto.successRate ?? 0,
+          createdBy: dto.createdBy ?? '',
+          createdAt: dto.createdAt,
+          updatedAt: dto.updatedAt,
+        }));
+        setRules(mapped);
+      } catch {
+        if (active) setRules([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats: AutomationStats = {
     totalRules: rules.length,
@@ -276,11 +138,19 @@ const SchedulerAutomationPage = () => {
   };
 
   const handleToggleStatus = (ruleId: string) => {
-    setRules(rules.map(rule => 
-      rule.id === ruleId ? { ...rule, enabled: !rule.enabled, status: !rule.enabled ? 'Active' : 'Paused' } : rule
-    ));
     const rule = rules.find(r => r.id === ruleId);
+    const newEnabled = !rule?.enabled;
+    setRules(rules.map(r =>
+      r.id === ruleId ? { ...r, enabled: newEnabled, status: newEnabled ? 'Active' : 'Paused' } : r
+    ));
     showToast(`Rule "${rule?.name}" ${rule?.enabled ? 'paused' : 'activated'}`, 'success');
+    (async () => {
+      try {
+        await ItAdminService.updateAutomationRule(ruleId, { enabled: newEnabled });
+      } catch {
+        // best-effort persistence; keep optimistic local state
+      }
+    })();
   };
 
   const handleViewDetails = (rule: AutomationRule) => {

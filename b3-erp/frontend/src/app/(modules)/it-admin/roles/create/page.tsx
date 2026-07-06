@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Shield, Users, CheckSquare, Square, Copy, Eye, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface PermissionAction {
   create: boolean;
@@ -161,9 +162,20 @@ export default function CreateRolePage() {
     }
   };
 
-  const handleSave = () => {
-    // Handle save logic here
-    console.log('Saving role:', { roleName, roleDescription, permissions });
+  const handleSave = async () => {
+    if (!roleName.trim()) return;
+    try {
+      await ItAdminService.createRole({
+        name: roleName,
+        description: roleDescription,
+        applicableModules: permissions.map((m) => m.module),
+        permissions: permissions as any,
+        status: 'active',
+      });
+      router.push('/it-admin/roles');
+    } catch {
+      // Keep the user on the page on failure.
+    }
   };
 
   return (

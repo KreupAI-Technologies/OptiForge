@@ -1,12 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Shield, Lock, Globe, CheckCircle, AlertTriangle, Save, RefreshCw, Server } from 'lucide-react';
 import Link from 'next/link';
+import { ItAdminService } from '@/services/it-admin.service';
 
 export default function SSOPage() {
     const [enabled, setEnabled] = useState(false);
     const [provider, setProvider] = useState('google');
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await ItAdminService.getConfigValue('it.sso.config');
+                const value = res?.value as { enabled?: boolean; provider?: string } | undefined;
+                if (!mounted || !value) return;
+                if (typeof value.enabled === 'boolean') setEnabled(value.enabled);
+                if (typeof value.provider === 'string') setProvider(value.provider);
+            } catch {
+                // config not set yet — keep defaults
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const handleSave = async () => {
+        try {
+            await ItAdminService.setConfigValue('it.sso.config', { enabled, provider });
+            alert('SSO configuration saved successfully!');
+        } catch {
+            alert('Failed to save SSO configuration. Please try again.');
+        }
+    };
 
     return (
         <div className="w-full min-h-screen bg-gray-50 p-3">
@@ -96,7 +124,7 @@ export default function SSOPage() {
                                 <button className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                                     Test Connection
                                 </button>
-                                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
+                                <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
                                     <Save className="w-4 h-4" />
                                     Save Changes
                                 </button>

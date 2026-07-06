@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, X, Mail, Phone, Building2, Briefcase, Calendar, Lock } from 'lucide-react';
+import { userManagementService } from '@/services/user-management.service';
 
 export default function CreateUserPage() {
   const router = useRouter();
@@ -53,11 +54,26 @@ export default function CreateUserPage() {
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Show success message and redirect
-    router.push('/it-admin/users/active');
+    try {
+      await userManagementService.createUser({
+        employeeId: formData.email.split('@')[0],
+        email: formData.email,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        department: formData.department,
+        jobTitle: formData.role,
+        roleId: formData.role,
+        password: formData.password,
+      });
+      // Show success message and redirect
+      router.push('/it-admin/users/active');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create user';
+      setErrors({ submit: message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

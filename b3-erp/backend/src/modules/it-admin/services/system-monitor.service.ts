@@ -15,6 +15,7 @@ export class SystemMonitorService {
     kind?: string;
     status?: string;
     severity?: string;
+    category?: string;
   }): Promise<SystemMonitor[]> {
     const where: Record<string, any> = {};
     if (filters?.companyId) where.companyId = filters.companyId;
@@ -23,6 +24,8 @@ export class SystemMonitorService {
       where.status = filters.status;
     if (filters?.severity && filters.severity !== 'all')
       where.severity = filters.severity;
+    if (filters?.category && filters.category !== 'all')
+      where.category = filters.category;
     return this.repository.find({ where, order: { createdAt: 'DESC' } });
   }
 

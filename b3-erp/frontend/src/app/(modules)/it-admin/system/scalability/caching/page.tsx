@@ -1,14 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Zap, Database, RefreshCw, Trash2, Activity, Settings, Play, Pause } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
+
+interface CacheStore {
+    id: string | number;
+    name: string;
+    type: string;
+    size: string;
+    used: string;
+    hitRate: number;
+    status: string;
+}
 
 export default function CachingPage() {
-    const [caches, setCaches] = useState([
-        { id: 1, name: 'Redis-Primary', type: 'Redis', size: '16 GB', used: '8.4 GB', hitRate: 94.5, status: 'running' },
-        { id: 2, name: 'Memcached-Session', type: 'Memcached', size: '4 GB', used: '1.2 GB', hitRate: 98.2, status: 'running' },
-        { id: 3, name: 'CDN-Assets', type: 'CloudFront', size: 'Unlimited', used: '450 GB', hitRate: 89.1, status: 'running' },
-    ]);
+    const [caches, setCaches] = useState<CacheStore[]>([]);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const rows = await ItAdminService.getMonitoring({ kind: 'performance', category: 'cache' });
+                if (!active) return;
+                setCaches(
+                    (rows ?? []).map((r) => ({
+                        id: r.id,
+                        name: r.name,
+                        type: (r.metadata?.type as string) || r.source || 'Cache',
+                        size: (r.metadata?.size as string) || '—',
+                        used: (r.metadata?.used as string) || '—',
+                        hitRate: Number(r.value ?? 0),
+                        status: r.status || 'running',
+                    })),
+                );
+            } catch {
+                if (active) setCaches([]);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
