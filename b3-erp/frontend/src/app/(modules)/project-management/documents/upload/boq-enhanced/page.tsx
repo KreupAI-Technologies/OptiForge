@@ -100,17 +100,6 @@ const initialFormData: FormData = {
 };
 
 // Mock data for preview
-const mockBOQItems: BOQItem[] = [
-  { id: '1', item: '1.0', description: 'Excavation and Earthwork', unit: 'm3', quantity: 500, rate: 450, amount: 225000, isValid: true },
-  { id: '2', item: '2.0', description: 'PCC 1:4:8 Foundation', unit: 'm3', quantity: 150, rate: 4500, amount: 675000, isValid: true },
-  { id: '3', item: '3.0', description: 'RCC M25 Grade Concrete', unit: 'm3', quantity: 350, rate: 8500, amount: 2975000, isValid: true },
-  { id: '4', item: '4.0', description: 'Steel Reinforcement (Fe500)', unit: 'kg', quantity: 25000, rate: 75, amount: 1875000, isValid: true },
-  { id: '5', item: '5.0', description: 'Brick Masonry Work', unit: 'm3', quantity: 400, rate: 6500, amount: 2600000, isValid: true },
-  { id: '6', item: '6.0', description: 'Plastering (Internal)', unit: 'm2', quantity: 1200, rate: 320, amount: 384000, isValid: true },
-  { id: '7', item: '7.0', description: 'Electrical Wiring', unit: 'lot', quantity: 1, rate: 450000, amount: 450000, isValid: false, issues: ['Rate exceeds budget estimate'] },
-  { id: '8', item: '8.0', description: 'Plumbing Works', unit: 'lot', quantity: 1, rate: 280000, amount: 280000, isValid: true },
-];
-
 const PROJECTS = [
   { label: 'PRJ-2025-001 - Taj Hotels - Commercial Kitchen', value: 'PRJ-2025-001' },
   { label: 'PRJ-2025-002 - BigBasket - Cold Room', value: 'PRJ-2025-002' },
@@ -132,7 +121,7 @@ export default function UploadBOQEnhancedPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
-  const [boqTemplate, setBoqTemplate] = useState<BOQItem[]>(mockBOQItems);
+  const [boqTemplate, setBoqTemplate] = useState<BOQItem[]>([]);
 
   useEffect(() => {
     let active = true;

@@ -18,25 +18,7 @@ interface Employee {
 export default function Page() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockEmployees: Employee[] = [
-    { id: '1', name: 'Rajesh Kumar', employeeCode: 'EMP001', position: 'CTO', department: 'IT', performance: 'high', potential: 'high', box: 'high-high' },
-    { id: '2', name: 'Priya Sharma', employeeCode: 'EMP002', position: 'VP Sales', department: 'Sales', performance: 'high', potential: 'high', box: 'high-high' },
-    { id: '3', name: 'Amit Patel', employeeCode: 'EMP003', position: 'Marketing Manager', department: 'Marketing', performance: 'high', potential: 'medium', box: 'high-medium' },
-    { id: '4', name: 'Neha Gupta', employeeCode: 'EMP004', position: 'Finance Manager', department: 'Finance', performance: 'medium', potential: 'high', box: 'medium-high' },
-    { id: '5', name: 'Vikram Singh', employeeCode: 'EMP005', position: 'Operations Lead', department: 'Operations', performance: 'high', potential: 'medium', box: 'high-medium' },
-    { id: '6', name: 'Sunita Reddy', employeeCode: 'EMP006', position: 'HR Manager', department: 'HR', performance: 'medium', potential: 'high', box: 'medium-high' },
-    { id: '7', name: 'Arjun Kapoor', employeeCode: 'EMP007', position: 'Sales Lead', department: 'Sales', performance: 'medium', potential: 'medium', box: 'medium-medium' },
-    { id: '8', name: 'Kavita Singh', employeeCode: 'EMP008', position: 'IT Lead', department: 'IT', performance: 'high', potential: 'high', box: 'high-high' },
-    { id: '9', name: 'Rohan Mehta', employeeCode: 'EMP009', position: 'Production Supervisor', department: 'Operations', performance: 'medium', potential: 'medium', box: 'medium-medium' },
-    { id: '10', name: 'Divya Nair', employeeCode: 'EMP010', position: 'Financial Analyst', department: 'Finance', performance: 'medium', potential: 'high', box: 'medium-high' },
-    { id: '11', name: 'Karthik Iyer', employeeCode: 'EMP011', position: 'Quality Manager', department: 'Quality', performance: 'high', potential: 'medium', box: 'high-medium' },
-    { id: '12', name: 'Anjali Desai', employeeCode: 'EMP012', position: 'Marketing Executive', department: 'Marketing', performance: 'low', potential: 'medium', box: 'low-medium' },
-    { id: '13', name: 'Sanjay Verma', employeeCode: 'EMP013', position: 'Sales Executive', department: 'Sales', performance: 'medium', potential: 'low', box: 'medium-low' },
-    { id: '14', name: 'Meera Shah', employeeCode: 'EMP014', position: 'HR Executive', department: 'HR', performance: 'low', potential: 'high', box: 'low-high' },
-    { id: '15', name: 'Rahul Khanna', employeeCode: 'EMP015', position: 'IT Developer', department: 'IT', performance: 'medium', potential: 'medium', box: 'medium-medium' },
-  ];
-
-  const [rows, setRows] = useState<Employee[]>(mockEmployees);
+  const [rows, setRows] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -44,9 +26,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<Employee>('matrix');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

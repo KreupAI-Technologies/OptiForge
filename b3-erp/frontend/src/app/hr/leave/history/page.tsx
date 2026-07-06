@@ -21,19 +21,8 @@ interface LeaveRecord {
   rejectionReason?: string;
 }
 
-const mockLeaveHistory: LeaveRecord[] = [
-  { id: 'L001', leaveType: 'Earned Leave', leaveTypeCode: 'EL', fromDate: '2025-01-15', toDate: '2025-01-17', days: 3, reason: 'Personal work', status: 'approved', appliedOn: '2025-01-10', approvedBy: 'Rajesh Kumar', approvedOn: '2025-01-11' },
-  { id: 'L002', leaveType: 'Casual Leave', leaveTypeCode: 'CL', fromDate: '2024-12-20', toDate: '2024-12-20', days: 1, reason: 'Medical checkup', status: 'approved', appliedOn: '2024-12-18', approvedBy: 'Rajesh Kumar', approvedOn: '2024-12-19' },
-  { id: 'L003', leaveType: 'Sick Leave', leaveTypeCode: 'SL', fromDate: '2024-11-28', toDate: '2024-11-29', days: 2, reason: 'Fever and cold', status: 'approved', appliedOn: '2024-11-28', approvedBy: 'Rajesh Kumar', approvedOn: '2024-11-28' },
-  { id: 'L004', leaveType: 'Earned Leave', leaveTypeCode: 'EL', fromDate: '2024-10-10', toDate: '2024-10-12', days: 3, reason: 'Family function', status: 'approved', appliedOn: '2024-10-05', approvedBy: 'Rajesh Kumar', approvedOn: '2024-10-06' },
-  { id: 'L005', leaveType: 'Privilege Leave', leaveTypeCode: 'PL', fromDate: '2024-09-25', toDate: '2024-09-25', days: 1, reason: 'Personal emergency', status: 'rejected', appliedOn: '2024-09-24', approvedBy: 'Rajesh Kumar', approvedOn: '2024-09-24', rejectionReason: 'Insufficient PL balance' },
-  { id: 'L006', leaveType: 'Casual Leave', leaveTypeCode: 'CL', fromDate: '2024-08-15', toDate: '2024-08-16', days: 2, reason: 'Attending workshop', status: 'approved', appliedOn: '2024-08-10', approvedBy: 'Rajesh Kumar', approvedOn: '2024-08-11' },
-  { id: 'L007', leaveType: 'Earned Leave', leaveTypeCode: 'EL', fromDate: '2024-07-01', toDate: '2024-07-05', days: 5, reason: 'Vacation', status: 'approved', appliedOn: '2024-06-20', approvedBy: 'Rajesh Kumar', approvedOn: '2024-06-22' },
-  { id: 'L008', leaveType: 'Comp Off', leaveTypeCode: 'CO', fromDate: '2024-06-10', toDate: '2024-06-10', days: 1, reason: 'Compensatory off for weekend work', status: 'approved', appliedOn: '2024-06-08', approvedBy: 'Rajesh Kumar', approvedOn: '2024-06-09' }
-];
-
 export default function LeaveHistoryPage() {
-  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>(mockLeaveHistory);
+  const [leaveHistory, setLeaveHistory] = useState<LeaveRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
@@ -68,10 +57,11 @@ export default function LeaveHistoryPage() {
             approvedOn: a.approvedDate ?? a.approvedOn ?? undefined,
             rejectionReason: a.rejectionReason ?? undefined,
           }));
-        if (!cancelled && mapped.length) setLeaveHistory(mapped);
+        if (!cancelled) setLeaveHistory(mapped);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load leave history');
+          setLeaveHistory([]);
         }
       } finally {
         if (!cancelled) setIsLoading(false);

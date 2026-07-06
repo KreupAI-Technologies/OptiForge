@@ -21,80 +21,7 @@ export default function AttendanceReportsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const mockDepartmentReports: DepartmentReport[] = [
-    {
-      department: 'Production',
-      totalEmployees: 45,
-      presentDays: 990,
-      absentDays: 18,
-      leaveDays: 32,
-      lateMarks: 67,
-      attendanceRate: 98.27,
-      punctualityRate: 93.23
-    },
-    {
-      department: 'Quality',
-      totalEmployees: 12,
-      presentDays: 264,
-      absentDays: 3,
-      leaveDays: 9,
-      lateMarks: 15,
-      attendanceRate: 98.91,
-      punctualityRate: 94.32
-    },
-    {
-      department: 'IT',
-      totalEmployees: 8,
-      presentDays: 176,
-      absentDays: 0,
-      leaveDays: 8,
-      lateMarks: 5,
-      attendanceRate: 100,
-      punctualityRate: 97.16
-    },
-    {
-      department: 'HR',
-      totalEmployees: 5,
-      presentDays: 110,
-      absentDays: 1,
-      leaveDays: 4,
-      lateMarks: 3,
-      attendanceRate: 99.10,
-      punctualityRate: 97.27
-    },
-    {
-      department: 'Finance',
-      totalEmployees: 6,
-      presentDays: 132,
-      absentDays: 4,
-      leaveDays: 6,
-      lateMarks: 8,
-      attendanceRate: 97.22,
-      punctualityRate: 93.94
-    },
-    {
-      department: 'Logistics',
-      totalEmployees: 15,
-      presentDays: 330,
-      absentDays: 6,
-      leaveDays: 12,
-      lateMarks: 18,
-      attendanceRate: 98.28,
-      punctualityRate: 94.55
-    },
-    {
-      department: 'Marketing',
-      totalEmployees: 4,
-      presentDays: 88,
-      absentDays: 2,
-      leaveDays: 2,
-      lateMarks: 6,
-      attendanceRate: 97.78,
-      punctualityRate: 93.18
-    }
-  ];
-
-  const [rows, setRows] = useState<DepartmentReport[]>(mockDepartmentReports);
+  const [rows, setRows] = useState<DepartmentReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -104,8 +31,8 @@ export default function AttendanceReportsPage() {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = await HrAttendanceService.getReports();
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             department: r.department ?? r.details?.department ?? '',
             totalEmployees: r.details?.totalEmployees ?? 0,
             presentDays: r.presentDays ?? r.details?.presentDays ?? 0,
@@ -117,7 +44,7 @@ export default function AttendanceReportsPage() {
           } as DepartmentReport));
           setRows(mapped);
         }
-      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      } catch (e) { if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); } }
       finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };

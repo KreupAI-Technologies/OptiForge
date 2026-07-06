@@ -29,118 +29,7 @@ export default function PFReportPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
 
-  const mockPFRecords: PFRecord[] = [
-    {
-      id: 'PF-2025-11-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      uanNumber: '100123456789',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      grossWages: 49725,
-      pfWages: 20000,
-      employeePF: 2400,
-      employerEPF: 879,
-      employerEPS: 1250,
-      edli: 60,
-      adminCharges: 60,
-      totalPF: 4649,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'PF-2025-11-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      ipNumber: '100234567890',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      grossWages: 35976,
-      pfWages: 14500,
-      employeePF: 1740,
-      employerEPF: 637,
-      employerEPS: 906,
-      edli: 43,
-      adminCharges: 43,
-      totalPF: 3369,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'PF-2025-11-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      uanNumber: '100345678901',
-      designation: 'Production Operator',
-      department: 'Production',
-      grossWages: 21874,
-      pfWages: 8800,
-      employeePF: 1056,
-      employerEPF: 387,
-      employerEPS: 550,
-      edli: 26,
-      adminCharges: 26,
-      totalPF: 2045,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'PF-2025-11-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      uanNumber: '100456789012',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      grossWages: 34101,
-      pfWages: 13725,
-      employeePF: 1647,
-      employerEPF: 603,
-      employerEPS: 858,
-      edli: 41,
-      adminCharges: 41,
-      totalPF: 3190,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'PF-2025-11-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      uanNumber: '100567890123',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      grossWages: 31600,
-      pfWages: 12720,
-      employeePF: 1526,
-      employerEPF: 559,
-      employerEPS: 795,
-      edli: 38,
-      adminCharges: 38,
-      totalPF: 2956,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'PF-2025-11-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      uanNumber: '100678901234',
-      designation: 'HR Executive',
-      department: 'HR',
-      grossWages: 32849,
-      pfWages: 13220,
-      employeePF: 1586,
-      employerEPF: 581,
-      employerEPS: 826,
-      edli: 40,
-      adminCharges: 40,
-      totalPF: 3073,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    }
-  ];
-
-  const [rows, setRows] = useState<PFRecord[]>(mockPFRecords);
+  const [rows, setRows] = useState<PFRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -151,8 +40,8 @@ export default function PFReportPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getReports('pf');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -174,7 +63,10 @@ export default function PFReportPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

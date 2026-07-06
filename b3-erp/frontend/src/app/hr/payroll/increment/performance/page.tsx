@@ -34,130 +34,7 @@ export default function PerformanceIncrementPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedRating, setSelectedRating] = useState('all');
 
-  const mockIncrements: PerformanceIncrement[] = [
-    {
-      id: 'PI-2025-Q3-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      currentCTC: 597000,
-      currentBasic: 240000,
-      performanceRating: 'outstanding',
-      performanceScore: 95,
-      incrementPercentage: 8.0,
-      incrementAmount: 47760,
-      revisedCTC: 644760,
-      revisedBasic: 259200,
-      effectiveDate: '2026-01-01',
-      quarter: 'Q3 (Oct-Dec 2025)',
-      status: 'approved',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-12-15'
-    },
-    {
-      id: 'PI-2025-Q3-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      currentCTC: 431712,
-      currentBasic: 174000,
-      performanceRating: 'excellent',
-      performanceScore: 88,
-      incrementPercentage: 6.0,
-      incrementAmount: 25903,
-      revisedCTC: 457615,
-      revisedBasic: 184440,
-      effectiveDate: '2026-01-01',
-      quarter: 'Q3 (Oct-Dec 2025)',
-      status: 'approved',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-12-15'
-    },
-    {
-      id: 'PI-2025-Q3-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Production Operator',
-      department: 'Production',
-      currentCTC: 262488,
-      currentBasic: 105600,
-      performanceRating: 'good',
-      performanceScore: 78,
-      incrementPercentage: 4.5,
-      incrementAmount: 11812,
-      revisedCTC: 274300,
-      revisedBasic: 110352,
-      effectiveDate: '2026-01-01',
-      quarter: 'Q3 (Oct-Dec 2025)',
-      status: 'calculated',
-      approvedBy: undefined,
-      approvedDate: undefined
-    },
-    {
-      id: 'PI-2025-Q3-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      currentCTC: 409212,
-      currentBasic: 164700,
-      performanceRating: 'excellent',
-      performanceScore: 85,
-      incrementPercentage: 5.5,
-      incrementAmount: 22507,
-      revisedCTC: 431719,
-      revisedBasic: 173859,
-      effectiveDate: '2026-01-01',
-      quarter: 'Q3 (Oct-Dec 2025)',
-      status: 'calculated',
-      approvedBy: undefined,
-      approvedDate: undefined
-    },
-    {
-      id: 'PI-2025-Q3-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      currentCTC: 379200,
-      currentBasic: 152640,
-      performanceRating: 'good',
-      performanceScore: 80,
-      incrementPercentage: 5.0,
-      incrementAmount: 18960,
-      revisedCTC: 398160,
-      revisedBasic: 160272,
-      effectiveDate: '2026-01-01',
-      quarter: 'Q3 (Oct-Dec 2025)',
-      status: 'draft',
-      approvedBy: undefined,
-      approvedDate: undefined
-    },
-    {
-      id: 'PI-2025-Q3-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      designation: 'HR Executive',
-      department: 'HR',
-      currentCTC: 394188,
-      currentBasic: 158640,
-      performanceRating: 'excellent',
-      performanceScore: 87,
-      incrementPercentage: 6.5,
-      incrementAmount: 25622,
-      revisedCTC: 419810,
-      revisedBasic: 169112,
-      effectiveDate: '2026-01-01',
-      quarter: 'Q3 (Oct-Dec 2025)',
-      status: 'approved',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-12-16'
-    }
-  ];
-
-  const [rows, setRows] = useState<PerformanceIncrement[]>(mockIncrements);
+  const [rows, setRows] = useState<PerformanceIncrement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -168,8 +45,8 @@ export default function PerformanceIncrementPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getSalaryRevisions('increment-performance');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.employeeCode ?? r.details?.employeeId ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -194,7 +71,7 @@ export default function PerformanceIncrementPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

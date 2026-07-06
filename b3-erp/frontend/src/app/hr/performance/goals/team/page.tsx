@@ -26,50 +26,7 @@ export default function TeamGoalsPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedTeam, setSelectedTeam] = useState('all');
 
-  const mockGoals: TeamGoal[] = [
-    {
-      id: '1', title: 'Manufacturing Excellence Initiative', description: 'Achieve 98% first-pass quality rate',
-      teamName: 'Production Team A', teamSize: 12, priority: 'high', startDate: '2024-11-01', endDate: '2025-03-31',
-      progress: 70, weight: 35, status: 'on_track', owner: 'Rajesh Kumar', kpiCount: 4, contributingMembers: 10
-    },
-    {
-      id: '2', title: 'Reduce Machine Downtime', description: 'Decrease downtime by 25% through preventive maintenance',
-      teamName: 'Maintenance Team', teamSize: 8, priority: 'high', startDate: '2024-11-01', endDate: '2025-02-28',
-      progress: 55, weight: 30, status: 'on_track', owner: 'Suresh Patel', kpiCount: 3, contributingMembers: 7
-    },
-    {
-      id: '3', title: 'Safety Training Completion', description: 'Complete safety certification for all team members',
-      teamName: 'Production Team B', teamSize: 15, priority: 'high', startDate: '2024-10-15', endDate: '2024-12-31',
-      progress: 85, weight: 25, status: 'on_track', owner: 'Priya Sharma', kpiCount: 2, contributingMembers: 15
-    },
-    {
-      id: '4', title: 'Inventory Optimization', description: 'Reduce raw material waste by 15%',
-      teamName: 'Warehouse Team', teamSize: 10, priority: 'medium', startDate: '2024-11-01', endDate: '2025-01-31',
-      progress: 40, weight: 20, status: 'at_risk', owner: 'Amit Singh', kpiCount: 3, contributingMembers: 8
-    },
-    {
-      id: '5', title: 'Quality Documentation', description: 'Digitize all quality inspection records',
-      teamName: 'Quality Assurance', teamSize: 6, priority: 'medium', startDate: '2024-09-01', endDate: '2024-12-15',
-      progress: 90, weight: 15, status: 'on_track', owner: 'Meena Rao', kpiCount: 2, contributingMembers: 5
-    },
-    {
-      id: '6', title: 'Energy Conservation Project', description: 'Reduce energy consumption by 12%',
-      teamName: 'Production Team A', teamSize: 12, priority: 'medium', startDate: '2024-08-01', endDate: '2024-11-30',
-      progress: 100, weight: 20, status: 'completed', owner: 'Rajesh Kumar', kpiCount: 3, contributingMembers: 9
-    },
-    {
-      id: '7', title: 'Cross-Training Initiative', description: 'Train team members on multiple workstations',
-      teamName: 'Production Team B', teamSize: 15, priority: 'low', startDate: '2024-11-01', endDate: '2025-04-30',
-      progress: 30, weight: 15, status: 'on_track', owner: 'Priya Sharma', kpiCount: 2, contributingMembers: 12
-    },
-    {
-      id: '8', title: 'Supplier Quality Improvement', description: 'Achieve 95% on-time delivery from suppliers',
-      teamName: 'Procurement Team', teamSize: 5, priority: 'high', startDate: '2024-10-01', endDate: '2025-01-31',
-      progress: 35, weight: 25, status: 'at_risk', owner: 'Vikram Mehta', kpiCount: 4, contributingMembers: 4
-    }
-  ];
-
-  const [rows, setRows] = useState<TeamGoal[]>(mockGoals);
+  const [rows, setRows] = useState<TeamGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -77,9 +34,12 @@ export default function TeamGoalsPage() {
     (async () => {
       try {
         const data = await HrTalentService.getPerformance<TeamGoal>('team-goal');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

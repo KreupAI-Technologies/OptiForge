@@ -30,45 +30,9 @@ interface DesignAsset {
     isLatest: boolean;
 }
 
-const mockAssets: DesignAsset[] = [
-    {
-        id: '1',
-        fileName: 'Kitchen_Layout_Final_v3.dwg',
-        category: 'drawing',
-        version: 3,
-        uploadDate: '2025-01-20',
-        status: 'approved',
-        fileUrl: '#',
-        isLatest: true,
-        comments: 'Final layout after client feedback'
-    },
-    {
-        id: '2',
-        fileName: 'Kitchen_3D_Render_v2.jpg',
-        category: 'render',
-        version: 2,
-        uploadDate: '2025-01-22',
-        status: 'pending',
-        thumbnailUrl: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=400&q=80',
-        fileUrl: '#',
-        isLatest: true
-    },
-    {
-        id: '3',
-        fileName: 'Electrical_Plan_v1.pdf',
-        category: 'drawing',
-        version: 1,
-        uploadDate: '2025-01-18',
-        status: 'rejected',
-        fileUrl: '#',
-        isLatest: true,
-        comments: 'Power point location mismatch'
-    }
-];
-
 export default function DesignAssetGallery() {
     const { id } = useParams() as { id: string };
-    const [assets, setAssets] = useState<DesignAsset[]>(mockAssets);
+    const [assets, setAssets] = useState<DesignAsset[]>([]);
     const [filter, setFilter] = useState<'all' | 'drawing' | 'render'>('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -217,6 +181,11 @@ export default function DesignAssetGallery() {
                     </div>
                 ))}
             </div>
+            {!loading && filteredAssets.length === 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-10 text-center text-xs font-bold text-gray-400">
+                    No design assets found.
+                </div>
+            )}
         </div>
     );
 }

@@ -213,63 +213,9 @@ export default function CustomReportsPage() {
   }, []);
 
   const loadReports = () => {
-    const sampleReports: CustomReport[] = [
-      {
-        id: '1',
-        name: 'Monthly Sales Report',
-        description: 'Comprehensive monthly sales analysis with trends',
-        category: 'Sales',
-        chartType: 'bar',
-        dataSource: 'sales',
-        filters: [],
-        columns: [],
-        createdBy: 'John Doe',
-        createdAt: '2024-01-15',
-        lastRun: '2024-10-16',
-        isFavorite: true,
-        isShared: true,
-        status: 'active',
-      },
-      {
-        id: '2',
-        name: 'Inventory Aging Analysis',
-        description: 'Track aging inventory and slow-moving items',
-        category: 'Inventory',
-        chartType: 'table',
-        dataSource: 'inventory',
-        filters: [],
-        columns: [],
-        createdBy: 'Jane Smith',
-        createdAt: '2024-02-20',
-        lastRun: '2024-10-15',
-        isFavorite: false,
-        isShared: false,
-        status: 'active',
-      },
-      {
-        id: '3',
-        name: 'Production Efficiency Dashboard',
-        description: 'Real-time production metrics and KPIs',
-        category: 'Production',
-        chartType: 'line',
-        dataSource: 'production',
-        filters: [],
-        columns: [],
-        createdBy: 'Mike Johnson',
-        createdAt: '2024-03-10',
-        lastRun: '2024-10-17',
-        isFavorite: true,
-        isShared: true,
-        status: 'active',
-      },
-    ];
-
-    // Seed with built-in samples, then replace with saved reports from the
-    // backend when available (falls back to samples on error / empty).
-    setReports(sampleReports);
+    // Saved reports come solely from the backend.
     fetchSavedReportItems()
       .then((items) => {
-        if (items.length === 0) return;
         setReports(
           items.map((it) => ({
             id: it.id,
@@ -291,7 +237,7 @@ export default function CustomReportsPage() {
         );
       })
       .catch(() => {
-        // Keep built-in samples when the saved-items endpoint is unavailable.
+        setReports([]);
       });
   };
 

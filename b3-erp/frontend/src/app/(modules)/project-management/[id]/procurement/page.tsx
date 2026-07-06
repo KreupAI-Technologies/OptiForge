@@ -26,15 +26,9 @@ interface MaterialStatus {
     status: 'Ready' | 'Procuring' | 'Delayed' | 'Stock Gap';
 }
 
-const mockMaterials: MaterialStatus[] = [
-    { id: '1', name: 'Aluminium Extrusion 40x40', totalQty: 120, reserved: 80, ordered: 40, received: 0, status: 'Procuring' },
-    { id: '2', name: 'Stainless Steel Sheet 2mm', totalQty: 50, reserved: 50, ordered: 0, received: 50, status: 'Ready' },
-    { id: '3', name: 'M6 Bolt & Nut Set', totalQty: 1000, reserved: 200, ordered: 800, received: 0, status: 'Delayed' },
-];
-
 export default function ProcurementDashboard() {
     const params = useParams() as { id?: string };
-    const [materials, setMaterials] = useState<MaterialStatus[]>(mockMaterials);
+    const [materials, setMaterials] = useState<MaterialStatus[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -191,6 +185,11 @@ export default function ProcurementDashboard() {
                                     </td>
                                 </tr>
                             ))}
+                            {!loading && materials.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="p-10 text-center text-xs font-bold text-gray-400">No materials found.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

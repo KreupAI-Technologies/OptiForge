@@ -34,107 +34,7 @@ export default function Page() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<ProbationEmployee | null>(null);
 
-  const mockEmployees: ProbationEmployee[] = [
-    {
-      id: '1',
-      employeeCode: 'EMP567',
-      name: 'Arjun Nair',
-      designation: 'Production Engineer',
-      department: 'Production',
-      joiningDate: '2025-04-15',
-      probationPeriod: 6,
-      probationEndDate: '2025-10-15',
-      daysRemaining: 11,
-      completionPercentage: 94,
-      status: 'due_soon',
-      reportingManager: 'Suresh Iyer',
-      reviewsCompleted: 2,
-      totalReviews: 3,
-      performanceScore: 85,
-      lastReviewDate: '2025-09-15',
-      nextReviewDate: '2025-10-13',
-      recommendation: 'confirm'
-    },
-    {
-      id: '2',
-      employeeCode: 'EMP589',
-      name: 'Meera Gupta',
-      designation: 'Quality Inspector',
-      department: 'Quality',
-      joiningDate: '2025-07-01',
-      probationPeriod: 3,
-      probationEndDate: '2025-10-01',
-      daysRemaining: -25,
-      completionPercentage: 100,
-      status: 'overdue',
-      reportingManager: 'Madhav Singh',
-      reviewsCompleted: 2,
-      totalReviews: 3,
-      performanceScore: 78,
-      lastReviewDate: '2025-09-01',
-      recommendation: 'pending'
-    },
-    {
-      id: '3',
-      employeeCode: 'EMP601',
-      name: 'Rahul Verma',
-      designation: 'Maintenance Technician',
-      department: 'Maintenance',
-      joiningDate: '2025-08-01',
-      probationPeriod: 6,
-      probationEndDate: '2026-02-01',
-      daysRemaining: 98,
-      completionPercentage: 46,
-      status: 'ongoing',
-      reportingManager: 'Ramesh Nair',
-      reviewsCompleted: 1,
-      totalReviews: 3,
-      performanceScore: 82,
-      lastReviewDate: '2025-09-01',
-      nextReviewDate: '2025-11-01'
-    },
-    {
-      id: '4',
-      employeeCode: 'EMP578',
-      name: 'Priyanka Joshi',
-      designation: 'HR Executive',
-      department: 'Human Resources',
-      joiningDate: '2025-06-01',
-      probationPeriod: 3,
-      probationEndDate: '2025-09-01',
-      daysRemaining: 0,
-      completionPercentage: 100,
-      status: 'completed',
-      reportingManager: 'Kavita Sharma',
-      reviewsCompleted: 3,
-      totalReviews: 3,
-      performanceScore: 92,
-      lastReviewDate: '2025-08-25',
-      recommendation: 'confirm'
-    },
-    {
-      id: '5',
-      employeeCode: 'EMP612',
-      name: 'Aditya Sharma',
-      designation: 'IT Support Engineer',
-      department: 'Information Technology',
-      joiningDate: '2025-05-01',
-      probationPeriod: 6,
-      probationEndDate: '2026-01-01',
-      daysRemaining: 67,
-      completionPercentage: 63,
-      status: 'extended',
-      reportingManager: 'Vikram Singh',
-      reviewsCompleted: 2,
-      totalReviews: 4,
-      performanceScore: 68,
-      lastReviewDate: '2025-09-01',
-      nextReviewDate: '2025-11-01',
-      recommendation: 'extend'
-    }
-  ];
-
-  const [rows, setRows] = useState<ProbationEmployee[]>(mockEmployees);
+  const [rows, setRows] = useState<ProbationEmployee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -142,9 +42,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getProbation<ProbationEmployee>('tracking');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

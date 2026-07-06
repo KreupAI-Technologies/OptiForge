@@ -26,15 +26,9 @@ interface MachineStatus {
     currentJob: string;
 }
 
-const mockMachines: MachineStatus[] = [
-    { id: 'm1', name: 'Laser Cutter L-400', type: 'Cutting', status: 'Running', oee: 84, currentJob: 'Project Kitchen-A (Panels)' },
-    { id: 'm2', name: 'CNC Bending B-210', type: 'Fabrication', status: 'Idle', oee: 72, currentJob: 'Awaiting Verification' },
-    { id: 'm3', name: 'Powder Coat Line P-1', type: 'Finishing', status: 'Running', oee: 91, currentJob: 'Project Mall-F (Brackets)' },
-];
-
 export default function FactoryDashboard() {
     const params = useParams() as { id?: string };
-    const [machines, setMachines] = useState<MachineStatus[]>(mockMachines);
+    const [machines, setMachines] = useState<MachineStatus[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -146,6 +140,11 @@ export default function FactoryDashboard() {
                         </div>
                     </div>
                 ))}
+                {!loading && machines.length === 0 && (
+                    <div className="md:col-span-3 bg-white rounded-3xl border border-gray-100 p-10 text-center text-xs font-bold text-slate-400">
+                        No machines found.
+                    </div>
+                )}
             </div>
 
             {/* Production Log Stream */}

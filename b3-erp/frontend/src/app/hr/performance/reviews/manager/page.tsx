@@ -25,50 +25,7 @@ export default function ManagerReviewPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedReview, setSelectedReview] = useState<PendingReview | null>(null);
 
-  const mockReviews: PendingReview[] = [
-    {
-      id: '1', employeeCode: 'KMF2451', employeeName: 'Rahul Sharma', designation: 'Production Supervisor',
-      department: 'Manufacturing', reviewPeriod: 'H2 2024', selfRatingAvg: 4.5, goalsAchieved: 4,
-      totalGoals: 4, submittedDate: '2024-10-15', status: 'pending'
-    },
-    {
-      id: '2', employeeCode: 'KMF2452', employeeName: 'Priya Patel', designation: 'Quality Inspector',
-      department: 'Quality Assurance', reviewPeriod: 'H2 2024', selfRatingAvg: 4.2, goalsAchieved: 3,
-      totalGoals: 4, submittedDate: '2024-10-16', status: 'pending'
-    },
-    {
-      id: '3', employeeCode: 'KMF2453', employeeName: 'Amit Kumar', designation: 'Machine Operator',
-      department: 'Manufacturing', reviewPeriod: 'H2 2024', selfRatingAvg: 3.8, goalsAchieved: 3,
-      totalGoals: 4, submittedDate: '2024-10-17', status: 'in_progress'
-    },
-    {
-      id: '4', employeeCode: 'KMF2454', employeeName: 'Sneha Reddy', designation: 'Production Coordinator',
-      department: 'Manufacturing', reviewPeriod: 'H2 2024', selfRatingAvg: 4.7, goalsAchieved: 4,
-      totalGoals: 4, submittedDate: '2024-10-14', status: 'pending'
-    },
-    {
-      id: '5', employeeCode: 'KMF2455', employeeName: 'Vikram Singh', designation: 'Maintenance Engineer',
-      department: 'Maintenance', reviewPeriod: 'H2 2024', selfRatingAvg: 4.1, goalsAchieved: 3,
-      totalGoals: 4, submittedDate: '2024-10-13', status: 'pending'
-    },
-    {
-      id: '6', employeeCode: 'KMF2456', employeeName: 'Anjali Nair', designation: 'QA Analyst',
-      department: 'Quality Assurance', reviewPeriod: 'H2 2024', selfRatingAvg: 4.4, goalsAchieved: 4,
-      totalGoals: 4, submittedDate: '2024-10-12', status: 'completed'
-    },
-    {
-      id: '7', employeeCode: 'KMF2457', employeeName: 'Rajesh Iyer', designation: 'Production Lead',
-      department: 'Manufacturing', reviewPeriod: 'H2 2024', selfRatingAvg: 4.6, goalsAchieved: 4,
-      totalGoals: 4, submittedDate: '2024-10-11', status: 'completed'
-    },
-    {
-      id: '8', employeeCode: 'KMF2458', employeeName: 'Deepa Gupta', designation: 'Assembly Technician',
-      department: 'Manufacturing', reviewPeriod: 'H2 2024', selfRatingAvg: 3.9, goalsAchieved: 3,
-      totalGoals: 4, submittedDate: '2024-10-18', status: 'pending'
-    }
-  ];
-
-  const [rows, setRows] = useState<PendingReview[]>(mockReviews);
+  const [rows, setRows] = useState<PendingReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -76,9 +33,9 @@ export default function ManagerReviewPage() {
     (async () => {
       try {
         const data = await HrTalentService.getPerformance<PendingReview>('manager-review');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

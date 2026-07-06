@@ -44,146 +44,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
-  const mockPlans: DevelopmentPlan[] = [
-    {
-      id: '1',
-      employeeName: 'Kavita Singh',
-      employeeCode: 'EMP008',
-      currentRole: 'IT Lead',
-      targetRole: 'CTO',
-      department: 'IT',
-      photo: '👩‍💼',
-      status: 'in_progress',
-      startDate: '2024-07-01',
-      targetCompletionDate: '2025-06-30',
-      progress: 65,
-      skillGaps: [
-        { skill: 'Executive Leadership', currentLevel: 75, requiredLevel: 95, gap: 20 },
-        { skill: 'Board Communication', currentLevel: 60, requiredLevel: 90, gap: 30 },
-        { skill: 'P&L Management', currentLevel: 65, requiredLevel: 90, gap: 25 },
-        { skill: 'Strategic Planning', currentLevel: 80, requiredLevel: 95, gap: 15 }
-      ],
-      developmentActivities: [
-        { activity: 'Executive Leadership Program - IIM Bangalore', type: 'training', status: 'in_progress', startDate: '2024-09-01', endDate: '2025-03-31', cost: 500000 },
-        { activity: 'CFO Shadowing Program', type: 'mentoring', status: 'in_progress', startDate: '2024-10-01', endDate: '2025-06-30' },
-        { activity: 'Board Presentation Workshop', type: 'workshop', status: 'planned', startDate: '2025-04-01', endDate: '2025-05-15', cost: 75000 },
-        { activity: 'Digital Transformation Project Lead', type: 'project', status: 'in_progress', startDate: '2024-11-01', endDate: '2025-05-31' }
-      ],
-      milestones: [
-        { name: 'Complete Executive Leadership Module 1', completed: true, dueDate: '2024-10-31' },
-        { name: 'Lead quarterly board presentation', completed: true, dueDate: '2024-12-15' },
-        { name: 'Complete P&L management certification', completed: false, dueDate: '2025-03-31' },
-        { name: 'Complete digital transformation project', completed: false, dueDate: '2025-05-31' }
-      ],
-      mentor: 'Rajesh Kumar (CTO)',
-      budget: 800000,
-      spentBudget: 520000
-    },
-    {
-      id: '2',
-      employeeName: 'Arjun Kapoor',
-      employeeCode: 'EMP007',
-      currentRole: 'Sales Lead',
-      targetRole: 'VP Sales',
-      department: 'Sales',
-      photo: '👨‍💼',
-      status: 'on_track',
-      startDate: '2024-09-01',
-      targetCompletionDate: '2025-07-31',
-      progress: 55,
-      skillGaps: [
-        { skill: 'Strategic Planning', currentLevel: 70, requiredLevel: 90, gap: 20 },
-        { skill: 'Multi-Regional Management', currentLevel: 60, requiredLevel: 85, gap: 25 },
-        { skill: 'Team Leadership (50+ team)', currentLevel: 65, requiredLevel: 90, gap: 25 },
-        { skill: 'Business Development', currentLevel: 85, requiredLevel: 95, gap: 10 }
-      ],
-      developmentActivities: [
-        { activity: 'Advanced Sales Leadership - XLRI', type: 'training', status: 'in_progress', startDate: '2024-10-01', endDate: '2025-04-30', cost: 350000 },
-        { activity: 'Regional Strategy Project - South India', type: 'project', status: 'in_progress', startDate: '2024-11-01', endDate: '2025-05-31' },
-        { activity: 'VP Sales Mentorship', type: 'mentoring', status: 'in_progress', startDate: '2024-09-01', endDate: '2025-07-31' },
-        { activity: 'Cross-Regional Team Management', type: 'job_rotation', status: 'planned', startDate: '2025-05-01', endDate: '2025-07-31' }
-      ],
-      milestones: [
-        { name: 'Complete sales strategy module', completed: true, dueDate: '2024-11-30' },
-        { name: 'Lead regional expansion project', completed: false, dueDate: '2025-05-31' },
-        { name: 'Build 50+ member team structure', completed: false, dueDate: '2025-06-30' },
-        { name: 'Complete leadership certification', completed: false, dueDate: '2025-07-15' }
-      ],
-      mentor: 'Priya Sharma (VP Sales)',
-      budget: 600000,
-      spentBudget: 320000
-    },
-    {
-      id: '3',
-      employeeName: 'Rahul Mehta',
-      employeeCode: 'EMP015',
-      currentRole: 'Finance Manager',
-      targetRole: 'CFO',
-      department: 'Finance',
-      photo: '👨‍💼',
-      status: 'in_progress',
-      startDate: '2024-08-01',
-      targetCompletionDate: '2026-01-31',
-      progress: 40,
-      skillGaps: [
-        { skill: 'Executive Leadership', currentLevel: 65, requiredLevel: 90, gap: 25 },
-        { skill: 'Board Interactions', currentLevel: 50, requiredLevel: 85, gap: 35 },
-        { skill: 'Investor Relations', currentLevel: 55, requiredLevel: 90, gap: 35 },
-        { skill: 'Strategic Business Planning', currentLevel: 70, requiredLevel: 95, gap: 25 }
-      ],
-      developmentActivities: [
-        { activity: 'Executive MBA (Finance) - IIM Ahmedabad', type: 'training', status: 'in_progress', startDate: '2024-08-01', endDate: '2026-01-31', cost: 2500000 },
-        { activity: 'CFO Mentorship Program', type: 'mentoring', status: 'in_progress', startDate: '2024-09-01', endDate: '2025-12-31' },
-        { activity: 'Board Meeting Shadowing', type: 'project', status: 'planned', startDate: '2025-07-01', endDate: '2025-12-31' },
-        { activity: 'Investor Relations Workshop', type: 'workshop', status: 'planned', startDate: '2025-09-01', endDate: '2025-09-30', cost: 100000 }
-      ],
-      milestones: [
-        { name: 'Complete EMBA semester 1', completed: true, dueDate: '2024-12-31' },
-        { name: 'Shadow CFO in board meetings (3 sessions)', completed: false, dueDate: '2025-08-31' },
-        { name: 'Lead investor presentation', completed: false, dueDate: '2025-10-31' },
-        { name: 'Complete EMBA program', completed: false, dueDate: '2026-01-31' }
-      ],
-      mentor: 'Suresh Iyer (CFO)',
-      budget: 3000000,
-      spentBudget: 1200000
-    },
-    {
-      id: '4',
-      employeeName: 'Neha Gupta',
-      employeeCode: 'EMP012',
-      currentRole: 'HR Manager',
-      targetRole: 'CHRO',
-      department: 'HR',
-      photo: '👩‍💼',
-      status: 'on_track',
-      startDate: '2024-06-01',
-      targetCompletionDate: '2026-02-28',
-      progress: 50,
-      skillGaps: [
-        { skill: 'C-Suite Leadership', currentLevel: 68, requiredLevel: 92, gap: 24 },
-        { skill: 'Organizational Transformation', currentLevel: 72, requiredLevel: 95, gap: 23 },
-        { skill: 'Business Strategy Alignment', currentLevel: 65, requiredLevel: 90, gap: 25 },
-        { skill: 'Change Management', currentLevel: 78, requiredLevel: 95, gap: 17 }
-      ],
-      developmentActivities: [
-        { activity: 'Senior HR Leadership Program - SHRM', type: 'training', status: 'in_progress', startDate: '2024-07-01', endDate: '2025-05-31', cost: 400000 },
-        { activity: 'Business Strategy Workshops', type: 'workshop', status: 'in_progress', startDate: '2024-09-01', endDate: '2025-07-31', cost: 150000 },
-        { activity: 'Change Management Certification - Prosci', type: 'certification', status: 'planned', startDate: '2025-06-01', endDate: '2025-08-31', cost: 200000 },
-        { activity: 'Executive Coaching Program', type: 'mentoring', status: 'in_progress', startDate: '2024-06-01', endDate: '2025-12-31', cost: 300000 }
-      ],
-      milestones: [
-        { name: 'Complete SHRM Senior Professional module', completed: true, dueDate: '2024-10-31' },
-        { name: 'Lead organizational transformation project', completed: false, dueDate: '2025-06-30' },
-        { name: 'Complete change management certification', completed: false, dueDate: '2025-08-31' },
-        { name: 'Complete executive coaching', completed: false, dueDate: '2025-12-31' }
-      ],
-      mentor: 'Anjali Desai (CHRO)',
-      budget: 1200000,
-      spentBudget: 600000
-    }
-  ];
-
-  const [rows, setRows] = useState<DevelopmentPlan[]>(mockPlans);
+  const [rows, setRows] = useState<DevelopmentPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -191,9 +52,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<DevelopmentPlan>('talent-development');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -244,7 +105,7 @@ export default function Page() {
 
   const totalPlans = rows.length;
   const onTrackPlans = rows.filter(p => p.status === 'on_track').length;
-  const avgProgress = Math.round(rows.reduce((sum, p) => sum + p.progress, 0) / totalPlans);
+  const avgProgress = totalPlans ? Math.round(rows.reduce((sum, p) => sum + p.progress, 0) / totalPlans) : 0;
   const totalBudget = rows.reduce((sum, p) => sum + p.budget, 0);
 
   return (

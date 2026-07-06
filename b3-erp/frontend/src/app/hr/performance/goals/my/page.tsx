@@ -22,35 +22,7 @@ interface MyGoal {
 export default function MyGoalsPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockGoals: MyGoal[] = [
-    {
-      id: '1', title: 'Improve Production Efficiency', description: 'Increase overall production efficiency by 15%',
-      category: 'department', priority: 'high', startDate: '2024-11-01', endDate: '2025-03-31',
-      progress: 65, weight: 30, status: 'on_track', kpiCount: 3
-    },
-    {
-      id: '2', title: 'Reduce Quality Defects', description: 'Reduce manufacturing defects by 20%',
-      category: 'individual', priority: 'high', startDate: '2024-11-01', endDate: '2025-02-28',
-      progress: 45, weight: 25, status: 'at_risk', kpiCount: 2
-    },
-    {
-      id: '3', title: 'Team Skill Development', description: 'Complete technical training for team members',
-      category: 'team', priority: 'medium', startDate: '2024-11-15', endDate: '2025-01-31',
-      progress: 80, weight: 20, status: 'on_track', kpiCount: 4
-    },
-    {
-      id: '4', title: 'Process Documentation', description: 'Document all manufacturing SOPs',
-      category: 'individual', priority: 'medium', startDate: '2024-10-01', endDate: '2024-12-31',
-      progress: 90, weight: 15, status: 'on_track', kpiCount: 1
-    },
-    {
-      id: '5', title: 'Cost Reduction Initiative', description: 'Reduce operational costs by 10%',
-      category: 'department', priority: 'high', startDate: '2024-09-01', endDate: '2024-11-30',
-      progress: 100, weight: 25, status: 'completed', kpiCount: 3
-    }
-  ];
-
-  const [rows, setRows] = useState<MyGoal[]>(mockGoals);
+  const [rows, setRows] = useState<MyGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -58,9 +30,12 @@ export default function MyGoalsPage() {
     (async () => {
       try {
         const data = await HrTalentService.getPerformance<MyGoal>('my-goal');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

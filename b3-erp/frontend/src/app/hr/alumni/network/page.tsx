@@ -95,52 +95,7 @@ export default function Page() {
     };
   }, []);
 
-  const seedEvents: AlumniEvent[] = [
-    {
-      id: '1',
-      title: 'Manufacturing Excellence Summit 2025',
-      type: 'reunion',
-      date: '2025-11-15',
-      time: '10:00 AM',
-      location: 'Hotel Taj, Pune',
-      mode: 'offline',
-      registrations: 45,
-      capacity: 100,
-      organizer: 'Rajesh Kumar',
-      description: 'Annual alumni reunion focused on latest trends in manufacturing',
-      status: 'upcoming'
-    },
-    {
-      id: '2',
-      title: 'Lean Manufacturing Webinar',
-      type: 'webinar',
-      date: '2025-11-01',
-      time: '03:00 PM',
-      location: 'Zoom',
-      mode: 'online',
-      registrations: 78,
-      capacity: 150,
-      organizer: 'Amit Patel',
-      description: 'Learn latest Lean Six Sigma techniques from industry experts',
-      status: 'upcoming'
-    },
-    {
-      id: '3',
-      title: 'Alumni Networking Meetup - Mumbai',
-      type: 'networking',
-      date: '2025-10-30',
-      time: '06:00 PM',
-      location: 'Cafe Coffee Day, Bandra',
-      mode: 'offline',
-      registrations: 23,
-      capacity: 30,
-      organizer: 'Priya Sharma',
-      description: 'Casual networking evening for Mumbai-based alumni',
-      status: 'upcoming'
-    }
-  ];
-
-  const mockEvents: AlumniEvent[] = eventRows.length ? eventRows : seedEvents;
+  const mockEvents: AlumniEvent[] = eventRows;
 
   const mockPosts: AlumniPost[] = [
     {

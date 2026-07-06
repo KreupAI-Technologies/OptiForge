@@ -72,221 +72,6 @@ interface Project {
     completedDeliverables: number;
 }
 
-const mockProjects: Project[] = [
-    {
-        id: '1',
-        projectNumber: 'PRJ-2024-001',
-        projectName: 'Taj Hotel Commercial Kitchen Installation',
-        projectType: 'Commercial Kitchen',
-        customer: 'Taj Hotels Limited',
-        location: 'Mumbai, Maharashtra',
-        salesOrderNumber: 'SO-2024-456',
-        projectManager: 'Rajesh Kumar',
-        startDate: '2024-01-15',
-        endDate: '2024-04-30',
-        status: 'In Progress',
-        progress: 65,
-        budget: 8500000,
-        actualCost: 5200000,
-        phase: 'Installation',
-        priority: 'P1',
-        awardDate: '2024-01-05',
-        team: 12,
-        deliverables: 8,
-        completedDeliverables: 5,
-    },
-    {
-        id: '2',
-        projectNumber: 'PRJ-2024-002',
-        projectName: 'BigBasket Cold Storage Facility',
-        projectType: 'Cold Room',
-        customer: 'BigBasket Pvt Ltd',
-        location: 'Bangalore, Karnataka',
-        salesOrderNumber: 'SO-2024-478',
-        projectManager: 'Priya Sharma',
-        startDate: '2024-02-01',
-        endDate: '2024-05-15',
-        status: 'In Progress',
-        progress: 45,
-        budget: 12000000,
-        actualCost: 4800000,
-        phase: 'Civil Work',
-        priority: 'P1',
-        team: 18,
-        deliverables: 12,
-        completedDeliverables: 4,
-    },
-    {
-        id: '3',
-        projectNumber: 'PRJ-2024-003',
-        projectName: 'L&T Switchgear Panel Manufacturing',
-        projectType: 'Switchgear',
-        customer: 'Larsen & Toubro Limited',
-        location: 'Pune, Maharashtra',
-        salesOrderNumber: 'SO-2024-489',
-        projectManager: 'Amit Patel',
-        startDate: '2024-01-10',
-        endDate: '2024-03-20',
-        status: 'Delayed',
-        progress: 75,
-        budget: 6500000,
-        actualCost: 5400000,
-        phase: 'Testing & Commissioning',
-        priority: 'P2',
-        team: 8,
-        deliverables: 6,
-        completedDeliverables: 4,
-    },
-    {
-        id: '4',
-        projectNumber: 'PRJ-2024-004',
-        projectName: 'ITC Grand Kitchen Renovation',
-        projectType: 'Commercial Kitchen',
-        customer: 'ITC Hotels',
-        location: 'Delhi NCR',
-        salesOrderNumber: 'SO-2024-501',
-        projectManager: 'Sunita Reddy',
-        startDate: '2024-03-01',
-        endDate: '2024-06-30',
-        status: 'Planning',
-        progress: 15,
-        budget: 9500000,
-        actualCost: 950000,
-        phase: 'Detailed Design',
-        priority: 'P1',
-        team: 10,
-        deliverables: 10,
-        completedDeliverables: 1,
-    },
-    {
-        id: '5',
-        projectNumber: 'PRJ-2024-005',
-        projectName: 'Godrej Cold Room Installation',
-        projectType: 'Cold Room',
-        customer: 'Godrej Appliances',
-        location: 'Hyderabad, Telangana',
-        salesOrderNumber: 'SO-2024-512',
-        projectManager: 'Vikram Singh',
-        startDate: '2024-02-15',
-        endDate: '2024-05-30',
-        status: 'In Progress',
-        progress: 55,
-        budget: 7800000,
-        actualCost: 4200000,
-        phase: 'Equipment Installation',
-        priority: 'P2',
-        team: 14,
-        deliverables: 9,
-        completedDeliverables: 5,
-    },
-    {
-        id: '6',
-        projectNumber: 'PRJ-2023-089',
-        projectName: 'Marriott Kitchen Equipment Setup',
-        projectType: 'Commercial Kitchen',
-        customer: 'Marriott International',
-        location: 'Chennai, Tamil Nadu',
-        salesOrderNumber: 'SO-2023-892',
-        projectManager: 'Anjali Verma',
-        startDate: '2023-11-01',
-        endDate: '2024-02-28',
-        actualEndDate: '2024-03-05',
-        status: 'Completed',
-        progress: 100,
-        budget: 7200000,
-        actualCost: 7450000,
-        phase: 'Closed',
-        priority: 'P1',
-        team: 11,
-        deliverables: 7,
-        completedDeliverables: 7,
-    },
-    {
-        id: '7',
-        projectNumber: 'PRJ-2024-006',
-        projectName: 'Siemens HT Switchgear Project',
-        projectType: 'Switchgear',
-        customer: 'Siemens India',
-        location: 'Bangalore, Karnataka',
-        salesOrderNumber: 'SO-2024-523',
-        projectManager: 'Manoj Kumar',
-        startDate: '2024-03-10',
-        endDate: '2024-06-15',
-        status: 'In Progress',
-        progress: 35,
-        budget: 15000000,
-        actualCost: 4500000,
-        phase: 'Manufacturing',
-        priority: 'P1',
-        team: 20,
-        deliverables: 15,
-        completedDeliverables: 4,
-    },
-    {
-        id: '8',
-        projectNumber: 'PRJ-2024-007',
-        projectName: 'Prestige Modular Kitchen - Luxury Villas',
-        projectType: 'Modular Kitchen',
-        customer: 'Prestige Estates Projects',
-        location: 'Gurgaon, Haryana',
-        salesOrderNumber: 'SO-2024-534',
-        projectManager: 'Neha Gupta',
-        startDate: '2024-02-20',
-        endDate: '2024-07-20',
-        status: 'In Progress',
-        progress: 42,
-        budget: 18000000,
-        actualCost: 6800000,
-        phase: 'Manufacturing & Assembly',
-        priority: 'P2',
-        team: 25,
-        deliverables: 50,
-        completedDeliverables: 18,
-    },
-    {
-        id: '9',
-        projectNumber: 'PRJ-2024-008',
-        projectName: 'Zomato Cloud Kitchen Setup',
-        projectType: 'Commercial Kitchen',
-        customer: 'Zomato Limited',
-        location: 'Noida, UP',
-        salesOrderNumber: 'SO-2024-545',
-        projectManager: 'Karan Malhotra',
-        startDate: '2024-03-05',
-        endDate: '2024-05-05',
-        status: 'On Hold',
-        progress: 28,
-        budget: 5500000,
-        actualCost: 1400000,
-        phase: 'Site Preparation',
-        priority: 'P3',
-        team: 7,
-        deliverables: 6,
-        completedDeliverables: 1,
-    },
-    {
-        id: '10',
-        projectNumber: 'PRJ-2024-009',
-        projectName: 'Reliance Retail Cold Chain',
-        projectType: 'Cold Room',
-        customer: 'Reliance Retail Limited',
-        location: 'Ahmedabad, Gujarat',
-        salesOrderNumber: 'SO-2024-556',
-        projectManager: 'Deepak Joshi',
-        startDate: '2024-01-20',
-        endDate: '2024-04-20',
-        status: 'Delayed',
-        progress: 68,
-        budget: 11000000,
-        actualCost: 8200000,
-        phase: 'Commissioning',
-        priority: 'P1',
-        team: 16,
-        deliverables: 11,
-        completedDeliverables: 7,
-    },
-];
-
 export default function ProjectsListPage() {
     const { loadProject, activeProject, clearProject } = useProjectContext();
     const [projects, setProjects] = useState<Project[]>([]);
@@ -334,16 +119,10 @@ export default function ProjectsListPage() {
                     completedDeliverables: 0,
                 }));
 
-                // If no projects returned from service, fallback to mockProjects
-                if (mappedProjects.length > 0) {
-                    setProjects(mappedProjects);
-                } else {
-                    setProjects(mockProjects);
-                }
+                setProjects(mappedProjects);
             } catch (error) {
                 console.error('Error fetching projects:', error);
-                // Use mock data as fallback
-                setProjects(mockProjects);
+                setProjects([]);
             } finally {
                 setLoading(false);
             }
@@ -799,6 +578,11 @@ export default function ProjectsListPage() {
                                     </td>
                                 </tr>
                             ))}
+                            {!loading && paginatedProjects.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="px-3 py-10 text-center text-sm font-bold text-gray-400">No projects found.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

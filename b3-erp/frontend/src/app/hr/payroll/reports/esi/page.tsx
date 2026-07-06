@@ -25,100 +25,7 @@ export default function ESIReportPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
 
-  const mockESIRecords: ESIRecord[] = [
-    {
-      id: 'ESI-2025-11-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      ipNumber: '1234567890',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      grossWages: 49725,
-      esiWages: 21000,
-      esiEmployeeContribution: 158,
-      esiEmployerContribution: 630,
-      totalESI: 788,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'ESI-2025-11-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      ipNumber: '2345678901',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      grossWages: 35976,
-      esiWages: 21000,
-      esiEmployeeContribution: 158,
-      esiEmployerContribution: 630,
-      totalESI: 788,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'ESI-2025-11-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      ipNumber: '3456789012',
-      designation: 'Production Operator',
-      department: 'Production',
-      grossWages: 21874,
-      esiWages: 21000,
-      esiEmployeeContribution: 158,
-      esiEmployerContribution: 630,
-      totalESI: 788,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'ESI-2025-11-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      ipNumber: '4567890123',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      grossWages: 34101,
-      esiWages: 21000,
-      esiEmployeeContribution: 158,
-      esiEmployerContribution: 630,
-      totalESI: 788,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'ESI-2025-11-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      ipNumber: '5678901234',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      grossWages: 31600,
-      esiWages: 21000,
-      esiEmployeeContribution: 158,
-      esiEmployerContribution: 630,
-      totalESI: 788,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'ESI-2025-11-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      ipNumber: '6789012345',
-      designation: 'HR Executive',
-      department: 'HR',
-      grossWages: 32849,
-      esiWages: 21000,
-      esiEmployeeContribution: 158,
-      esiEmployerContribution: 630,
-      totalESI: 788,
-      daysWorked: 30,
-      monthYear: 'November 2025'
-    }
-  ];
-
-  const [rows, setRows] = useState<ESIRecord[]>(mockESIRecords);
+  const [rows, setRows] = useState<ESIRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -129,8 +36,8 @@ export default function ESIReportPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getReports('esi');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -148,7 +55,10 @@ export default function ESIReportPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

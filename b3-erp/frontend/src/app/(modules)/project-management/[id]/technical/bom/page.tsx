@@ -31,56 +31,11 @@ interface BOMItem {
     children?: BOMItem[];
 }
 
-const mockBOM: BOMItem[] = [
-    {
-        id: '1',
-        itemId: 'i1',
-        name: 'Steel Shutter Unit - Type A',
-        sku: 'FG-SSH-001',
-        quantity: 1,
-        uom: 'Unit',
-        level: 0,
-        status: 'In Stock',
-        children: [
-            {
-                id: '2',
-                itemId: 'i2',
-                name: 'Main Steel Panel (3000x1200)',
-                sku: 'RM-PAN-3012',
-                quantity: 2,
-                uom: 'Sheet',
-                level: 1,
-                status: 'In Stock'
-            },
-            {
-                id: '3',
-                itemId: 'i3',
-                name: 'Reinforcement Channel',
-                sku: 'RM-CHA-010',
-                quantity: 4,
-                uom: 'Mtr',
-                level: 1,
-                status: 'Low Stock'
-            },
-            {
-                id: '4',
-                itemId: 'i4',
-                name: 'Locking Mechanism V2',
-                sku: 'AC-LOC-002',
-                quantity: 1,
-                uom: 'Set',
-                level: 1,
-                status: 'Lead Time: 2w'
-            }
-        ]
-    }
-];
-
 export default function BOMManagementPage() {
     const { id } = useParams() as { id: string };
     const [isLocked, setIsLocked] = useState(false);
     const [expandedRows, setExpandedRows] = useState<string[]>(['1']);
-    const [bom, setBom] = useState<BOMItem[]>(mockBOM);
+    const [bom, setBom] = useState<BOMItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -251,6 +206,11 @@ export default function BOMManagementPage() {
                                     ))}
                                 </React.Fragment>
                             ))}
+                            {!loading && bom.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="p-10 text-center text-xs font-bold text-gray-400">No BOM items found.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

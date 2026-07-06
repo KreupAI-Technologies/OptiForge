@@ -26,107 +26,7 @@ export default function Page() {
   const [selectedCriticality, setSelectedCriticality] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockPositions: CriticalPosition[] = [
-    {
-      id: '1',
-      title: 'Chief Technology Officer',
-      department: 'IT',
-      currentHolder: 'Rajesh Kumar',
-      employeeCode: 'EMP001',
-      location: 'Mumbai Office',
-      criticality: 'critical',
-      businessImpact: 'critical',
-      replacementDifficulty: 'very_difficult',
-      timeToFill: 180,
-      successorsPipeline: 2,
-      retirementRisk: true,
-      expectedVacancy: '2025-12-31',
-      keyResponsibilities: ['Technology strategy', 'Team leadership', 'Digital transformation', 'IT infrastructure'],
-      riskFactors: ['Retirement planned', 'Specialized knowledge', 'Limited internal pipeline']
-    },
-    {
-      id: '2',
-      title: 'VP Sales',
-      department: 'Sales',
-      currentHolder: 'Priya Sharma',
-      employeeCode: 'EMP002',
-      location: 'Delhi Office',
-      criticality: 'critical',
-      businessImpact: 'critical',
-      replacementDifficulty: 'difficult',
-      timeToFill: 120,
-      successorsPipeline: 3,
-      retirementRisk: false,
-      keyResponsibilities: ['Sales strategy', 'Revenue growth', 'Client relationships', 'Team management'],
-      riskFactors: ['High performer', 'External opportunities', 'Critical client relationships']
-    },
-    {
-      id: '3',
-      title: 'Finance Manager',
-      department: 'Finance',
-      currentHolder: 'Neha Gupta',
-      employeeCode: 'EMP004',
-      location: 'Bangalore Office',
-      criticality: 'high',
-      businessImpact: 'high',
-      replacementDifficulty: 'moderate',
-      timeToFill: 90,
-      successorsPipeline: 2,
-      retirementRisk: false,
-      keyResponsibilities: ['Financial planning', 'Compliance', 'Reporting', 'Budget management'],
-      riskFactors: ['Regulatory knowledge', 'Audit relationships']
-    },
-    {
-      id: '4',
-      title: 'Operations Lead',
-      department: 'Operations',
-      currentHolder: 'Vikram Singh',
-      employeeCode: 'EMP005',
-      location: 'Pune Office',
-      criticality: 'high',
-      businessImpact: 'high',
-      replacementDifficulty: 'difficult',
-      timeToFill: 120,
-      successorsPipeline: 1,
-      retirementRisk: false,
-      keyResponsibilities: ['Production oversight', 'Supply chain', 'Quality control', 'Vendor management'],
-      riskFactors: ['Plant operations knowledge', 'Limited successors']
-    },
-    {
-      id: '5',
-      title: 'HR Manager',
-      department: 'HR',
-      currentHolder: 'Sunita Reddy',
-      employeeCode: 'EMP006',
-      location: 'Hyderabad Office',
-      criticality: 'medium',
-      businessImpact: 'high',
-      replacementDifficulty: 'moderate',
-      timeToFill: 60,
-      successorsPipeline: 2,
-      retirementRisk: false,
-      keyResponsibilities: ['Talent management', 'Employee relations', 'Policy compliance', 'Compensation'],
-      riskFactors: ['Employee relationships', 'Policy expertise']
-    },
-    {
-      id: '6',
-      title: 'Quality Manager',
-      department: 'Quality',
-      currentHolder: 'Karthik Iyer',
-      employeeCode: 'EMP011',
-      location: 'Chennai Office',
-      criticality: 'high',
-      businessImpact: 'critical',
-      replacementDifficulty: 'difficult',
-      timeToFill: 90,
-      successorsPipeline: 1,
-      retirementRisk: false,
-      keyResponsibilities: ['Quality assurance', 'ISO compliance', 'Audit management', 'Process improvement'],
-      riskFactors: ['Certification expertise', 'Regulatory compliance']
-    }
-  ];
-
-  const [rows, setRows] = useState<CriticalPosition[]>(mockPositions);
+  const [rows, setRows] = useState<CriticalPosition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -134,9 +34,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<CriticalPosition>('critical-position');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

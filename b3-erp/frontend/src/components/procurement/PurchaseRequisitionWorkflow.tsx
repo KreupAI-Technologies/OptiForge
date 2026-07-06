@@ -115,72 +115,7 @@ export default function PurchaseRequisitionWorkflow() {
   const [searchTerm, setSearchTerm] = useState('')
 
   // Mock data
-  const MOCK_REQUISITIONS: Requisition[] = [
-    {
-      id: 'PR-2024-001',
-      title: 'IT Equipment for New Office',
-      requestor: 'John Smith',
-      department: 'IT',
-      date: '2024-02-15',
-      dueDate: '2024-03-01',
-      priority: 'high',
-      status: 'pending',
-      totalAmount: 25000,
-      items: 8,
-      approvalLevel: 2,
-      currentApprover: 'Sarah Johnson',
-      category: 'IT Equipment'
-    },
-    {
-      id: 'PR-2024-002',
-      title: 'Raw Materials - Q2 Production',
-      requestor: 'Mike Chen',
-      department: 'Production',
-      date: '2024-02-14',
-      dueDate: '2024-03-15',
-      priority: 'urgent',
-      status: 'approved',
-      totalAmount: 85000,
-      items: 15,
-      approvalLevel: 3,
-      currentApprover: 'David Lee',
-      category: 'Raw Materials',
-      supplier: 'Global Suppliers Inc'
-    },
-    {
-      id: 'PR-2024-003',
-      title: 'Office Supplies Monthly Order',
-      requestor: 'Lisa Wong',
-      department: 'Admin',
-      date: '2024-02-13',
-      dueDate: '2024-02-28',
-      priority: 'medium',
-      status: 'ordered',
-      totalAmount: 3500,
-      items: 12,
-      approvalLevel: 1,
-      currentApprover: 'Tom Wilson',
-      category: 'Office Supplies',
-      supplier: 'Office Depot'
-    },
-    {
-      id: 'PR-2024-004',
-      title: 'Safety Equipment Renewal',
-      requestor: 'Robert Taylor',
-      department: 'Operations',
-      date: '2024-02-12',
-      dueDate: '2024-03-10',
-      priority: 'high',
-      status: 'pending',
-      totalAmount: 15000,
-      items: 20,
-      approvalLevel: 2,
-      currentApprover: 'Sarah Johnson',
-      category: 'Safety Equipment'
-    }
-  ]
-
-  const [requisitions, setRequisitions] = useState<Requisition[]>(MOCK_REQUISITIONS)
+  const [requisitions, setRequisitions] = useState<Requisition[]>([])
 
   useEffect(() => {
     let cancelled = false

@@ -19,87 +19,7 @@ interface CoverageData {
 export default function Page() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
-  const mockCoverageData: CoverageData[] = [
-    {
-      department: 'IT',
-      totalPositions: 8,
-      criticalPositions: 5,
-      coveredPositions: 5,
-      uncoveredPositions: 0,
-      coverageRatio: 100,
-      avgSuccessorsPerPosition: 2.8,
-      readyNow: 3,
-      inDevelopment: 4
-    },
-    {
-      department: 'Sales',
-      totalPositions: 7,
-      criticalPositions: 4,
-      coveredPositions: 4,
-      uncoveredPositions: 0,
-      coverageRatio: 100,
-      avgSuccessorsPerPosition: 2.5,
-      readyNow: 2,
-      inDevelopment: 3
-    },
-    {
-      department: 'Finance',
-      totalPositions: 5,
-      criticalPositions: 3,
-      coveredPositions: 3,
-      uncoveredPositions: 0,
-      coverageRatio: 100,
-      avgSuccessorsPerPosition: 1.7,
-      readyNow: 1,
-      inDevelopment: 2
-    },
-    {
-      department: 'HR',
-      totalPositions: 4,
-      criticalPositions: 3,
-      coveredPositions: 3,
-      uncoveredPositions: 0,
-      coverageRatio: 100,
-      avgSuccessorsPerPosition: 1.3,
-      readyNow: 1,
-      inDevelopment: 2
-    },
-    {
-      department: 'Operations',
-      totalPositions: 6,
-      criticalPositions: 4,
-      coveredPositions: 3,
-      uncoveredPositions: 1,
-      coverageRatio: 75,
-      avgSuccessorsPerPosition: 1.0,
-      readyNow: 0,
-      inDevelopment: 3
-    },
-    {
-      department: 'Marketing',
-      totalPositions: 5,
-      criticalPositions: 3,
-      coveredPositions: 2,
-      uncoveredPositions: 1,
-      coverageRatio: 67,
-      avgSuccessorsPerPosition: 0.7,
-      readyNow: 0,
-      inDevelopment: 2
-    },
-    {
-      department: 'Supply Chain',
-      totalPositions: 4,
-      criticalPositions: 2,
-      coveredPositions: 0,
-      uncoveredPositions: 2,
-      coverageRatio: 0,
-      avgSuccessorsPerPosition: 0,
-      readyNow: 0,
-      inDevelopment: 2
-    }
-  ];
-
-  const [rows, setRows] = useState<CoverageData[]>(mockCoverageData);
+  const [rows, setRows] = useState<CoverageData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -107,9 +27,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<CoverageData>('coverage');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

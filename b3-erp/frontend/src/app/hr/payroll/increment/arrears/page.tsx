@@ -33,138 +33,7 @@ export default function IncrementArrearsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockArrears: IncrementArrears[] = [
-    {
-      id: 'ARR-2025-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      effectiveDate: '2025-04-01',
-      implementationDate: '2025-07-01',
-      arrearMonths: 3,
-      oldBasic: 20000,
-      newBasic: 22400,
-      incrementAmount: 2400,
-      monthlyDifference: 2400,
-      totalArrears: 7200,
-      pfArrears: 864,
-      esiArrears: 0,
-      netArrears: 6336,
-      status: 'paid',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-06-25',
-      paymentDate: '2025-07-01'
-    },
-    {
-      id: 'ARR-2025-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      effectiveDate: '2025-04-01',
-      implementationDate: '2025-08-01',
-      arrearMonths: 4,
-      oldBasic: 14500,
-      newBasic: 15950,
-      incrementAmount: 1450,
-      monthlyDifference: 1450,
-      totalArrears: 5800,
-      pfArrears: 696,
-      esiArrears: 43,
-      netArrears: 5061,
-      status: 'approved',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-07-28'
-    },
-    {
-      id: 'ARR-2025-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Production Operator',
-      department: 'Production',
-      effectiveDate: '2025-04-01',
-      implementationDate: '2025-06-01',
-      arrearMonths: 2,
-      oldBasic: 8800,
-      newBasic: 9592,
-      incrementAmount: 792,
-      monthlyDifference: 792,
-      totalArrears: 1584,
-      pfArrears: 190,
-      esiArrears: 12,
-      netArrears: 1382,
-      status: 'paid',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-05-28',
-      paymentDate: '2025-06-01'
-    },
-    {
-      id: 'ARR-2025-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      effectiveDate: '2025-04-01',
-      implementationDate: '2025-09-01',
-      arrearMonths: 5,
-      oldBasic: 13725,
-      newBasic: 15097,
-      incrementAmount: 1372,
-      monthlyDifference: 1372,
-      totalArrears: 6860,
-      pfArrears: 823,
-      esiArrears: 51,
-      netArrears: 5986,
-      status: 'calculated',
-      approvedBy: undefined,
-      approvedDate: undefined
-    },
-    {
-      id: 'ARR-2025-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      effectiveDate: '2025-04-01',
-      implementationDate: '2025-07-01',
-      arrearMonths: 3,
-      oldBasic: 12720,
-      newBasic: 13965,
-      incrementAmount: 1245,
-      monthlyDifference: 1245,
-      totalArrears: 3735,
-      pfArrears: 448,
-      esiArrears: 28,
-      netArrears: 3259,
-      status: 'processed',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-06-28'
-    },
-    {
-      id: 'ARR-2025-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      designation: 'HR Executive',
-      department: 'HR',
-      effectiveDate: '2025-04-01',
-      implementationDate: '2025-08-01',
-      arrearMonths: 4,
-      oldBasic: 13220,
-      newBasic: 14542,
-      incrementAmount: 1322,
-      monthlyDifference: 1322,
-      totalArrears: 5288,
-      pfArrears: 635,
-      esiArrears: 40,
-      netArrears: 4613,
-      status: 'approved',
-      approvedBy: 'HR Manager',
-      approvedDate: '2025-07-30'
-    }
-  ];
-
-  const [rows, setRows] = useState<IncrementArrears[]>(mockArrears);
+  const [rows, setRows] = useState<IncrementArrears[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -175,8 +44,8 @@ export default function IncrementArrearsPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getSalaryRevisions('increment-arrears');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.employeeCode ?? r.details?.employeeId ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -202,7 +71,7 @@ export default function IncrementArrearsPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

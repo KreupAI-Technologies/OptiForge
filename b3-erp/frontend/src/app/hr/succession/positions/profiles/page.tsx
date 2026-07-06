@@ -22,66 +22,7 @@ interface PositionProfile {
 export default function Page() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockProfiles: PositionProfile[] = [
-    {
-      id: '1',
-      title: 'Chief Technology Officer',
-      department: 'IT',
-      level: 'executive',
-      requiredEducation: ['B.Tech/B.E. in Computer Science', 'MBA or equivalent'],
-      requiredExperience: 15,
-      requiredSkills: ['Technology Strategy', 'Team Leadership', 'Digital Transformation', 'Cloud Architecture', 'Enterprise Software'],
-      preferredCertifications: ['PMP', 'AWS Solutions Architect', 'TOGAF'],
-      keyCompetencies: ['Strategic Thinking', 'Innovation', 'Stakeholder Management', 'Change Leadership'],
-      reportingTo: 'CEO',
-      directReports: 8,
-      budgetResponsibility: '₹50 Cr'
-    },
-    {
-      id: '2',
-      title: 'VP Sales',
-      department: 'Sales',
-      level: 'executive',
-      requiredEducation: ['Bachelor\'s degree in Business/Marketing', 'MBA preferred'],
-      requiredExperience: 12,
-      requiredSkills: ['Sales Strategy', 'Revenue Growth', 'Client Relationship Management', 'Negotiation', 'Team Building'],
-      preferredCertifications: ['Certified Sales Professional', 'Key Account Management'],
-      keyCompetencies: ['Results Orientation', 'Strategic Planning', 'Communication', 'Leadership'],
-      reportingTo: 'CEO',
-      directReports: 12,
-      budgetResponsibility: '₹100 Cr'
-    },
-    {
-      id: '3',
-      title: 'Finance Manager',
-      department: 'Finance',
-      level: 'senior',
-      requiredEducation: ['B.Com/BBA', 'CA/CMA/MBA Finance'],
-      requiredExperience: 8,
-      requiredSkills: ['Financial Planning', 'Budgeting', 'Compliance', 'Financial Reporting', 'Audit Management'],
-      preferredCertifications: ['CA', 'CMA', 'CFA'],
-      keyCompetencies: ['Analytical Thinking', 'Attention to Detail', 'Problem Solving', 'Communication'],
-      reportingTo: 'CFO',
-      directReports: 5,
-      budgetResponsibility: '₹10 Cr'
-    },
-    {
-      id: '4',
-      title: 'Operations Lead',
-      department: 'Operations',
-      level: 'senior',
-      requiredEducation: ['B.Tech/B.E. in Mechanical/Industrial', 'MBA Operations'],
-      requiredExperience: 10,
-      requiredSkills: ['Production Management', 'Supply Chain', 'Process Optimization', 'Quality Control', 'Lean Manufacturing'],
-      preferredCertifications: ['Six Sigma Black Belt', 'PMP', 'Lean Practitioner'],
-      keyCompetencies: ['Operational Excellence', 'Problem Solving', 'Team Leadership', 'Continuous Improvement'],
-      reportingTo: 'COO',
-      directReports: 15,
-      budgetResponsibility: '₹30 Cr'
-    }
-  ];
-
-  const [rows, setRows] = useState<PositionProfile[]>(mockProfiles);
+  const [rows, setRows] = useState<PositionProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -89,9 +30,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<PositionProfile>('position-profile');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

@@ -29,118 +29,7 @@ export default function TDSReportPage() {
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [selectedRegime, setSelectedRegime] = useState('all');
 
-  const mockTDSRecords: TDSRecord[] = [
-    {
-      id: 'TDS-2025-11-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      panNumber: 'ABCDE1234F',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      grossSalary: 49725,
-      standardDeduction: 4167,
-      professionalTax: 200,
-      pfEmployee: 2400,
-      taxableIncome: 42958,
-      monthlyTDS: 1250,
-      tdsDeductedTillDate: 10000,
-      projectedAnnualIncome: 515496,
-      taxRegime: 'new',
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'TDS-2025-11-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      panNumber: 'FGHIJ5678K',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      grossSalary: 35976,
-      standardDeduction: 4167,
-      professionalTax: 200,
-      pfEmployee: 1740,
-      taxableIncome: 29869,
-      monthlyTDS: 450,
-      tdsDeductedTillDate: 3600,
-      projectedAnnualIncome: 358428,
-      taxRegime: 'old',
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'TDS-2025-11-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      panNumber: 'LMNOP9012Q',
-      designation: 'Production Operator',
-      department: 'Production',
-      grossSalary: 21874,
-      standardDeduction: 4167,
-      professionalTax: 200,
-      pfEmployee: 1056,
-      taxableIncome: 16451,
-      monthlyTDS: 0,
-      tdsDeductedTillDate: 0,
-      projectedAnnualIncome: 197412,
-      taxRegime: 'new',
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'TDS-2025-11-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      panNumber: 'RSTUV3456W',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      grossSalary: 34101,
-      standardDeduction: 4167,
-      professionalTax: 200,
-      pfEmployee: 1647,
-      taxableIncome: 28087,
-      monthlyTDS: 380,
-      tdsDeductedTillDate: 3040,
-      projectedAnnualIncome: 337044,
-      taxRegime: 'new',
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'TDS-2025-11-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      panNumber: 'XYZAB7890C',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      grossSalary: 31600,
-      standardDeduction: 4167,
-      professionalTax: 200,
-      pfEmployee: 1526,
-      taxableIncome: 25707,
-      monthlyTDS: 320,
-      tdsDeductedTillDate: 2560,
-      projectedAnnualIncome: 308484,
-      taxRegime: 'old',
-      monthYear: 'November 2025'
-    },
-    {
-      id: 'TDS-2025-11-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      panNumber: 'DEFGH2345I',
-      designation: 'HR Executive',
-      department: 'HR',
-      grossSalary: 32849,
-      standardDeduction: 4167,
-      professionalTax: 200,
-      pfEmployee: 1586,
-      taxableIncome: 26896,
-      monthlyTDS: 350,
-      tdsDeductedTillDate: 2800,
-      projectedAnnualIncome: 322752,
-      taxRegime: 'new',
-      monthYear: 'November 2025'
-    }
-  ];
-
-  const [rows, setRows] = useState<TDSRecord[]>(mockTDSRecords);
+  const [rows, setRows] = useState<TDSRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -151,8 +40,8 @@ export default function TDSReportPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getReports('tds');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -173,7 +62,10 @@ export default function TDSReportPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

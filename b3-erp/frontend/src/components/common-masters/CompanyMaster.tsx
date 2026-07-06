@@ -70,105 +70,6 @@ const CompanyMaster: React.FC = () => {
   // API Base URL (NEXT_PUBLIC_API_URL already includes the /api/v1 prefix)
   const API_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/companies`;
 
-  // Mock Data
-  const MOCK_COMPANIES: Company[] = [
-    {
-      id: '1',
-      code: 'OPT-HQ',
-      name: 'OptiForge Industries HQ',
-      shortName: 'OptiForge HQ',
-      type: 'holding',
-      status: 'active',
-      incorporationDate: '2010-01-15',
-      registrationNumber: 'CIN-88229-X',
-      taxId: 'TAX-US-9920',
-      address: {
-        line1: '1200 Manufacturing Blvd',
-        city: 'Austin',
-        state: 'TX',
-        country: 'USA',
-        postalCode: '78701'
-      },
-      contact: {
-        phone: '+1-512-555-0100',
-        email: 'info@optiforge.com',
-        website: 'www.optiforge.com'
-      },
-      financial: {
-        baseCurrency: 'USD',
-        fiscalYearStart: '01-01'
-      },
-      legal: {
-        legalName: 'OptiForge Industries Inc.',
-        businessType: 'Corporation',
-        industry: 'Industrial Manufacturing',
-        licenses: ['ISO-9001', 'OSHA-Certified']
-      }
-    },
-    {
-      id: '2',
-      code: 'OPT-EU',
-      name: 'OptiForge Europe GmbH',
-      shortName: 'OptiForge EU',
-      type: 'subsidiary',
-      status: 'active',
-      incorporationDate: '2015-06-20',
-      registrationNumber: 'HRB-20239',
-      taxId: 'DE-8829910',
-      address: {
-        line1: 'Industriestraße 45',
-        city: 'Stuttgart',
-        country: 'Germany',
-        postalCode: '70173'
-      },
-      contact: {
-        phone: '+49-711-555-0922',
-        email: 'eu-sales@optiforge.com'
-      },
-      financial: {
-        baseCurrency: 'EUR',
-        fiscalYearStart: '01-01'
-      },
-      legal: {
-        legalName: 'OptiForge Europe GmbH',
-        businessType: 'GmbH',
-        industry: 'Manufacturing',
-        licenses: ['CE-Marking']
-      }
-    },
-    {
-      id: '3',
-      code: 'OPT-ASIA',
-      name: 'OptiForge Asia Pacific Pte Ltd',
-      shortName: 'OptiForge APAC',
-      type: 'subsidiary',
-      status: 'active',
-      incorporationDate: '2018-03-10',
-      registrationNumber: 'UEN-2018299X',
-      taxId: 'SG-299201',
-      address: {
-        line1: '88 Market Street',
-        city: 'Singapore',
-        country: 'Singapore',
-        postalCode: '048948'
-      },
-      contact: {
-        phone: '+65-6555-0192',
-        email: 'apac@optiforge.com'
-      },
-      financial: {
-        baseCurrency: 'SGD',
-        fiscalYearStart: '04-01'
-      },
-      legal: {
-        legalName: 'OptiForge Asia Pacific Pte Ltd',
-        businessType: 'Private Limited',
-        industry: 'Logistics',
-        licenses: []
-      }
-    }
-  ];
-
   const fetchCompanies = async () => {
     setIsLoading(true);
     try {
@@ -209,10 +110,9 @@ const CompanyMaster: React.FC = () => {
       setCompanies(adaptedCompanies);
       setFilteredCompanies(adaptedCompanies);
     } catch (error) {
-      console.warn('Failed to fetch companies from API, using mock data:', error);
-      // Fallback to mock data
-      setCompanies(MOCK_COMPANIES);
-      setFilteredCompanies(MOCK_COMPANIES);
+      console.warn('Failed to fetch companies from API:', error);
+      setCompanies([]);
+      setFilteredCompanies([]);
     } finally {
       setIsLoading(false);
     }

@@ -26,120 +26,7 @@ export default function Page() {
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [selectedDepth, setSelectedDepth] = useState<string>('all');
 
-  const mockBenchData: BenchStrength[] = [
-    {
-      position: 'CTO',
-      department: 'IT',
-      level: 'executive',
-      currentHolder: 'Rajesh Kumar',
-      successors: { ready_now: 1, ready_6months: 0, ready_1year: 1, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 2,
-      benchDepth: 'strong',
-      avgQuality: 92,
-      retirementRisk: false
-    },
-    {
-      position: 'CFO',
-      department: 'Finance',
-      level: 'executive',
-      currentHolder: 'Suresh Iyer',
-      successors: { ready_now: 0, ready_6months: 0, ready_1year: 1, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 1,
-      benchDepth: 'adequate',
-      avgQuality: 78,
-      retirementRisk: true
-    },
-    {
-      position: 'VP Sales',
-      department: 'Sales',
-      level: 'executive',
-      currentHolder: 'Priya Sharma',
-      successors: { ready_now: 1, ready_6months: 1, ready_1year: 0, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 2,
-      benchDepth: 'strong',
-      avgQuality: 85,
-      retirementRisk: false
-    },
-    {
-      position: 'CHRO',
-      department: 'HR',
-      level: 'executive',
-      currentHolder: 'Anjali Desai',
-      successors: { ready_now: 0, ready_6months: 0, ready_1year: 1, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 1,
-      benchDepth: 'adequate',
-      avgQuality: 80,
-      retirementRisk: false
-    },
-    {
-      position: 'COO',
-      department: 'Operations',
-      level: 'executive',
-      currentHolder: 'Ramesh Nair',
-      successors: { ready_now: 0, ready_6months: 0, ready_1year: 0, ready_2years: 1, ready_3plus: 0 },
-      totalSuccessors: 1,
-      benchDepth: 'weak',
-      avgQuality: 72,
-      retirementRisk: true
-    },
-    {
-      position: 'CMO',
-      department: 'Marketing',
-      level: 'executive',
-      currentHolder: 'Amit Verma',
-      successors: { ready_now: 0, ready_6months: 0, ready_1year: 0, ready_2years: 1, ready_3plus: 0 },
-      totalSuccessors: 1,
-      benchDepth: 'weak',
-      avgQuality: 75,
-      retirementRisk: false
-    },
-    {
-      position: 'IT Lead',
-      department: 'IT',
-      level: 'senior',
-      currentHolder: 'Kavita Singh',
-      successors: { ready_now: 2, ready_6months: 1, ready_1year: 1, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 4,
-      benchDepth: 'strong',
-      avgQuality: 88,
-      retirementRisk: false
-    },
-    {
-      position: 'Sales Lead',
-      department: 'Sales',
-      level: 'senior',
-      currentHolder: 'Arjun Kapoor',
-      successors: { ready_now: 1, ready_6months: 2, ready_1year: 0, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 3,
-      benchDepth: 'strong',
-      avgQuality: 82,
-      retirementRisk: false
-    },
-    {
-      position: 'Finance Manager',
-      department: 'Finance',
-      level: 'senior',
-      currentHolder: 'Rahul Mehta',
-      successors: { ready_now: 0, ready_6months: 1, ready_1year: 1, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 2,
-      benchDepth: 'adequate',
-      avgQuality: 76,
-      retirementRisk: false
-    },
-    {
-      position: 'Supply Chain Manager',
-      department: 'Supply Chain',
-      level: 'senior',
-      currentHolder: 'Vikram Patel',
-      successors: { ready_now: 0, ready_6months: 0, ready_1year: 0, ready_2years: 0, ready_3plus: 0 },
-      totalSuccessors: 0,
-      benchDepth: 'critical',
-      avgQuality: 0,
-      retirementRisk: true
-    }
-  ];
-
-  const [rows, setRows] = useState<BenchStrength[]>(mockBenchData);
+  const [rows, setRows] = useState<BenchStrength[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -147,9 +34,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<BenchStrength>('bench-strength');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
