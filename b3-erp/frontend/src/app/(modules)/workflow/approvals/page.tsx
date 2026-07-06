@@ -289,7 +289,9 @@ export default function ApprovalsPage() {
   const handleSubmitDelegation = () => {
     if (!delegationApproval || !delegateTo) return;
 
-    // TODO: API call to delegate task
+    // No delegate/reassign endpoint exists on approvalService (only
+    // processAction for approve/reject). Kept as UI-only until a delegation
+    // API is added to ApprovalService.
     alert(`Task "${delegationApproval.title}" delegated to ${delegateTo}`);
     setShowDelegationModal(false);
     setDelegationApproval(null);
