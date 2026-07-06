@@ -109,21 +109,21 @@ export default function BOMPage() {
   const [selectedBOM, setSelectedBOM] = useState<BOM | null>(null);
 
   // Fetch BOMs from service
-  useEffect(() => {
-    async function fetchBOMs() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await bomService.getAllBOMs();
-        setBoms(data.map(mapServiceBOMToLocal));
-      } catch (err) {
-        console.error('Error fetching BOMs:', err);
-        setError('Failed to load BOMs. Please try again.');
-      } finally {
-        setLoading(false);
-      }
+  async function fetchBOMs() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await bomService.getAllBOMs();
+      setBoms(data.map(mapServiceBOMToLocal));
+    } catch (err) {
+      console.error('Error fetching BOMs:', err);
+      setError('Failed to load BOMs. Please try again.');
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     fetchBOMs();
   }, []);
 
@@ -178,24 +178,44 @@ export default function BOMPage() {
     setIsViewOpen(true);
   };
 
-  const handleCreateSubmit = (data: CreateBOMData) => {
-    // TODO: API call to create BOM
-    console.log('Create BOM data:', data);
-    setIsCreateOpen(false);
+  const handleCreateSubmit = async (data: CreateBOMData) => {
+    try {
+      await bomService.createBOM(data as any);
+      await fetchBOMs();
+    } catch (err) {
+      console.error('Error creating BOM:', err);
+      setError('Failed to create BOM.');
+    } finally {
+      setIsCreateOpen(false);
+    }
   };
 
-  const handleEditSubmit = (data: EditBOMData) => {
-    // TODO: API call to update BOM
-    console.log('Edit BOM data:', data);
-    setIsEditOpen(false);
-    setSelectedBOM(null);
+  const handleEditSubmit = async (data: EditBOMData) => {
+    if (!selectedBOM) { setIsEditOpen(false); return; }
+    try {
+      await bomService.updateBOM(selectedBOM.id, data as any);
+      await fetchBOMs();
+    } catch (err) {
+      console.error('Error updating BOM:', err);
+      setError('Failed to update BOM.');
+    } finally {
+      setIsEditOpen(false);
+      setSelectedBOM(null);
+    }
   };
 
-  const handleCopySubmit = (data: CopyBOMData) => {
-    // TODO: API call to copy BOM
-    console.log('Copy BOM data:', data);
-    setIsCopyOpen(false);
-    setSelectedBOM(null);
+  const handleCopySubmit = async (data: CopyBOMData) => {
+    try {
+      // Copy = create a new BOM from the copy dialog payload.
+      await bomService.createBOM(data as any);
+      await fetchBOMs();
+    } catch (err) {
+      console.error('Error copying BOM:', err);
+      setError('Failed to copy BOM.');
+    } finally {
+      setIsCopyOpen(false);
+      setSelectedBOM(null);
+    }
   };
 
   // Helper function to convert BOM to BOMDetails

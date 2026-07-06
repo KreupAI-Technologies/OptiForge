@@ -19,6 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { bomService } from '@/services/bom.service';
 import { RecalculateCostsModal } from '@/components/production/bom/BOMCostingModals';
 import { ExportCostingModal } from '@/components/production/bom/BOMExportModals';
 
@@ -66,6 +67,7 @@ export default function BOMCostingPage() {
   const [costComponents, setCostComponents] = useState<CostComponent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,7 +121,7 @@ export default function BOMCostingPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const costSummary: CostSummary = {
     totalMaterialCost: costComponents.filter(c => c.costType === 'material').reduce((sum, c) => sum + c.totalCost, 0),
@@ -168,10 +170,21 @@ export default function BOMCostingPage() {
     setIsExportOpen(true);
   };
 
-  const handleRecalculateSubmit = (options: any) => {
-    console.log('Recalculate options:', options);
-    // TODO: Implement API call to recalculate costs
-    setIsRecalculateOpen(false);
+  const handleRecalculateSubmit = async (options: any) => {
+    try {
+      // Roll up costs for the loaded BOMs, then refresh the costing view.
+      const res: any = await ProductionOrphanService.getBoms();
+      const boms: any[] = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+      const targetId = options?.bomId ?? boms[0]?.id;
+      if (targetId != null) {
+        await bomService.costRollup(String(targetId));
+      }
+    } catch (err) {
+      console.error('Error recalculating costs:', err);
+    } finally {
+      setIsRecalculateOpen(false);
+      setRefreshKey((k) => k + 1);
+    }
   };
 
   const handleExportSubmit = (_config: any) => {
