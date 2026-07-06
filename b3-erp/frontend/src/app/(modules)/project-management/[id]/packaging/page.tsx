@@ -25,15 +25,9 @@ interface Crate {
     status: 'Open' | 'Sealed' | 'Mismatch';
 }
 
-const mockCrates: Crate[] = [
-    { id: '1', number: 'CR-001', items: 12, designWeight: 140, actualWeight: 141, status: 'Sealed' },
-    { id: '2', number: 'CR-002', items: 8, designWeight: 95, actualWeight: 80, status: 'Mismatch' },
-    { id: '3', number: 'CR-003', items: 24, designWeight: 210, status: 'Open' },
-];
-
 export default function PackingDashboard() {
     const params = useParams() as { id?: string };
-    const [crates, setCrates] = useState<Crate[]>(mockCrates);
+    const [crates, setCrates] = useState<Crate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -149,6 +143,11 @@ export default function PackingDashboard() {
                         </button>
                     </div>
                 ))}
+                {!loading && crates.length === 0 && (
+                    <div className="md:col-span-3 bg-white rounded-3xl border-2 border-gray-100 p-10 text-center text-xs font-bold text-slate-400">
+                        No crates found.
+                    </div>
+                )}
             </div>
 
             {/* Packaging Progress Analytics */}

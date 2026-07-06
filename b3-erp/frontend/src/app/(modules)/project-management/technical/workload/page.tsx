@@ -24,38 +24,8 @@ interface Task {
     progress: number;
 }
 
-const mockTasks: Task[] = [
-    {
-        id: '1',
-        name: 'Main Cabinet Structural Design',
-        project: 'Industrial Kitchen 2026-B',
-        assignee: 'Alice Engineer',
-        targetDate: '2026-02-10',
-        status: 'In Progress',
-        progress: 65
-    },
-    {
-        id: '2',
-        name: 'Ventilation Ducting Specs',
-        project: 'Dubai Mall Food Court',
-        assignee: 'Bob Designer',
-        targetDate: '2026-02-05',
-        status: 'Delayed',
-        progress: 30
-    },
-    {
-        id: '3',
-        name: 'Electrical Layout v2',
-        project: 'Hotel Ritz Riyadh',
-        assignee: 'Alice Engineer',
-        targetDate: '2026-02-12',
-        status: 'Pending Review',
-        progress: 90
-    }
-];
-
 export default function DesignerWorkloadPage() {
-    const [tasks, setTasks] = useState<Task[]>(mockTasks);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -202,6 +172,11 @@ export default function DesignerWorkloadPage() {
                                     </td>
                                 </tr>
                             ))}
+                            {!loading && tasks.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="p-10 text-center text-xs font-bold text-gray-400">No tasks found.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

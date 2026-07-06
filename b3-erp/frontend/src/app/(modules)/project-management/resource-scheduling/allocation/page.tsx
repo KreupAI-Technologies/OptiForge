@@ -72,19 +72,10 @@ const mockResources: Resource[] = [
   { id: '8', name: 'Neha Gupta', role: 'Project Coordinator', currentAllocation: 70, availability: 30, costRate: 2000, skills: ['Coordination', 'Documentation'] },
 ];
 
-const mockAllocations: Allocation[] = [
-  { id: '1', resourceId: '1', resourceName: 'Rajesh Kumar', role: 'Project Manager', projectPhase: 'Overall Management', allocatedHours: 2080, startDate: '2024-01-15', endDate: '2024-04-30', allocation: 100 },
-  { id: '2', resourceId: '2', resourceName: 'Suresh Patel', role: 'Installation Supervisor', projectPhase: 'Equipment Installation', allocatedHours: 600, startDate: '2024-03-06', endDate: '2024-03-25', allocation: 100 },
-  { id: '3', resourceId: '3', resourceName: 'Ramesh Nair', role: 'Civil Engineer', projectPhase: 'Civil Work & Site Prep', allocatedHours: 200, startDate: '2024-02-15', endDate: '2024-03-05', allocation: 50 },
-  { id: '4', resourceId: '4', resourceName: 'Anjali Verma', role: 'Quality Inspector', projectPhase: 'Quality Control', allocatedHours: 120, startDate: '2024-02-21', endDate: '2024-04-20', allocation: 30 },
-  { id: '5', resourceId: '5', resourceName: 'Amit Patel', role: 'Electrical Engineer', projectPhase: 'Electrical Infrastructure', allocatedHours: 320, startDate: '2024-02-25', endDate: '2024-03-25', allocation: 80 },
-  { id: '6', resourceId: '7', resourceName: 'Deepak Joshi', role: 'Commissioning Engineer', projectPhase: 'Testing & Commissioning', allocatedHours: 360, startDate: '2024-03-26', endDate: '2024-04-20', allocation: 90 },
-];
-
 export default function AllocationMatrixPage() {
   const router = useRouter();
   const [resources] = useState<Resource[]>(mockResources);
-  const [allocations, setAllocations] = useState<Allocation[]>(mockAllocations);
+  const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -478,6 +469,9 @@ export default function AllocationMatrixPage() {
             </div>
 
             <div className="divide-y divide-gray-200">
+              {!loading && allocations.length === 0 && (
+                <div className="p-10 text-center text-sm font-bold text-gray-400">No allocations found.</div>
+              )}
               {allocations.map((allocation) => {
                 const resource = resources.find(r => r.id === allocation.resourceId);
                 const cost = resource ? calculateResourceCost(resource, allocation.allocatedHours) : 0;

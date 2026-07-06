@@ -38,92 +38,8 @@ interface ApprovalRequest {
   remindersSent: number;
 }
 
-const mockApprovals: ApprovalRequest[] = [
-  {
-    id: '1',
-    documentNumber: 'D-2025-001',
-    documentName: 'Equipment Layout Drawing - Rev 3',
-    version: '3.0',
-    documentType: 'Drawing',
-    projectName: 'Taj Hotels - Commercial Kitchen Setup',
-    sentToClient: 'Mr. Rajesh Kumar',
-    clientEmail: 'rajesh.kumar@tajhotels.com',
-    sentDate: '2025-01-20',
-    dueDate: '2025-01-25',
-    status: 'Approved',
-    approvedBy: 'Mr. Rajesh Kumar',
-    approvalDate: '2025-01-22',
-    signatureUrl: '/signatures/sign-001.png',
-    comments: 'Layout approved. Please proceed with fabrication.',
-    remindersSent: 0,
-  },
-  {
-    id: '2',
-    documentNumber: 'D-2025-002',
-    documentName: 'Electrical SLD - Rev 2',
-    version: '2.0',
-    documentType: 'Drawing',
-    projectName: 'Taj Hotels - Commercial Kitchen Setup',
-    sentToClient: 'Mr. Rajesh Kumar',
-    clientEmail: 'rajesh.kumar@tajhotels.com',
-    sentDate: '2025-01-21',
-    dueDate: '2025-01-26',
-    status: 'Pending',
-    remindersSent: 1,
-  },
-  {
-    id: '3',
-    documentNumber: 'D-2025-013',
-    documentName: 'Kitchen Appliance Specifications',
-    version: '1.0',
-    documentType: 'Specification',
-    projectName: 'Taj Hotels - Commercial Kitchen Setup',
-    sentToClient: 'Mr. Rajesh Kumar',
-    clientEmail: 'rajesh.kumar@tajhotels.com',
-    sentDate: '2025-01-18',
-    dueDate: '2025-01-23',
-    status: 'Approved',
-    approvedBy: 'Mr. Rajesh Kumar',
-    approvalDate: '2025-01-20',
-    signatureUrl: '/signatures/sign-002.png',
-    comments: 'Specifications meet our requirements.',
-    remindersSent: 0,
-  },
-  {
-    id: '4',
-    documentNumber: 'D-2025-014',
-    documentName: 'Refrigeration Equipment Specifications',
-    version: '1.0',
-    documentType: 'Specification',
-    projectName: 'BigBasket Cold Storage Facility',
-    sentToClient: 'Ms. Priya Sharma',
-    clientEmail: 'priya.sharma@bigbasket.com',
-    sentDate: '2025-01-15',
-    dueDate: '2025-01-20',
-    status: 'Rejected',
-    approvedBy: 'Ms. Priya Sharma',
-    approvalDate: '2025-01-19',
-    comments: 'Temperature ranges need revision. Please update and resubmit.',
-    remindersSent: 1,
-  },
-  {
-    id: '5',
-    documentNumber: 'D-2025-005',
-    documentName: 'Plumbing Layout - Rev 1',
-    version: '1.0',
-    documentType: 'Drawing',
-    projectName: 'L&T Campus - Industrial Kitchen',
-    sentToClient: 'Mr. Deepak Joshi',
-    clientEmail: 'deepak.joshi@lnt.com',
-    sentDate: '2025-01-10',
-    dueDate: '2025-01-15',
-    status: 'Expired',
-    remindersSent: 3,
-  },
-];
-
 export default function ClientApprovalsPage() {
-  const [approvals, setApprovals] = useState<ApprovalRequest[]>(mockApprovals);
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
@@ -317,6 +233,9 @@ export default function ClientApprovalsPage() {
             <h2 className="text-lg font-semibold text-gray-900">Approval Requests</h2>
           </div>
           <div className="divide-y divide-gray-200">
+            {!loading && filteredApprovals.length === 0 && (
+              <div className="p-10 text-center text-sm font-bold text-gray-400">No approval requests found.</div>
+            )}
             {filteredApprovals.map((approval) => (
               <div key={approval.id} className="p-6 hover:bg-gray-50">
                 <div className="flex items-start justify-between">
