@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { goodsReceiptService } from '@/services/goods-receipt.service';
+import { purchaseOrderService } from '@/services/purchase-order.service';
 import {
   Package,
   FileText,
@@ -232,69 +233,40 @@ const GRNAddPage = () => {
     notes: ''
   });
 
-  // Load available POs
+  // Load available POs from purchase-order master
   useEffect(() => {
     const fetchPOs = async () => {
       setSearchingPO(true);
-      // Simulate API call
-      setTimeout(() => {
-        const mockPOs: PurchaseOrder[] = [
-          {
-            id: 'PO-001',
-            po_number: 'PO-2025-00089',
-            po_date: '2025-01-10',
-            vendor_id: 'V001',
-            vendor_name: 'Tata Steel Limited',
-            vendor_code: 'V001',
-            status: 'open',
-            total_value: 1250000,
-            currency: 'INR',
-            pending_items: 3,
-            delivery_date: '2025-01-20'
-          },
-          {
-            id: 'PO-002',
-            po_number: 'PO-2025-00087',
-            po_date: '2025-01-08',
-            vendor_id: 'V002',
-            vendor_name: 'JSW Steel',
-            vendor_code: 'V002',
-            status: 'partially_received',
-            total_value: 850000,
-            currency: 'INR',
-            pending_items: 2,
-            delivery_date: '2025-01-18'
-          },
-          {
-            id: 'PO-003',
-            po_number: 'PO-2025-00085',
-            po_date: '2025-01-05',
-            vendor_id: 'V003',
-            vendor_name: 'Essar Steel',
-            vendor_code: 'V003',
-            status: 'open',
-            total_value: 950000,
-            currency: 'INR',
-            pending_items: 4,
-            delivery_date: '2025-01-15'
-          },
-          {
-            id: 'PO-004',
-            po_number: 'PO-2025-00083',
-            po_date: '2025-01-03',
-            vendor_id: 'V001',
-            vendor_name: 'Tata Steel Limited',
-            vendor_code: 'V001',
-            status: 'open',
-            total_value: 1500000,
-            currency: 'INR',
-            pending_items: 5,
-            delivery_date: '2025-01-12'
-          }
-        ];
-        setAvailablePOs(mockPOs);
+      try {
+        const res = await purchaseOrderService.getAllPurchaseOrders();
+        const rows = Array.isArray(res) ? res : res?.data ?? [];
+        const mapStatus = (s: string): PurchaseOrder['status'] => {
+          const key = (s || '').toLowerCase();
+          if (key.includes('partial')) return 'partially_received';
+          if (key.includes('close') || key.includes('complete') || key.includes('received')) return 'closed';
+          return 'open';
+        };
+        const mapped: PurchaseOrder[] = rows.map((po: any) => ({
+          id: po.id,
+          po_number: po.poNumber,
+          po_date: po.orderDate,
+          vendor_id: po.vendorId,
+          vendor_name: po.vendorName,
+          vendor_code: po.vendorCode,
+          status: mapStatus(po.status),
+          total_value: Number(po.totalAmount ?? 0),
+          currency: po.currency ?? 'INR',
+          pending_items: Array.isArray(po.items)
+            ? po.items.filter((it: any) => Number(it.quantity ?? 0) - Number(it.receivedQuantity ?? 0) > 0).length
+            : 0,
+          delivery_date: po.deliveryDate,
+        }));
+        setAvailablePOs(mapped);
+      } catch {
+        setAvailablePOs([]);
+      } finally {
         setSearchingPO(false);
-      }, 1000);
+      }
     };
 
     fetchPOs();
@@ -318,48 +290,33 @@ const GRNAddPage = () => {
     setShowPOList(false);
   };
 
-  const loadPOLineItems = (poId: string) => {
+  const loadPOLineItems = async (poId: string) => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const mockLineItems: POLineItem[] = [
-        {
-          id: 'LI-001',
-          item_code: 'RM-STEEL-001',
-          item_name: 'Cold Rolled Steel Sheet',
-          description: 'Cold Rolled Steel Sheet, Grade: CR4, Thickness: 1.5mm',
-          unit: 'KG',
-          ordered_quantity: 5000,
-          received_quantity: 0,
-          pending_quantity: 5000,
-          unit_price: 95,
-          qc_required: true
-        },
-        {
-          id: 'LI-002',
-          item_code: 'RM-STEEL-002',
-          item_name: 'Galvanized Steel Coil',
-          description: 'Galvanized Steel Coil, Grade: GI, Width: 1200mm',
-          unit: 'KG',
-          ordered_quantity: 3000,
-          received_quantity: 0,
-          pending_quantity: 3000,
-          unit_price: 110,
-          qc_required: true
-        },
-        {
-          id: 'LI-003',
-          item_code: 'RM-STEEL-003',
-          item_name: 'Stainless Steel Rod',
-          description: 'Stainless Steel Rod, Grade: SS304, Diameter: 12mm',
-          unit: 'MTR',
-          ordered_quantity: 1000,
-          received_quantity: 0,
-          pending_quantity: 1000,
-          unit_price: 250,
-          qc_required: true
-        }
-      ];
+    let poLineItems: POLineItem[] = [];
+    try {
+      const po = await purchaseOrderService.getPurchaseOrderById(poId);
+      poLineItems = (po?.items ?? []).map((it: any) => {
+        const ordered = Number(it.quantity ?? 0);
+        const received = Number(it.receivedQuantity ?? 0);
+        return {
+          id: it.id,
+          item_code: it.itemCode,
+          item_name: it.itemName,
+          description: it.description ?? '',
+          unit: it.unit ?? '',
+          ordered_quantity: ordered,
+          received_quantity: received,
+          pending_quantity: ordered - received,
+          unit_price: Number(it.unitPrice ?? 0),
+          qc_required: false,
+        };
+      });
+    } catch {
+      poLineItems = [];
+    }
+
+    {
+      const mockLineItems = poLineItems;
 
       setPOLineItems(mockLineItems);
 
@@ -387,7 +344,7 @@ const GRNAddPage = () => {
 
       setFormData(prev => ({ ...prev, line_items: grnLineItems }));
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleInputChange = (field: keyof GRNFormData, value: any) => {

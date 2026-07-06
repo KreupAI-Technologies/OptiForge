@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
+import { commonMastersService } from '@/services/common-masters.service';
 import {
   Headphones,
   Save,
@@ -49,33 +50,38 @@ export default function AddServiceRequestPage() {
   const [responseTimeSLA, setResponseTimeSLA] = useState('8');
   const [resolutionTimeSLA, setResolutionTimeSLA] = useState('48');
 
-  // Mock customer list
-  const mockCustomers = [
-    {
-      id: 'CUST-001',
-      name: 'Sharma Kitchens Pvt Ltd',
-      contact: 'Rajesh Sharma',
-      phone: '+91-98765-43210',
-      email: 'rajesh.sharma@sharmakitchens.com',
-      address: '123, MG Road, Koramangala, Bangalore, Karnataka - 560034'
-    },
-    {
-      id: 'CUST-002',
-      name: 'Prestige Developers',
-      contact: 'Priya Menon',
-      phone: '+91-98765-43211',
-      email: 'priya@prestigedev.com',
-      address: '45, Brigade Road, Mumbai, Maharashtra - 400001'
-    },
-    {
-      id: 'CUST-003',
-      name: 'Royal Restaurant Chain',
-      contact: 'Amit Patel',
-      phone: '+91-98765-43212',
-      email: 'amit@royalrest.com',
-      address: '78, Park Street, Delhi - 110001'
-    },
-  ];
+  // Customer list — loaded from customer master
+  const [mockCustomers, setMockCustomers] = useState<Array<{
+    id: string;
+    name: string;
+    contact: string;
+    phone: string;
+    email: string;
+    address: string;
+  }>>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadCustomers = async () => {
+      try {
+        const customers = await commonMastersService.getAllCustomers('default-company-id');
+        if (!cancelled) {
+          setMockCustomers((customers || []).map((c: any) => ({
+            id: c.id,
+            name: c.customerName,
+            contact: c.contactPerson ?? '',
+            phone: c.phone ?? '',
+            email: c.email ?? '',
+            address: c.address ?? '',
+          })));
+        }
+      } catch {
+        if (!cancelled) setMockCustomers([]);
+      }
+    };
+    loadCustomers();
+    return () => { cancelled = true; };
+  }, []);
 
   // SLA mapping based on priority
   const slaMapping = {

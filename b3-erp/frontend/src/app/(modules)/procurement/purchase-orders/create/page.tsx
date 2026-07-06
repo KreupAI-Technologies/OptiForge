@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { vendorService } from '@/services/VendorService'
 import { purchaseOrderService } from '@/services/purchase-order.service'
+import { commonMastersService } from '@/services/common-masters.service'
 import {
   ArrowLeft,
   ArrowRight,
@@ -162,36 +163,40 @@ export default function CreatePurchaseOrderPage() {
     return () => { cancelled = true }
   }, [])
 
-  // Mock item catalog
-  const mockCatalog = [
-    {
-      itemCode: 'ITEM-001',
-      itemName: 'Laptop Dell XPS 15',
-      description: 'High-performance laptop',
-      category: 'IT Equipment',
-      unit: 'Unit',
-      unitPrice: 1500,
-      tax: 10
-    },
-    {
-      itemCode: 'ITEM-002',
-      itemName: 'Office Chair Ergonomic',
-      description: 'Adjustable ergonomic chair',
-      category: 'Furniture',
-      unit: 'Unit',
-      unitPrice: 450,
-      tax: 10
-    },
-    {
-      itemCode: 'ITEM-003',
-      itemName: 'Printer Paper A4',
-      description: '80gsm white paper',
-      category: 'Stationery',
-      unit: 'Ream',
-      unitPrice: 5,
-      tax: 5
+  // Item catalog — loaded from item master
+  const [mockCatalog, setMockCatalog] = useState<Array<{
+    itemCode: string
+    itemName: string
+    description: string
+    category: string
+    unit: string
+    unitPrice: number
+    tax: number
+  }>>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadItems = async () => {
+      try {
+        const raw = await commonMastersService.getItemsFull('default-company-id')
+        if (!cancelled) {
+          setMockCatalog((raw || []).map((i) => ({
+            itemCode: i.code,
+            itemName: i.name,
+            description: i.description || '',
+            category: i.itemType || '',
+            unit: i.uom?.name || i.uom?.code || '',
+            unitPrice: i.purchasePrice ?? i.costPrice ?? 0,
+            tax: 0,
+          })))
+        }
+      } catch {
+        if (!cancelled) setMockCatalog([])
+      }
     }
-  ]
+    loadItems()
+    return () => { cancelled = true }
+  }, [])
 
   const handleVendorSelect = (selectedVendor: Vendor) => {
     setVendor(selectedVendor)

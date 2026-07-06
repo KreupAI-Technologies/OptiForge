@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
+import { commonMastersService } from '@/services/common-masters.service';
+import { EmployeeService } from '@/services/employee.service';
 import {
   Wrench,
   Save,
@@ -85,31 +87,49 @@ export default function AddInstallationPage() {
   const [siteSurveyCompleted, setSiteSurveyCompleted] = useState(false);
   const [siteSurveyDate, setSiteSurveyDate] = useState('');
 
-  // Mock customer list
-  const mockCustomers = [
-    {
-      id: 'CUST-001',
-      name: 'Sharma Kitchens Pvt Ltd',
-      contact: 'Rajesh Sharma',
-      phone: '+91-98765-43210',
-      email: 'rajesh.sharma@sharmakitchens.com',
-      address: '123, MG Road, Koramangala, Bangalore - 560034'
-    },
-    {
-      id: 'CUST-002',
-      name: 'Prestige Developers',
-      contact: 'Priya Menon',
-      phone: '+91-98765-43211',
-      email: 'priya@prestigedev.com',
-      address: '45, Brigade Road, Mumbai - 400001'
-    }
-  ];
+  // Customer list — loaded from customer master
+  const [mockCustomers, setMockCustomers] = useState<Array<{
+    id: string;
+    name: string;
+    contact: string;
+    phone: string;
+    email: string;
+    address: string;
+  }>>([]);
 
-  // Mock engineers
-  const mockEngineers = [
-    'Rajesh Kumar', 'Amit Patel', 'Priya Singh', 'Suresh Reddy', 'Neha Sharma',
-    'Vikram Rao', 'Anjali Gupta', 'Karthik Menon'
-  ];
+  // Engineers — loaded from employee master
+  const [mockEngineers, setMockEngineers] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMasters = async () => {
+      try {
+        const customers = await commonMastersService.getAllCustomers('default-company-id');
+        if (!cancelled) {
+          setMockCustomers((customers || []).map((c: any) => ({
+            id: c.id,
+            name: c.customerName,
+            contact: c.contactPerson ?? '',
+            phone: c.phone ?? '',
+            email: c.email ?? '',
+            address: c.address ?? '',
+          })));
+        }
+      } catch {
+        if (!cancelled) setMockCustomers([]);
+      }
+      try {
+        const employees = await EmployeeService.getAllEmployees();
+        if (!cancelled) {
+          setMockEngineers((employees || []).map((e: any) => `${e.firstName} ${e.lastName}`.trim()));
+        }
+      } catch {
+        if (!cancelled) setMockEngineers([]);
+      }
+    };
+    loadMasters();
+    return () => { cancelled = true; };
+  }, []);
 
   // Toast auto-dismiss
   useEffect(() => {
