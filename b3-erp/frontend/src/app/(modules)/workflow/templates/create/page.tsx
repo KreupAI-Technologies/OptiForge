@@ -7,6 +7,7 @@ import {
     Settings, Users, Clock, AlertCircle, FileText,
     Mail, MessageSquare, CheckSquare, Zap, Target
 } from 'lucide-react';
+import { WorkflowService } from '@/services/workflow.service';
 
 interface WorkflowStep {
     id: string;
@@ -57,11 +58,27 @@ export default function CreateWorkflowTemplatePage() {
         setSteps(steps.map(s => s.id === id ? { ...s, ...updates } : s));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [saving, setSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // API logic here
-        alert('Workflow template created successfully!');
-        router.push('/workflow/templates');
+        if (saving) return;
+        setSaving(true);
+        try {
+            await WorkflowService.createTemplate({
+                name: formData.name,
+                description: formData.description,
+                category: formData.category,
+                steps: steps.map((s, i) => ({ ...s, order: i + 1 })),
+            });
+            alert('Workflow template created successfully!');
+            router.push('/workflow/templates');
+        } catch (err) {
+            console.error('Error creating workflow template:', err);
+            alert('Failed to create workflow template');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (

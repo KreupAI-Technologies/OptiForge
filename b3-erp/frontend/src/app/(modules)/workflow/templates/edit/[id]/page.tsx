@@ -11,6 +11,7 @@ import { Plus, Trash2, GripVertical, Save, ArrowLeft, AlertCircle } from 'lucide
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { WorkflowService } from '@/services/workflow.service';
 
 interface TemplateStep {
     stepNumber: number;
@@ -56,10 +57,26 @@ export default function TemplateEditorPage({ params }: { params: { id: string } 
     const fetchTemplate = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/workflow/templates/${params.id}`);
-            const data = await response.json();
-            if (data.success) {
-                setTemplate(data.data);
+            const data: any = await WorkflowService.getTemplateById(params.id);
+            if (data) {
+                setTemplate({
+                    id: data.id,
+                    name: data.name ?? '',
+                    description: data.description ?? '',
+                    category: data.category ?? 'procurement',
+                    type: data.type ?? 'sequential',
+                    steps: Array.isArray(data.steps)
+                        ? data.steps.map((s: any, i: number) => ({
+                            stepNumber: s.stepNumber ?? s.order ?? i + 1,
+                            name: s.name ?? '',
+                            approverRole: s.approverRole ?? s.assigneeName ?? '',
+                            approverId: s.approverId ?? s.assigneeId,
+                            condition: s.condition,
+                            slaHours: s.slaHours ?? s.dueInDays,
+                        }))
+                        : [],
+                    isActive: data.isActive ?? data.status === 'active',
+                });
             }
         } catch (err) {
             setError('Failed to load template');
@@ -143,28 +160,23 @@ export default function TemplateEditorPage({ params }: { params: { id: string } 
                 return;
             }
 
-            const url = isEditMode
-                ? `/api/workflow/templates/${params.id}`
-                : '/api/workflow/templates';
+            const payload = {
+                name: template.name,
+                description: template.description,
+                category: template.category,
+                steps: template.steps.map((s) => ({ ...s, order: s.stepNumber })),
+            };
 
-            const method = isEditMode ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(template),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                setSuccess(true);
-                setTimeout(() => {
-                    router.push('/workflow/templates');
-                }, 1500);
+            if (isEditMode) {
+                await WorkflowService.updateTemplate(params.id, payload);
             } else {
-                setError(data.message || 'Failed to save template');
+                await WorkflowService.createTemplate(payload);
             }
+
+            setSuccess(true);
+            setTimeout(() => {
+                router.push('/workflow/templates');
+            }, 1500);
         } catch (err) {
             setError('Failed to save template');
         } finally {
