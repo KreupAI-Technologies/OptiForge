@@ -96,179 +96,6 @@ export default function PayrollVerificationPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showReconciliation, setShowReconciliation] = useState(false);
 
-  const mockBatch: PayrollVerificationBatch = {
-    id: 'VER-2025-11',
-    monthYear: 'November 2025',
-    payPeriod: '01-Nov-2025 to 30-Nov-2025',
-    employeeCount: 6,
-    totalGross: 3150000,
-    totalDeductions: 450000,
-    totalNet: 2700000,
-    pendingVerification: 2,
-    verified: 3,
-    flagged: 1,
-    status: 'in_progress',
-    records: [
-      {
-        id: 'PAY-001',
-        employeeId: 'EMP001',
-        employeeName: 'Rajesh Kumar',
-        designation: 'Senior Production Manager',
-        department: 'Production',
-        grade: 'A',
-        basicSalary: 31250,
-        hra: 12500,
-        da: 3125,
-        conveyance: 1600,
-        medical: 1250,
-        otherEarnings: 0,
-        grossSalary: 49725,
-        pfEmployee: 3750,
-        esiEmployee: 373,
-        professionalTax: 200,
-        tds: 1500,
-        otherDeductions: 0,
-        totalDeductions: 5823,
-        netSalary: 43902,
-        presentDays: 30,
-        totalDays: 30,
-        verificationStatus: 'verified',
-        verifiedBy: 'Finance Manager',
-        verifiedOn: '2025-11-27'
-      },
-      {
-        id: 'PAY-002',
-        employeeId: 'EMP002',
-        employeeName: 'Priya Sharma',
-        designation: 'Quality Control Supervisor',
-        department: 'Quality',
-        grade: 'B',
-        basicSalary: 22917,
-        hra: 9167,
-        da: 2292,
-        conveyance: 1600,
-        medical: 0,
-        otherEarnings: 0,
-        grossSalary: 35976,
-        pfEmployee: 2750,
-        esiEmployee: 270,
-        professionalTax: 200,
-        tds: 800,
-        otherDeductions: 0,
-        totalDeductions: 4020,
-        netSalary: 31956,
-        presentDays: 30,
-        totalDays: 30,
-        verificationStatus: 'verified',
-        verifiedBy: 'Finance Manager',
-        verifiedOn: '2025-11-27'
-      },
-      {
-        id: 'PAY-003',
-        employeeId: 'EMP003',
-        employeeName: 'Amit Patel',
-        designation: 'Production Operator',
-        department: 'Production',
-        grade: 'C',
-        basicSalary: 14583,
-        hra: 5833,
-        da: 1458,
-        conveyance: 0,
-        medical: 0,
-        otherEarnings: 0,
-        grossSalary: 21874,
-        pfEmployee: 1750,
-        esiEmployee: 164,
-        professionalTax: 200,
-        tds: 0,
-        otherDeductions: 0,
-        totalDeductions: 2114,
-        netSalary: 19760,
-        presentDays: 30,
-        totalDays: 30,
-        verificationStatus: 'verified',
-        verifiedBy: 'Finance Manager',
-        verifiedOn: '2025-11-27'
-      },
-      {
-        id: 'PAY-004',
-        employeeId: 'EMP004',
-        employeeName: 'Neha Singh',
-        designation: 'Maintenance Engineer',
-        department: 'Maintenance',
-        grade: 'B',
-        basicSalary: 21667,
-        hra: 8667,
-        da: 2167,
-        conveyance: 1600,
-        medical: 0,
-        otherEarnings: 0,
-        grossSalary: 34101,
-        pfEmployee: 2600,
-        esiEmployee: 256,
-        professionalTax: 200,
-        tds: 700,
-        otherDeductions: 0,
-        totalDeductions: 3756,
-        netSalary: 30345,
-        presentDays: 30,
-        totalDays: 30,
-        verificationStatus: 'pending'
-      },
-      {
-        id: 'PAY-005',
-        employeeId: 'EMP005',
-        employeeName: 'Vikram Desai',
-        designation: 'Logistics Coordinator',
-        department: 'Logistics',
-        grade: 'B',
-        basicSalary: 20000,
-        hra: 8000,
-        da: 2000,
-        conveyance: 1600,
-        medical: 0,
-        otherEarnings: 0,
-        grossSalary: 31600,
-        pfEmployee: 2400,
-        esiEmployee: 237,
-        professionalTax: 200,
-        tds: 600,
-        otherDeductions: 0,
-        totalDeductions: 3437,
-        netSalary: 28163,
-        presentDays: 30,
-        totalDays: 30,
-        verificationStatus: 'pending'
-      },
-      {
-        id: 'PAY-006',
-        employeeId: 'EMP006',
-        employeeName: 'Kavita Mehta',
-        designation: 'HR Executive',
-        department: 'HR',
-        grade: 'B',
-        basicSalary: 20833,
-        hra: 8333,
-        da: 2083,
-        conveyance: 1600,
-        medical: 0,
-        otherEarnings: 0,
-        grossSalary: 32849,
-        pfEmployee: 2500,
-        esiEmployee: 246,
-        professionalTax: 200,
-        tds: 650,
-        otherDeductions: 1500,
-        totalDeductions: 5096,
-        netSalary: 27753,
-        presentDays: 28,
-        totalDays: 30,
-        verificationStatus: 'flagged',
-        flaggedReason: 'High other deductions - requires approval'
-      }
-    ]
-  };
-
   const reconciliationData: ReconciliationData = {
     newEmployees: [
       {
@@ -398,7 +225,7 @@ export default function PayrollVerificationPage() {
     }
   };
 
-  const [records, setRecords] = useState<EmployeePayrollRecord[]>(mockBatch.records);
+  const [records, setRecords] = useState<EmployeePayrollRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -467,6 +294,22 @@ export default function PayrollVerificationPage() {
     });
   }, [records, searchTerm, selectedDepartment, selectedStatus]);
 
+  // Batch summary derived from the live payroll records
+  const batch: PayrollVerificationBatch = useMemo(() => ({
+    id: '',
+    monthYear: '',
+    payPeriod: '',
+    employeeCount: records.length,
+    totalGross: records.reduce((sum, r) => sum + (r.grossSalary || 0), 0),
+    totalDeductions: records.reduce((sum, r) => sum + (r.totalDeductions || 0), 0),
+    totalNet: records.reduce((sum, r) => sum + (r.netSalary || 0), 0),
+    pendingVerification: records.filter(r => r.verificationStatus === 'pending').length,
+    verified: records.filter(r => r.verificationStatus === 'verified').length,
+    flagged: records.filter(r => r.verificationStatus === 'flagged').length,
+    status: 'in_progress',
+    records,
+  }), [records]);
+
   const departments = ['all', 'Production', 'Quality', 'Maintenance', 'Logistics', 'HR'];
 
   const statusColors = {
@@ -501,9 +344,9 @@ export default function PayrollVerificationPage() {
       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-sm border border-blue-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{mockBatch.monthYear}</h2>
-            <p className="text-sm text-gray-600 mt-1">Pay Period: {mockBatch.payPeriod}</p>
-            <p className="text-xs text-gray-500 mt-1">Batch ID: {mockBatch.id}</p>
+            <h2 className="text-xl font-bold text-gray-900">{batch.monthYear}</h2>
+            <p className="text-sm text-gray-600 mt-1">Pay Period: {batch.payPeriod}</p>
+            <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id}</p>
           </div>
           <span className="px-4 py-2 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-700">
             IN PROGRESS
@@ -515,7 +358,7 @@ export default function PayrollVerificationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Employees</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{mockBatch.employeeCount}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{batch.employeeCount}</p>
               </div>
               <Users className="h-6 w-6 text-blue-600" />
             </div>
@@ -525,7 +368,7 @@ export default function PayrollVerificationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total Gross</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrencyLakhs(mockBatch.totalGross)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrencyLakhs(batch.totalGross)}</p>
               </div>
               <DollarSign className="h-6 w-6 text-green-600" />
             </div>
@@ -535,7 +378,7 @@ export default function PayrollVerificationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total Deductions</p>
-                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrencyLakhs(mockBatch.totalDeductions)}</p>
+                <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrencyLakhs(batch.totalDeductions)}</p>
               </div>
               <TrendingUp className="h-6 w-6 text-red-600" />
             </div>
@@ -545,7 +388,7 @@ export default function PayrollVerificationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Net Payable</p>
-                <p className="text-lg font-bold text-green-900 mt-1">{formatCurrencyLakhs(mockBatch.totalNet)}</p>
+                <p className="text-lg font-bold text-green-900 mt-1">{formatCurrencyLakhs(batch.totalNet)}</p>
               </div>
               <FileText className="h-6 w-6 text-purple-600" />
             </div>
@@ -558,7 +401,7 @@ export default function PayrollVerificationPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-yellow-600">Pending Verification</p>
-              <p className="text-2xl font-bold text-yellow-900 mt-1">{mockBatch.pendingVerification}</p>
+              <p className="text-2xl font-bold text-yellow-900 mt-1">{batch.pendingVerification}</p>
             </div>
             <AlertTriangle className="h-8 w-8 text-yellow-600" />
           </div>
@@ -568,7 +411,7 @@ export default function PayrollVerificationPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-600">Verified</p>
-              <p className="text-2xl font-bold text-green-900 mt-1">{mockBatch.verified}</p>
+              <p className="text-2xl font-bold text-green-900 mt-1">{batch.verified}</p>
             </div>
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
@@ -578,7 +421,7 @@ export default function PayrollVerificationPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-red-600">Flagged</p>
-              <p className="text-2xl font-bold text-red-900 mt-1">{mockBatch.flagged}</p>
+              <p className="text-2xl font-bold text-red-900 mt-1">{batch.flagged}</p>
             </div>
             <AlertTriangle className="h-8 w-8 text-red-600" />
           </div>
@@ -806,7 +649,7 @@ export default function PayrollVerificationPage() {
         ))}
       </div>
 
-      {mockBatch.verified === mockBatch.employeeCount && (
+      {batch.verified === batch.employeeCount && (
         <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-3">
           <div className="flex items-center justify-between">
             <div>

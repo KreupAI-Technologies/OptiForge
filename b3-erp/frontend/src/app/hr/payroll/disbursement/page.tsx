@@ -49,123 +49,7 @@ export default function PayrollDisbursementPage() {
   const [showUpdateBankModal, setShowUpdateBankModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<EmployeeDisbursement | null>(null);
 
-  const mockBatch: DisbursementBatch = {
-    id: 'DISB-2025-11',
-    monthYear: 'November 2025',
-    payPeriod: '01-Nov-2025 to 30-Nov-2025',
-    disbursementDate: '2025-11-30',
-    employeeCount: 7,
-    totalAmount: 2015790,
-    pendingCount: 0,
-    processingCount: 1,
-    completedCount: 5,
-    failedCount: 1,
-    status: 'processing',
-    approvedBy: 'Finance Head',
-    approvedOn: '2025-11-29',
-    processedBy: 'Finance Manager',
-    processedOn: '2025-11-30',
-    records: [
-      {
-        id: 'DISB-001',
-        employeeId: 'EMP001',
-        employeeName: 'Rajesh Kumar',
-        designation: 'Senior Production Manager',
-        department: 'Production',
-        bankName: 'HDFC Bank',
-        accountNumber: '1234567890',
-        ifscCode: 'HDFC0001234',
-        netSalary: 43902,
-        disbursementStatus: 'completed',
-        disbursedOn: '2025-11-30',
-        transactionId: 'TXN202511300001'
-      },
-      {
-        id: 'DISB-002',
-        employeeId: 'EMP002',
-        employeeName: 'Priya Sharma',
-        designation: 'Quality Control Supervisor',
-        department: 'Quality',
-        bankName: 'ICICI Bank',
-        accountNumber: '2345678901',
-        ifscCode: 'ICIC0002345',
-        netSalary: 31956,
-        disbursementStatus: 'completed',
-        disbursedOn: '2025-11-30',
-        transactionId: 'TXN202511300002'
-      },
-      {
-        id: 'DISB-003',
-        employeeId: 'EMP003',
-        employeeName: 'Amit Patel',
-        designation: 'Production Operator',
-        department: 'Production',
-        bankName: 'SBI',
-        accountNumber: '3456789012',
-        ifscCode: 'SBIN0003456',
-        netSalary: 19760,
-        disbursementStatus: 'completed',
-        disbursedOn: '2025-11-30',
-        transactionId: 'TXN202511300003'
-      },
-      {
-        id: 'DISB-004',
-        employeeId: 'EMP004',
-        employeeName: 'Neha Singh',
-        designation: 'Maintenance Engineer',
-        department: 'Maintenance',
-        bankName: 'Axis Bank',
-        accountNumber: '4567890123',
-        ifscCode: 'UTIB0004567',
-        netSalary: 30345,
-        disbursementStatus: 'completed',
-        disbursedOn: '2025-11-30',
-        transactionId: 'TXN202511300004'
-      },
-      {
-        id: 'DISB-005',
-        employeeId: 'EMP005',
-        employeeName: 'Vikram Desai',
-        designation: 'Logistics Coordinator',
-        department: 'Logistics',
-        bankName: 'HDFC Bank',
-        accountNumber: '5678901234',
-        ifscCode: 'HDFC0005678',
-        netSalary: 28163,
-        disbursementStatus: 'processing',
-        transactionId: 'TXN202511300005'
-      },
-      {
-        id: 'DISB-006',
-        employeeId: 'EMP006',
-        employeeName: 'Kavita Mehta',
-        designation: 'HR Executive',
-        department: 'HR',
-        bankName: 'ICICI Bank',
-        accountNumber: '6789012345',
-        ifscCode: 'ICIC0006789',
-        netSalary: 27753,
-        disbursementStatus: 'completed',
-        disbursedOn: '2025-11-30',
-        transactionId: 'TXN202511300006'
-      },
-      {
-        id: 'DISB-007',
-        employeeId: 'EMP007',
-        employeeName: 'Sanjay Reddy',
-        designation: 'Production Manager',
-        department: 'Production',
-        bankName: 'Kotak Mahindra Bank',
-        accountNumber: '7890123456',
-        ifscCode: 'KKBK0007890',
-        netSalary: 45911,
-        disbursementStatus: 'failed',
-        failureReason: 'Invalid bank account - verification failed'
-      }
-    ]
-  };
-
-  const [records, setRecords] = useState<EmployeeDisbursement[]>(mockBatch.records);
+  const [records, setRecords] = useState<EmployeeDisbursement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -212,6 +96,22 @@ export default function PayrollDisbursementPage() {
       return matchesBank && matchesStatus;
     });
   }, [records, selectedBank, selectedStatus]);
+
+  // Batch summary derived from the live disbursement records
+  const batch: DisbursementBatch = useMemo(() => ({
+    id: '',
+    monthYear: '',
+    payPeriod: '',
+    disbursementDate: '',
+    employeeCount: records.length,
+    totalAmount: records.reduce((sum, r) => sum + (r.netSalary || 0), 0),
+    pendingCount: records.filter(r => r.disbursementStatus === 'pending').length,
+    processingCount: records.filter(r => r.disbursementStatus === 'processing').length,
+    completedCount: records.filter(r => r.disbursementStatus === 'completed').length,
+    failedCount: records.filter(r => r.disbursementStatus === 'failed').length,
+    status: 'processing',
+    records,
+  }), [records]);
 
   const banks = ['all', 'HDFC Bank', 'ICICI Bank', 'SBI', 'Axis Bank', 'Kotak Mahindra Bank'];
 
@@ -282,16 +182,16 @@ export default function PayrollDisbursementPage() {
       <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border border-purple-200 p-3 mb-3">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{mockBatch.monthYear}</h2>
-            <p className="text-sm text-gray-600 mt-1">Pay Period: {mockBatch.payPeriod}</p>
-            <p className="text-xs text-gray-500 mt-1">Batch ID: {mockBatch.id}</p>
+            <h2 className="text-xl font-bold text-gray-900">{batch.monthYear}</h2>
+            <p className="text-sm text-gray-600 mt-1">Pay Period: {batch.payPeriod}</p>
+            <p className="text-xs text-gray-500 mt-1">Batch ID: {batch.id}</p>
           </div>
           <div className="text-right">
             <span className="px-4 py-2 text-sm font-semibold rounded-full bg-blue-100 text-blue-700 block mb-2">
-              {mockBatch.status.toUpperCase()}
+              {batch.status.toUpperCase()}
             </span>
             <p className="text-xs text-gray-600">
-              Disbursement Date: {new Date(mockBatch.disbursementDate).toLocaleDateString('en-IN')}
+              Disbursement Date: {new Date(batch.disbursementDate).toLocaleDateString('en-IN')}
             </p>
           </div>
         </div>
@@ -301,7 +201,7 @@ export default function PayrollDisbursementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total Employees</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{mockBatch.employeeCount}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{batch.employeeCount}</p>
               </div>
               <FileText className="h-6 w-6 text-blue-600" />
             </div>
@@ -311,7 +211,7 @@ export default function PayrollDisbursementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Total Amount</p>
-                <p className="text-lg font-bold text-green-900 mt-1">{formatCurrencyLakhs(mockBatch.totalAmount)}</p>
+                <p className="text-lg font-bold text-green-900 mt-1">{formatCurrencyLakhs(batch.totalAmount)}</p>
               </div>
               <DollarSign className="h-6 w-6 text-green-600" />
             </div>
@@ -321,7 +221,7 @@ export default function PayrollDisbursementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-gray-600">Approved By</p>
-                <p className="text-sm font-bold text-gray-900 mt-1">{mockBatch.approvedBy || 'Pending'}</p>
+                <p className="text-sm font-bold text-gray-900 mt-1">{batch.approvedBy || 'Pending'}</p>
               </div>
               <CheckCircle className="h-6 w-6 text-purple-600" />
             </div>
@@ -332,7 +232,7 @@ export default function PayrollDisbursementPage() {
               <div>
                 <p className="text-xs font-medium text-gray-600">Processed On</p>
                 <p className="text-xs font-bold text-gray-900 mt-1">
-                  {mockBatch.processedOn && new Date(mockBatch.processedOn).toLocaleDateString('en-IN')}
+                  {batch.processedOn && new Date(batch.processedOn).toLocaleDateString('en-IN')}
                 </p>
               </div>
               <Calendar className="h-6 w-6 text-orange-600" />
@@ -340,9 +240,9 @@ export default function PayrollDisbursementPage() {
           </div>
         </div>
 
-        {mockBatch.approvedBy && mockBatch.approvedOn && (
+        {batch.approvedBy && batch.approvedOn && (
           <div className="mt-4 pt-4 border-t border-purple-200 text-xs text-gray-600">
-            <p>Approved by: {mockBatch.approvedBy} on {new Date(mockBatch.approvedOn).toLocaleDateString('en-IN')}</p>
+            <p>Approved by: {batch.approvedBy} on {new Date(batch.approvedOn).toLocaleDateString('en-IN')}</p>
           </div>
         )}
       </div>
@@ -352,7 +252,7 @@ export default function PayrollDisbursementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-yellow-600">Pending</p>
-              <p className="text-2xl font-bold text-yellow-900 mt-1">{mockBatch.pendingCount}</p>
+              <p className="text-2xl font-bold text-yellow-900 mt-1">{batch.pendingCount}</p>
             </div>
             <Clock className="h-8 w-8 text-yellow-600" />
           </div>
@@ -362,7 +262,7 @@ export default function PayrollDisbursementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-blue-600">Processing</p>
-              <p className="text-2xl font-bold text-blue-900 mt-1">{mockBatch.processingCount}</p>
+              <p className="text-2xl font-bold text-blue-900 mt-1">{batch.processingCount}</p>
             </div>
             <Send className="h-8 w-8 text-blue-600" />
           </div>
@@ -372,7 +272,7 @@ export default function PayrollDisbursementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-600">Completed</p>
-              <p className="text-2xl font-bold text-green-900 mt-1">{mockBatch.completedCount}</p>
+              <p className="text-2xl font-bold text-green-900 mt-1">{batch.completedCount}</p>
             </div>
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
@@ -382,7 +282,7 @@ export default function PayrollDisbursementPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-red-600">Failed</p>
-              <p className="text-2xl font-bold text-red-900 mt-1">{mockBatch.failedCount}</p>
+              <p className="text-2xl font-bold text-red-900 mt-1">{batch.failedCount}</p>
             </div>
             <AlertCircle className="h-8 w-8 text-red-600" />
           </div>
@@ -585,13 +485,13 @@ export default function PayrollDisbursementPage() {
         ))}
       </div>
 
-      {mockBatch.completedCount === mockBatch.employeeCount && (
+      {batch.completedCount === batch.employeeCount && (
         <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-3">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-green-900">All disbursements completed!</h3>
               <p className="text-sm text-green-700 mt-1">
-                {mockBatch.employeeCount} payments successfully processed for {mockBatch.monthYear}
+                {batch.employeeCount} payments successfully processed for {batch.monthYear}
               </p>
             </div>
             <CheckCircle className="h-12 w-12 text-green-600" />
@@ -599,13 +499,13 @@ export default function PayrollDisbursementPage() {
         </div>
       )}
 
-      {mockBatch.failedCount > 0 && (
+      {batch.failedCount > 0 && (
         <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-3">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-red-900">Action Required</h3>
               <p className="text-sm text-red-700 mt-1">
-                {mockBatch.failedCount} payment{mockBatch.failedCount > 1 ? 's' : ''} failed. Please review and retry.
+                {batch.failedCount} payment{batch.failedCount > 1 ? 's' : ''} failed. Please review and retry.
               </p>
             </div>
             <button className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium">
@@ -642,7 +542,7 @@ export default function PayrollDisbursementPage() {
       {/* Bank File Modal */}
       {showBankFileModal && (
         <BankFileModal
-          batch={mockBatch}
+          batch={batch}
           onClose={() => setShowBankFileModal(false)}
         />
       )}
@@ -650,7 +550,7 @@ export default function PayrollDisbursementPage() {
       {/* Payment Report Modal */}
       {showPaymentReportModal && (
         <PaymentReportModal
-          batch={mockBatch}
+          batch={batch}
           onClose={() => setShowPaymentReportModal(false)}
           formatCurrency={formatCurrency}
         />
