@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { MasterDataService, mdLabel, MDVendor, fetchRecordById } from '@/services/master-data.service';
+import { procurementRFQService, type UpdateRFQDto } from '@/services/procurement-rfq.service';
 import {
   ArrowLeft,
   Save,
@@ -259,10 +260,33 @@ export default function EditRFQPage() {
     }).format(amount);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    router.push(`/rfq/view/${rfqId}`);
+    const payload: UpdateRFQDto = {
+      title: formData.title,
+      prReference: formData.linkedPR || undefined,
+      department: formData.category || 'General',
+      responseDeadline: formData.closingDate,
+      requiredDeliveryDate: formData.closingDate,
+      currency: 'INR',
+      notes: formData.notesToVendors || undefined,
+      terms: formData.termsAndConditions || undefined,
+      items: formData.items.map((it) => ({
+        itemId: it.itemCode || it.id,
+        quantity: it.quantity,
+        specifications: it.specifications || undefined,
+        targetPrice: it.targetPrice || undefined,
+        requiredDate: formData.closingDate,
+      })),
+      vendorIds: formData.selectedVendors,
+    };
+    try {
+      await procurementRFQService.updateRFQ(rfqId, payload);
+      router.push(`/rfq/view/${rfqId}`);
+    } catch (err) {
+      console.error('Error updating RFQ:', err);
+      alert('Failed to update RFQ');
+    }
   };
 
   const handleCancel = () => {

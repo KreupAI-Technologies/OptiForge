@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
   ArrowLeft,
   Package,
@@ -65,74 +66,6 @@ interface RecentMovement {
   date: string;
   status: 'completed' | 'pending' | 'in-transit';
 }
-
-const mockStockItems: StockItem[] = [
-  {
-    id: '1',
-    itemCode: 'RM-001',
-    itemName: 'Steel Sheet 304 - 4x8ft',
-    category: 'Raw Materials',
-    warehouse: 'Main Warehouse',
-    currentStock: 45,
-    minLevel: 50,
-    maxLevel: 200,
-    unitCost: 285.50,
-    status: 'low',
-    lastUpdated: '2025-01-10 14:30'
-  },
-  {
-    id: '2',
-    itemCode: 'RM-002',
-    itemName: 'Aluminum Rod 6061',
-    category: 'Raw Materials',
-    warehouse: 'Main Warehouse',
-    currentStock: 15,
-    minLevel: 30,
-    maxLevel: 150,
-    unitCost: 12.75,
-    status: 'critical',
-    lastUpdated: '2025-01-10 13:45'
-  },
-  {
-    id: '3',
-    itemCode: 'FG-101',
-    itemName: 'Kitchen Cabinet - Standard',
-    category: 'Finished Goods',
-    warehouse: 'FG Storage',
-    currentStock: 120,
-    minLevel: 30,
-    maxLevel: 100,
-    unitCost: 450.00,
-    status: 'overstock',
-    lastUpdated: '2025-01-10 15:00'
-  },
-  {
-    id: '4',
-    itemCode: 'PKG-201',
-    itemName: 'Cardboard Box - Large',
-    category: 'Packing Materials',
-    warehouse: 'Main Warehouse',
-    currentStock: 850,
-    minLevel: 200,
-    maxLevel: 1000,
-    unitCost: 2.50,
-    status: 'optimal',
-    lastUpdated: '2025-01-10 12:00'
-  },
-  {
-    id: '5',
-    itemCode: 'CS-301',
-    itemName: 'Cutting Blade - 10in',
-    category: 'Consumables',
-    warehouse: 'Tool Storage',
-    currentStock: 8,
-    minLevel: 15,
-    maxLevel: 50,
-    unitCost: 35.00,
-    status: 'critical',
-    lastUpdated: '2025-01-10 11:30'
-  }
-];
 
 const mockWarehouses: WarehouseData[] = [
   {
@@ -225,23 +158,56 @@ export default function InventoryPage() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+
   useEffect(() => {
     setIsMounted(true);
+    inventoryService
+      .getStockBalances()
+      .then((balances) => {
+        const rows = Array.isArray(balances) ? balances : [];
+        setStockItems(
+          rows.map((b) => {
+            const current = b.availableQuantity ?? 0;
+            const status: StockItem['status'] = b.belowReorderLevel
+              ? current <= 0
+                ? 'critical'
+                : 'low'
+              : b.reorderQuantity && current > b.reorderLevel * 3
+                ? 'overstock'
+                : 'optimal';
+            return {
+              id: b.id,
+              itemCode: b.itemCode,
+              itemName: b.itemName,
+              category: b.uom || 'General',
+              warehouse: b.warehouseName || '',
+              currentStock: current,
+              minLevel: b.reorderLevel ?? 0,
+              maxLevel: (b.reorderLevel ?? 0) + (b.reorderQuantity ?? 0),
+              unitCost: current > 0 ? (b.stockValue ?? 0) / current : 0,
+              status,
+              lastUpdated: b.lastUpdated,
+            };
+          })
+        );
+      })
+      .catch(() => setStockItems([]));
   }, []);
 
   // Calculate statistics
-  const totalItems = mockStockItems.reduce((sum, item) => sum + item.currentStock, 0);
-  const totalValue = mockStockItems.reduce((sum, item) => sum + (item.currentStock * item.unitCost), 0);
-  const criticalItems = mockStockItems.filter(item => item.status === 'critical').length;
-  const lowStockItems = mockStockItems.filter(item => item.status === 'low' || item.status === 'critical').length;
-  const overstockItems = mockStockItems.filter(item => item.status === 'overstock').length;
-  const optimalItems = mockStockItems.filter(item => item.status === 'optimal').length;
+  const totalItems = stockItems.reduce((sum, item) => sum + item.currentStock, 0);
+  const totalValue = stockItems.reduce((sum, item) => sum + (item.currentStock * item.unitCost), 0);
+  const criticalItems = stockItems.filter(item => item.status === 'critical').length;
+  const lowStockItems = stockItems.filter(item => item.status === 'low' || item.status === 'critical').length;
+  const overstockItems = stockItems.filter(item => item.status === 'overstock').length;
+  const optimalItems = stockItems.filter(item => item.status === 'optimal').length;
 
   // Get unique categories
-  const categories = Array.from(new Set(mockStockItems.map(item => item.category)));
+  const categories = Array.from(new Set(stockItems.map(item => item.category)));
 
   // Filter items
-  const filteredItems = mockStockItems.filter(item => {
+  const filteredItems = stockItems.filter(item => {
     const matchesSearch =
       item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.itemCode.toLowerCase().includes(searchQuery.toLowerCase());
@@ -626,7 +592,7 @@ export default function InventoryPage() {
 
           <div className="px-3 py-2 border-t border-gray-200 flex items-center justify-between">
             <p className="text-sm text-gray-600">
-              Showing {filteredItems.length} of {mockStockItems.length} items
+              Showing {filteredItems.length} of {stockItems.length} items
             </p>
             <button
               onClick={() => router.push('/inventory/stock')}
