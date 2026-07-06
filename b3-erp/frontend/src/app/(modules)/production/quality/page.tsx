@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { ProductionOrphanService } from '@/services/production/production-orphan.service'
 import { Search, Filter, Download, Eye, Edit2, CheckCircle as CheckIcon, ClipboardCheck, XCircle, AlertTriangle, TrendingUp } from 'lucide-react'
 import { ViewInspectionModal, EditInspectionModal, ApproveInspectionModal, type Inspection } from '@/components/quality/QualityModals'
 import { ExportInspectionReportModal } from '@/components/quality/QualityExportModals'
@@ -23,112 +24,56 @@ interface QualityInspection {
   work_center: string
 }
 
-const mockInspections: QualityInspection[] = [
-  {
-    id: '1',
-    inspection_id: 'QI-2024-001',
-    work_order_id: 'WO-2024-045',
-    product_name: 'Steel Frame Assembly',
-    product_code: 'SFA-5000',
-    inspection_type: 'in_process',
-    inspection_date: '2024-01-15 10:30',
-    inspector_name: 'Alice Johnson',
-    sample_size: 50,
-    defects_found: 2,
-    defect_categories: { 'Dimensional': 1, 'Surface': 1 },
-    pass_fail_status: 'passed',
-    remarks: 'Minor defects within acceptable limits',
-    work_center: 'Assembly Line 1'
-  },
-  {
-    id: '2',
-    inspection_id: 'QI-2024-002',
-    work_order_id: 'WO-2024-046',
-    product_name: 'Precision Gear Box',
-    product_code: 'PGB-3200',
-    inspection_type: 'final',
-    inspection_date: '2024-01-15 14:00',
-    inspector_name: 'Bob Martinez',
-    sample_size: 30,
-    defects_found: 0,
-    defect_categories: {},
-    pass_fail_status: 'passed',
-    remarks: 'All samples passed inspection',
-    work_center: 'Machining Center'
-  },
-  {
-    id: '3',
-    inspection_id: 'QI-2024-003',
-    work_order_id: 'WO-2024-047',
-    product_name: 'Hydraulic Cylinder',
-    product_code: 'HC-1800',
-    inspection_type: 'first_article',
-    inspection_date: '2024-01-15 08:45',
-    inspector_name: 'Carol White',
-    sample_size: 5,
-    defects_found: 1,
-    defect_categories: { 'Coating': 1 },
-    pass_fail_status: 'conditional',
-    remarks: 'Coating thickness slightly below spec, monitoring required',
-    work_center: 'Welding Shop'
-  },
-  {
-    id: '4',
-    inspection_id: 'QI-2024-004',
-    work_order_id: 'WO-2024-048',
-    product_name: 'Electric Motor Housing',
-    product_code: 'EMH-2400',
-    inspection_type: 'receiving',
-    inspection_date: '2024-01-15 09:15',
-    inspector_name: 'David Chen',
-    sample_size: 100,
-    defects_found: 8,
-    defect_categories: { 'Dimensional': 5, 'Material': 3 },
-    pass_fail_status: 'failed',
-    remarks: 'Excessive defects, batch rejected',
-    work_center: 'Paint Shop'
-  },
-  {
-    id: '5',
-    inspection_id: 'QI-2024-005',
-    work_order_id: 'WO-2024-049',
-    product_name: 'Conveyor Belt System',
-    product_code: 'CBS-7500',
-    inspection_type: 'audit',
-    inspection_date: '2024-01-15 11:00',
-    inspector_name: 'Emily Davis',
-    sample_size: 20,
-    defects_found: 0,
-    defect_categories: {},
-    pass_fail_status: 'pending',
-    remarks: 'Awaiting final documentation review',
-    work_center: 'Assembly Line 2'
-  },
-  {
-    id: '6',
-    inspection_id: 'QI-2024-006',
-    work_order_id: 'WO-2024-050',
-    product_name: 'Quality Control Jig',
-    product_code: 'QCJ-1100',
-    inspection_type: 'final',
-    inspection_date: '2024-01-15 15:30',
-    inspector_name: 'Frank Wilson',
-    sample_size: 15,
-    defects_found: 1,
-    defect_categories: { 'Assembly': 1 },
-    pass_fail_status: 'passed',
-    remarks: 'Minor assembly issue corrected on-site',
-    work_center: 'Quality Station'
-  }
-]
+// Map a raw NCR/inspection record from the API into the QualityInspection shape used by this page.
+const mapToQualityInspection = (d: any, i: number): QualityInspection => ({
+  id: String(d?.id ?? d?.inspection_id ?? d?.ncrNumber ?? i),
+  inspection_id: String(d?.inspection_id ?? d?.ncrNumber ?? d?.id ?? `QI-${i + 1}`),
+  work_order_id: String(d?.work_order_id ?? d?.workOrder ?? ''),
+  product_name: String(d?.product_name ?? d?.productName ?? ''),
+  product_code: String(d?.product_code ?? d?.productCode ?? ''),
+  inspection_type: (d?.inspection_type ?? d?.inspectionType ?? 'in_process') as QualityInspection['inspection_type'],
+  inspection_date: String(d?.inspection_date ?? d?.detectedDate ?? d?.createdAt ?? ''),
+  inspector_name: String(d?.inspector_name ?? d?.detectedBy ?? d?.inspectorName ?? ''),
+  sample_size: Number(d?.sample_size ?? d?.sampleSize ?? 0),
+  defects_found: Number(d?.defects_found ?? d?.defectsFound ?? d?.quantityAffected ?? 0),
+  defect_categories:
+    d?.defect_categories && typeof d.defect_categories === 'object' ? d.defect_categories : {},
+  pass_fail_status: (d?.pass_fail_status ?? d?.status ?? 'pending') as QualityInspection['pass_fail_status'],
+  remarks: String(d?.remarks ?? d?.description ?? ''),
+  work_center: String(d?.work_center ?? d?.workCenter ?? d?.detectedStage ?? ''),
+})
 
 const ProductionQualityPage = () => {
-  const [inspections, setInspections] = useState<QualityInspection[]>(mockInspections)
+  const [inspections, setInspections] = useState<QualityInspection[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [inspectionTypeFilter, setInspectionTypeFilter] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const res = (await ProductionOrphanService.getNcrs()) as any
+        const raw = Array.isArray(res) ? res : (res?.data ?? [])
+        const mapped = (Array.isArray(raw) ? raw : []).map(mapToQualityInspection)
+        if (!cancelled) setInspections(mapped)
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data')
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Modal state hooks
   const [isViewOpen, setIsViewOpen] = useState(false)

@@ -55,26 +55,26 @@ export default function NCRPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const loadNcrs = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = (await ProductionOrphanService.getNcrs()) as any;
+      const raw = Array.isArray(res) ? res : (res?.data ?? []);
+      const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+        ...d,
+        id: String(d?.id ?? d?.ncrNumber ?? i),
+      })) as unknown as NCR[];
+      setNcrs(mapped);
+    } catch (err: any) {
+      setLoadError(err?.message ?? 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await ProductionOrphanService.getNcrs()) as any[];
-        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
-          ...d,
-          id: String(d?.id ?? i),
-        })) as unknown as NCR[];
-        if (!cancelled) setNcrs(mapped);
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+    loadNcrs();
   }, []);
 
   const filteredNCRs = ncrs.filter(ncr => {
@@ -168,10 +168,15 @@ export default function NCRPage() {
     setIsExportOpen(true);
   };
 
-  const handleRaiseSubmit = (data: any) => {
-    // TODO: Implement API call to create new NCR
-    console.log('Raise NCR submitted:', data);
-    setIsRaiseOpen(false);
+  const handleRaiseSubmit = async (data: any) => {
+    try {
+      await ProductionOrphanService.createNcr(data);
+      await loadNcrs();
+    } catch (err) {
+      console.error('Failed to create NCR:', err);
+    } finally {
+      setIsRaiseOpen(false);
+    }
   };
 
   const handleViewClose = () => {
@@ -179,11 +184,17 @@ export default function NCRPage() {
     setSelectedNCR(null);
   };
 
-  const handleEditSubmit = (data: any) => {
-    // TODO: Implement API call to update NCR
-    console.log('Edit NCR submitted:', data);
-    setIsEditOpen(false);
-    setSelectedNCR(null);
+  const handleEditSubmit = async (data: any) => {
+    const id = selectedNCR?.id ?? data?.id;
+    try {
+      if (id) await ProductionOrphanService.updateNcr(String(id), data);
+      await loadNcrs();
+    } catch (err) {
+      console.error('Failed to update NCR:', err);
+    } finally {
+      setIsEditOpen(false);
+      setSelectedNCR(null);
+    }
   };
 
   const handleExportSubmit = (_data: any) => {
@@ -191,11 +202,16 @@ export default function NCRPage() {
     setIsExportOpen(false);
   };
 
-  const handleCloseNCR = (ncrId: string) => {
-    // TODO: Implement API call to close NCR
-    console.log('Close NCR:', ncrId);
-    setIsViewOpen(false);
-    setSelectedNCR(null);
+  const handleCloseNCR = async (ncrId: string) => {
+    try {
+      if (ncrId) await ProductionOrphanService.updateNcr(String(ncrId), { status: 'closed' });
+      await loadNcrs();
+    } catch (err) {
+      console.error('Failed to close NCR:', err);
+    } finally {
+      setIsViewOpen(false);
+      setSelectedNCR(null);
+    }
   };
 
   return (
