@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CreditCard, Calendar, MapPin, CheckCircle, XCircle, AlertTriangle, Download, Link as LinkIcon, Search } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
@@ -27,162 +27,83 @@ interface CardTransaction {
   gstNumber?: string;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+interface CardTransactionRow {
+  id?: string;
+  transactionId?: string;
+  cardNumber?: string;
+  cardType?: string;
+  cardHolder?: string;
+  employeeCode?: string;
+  department?: string;
+  merchantName?: string;
+  category?: string;
+  amount?: number | string;
+  currency?: string;
+  transactionDate?: string;
+  transactionTime?: string;
+  location?: string;
+  status?: string;
+  notes?: string;
+}
+
+function mapTransaction(row: CardTransactionRow): CardTransaction {
+  return {
+    id: row.id ?? row.transactionId ?? '',
+    transactionId: row.transactionId ?? '',
+    cardNumber: row.cardNumber ?? '',
+    employeeName: row.cardHolder ?? '',
+    employeeCode: row.employeeCode ?? '',
+    department: row.department ?? '',
+    transactionDate: row.transactionDate ?? '',
+    merchant: row.merchantName ?? '',
+    merchantCategory: (row.category ?? 'other') as CardTransaction['merchantCategory'],
+    location: row.location ?? '',
+    amount: Number(row.amount) || 0,
+    currency: row.currency ?? '',
+    description: row.notes ?? '',
+    status: (row.status ?? 'captured') as CardTransaction['status'],
+    linkedExpenseId: undefined,
+    linkedTravelRequest: undefined,
+    billingCycle: '',
+    gstAmount: undefined,
+    gstNumber: undefined,
+  };
+}
+
 export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [transactions, setTransactions] = useState<CardTransaction[]>([]);
 
-  const mockTransactions: CardTransaction[] = [
-    {
-      id: '1',
-      transactionId: 'TXN-2025-001234',
-      cardNumber: '****4523',
-      employeeName: 'Rajesh Kumar',
-      employeeCode: 'EMP456',
-      department: 'Sales',
-      transactionDate: '2025-11-10T14:30:00',
-      merchant: 'ITC Grand Central',
-      merchantCategory: 'hotel',
-      location: 'Bangalore, Karnataka',
-      amount: 12500,
-      currency: 'INR',
-      description: 'Hotel accommodation',
-      status: 'linked',
-      linkedExpenseId: 'EXP-2025-089',
-      linkedTravelRequest: 'TR-2025-001',
-      billingCycle: 'Nov 2025',
-      gstAmount: 2250,
-      gstNumber: '29AABCU9603R1ZM'
-    },
-    {
-      id: '2',
-      transactionId: 'TXN-2025-001235',
-      cardNumber: '****4523',
-      employeeName: 'Rajesh Kumar',
-      employeeCode: 'EMP456',
-      department: 'Sales',
-      transactionDate: '2025-11-11T20:15:00',
-      merchant: 'The Oberoi Restaurant',
-      merchantCategory: 'restaurant',
-      location: 'Bangalore, Karnataka',
-      amount: 3200,
-      currency: 'INR',
-      description: 'Client dinner',
-      status: 'linked',
-      linkedExpenseId: 'EXP-2025-089',
-      linkedTravelRequest: 'TR-2025-001',
-      billingCycle: 'Nov 2025',
-      gstAmount: 480,
-      gstNumber: '29AABCU9603R1ZM'
-    },
-    {
-      id: '3',
-      transactionId: 'TXN-2025-001236',
-      cardNumber: '****6789',
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP789',
-      department: 'Engineering',
-      transactionDate: '2025-11-05T09:45:00',
-      merchant: 'Uber India',
-      merchantCategory: 'transport',
-      location: 'Mumbai, Maharashtra',
-      amount: 450,
-      currency: 'INR',
-      description: 'Airport transfer',
-      status: 'captured',
-      billingCycle: 'Nov 2025'
-    },
-    {
-      id: '4',
-      transactionId: 'TXN-2025-001237',
-      cardNumber: '****6789',
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP789',
-      department: 'Engineering',
-      transactionDate: '2025-11-06T12:30:00',
-      merchant: 'Amazon.in',
-      merchantCategory: 'online',
-      location: 'Online',
-      amount: 5600,
-      currency: 'INR',
-      description: 'Office supplies',
-      status: 'unmatched',
-      billingCycle: 'Nov 2025'
-    },
-    {
-      id: '5',
-      transactionId: 'TXN-2025-001238',
-      cardNumber: '****3421',
-      employeeName: 'Amit Singh',
-      employeeCode: 'EMP234',
-      department: 'Operations',
-      transactionDate: '2025-11-08T16:20:00',
-      merchant: 'Indian Oil Petrol Pump',
-      merchantCategory: 'fuel',
-      location: 'Pune, Maharashtra',
-      amount: 3800,
-      currency: 'INR',
-      description: 'Fuel for company vehicle',
-      status: 'linked',
-      linkedExpenseId: 'EXP-2025-092',
-      linkedTravelRequest: 'TR-2025-005',
-      billingCycle: 'Nov 2025',
-      gstAmount: 684,
-      gstNumber: '27AAACI5649H1ZS'
-    },
-    {
-      id: '6',
-      transactionId: 'TXN-2025-001239',
-      cardNumber: '****5432',
-      employeeName: 'Suresh Patel',
-      employeeCode: 'EMP890',
-      department: 'Maintenance',
-      transactionDate: '2025-11-03T11:15:00',
-      merchant: 'Decathlon Sports',
-      merchantCategory: 'retail',
-      location: 'Chennai, Tamil Nadu',
-      amount: 2400,
-      currency: 'INR',
-      description: 'Personal shopping',
-      status: 'personal',
-      billingCycle: 'Nov 2025'
-    },
-    {
-      id: '7',
-      transactionId: 'TXN-2025-001240',
-      cardNumber: '****4523',
-      employeeName: 'Rajesh Kumar',
-      employeeCode: 'EMP456',
-      department: 'Sales',
-      transactionDate: '2025-11-12T08:30:00',
-      merchant: 'SpiceJet Airlines',
-      merchantCategory: 'transport',
-      location: 'Bangalore, Karnataka',
-      amount: 8900,
-      currency: 'INR',
-      description: 'Flight change charges',
-      status: 'disputed',
-      billingCycle: 'Nov 2025'
-    },
-    {
-      id: '8',
-      transactionId: 'TXN-2025-001241',
-      cardNumber: '****6789',
-      employeeName: 'Priya Sharma',
-      employeeCode: 'EMP789',
-      department: 'Engineering',
-      transactionDate: '2025-11-07T19:45:00',
-      merchant: 'Cafe Coffee Day',
-      merchantCategory: 'restaurant',
-      location: 'Mumbai, Maharashtra',
-      amount: 680,
-      currency: 'INR',
-      description: 'Team meeting refreshments',
-      status: 'captured',
-      billingCycle: 'Nov 2025'
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTransactions() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/hr/card-transactions?companyId=default-company-id`);
+        if (!res.ok) {
+          if (!cancelled) setTransactions([]);
+          return;
+        }
+        const data = await res.json();
+        const rows = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : null;
+        if (!rows) {
+          if (!cancelled) setTransactions([]);
+          return;
+        }
+        if (!cancelled) setTransactions(rows.map(mapTransaction));
+      } catch {
+        if (!cancelled) setTransactions([]);
+      }
     }
-  ];
+    loadTransactions();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Safe Date Display Component
   const DateDisplay = ({ date, type = 'date' }: { date: string, type?: 'date' | 'time' }) => {
@@ -198,7 +119,7 @@ export default function Page() {
   };
 
   const filteredTransactions = useMemo(() => {
-    return mockTransactions.filter(txn => {
+    return transactions.filter(txn => {
       const matchesStatus = selectedStatus === 'all' || txn.status === selectedStatus;
       const matchesMonth = txn.transactionDate.startsWith(selectedMonth);
       const matchesEmployee = selectedEmployee === 'all' || txn.employeeCode === selectedEmployee;
@@ -209,16 +130,16 @@ export default function Page() {
 
       return matchesStatus && matchesMonth && matchesEmployee && matchesSearch;
     });
-  }, [selectedStatus, selectedMonth, selectedEmployee, searchTerm]);
+  }, [transactions, selectedStatus, selectedMonth, selectedEmployee, searchTerm]);
 
   const stats = {
-    totalTransactions: mockTransactions.length,
-    totalAmount: mockTransactions.reduce((sum, t) => sum + t.amount, 0),
-    linked: mockTransactions.filter(t => t.status === 'linked').length,
-    unmatched: mockTransactions.filter(t => t.status === 'unmatched').length,
-    personal: mockTransactions.filter(t => t.status === 'personal').length,
-    disputed: mockTransactions.filter(t => t.status === 'disputed').length,
-    linkedAmount: mockTransactions.filter(t => t.status === 'linked').reduce((sum, t) => sum + t.amount, 0)
+    totalTransactions: transactions.length,
+    totalAmount: transactions.reduce((sum, t) => sum + t.amount, 0),
+    linked: transactions.filter(t => t.status === 'linked').length,
+    unmatched: transactions.filter(t => t.status === 'unmatched').length,
+    personal: transactions.filter(t => t.status === 'personal').length,
+    disputed: transactions.filter(t => t.status === 'disputed').length,
+    linkedAmount: transactions.filter(t => t.status === 'linked').reduce((sum, t) => sum + t.amount, 0)
   };
 
   const getStatusColor = (status: string) => {

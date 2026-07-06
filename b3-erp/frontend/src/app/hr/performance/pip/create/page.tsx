@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, Calendar, Plus, Trash2 } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface ActionItem {
   id: string;
@@ -10,6 +13,7 @@ interface ActionItem {
 }
 
 export default function CreatePIPPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     employeeName: '',
     startDate: '',
@@ -40,11 +44,27 @@ export default function CreatePIPPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('PIP Created:', formData);
-    // In a real app, this would submit to backend and redirect
-    alert('PIP Created Successfully (Mock)');
+    try {
+      const res = await fetch(`${API_BASE_URL}/hr/disciplinary-actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: 'default-company-id',
+          employeeName: formData.employeeName,
+          actionType: 'PIP',
+          actionDate: formData.startDate,
+          description: formData.reason,
+          justification: formData.goals,
+          notes: JSON.stringify(formData.actionItems)
+        })
+      });
+      if (!res.ok) throw new Error('Request failed');
+      router.push('/hr/performance/pip/tracking');
+    } catch {
+      alert('Failed to save. Please try again.');
+    }
   };
 
   return (

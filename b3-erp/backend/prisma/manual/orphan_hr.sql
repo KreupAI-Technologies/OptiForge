@@ -1626,3 +1626,33 @@ CREATE TABLE IF NOT EXISTS "hr_payroll_bonus_schemes" (
 );
 CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_bonus_schemes_companyId" ON "hr_payroll_bonus_schemes" ("companyId");
 CREATE INDEX IF NOT EXISTS "IDX_hr_payroll_bonus_schemes_status" ON "hr_payroll_bonus_schemes" ("status");
+
+-- ---------------------------------------------------------------------------
+-- Overtime settings (rates + rules) — backs /hr/overtime/settings.
+-- snake_case columns to match the Prisma @map models.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "hr_overtime_rates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default-company-id',
+  "grade" varchar NOT NULL,
+  "designation" varchar,
+  "hourly_rate" numeric(14,2) NOT NULL DEFAULT 0,
+  "multiplier" numeric(6,2) NOT NULL DEFAULT 1,
+  "effective_from" date,
+  "status" varchar NOT NULL DEFAULT 'active',
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_overtime_rates" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_hr_overtime_rates_company_id" ON "hr_overtime_rates" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "hr_overtime_settings" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar NOT NULL DEFAULT 'default-company-id',
+  "ot_rules" jsonb,
+  "comp_off_rules" jsonb,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_hr_overtime_settings" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_hr_overtime_settings_company_id" UNIQUE ("company_id")
+);

@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Users, Search, Filter, X, Download, Calendar, AlertCircle, TrendingUp, UserCheck } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { mockTeamLeaveSummary, TeamMemberLeaveSummary } from '@/data/hr/leave-balances';
+import type { TeamMemberLeaveSummary } from '@/data/hr/leave-balances';
 import { exportToCsv } from '@/lib/export';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export default function TeamLeaveBalancePage() {
   const router = useRouter();
-  const [teamMembers] = useState<TeamMemberLeaveSummary[]>(mockTeamLeaveSummary);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberLeaveSummary[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterShift, setFilterShift] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -22,6 +24,54 @@ export default function TeamLeaveBalancePage() {
   // Fix hydration issues with date formatting
   React.useEffect(() => {
     setIsClient(true);
+  }, []);
+
+  // Fetch team leave balances from backend
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/hr/leave-balances?companyId=default-company-id`);
+        if (!res.ok) {
+          if (!cancelled) setTeamMembers([]);
+          return;
+        }
+        const json = await res.json();
+        const rows = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+        if (!Array.isArray(rows) || rows.length === 0) {
+          if (!cancelled) setTeamMembers([]);
+          return;
+        }
+        // Map raw leave-balance rows defensively into TeamMemberLeaveSummary shape.
+        const mapped = rows.map((r: any) => {
+          const totalEntitlement = Number(r?.totalEntitlement ?? r?.entitlement ?? r?.allocated ?? 0) || 0;
+          const totalTaken = Number(r?.totalTaken ?? r?.taken ?? r?.used ?? 0) || 0;
+          const totalPending = Number(r?.totalPending ?? r?.pending ?? 0) || 0;
+          const totalBalance = Number(r?.totalBalance ?? r?.balance ?? r?.available ?? (totalEntitlement - totalTaken)) || 0;
+          return {
+            id: String(r?.id ?? r?._id ?? r?.employeeId ?? ''),
+            employeeId: String(r?.employeeId ?? r?.id ?? ''),
+            employeeName: String(r?.employeeName ?? r?.name ?? ''),
+            employeeCode: String(r?.employeeCode ?? r?.code ?? ''),
+            designation: String(r?.designation ?? ''),
+            department: String(r?.department ?? ''),
+            shift: r?.shift ?? '',
+            totalEntitlement,
+            totalTaken,
+            totalPending,
+            totalBalance,
+            status: String(r?.status ?? 'active'),
+            lastLeaveDate: r?.lastLeaveDate ?? null,
+            upcomingLeave: r?.upcomingLeave ?? null,
+          };
+        }) as TeamMemberLeaveSummary[];
+        if (!cancelled) setTeamMembers(mapped);
+      } catch {
+        if (!cancelled) setTeamMembers([]);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   // Consistent date formatter

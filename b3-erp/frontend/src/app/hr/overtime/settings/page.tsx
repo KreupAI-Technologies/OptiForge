@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, DollarSign, Clock, Users, Calendar, CheckCircle, AlertCircle, Save, Edit, Plus, Trash2 } from 'lucide-react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
@@ -22,16 +22,7 @@ export default function OTSettingsPage() {
   const [isAddRateModalOpen, setIsAddRateModalOpen] = useState(false);
 
   // OT Rate Configuration
-  const [otRates, setOtRates] = useState<OTRate[]>([
-    { id: '1', grade: 'E1', designation: 'Junior Executive', hourlyRate: 150, multiplier: 1.5, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '2', grade: 'E2', designation: 'Executive', hourlyRate: 200, multiplier: 1.5, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '3', grade: 'E3', designation: 'Senior Executive', hourlyRate: 250, multiplier: 1.5, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '4', grade: 'M1', designation: 'Manager', hourlyRate: 350, multiplier: 2.0, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '5', grade: 'M2', designation: 'Senior Manager', hourlyRate: 450, multiplier: 2.0, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '6', grade: 'M3', designation: 'General Manager', hourlyRate: 600, multiplier: 2.0, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '7', grade: 'S1', designation: 'Supervisor', hourlyRate: 180, multiplier: 1.5, effectiveFrom: '2024-01-01', status: 'active' },
-    { id: '8', grade: 'S2', designation: 'Senior Supervisor', hourlyRate: 220, multiplier: 1.5, effectiveFrom: '2024-01-01', status: 'active' }
-  ]);
+  const [otRates, setOtRates] = useState<OTRate[]>([]);
 
   // General OT Rules
   const [otRules, setOtRules] = useState({
@@ -57,6 +48,34 @@ export default function OTSettingsPage() {
     requireManagerApproval: true,
     allowNegativeBalance: false
   });
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+  const mapRate = (r: any): OTRate => ({
+    id: r.id,
+    grade: r.grade || '',
+    designation: r.designation || '',
+    hourlyRate: Number(r.hourly_rate ?? r.hourlyRate ?? 0),
+    multiplier: Number(r.multiplier ?? 1),
+    effectiveFrom: r.effective_from ? String(r.effective_from).slice(0, 10) : (r.effectiveFrom || ''),
+    status: (r.status === 'inactive' ? 'inactive' : 'active'),
+  });
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/hr/overtime-settings/rates?companyId=default-company-id`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows) => setOtRates(Array.isArray(rows) ? rows.map(mapRate) : []))
+      .catch(() => setOtRates([]));
+
+    fetch(`${API_BASE_URL}/hr/overtime-settings?companyId=default-company-id`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((s) => {
+        if (s?.ot_rules) setOtRules((prev) => ({ ...prev, ...s.ot_rules }));
+        if (s?.comp_off_rules) setCompOffRules((prev) => ({ ...prev, ...s.comp_off_rules }));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rateColumns = [
     { key: 'grade', label: 'Grade', sortable: true,
@@ -107,20 +126,33 @@ export default function OTSettingsPage() {
     }
   ];
 
-  const handleSaveSettings = () => {
-    console.log('Saving OT settings:', { otRules, compOffRules });
-    setIsEditMode(false);
-    // TODO: API call to save settings
+  const handleSaveSettings = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/hr/overtime-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: 'default-company-id', otRules, compOffRules }),
+      });
+      setIsEditMode(false);
+    } catch {
+      alert('Failed to save settings. Please try again.');
+    }
   };
 
-  const handleAddRate = (rateData: Omit<OTRate, 'id'>) => {
-    const newRate: OTRate = {
-      ...rateData,
-      id: (otRates.length + 1).toString()
-    };
-    setOtRates([...otRates, newRate]);
-    console.log('New OT rate added:', newRate);
-    // TODO: API call to save new rate
+  const handleAddRate = async (rateData: Omit<OTRate, 'id'>) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/hr/overtime-settings/rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: 'default-company-id', ...rateData }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setOtRates((prev) => [...prev, mapRate(created)]);
+      }
+    } catch {
+      alert('Failed to add OT rate. Please try again.');
+    }
   };
 
   return (

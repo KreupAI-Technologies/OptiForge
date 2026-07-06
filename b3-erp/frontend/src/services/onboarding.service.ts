@@ -739,6 +739,14 @@ export class OnboardingService {
     );
   }
 
+  static async getOfferById(id: string): Promise<OfferManagement | null> {
+    if (USE_MOCK_DATA) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return MOCK_OFFERS.find((o) => o.id === id) || null;
+    }
+    return this.request<OfferManagement | null>(`/hr/offers/${id}`);
+  }
+
   static async createOffer(data: Partial<OfferManagement>): Promise<OfferManagement> {
     if (USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 500));

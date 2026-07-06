@@ -22,7 +22,7 @@ export default function LeavePoliciesPage() {
           <p className="text-gray-600 mt-1">Company leave policies and regulations for all employees</p>
         </div>
         <button
-          onClick={() => console.log('Download PDF')}
+          onClick={() => { if (typeof window !== 'undefined') window.print(); }}
           className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <Download className="w-4 h-4" />

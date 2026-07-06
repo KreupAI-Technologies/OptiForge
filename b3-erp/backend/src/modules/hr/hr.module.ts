@@ -214,6 +214,9 @@ import { PerformanceGoalService } from './services/performance-goal.service';
 import { OnboardingTask } from './entities/onboarding-task.entity';
 import { OffboardingTask } from './entities/offboarding-task.entity';
 import { OnboardingTaskController } from './controllers/onboarding-task.controller';
+import { OnboardingController } from './controllers/onboarding.controller';
+import { OvertimeSettingsController } from './controllers/overtime-settings.controller';
+import { OvertimeSettingsService } from './services/overtime-settings.service';
 import { OffboardingTaskController } from './controllers/offboarding-task.controller';
 import { OnboardingTaskService } from './services/onboarding-task.service';
 import { OffboardingTaskService } from './services/offboarding-task.service';
@@ -526,6 +529,8 @@ import { PrismaModule } from '../prisma/prisma.module';
     ProbationReviewController,
     PerformanceGoalController,
     OnboardingTaskController,
+    OnboardingController,
+    OvertimeSettingsController,
     OffboardingTaskController,
     // Payroll orphan-endpoint build
     PayrollStatutoryFilingController,
@@ -655,6 +660,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     PerformanceReviewService,
     OnboardingWorkflowService,
     OnboardingService,
+    OvertimeSettingsService,
     ProbationService,
     OffboardingService,
     SeparationService,
@@ -705,6 +711,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     PerformanceReviewService,
     OnboardingWorkflowService,
     OnboardingService,
+    OvertimeSettingsService,
     ProbationService,
     OffboardingService,
     SeparationService,

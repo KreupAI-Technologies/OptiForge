@@ -20077,3 +20077,31 @@ model ComplianceRegReport {
 
   @@map("compliance_reg_reports")
 }
+
+// --- Overtime settings (rates + rules) — /hr/overtime/settings ---
+
+model HrOvertimeRate {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  grade String
+  designation String?
+  hourly_rate Decimal @default(0)
+  multiplier Decimal @default(1)
+  effective_from DateTime? @db.Date
+  status String @default("active")
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("hr_overtime_rates")
+}
+
+model HrOvertimeSetting {
+  id String @id @default(uuid())
+  company_id String @unique @default("default-company-id")
+  ot_rules Json?
+  comp_off_rules Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("hr_overtime_settings")
+}
