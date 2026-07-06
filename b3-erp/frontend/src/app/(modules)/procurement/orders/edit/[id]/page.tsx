@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { procurementPagesService } from '@/services/procurement-pages.service';
+import { purchaseOrderService } from '@/services/purchase-order.service';
 import {
   ArrowLeft,
   Save,
@@ -96,6 +97,7 @@ interface POFormData {
 
 // Vendor record shape used by the PO form (populated from the live vendors endpoint).
 interface VendorOption {
+  id: string;
   name: string;
   gst: string;
   pan: string;
@@ -153,6 +155,7 @@ export default function EditPurchaseOrderPage() {
       .then((rows) => {
         if (cancelled) return;
         const mapped: VendorOption[] = (rows ?? []).map((r: any) => ({
+          id: r.id ?? r.vendorId ?? r.vendorCode ?? '',
           name: r.name ?? r.vendorName ?? r.legalName ?? '',
           gst: r.gst ?? r.gstNumber ?? r.gstin ?? '',
           pan: r.pan ?? r.panNumber ?? '',
@@ -439,9 +442,28 @@ export default function EditPurchaseOrderPage() {
     };
   };
 
-  const handleSave = () => {
-    console.log('Save PO:', { poNumber, ...formData });
-    router.push('/procurement/purchase-orders');
+  const handleSave = async () => {
+    const matchedVendor = indianVendors.find((v) => v.name === formData.vendorName);
+    try {
+      await purchaseOrderService.updatePurchaseOrder(poId, {
+        vendorId: matchedVendor?.id || undefined,
+        deliveryDate: formData.expectedDelivery || undefined,
+        paymentTerms: formData.paymentTerms || undefined,
+        currency: 'INR',
+        items: formData.lineItems.map((it) => ({
+          itemId: it.itemCode || it.description,
+          quantity: Number(it.quantity || 0),
+          unitPrice: Number(it.unitPrice || 0),
+          discount: Number(it.discountPercent || 0),
+          taxRate: Number(it.taxRate || 0),
+          deliveryDate: formData.expectedDelivery || new Date().toISOString().split('T')[0],
+        })),
+      });
+      alert('Purchase order updated successfully.');
+      router.push('/procurement/purchase-orders');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update purchase order');
+    }
   };
 
   const handleCancel = () => {

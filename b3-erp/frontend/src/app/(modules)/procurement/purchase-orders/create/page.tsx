@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { vendorService } from '@/services/VendorService'
+import { purchaseOrderService } from '@/services/purchase-order.service'
 import {
   ArrowLeft,
   ArrowRight,
@@ -306,11 +307,39 @@ export default function CreatePurchaseOrderPage() {
 
   const totals = calculateTotals()
 
-  const handleSaveDraft = () => {
-    console.log('Saving as draft...', { formData, vendor, items, deliveryDetails, paymentTerms })
+  const buildPODto = () => ({
+    vendorId: vendor!.id,
+    deliveryDate: deliveryDetails.deliveryDate || new Date().toISOString().split('T')[0],
+    paymentTerms: paymentTerms.paymentTerm || vendor!.paymentTerms || 'net30',
+    currency: paymentTerms.currency || vendor!.currency || 'USD',
+    notes: deliveryDetails.deliveryInstructions || undefined,
+    terms: paymentTerms.specialTerms || undefined,
+    items: items.map((it) => ({
+      itemId: it.itemCode,
+      quantity: Number(it.quantity ?? 0),
+      unitPrice: Number(it.unitPrice ?? 0),
+      discount: Number(it.discount ?? 0),
+      taxRate: Number(it.tax ?? 0),
+      deliveryDate: it.deliveryDate || deliveryDetails.deliveryDate || new Date().toISOString().split('T')[0],
+      warehouseId: it.warehouse || undefined,
+    })),
+  })
+
+  const handleSaveDraft = async () => {
+    if (!vendor || items.length === 0) {
+      alert('Select a vendor and add at least one item before saving.')
+      return
+    }
+    try {
+      await purchaseOrderService.createPurchaseOrder(buildPODto())
+      alert('Purchase order saved as draft.')
+      router.push('/procurement/purchase-orders')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save purchase order')
+    }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!vendor) {
       alert('Please select a vendor')
       return
@@ -319,8 +348,16 @@ export default function CreatePurchaseOrderPage() {
       alert('Please add at least one item')
       return
     }
-    console.log('Submitting PO...', { formData, vendor, items, deliveryDetails, paymentTerms })
-    router.push('/procurement/purchase-orders')
+    try {
+      const created = await purchaseOrderService.createPurchaseOrder(buildPODto())
+      if ((created as any)?.id) {
+        await purchaseOrderService.submitPurchaseOrder((created as any).id)
+      }
+      alert('Purchase order submitted.')
+      router.push('/procurement/purchase-orders')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit purchase order')
+    }
   }
 
   return (
