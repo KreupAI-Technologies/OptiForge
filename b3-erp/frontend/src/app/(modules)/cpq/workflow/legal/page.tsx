@@ -231,9 +231,21 @@ export default function CPQWorkflowLegalPage() {
     setIsRevisionOpen(false)
   }
 
-  const handleCommentSubmit = (comment: string) => {
-    console.log('Comment added:', selectedReview?.documentNumber, comment)
-    // TODO: API call to add comment
+  const handleCommentSubmit = async (comment: string) => {
+    if (selectedReview) {
+      const newComment: Comment = {
+        id: `CMT-${Date.now()}`,
+        author: 'Current User',
+        role: 'Legal Counsel',
+        message: comment,
+        timestamp: new Date().toLocaleString(),
+      }
+      const updatedComments = [...(selectedReview.comments || []), newComment]
+      await cpqWorkflowRequestService.update(selectedReview.id, {
+        payload: { ...(selectedReview as any).payload, comments: updatedComments },
+      })
+      await loadReviews()
+    }
     setIsCommentOpen(false)
   }
 
