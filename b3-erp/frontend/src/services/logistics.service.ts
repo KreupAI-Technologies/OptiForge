@@ -173,6 +173,17 @@ export class LogisticsService {
     return request<any[]>(`/logistics/shipments${qs ? `?${qs}` : ''}`);
   }
 
+  static async getShipmentById(id: string): Promise<any> {
+    return request<any>(`/logistics/shipments/${id}`);
+  }
+
+  static async updateShipment(id: string, data: any): Promise<any> {
+    return request<any>(`/logistics/shipments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   static async getFreightCharges(filters?: {
     status?: string;
     carrier?: string;
