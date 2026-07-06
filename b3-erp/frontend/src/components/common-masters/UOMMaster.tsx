@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Scale, ArrowLeftRight, Calculator, TrendingUp, Download, Upload, Grid, List, Package } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
 import { pickAndParseCsv } from '@/lib/import';
@@ -53,149 +53,6 @@ interface UOMConversion {
   status: 'active' | 'inactive';
 }
 
-const mockUOMs: UOM[] = [
-  {
-    id: '1',
-    uomCode: 'PCS',
-    uomName: 'Pieces',
-    uomType: 'count',
-    baseUnit: true,
-    status: 'active',
-    description: 'Individual pieces or units',
-    symbol: 'pcs',
-    precision: 0,
-    rounding: 'round',
-    conversionRules: {
-      allowFractional: false,
-      minValue: 1,
-      maxValue: 999999
-    },
-    displaySettings: {
-      showSymbol: true,
-      symbolPosition: 'after',
-      decimalPlaces: 0
-    },
-    usage: {
-      purchasing: true,
-      sales: true,
-      inventory: true,
-      manufacturing: true
-    },
-    statistics: {
-      itemCount: 245,
-      conversionCount: 8,
-      lastUsed: '2024-01-15'
-    },
-    createdAt: '2023-01-15',
-    updatedAt: '2024-01-15'
-  },
-  {
-    id: '2',
-    uomCode: 'SQFT',
-    uomName: 'Square Feet',
-    uomType: 'area',
-    baseUnit: false,
-    status: 'active',
-    description: 'Square feet measurement for area calculations',
-    symbol: 'sq ft',
-    precision: 2,
-    rounding: 'round',
-    conversionRules: {
-      allowFractional: true,
-      minValue: 0.01,
-      maxValue: 99999
-    },
-    displaySettings: {
-      showSymbol: true,
-      symbolPosition: 'after',
-      decimalPlaces: 2
-    },
-    usage: {
-      purchasing: true,
-      sales: true,
-      inventory: true,
-      manufacturing: false
-    },
-    statistics: {
-      itemCount: 89,
-      conversionCount: 12,
-      lastUsed: '2024-01-12'
-    },
-    createdAt: '2023-01-20',
-    updatedAt: '2024-01-12'
-  },
-  {
-    id: '3',
-    uomCode: 'LF',
-    uomName: 'Linear Feet',
-    uomType: 'length',
-    baseUnit: false,
-    status: 'active',
-    description: 'Linear feet for measuring length',
-    symbol: 'lf',
-    precision: 2,
-    rounding: 'round',
-    conversionRules: {
-      allowFractional: true,
-      minValue: 0.01,
-      maxValue: 9999
-    },
-    displaySettings: {
-      showSymbol: true,
-      symbolPosition: 'after',
-      decimalPlaces: 2
-    },
-    usage: {
-      purchasing: true,
-      sales: true,
-      inventory: true,
-      manufacturing: true
-    },
-    statistics: {
-      itemCount: 67,
-      conversionCount: 6,
-      lastUsed: '2024-01-10'
-    },
-    createdAt: '2023-01-25',
-    updatedAt: '2024-01-10'
-  },
-  {
-    id: '4',
-    uomCode: 'BOX',
-    uomName: 'Box',
-    uomType: 'count',
-    baseUnit: false,
-    status: 'active',
-    description: 'Packaging unit - box containing multiple pieces',
-    symbol: 'box',
-    precision: 0,
-    rounding: 'round',
-    conversionRules: {
-      allowFractional: false,
-      minValue: 1,
-      maxValue: 9999
-    },
-    displaySettings: {
-      showSymbol: true,
-      symbolPosition: 'after',
-      decimalPlaces: 0
-    },
-    usage: {
-      purchasing: true,
-      sales: false,
-      inventory: true,
-      manufacturing: false
-    },
-    statistics: {
-      itemCount: 156,
-      conversionCount: 4,
-      lastUsed: '2024-01-08'
-    },
-    createdAt: '2023-02-01',
-    updatedAt: '2024-01-08'
-  }
-];
-
 const mockConversions: UOMConversion[] = [
   {
     id: '1',
@@ -222,7 +79,9 @@ const uomTypes = ['length', 'weight', 'volume', 'area', 'count', 'time', 'other'
 const roundingOptions = ['round', 'round_up', 'round_down'];
 
 export default function UOMMaster() {
-  const [uoms, setUOMs] = useState<UOM[]>(mockUOMs);
+  const [uoms, setUOMs] = useState<UOM[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [conversions, setConversions] = useState<UOMConversion[]>(mockConversions);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -235,6 +94,65 @@ export default function UOMMaster() {
   const [viewMode, setViewMode] = useState<'list' | 'conversions'>('list');
   const [activeTab, setActiveTab] = useState('basic');
   const companyId = 'MAIN_COMPANY_ID';
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await commonMastersService.getAllUoms('default-company-id');
+        if (cancelled) return;
+        const mapped: UOM[] = (rows ?? []).map((u: any) => ({
+          id: String(u.id),
+          uomCode: u.code ?? u.uomCode ?? '',
+          uomName: u.name ?? u.uomName ?? '',
+          uomType: (u.uomType ?? u.type ?? 'other') as UOM['uomType'],
+          baseUnit: Boolean(u.baseUnit ?? u.isBaseUnit ?? false),
+          status: String(u.status ?? '').toUpperCase() === 'INACTIVE' ? 'inactive' : 'active',
+          description: u.description ?? '',
+          symbol: u.symbol ?? '',
+          precision: Number(u.precision ?? 0),
+          rounding: (u.rounding ?? 'round') as UOM['rounding'],
+          conversionRules: {
+            allowFractional: Boolean(u.allowFractional ?? false),
+            minValue: Number(u.minValue ?? 0),
+            maxValue: Number(u.maxValue ?? 0),
+          },
+          displaySettings: {
+            showSymbol: Boolean(u.showSymbol ?? true),
+            symbolPosition: (u.symbolPosition ?? 'after') as 'before' | 'after',
+            decimalPlaces: Number(u.decimalPlaces ?? u.precision ?? 0),
+          },
+          usage: {
+            purchasing: Boolean(u.usagePurchasing ?? u.usage?.purchasing ?? false),
+            sales: Boolean(u.usageSales ?? u.usage?.sales ?? false),
+            inventory: Boolean(u.usageInventory ?? u.usage?.inventory ?? false),
+            manufacturing: Boolean(u.usageManufacturing ?? u.usage?.manufacturing ?? false),
+          },
+          statistics: {
+            itemCount: Number(u.itemCount ?? 0),
+            conversionCount: Number(u.conversionCount ?? 0),
+            lastUsed: u.lastUsed ? String(u.lastUsed) : '',
+          },
+          createdAt: u.createdAt ? String(u.createdAt) : '',
+          updatedAt: u.updatedAt ? String(u.updatedAt) : '',
+        }));
+        setUOMs(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load UOMs');
+          setUOMs([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleImport = async () => {
     try {
@@ -462,6 +380,22 @@ export default function UOMMaster() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading UOMs…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && viewMode === 'list' && uoms.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No UOMs found.
+        </div>
+      )}
 
       {viewMode === 'list' ? (
         <div className="bg-white rounded-lg shadow overflow-hidden">

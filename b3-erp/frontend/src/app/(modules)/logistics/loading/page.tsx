@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { LogisticsService } from '@/services/logistics.service';
 
 interface ProjectInfo {
     id: string;
@@ -48,66 +49,6 @@ interface LoadingJob {
     }[];
 }
 
-const mockLoadingJobs: LoadingJob[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        productName: 'SS304 Kitchen Sink Panel',
-        quantity: 24,
-        packingComplete: true,
-        status: 'Dispatched',
-        loadingSupervisor: 'Suresh Kumar',
-        loadingDate: '2025-01-24',
-        dispatchBillNumber: 'DB-2025-001',
-        checklist: [
-            { id: '1', item: 'All items packed and labeled', checked: true },
-            { id: '2', item: 'Dispatch bill generated', checked: true },
-            { id: '3', item: 'Crates properly sealed', checked: true },
-            { id: '4', item: 'Fragile items marked', checked: true },
-            { id: '5', item: 'Load secured in vehicle', checked: true },
-            { id: '6', item: 'Photos taken', checked: true },
-            { id: '7', item: 'Supervisor signature', checked: true },
-        ],
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-004',
-        productName: 'Drawer Slide Assembly',
-        quantity: 30,
-        packingComplete: true,
-        status: 'Loading',
-        loadingSupervisor: 'Meena Nair',
-        loadingDate: '2025-01-25',
-        checklist: [
-            { id: '1', item: 'All items packed and labeled', checked: true },
-            { id: '2', item: 'Dispatch bill generated', checked: true },
-            { id: '3', item: 'Crates properly sealed', checked: true },
-            { id: '4', item: 'Fragile items marked', checked: false },
-            { id: '5', item: 'Load secured in vehicle', checked: false },
-            { id: '6', item: 'Photos taken', checked: false },
-            { id: '7', item: 'Supervisor signature', checked: false },
-        ],
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        productName: 'Countertop Support Bracket',
-        quantity: 40,
-        packingComplete: true,
-        status: 'Pending',
-        loadingSupervisor: 'Kiran Verma',
-        checklist: [
-            { id: '1', item: 'All items packed and labeled', checked: false },
-            { id: '2', item: 'Dispatch bill generated', checked: false },
-            { id: '3', item: 'Crates properly sealed', checked: false },
-            { id: '4', item: 'Fragile items marked', checked: false },
-            { id: '5', item: 'Load secured in vehicle', checked: false },
-            { id: '6', item: 'Photos taken', checked: false },
-            { id: '7', item: 'Supervisor signature', checked: false },
-        ],
-    },
-];
-
 export default function LoadingDispatchPage() {
     const searchParams = useSearchParams();
     const { toast } = useToast();
@@ -119,12 +60,23 @@ export default function LoadingDispatchPage() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
     // Page data state
-    const [jobs] = useState<LoadingJob[]>(mockLoadingJobs);
+    const [jobs, setJobs] = useState<LoadingJob[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
     useEffect(() => {
         loadProjects();
+        loadJobs();
     }, []);
+
+    const loadJobs = async () => {
+        try {
+            const rows = await LogisticsService.getLoadingJobs();
+            setJobs((rows || []) as LoadingJob[]);
+        } catch (error) {
+            console.error('Error loading loading jobs:', error);
+            setJobs([]);
+        }
+    };
 
     const loadProjects = async () => {
         try {

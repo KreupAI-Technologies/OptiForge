@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
+import { commonMastersService } from '@/services/common-masters.service';
 import {
   Shield,
   Save,
@@ -76,12 +77,34 @@ export default function AddWarrantyPage() {
   const [claimProcess, setClaimProcess] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Mock customer list
-  const mockCustomers = [
-    { id: 'CUST-001', name: 'Sharma Kitchens Pvt Ltd', phone: '+91-98765-43210', email: 'contact@sharmakitchens.com' },
-    { id: 'CUST-002', name: 'Prestige Developers', phone: '+91-98765-43211', email: 'info@prestigedev.com' },
-    { id: 'CUST-003', name: 'Royal Restaurant Chain', phone: '+91-98765-43212', email: 'admin@royalrest.com' },
-  ];
+  // Customer list — loaded from customer master
+  const [mockCustomers, setMockCustomers] = useState<Array<{
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+  }>>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadCustomers = async () => {
+      try {
+        const customers = await commonMastersService.getAllCustomers('default-company-id');
+        if (!cancelled) {
+          setMockCustomers((customers || []).map((c: any) => ({
+            id: c.id,
+            name: c.customerName,
+            phone: c.phone ?? '',
+            email: c.email ?? '',
+          })));
+        }
+      } catch {
+        if (!cancelled) setMockCustomers([]);
+      }
+    };
+    loadCustomers();
+    return () => { cancelled = true; };
+  }, []);
 
   const addProduct = () => {
     const newProduct: CoveredProduct = {

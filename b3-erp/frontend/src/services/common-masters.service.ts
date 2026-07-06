@@ -1216,6 +1216,18 @@ class CommonMastersService {
         return response.data || [];
     }
 
+    /** Full item list (with type, uom, prices) for item/material pickers in BOM/work-order forms. */
+    async getItemsFull(companyId?: string): Promise<Array<{
+        id: string; code: string; name: string; description?: string; itemType?: string;
+        purchasePrice?: number; sellingPrice?: number; costPrice?: number;
+        uom?: { id: string; code?: string; name?: string } | null;
+    }>> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<any[]>(`/api/v1/common-masters/items?${params.toString()}`);
+        return response.data || [];
+    }
+
     // ===========================
     // CABINET TYPE CRUD
     // ===========================

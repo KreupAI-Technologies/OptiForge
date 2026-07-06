@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Activity, CheckSquare, Calendar, Phone, Mail, Users, Clock, TrendingUp, Target, AlertCircle, CheckCircle, XCircle, BarChart3, PieChart, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { crmService } from '@/services/crm.service';
@@ -43,47 +43,12 @@ interface TeamMember {
   productivityScore: number;
 }
 
-const activityStats: ActivityStats[] = [
-  {
-    type: 'Tasks',
-    count: 342,
-    completed: 256,
-    pending: 68,
-    overdue: 18,
-    icon: CheckSquare,
-    color: 'blue',
-    href: '/crm/activities/tasks',
-  },
-  {
-    type: 'Meetings',
-    count: 127,
-    completed: 89,
-    pending: 35,
-    overdue: 3,
-    icon: Users,
-    color: 'purple',
-    href: '/crm/activities/meetings',
-  },
-  {
-    type: 'Calls',
-    count: 456,
-    completed: 398,
-    pending: 52,
-    overdue: 6,
-    icon: Phone,
-    color: 'green',
-    href: '/crm/activities/calls',
-  },
-  {
-    type: 'Emails',
-    count: 1284,
-    completed: 1203,
-    pending: 81,
-    overdue: 0,
-    icon: Mail,
-    color: 'orange',
-    href: '/crm/activities/emails',
-  },
+// Presentation config per activity type; counts are derived from live activities.
+const activityStatConfig: Array<{ type: string; key: RecentActivity['type']; icon: any; color: string; href: string }> = [
+  { type: 'Tasks', key: 'task', icon: CheckSquare, color: 'blue', href: '/crm/activities/tasks' },
+  { type: 'Meetings', key: 'meeting', icon: Users, color: 'purple', href: '/crm/activities/meetings' },
+  { type: 'Calls', key: 'call', icon: Phone, color: 'green', href: '/crm/activities/calls' },
+  { type: 'Emails', key: 'email', icon: Mail, color: 'orange', href: '/crm/activities/emails' },
 ];
 
 const mockTeamMembers: TeamMember[] = [
@@ -264,12 +229,31 @@ export default function ActivitiesPage() {
     return 'text-orange-600';
   };
 
+  const activityStats: ActivityStats[] = useMemo(
+    () =>
+      activityStatConfig.map((cfg) => {
+        const ofType = activities.filter((a) => a.type === cfg.key);
+        return {
+          type: cfg.type,
+          count: ofType.length,
+          completed: ofType.filter((a) => a.status === 'completed').length,
+          pending: ofType.filter((a) => a.status === 'pending' || a.status === 'scheduled').length,
+          overdue: ofType.filter((a) => a.status === 'overdue').length,
+          icon: cfg.icon,
+          color: cfg.color,
+          href: cfg.href,
+        };
+      }),
+    [activities]
+  );
+
+  const totalCount = activityStats.reduce((sum, stat) => sum + stat.count, 0);
   const totalStats = {
-    totalActivities: activityStats.reduce((sum, stat) => sum + stat.count, 0),
+    totalActivities: totalCount,
     totalCompleted: activityStats.reduce((sum, stat) => sum + stat.completed, 0),
     totalPending: activityStats.reduce((sum, stat) => sum + stat.pending, 0),
     totalOverdue: activityStats.reduce((sum, stat) => sum + stat.overdue, 0),
-    completionRate: (activityStats.reduce((sum, stat) => sum + stat.completed, 0) / activityStats.reduce((sum, stat) => sum + stat.count, 0)) * 100,
+    completionRate: totalCount > 0 ? (activityStats.reduce((sum, stat) => sum + stat.completed, 0) / totalCount) * 100 : 0,
   };
 
   return (

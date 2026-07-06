@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { commonMastersService } from '@/services/common-masters.service';
 import {
   ArrowLeft,
   Save,
@@ -86,27 +87,16 @@ interface BOM {
   components: BOMComponent[];
 }
 
-const mockProducts: Product[] = [
-  { code: 'PROD-CAB-001', name: 'Premium Kitchen Cabinet - Modular', description: 'High-quality modular kitchen cabinet', drawingNumber: 'DWG-CAB-001-R2', uom: 'Units', category: 'Finished Good' },
-  { code: 'PROD-TBL-001', name: 'Stainless Steel Worktable', description: 'Commercial grade worktable', drawingNumber: 'DWG-TBL-001', uom: 'Units', category: 'Finished Good' },
-  { code: 'PROD-FURN-001', name: 'Office Steel Furniture', description: 'Modular office furniture', drawingNumber: 'DWG-FURN-001', uom: 'Units', category: 'Finished Good' },
-];
-
-const mockItems = [
-  { code: 'RM-WOOD-PLY-18', name: 'BWP Plywood 18mm', description: 'Boiling Water Proof Plywood', type: 'raw_material', uom: 'Sheets', stock: 120, cost: 1800.00 },
-  { code: 'RM-WOOD-PLY-12', name: 'BWP Plywood 12mm', description: 'Thinner plywood', type: 'raw_material', uom: 'Sheets', stock: 80, cost: 1100.00 },
-  { code: 'RM-LAMINATE-001', name: 'Decorative Laminate', description: 'High-pressure laminate', type: 'raw_material', uom: 'Sheets', stock: 45, cost: 150.00 },
-  { code: 'RM-LAMINATE-002', name: 'Premium Laminate', description: 'High-gloss laminate', type: 'raw_material', uom: 'Sheets', stock: 25, cost: 200.00 },
-  { code: 'RM-ADHESIVE-WD', name: 'Wood Adhesive', description: 'Industrial grade wood glue', type: 'raw_material', uom: 'Kg', stock: 25, cost: 250.00 },
-  { code: 'RM-EDGEBAND-001', name: 'Edge Banding Tape', description: 'PVC edge banding', type: 'raw_material', uom: 'Meters', stock: 500, cost: 5.00 },
-  { code: 'COMP-HINGE-SC', name: 'Soft-Close Hinge', description: 'Hydraulic soft-close hinge', type: 'purchased_part', uom: 'Pieces', stock: 200, cost: 85.00 },
-  { code: 'COMP-HANDLE-001', name: 'Cabinet Handle', description: 'Stainless steel C-handle', type: 'purchased_part', uom: 'Piece', stock: 150, cost: 75.00 },
-  { code: 'COMP-SCREW-001', name: 'Mounting Screws', description: 'Self-tapping screws', type: 'purchased_part', uom: 'Pieces', stock: 5000, cost: 0.50 },
-  { code: 'COMP-LEG-ADJ', name: 'Adjustable Leg', description: 'Height adjustable leg', type: 'purchased_part', uom: 'Pieces', stock: 120, cost: 45.00 },
-  { code: 'SFG-DOOR-PANEL', name: 'Door Panel - Laminated', description: 'Pre-laminated door panel', type: 'semi_finished', uom: 'Unit', stock: 30, cost: 950.00 },
-  { code: 'ASSY-FRAME-001', name: 'Cabinet Frame Assembly', description: 'Main frame structure', type: 'assembly', uom: 'Unit', stock: 15, cost: 5200.00 },
-  { code: 'ASSY-DOOR-001', name: 'Cabinet Door Assembly', description: 'Soft-close door with handle', type: 'assembly', uom: 'Units', stock: 8, cost: 1250.00 },
-];
+type ItemOption = { code: string; name: string; description: string; type: string; uom: string; stock: number; cost: number };
+const mapItemType = (t?: string): string => {
+  const key = (t || '').toLowerCase();
+  if (key.includes('raw')) return 'raw_material';
+  if (key.includes('semi')) return 'semi_finished';
+  if (key.includes('assembl')) return 'assembly';
+  if (key.includes('purchas')) return 'purchased_part';
+  if (key.includes('component')) return 'component';
+  return 'raw_material';
+};
 
 const emptyBOM: BOM = {
   id: '',
@@ -155,8 +145,44 @@ export default function BOMEditPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<ItemOption[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   const bomId = params.id as string;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await commonMastersService.getItemsFull('default-company-id');
+        setItems(
+          (raw || []).map((i) => ({
+            code: i.code,
+            name: i.name,
+            description: i.description || '',
+            type: mapItemType(i.itemType),
+            uom: i.uom?.name || i.uom?.code || '',
+            stock: 0,
+            cost: i.costPrice ?? i.purchasePrice ?? 0,
+          }))
+        );
+        setProducts(
+          (raw || [])
+            .filter((i) => (i.itemType || '').toUpperCase().includes('FINISH') || (i.itemType || '').toUpperCase().includes('ASSEMBL'))
+            .map((i) => ({
+              code: i.code,
+              name: i.name,
+              description: i.description || '',
+              drawingNumber: '',
+              uom: i.uom?.name || i.uom?.code || '',
+              category: i.itemType || '',
+            }))
+        );
+      } catch {
+        setItems([]);
+        setProducts([]);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -222,7 +248,7 @@ export default function BOMEditPage() {
   };
 
   const handleProductChange = (productCode: string) => {
-    const product = mockProducts.find((p) => p.code === productCode);
+    const product = products.find((p) => p.code === productCode);
     if (product) {
       setSelectedProduct(product);
       setBom({
@@ -500,7 +526,7 @@ export default function BOMEditPage() {
                   />
                 </div>
                 <div className="max-h-48 overflow-y-auto">
-                  {mockItems
+                  {items
                     .filter(
                       (item) =>
                         item.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -794,7 +820,7 @@ export default function BOMEditPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select Product</option>
-              {mockProducts.map((product) => (
+              {products.map((product) => (
                 <option key={product.code} value={product.code}>
                   {product.code} - {product.name}
                 </option>

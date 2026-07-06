@@ -75,6 +75,78 @@ export class ShipmentService {
     return shipments.map((s) => this.mapToResponseDto(s));
   }
 
+  // Loading jobs for the logistics loading page. Aggregates shipments (+ items)
+  // into loading-job records with a derived packing checklist.
+  async getLoadingJobs(): Promise<Array<{
+    id: string;
+    woNumber: string;
+    productName: string;
+    quantity: number;
+    packingComplete: boolean;
+    status: 'Pending' | 'Loading' | 'Loaded' | 'Dispatched';
+    loadingSupervisor: string;
+    loadingDate?: string;
+    dispatchBillNumber?: string;
+    checklist: { id: string; item: string; checked: boolean }[];
+  }>> {
+    const shipments = await this.shipmentRepository.find({
+      relations: ['items'],
+      order: { createdAt: 'DESC' },
+      take: 100,
+    });
+
+    const mapStatus = (s: ShipmentStatus): 'Pending' | 'Loading' | 'Loaded' | 'Dispatched' => {
+      switch (s) {
+        case ShipmentStatus.DRAFT:
+          return 'Pending';
+        case ShipmentStatus.CONFIRMED:
+          return 'Loading';
+        case ShipmentStatus.DISPATCHED:
+        case ShipmentStatus.IN_TRANSIT:
+        case ShipmentStatus.OUT_FOR_DELIVERY:
+        case ShipmentStatus.DELIVERED:
+          return 'Dispatched';
+        default:
+          return 'Pending';
+      }
+    };
+
+    const checklistItems = [
+      'All items packed and labeled',
+      'Dispatch bill generated',
+      'Crates properly sealed',
+      'Fragile items marked',
+      'Load secured in vehicle',
+      'Photos taken',
+      'Supervisor signature',
+    ];
+
+    return shipments.map((s) => {
+      const status = mapStatus(s.status);
+      const done = status === 'Dispatched';
+      const inProgress = status === 'Loading';
+      const items = Array.isArray(s.items) ? s.items : [];
+      const firstItem = items[0];
+      const qty = items.reduce((sum, it) => sum + Number(it.shippedQuantity || it.orderedQuantity || 0), 0);
+      return {
+        id: s.id,
+        woNumber: s.referenceNumber || s.shipmentNumber || '',
+        productName: firstItem?.itemName || `${items.length} item(s)`,
+        quantity: qty,
+        packingComplete: done || inProgress,
+        status,
+        loadingSupervisor: (s as any).createdBy || 'Unassigned',
+        loadingDate: s.updatedAt ? new Date(s.updatedAt).toISOString().slice(0, 10) : undefined,
+        dispatchBillNumber: done ? s.shipmentNumber : undefined,
+        checklist: checklistItems.map((item, idx) => ({
+          id: String(idx + 1),
+          item,
+          checked: done ? true : inProgress ? idx < 3 : false,
+        })),
+      };
+    });
+  }
+
   async findOne(id: string): Promise<ShipmentResponseDto> {
     const shipment = await this.shipmentRepository.findOne({
       where: { id },

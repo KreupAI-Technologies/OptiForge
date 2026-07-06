@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { projectManagementService, Project } from '@/services/ProjectManagementService';
+import { PaymentService } from '@/services/payment.service';
 
 interface ProjectInfo {
     id: string;
@@ -52,52 +53,6 @@ interface PaymentVerification {
     notes?: string;
 }
 
-const mockVerifications: PaymentVerification[] = [
-    {
-        id: '1',
-        woNumber: 'WO-2025-001',
-        customerName: 'Hotel Paradise Ltd',
-        totalAmount: 450000,
-        paidAmount: 450000,
-        paymentStatus: 'Paid',
-        paymentMethod: 'Bank Transfer',
-        receiptNumber: 'RCP-2025-001',
-        status: 'Verified',
-        verifiedBy: 'Accounts Manager',
-        verificationDate: '2025-01-24',
-        notes: 'Full payment received. Cleared for dispatch.',
-    },
-    {
-        id: '2',
-        woNumber: 'WO-2025-003',
-        customerName: 'Springfield Academy',
-        totalAmount: 320000,
-        paidAmount: 320000,
-        paymentStatus: 'Credit Approved',
-        creditApproval: {
-            approvedBy: 'Finance Director',
-            approvalDate: '2025-01-23',
-            creditLimit: 500000,
-        },
-        status: 'Verified',
-        verifiedBy: 'Accounts Manager',
-        verificationDate: '2025-01-23',
-        notes: 'Credit approved. 30-day payment terms.',
-    },
-    {
-        id: '3',
-        woNumber: 'WO-2025-005',
-        customerName: 'City General Hospital',
-        totalAmount: 280000,
-        paidAmount: 100000,
-        paymentStatus: 'Partial',
-        paymentMethod: 'Cheque',
-        receiptNumber: 'RCP-2025-002',
-        status: 'Sales Notified',
-        notes: 'Partial payment received. Sales team notified for follow-up.',
-    },
-];
-
 export default function PaymentVerificationPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -110,12 +65,38 @@ export default function PaymentVerificationPage() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
     // Page data state
-    const [verifications] = useState<PaymentVerification[]>(mockVerifications);
+    const [verifications, setVerifications] = useState<PaymentVerification[]>([]);
     const [filterStatus, setFilterStatus] = useState<string>('all');
 
     useEffect(() => {
         loadProjects();
+        loadVerifications();
     }, []);
+
+    const loadVerifications = async () => {
+        try {
+            const rows = await PaymentService.getVerificationQueue();
+            setVerifications(
+                (rows || []).map((r) => ({
+                    id: r.id,
+                    woNumber: r.woNumber,
+                    customerName: r.customerName,
+                    totalAmount: r.totalAmount,
+                    paidAmount: r.paidAmount,
+                    paymentStatus: r.paymentStatus as PaymentVerification['paymentStatus'],
+                    paymentMethod: r.paymentMethod,
+                    receiptNumber: r.receiptNumber,
+                    status: r.status as PaymentVerification['status'],
+                    verifiedBy: r.verifiedBy,
+                    verificationDate: r.verificationDate,
+                    notes: r.notes,
+                }))
+            );
+        } catch (error) {
+            console.error('Error loading verifications:', error);
+            setVerifications([]);
+        }
+    };
 
     const loadProjects = async () => {
         try {

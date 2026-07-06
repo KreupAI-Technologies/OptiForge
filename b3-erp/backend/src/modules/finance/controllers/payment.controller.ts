@@ -85,6 +85,13 @@ export class PaymentController {
     return this.paymentService.getUnreconciled(bankAccountId);
   }
 
+  @Get('verification-queue')
+  @ApiOperation({ summary: 'Get payment verification queue' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Verification queue records' })
+  async getVerificationQueue() {
+    return this.paymentService.getVerificationQueue();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get payment by ID' })
   @ApiParam({ name: 'id', description: 'Payment ID' })

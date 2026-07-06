@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { exportToCsv } from '@/lib/export';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { EmployeeService } from '@/services/employee.service';
 import {
  Users,
  Plus,
@@ -57,19 +58,8 @@ interface Allocation {
  allocation: number;
 }
 
-const mockResources: Resource[] = [
- { id: '1', name: 'Rajesh Kumar', role: 'Project Manager', currentAllocation: 100, availability: 0, costRate: 3500, skills: ['Project Planning', 'Leadership'] },
- { id: '2', name: 'Suresh Patel', role: 'Installation Supervisor', currentAllocation: 100, availability: 0, costRate: 2200, skills: ['Installation', 'Site Management'] },
- { id: '3', name: 'Ramesh Nair', role: 'Civil Engineer', currentAllocation: 50, availability: 50, costRate: 2400, skills: ['Civil Work', 'Site Survey'] },
- { id: '4', name: 'Anjali Verma', role: 'Quality Inspector', currentAllocation: 30, availability: 70, costRate: 2300, skills: ['Quality Control', 'ISO Standards'] },
- { id: '5', name: 'Amit Patel', role: 'Electrical Engineer', currentAllocation: 80, availability: 20, costRate: 2800, skills: ['Electrical', 'Switchgear'] },
- { id: '6', name: 'Vikram Singh', role: 'Installation Supervisor', currentAllocation: 100, availability: 0, costRate: 2200, skills: ['Installation', 'Cold Room'] },
- { id: '7', name: 'Deepak Joshi', role: 'Commissioning Engineer', currentAllocation: 90, availability: 10, costRate: 2600, skills: ['Commissioning', 'Testing'] },
- { id: '8', name: 'Neha Gupta', role: 'Project Coordinator', currentAllocation: 70, availability: 30, costRate: 2000, skills: ['Coordination', 'Documentation'] },
-];
-
 export default function ResourceAllocationPage() {
- const [resources] = useState<Resource[]>(mockResources);
+ const [resources, setResources] = useState<Resource[]>([]);
  const [allocations, setAllocations] = useState<Allocation[]>([]);
  const [isLoading, setIsLoading] = useState(true);
  const [loadError, setLoadError] = useState<string | null>(null);
@@ -81,6 +71,21 @@ export default function ResourceAllocationPage() {
    setIsLoading(true);
    setLoadError(null);
    try {
+    // Load the resource picker from the real employee master.
+    const employees = await EmployeeService.getAllEmployees();
+    if (!cancelled) {
+     setResources(
+      (employees ?? []).map((e) => ({
+       id: String(e.id),
+       name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.employeeCode || 'Unnamed',
+       role: e.designation ?? '',
+       currentAllocation: 0,
+       availability: 100,
+       costRate: Number(e.salary ?? 0),
+       skills: [],
+      }))
+     );
+    }
     // Backend returns raw project-resource ORM rows
     // ({ userId, role, allocationPercentage, startDate, endDate }); map them
     // onto the page's Allocation model with defensive access.

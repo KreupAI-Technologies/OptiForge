@@ -60,6 +60,13 @@ export class ShipmentController {
     return this.shipmentService.findAll({ status, shipmentType, originCity, destinationCity });
   }
 
+  @Get('loading-jobs')
+  @ApiOperation({ summary: 'Get loading jobs (aggregated over shipments)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'List of loading jobs' })
+  async getLoadingJobs() {
+    return this.shipmentService.getLoadingJobs();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get shipment by ID' })
   @ApiParam({ name: 'id', description: 'Shipment ID' })

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Building2, Users, Phone, Mail, ChevronRight, ChevronDown, Download, Upload, Grid, List, UserCheck } from 'lucide-react';
 import { commonMastersService } from '@/services/common-masters.service';
+import { DepartmentService } from '@/services/department.service';
 import { pickAndParseCsv } from '@/lib/import';
 
 interface Department {
@@ -45,142 +46,13 @@ interface Department {
   updatedAt: string;
 }
 
-const mockDepartments: Department[] = [
-  {
-    id: '1',
-    departmentCode: 'DEPT-OPS',
-    departmentName: 'Operations',
-    level: 1,
-    departmentType: 'operational',
-    status: 'active',
-    description: 'Manages day-to-day business operations and process optimization',
-    headOfDepartment: 'John Smith',
-    costCenter: 'CC-001',
-    budgetAllocated: 1500000,
-    actualSpent: 1250000,
-    location: 'Head Office - Floor 3',
-    contact: {
-      phone: '+1-555-100-2001',
-      email: 'operations@company.com',
-      extension: '2001'
-    },
-    employeeInfo: {
-      totalEmployees: 45,
-      managers: 5,
-      staff: 35,
-      contractors: 5
-    },
-    operationalMetrics: {
-      productivity: 92,
-      efficiency: 88,
-      qualityScore: 95,
-      targetAchievement: 94
-    },
-    responsibilities: [
-      'Process optimization',
-      'Quality control',
-      'Supply chain management',
-      'Production planning'
-    ],
-    reportingStructure: {
-      collaboratesWith: ['Manufacturing', 'Quality', 'Logistics']
-    },
-    createdAt: '2023-01-01',
-    updatedAt: '2024-01-15'
-  },
-  {
-    id: '2',
-    departmentCode: 'DEPT-MFG',
-    departmentName: 'Manufacturing',
-    parentId: '1',
-    level: 2,
-    departmentType: 'production',
-    status: 'active',
-    description: 'Handles all manufacturing and production activities',
-    headOfDepartment: 'Robert Chen',
-    costCenter: 'CC-002',
-    budgetAllocated: 2500000,
-    actualSpent: 2300000,
-    location: 'Manufacturing Plant',
-    contact: {
-      phone: '+1-555-100-3001',
-      email: 'manufacturing@company.com',
-      extension: '3001'
-    },
-    employeeInfo: {
-      totalEmployees: 120,
-      managers: 10,
-      staff: 95,
-      contractors: 15
-    },
-    operationalMetrics: {
-      productivity: 85,
-      efficiency: 82,
-      qualityScore: 90,
-      targetAchievement: 88
-    },
-    responsibilities: [
-      'Production planning',
-      'Equipment maintenance',
-      'Quality assurance',
-      'Safety compliance'
-    ],
-    reportingStructure: {
-      reportsTo: 'Operations',
-      collaboratesWith: ['Quality', 'Maintenance', 'Warehouse']
-    },
-    createdAt: '2023-01-01',
-    updatedAt: '2024-01-12'
-  },
-  {
-    id: '3',
-    departmentCode: 'DEPT-HR',
-    departmentName: 'Human Resources',
-    level: 1,
-    departmentType: 'administrative',
-    status: 'active',
-    description: 'Manages employee relations, recruitment, and organizational development',
-    headOfDepartment: 'Sarah Williams',
-    costCenter: 'CC-003',
-    budgetAllocated: 500000,
-    actualSpent: 450000,
-    location: 'Head Office - Floor 2',
-    contact: {
-      phone: '+1-555-100-4001',
-      email: 'hr@company.com',
-      extension: '4001'
-    },
-    employeeInfo: {
-      totalEmployees: 12,
-      managers: 2,
-      staff: 10,
-      contractors: 0
-    },
-    operationalMetrics: {
-      productivity: 95,
-      efficiency: 92,
-      qualityScore: 96,
-      targetAchievement: 97
-    },
-    responsibilities: [
-      'Recruitment and hiring',
-      'Employee relations',
-      'Training and development',
-      'Compensation and benefits'
-    ],
-    reportingStructure: {
-      collaboratesWith: ['Finance', 'Legal', 'All Departments']
-    },
-    createdAt: '2023-01-01',
-    updatedAt: '2024-01-10'
-  }
-];
-
 const departmentTypes = ['operational', 'administrative', 'support', 'production', 'service'];
 const locations = ['Head Office - Floor 1', 'Head Office - Floor 2', 'Head Office - Floor 3', 'Manufacturing Plant', 'Warehouse', 'Branch Office'];
 
 export default function DepartmentMaster() {
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -190,6 +62,65 @@ export default function DepartmentMaster() {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['1']));
   const [activeTab, setActiveTab] = useState('basic');
   const companyId = 'MAIN_COMPANY_ID';
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await DepartmentService.getAllDepartments();
+        if (cancelled) return;
+        const mapped: Department[] = (rows ?? []).map((d: any) => ({
+          id: String(d.id),
+          departmentCode: d.code ?? d.departmentCode ?? '',
+          departmentName: d.name ?? d.departmentName ?? '',
+          parentId: d.parentDepartmentId ?? undefined,
+          level: d.parentDepartmentId ? 2 : 1,
+          departmentType: 'operational',
+          status: String(d.status ?? '').toUpperCase() === 'INACTIVE' ? 'inactive' : 'active',
+          description: d.description ?? '',
+          headOfDepartment: d.headOfDepartmentName ?? '',
+          costCenter: d.costCenter ?? '',
+          budgetAllocated: Number(d.budget ?? 0),
+          actualSpent: 0,
+          location: d.location ?? '',
+          contact: { phone: '', email: '', extension: '' },
+          employeeInfo: {
+            totalEmployees: Number(d.employeeCount ?? 0),
+            managers: 0,
+            staff: 0,
+            contractors: 0,
+          },
+          operationalMetrics: {
+            productivity: 0,
+            efficiency: 0,
+            qualityScore: 0,
+            targetAchievement: 0,
+          },
+          responsibilities: [],
+          reportingStructure: {
+            reportsTo: d.parentDepartmentName ?? undefined,
+            collaboratesWith: [],
+          },
+          createdAt: d.createdAt ? String(d.createdAt) : '',
+          updatedAt: d.updatedAt ? String(d.updatedAt) : '',
+        }));
+        setDepartments(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load departments');
+          setDepartments([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleImport = async () => {
     try {
@@ -505,6 +436,22 @@ export default function DepartmentMaster() {
           </div>
         )}
       </div>
+
+      {isLoading && (
+        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Loading departments…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
+      {!isLoading && !loadError && departments.length === 0 && (
+        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+          No departments found.
+        </div>
+      )}
 
       {viewMode === 'tree' ? (
         <div className="bg-white rounded-lg shadow overflow-hidden">

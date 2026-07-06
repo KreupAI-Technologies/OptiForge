@@ -1873,6 +1873,11 @@ class ProjectManagementService {
         }
     }
 
+    async getBudgetTrend(projectId: string): Promise<Array<{ month: string; planned: number; actual: number; forecast: number }>> {
+        const response = await apiClient.get<Array<{ month: string; planned: number; actual: number; forecast: number }>>(`/project-budgets/trend?projectId=${projectId}`);
+        return response.data || [];
+    }
+
     async createBudget(data: any): Promise<ProjectBudget> {
         const response = await apiClient.post<ProjectBudget>('/project-budgets', data);
         return response.data;

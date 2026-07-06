@@ -79,6 +79,67 @@ export class PaymentService {
     return payments.map((p) => this.mapToResponseDto(p));
   }
 
+  // Verification queue for the payment-verification page. Aggregates payments
+  // into WO/customer-oriented verification records with derived status.
+  async getVerificationQueue(): Promise<Array<{
+    id: string;
+    woNumber: string;
+    customerName: string;
+    totalAmount: number;
+    paidAmount: number;
+    paymentStatus: string;
+    paymentMethod?: string;
+    receiptNumber?: string;
+    status: string;
+    verifiedBy?: string;
+    verificationDate?: string;
+    notes?: string;
+  }>> {
+    const payments = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .orderBy('payment.paymentDate', 'DESC')
+      .take(100)
+      .getMany();
+
+    return payments.map((p) => {
+      const alloc = Array.isArray(p.invoiceAllocations) ? p.invoiceAllocations : [];
+      const totalAmount = alloc.reduce((s, a) => s + Number(a.invoiceAmount || 0), 0) || Number(p.amount) || 0;
+      const paidAmount = Number(p.amount) || 0;
+      const isFull = paidAmount >= totalAmount && totalAmount > 0;
+      const paymentStatus = totalAmount === 0
+        ? 'Pending'
+        : isFull
+          ? 'Paid'
+          : paidAmount > 0
+            ? 'Partial'
+            : 'Pending';
+      const st = p.status;
+      const verifStatus =
+        st === PaymentStatus.RECONCILED || st === PaymentStatus.PROCESSED
+          ? 'Verified'
+          : st === PaymentStatus.APPROVED
+            ? 'Verified'
+            : st === PaymentStatus.CANCELLED || st === PaymentStatus.BOUNCED
+              ? 'Rejected'
+              : 'Pending Verification';
+      const ref = alloc[0]?.invoiceNumber || p.transactionReference || '';
+      return {
+        id: p.id,
+        woNumber: p.paymentNumber || '',
+        customerName: p.partyName || '',
+        totalAmount,
+        paidAmount,
+        paymentStatus,
+        paymentMethod: p.paymentMethod ? String(p.paymentMethod) : undefined,
+        receiptNumber: ref || undefined,
+        status: verifStatus,
+        verifiedBy: p.approvedBy || undefined,
+        verificationDate: p.approvedAt ? new Date(p.approvedAt).toISOString().slice(0, 10) : undefined,
+        notes: undefined,
+      };
+    });
+  }
+
   async findOne(id: string): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepository.findOne({ where: { id } });
 

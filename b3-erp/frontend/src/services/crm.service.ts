@@ -522,6 +522,8 @@ export const crmService = {
   slas: {
     getAll: () => request<CrmSla[]>('/crm/slas'),
 
+    getPerformance: () => request<any[]>('/crm/slas/performance'),
+
     getById: (id: string) => request<CrmSla>(`/crm/slas/${id}`),
 
     create: (data: Partial<CrmSla>) =>

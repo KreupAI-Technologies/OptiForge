@@ -36,91 +36,13 @@ interface SLAPerformance {
   trend: 'improving' | 'declining' | 'stable';
 }
 
-const mockPerformance: SLAPerformance[] = [
-  {
-    policyId: '1',
-    policyName: 'Critical Issues - Enterprise',
-    period: 'Last 30 Days',
-    totalTickets: 45,
-    metFirstResponse: 42,
-    metResolution: 40,
-    breachedFirstResponse: 3,
-    breachedResolution: 5,
-    avgFirstResponseTime: 12,
-    avgResolutionTime: 3.5,
-    firstResponseCompliance: 93.3,
-    resolutionCompliance: 88.9,
-    trend: 'improving',
-  },
-  {
-    policyId: '2',
-    policyName: 'High Priority - All Customers',
-    period: 'Last 30 Days',
-    totalTickets: 128,
-    metFirstResponse: 115,
-    metResolution: 108,
-    breachedFirstResponse: 13,
-    breachedResolution: 20,
-    avgFirstResponseTime: 52,
-    avgResolutionTime: 7.2,
-    firstResponseCompliance: 89.8,
-    resolutionCompliance: 84.4,
-    trend: 'stable',
-  },
-  {
-    policyId: '3',
-    policyName: 'Technical Issues - Standard',
-    period: 'Last 30 Days',
-    totalTickets: 256,
-    metFirstResponse: 234,
-    metResolution: 218,
-    breachedFirstResponse: 22,
-    breachedResolution: 38,
-    avgFirstResponseTime: 98,
-    avgResolutionTime: 20.5,
-    firstResponseCompliance: 91.4,
-    resolutionCompliance: 85.2,
-    trend: 'improving',
-  },
-  {
-    policyId: '4',
-    policyName: 'Billing Inquiries',
-    period: 'Last 30 Days',
-    totalTickets: 89,
-    metFirstResponse: 78,
-    metResolution: 72,
-    breachedFirstResponse: 11,
-    breachedResolution: 17,
-    avgFirstResponseTime: 198,
-    avgResolutionTime: 38.4,
-    firstResponseCompliance: 87.6,
-    resolutionCompliance: 80.9,
-    trend: 'declining',
-  },
-  {
-    policyId: '5',
-    policyName: 'General Support - Low Priority',
-    period: 'Last 30 Days',
-    totalTickets: 342,
-    metFirstResponse: 318,
-    metResolution: 305,
-    breachedFirstResponse: 24,
-    breachedResolution: 37,
-    avgFirstResponseTime: 420,
-    avgResolutionTime: 58.2,
-    firstResponseCompliance: 93.0,
-    resolutionCompliance: 89.2,
-    trend: 'stable',
-  },
-];
-
 export default function SLAManagementPage() {
   const router = useRouter();
   const [policies, setPolicies] = useState<SLAPolicy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Performance metrics have no matching backend endpoint yet; kept as static sample.
-  const [performance] = useState<SLAPerformance[]>(mockPerformance);
+  // Performance metrics aggregated from support tickets per SLA policy.
+  const [performance, setPerformance] = useState<SLAPerformance[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +69,13 @@ export default function SLAManagementPage() {
           lastUpdated: s.updatedAt ?? s.lastUpdated ?? '',
         }));
         if (!cancelled) setPolicies(mapped);
+
+        try {
+          const perf = (await crmService.slas.getPerformance()) as any[];
+          if (!cancelled) setPerformance((perf || []) as SLAPerformance[]);
+        } catch {
+          if (!cancelled) setPerformance([]);
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : 'Failed to load SLA policies');
@@ -183,12 +112,12 @@ export default function SLAManagementPage() {
 
   const overallStats = {
     totalPolicies: policies.filter(p => p.isActive).length,
-    avgFirstResponseCompliance: Math.round(
-      performance.reduce((sum, p) => sum + p.firstResponseCompliance, 0) / performance.length
-    ),
-    avgResolutionCompliance: Math.round(
-      performance.reduce((sum, p) => sum + p.resolutionCompliance, 0) / performance.length
-    ),
+    avgFirstResponseCompliance: performance.length
+      ? Math.round(performance.reduce((sum, p) => sum + p.firstResponseCompliance, 0) / performance.length)
+      : 0,
+    avgResolutionCompliance: performance.length
+      ? Math.round(performance.reduce((sum, p) => sum + p.resolutionCompliance, 0) / performance.length)
+      : 0,
     totalTickets: performance.reduce((sum, p) => sum + p.totalTickets, 0),
     totalBreaches: performance.reduce((sum, p) => sum + p.breachedFirstResponse + p.breachedResolution, 0),
   };
