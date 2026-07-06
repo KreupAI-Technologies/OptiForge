@@ -292,23 +292,44 @@ export default function AddPayablePage() {
 
   const handleSubmit = async (e: React.FormEvent, draft: boolean = false) => {
     e.preventDefault();
+
+    if (!formData.vendorId) {
+      alert('Please select a vendor');
+      return;
+    }
+
     setIsSubmitting(true);
     setSaveAsDraft(draft);
 
     // Generate bill number if empty
-    if (!formData.billNumber) {
-      setFormData({
-        ...formData,
-        billNumber: generateBillNumber(),
+    const billNumber = formData.billNumber || generateBillNumber();
+
+    const payload = {
+      ...formData,
+      billNumber,
+      status: draft ? 'draft' : 'submitted',
+      companyId: 'default-company-id',
+    };
+
+    try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+      const res = await fetch(`${apiBase}/finance/payables`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-company-id': 'default-company-id',
+        },
+        body: JSON.stringify(payload),
       });
+      if (!res.ok) {
+        throw new Error(`API Error: ${res.statusText}`);
+      }
+      router.push('/finance/payables');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save payable');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    console.log('New Payable:', { ...formData, status: draft ? 'draft' : 'submitted' });
-    alert(draft ? 'Payable saved as draft!' : 'Payable created successfully!');
-    router.push('/finance/payables');
   };
 
   const formatCurrency = (amount: number) => {

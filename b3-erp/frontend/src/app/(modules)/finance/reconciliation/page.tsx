@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { FinanceService } from '@/services/finance.service';
 
 interface Transaction {
     id: string;
@@ -35,26 +36,41 @@ export default function BankReconciliationPage() {
 
     const fetchAccounts = async () => {
         try {
-            const response = await fetch('/api/accounts/banks');
-            const data = await response.json();
-            if (data.success) {
-                setAccounts(data.data);
-            }
+            // Bank/reconcilable accounts come from the chart of accounts.
+            const raw = (await FinanceService.getChartOfAccounts()) as any[];
+            const bankAccounts = (raw || [])
+                .filter((a) => a?.isBankAccount || a?.isReconcilable)
+                .map((a) => ({
+                    id: String(a.id),
+                    accountName: a.name ?? '',
+                    accountNumber: a.code ?? '',
+                    bankName: a.bankName ?? a.name ?? '',
+                }));
+            setAccounts(bankAccounts);
         } catch (error) {
             console.error('Failed to fetch accounts:', error);
+            setAccounts([]);
         }
     };
 
     const fetchUnreconciledTransactions = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/accounts/reconciliation/unreconciled/${selectedAccount}`);
-            const data = await response.json();
-            if (data.success) {
-                setTransactions(data.data);
-            }
+            const raw = (await FinanceService.getAccountTransactions(selectedAccount)) as any;
+            const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? raw?.transactions ?? []);
+            const mapped: Transaction[] = rows.map((t) => ({
+                id: String(t.id),
+                transactionDate: t.transactionDate ?? t.date ?? '',
+                description: t.description ?? t.narration ?? '',
+                debit: Number(t.debitAmount ?? t.debit ?? 0),
+                credit: Number(t.creditAmount ?? t.credit ?? 0),
+                balance: Number(t.balance ?? 0),
+                reconciled: Boolean(t.isMatched ?? t.reconciled ?? false),
+            }));
+            setTransactions(mapped);
         } catch (error) {
             console.error('Failed to fetch transactions:', error);
+            setTransactions([]);
         } finally {
             setLoading(false);
         }
@@ -63,14 +79,10 @@ export default function BankReconciliationPage() {
     const handleAutoMatch = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/accounts/reconciliation/auto-match/${selectedAccount}`, {
-                method: 'POST',
-            });
-            const data = await response.json();
-            if (data.success) {
-                alert(`Auto-matched ${data.data.matched} transactions`);
-                fetchUnreconciledTransactions();
-            }
+            const result: any = await FinanceService.runAutoMatch(selectedAccount);
+            const matched = result?.matched ?? result?.data?.matched ?? 0;
+            alert(`Auto-matched ${matched} transactions`);
+            fetchUnreconciledTransactions();
         } catch (error) {
             console.error('Auto-match failed:', error);
         } finally {

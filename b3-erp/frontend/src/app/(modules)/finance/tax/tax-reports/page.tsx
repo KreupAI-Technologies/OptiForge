@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   FileText,
   Download,
@@ -15,6 +15,7 @@ import {
   BarChart3,
   TrendingUp
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface TaxReturn {
   id: string
@@ -41,73 +42,61 @@ interface TaxSummary {
 }
 
 export default function TaxReportsPage() {
-  const [taxReturns] = useState<TaxReturn[]>([
-    {
-      id: 'RET-001',
-      returnType: 'GSTR-1',
-      period: 'September 2025',
-      dueDate: '2025-10-11',
-      filingDate: '2025-10-10',
-      status: 'acknowledged',
-      taxAmount: 1850000,
-      interestPaid: 0,
-      lateFee: 0,
-      arn: 'AA2510100012345',
-      filedBy: 'Tax Manager'
-    },
-    {
-      id: 'RET-002',
-      returnType: 'GSTR-3B',
-      period: 'September 2025',
-      dueDate: '2025-10-20',
-      filingDate: '2025-10-18',
-      status: 'acknowledged',
-      taxAmount: 1750000,
-      interestPaid: 0,
-      lateFee: 0,
-      arn: 'AB2510180023456',
-      filedBy: 'Tax Manager'
-    },
-    {
-      id: 'RET-003',
-      returnType: '24Q',
-      period: 'Q2 FY 2025-26',
-      dueDate: '2025-10-31',
-      filingDate: null,
-      status: 'in_progress',
-      taxAmount: 850000,
-      interestPaid: 0,
-      lateFee: 0,
-      arn: null,
-      filedBy: null
-    },
-    {
-      id: 'RET-004',
-      returnType: 'GSTR-1',
-      period: 'October 2025',
-      dueDate: '2025-11-11',
-      filingDate: null,
-      status: 'not_started',
-      taxAmount: 1950000,
-      interestPaid: 0,
-      lateFee: 0,
-      arn: null,
-      filedBy: null
-    },
-    {
-      id: 'RET-005',
-      returnType: '26Q',
-      period: 'Q2 FY 2025-26',
-      dueDate: '2025-10-31',
-      filingDate: null,
-      status: 'not_started',
-      taxAmount: 320000,
-      interestPaid: 0,
-      lateFee: 0,
-      arn: null,
-      filedBy: null
+  const [taxReturns, setTaxReturns] = useState<TaxReturn[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await FinanceService.getTaxMasters()) as any[]
+        if (cancelled) return
+        const validTypes = ['GSTR-1', 'GSTR-3B', '24Q', '26Q', '27Q', '27EQ', 'Income Tax']
+        const validStatuses = ['not_started', 'in_progress', 'filed', 'acknowledged', 'overdue']
+        const deriveReturnType = (m: any): TaxReturn['returnType'] => {
+          const explicit = String(m.returnType ?? '').trim()
+          if (validTypes.includes(explicit)) return explicit as TaxReturn['returnType']
+          const t = String(m.taxType ?? m.taxCategory ?? '').toUpperCase()
+          if (t.includes('GST')) return 'GSTR-1'
+          if (t.includes('TDS')) return '24Q'
+          return 'Income Tax'
+        }
+        const mapped: TaxReturn[] = (raw || []).map((m: any, i: number) => {
+          const rawStatus = String(m.filingStatus ?? m.status ?? (m.isActive === false ? 'not_started' : 'not_started'))
+            .toLowerCase()
+            .replace(/[\s-]+/g, '_')
+          const status = (validStatuses.includes(rawStatus) ? rawStatus : 'not_started') as TaxReturn['status']
+          return {
+            id: String(m.id ?? `RET-${i}`),
+            returnType: deriveReturnType(m),
+            period: String(m.period ?? m.taxName ?? m.name ?? m.taxCode ?? '-'),
+            dueDate: String(m.dueDate ?? m.effectiveDate ?? '-'),
+            filingDate: m.filingDate ?? null,
+            status,
+            taxAmount: Number(m.taxAmount ?? m.rate ?? m.taxRate ?? 0),
+            interestPaid: Number(m.interestPaid ?? 0),
+            lateFee: Number(m.lateFee ?? 0),
+            arn: m.arn ?? null,
+            filedBy: m.filedBy ?? null,
+          }
+        })
+        setTaxReturns(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setTaxReturns([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const [taxSummary] = useState<TaxSummary>({
     period: 'FY 2025-26 (Apr-Sep)',
@@ -190,6 +179,18 @@ export default function TaxReportsPage() {
             Download Reports
           </button>
         </div>
+
+        {isLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            Loading tax configurations…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

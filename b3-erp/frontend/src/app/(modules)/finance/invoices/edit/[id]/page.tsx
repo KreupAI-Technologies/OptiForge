@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { MasterDataService, MDCustomer, mdLabel, fetchRecordById } from '@/services/master-data.service';
+import { MasterDataService, MDCustomer, mdLabel } from '@/services/master-data.service';
+import { FinanceService } from '@/services/finance.service';
+import { InvoiceService } from '@/services/invoice.service';
 import {
   ArrowLeft,
   Save,
@@ -82,7 +84,7 @@ const paymentTermsOptions = ['Net 15', 'Net 30', 'Net 45', 'Net 60', 'Due on Rec
 export default function EditInvoicePage() {
   const router = useRouter();
   const params = useParams();
-  const invoiceId = params.id as string;
+  const invoiceId = String(params?.id ?? '');
 
   // Live customer picker — initialized from seed so UI renders immediately
   const [customers, setCustomers] = useState<MDCustomer[]>(indianCompaniesSeed);
@@ -147,26 +149,47 @@ export default function EditInvoicePage() {
   // Fetch the real invoice record and prefill form if found
   useEffect(() => {
     if (!invoiceId) return;
-    fetchRecordById<Partial<InvoiceFormData>>('/finance/invoices', invoiceId).then(record => {
-      if (!record) return;
-      setFormData(prev => ({
-        ...prev,
-        invoiceNumber: record.invoiceNumber ?? prev.invoiceNumber,
-        customer: record.customer ?? prev.customer,
-        customerGST: record.customerGST ?? prev.customerGST,
-        invoiceDate: record.invoiceDate ?? prev.invoiceDate,
-        dueDate: record.dueDate ?? prev.dueDate,
-        poReference: record.poReference ?? prev.poReference,
-        paymentTerms: record.paymentTerms ?? prev.paymentTerms,
-        billingAddress: record.billingAddress ?? prev.billingAddress,
-        shippingAddress: record.shippingAddress ?? prev.shippingAddress,
-        lineItems: record.lineItems ?? prev.lineItems,
-        discountType: record.discountType ?? prev.discountType,
-        discountValue: record.discountValue ?? prev.discountValue,
-        notes: record.notes ?? prev.notes,
-        termsConditions: record.termsConditions ?? prev.termsConditions,
-      }));
-    });
+    let cancelled = false;
+    FinanceService.getInvoice(invoiceId)
+      .then((raw: any) => {
+        if (cancelled || !raw) return;
+        const record: any = raw;
+        const mappedLineItems = Array.isArray(record.lineItems)
+          ? record.lineItems.map((li: any, idx: number) => ({
+              id: String(li.id ?? idx + 1),
+              item: String(li.item ?? li.productName ?? ''),
+              description: String(li.description ?? ''),
+              hsn: String(li.hsn ?? ''),
+              quantity: String(li.quantity ?? '1'),
+              unitPrice: String(li.unitPrice ?? '0'),
+              taxRate: String(li.taxRate ?? '18'),
+              taxType: (li.taxType === 'IGST' ? 'IGST' : 'CGST+SGST') as 'CGST+SGST' | 'IGST',
+            }))
+          : undefined;
+        setFormData(prev => ({
+          ...prev,
+          invoiceNumber: record.invoiceNumber ?? prev.invoiceNumber,
+          customer: record.customer ?? record.customerName ?? prev.customer,
+          customerGST: record.customerGST ?? prev.customerGST,
+          invoiceDate: record.invoiceDate ?? prev.invoiceDate,
+          dueDate: record.dueDate ?? prev.dueDate,
+          poReference: record.poReference ?? record.poNumber ?? prev.poReference,
+          paymentTerms: record.paymentTerms ?? prev.paymentTerms,
+          billingAddress: record.billingAddress ?? prev.billingAddress,
+          shippingAddress: record.shippingAddress ?? prev.shippingAddress,
+          lineItems: mappedLineItems ?? prev.lineItems,
+          discountType: record.discountType ?? prev.discountType,
+          discountValue: record.discountValue != null ? String(record.discountValue) : prev.discountValue,
+          notes: record.notes ?? prev.notes,
+          termsConditions: record.termsConditions ?? record.terms ?? prev.termsConditions,
+        }));
+      })
+      .catch(() => {
+        /* keep existing form defaults on load failure */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [invoiceId]);
 
   const [companyState, setCompanyState] = useState('West Bengal'); // Our company state
@@ -266,10 +289,19 @@ export default function EditInvoicePage() {
     };
   };
 
-  const handleSubmit = () => {
-    console.log('Updated Invoice Data:', formData);
-    console.log('Totals:', calculateTotals());
-    router.push('/finance/invoices');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!invoiceId) return;
+    setIsSubmitting(true);
+    try {
+      await InvoiceService.updateInvoice(invoiceId, formData as any);
+      router.push(`/finance/invoices/view/${invoiceId}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update invoice');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const totals = calculateTotals();
@@ -759,7 +791,8 @@ export default function EditInvoicePage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isSubmitting}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             <Save className="h-5 w-5" />
             <span>Save Changes</span>

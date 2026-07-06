@@ -1,37 +1,86 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { FinanceService } from '@/services/finance.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, Printer, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Printer, FileText, AlertCircle } from 'lucide-react';
 
 export default function JournalEntryDetailPage() {
     const params = useParams();
     const router = useRouter();
     const journalId = params.id as string;
 
-    // Mock journal entry data
+    const [record, setRecord] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!journalId) {
+            setIsLoading(false);
+            return;
+        }
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const data = await FinanceService.getJournalEntry(journalId);
+                if (!cancelled) setRecord(data);
+            } catch (err: any) {
+                if (!cancelled) setLoadError(err?.message || 'Failed to load journal entry');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [journalId]);
+
+    const r: any = record ?? {};
     const journal = {
-        id: journalId,
-        number: journalId,
-        date: '2025-01-22',
-        reference: 'REF-2025-001',
-        description: 'Monthly Depreciation Entry - January 2025',
-        type: 'General Journal',
-        status: 'Posted',
-        postedBy: 'Finance Manager',
-        postedDate: '2025-01-22',
-        lines: [
-            { account: '6000 - Depreciation Expense', description: 'Depreciation for Machinery', debit: 15000, credit: 0 },
-            { account: '1500 - Accumulated Depreciation', description: 'Depreciation for Machinery', debit: 0, credit: 15000 },
-        ],
-        total: 15000,
+        id: r.id ?? journalId,
+        number: r.number ?? r.entryNumber ?? journalId,
+        date: r.date ?? r.entryDate ?? '',
+        reference: r.reference ?? r.referenceNumber ?? '',
+        description: r.description ?? '',
+        type: r.type ?? r.entryType ?? 'General Journal',
+        status: r.status ?? 'Draft',
+        postedBy: r.postedBy ?? '',
+        postedDate: r.postedDate ?? '',
+        lines: Array.isArray(r.lines)
+            ? r.lines.map((l: any) => ({
+                  account: l.account ?? l.accountName ?? '',
+                  description: l.description ?? '',
+                  debit: Number(l.debit ?? l.debitAmount ?? 0),
+                  credit: Number(l.credit ?? l.creditAmount ?? 0),
+              }))
+            : [],
+        total: Number(
+            r.total ??
+                r.totalDebit ??
+                (Array.isArray(r.lines)
+                    ? r.lines.reduce((s: number, l: any) => s + Number(l.debit ?? l.debitAmount ?? 0), 0)
+                    : 0),
+        ),
     };
 
     return (
         <div className="w-full p-3">
+            {isLoading && (
+                <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+                    Loading…
+                </div>
+            )}
+            {loadError && !isLoading && (
+                <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {loadError}
+                </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
                 <div>
@@ -89,7 +138,7 @@ export default function JournalEntryDetailPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {journal.lines.map((line, idx) => (
+                                    {journal.lines.map((line: any, idx: number) => (
                                         <tr key={idx}>
                                             <td className="px-4 py-3 text-sm font-medium">{line.account}</td>
                                             <td className="px-4 py-3 text-sm text-gray-600">{line.description}</td>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Briefcase,
   DollarSign,
@@ -18,6 +18,7 @@ import {
   Eye,
   Edit
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface JobCost {
   id: string
@@ -54,128 +55,69 @@ export default function JobCostingPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const [jobs] = useState<JobCost[]>([
-    {
-      id: 'JOB-001',
-      jobNumber: 'J-2025-001',
-      jobName: 'Custom Hydraulic Press System',
-      customer: 'ABC Manufacturing Ltd',
-      startDate: '2025-09-01',
-      endDate: '2025-11-30',
-      status: 'in_progress',
-      estimatedCost: {
-        material: 2500000,
-        labor: 800000,
-        overhead: 500000,
-        total: 3800000
-      },
-      actualCost: {
-        material: 2650000,
-        labor: 750000,
-        overhead: 480000,
-        total: 3880000
-      },
-      variance: {
-        material: 150000,
-        labor: -50000,
-        overhead: -20000,
-        total: 80000
-      },
-      completionPercentage: 75,
-      billingAmount: 5500000,
-      profitMargin: 29.45
-    },
-    {
-      id: 'JOB-002',
-      jobNumber: 'J-2025-002',
-      jobName: 'CNC Machine Installation & Setup',
-      customer: 'XYZ Industries',
-      startDate: '2025-08-15',
-      endDate: '2025-10-15',
-      status: 'completed',
-      estimatedCost: {
-        material: 1800000,
-        labor: 600000,
-        overhead: 400000,
-        total: 2800000
-      },
-      actualCost: {
-        material: 1750000,
-        labor: 620000,
-        overhead: 390000,
-        total: 2760000
-      },
-      variance: {
-        material: -50000,
-        labor: 20000,
-        overhead: -10000,
-        total: -40000
-      },
-      completionPercentage: 100,
-      billingAmount: 3800000,
-      profitMargin: 27.37
-    },
-    {
-      id: 'JOB-003',
-      jobNumber: 'J-2025-003',
-      jobName: 'Automation Line - Phase 1',
-      customer: 'Global Tech Solutions',
-      startDate: '2025-10-01',
-      endDate: '2026-03-31',
-      status: 'in_progress',
-      estimatedCost: {
-        material: 5000000,
-        labor: 1500000,
-        overhead: 1000000,
-        total: 7500000
-      },
-      actualCost: {
-        material: 2800000,
-        labor: 750000,
-        overhead: 520000,
-        total: 4070000
-      },
-      variance: {
-        material: -2200000,
-        labor: -750000,
-        overhead: -480000,
-        total: -3430000
-      },
-      completionPercentage: 45,
-      billingAmount: 12000000,
-      profitMargin: 37.5
-    },
-    {
-      id: 'JOB-004',
-      jobNumber: 'J-2025-004',
-      jobName: 'Control Panel Assembly',
-      customer: 'Premium Enterprises',
-      startDate: '2025-09-20',
-      endDate: '2025-11-20',
-      status: 'in_progress',
-      estimatedCost: {
-        material: 1200000,
-        labor: 400000,
-        overhead: 250000,
-        total: 1850000
-      },
-      actualCost: {
-        material: 1350000,
-        labor: 420000,
-        overhead: 260000,
-        total: 2030000
-      },
-      variance: {
-        material: 150000,
-        labor: 20000,
-        overhead: 10000,
-        total: 180000
-      },
-      completionPercentage: 60,
-      billingAmount: 2500000,
-      profitMargin: 18.8
+  const [jobs, setJobs] = useState<JobCost[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await FinanceService.getJobCostSheets()) as any[]
+        if (cancelled) return
+        const validStatuses = ['not_started', 'in_progress', 'completed', 'on_hold']
+        const mapped: JobCost[] = (raw || []).map((j: any, i: number) => {
+          const estMaterial = Number(j.estimatedMaterialCost ?? j.estimatedCost?.material ?? 0)
+          const estLabor = Number(j.estimatedLaborCost ?? j.estimatedCost?.labor ?? 0)
+          const estOverhead = Number(j.estimatedOverheadCost ?? j.estimatedCost?.overhead ?? 0)
+          const estTotal = Number(j.estimatedTotalCost ?? j.estimatedCost?.total ?? (estMaterial + estLabor + estOverhead))
+          const actMaterial = Number(j.actualMaterialCost ?? j.actualCost?.material ?? 0)
+          const actLabor = Number(j.actualLaborCost ?? j.actualCost?.labor ?? 0)
+          const actOverhead = Number(j.actualOverheadCost ?? j.actualCost?.overhead ?? 0)
+          const actTotal = Number(j.actualTotalCost ?? j.actualCost?.total ?? (actMaterial + actLabor + actOverhead))
+          const billingAmount = Number(j.billingAmount ?? j.contractValue ?? j.sellingPrice ?? 0)
+          const rawStatus = String(j.status ?? 'not_started').toLowerCase().replace(/[\s-]+/g, '_')
+          const status = (validStatuses.includes(rawStatus) ? rawStatus : 'in_progress') as JobCost['status']
+          const profitMargin = Number(
+            j.profitMargin ?? (billingAmount > 0 ? ((billingAmount - actTotal) / billingAmount) * 100 : 0)
+          )
+          return {
+            id: String(j.id ?? `JOB-${i}`),
+            jobNumber: String(j.jobNumber ?? j.sheetNumber ?? j.code ?? j.id ?? `J-${i}`),
+            jobName: String(j.jobName ?? j.name ?? j.title ?? j.projectName ?? 'Job'),
+            customer: String(j.customer ?? j.customerName ?? j.clientName ?? '-'),
+            startDate: String(j.startDate ?? j.createdAt ?? ''),
+            endDate: String(j.endDate ?? j.targetDate ?? j.dueDate ?? ''),
+            status,
+            estimatedCost: { material: estMaterial, labor: estLabor, overhead: estOverhead, total: estTotal },
+            actualCost: { material: actMaterial, labor: actLabor, overhead: actOverhead, total: actTotal },
+            variance: {
+              material: actMaterial - estMaterial,
+              labor: actLabor - estLabor,
+              overhead: actOverhead - estOverhead,
+              total: actTotal - estTotal,
+            },
+            completionPercentage: Number(j.completionPercentage ?? j.progress ?? 0),
+            billingAmount,
+            profitMargin,
+          }
+        })
+        setJobs(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setJobs([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch =
@@ -229,6 +171,18 @@ export default function JobCostingPage() {
             Export Report
           </button>
         </div>
+
+        {isLoading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            Loading job cost sheets…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

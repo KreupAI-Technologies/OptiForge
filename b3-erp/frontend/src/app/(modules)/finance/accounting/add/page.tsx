@@ -385,9 +385,8 @@ export default function AddJournalEntryPage() {
       setSaving(true);
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Saving entry:', {
+    try {
+      await FinanceService.createJournalEntry({
         entryDate,
         entryType,
         description,
@@ -396,12 +395,15 @@ export default function AddJournalEntryPage() {
         notes,
         journalLines,
         status: isDraft ? 'Draft' : 'Posted',
+        companyId: 'default-company-id',
       });
+      router.push('/finance/accounting');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save entry');
+    } finally {
       setSaving(false);
       setSavingAsDraft(false);
-      alert(`Entry ${isDraft ? 'saved as draft' : 'posted'} successfully!`);
-      router.push('/finance/accounting');
-    }, 1500);
+    }
   };
 
   const handleCancel = () => {

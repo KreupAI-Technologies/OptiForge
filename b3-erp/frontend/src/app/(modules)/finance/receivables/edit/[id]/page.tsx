@@ -193,13 +193,14 @@ export default function EditReceivablePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    console.log('Updated Receivable:', formData);
-    alert('Receivable updated successfully!');
-    router.push(`/finance/receivables/view/${receivableId}`);
+    try {
+      await FinanceService.updateReceivable(receivableId, formData);
+      router.push(`/finance/receivables/view/${receivableId}`);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Failed to update receivable');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {

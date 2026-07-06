@@ -11,6 +11,7 @@ import {
   PlusIcon, PencilIcon, EyeIcon, ArrowUpIcon, ArrowDownIcon,
   CheckCircleIcon, ClockIcon, XCircleIcon, Info
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface Budget {
   id: string;
@@ -87,96 +88,57 @@ const BudgetManagement: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('2024');
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [showScenarioModal, setShowScenarioModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
 
-  // Mock data
-  const [budgets] = useState<Budget[]>([
-    {
-      id: '1',
-      name: 'Annual Budget 2024',
-      period: 'FY2024',
-      startDate: '2024-01-01',
-      endDate: '2024-12-31',
-      status: 'active',
-      totalBudget: 12500000,
-      totalActual: 3200000,
-      totalVariance: -150000,
-      variancePercent: -4.5,
-      departments: [
-        {
-          id: '1',
-          name: 'Operations',
-          budgetAmount: 5000000,
-          actualAmount: 1300000,
-          variance: -75000,
-          variancePercent: -5.5,
-          categories: []
-        },
-        {
-          id: '2',
-          name: 'Sales & Marketing',
-          budgetAmount: 3000000,
-          actualAmount: 800000,
-          variance: -50000,
-          variancePercent: -5.9,
-          categories: []
-        },
-        {
-          id: '3',
-          name: 'R&D',
-          budgetAmount: 2500000,
-          actualAmount: 650000,
-          variance: 25000,
-          variancePercent: 4.0,
-          categories: []
-        },
-        {
-          id: '4',
-          name: 'Administration',
-          budgetAmount: 2000000,
-          actualAmount: 450000,
-          variance: -50000,
-          variancePercent: -10.0,
-          categories: []
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getBudgets()) as any[];
+        const mapped: Budget[] = (raw || []).map((row) => {
+          const totalBudget = Number(row.totalBudget ?? row.budgetAmount ?? row.totalAmount ?? 0);
+          const totalActual = Number(row.totalActual ?? row.actualAmount ?? row.actual ?? 0);
+          const totalVariance = Number(row.totalVariance ?? row.variance ?? (totalActual - totalBudget));
+          const variancePercent = Number(
+            row.variancePercent ?? (totalBudget ? (totalVariance / totalBudget) * 100 : 0),
+          );
+          return {
+            id: String(row.id ?? ''),
+            name: row.name ?? row.budgetName ?? '',
+            period: row.period ?? row.fiscalYear ?? '',
+            startDate: row.startDate ?? '',
+            endDate: row.endDate ?? '',
+            status: (row.status ?? 'draft') as Budget['status'],
+            totalBudget,
+            totalActual,
+            totalVariance,
+            variancePercent,
+            departments: Array.isArray(row.departments) ? row.departments : [],
+            categories: Array.isArray(row.categories) ? row.categories : [],
+            version: Number(row.version ?? 1),
+            createdBy: row.createdBy ?? '',
+            createdDate: row.createdDate ?? row.createdAt ?? '',
+            lastModified: row.lastModified ?? row.updatedAt ?? '',
+          };
+        });
+        if (!cancelled) setBudgets(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+          setBudgets([]);
         }
-      ],
-      categories: [
-        {
-          id: '1',
-          name: 'Revenue',
-          type: 'revenue',
-          budgetAmount: 15000000,
-          actualAmount: 3800000,
-          variance: -200000,
-          variancePercent: -5.0,
-          trend: 'down'
-        },
-        {
-          id: '2',
-          name: 'Operating Expenses',
-          type: 'expense',
-          budgetAmount: 8500000,
-          actualAmount: 2200000,
-          variance: 100000,
-          variancePercent: 4.8,
-          trend: 'up'
-        },
-        {
-          id: '3',
-          name: 'Capital Expenditure',
-          type: 'capex',
-          budgetAmount: 2000000,
-          actualAmount: 450000,
-          variance: -50000,
-          variancePercent: -10.0,
-          trend: 'stable'
-        }
-      ],
-      version: 2,
-      createdBy: 'Finance Team',
-      createdDate: '2023-12-01T09:00:00Z',
-      lastModified: '2024-01-15T14:30:00Z'
-    }
-  ]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock monthly data
   const monthlyBudgetData = [

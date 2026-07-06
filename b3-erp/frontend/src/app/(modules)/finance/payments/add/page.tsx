@@ -457,21 +457,18 @@ export default function PaymentAddPage() {
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
       const paymentData = {
         ...formData,
         paymentAmount: totalAllocated,
         invoices: outstandingInvoices.filter((inv) => inv.selected),
+        companyId: 'default-company-id',
       };
 
-      console.log('Payment recorded:', paymentData);
-      console.log('Attachments:', attachments);
+      await FinanceService.createPayment(paymentData);
 
       router.push('/finance/payments');
     } catch (error) {
-      console.error('Error recording payment:', error);
+      alert(error instanceof Error ? error.message : 'Failed to record payment');
     } finally {
       setLoading(false);
     }

@@ -12,6 +12,7 @@ import {
   FileDown, FileUp, Banknote,
   BarChart3, SlidersHorizontal, Info
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface ChartOfAccount {
   id: string;
@@ -113,175 +114,59 @@ const GeneralLedger: React.FC = () => {
   const [dateRange, setDateRange] = useState({ start: '2024-01-01', end: '2024-12-31' });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [chartOfAccounts, setChartOfAccounts] = useState<ChartOfAccount[]>([]);
 
-  // Mock Chart of Accounts
-  const [chartOfAccounts] = useState<ChartOfAccount[]>([
-    {
-      id: '1000',
-      accountNumber: '1000',
-      accountName: 'Cash and Cash Equivalents',
-      accountType: 'asset',
-      category: 'Current Assets',
-      level: 1,
-      isActive: true,
-      normalBalance: 'debit',
-      currentBalance: 500000,
-      description: 'Cash in bank and short-term investments',
-      tags: ['current', 'liquid'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '1100',
-      accountNumber: '1100',
-      accountName: 'Accounts Receivable',
-      accountType: 'asset',
-      category: 'Current Assets',
-      level: 1,
-      isActive: true,
-      normalBalance: 'debit',
-      currentBalance: 350000,
-      description: 'Customer accounts receivable',
-      tags: ['current', 'receivables'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '1200',
-      accountNumber: '1200',
-      accountName: 'Inventory',
-      accountType: 'asset',
-      category: 'Current Assets',
-      level: 1,
-      isActive: true,
-      normalBalance: 'debit',
-      currentBalance: 750000,
-      description: 'Raw materials and finished goods',
-      tags: ['current', 'inventory'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '1500',
-      accountNumber: '1500',
-      accountName: 'Property, Plant & Equipment',
-      accountType: 'asset',
-      category: 'Non-Current Assets',
-      level: 1,
-      isActive: true,
-      normalBalance: 'debit',
-      currentBalance: 2500000,
-      description: 'Buildings, machinery, and equipment',
-      tags: ['fixed', 'tangible'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2000',
-      accountNumber: '2000',
-      accountName: 'Accounts Payable',
-      accountType: 'liability',
-      category: 'Current Liabilities',
-      level: 1,
-      isActive: true,
-      normalBalance: 'credit',
-      currentBalance: 280000,
-      description: 'Supplier accounts payable',
-      tags: ['current', 'payables'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2100',
-      accountNumber: '2100',
-      accountName: 'Accrued Liabilities',
-      accountType: 'liability',
-      category: 'Current Liabilities',
-      level: 1,
-      isActive: true,
-      normalBalance: 'credit',
-      currentBalance: 120000,
-      description: 'Accrued expenses and wages',
-      tags: ['current', 'accrued'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '3000',
-      accountNumber: '3000',
-      accountName: 'Share Capital',
-      accountType: 'equity',
-      category: 'Shareholders Equity',
-      level: 1,
-      isActive: true,
-      normalBalance: 'credit',
-      currentBalance: 1000000,
-      description: 'Issued share capital',
-      tags: ['equity', 'capital'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '3100',
-      accountNumber: '3100',
-      accountName: 'Retained Earnings',
-      accountType: 'equity',
-      category: 'Shareholders Equity',
-      level: 1,
-      isActive: true,
-      normalBalance: 'credit',
-      currentBalance: 1800000,
-      description: 'Accumulated retained earnings',
-      tags: ['equity', 'retained'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '4000',
-      accountNumber: '4000',
-      accountName: 'Sales Revenue',
-      accountType: 'revenue',
-      category: 'Operating Revenue',
-      level: 1,
-      isActive: true,
-      normalBalance: 'credit',
-      currentBalance: 2500000,
-      description: 'Product and service sales',
-      tags: ['revenue', 'sales'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '5000',
-      accountNumber: '5000',
-      accountName: 'Cost of Goods Sold',
-      accountType: 'expense',
-      category: 'Cost of Sales',
-      level: 1,
-      isActive: true,
-      normalBalance: 'debit',
-      currentBalance: 1500000,
-      description: 'Direct costs of goods sold',
-      tags: ['expense', 'cogs'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '6000',
-      accountNumber: '6000',
-      accountName: 'Operating Expenses',
-      accountType: 'expense',
-      category: 'Operating Expenses',
-      level: 1,
-      isActive: true,
-      normalBalance: 'debit',
-      currentBalance: 650000,
-      description: 'General operating expenses',
-      tags: ['expense', 'operating'],
-      createdDate: '2024-01-01T00:00:00Z',
-      lastModified: '2024-01-15T10:30:00Z'
-    }
-  ]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getChartOfAccounts()) as any[];
+        const typeMap: Record<string, ChartOfAccount['accountType']> = {
+          ASSET: 'asset',
+          LIABILITY: 'liability',
+          EQUITY: 'equity',
+          REVENUE: 'revenue',
+          EXPENSE: 'expense',
+        };
+        const mapped: ChartOfAccount[] = (raw || []).map((row) => {
+          const rawType = String(row.accountType ?? row.type ?? '').toUpperCase();
+          const accountType = typeMap[rawType] ?? ((row.accountType ?? row.type ?? 'asset') as ChartOfAccount['accountType']);
+          const isCreditNormal = accountType === 'liability' || accountType === 'equity' || accountType === 'revenue';
+          return {
+            id: String(row.id ?? row.code ?? row.accountNumber ?? ''),
+            accountNumber: String(row.accountNumber ?? row.code ?? ''),
+            accountName: row.accountName ?? row.name ?? '',
+            accountType,
+            category: row.category ?? '',
+            parentAccountId: row.parentAccountId ?? row.parentId ?? undefined,
+            level: Number(row.level ?? 1),
+            isActive: row.isActive ?? (row.status ? String(row.status).toUpperCase() === 'ACTIVE' : true),
+            normalBalance: (row.normalBalance ?? (isCreditNormal ? 'credit' : 'debit')) as ChartOfAccount['normalBalance'],
+            currentBalance: Number(row.currentBalance ?? row.balance ?? 0),
+            description: row.description ?? undefined,
+            tags: Array.isArray(row.tags) ? row.tags : [],
+            createdDate: row.createdDate ?? row.createdAt ?? '',
+            lastModified: row.lastModified ?? row.updatedAt ?? '',
+          };
+        });
+        if (!cancelled) setChartOfAccounts(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+          setChartOfAccounts([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock Journal Entries
   const [journalEntries] = useState<JournalEntry[]>([

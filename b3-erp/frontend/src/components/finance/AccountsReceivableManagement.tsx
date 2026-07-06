@@ -13,6 +13,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Area, Bar, Line, Cell
 } from 'recharts';
+import { FinanceService } from '@/services/finance.service';
 
 interface Customer {
   id: string;
@@ -68,6 +69,45 @@ export default function AccountsReceivableManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('overdueAmount');
   const [showFilters, setShowFilters] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [topCustomers, setTopCustomers] = useState<Customer[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getReceivables()) as any[];
+        const mapped: Customer[] = (raw || []).map((row) => ({
+          id: String(row.id ?? row.customerId ?? row.partyId ?? ''),
+          name: row.name ?? row.customerName ?? row.partyName ?? '',
+          contactPerson: row.contactPerson ?? row.contact ?? '',
+          email: row.email ?? '',
+          phone: row.phone ?? '',
+          creditLimit: Number(row.creditLimit ?? 0),
+          currentBalance: Number(row.currentBalance ?? row.balance ?? row.outstandingAmount ?? 0),
+          overdueAmount: Number(row.overdueAmount ?? row.overdue ?? 0),
+          daysSalesOutstanding: Number(row.daysSalesOutstanding ?? row.dso ?? 0),
+          creditRating: (row.creditRating ?? 'B') as Customer['creditRating'],
+          paymentHistory: (row.paymentHistory ?? 'Good') as Customer['paymentHistory'],
+          lastPaymentDate: row.lastPaymentDate ?? '',
+          riskScore: Number(row.riskScore ?? 0),
+        }));
+        if (!cancelled) setTopCustomers(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+          setTopCustomers([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock data for AR management
   const arSummary = {
@@ -91,69 +131,6 @@ export default function AccountsReceivableManagement() {
     { period: '61-90 days', amount: 600000, percentage: 6.7, count: 28, color: '#EF4444' },
     { period: '91-120 days', amount: 200000, percentage: 2.2, count: 12, color: '#7C2D12' },
     { period: 'Over 120 days', amount: 100000, percentage: 1.1, count: 6, color: '#450A0A' }
-  ];
-
-  const topCustomers: Customer[] = [
-    {
-      id: '1',
-      name: 'TechCorp Industries',
-      contactPerson: 'John Smith',
-      email: 'john.smith@techcorp.com',
-      phone: '+1-555-0123',
-      creditLimit: 2000000,
-      currentBalance: 1850000,
-      overdueAmount: 450000,
-      daysSalesOutstanding: 42,
-      creditRating: 'A',
-      paymentHistory: 'Good',
-      lastPaymentDate: '2024-10-15',
-      riskScore: 25
-    },
-    {
-      id: '2',
-      name: 'Global Manufacturing Ltd',
-      contactPerson: 'Sarah Johnson',
-      email: 'sarah.j@globalmanuf.com',
-      phone: '+1-555-0124',
-      creditLimit: 1500000,
-      currentBalance: 1200000,
-      overdueAmount: 320000,
-      daysSalesOutstanding: 38,
-      creditRating: 'B',
-      paymentHistory: 'Fair',
-      lastPaymentDate: '2024-10-12',
-      riskScore: 45
-    },
-    {
-      id: '3',
-      name: 'Retail Chain Solutions',
-      contactPerson: 'Mike Davis',
-      email: 'mike.davis@retailchain.com',
-      phone: '+1-555-0125',
-      creditLimit: 1000000,
-      currentBalance: 850000,
-      overdueAmount: 180000,
-      daysSalesOutstanding: 35,
-      creditRating: 'B',
-      paymentHistory: 'Good',
-      lastPaymentDate: '2024-10-18',
-      riskScore: 30
-    },
-    {
-      id: '4',
-      name: 'Construction Partners Inc',
-      contactPerson: 'Lisa Wilson',
-      email: 'lisa.w@constructpart.com',
-      phone: '+1-555-0126',
-      creditLimit: 800000,
-      currentBalance: 720000,
-      overdueAmount: 280000,
-      daysSalesOutstanding: 55,
-      creditRating: 'C',
-      paymentHistory: 'Poor',
-      lastPaymentDate: '2024-09-28',
-      riskScore: 75
-    }
   ];
 
   const overdueInvoices: Invoice[] = [

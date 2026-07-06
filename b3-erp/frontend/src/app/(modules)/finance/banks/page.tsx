@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, TrendingUp, TrendingDown, DollarSign, Building2, CreditCard } from 'lucide-react';
 import Link from 'next/link';
+import { FinanceService } from '@/services/finance.service';
 
 interface BankAccount {
     id: string;
@@ -29,13 +30,24 @@ export default function BankAccountsPage() {
     const fetchAccounts = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/accounts/banks');
-            const data = await response.json();
-            if (data.success) {
-                setAccounts(data.data);
-            }
+            // Bank accounts live in the chart of accounts (isBankAccount = true).
+            const raw = (await FinanceService.getChartOfAccounts()) as any[];
+            const bankAccounts: BankAccount[] = (raw || [])
+                .filter((a) => a?.isBankAccount)
+                .map((a) => ({
+                    id: String(a.id),
+                    accountName: a.name ?? '',
+                    accountNumber: a.code ?? '',
+                    bankName: a.bankName ?? a.name ?? '',
+                    accountType: a.accountSubType ?? a.type ?? 'current',
+                    currentBalance: Number(a.balance ?? 0),
+                    currency: a.currency ?? 'USD',
+                    status: a.status ?? 'ACTIVE',
+                }));
+            setAccounts(bankAccounts);
         } catch (error) {
             console.error('Failed to fetch accounts:', error);
+            setAccounts([]);
         } finally {
             setLoading(false);
         }
