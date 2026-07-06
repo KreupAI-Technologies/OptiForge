@@ -130,10 +130,30 @@ export default function StockPage() {
     setIsAddItemOpen(true);
   };
 
-  const handleAddItemSubmit = (data: AddStockItemData) => {
-    // In a real app, this would call an API to create the item
-    console.log('Add item not implemented yet for API');
-    fetchStockData(); // Refresh data
+  const handleAddItemSubmit = async (data: AddStockItemData) => {
+    try {
+      await inventoryService.createStockEntry({
+        entryType: 'Material Receipt',
+        postingDate: new Date().toISOString().slice(0, 10),
+        remarks: data.description,
+        lines: [
+          {
+            lineNumber: 1,
+            itemId: data.itemCode,
+            itemCode: data.itemCode,
+            itemName: data.itemName,
+            description: data.description,
+            quantity: data.initialQuantity ?? 0,
+            uom: data.uom,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error('Failed to create stock item', err);
+    } finally {
+      setIsAddItemOpen(false);
+      fetchStockData(); // Refresh data
+    }
   };
 
   const handleEditItem = (item: StockItem) => {
@@ -141,10 +161,22 @@ export default function StockPage() {
     setIsEditItemOpen(true);
   };
 
-  const handleEditItemSubmit = (data: Partial<AddStockItemData>) => {
-    // In a real app, this would call an API to update the item
-    console.log('Edit item not implemented yet for API');
-    fetchStockData(); // Refresh data
+  const handleEditItemSubmit = async (data: Partial<AddStockItemData>) => {
+    try {
+      if (selectedItem?.id) {
+        await inventoryService.updateStockBalance(selectedItem.id, {
+          reorderLevel: data.reorderPoint,
+          reorderQuantity: data.reorderQuantity,
+          safetyStock: data.safetyStock,
+          valuationRate: data.costPrice,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update stock item', err);
+    } finally {
+      setIsEditItemOpen(false);
+      fetchStockData(); // Refresh data
+    }
   };
 
   const handleQuickAdjust = (item: StockItem) => {
@@ -152,10 +184,42 @@ export default function StockPage() {
     setIsQuickAdjustOpen(true);
   };
 
-  const handleQuickAdjustSubmit = (data: QuickAdjustmentData) => {
-    // In a real app, this would call an API to adjust stock
-    console.log('Quick adjust not implemented yet for API');
-    fetchStockData(); // Refresh data
+  const handleQuickAdjustSubmit = async (data: QuickAdjustmentData) => {
+    try {
+      if (selectedItem) {
+        const current = selectedItem.currentStock ?? 0;
+        const physicalQuantity =
+          data.adjustmentType === 'set'
+            ? data.quantity
+            : data.adjustmentType === 'increase'
+              ? current + data.quantity
+              : current - data.quantity;
+        await inventoryService.createStockAdjustment({
+          adjustmentType: 'Physical Inventory',
+          adjustmentDate: data.date ?? new Date().toISOString().slice(0, 10),
+          reason: data.reason,
+          remarks: data.notes,
+          lines: [
+            {
+              lineNumber: 1,
+              itemId: selectedItem.itemCode,
+              itemCode: selectedItem.itemCode,
+              itemName: selectedItem.itemName,
+              systemQuantity: current,
+              physicalQuantity,
+              uom: selectedItem.unit,
+              adjustmentReason: data.reason,
+              remarks: data.notes,
+            },
+          ],
+        });
+      }
+    } catch (err) {
+      console.error('Failed to adjust stock', err);
+    } finally {
+      setIsQuickAdjustOpen(false);
+      fetchStockData(); // Refresh data
+    }
   };
 
   const handleExport = () => {

@@ -374,6 +374,60 @@ class InventoryService {
         return (response as any)?.data ?? response;
     }
 
+    // ---- Kitting (kits / assembly / disassembly) ----
+    async getKits(filters?: { status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/kitting/kits?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createKit(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/kitting/kits', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateKit(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/kitting/kits/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteKit(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/kitting/kits/${id}`);
+    }
+
+    async getAssemblyOrders(filters?: { status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/kitting/assembly?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createAssemblyOrder(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/kitting/assembly', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async getDisassemblyOrders(filters?: { status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/kitting/disassembly?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createDisassemblyOrder(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/kitting/disassembly', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateKittingOrder(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/kitting/orders/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
     // ---- Inventory policies (settings/policies) ----
     async getPolicies(filters?: { policyType?: string; status?: string; search?: string }): Promise<any[]> {
         const params = new URLSearchParams();

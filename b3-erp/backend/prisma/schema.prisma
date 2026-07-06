@@ -19809,3 +19809,49 @@ model InventoryPolicy {
 
   @@map("inv_inventory_policies")
 }
+
+/// Inventory kit master (kitting/kits). Components stored as JSON.
+model InventoryKit {
+  id             String   @id @default(uuid())
+  kitNumber      String
+  kitName        String
+  category       String?
+  components     Json?
+  componentCount Int      @default(0)
+  outputQuantity Float    @default(1)
+  outputUOM      String?
+  status         String   @default("active")
+  assemblyCount  Int      @default(0)
+  lastAssembled  DateTime?
+  createdBy      String?
+  companyId      String   @default("default-company-id")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("inv_kits")
+}
+
+/// Kitting order (assembly / disassembly). orderType = 'assembly' | 'disassembly'.
+model KittingOrder {
+  id              String   @id @default(uuid())
+  orderNumber     String
+  orderType       String   @default("assembly")
+  orderDate       DateTime @default(now())
+  kitNumber       String?
+  kitName         String?
+  quantityOrdered Float    @default(0)
+  quantityDone    Float    @default(0)
+  handledBy       String?
+  warehouse       String?
+  reason          String?
+  status          String   @default("pending")
+  priority        String   @default("normal")
+  startDate       DateTime?
+  completionDate  DateTime?
+  expectedDate    DateTime?
+  companyId       String   @default("default-company-id")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("inv_kitting_orders")
+}

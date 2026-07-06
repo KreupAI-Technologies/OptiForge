@@ -63,6 +63,8 @@ import { VEDAnalysisService } from './services/ved-analysis.service';
 import { InventoryAnalyticsController } from './controllers/inventory-analytics.controller';
 import { InventoryPolicyController } from './controllers/inventory-policy.controller';
 import { InventoryPolicyService } from './services/inventory-policy.service';
+import { KittingController } from './controllers/kitting.controller';
+import { KittingService } from './services/kitting.service';
 
 @Module({
   imports: [
@@ -100,9 +102,11 @@ import { InventoryPolicyService } from './services/inventory-policy.service';
     CycleCountController,
     InventoryAnalyticsController,
     InventoryPolicyController,
+    KittingController,
   ],
   providers: [
     InventoryPolicyService,
+    KittingService,
     WarehouseService,
     StockLocationService,
     StockEntryService,
