@@ -1,35 +1,76 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Wrench, Clock, CheckCircle } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface ServiceCallsData {
+    totalCalls: number;
+    openCalls: number;
+    avgResolutionTime: number;
+    firstTimeFix: number;
+    byPriority: { priority: string; count: number; avgTime: number }[];
+    byStatus: { status: string; count: number }[];
+}
+
+const DEFAULT_DATA: ServiceCallsData = {
+    totalCalls: 186,
+    openCalls: 24,
+    avgResolutionTime: 4.5,
+    firstTimeFix: 82.5,
+    byPriority: [
+        { priority: 'Critical', count: 12, avgTime: 2.1 },
+        { priority: 'High', count: 45, avgTime: 3.8 },
+        { priority: 'Medium', count: 82, avgTime: 5.2 },
+        { priority: 'Low', count: 47, avgTime: 6.8 },
+    ],
+    byStatus: [
+        { status: 'Open', count: 24 },
+        { status: 'In Progress', count: 18 },
+        { status: 'Resolved', count: 132 },
+        { status: 'Closed', count: 12 },
+    ],
+};
 
 export default function ServiceCallReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
 
-    const data = {
-        totalCalls: 186,
-        openCalls: 24,
-        avgResolutionTime: 4.5,
-        firstTimeFix: 82.5,
-        byPriority: [
-            { priority: 'Critical', count: 12, avgTime: 2.1 },
-            { priority: 'High', count: 45, avgTime: 3.8 },
-            { priority: 'Medium', count: 82, avgTime: 5.2 },
-            { priority: 'Low', count: 47, avgTime: 6.8 },
-        ],
-        byStatus: [
-            { status: 'Open', count: 24 },
-            { status: 'In Progress', count: 18 },
-            { status: 'Resolved', count: 132 },
-            { status: 'Closed', count: 12 },
-        ],
-    };
+    const [data, setData] = useState<ServiceCallsData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<ServiceCallsData>>('after-sales.service-calls');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalCalls: Number(payload.totalCalls ?? DEFAULT_DATA.totalCalls),
+                        openCalls: Number(payload.openCalls ?? DEFAULT_DATA.openCalls),
+                        avgResolutionTime: Number(payload.avgResolutionTime ?? DEFAULT_DATA.avgResolutionTime),
+                        firstTimeFix: Number(payload.firstTimeFix ?? DEFAULT_DATA.firstTimeFix),
+                        byPriority: Array.isArray(payload.byPriority) ? payload.byPriority : DEFAULT_DATA.byPriority,
+                        byStatus: Array.isArray(payload.byStatus) ? payload.byStatus : DEFAULT_DATA.byStatus,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -46,6 +87,9 @@ export default function ServiceCallReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

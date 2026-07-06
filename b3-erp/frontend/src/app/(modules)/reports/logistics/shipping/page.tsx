@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,29 +8,69 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Truck, CheckCircle, Clock, Package } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface ShippingData {
+    totalShipments: number;
+    onTimeDelivery: number;
+    avgTransitTime: number;
+    shippingCost: number;
+    byStatus: { status: string; count: number }[];
+    byCarrier: { id: string; carrier: string; shipments: number; onTime: number; avgCost: number }[];
+}
+
+const DEFAULT_DATA: ShippingData = {
+    totalShipments: 342,
+    onTimeDelivery: 89.5,
+    avgTransitTime: 3.2,
+    shippingCost: 125000,
+    byStatus: [
+        { status: 'In Transit', count: 45 },
+        { status: 'Delivered', count: 278 },
+        { status: 'Delayed', count: 12 },
+        { status: 'Cancelled', count: 7 },
+    ],
+    byCarrier: [
+        { id: 'CAR-001', carrier: 'Express Logistics', shipments: 142, onTime: 92, avgCost: 380 },
+        { id: 'CAR-002', carrier: 'Fast Freight', shipments: 98, onTime: 88, avgCost: 320 },
+        { id: 'CAR-003', carrier: 'Economy Transport', shipments: 72, onTime: 85, avgCost: 280 },
+        { id: 'CAR-004', carrier: 'Premium Courier', shipments: 30, onTime: 95, avgCost: 520 },
+    ],
+};
 
 export default function ShippingPerformanceReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
+    const [data, setData] = useState<ShippingData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalShipments: 342,
-        onTimeDelivery: 89.5,
-        avgTransitTime: 3.2,
-        shippingCost: 125000,
-        byStatus: [
-            { status: 'In Transit', count: 45 },
-            { status: 'Delivered', count: 278 },
-            { status: 'Delayed', count: 12 },
-            { status: 'Cancelled', count: 7 },
-        ],
-        byCarrier: [
-            { id: 'CAR-001', carrier: 'Express Logistics', shipments: 142, onTime: 92, avgCost: 380 },
-            { id: 'CAR-002', carrier: 'Fast Freight', shipments: 98, onTime: 88, avgCost: 320 },
-            { id: 'CAR-003', carrier: 'Economy Transport', shipments: 72, onTime: 85, avgCost: 280 },
-            { id: 'CAR-004', carrier: 'Premium Courier', shipments: 30, onTime: 95, avgCost: 520 },
-        ],
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<ShippingData>>('logistics.shipping');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalShipments: Number(payload.totalShipments ?? DEFAULT_DATA.totalShipments),
+                        onTimeDelivery: Number(payload.onTimeDelivery ?? DEFAULT_DATA.onTimeDelivery),
+                        avgTransitTime: Number(payload.avgTransitTime ?? DEFAULT_DATA.avgTransitTime),
+                        shippingCost: Number(payload.shippingCost ?? DEFAULT_DATA.shippingCost),
+                        byStatus: Array.isArray(payload.byStatus) ? payload.byStatus : DEFAULT_DATA.byStatus,
+                        byCarrier: Array.isArray(payload.byCarrier) ? payload.byCarrier : DEFAULT_DATA.byCarrier,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -47,6 +87,9 @@ export default function ShippingPerformanceReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

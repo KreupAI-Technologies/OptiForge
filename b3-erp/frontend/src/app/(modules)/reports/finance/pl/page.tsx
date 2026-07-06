@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
+import { fetchReportDataset } from '@/services/reports-management.service';
 
 interface PLStatement {
     revenue: { category: string; amount: number }[];
@@ -23,40 +24,76 @@ interface PLStatement {
     netMargin: number;
 }
 
+const DEFAULT_DATA: PLStatement = {
+    revenue: [
+        { category: 'Product Sales', amount: 2850000 },
+        { category: 'Service Revenue', amount: 450000 },
+        { category: 'Consulting', amount: 200000 },
+    ],
+    totalRevenue: 3500000,
+    cogs: [
+        { category: 'Raw Materials', amount: 1200000 },
+        { category: 'Direct Labor', amount: 450000 },
+        { category: 'Manufacturing Overhead', amount: 350000 },
+    ],
+    totalCOGS: 2000000,
+    grossProfit: 1500000,
+    grossMargin: 42.9,
+    operatingExpenses: [
+        { category: 'Salaries & Wages', amount: 580000 },
+        { category: 'Rent & Utilities', amount: 120000 },
+        { category: 'Marketing & Sales', amount: 180000 },
+        { category: 'R&D', amount: 150000 },
+        { category: 'Administrative', amount: 90000 },
+    ],
+    totalOpEx: 1120000,
+    operatingIncome: 380000,
+    otherIncome: 25000,
+    otherExpenses: 45000,
+    netIncome: 360000,
+    netMargin: 10.3,
+};
+
 export default function ProfitLossReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
+    const [plData, setPlData] = useState<PLStatement>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    // Mock data
-    const plData: PLStatement = {
-        revenue: [
-            { category: 'Product Sales', amount: 2850000 },
-            { category: 'Service Revenue', amount: 450000 },
-            { category: 'Consulting', amount: 200000 },
-        ],
-        totalRevenue: 3500000,
-        cogs: [
-            { category: 'Raw Materials', amount: 1200000 },
-            { category: 'Direct Labor', amount: 450000 },
-            { category: 'Manufacturing Overhead', amount: 350000 },
-        ],
-        totalCOGS: 2000000,
-        grossProfit: 1500000,
-        grossMargin: 42.9,
-        operatingExpenses: [
-            { category: 'Salaries & Wages', amount: 580000 },
-            { category: 'Rent & Utilities', amount: 120000 },
-            { category: 'Marketing & Sales', amount: 180000 },
-            { category: 'R&D', amount: 150000 },
-            { category: 'Administrative', amount: 90000 },
-        ],
-        totalOpEx: 1120000,
-        operatingIncome: 380000,
-        otherIncome: 25000,
-        otherExpenses: 45000,
-        netIncome: 360000,
-        netMargin: 10.3,
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<PLStatement>>('finance.pl');
+                if (cancelled) return;
+                if (payload) {
+                    setPlData({
+                        revenue: Array.isArray(payload.revenue) ? payload.revenue : DEFAULT_DATA.revenue,
+                        totalRevenue: Number(payload.totalRevenue ?? DEFAULT_DATA.totalRevenue),
+                        cogs: Array.isArray(payload.cogs) ? payload.cogs : DEFAULT_DATA.cogs,
+                        totalCOGS: Number(payload.totalCOGS ?? DEFAULT_DATA.totalCOGS),
+                        grossProfit: Number(payload.grossProfit ?? DEFAULT_DATA.grossProfit),
+                        grossMargin: Number(payload.grossMargin ?? DEFAULT_DATA.grossMargin),
+                        operatingExpenses: Array.isArray(payload.operatingExpenses) ? payload.operatingExpenses : DEFAULT_DATA.operatingExpenses,
+                        totalOpEx: Number(payload.totalOpEx ?? DEFAULT_DATA.totalOpEx),
+                        operatingIncome: Number(payload.operatingIncome ?? DEFAULT_DATA.operatingIncome),
+                        otherIncome: Number(payload.otherIncome ?? DEFAULT_DATA.otherIncome),
+                        otherExpenses: Number(payload.otherExpenses ?? DEFAULT_DATA.otherExpenses),
+                        netIncome: Number(payload.netIncome ?? DEFAULT_DATA.netIncome),
+                        netMargin: Number(payload.netMargin ?? DEFAULT_DATA.netMargin),
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -77,6 +114,9 @@ export default function ProfitLossReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export PDF</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             {/* Summary Cards - NOW CLICKABLE */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">

@@ -1,35 +1,78 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Star } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface SatisfactionData {
+    avgRating: number;
+    totalResponses: number;
+    nps: number;
+    promoters: number;
+    detractors: number;
+    byCategory: { id: string; category: string; rating: number; responses: number }[];
+    ratingDistribution: { stars: number; count: number; percentage: number }[];
+}
+
+const DEFAULT_DATA: SatisfactionData = {
+    avgRating: 4.3,
+    totalResponses: 245,
+    nps: 42,
+    promoters: 125,
+    detractors: 28,
+    byCategory: [
+        { id: 'CAT-001', category: 'Product Quality', rating: 4.5, responses: 245 },
+        { id: 'CAT-002', category: 'Delivery Time', rating: 4.2, responses: 245 },
+        { id: 'CAT-003', category: 'Customer Service', rating: 4.4, responses: 245 },
+        { id: 'CAT-004', category: 'Value for Money', rating: 4.1, responses: 245 },
+        { id: 'CAT-005', category: 'After-Sales Support', rating: 4.3, responses: 245 },
+    ],
+    ratingDistribution: [
+        { stars: 5, count: 125, percentage: 51.0 },
+        { stars: 4, count: 72, percentage: 29.4 },
+        { stars: 3, count: 20, percentage: 8.2 },
+        { stars: 2, count: 15, percentage: 6.1 },
+        { stars: 1, count: 13, percentage: 5.3 },
+    ],
+};
 
 export default function CustomerSatisfactionReport() {
     const router = useRouter();
-    const data = {
-        avgRating: 4.3,
-        totalResponses: 245,
-        nps: 42,
-        promoters: 125,
-        detractors: 28,
-        byCategory: [
-            { id: 'CAT-001', category: 'Product Quality', rating: 4.5, responses: 245 },
-            { id: 'CAT-002', category: 'Delivery Time', rating: 4.2, responses: 245 },
-            { id: 'CAT-003', category: 'Customer Service', rating: 4.4, responses: 245 },
-            { id: 'CAT-004', category: 'Value for Money', rating: 4.1, responses: 245 },
-            { id: 'CAT-005', category: 'After-Sales Support', rating: 4.3, responses: 245 },
-        ],
-        ratingDistribution: [
-            { stars: 5, count: 125, percentage: 51.0 },
-            { stars: 4, count: 72, percentage: 29.4 },
-            { stars: 3, count: 20, percentage: 8.2 },
-            { stars: 2, count: 15, percentage: 6.1 },
-            { stars: 1, count: 13, percentage: 5.3 },
-        ],
-    };
+    const [data, setData] = useState<SatisfactionData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<SatisfactionData>>('after-sales.satisfaction');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        avgRating: Number(payload.avgRating ?? DEFAULT_DATA.avgRating),
+                        totalResponses: Number(payload.totalResponses ?? DEFAULT_DATA.totalResponses),
+                        nps: Number(payload.nps ?? DEFAULT_DATA.nps),
+                        promoters: Number(payload.promoters ?? DEFAULT_DATA.promoters),
+                        detractors: Number(payload.detractors ?? DEFAULT_DATA.detractors),
+                        byCategory: Array.isArray(payload.byCategory) ? payload.byCategory : DEFAULT_DATA.byCategory,
+                        ratingDistribution: Array.isArray(payload.ratingDistribution) ? payload.ratingDistribution : DEFAULT_DATA.ratingDistribution,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -40,6 +83,9 @@ export default function CustomerSatisfactionReport() {
                 </div>
                 <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

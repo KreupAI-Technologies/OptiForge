@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,30 +8,73 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Wallet, TrendingUp, DollarSign } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface PettyCashData {
+    openingBalance: number;
+    totalDisbursed: number;
+    totalReplenished: number;
+    closingBalance: number;
+    transactionCount: number;
+    byCategory: { id: string; category: string; amount: number; count: number }[];
+    recentTransactions: { id: string; date: string; description: string; amount: number; custodian: string }[];
+}
+
+const DEFAULT_DATA: PettyCashData = {
+    openingBalance: 5000,
+    totalDisbursed: 3250,
+    totalReplenished: 3000,
+    closingBalance: 4750,
+    transactionCount: 42,
+    byCategory: [
+        { id: 'CAT-001', category: 'Office Supplies', amount: 850, count: 12 },
+        { id: 'CAT-002', category: 'Travel', amount: 1200, count: 8 },
+        { id: 'CAT-003', category: 'Misc Expenses', amount: 650, count: 14 },
+        { id: 'CAT-004', category: 'Pantry', amount: 550, count: 8 },
+    ],
+    recentTransactions: [
+        { id: 'TXN-001', date: '2025-01-22', description: 'Office supplies - Stationery', amount: 125, custodian: 'Admin Dept' },
+        { id: 'TXN-002', date: '2025-01-20', description: 'Taxi fare - Client meeting', amount: 45, custodian: 'Sales Dept' },
+        { id: 'TXN-003', date: '2025-01-18', description: 'Pantry items', amount: 85, custodian: 'Admin Dept' },
+        { id: 'TXN-004', date: '2025-01-15', description: 'Courier charges', amount: 35, custodian: 'Logistics' },
+    ],
+};
 
 export default function PettyCashReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
 
-    const data = {
-        openingBalance: 5000,
-        totalDisbursed: 3250,
-        totalReplenished: 3000,
-        closingBalance: 4750,
-        transactionCount: 42,
-        byCategory: [
-            { id: 'CAT-001', category: 'Office Supplies', amount: 850, count: 12 },
-            { id: 'CAT-002', category: 'Travel', amount: 1200, count: 8 },
-            { id: 'CAT-003', category: 'Misc Expenses', amount: 650, count: 14 },
-            { id: 'CAT-004', category: 'Pantry', amount: 550, count: 8 },
-        ],
-        recentTransactions: [
-            { id: 'TXN-001', date: '2025-01-22', description: 'Office supplies - Stationery', amount: 125, custodian: 'Admin Dept' },
-            { id: 'TXN-002', date: '2025-01-20', description: 'Taxi fare - Client meeting', amount: 45, custodian: 'Sales Dept' },
-            { id: 'TXN-003', date: '2025-01-18', description: 'Pantry items', amount: 85, custodian: 'Admin Dept' },
-            { id: 'TXN-004', date: '2025-01-15', description: 'Courier charges', amount: 35, custodian: 'Logistics' },
-        ],
-    };
+    const [data, setData] = useState<PettyCashData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<PettyCashData>>('accounts.petty-cash');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        openingBalance: Number(payload.openingBalance ?? DEFAULT_DATA.openingBalance),
+                        totalDisbursed: Number(payload.totalDisbursed ?? DEFAULT_DATA.totalDisbursed),
+                        totalReplenished: Number(payload.totalReplenished ?? DEFAULT_DATA.totalReplenished),
+                        closingBalance: Number(payload.closingBalance ?? DEFAULT_DATA.closingBalance),
+                        transactionCount: Number(payload.transactionCount ?? DEFAULT_DATA.transactionCount),
+                        byCategory: Array.isArray(payload.byCategory) ? payload.byCategory : DEFAULT_DATA.byCategory,
+                        recentTransactions: Array.isArray(payload.recentTransactions) ? payload.recentTransactions : DEFAULT_DATA.recentTransactions,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -48,6 +91,9 @@ export default function PettyCashReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

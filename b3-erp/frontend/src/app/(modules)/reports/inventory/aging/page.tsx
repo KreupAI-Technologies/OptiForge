@@ -1,33 +1,71 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Package, AlertTriangle } from 'lucide-react';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface StockAgingData {
+    totalValue: number;
+    slowMoving: number;
+    obsolete: number;
+    agingBuckets: { bucket: string; value: number; count: number }[];
+    slowMovingItems: { item: string; qty: number; value: number; age: number; id: string }[];
+}
+
+const DEFAULT_DATA: StockAgingData = {
+    totalValue: 5680000,
+    slowMoving: 1250000,
+    obsolete: 285000,
+    agingBuckets: [
+        { bucket: '0-30 days', value: 2850000, count: 520 },
+        { bucket: '31-90 days', value: 1295000, count: 285 },
+        { bucket: '91-180 days', value: 850000, count: 198 },
+        { bucket: '181-365 days', value: 450000, count: 125 },
+        { bucket: '365+ days (Obsolete)', value: 235000, count: 119 },
+    ],
+    slowMovingItems: [
+        { item: 'Brake Pads Model X', qty: 450, value: 22500, age: 245, id: 'ITEM-006' },
+        { item: 'Filter Cartridges', qty: 350, value: 17500, age: 198, id: 'ITEM-007' },
+        { item: 'Bearing Sets Obsolete', qty: 125, value: 12500, age: 420, id: 'ITEM-008' },
+        { item: 'Legacy Components', qty: 85, value: 8500, age: 385, id: 'ITEM-009' },
+    ],
+};
 
 export default function StockAgingReport() {
     const router = useRouter();
+    const [data, setData] = useState<StockAgingData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalValue: 5680000,
-        slowMoving: 1250000,
-        obsolete: 285000,
-        agingBuckets: [
-            { bucket: '0-30 days', value: 2850000, count: 520 },
-            { bucket: '31-90 days', value: 1295000, count: 285 },
-            { bucket: '91-180 days', value: 850000, count: 198 },
-            { bucket: '181-365 days', value: 450000, count: 125 },
-            { bucket: '365+ days (Obsolete)', value: 235000, count: 119 },
-        ],
-        slowMovingItems: [
-            { item: 'Brake Pads Model X', qty: 450, value: 22500, age: 245, id: 'ITEM-006' },
-            { item: 'Filter Cartridges', qty: 350, value: 17500, age: 198, id: 'ITEM-007' },
-            { item: 'Bearing Sets Obsolete', qty: 125, value: 12500, age: 420, id: 'ITEM-008' },
-            { item: 'Legacy Components', qty: 85, value: 8500, age: 385, id: 'ITEM-009' },
-        ],
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<StockAgingData>>('inventory.aging');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalValue: Number(payload.totalValue ?? DEFAULT_DATA.totalValue),
+                        slowMoving: Number(payload.slowMoving ?? DEFAULT_DATA.slowMoving),
+                        obsolete: Number(payload.obsolete ?? DEFAULT_DATA.obsolete),
+                        agingBuckets: Array.isArray(payload.agingBuckets) ? payload.agingBuckets : DEFAULT_DATA.agingBuckets,
+                        slowMovingItems: Array.isArray(payload.slowMovingItems) ? payload.slowMovingItems : DEFAULT_DATA.slowMovingItems,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -38,6 +76,9 @@ export default function StockAgingReport() {
                 </div>
                 <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <Card><CardContent className="pt-6"><p className="text-sm text-gray-600">Total Stock Value</p><p className="text-2xl font-bold text-blue-600">${(data.totalValue / 1000000).toFixed(2)}M</p></CardContent></Card>

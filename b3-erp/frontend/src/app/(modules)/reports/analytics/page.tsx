@@ -49,6 +49,7 @@ import {
   Clock,
   Zap,
 } from 'lucide-react';
+import { fetchReportDataset } from '@/services/reports-management.service';
 
 interface AnalyticsMetric {
   id: string;
@@ -87,12 +88,90 @@ interface RegionalData {
   growth: number;
 }
 
+interface ProductionMetric {
+  time: string;
+  efficiency: number;
+  output: number;
+  downtime: number;
+}
+
+interface AnalyticsOverview {
+  timeSeriesData?: TimeSeriesData[];
+  categoryData?: CategoryData[];
+  performanceData?: PerformanceData[];
+  regionalData?: RegionalData[];
+  productionMetrics?: ProductionMetric[];
+}
+
+const DEFAULT_TIME_SERIES: TimeSeriesData[] = [
+  { date: '2024-01', revenue: 185000, orders: 520, production: 3200, inventory: 12500 },
+  { date: '2024-02', revenue: 198000, orders: 580, production: 3450, inventory: 12800 },
+  { date: '2024-03', revenue: 215000, orders: 640, production: 3800, inventory: 13200 },
+  { date: '2024-04', revenue: 225000, orders: 690, production: 4100, inventory: 13500 },
+  { date: '2024-05', revenue: 238000, orders: 720, production: 4250, inventory: 13800 },
+  { date: '2024-06', revenue: 252000, orders: 780, production: 4500, inventory: 14100 },
+  { date: '2024-07', revenue: 268000, orders: 820, production: 4750, inventory: 14400 },
+  { date: '2024-08', revenue: 285000, orders: 890, production: 5100, inventory: 14700 },
+  { date: '2024-09', revenue: 295000, orders: 920, production: 5250, inventory: 15000 },
+  { date: '2024-10', revenue: 312000, orders: 980, production: 5500, inventory: 15300 },
+];
+
+const DEFAULT_CATEGORY: CategoryData[] = [
+  { name: 'Electronics', value: 35, color: '#3b82f6' },
+  { name: 'Machinery', value: 25, color: '#8b5cf6' },
+  { name: 'Components', value: 20, color: '#10b981' },
+  { name: 'Raw Materials', value: 12, color: '#f59e0b' },
+  { name: 'Others', value: 8, color: '#6b7280' },
+];
+
+const DEFAULT_PERFORMANCE: PerformanceData[] = [
+  { category: 'Production', current: 92, target: 95, previous: 88 },
+  { category: 'Quality', current: 96, target: 98, previous: 94 },
+  { category: 'Delivery', current: 88, target: 90, previous: 85 },
+  { category: 'Cost Control', current: 94, target: 92, previous: 91 },
+  { category: 'Safety', current: 98, target: 100, previous: 97 },
+  { category: 'Innovation', current: 85, target: 88, previous: 82 },
+];
+
+const DEFAULT_REGIONAL: RegionalData[] = [
+  { region: 'North America', sales: 450000, growth: 12.5 },
+  { region: 'Europe', sales: 380000, growth: 8.3 },
+  { region: 'Asia Pacific', sales: 520000, growth: 18.7 },
+  { region: 'Latin America', sales: 180000, growth: 6.2 },
+  { region: 'Middle East', sales: 145000, growth: 15.1 },
+  { region: 'Africa', sales: 95000, growth: 9.8 },
+];
+
+const DEFAULT_PRODUCTION_METRICS: ProductionMetric[] = [
+  { time: '00:00', efficiency: 85, output: 420, downtime: 5 },
+  { time: '04:00', efficiency: 88, output: 450, downtime: 3 },
+  { time: '08:00', efficiency: 92, output: 520, downtime: 2 },
+  { time: '12:00', efficiency: 95, output: 580, downtime: 1 },
+  { time: '16:00', efficiency: 93, output: 560, downtime: 2 },
+  { time: '20:00', efficiency: 89, output: 490, downtime: 4 },
+];
+
 export default function AnalyticsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('30d');
   const [selectedMetric, setSelectedMetric] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
   const [activeChart, setActiveChart] = useState('overview');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [overview, setOverview] = useState<AnalyticsOverview>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const payload = await fetchReportDataset<AnalyticsOverview>('analytics.overview');
+        if (cancelled) return;
+        if (payload) setOverview(payload);
+      } catch {
+        // keep built-in defaults on error
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const metrics: (AnalyticsMetric & { href: string })[] = [
     {
@@ -157,53 +236,11 @@ export default function AnalyticsPage() {
     },
   ];
 
-  const timeSeriesData: TimeSeriesData[] = [
-    { date: '2024-01', revenue: 185000, orders: 520, production: 3200, inventory: 12500 },
-    { date: '2024-02', revenue: 198000, orders: 580, production: 3450, inventory: 12800 },
-    { date: '2024-03', revenue: 215000, orders: 640, production: 3800, inventory: 13200 },
-    { date: '2024-04', revenue: 225000, orders: 690, production: 4100, inventory: 13500 },
-    { date: '2024-05', revenue: 238000, orders: 720, production: 4250, inventory: 13800 },
-    { date: '2024-06', revenue: 252000, orders: 780, production: 4500, inventory: 14100 },
-    { date: '2024-07', revenue: 268000, orders: 820, production: 4750, inventory: 14400 },
-    { date: '2024-08', revenue: 285000, orders: 890, production: 5100, inventory: 14700 },
-    { date: '2024-09', revenue: 295000, orders: 920, production: 5250, inventory: 15000 },
-    { date: '2024-10', revenue: 312000, orders: 980, production: 5500, inventory: 15300 },
-  ];
-
-  const categoryData: CategoryData[] = [
-    { name: 'Electronics', value: 35, color: '#3b82f6' },
-    { name: 'Machinery', value: 25, color: '#8b5cf6' },
-    { name: 'Components', value: 20, color: '#10b981' },
-    { name: 'Raw Materials', value: 12, color: '#f59e0b' },
-    { name: 'Others', value: 8, color: '#6b7280' },
-  ];
-
-  const performanceData: PerformanceData[] = [
-    { category: 'Production', current: 92, target: 95, previous: 88 },
-    { category: 'Quality', current: 96, target: 98, previous: 94 },
-    { category: 'Delivery', current: 88, target: 90, previous: 85 },
-    { category: 'Cost Control', current: 94, target: 92, previous: 91 },
-    { category: 'Safety', current: 98, target: 100, previous: 97 },
-    { category: 'Innovation', current: 85, target: 88, previous: 82 },
-  ];
-
-  const regionalData: RegionalData[] = [
-    { region: 'North America', sales: 450000, growth: 12.5 },
-    { region: 'Europe', sales: 380000, growth: 8.3 },
-    { region: 'Asia Pacific', sales: 520000, growth: 18.7 },
-    { region: 'Latin America', sales: 180000, growth: 6.2 },
-    { region: 'Middle East', sales: 145000, growth: 15.1 },
-    { region: 'Africa', sales: 95000, growth: 9.8 },
-  ];
-
-  const productionMetrics = [
-    { time: '00:00', efficiency: 85, output: 420, downtime: 5 },
-    { time: '04:00', efficiency: 88, output: 450, downtime: 3 },
-    { time: '08:00', efficiency: 92, output: 520, downtime: 2 },
-    { time: '12:00', efficiency: 95, output: 580, downtime: 1 },
-    { time: '16:00', efficiency: 93, output: 560, downtime: 2 },
-    { time: '20:00', efficiency: 89, output: 490, downtime: 4 },
-  ];
+  const timeSeriesData = Array.isArray(overview.timeSeriesData) ? overview.timeSeriesData : DEFAULT_TIME_SERIES;
+  const categoryData = Array.isArray(overview.categoryData) ? overview.categoryData : DEFAULT_CATEGORY;
+  const performanceData = Array.isArray(overview.performanceData) ? overview.performanceData : DEFAULT_PERFORMANCE;
+  const regionalData = Array.isArray(overview.regionalData) ? overview.regionalData : DEFAULT_REGIONAL;
+  const productionMetrics = Array.isArray(overview.productionMetrics) ? overview.productionMetrics : DEFAULT_PRODUCTION_METRICS;
 
   const handleRefresh = () => {
     setIsLoading(true);

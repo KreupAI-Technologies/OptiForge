@@ -1,41 +1,87 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Users, CheckCircle, XCircle, Clock } from 'lucide-react';
 import ClickableKPICard from '@/components/reports/ClickableKPICard';
 import ClickableTableRow from '@/components/reports/ClickableTableRow';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface AttendanceData {
+    totalEmployees: number;
+    avgAttendance: number;
+    presentToday: number;
+    absentToday: number;
+    lateToday: number;
+    absenteeismRate: number;
+    overtimeHours: number;
+    byDepartment: { dept: string; employees: number; attendance: number; late: number; absent: number }[];
+    weeklyTrend: { day: string; present: number; absent: number }[];
+}
+
+const DEFAULT_DATA: AttendanceData = {
+    totalEmployees: 245,
+    avgAttendance: 96.5,
+    presentToday: 238,
+    absentToday: 4,
+    lateToday: 3,
+    absenteeismRate: 3.5,
+    overtimeHours: 1240,
+    byDepartment: [
+        { dept: 'Production', employees: 85, attendance: 95.2, late: 8, absent: 4 },
+        { dept: 'Engineering', employees: 42, attendance: 97.8, late: 2, absent: 1 },
+        { dept: 'Sales', employees: 38, attendance: 98.1, late: 1, absent: 1 },
+        { dept: 'Admin', employees: 28, attendance: 96.4, late: 2, absent: 1 },
+        { dept: 'Quality', employees: 24, attendance: 97.5, late: 1, absent: 1 },
+        { dept: 'Logistics', employees: 28, attendance: 94.6, late: 3, absent: 2 },
+    ],
+    weeklyTrend: [
+        { day: 'Mon', present: 241, absent: 4 },
+        { day: 'Tue', present: 242, absent: 3 },
+        { day: 'Wed', present: 240, absent: 5 },
+        { day: 'Thu', present: 243, absent: 2 },
+        { day: 'Fri', present: 238, absent: 7 },
+    ],
+};
 
 export default function AttendanceReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
+    const [data, setData] = useState<AttendanceData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalEmployees: 245,
-        avgAttendance: 96.5,
-        presentToday: 238,
-        absentToday: 4,
-        lateToday: 3,
-        absenteeismRate: 3.5,
-        overtimeHours: 1240,
-        byDepartment: [
-            { dept: 'Production', employees: 85, attendance: 95.2, late: 8, absent: 4 },
-            { dept: 'Engineering', employees: 42, attendance: 97.8, late: 2, absent: 1 },
-            { dept: 'Sales', employees: 38, attendance: 98.1, late: 1, absent: 1 },
-            { dept: 'Admin', employees: 28, attendance: 96.4, late: 2, absent: 1 },
-            { dept: 'Quality', employees: 24, attendance: 97.5, late: 1, absent: 1 },
-            { dept: 'Logistics', employees: 28, attendance: 94.6, late: 3, absent: 2 },
-        ],
-        weeklyTrend: [
-            { day: 'Mon', present: 241, absent: 4 },
-            { day: 'Tue', present: 242, absent: 3 },
-            { day: 'Wed', present: 240, absent: 5 },
-            { day: 'Thu', present: 243, absent: 2 },
-            { day: 'Fri', present: 238, absent: 7 },
-        ],
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<AttendanceData>>('hr.attendance');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalEmployees: Number(payload.totalEmployees ?? DEFAULT_DATA.totalEmployees),
+                        avgAttendance: Number(payload.avgAttendance ?? DEFAULT_DATA.avgAttendance),
+                        presentToday: Number(payload.presentToday ?? DEFAULT_DATA.presentToday),
+                        absentToday: Number(payload.absentToday ?? DEFAULT_DATA.absentToday),
+                        lateToday: Number(payload.lateToday ?? DEFAULT_DATA.lateToday),
+                        absenteeismRate: Number(payload.absenteeismRate ?? DEFAULT_DATA.absenteeismRate),
+                        overtimeHours: Number(payload.overtimeHours ?? DEFAULT_DATA.overtimeHours),
+                        byDepartment: Array.isArray(payload.byDepartment) ? payload.byDepartment : DEFAULT_DATA.byDepartment,
+                        weeklyTrend: Array.isArray(payload.weeklyTrend) ? payload.weeklyTrend : DEFAULT_DATA.weeklyTrend,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -53,6 +99,9 @@ export default function AttendanceReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                 <ClickableKPICard

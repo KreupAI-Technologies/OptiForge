@@ -1,36 +1,80 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Calendar, Users, CheckCircle, XCircle } from 'lucide-react';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface LeaveData {
+    totalRequests: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+    approvalRate: number;
+    avgLeaveDays: number;
+    byType: { type: string; count: number; days: number }[];
+    byDepartment: { dept: string; requests: number; days: number }[];
+}
+
+const DEFAULT_DATA: LeaveData = {
+    totalRequests: 124,
+    approved: 98,
+    pending: 18,
+    rejected: 8,
+    approvalRate: 79.0,
+    avgLeaveDays: 2.3,
+    byType: [
+        { type: 'Annual Leave', count: 52, days: 148 },
+        { type: 'Sick Leave', count: 38, days: 52 },
+        { type: 'Personal Leave', count: 24, days: 36 },
+        { type: 'Emergency', count: 10, days: 12 },
+    ],
+    byDepartment: [
+        { dept: 'Production', requests: 32, days: 68 },
+        { dept: 'Sales', requests: 28, days: 75 },
+        { dept: 'Engineering', requests: 24, days: 52 },
+        { dept: 'Admin', requests: 18, days: 38 },
+        { dept: 'Quality', requests: 12, days: 24 },
+        { dept: 'Logistics', requests: 10, days: 21 },
+    ],
+};
 
 export default function LeaveReport() {
     const [period, setPeriod] = useState('this-month');
+    const [data, setData] = useState<LeaveData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalRequests: 124,
-        approved: 98,
-        pending: 18,
-        rejected: 8,
-        approvalRate: 79.0,
-        avgLeaveDays: 2.3,
-        byType: [
-            { type: 'Annual Leave', count: 52, days: 148 },
-            { type: 'Sick Leave', count: 38, days: 52 },
-            { type: 'Personal Leave', count: 24, days: 36 },
-            { type: 'Emergency', count: 10, days: 12 },
-        ],
-        byDepartment: [
-            { dept: 'Production', requests: 32, days: 68 },
-            { dept: 'Sales', requests: 28, days: 75 },
-            { dept: 'Engineering', requests: 24, days: 52 },
-            { dept: 'Admin', requests: 18, days: 38 },
-            { dept: 'Quality', requests: 12, days: 24 },
-            { dept: 'Logistics', requests: 10, days: 21 },
-        ],
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<LeaveData>>('hr.leave');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalRequests: Number(payload.totalRequests ?? DEFAULT_DATA.totalRequests),
+                        approved: Number(payload.approved ?? DEFAULT_DATA.approved),
+                        pending: Number(payload.pending ?? DEFAULT_DATA.pending),
+                        rejected: Number(payload.rejected ?? DEFAULT_DATA.rejected),
+                        approvalRate: Number(payload.approvalRate ?? DEFAULT_DATA.approvalRate),
+                        avgLeaveDays: Number(payload.avgLeaveDays ?? DEFAULT_DATA.avgLeaveDays),
+                        byType: Array.isArray(payload.byType) ? payload.byType : DEFAULT_DATA.byType,
+                        byDepartment: Array.isArray(payload.byDepartment) ? payload.byDepartment : DEFAULT_DATA.byDepartment,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -47,6 +91,9 @@ export default function LeaveReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
                 <Card><CardContent className="pt-6"><p className="text-sm text-gray-600">Total Requests</p><p className="text-2xl font-bold">{data.totalRequests}</p></CardContent></Card>
