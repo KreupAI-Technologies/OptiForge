@@ -27,6 +27,9 @@ import {
 } from '@/components/ui/FormUX';
 import { StepIndicator, Step } from '@/components/ui/StepIndicator';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { salesOrderService } from '@/services/sales-order.service';
+
+const COMPANY_ID = 'default-company-id';
 
 interface OrderItem {
   id: string;
@@ -123,6 +126,8 @@ export default function CreateSalesOrderEnhancedPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const steps: Step[] = [
     { id: '1', label: 'Customer', description: 'Select customer' },
@@ -268,17 +273,58 @@ export default function CreateSalesOrderEnhancedPage() {
   const nextStep = () => { if (validateStep(currentStep)) setCurrentStep((prev) => Math.min(prev + 1, 3)); };
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
+  const buildOrderPayload = (status: 'draft' | 'pending') => ({
+    companyId: COMPANY_ID,
+    customerId: formData.customer?.id,
+    customerName: formData.customer?.name || formData.customer?.company || 'Customer',
+    customerEmail: formData.customer?.email,
+    customerPhone: formData.customer?.phone,
+    requestedDeliveryDate: formData.expectedDeliveryDate
+      ? new Date(formData.expectedDeliveryDate).toISOString()
+      : undefined,
+    paymentTerms: formData.paymentTerms,
+    deliveryTerms: formData.deliveryTerms,
+    shippingMethod: formData.shippingMethod,
+    priority: formData.priority,
+    notes: formData.notes || undefined,
+    termsAndConditions: formData.termsAndConditions || undefined,
+    status,
+    items: formData.items
+      .filter((i) => i.productCode || i.productName)
+      .map((i) => ({
+        itemCode: i.productCode || undefined,
+        itemName: i.productName || i.productCode || 'Item',
+        quantity: i.quantity,
+        uom: i.unit,
+        unitPrice: i.unitPrice,
+        discountPercent: i.discountType === 'percent' ? i.discount : 0,
+        taxRate: i.tax,
+      })),
+  });
+
+  const persistOrder = async (status: 'draft' | 'pending') => {
+    if (submitting) return;
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      const created = await salesOrderService.createOrderEnhanced(buildOrderPayload(status));
+      clearDraft();
+      const newId = (created as { id?: string })?.id;
+      router.push(newId ? `/sales/orders/${newId}` : '/sales/orders');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save sales order.');
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (validateStep(currentStep)) {
-      clearDraft();
-      alert('Sales order created successfully!');
-      router.push('/sales/orders');
+      void persistOrder('pending');
     }
   };
 
   const handleSaveDraft = () => {
-    alert('Sales order saved as draft!');
-    router.push('/sales/orders');
+    void persistOrder('draft');
   };
 
   const handleCancel = () => {
@@ -706,16 +752,17 @@ export default function CreateSalesOrderEnhancedPage() {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button onClick={handleSaveDraft} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Save Draft</button>
+          {submitError && <span className="text-sm text-red-600">{submitError}</span>}
+          <button onClick={handleSaveDraft} disabled={submitting} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Save Draft</button>
           {currentStep < 3 ? (
             <button onClick={nextStep} className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               <span>Next</span>
               <ChevronRight className="h-5 w-5" />
             </button>
           ) : (
-            <button onClick={handleSubmit} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <button onClick={handleSubmit} disabled={submitting} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
               <Send className="h-5 w-5" />
-              <span>Create Order</span>
+              <span>{submitting ? 'Creating…' : 'Create Order'}</span>
             </button>
           )}
         </div>

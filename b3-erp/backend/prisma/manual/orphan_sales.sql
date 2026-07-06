@@ -252,3 +252,218 @@ CREATE TABLE IF NOT EXISTS "sales_handover_package_documents" (
 
 CREATE INDEX IF NOT EXISTS "IDX_sales_handover_package_documents_project"
   ON "sales_handover_package_documents" ("projectId");
+
+-- ---------------------------------------------------------------------------
+-- Sales order / invoice transaction tables (Prisma read-model backing).
+-- Back the orders-v2 and invoices endpoints used by:
+--   /sales/orders/[id], /sales/orders/create-enhanced,
+--   /sales/invoices/[id], /sales/invoices/create
+-- Column names quoted to match the Prisma @@map models (camelCase).
+-- Additive & idempotent — never drops or alters existing tables.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "sales_orders" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "orderNumber" varchar NOT NULL,
+  "quotationId" varchar,
+  "quotationNumber" varchar,
+  "rfpId" varchar,
+  "customerId" varchar,
+  "customerName" varchar NOT NULL,
+  "customerEmail" varchar,
+  "customerPhone" varchar,
+  "shippingAddress" jsonb,
+  "billingAddress" jsonb,
+  "orderDate" TIMESTAMP NOT NULL DEFAULT now(),
+  "requestedDeliveryDate" TIMESTAMP,
+  "promisedDeliveryDate" TIMESTAMP,
+  "orderType" varchar NOT NULL DEFAULT 'standard',
+  "priority" varchar NOT NULL DEFAULT 'normal',
+  "currency" varchar NOT NULL DEFAULT 'INR',
+  "exchangeRate" double precision NOT NULL DEFAULT 1,
+  "subtotal" double precision NOT NULL DEFAULT 0,
+  "discountType" varchar,
+  "discountValue" double precision NOT NULL DEFAULT 0,
+  "discountAmount" double precision NOT NULL DEFAULT 0,
+  "taxAmount" double precision NOT NULL DEFAULT 0,
+  "shippingAmount" double precision NOT NULL DEFAULT 0,
+  "totalAmount" double precision NOT NULL DEFAULT 0,
+  "paymentTerms" varchar,
+  "paymentStatus" varchar NOT NULL DEFAULT 'pending',
+  "paidAmount" double precision NOT NULL DEFAULT 0,
+  "balanceAmount" double precision NOT NULL DEFAULT 0,
+  "deliveryTerms" varchar,
+  "shippingMethod" varchar,
+  "carrier" varchar,
+  "trackingNumber" varchar,
+  "status" varchar NOT NULL DEFAULT 'draft',
+  "confirmedAt" TIMESTAMP,
+  "confirmedBy" varchar,
+  "approvedAt" TIMESTAMP,
+  "approvedBy" varchar,
+  "shippedAt" TIMESTAMP,
+  "deliveredAt" TIMESTAMP,
+  "completedAt" TIMESTAMP,
+  "cancelledAt" TIMESTAMP,
+  "cancellationReason" varchar,
+  "handoverStatus" varchar,
+  "handoverDate" TIMESTAMP,
+  "handoverPackage" jsonb,
+  "notes" varchar,
+  "internalNotes" varchar,
+  "poNumber" varchar,
+  "termsAndConditions" varchar,
+  "attachments" jsonb,
+  "salesPersonId" varchar,
+  "salesPersonName" varchar,
+  "companyId" varchar NOT NULL,
+  "createdBy" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_orders" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_sales_orders_number_company" UNIQUE ("orderNumber", "companyId")
+);
+
+CREATE TABLE IF NOT EXISTS "sales_order_items" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "orderId" uuid NOT NULL,
+  "lineNumber" integer NOT NULL,
+  "itemId" varchar,
+  "itemCode" varchar,
+  "itemName" varchar NOT NULL,
+  "description" varchar,
+  "quantity" double precision NOT NULL,
+  "uom" varchar,
+  "deliveredQuantity" double precision NOT NULL DEFAULT 0,
+  "pendingQuantity" double precision NOT NULL DEFAULT 0,
+  "returnedQuantity" double precision NOT NULL DEFAULT 0,
+  "unitPrice" double precision NOT NULL,
+  "discountPercent" double precision NOT NULL DEFAULT 0,
+  "discountAmount" double precision NOT NULL DEFAULT 0,
+  "taxRate" double precision NOT NULL DEFAULT 0,
+  "taxAmount" double precision NOT NULL DEFAULT 0,
+  "lineTotal" double precision NOT NULL,
+  "requestedDate" TIMESTAMP,
+  "promisedDate" TIMESTAMP,
+  "productionStatus" varchar,
+  "productionOrderId" varchar,
+  "warehouseId" varchar,
+  "locationId" varchar,
+  "notes" varchar,
+  "specifications" jsonb,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_order_items" PRIMARY KEY ("id"),
+  CONSTRAINT "FK_sales_order_items_order" FOREIGN KEY ("orderId")
+    REFERENCES "sales_orders" ("id") ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_sales_order_items_order"
+  ON "sales_order_items" ("orderId");
+
+CREATE TABLE IF NOT EXISTS "sales_invoices" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "invoiceNumber" varchar NOT NULL,
+  "invoiceType" varchar NOT NULL DEFAULT 'sales',
+  "orderId" uuid,
+  "orderNumber" varchar,
+  "deliveryNoteId" varchar,
+  "deliveryNoteNumber" varchar,
+  "customerId" varchar,
+  "customerName" varchar NOT NULL,
+  "customerEmail" varchar,
+  "customerAddress" varchar,
+  "vendorId" varchar,
+  "vendorName" varchar,
+  "invoiceDate" TIMESTAMP NOT NULL DEFAULT now(),
+  "dueDate" TIMESTAMP NOT NULL,
+  "paymentTerms" varchar NOT NULL DEFAULT 'NET_30',
+  "currency" varchar NOT NULL DEFAULT 'INR',
+  "exchangeRate" double precision NOT NULL DEFAULT 1,
+  "subtotal" double precision NOT NULL DEFAULT 0,
+  "totalDiscount" double precision NOT NULL DEFAULT 0,
+  "totalTax" double precision NOT NULL DEFAULT 0,
+  "shippingAmount" double precision NOT NULL DEFAULT 0,
+  "totalAmount" double precision NOT NULL,
+  "amountPaid" double precision NOT NULL DEFAULT 0,
+  "amountDue" double precision NOT NULL,
+  "status" varchar NOT NULL DEFAULT 'draft',
+  "submittedAt" TIMESTAMP,
+  "submittedBy" varchar,
+  "approvedAt" TIMESTAMP,
+  "approvedBy" varchar,
+  "postedAt" TIMESTAMP,
+  "postedBy" varchar,
+  "paidAt" TIMESTAMP,
+  "voidedAt" TIMESTAMP,
+  "voidReason" varchar,
+  "notes" varchar,
+  "terms" varchar,
+  "reference" varchar,
+  "poNumber" varchar,
+  "glPosted" boolean NOT NULL DEFAULT false,
+  "glPostingDate" TIMESTAMP,
+  "journalEntryId" varchar,
+  "companyId" varchar NOT NULL,
+  "createdBy" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_invoices" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_sales_invoices_number_company" UNIQUE ("invoiceNumber", "companyId")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_sales_invoices_order"
+  ON "sales_invoices" ("orderId");
+
+CREATE TABLE IF NOT EXISTS "sales_invoice_items" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "invoiceId" uuid NOT NULL,
+  "lineNumber" integer NOT NULL,
+  "productId" varchar,
+  "productCode" varchar,
+  "productName" varchar NOT NULL,
+  "description" varchar,
+  "quantity" double precision NOT NULL,
+  "uom" varchar,
+  "unitPrice" double precision NOT NULL,
+  "discountPercent" double precision NOT NULL DEFAULT 0,
+  "discountAmount" double precision NOT NULL DEFAULT 0,
+  "taxRate" double precision NOT NULL DEFAULT 0,
+  "taxAmount" double precision NOT NULL DEFAULT 0,
+  "lineTotal" double precision NOT NULL,
+  "accountId" varchar,
+  "costCenterId" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_sales_invoice_items" PRIMARY KEY ("id"),
+  CONSTRAINT "FK_sales_invoice_items_invoice" FOREIGN KEY ("invoiceId")
+    REFERENCES "sales_invoices" ("id") ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_sales_invoice_items_invoice"
+  ON "sales_invoice_items" ("invoiceId");
+
+CREATE TABLE IF NOT EXISTS "invoice_payments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "paymentNumber" varchar NOT NULL,
+  "invoiceId" uuid NOT NULL,
+  "paymentDate" TIMESTAMP NOT NULL DEFAULT now(),
+  "amount" double precision NOT NULL,
+  "paymentMethod" varchar NOT NULL,
+  "referenceNumber" varchar,
+  "chequeNumber" varchar,
+  "bankName" varchar,
+  "transactionId" varchar,
+  "status" varchar NOT NULL DEFAULT 'completed',
+  "notes" varchar,
+  "companyId" varchar NOT NULL,
+  "createdBy" varchar,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_invoice_payments" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_invoice_payments_number_company" UNIQUE ("paymentNumber", "companyId"),
+  CONSTRAINT "FK_invoice_payments_invoice" FOREIGN KEY ("invoiceId")
+    REFERENCES "sales_invoices" ("id") ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_invoice_payments_invoice"
+  ON "invoice_payments" ("invoiceId");

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Plus,
@@ -13,6 +14,9 @@ import {
   Building,
   User
 } from 'lucide-react';
+import { InvoiceService } from '@/services/invoice.service';
+
+const COMPANY_ID = 'default-company-id';
 
 interface InvoiceItem {
   id: string;
@@ -26,6 +30,7 @@ interface InvoiceItem {
 }
 
 export default function CreateInvoicePage() {
+  const router = useRouter();
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -34,6 +39,8 @@ export default function CreateInvoicePage() {
   const [billingAddress, setBillingAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('net_30');
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [items, setItems] = useState<InvoiceItem[]>([
     {
@@ -117,6 +124,59 @@ export default function CreateInvoicePage() {
 
   const total = items.reduce((sum, item) => sum + item.amount, 0);
 
+  const deriveDueDate = (): string => {
+    if (dueDate) return dueDate;
+    const base = new Date(invoiceDate);
+    const daysByTerm: Record<string, number> = {
+      due_on_receipt: 0, net_15: 15, net_30: 30, net_45: 45, net_60: 60,
+    };
+    base.setDate(base.getDate() + (daysByTerm[paymentTerms] ?? 30));
+    return base.toISOString().split('T')[0];
+  };
+
+  const buildPayload = () => ({
+    companyId: COMPANY_ID,
+    customerName: customerName.trim(),
+    customerEmail: customerEmail.trim() || undefined,
+    customerAddress: billingAddress.trim() || undefined,
+    invoiceDate,
+    dueDate: deriveDueDate(),
+    paymentTerms: paymentTerms.toUpperCase(),
+    notes: notes.trim() || undefined,
+    items: items
+      .filter((i) => i.description.trim())
+      .map((i) => ({
+        productName: i.description.trim(),
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        discountPercent: i.discountType === 'percent' ? i.discount : 0,
+        taxRate: i.taxRate,
+      })),
+  });
+
+  const validate = (): boolean => {
+    if (!customerName.trim()) { setFormError('Customer name is required.'); return false; }
+    if (!items.some((i) => i.description.trim() && i.unitPrice > 0)) {
+      setFormError('Add at least one line item with a description and price.');
+      return false;
+    }
+    setFormError(null);
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (saving || !validate()) return;
+    try {
+      setSaving(true);
+      const created = await InvoiceService.createSalesInvoice(buildPayload());
+      const newId = (created as { id?: string })?.id;
+      router.push(newId ? `/sales/invoices/${newId}` : '/sales/invoices');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create invoice.');
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-3 py-2">
       <div className="w-full space-y-3">
@@ -129,20 +189,37 @@ export default function CreateInvoicePage() {
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
           <div className="flex items-center gap-3 ml-auto">
-            <button className="px-4 py-2 text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors flex items-center gap-2">
+            <button
+              onClick={() => router.push('/sales/invoices')}
+              className="px-4 py-2 text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors flex items-center gap-2"
+            >
               <Eye className="w-4 h-4" />
               Preview
             </button>
-            <button className="px-4 py-2 text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors flex items-center gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-4 py-2 text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
               <Save className="w-4 h-4" />
               Save Draft
             </button>
-            <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors flex items-center gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
               <Send className="w-4 h-4" />
-              Generate Invoice
+              {saving ? 'Saving…' : 'Generate Invoice'}
             </button>
           </div>
         </div>
+
+        {formError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
+            {formError}
+          </div>
+        )}
 
         {/* Customer Information */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">

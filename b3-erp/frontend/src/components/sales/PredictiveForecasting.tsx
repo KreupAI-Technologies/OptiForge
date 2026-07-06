@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { TrendingUp, BarChart3, Calendar, Target, AlertCircle, Download, RefreshCw, Settings, Eye, Plus, Edit } from 'lucide-react'
+import { salesAnalyticsService } from '@/services/sales-analytics.service'
 
 export interface Forecast {
   month: string;
@@ -11,27 +12,58 @@ export interface Forecast {
   variance?: number;
 }
 
+const FALLBACK_FORECASTS: Forecast[] = [
+  { month: 'Oct 2025', predicted: 125000000, confidence: 92, actual: 123500000, variance: -1.2 },
+  { month: 'Nov 2025', predicted: 132000000, confidence: 88, actual: undefined },
+  { month: 'Dec 2025', predicted: 145000000, confidence: 85, actual: undefined },
+  { month: 'Jan 2026', predicted: 138000000, confidence: 78, actual: undefined },
+];
+
 export default function PredictiveForecasting() {
   const [realTimeUpdate, setRealTimeUpdate] = useState(0);
+  const [forecasts, setForecasts] = useState<Forecast[]>(FALLBACK_FORECASTS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const interval = setInterval(() => setRealTimeUpdate(prev => prev + 1), 4000);
     return () => clearInterval(interval);
   }, []);
 
-  const [forecasts] = useState<Forecast[]>([
-    { month: 'Oct 2025', predicted: 125000000, confidence: 92, actual: 123500000, variance: -1.2 },
-    { month: 'Nov 2025', predicted: 132000000 + (realTimeUpdate % 5) * 1000000, confidence: 88, actual: undefined },
-    { month: 'Dec 2025', predicted: 145000000 + (realTimeUpdate % 3) * 2000000, confidence: 85, actual: undefined },
-    { month: 'Jan 2026', predicted: 138000000, confidence: 78, actual: undefined }
-  ]);
+  const loadForecast = async () => {
+    try {
+      setLoading(true);
+      const rows = await salesAnalyticsService.getForecast();
+      if (Array.isArray(rows) && rows.length > 0) {
+        setForecasts(
+          rows.map((r) => {
+            const variance = r.predicted ? ((r.actual - r.predicted) / r.predicted) * 100 : 0;
+            return {
+              month: r.period,
+              predicted: r.predicted,
+              confidence: 85,
+              actual: r.actual || undefined,
+              variance: r.actual ? Number(variance.toFixed(1)) : undefined,
+            };
+          }),
+        );
+      }
+    } catch {
+      // Keep fallback data on error so the dashboard stays usable.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadForecast();
+  }, []);
 
   const formatCurrency = (amount: number) => `₹${(amount / 10000000).toFixed(2)}Cr`;
 
   // Handler functions
   const handleRefresh = () => {
-    console.log('Refreshing forecast data...');
-    alert('Refreshing AI Forecasting Model...\n\nRecalculating predictions with latest sales data, market trends, and economic indicators.\n\nEstimated time: 15 seconds');
+    setRealTimeUpdate((prev) => prev + 1);
+    void loadForecast();
   };
 
   const handleSettings = () => {
@@ -98,8 +130,8 @@ export default function PredictiveForecasting() {
           </div>
           <div className="flex items-center gap-2">
             <div className="text-sm text-gray-600 flex items-center gap-2">
-              Last updated: {new Date().toLocaleTimeString()}
-              <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+              {loading ? 'Loading forecast…' : `Last updated: ${new Date().toLocaleTimeString()}`}
+              <div className={`h-2 w-2 rounded-full ${loading ? 'bg-yellow-500' : 'bg-green-500'} animate-pulse`}></div>
             </div>
             <div className="flex space-x-2">
               <button
