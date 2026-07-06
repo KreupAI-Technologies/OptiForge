@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FolderTree,
   Plus,
@@ -10,9 +10,12 @@ import {
   Search,
   Package
 } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const COMPANY_ID = 'default-company-id';
 
 interface Category {
-  id: number;
+  id: number | string;
   code: string;
   name: string;
   parentCategory?: string;
@@ -27,111 +30,60 @@ export default function InventoryCategoriesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('active');
 
-  const [categories, setCategories] = useState<Category[]>([
-    {
-      id: 1,
-      code: 'RM',
-      name: 'Raw Materials',
-      description: 'Primary materials used in manufacturing',
-      itemCount: 245,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-10'
-    },
-    {
-      id: 2,
-      code: 'RM-STL',
-      name: 'Steel & Metals',
-      parentCategory: 'Raw Materials',
-      description: 'Steel plates, rods, and metal components',
-      itemCount: 85,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-08'
-    },
-    {
-      id: 3,
-      code: 'COMP',
-      name: 'Components',
-      description: 'Purchased components and parts',
-      itemCount: 320,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-12'
-    },
-    {
-      id: 4,
-      code: 'COMP-HYD',
-      name: 'Hydraulic Components',
-      parentCategory: 'Components',
-      description: 'Hydraulic pumps, cylinders, valves',
-      itemCount: 95,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-15'
-    },
-    {
-      id: 5,
-      code: 'COMP-ELC',
-      name: 'Electrical Components',
-      parentCategory: 'Components',
-      description: 'Motors, sensors, control panels',
-      itemCount: 125,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-18'
-    },
-    {
-      id: 6,
-      code: 'SA',
-      name: 'Sub-Assemblies',
-      description: 'Manufactured sub-assemblies',
-      itemCount: 68,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-20'
-    },
-    {
-      id: 7,
-      code: 'FG',
-      name: 'Finished Goods',
-      description: 'Completed products ready for sale',
-      itemCount: 42,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-22'
-    },
-    {
-      id: 8,
-      code: 'SPR',
-      name: 'Spare Parts',
-      description: 'After-sales spare parts inventory',
-      itemCount: 180,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-19'
-    },
-    {
-      id: 9,
-      code: 'CONS',
-      name: 'Consumables',
-      description: 'Consumable materials (welding, oils, etc.)',
-      itemCount: 95,
-      status: 'active',
-      createdDate: '2024-01-15',
-      lastModified: '2025-01-16'
-    },
-    {
-      id: 10,
-      code: 'TOOL',
-      name: 'Tools & Equipment',
-      description: 'Workshop tools and equipment',
-      itemCount: 52,
-      status: 'inactive',
-      createdDate: '2024-01-15',
-      lastModified: '2024-10-05'
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  const mapCategory = (row: any): Category => ({
+    id: row?.id ?? row?._id ?? '',
+    code: row?.code ?? '',
+    name: row?.name ?? '',
+    parentCategory: row?.parentCategory ?? row?.parent?.name ?? undefined,
+    description: row?.description ?? '',
+    itemCount: row?.itemCount ?? 0,
+    status: (row?.status ?? (row?.isActive === false ? 'inactive' : 'active')) as Category['status'],
+    createdDate: row?.createdDate ?? row?.createdAt ?? '',
+    lastModified: row?.lastModified ?? row?.updatedAt ?? '',
+  });
+
+  const fetchCategories = async () => {
+    try {
+      const rows = await commonMastersService.getAllItemCategories(COMPANY_ID);
+      setCategories(Array.isArray(rows) ? rows.map(mapCategory) : []);
+    } catch (error) {
+      console.error('Failed to load categories', error);
+      setCategories([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const handleCreateCategory = async (name: string) => {
+    try {
+      await commonMastersService.createItemCategory({ name, companyId: COMPANY_ID });
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to create category', error);
+    }
+  };
+
+  const handleUpdateCategory = async (id: number | string, payload: any) => {
+    try {
+      await commonMastersService.updateItemCategory(String(id), payload);
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to update category', error);
+    }
+  };
+
+  const handleDeleteCategory = async (id: number | string) => {
+    try {
+      await commonMastersService.deleteItemCategory(String(id));
+      await fetchCategories();
+    } catch (error) {
+      console.error('Failed to delete category', error);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     return status === 'active'
@@ -162,7 +114,14 @@ export default function InventoryCategoriesPage() {
           <p className="text-gray-600 mt-1">Manage inventory classification hierarchy</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2">
+          <button
+            onClick={() => {
+              const name = window.prompt('Category name');
+              if (!name) return;
+              handleCreateCategory(name);
+            }}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Add Category</span>
           </button>
@@ -272,11 +231,23 @@ export default function InventoryCategoriesPage() {
                         <Eye className="w-4 h-4 text-gray-600" />
                         <span className="text-gray-700">View</span>
                       </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                      <button
+                        onClick={() => {
+                          const name = window.prompt('Category name', category.name);
+                          if (name === null) return;
+                          handleUpdateCategory(category.id, { name });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                      >
                         <Edit2 className="w-4 h-4 text-gray-600" />
                         <span className="text-gray-700">Edit</span>
                       </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Delete category "${category.name}"?`)) handleDeleteCategory(category.id);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                      >
                         <Trash2 className="w-4 h-4 text-red-600" />
                         <span className="text-red-600">Delete</span>
                       </button>

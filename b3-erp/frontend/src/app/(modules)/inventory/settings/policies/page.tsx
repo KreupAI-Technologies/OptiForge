@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Plus,
@@ -12,9 +12,10 @@ import {
   Package,
   Calendar
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface InventoryPolicy {
-  id: number;
+  id: string;
   policyCode: string;
   policyName: string;
   policyType: 'reorder' | 'valuation' | 'cycle-count' | 'shelf-life' | 'reservation';
@@ -47,184 +48,67 @@ export default function InventoryPoliciesPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [policies, setPolicies] = useState<InventoryPolicy[]>([
-    {
-      id: 1,
-      policyCode: 'POL-REORD-001',
-      policyName: 'Standard Reorder Policy - Raw Materials',
-      policyType: 'reorder',
-      category: 'Raw Materials',
-      description: 'Standard reorder rules for raw material inventory',
-      parameters: {
-        reorderPoint: 100,
-        reorderQuantity: 500,
-        minLevel: 50,
-        maxLevel: 1000,
-        safetyStock: 30,
-        leadTimeDays: 7
-      },
-      applicableItems: 145,
-      status: 'active',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-01-15',
-      lastModified: '2024-10-10'
-    },
-    {
-      id: 2,
-      policyCode: 'POL-VAL-001',
-      policyName: 'FIFO Valuation - Finished Goods',
-      policyType: 'valuation',
-      category: 'Finished Goods',
-      description: 'First-In-First-Out valuation method for finished goods',
-      parameters: {
-        valuationMethod: 'FIFO'
-      },
-      applicableItems: 42,
-      status: 'active',
-      createdBy: 'Priya Singh',
-      createdDate: '2024-02-01',
-      lastModified: '2024-08-20'
-    },
-    {
-      id: 3,
-      policyCode: 'POL-CC-001',
-      policyName: 'ABC Cycle Count - Class A',
-      policyType: 'cycle-count',
-      category: 'All Categories',
-      description: 'High-value items counted weekly',
-      parameters: {
-        countFrequency: 'Weekly',
-        abcClass: 'A'
-      },
-      applicableItems: 85,
-      status: 'active',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-03-10',
-      lastModified: '2024-09-15'
-    },
-    {
-      id: 4,
-      policyCode: 'POL-CC-002',
-      policyName: 'ABC Cycle Count - Class B',
-      policyType: 'cycle-count',
-      category: 'All Categories',
-      description: 'Medium-value items counted monthly',
-      parameters: {
-        countFrequency: 'Monthly',
-        abcClass: 'B'
-      },
-      applicableItems: 180,
-      status: 'active',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-03-10',
-      lastModified: '2024-09-15'
-    },
-    {
-      id: 5,
-      policyCode: 'POL-CC-003',
-      policyName: 'ABC Cycle Count - Class C',
-      policyType: 'cycle-count',
-      category: 'All Categories',
-      description: 'Low-value items counted quarterly',
-      parameters: {
-        countFrequency: 'Quarterly',
-        abcClass: 'C'
-      },
-      applicableItems: 295,
-      status: 'active',
-      createdBy: 'Amit Patel',
-      createdDate: '2024-03-10',
-      lastModified: '2024-09-15'
-    },
-    {
-      id: 6,
-      policyCode: 'POL-SHELF-001',
-      policyName: 'Shelf Life Control - Consumables',
-      policyType: 'shelf-life',
-      category: 'Consumables',
-      description: 'Expiry tracking for consumable items',
-      parameters: {
-        shelfLifeDays: 365,
-        expiryWarningDays: 30
-      },
-      applicableItems: 68,
-      status: 'active',
-      createdBy: 'Sunita Desai',
-      createdDate: '2024-04-05',
-      lastModified: '2024-09-28'
-    },
-    {
-      id: 7,
-      policyCode: 'POL-RES-001',
-      policyName: 'Auto Reservation - Production Orders',
-      policyType: 'reservation',
-      category: 'Components',
-      description: 'Automatic inventory reservation for production',
-      parameters: {
-        autoReserve: true,
-        reservationPriority: 'FIFO'
-      },
-      applicableItems: 220,
-      status: 'active',
-      createdBy: 'Vikram Malhotra',
-      createdDate: '2024-05-20',
-      lastModified: '2024-10-05'
-    },
-    {
-      id: 8,
-      policyCode: 'POL-VAL-002',
-      policyName: 'Weighted Average - Components',
-      policyType: 'valuation',
-      category: 'Components',
-      description: 'Weighted average cost valuation for components',
-      parameters: {
-        valuationMethod: 'Weighted Average'
-      },
-      applicableItems: 320,
-      status: 'active',
-      createdBy: 'Priya Singh',
-      createdDate: '2024-06-15',
-      lastModified: '2024-10-12'
-    },
-    {
-      id: 9,
-      policyCode: 'POL-REORD-002',
-      policyName: 'Critical Spares Reorder',
-      policyType: 'reorder',
-      category: 'Spare Parts',
-      description: 'High safety stock for critical spare parts',
-      parameters: {
-        reorderPoint: 20,
-        reorderQuantity: 100,
-        minLevel: 10,
-        maxLevel: 200,
-        safetyStock: 15,
-        leadTimeDays: 14
-      },
-      applicableItems: 78,
-      status: 'active',
-      createdBy: 'Rajesh Kumar',
-      createdDate: '2024-07-01',
-      lastModified: '2024-10-18'
-    },
-    {
-      id: 10,
-      policyCode: 'POL-SHELF-002',
-      policyName: 'FEFO Reservation - Perishables',
-      policyType: 'reservation',
-      category: 'Consumables',
-      description: 'First-Expiry-First-Out for perishable items',
-      parameters: {
-        autoReserve: true,
-        reservationPriority: 'FEFO'
-      },
-      applicableItems: 42,
-      status: 'draft',
-      createdBy: 'Sunita Desai',
-      createdDate: '2024-10-15',
-      lastModified: '2024-10-20'
+  const [policies, setPolicies] = useState<InventoryPolicy[]>([]);
+
+  const mapPolicy = (p: any): InventoryPolicy => ({
+    id: String(p?.id ?? ''),
+    policyCode: p?.policyCode ?? '',
+    policyName: p?.policyName ?? '',
+    policyType: (p?.policyType ?? 'reorder') as InventoryPolicy['policyType'],
+    category: p?.category ?? '',
+    description: p?.description ?? '',
+    parameters: (p?.parameters ?? {}) as InventoryPolicy['parameters'],
+    applicableItems: Number(p?.applicableItems ?? p?.applicableItemsCount ?? 0),
+    status: (p?.status ?? 'draft') as InventoryPolicy['status'],
+    createdBy: p?.createdBy ?? '',
+    createdDate: p?.createdDate ?? p?.createdAt ?? '',
+    lastModified: p?.lastModified ?? p?.updatedAt ?? '',
+  });
+
+  const loadPolicies = async () => {
+    try {
+      const rows = await inventoryService.getPolicies();
+      setPolicies(Array.isArray(rows) ? rows.map(mapPolicy) : []);
+    } catch (err) {
+      console.error('Failed to load policies', err);
+      setPolicies([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadPolicies();
+  }, []);
+
+  const handleCreatePolicy = async (payload: any) => {
+    try {
+      await inventoryService.createPolicy(payload);
+      await loadPolicies();
+    } catch (err) {
+      console.error('Failed to create policy', err);
+    }
+  };
+
+  const handleUpdatePolicy = async (id: string, payload: any) => {
+    try {
+      await inventoryService.updatePolicy(id, payload);
+      await loadPolicies();
+    } catch (err) {
+      console.error('Failed to update policy', err);
+    }
+  };
+
+  const handleDeletePolicy = async (id: string) => {
+    try {
+      await inventoryService.deletePolicy(id);
+      await loadPolicies();
+    } catch (err) {
+      console.error('Failed to delete policy', err);
+    }
+  };
+
+  void handleCreatePolicy;
+  void handleUpdatePolicy;
+  void handleDeletePolicy;
 
   const getTypeColor = (type: string) => {
     const colors: { [key: string]: string } = {

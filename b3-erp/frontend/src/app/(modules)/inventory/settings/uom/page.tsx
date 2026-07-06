@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Scale,
   Plus,
@@ -10,9 +10,12 @@ import {
   Search,
   RefreshCw
 } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const COMPANY_ID = 'default-company-id';
 
 interface UnitOfMeasure {
-  id: number;
+  id: number | string;
   code: string;
   name: string;
   uomType: 'quantity' | 'weight' | 'length' | 'volume' | 'area' | 'time';
@@ -27,113 +30,60 @@ export default function UOMPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
 
-  const [uoms, setUoms] = useState<UnitOfMeasure[]>([
-    {
-      id: 1,
-      code: 'PCS',
-      name: 'Pieces',
-      uomType: 'quantity',
-      decimalPlaces: 0,
-      status: 'active',
-      usageCount: 450
-    },
-    {
-      id: 2,
-      code: 'KG',
-      name: 'Kilogram',
-      uomType: 'weight',
-      decimalPlaces: 2,
-      status: 'active',
-      usageCount: 245
-    },
-    {
-      id: 3,
-      code: 'MT',
-      name: 'Metric Ton',
-      uomType: 'weight',
-      baseUnit: 'KG',
-      conversionFactor: 1000,
-      decimalPlaces: 3,
-      status: 'active',
-      usageCount: 85
-    },
-    {
-      id: 4,
-      code: 'LTR',
-      name: 'Liter',
-      uomType: 'volume',
-      decimalPlaces: 2,
-      status: 'active',
-      usageCount: 125
-    },
-    {
-      id: 5,
-      code: 'MTR',
-      name: 'Meter',
-      uomType: 'length',
-      decimalPlaces: 2,
-      status: 'active',
-      usageCount: 180
-    },
-    {
-      id: 6,
-      code: 'MM',
-      name: 'Millimeter',
-      uomType: 'length',
-      baseUnit: 'MTR',
-      conversionFactor: 0.001,
-      decimalPlaces: 0,
-      status: 'active',
-      usageCount: 320
-    },
-    {
-      id: 7,
-      code: 'SQM',
-      name: 'Square Meter',
-      uomType: 'area',
-      decimalPlaces: 2,
-      status: 'active',
-      usageCount: 95
-    },
-    {
-      id: 8,
-      code: 'SET',
-      name: 'Set',
-      uomType: 'quantity',
-      decimalPlaces: 0,
-      status: 'active',
-      usageCount: 68
-    },
-    {
-      id: 9,
-      code: 'BOX',
-      name: 'Box',
-      uomType: 'quantity',
-      decimalPlaces: 0,
-      status: 'active',
-      usageCount: 142
-    },
-    {
-      id: 10,
-      code: 'HR',
-      name: 'Hour',
-      uomType: 'time',
-      decimalPlaces: 2,
-      status: 'active',
-      usageCount: 58
-    },
-    {
-      id: 11,
-      code: 'GM',
-      name: 'Gram',
-      uomType: 'weight',
-      baseUnit: 'KG',
-      conversionFactor: 0.001,
-      decimalPlaces: 2,
-      status: 'inactive',
-      usageCount: 12
+  const [uoms, setUoms] = useState<UnitOfMeasure[]>([]);
+
+  const mapUom = (row: any): UnitOfMeasure => ({
+    id: row?.id ?? row?._id ?? '',
+    code: row?.code ?? row?.symbol ?? row?.abbreviation ?? '',
+    name: row?.name ?? '',
+    uomType: (row?.uomType ?? row?.type ?? 'quantity') as UnitOfMeasure['uomType'],
+    baseUnit: row?.baseUnit ?? row?.baseUom ?? undefined,
+    conversionFactor: row?.conversionFactor ?? undefined,
+    decimalPlaces: row?.decimalPlaces ?? 0,
+    status: (row?.status ?? (row?.isActive === false ? 'inactive' : 'active')) as UnitOfMeasure['status'],
+    usageCount: row?.usageCount ?? 0,
+  });
+
+  const fetchUoms = async () => {
+    try {
+      const rows = await commonMastersService.getAllUoms(COMPANY_ID);
+      setUoms(Array.isArray(rows) ? rows.map(mapUom) : []);
+    } catch (error) {
+      console.error('Failed to load UOMs', error);
+      setUoms([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchUoms();
+  }, []);
+
+  const handleCreateUom = async (payload: any) => {
+    try {
+      await commonMastersService.createUom({ ...payload, companyId: COMPANY_ID });
+      await fetchUoms();
+    } catch (error) {
+      console.error('Failed to create UOM', error);
+    }
+  };
+
+  const handleUpdateUom = async (id: number | string, payload: any) => {
+    try {
+      await commonMastersService.updateUom(String(id), payload);
+      await fetchUoms();
+    } catch (error) {
+      console.error('Failed to update UOM', error);
+    }
+  };
+
+  const handleDeleteUom = async (id: number | string) => {
+    try {
+      await commonMastersService.deleteUom(String(id));
+      await fetchUoms();
+    } catch (error) {
+      console.error('Failed to delete UOM', error);
+    }
+  };
 
   const getTypeColor = (type: string) => {
     const colors: { [key: string]: string } = {
@@ -176,7 +126,15 @@ export default function UOMPage() {
           <p className="text-gray-600 mt-1">Manage measurement units and conversions</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2">
+          <button
+            onClick={() => {
+              const code = window.prompt('UOM code');
+              if (!code) return;
+              const name = window.prompt('UOM name') || code;
+              handleCreateUom({ code, name });
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Add UOM</span>
           </button>
@@ -299,12 +257,24 @@ export default function UOMPage() {
                         <Eye className="w-4 h-4 text-gray-600" />
                         <span className="text-gray-700">View</span>
                       </button>
-                      <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                      <button
+                        onClick={() => {
+                          const name = window.prompt('UOM name', uom.name);
+                          if (name === null) return;
+                          handleUpdateUom(uom.id, { name });
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                      >
                         <Edit2 className="w-4 h-4 text-gray-600" />
                         <span className="text-gray-700">Edit</span>
                       </button>
                       {uom.usageCount === 0 && (
-                        <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete UOM "${uom.name}"?`)) handleDeleteUom(uom.id);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                        >
                           <Trash2 className="w-4 h-4 text-red-600" />
                           <span className="text-red-600">Delete</span>
                         </button>
