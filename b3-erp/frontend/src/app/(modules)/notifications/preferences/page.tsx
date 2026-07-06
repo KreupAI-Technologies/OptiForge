@@ -176,7 +176,8 @@ export default function NotificationPreferencesPage() {
               Notification Preferences
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Customize how and when you receive notifications
+              Customize how and when you receive notifications. These preferences
+              are saved locally in this browser.
             </p>
           </div>
         </div>

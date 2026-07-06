@@ -28,4 +28,13 @@ export const procurementPurchaseInvoiceService = {
   async getInvoiceById(id: string): Promise<any> {
     return request<any>(`/procurement/purchase-invoices/${encodeURIComponent(id)}`);
   },
+
+  // POST /procurement/purchase-invoices/:id/three-way-match
+  //   -> { invoice: PurchaseInvoice, matchingDetails: { isMatched, matchingStatus, variances, exceptions } }
+  async performThreeWayMatch(id: string): Promise<any> {
+    return request<any>(
+      `/procurement/purchase-invoices/${encodeURIComponent(id)}/three-way-match`,
+      { method: 'POST' },
+    );
+  },
 };

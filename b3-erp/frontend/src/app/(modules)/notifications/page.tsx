@@ -1,29 +1,27 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Bell,
   Search,
-  Filter,
   Check,
   CheckCheck,
-  Archive,
-  Trash2,
   Clock,
   AlertCircle,
   MessageSquare,
   UserCheck,
   RefreshCw,
-  ChevronDown,
   Settings,
-  Calendar,
   X,
-  MoreVertical,
 } from 'lucide-react';
-import { useNotifications, Notification, NotificationCategory } from '@/context/NotificationContext';
+import {
+  userNotificationService,
+  UserNotification,
+} from '@/services/notification.service';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -32,13 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 
 // ============================================================================
-// Category Config
+// Category / Priority Config (maps backend fields to display styling)
 // ============================================================================
 
-const categoryConfig: Record<NotificationCategory, {
+type DisplayCategory = 'alert' | 'approval' | 'mention' | 'update' | 'reminder' | 'system';
+
+const categoryConfig: Record<DisplayCategory, {
   icon: React.ElementType;
   label: string;
   color: string;
@@ -52,11 +51,31 @@ const categoryConfig: Record<NotificationCategory, {
   system: { icon: Bell, label: 'System', color: 'text-gray-600', bgColor: 'bg-gray-100' },
 };
 
+// Backend `type` strings -> display category bucket
+function toDisplayCategory(type: string): DisplayCategory {
+  const t = (type || '').toLowerCase();
+  if (t.includes('approval') || t.includes('escalation')) return 'approval';
+  if (t.includes('sla') || t.includes('breach') || t.includes('error') || t.includes('alert')) return 'alert';
+  if (t.includes('mention')) return 'mention';
+  if (t.includes('reminder') || t.includes('deadline')) return 'reminder';
+  if (t.includes('update') || t.includes('status')) return 'update';
+  return 'system';
+}
+
+// Backend `priority` ('info' | 'warning' | 'urgent') display
+function priorityBadge(priority: string): { label: string; className: string } | null {
+  const p = (priority || '').toLowerCase();
+  if (p === 'urgent') return { label: 'Urgent', className: 'bg-red-100 text-red-700' };
+  if (p === 'warning') return { label: 'Warning', className: 'bg-orange-100 text-orange-700' };
+  return null;
+}
+
 // ============================================================================
 // Format Time Helper
 // ============================================================================
 
-function formatTime(date: Date): string {
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
@@ -70,8 +89,8 @@ function formatTime(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function formatFullDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
+function formatFullDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -86,53 +105,92 @@ function formatFullDate(date: Date): string {
 // ============================================================================
 
 export default function NotificationHistoryPage() {
-  const {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-    archiveNotification,
-    deleteNotification,
-    clearAll,
-  } = useNotifications();
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<NotificationCategory | 'all'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'read' | 'archived'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<DisplayCategory | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const loadNotifications = useCallback(async () => {
+    if (!userId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await userNotificationService.getForUser(userId, 1, 100);
+      setNotifications(res.notifications ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load notifications');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void loadNotifications();
+  }, [loadNotifications]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications],
+  );
+
+  const handleMarkAsRead = useCallback(async (id: string) => {
+    if (!userId) return;
+    // optimistic update
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    try {
+      await userNotificationService.markRead(id, userId);
+    } catch {
+      // revert on failure by reloading truth from server
+      void loadNotifications();
+    }
+  }, [userId, loadNotifications]);
+
+  const handleMarkAllRead = useCallback(async () => {
+    if (!userId) return;
+    setIsMutating(true);
+    try {
+      await userNotificationService.markAllRead(userId);
+      await loadNotifications();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to mark all as read');
+    } finally {
+      setIsMutating(false);
+    }
+  }, [userId, loadNotifications]);
 
   // Filter notifications
   const filteredNotifications = useMemo(() => {
-    return notifications.filter(n => {
-      // Search filter
+    return notifications.filter((n) => {
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         if (
           !n.title.toLowerCase().includes(search) &&
           !n.message.toLowerCase().includes(search) &&
-          !(n.module?.toLowerCase().includes(search))
+          !n.type.toLowerCase().includes(search)
         ) {
           return false;
         }
       }
 
-      // Category filter
-      if (categoryFilter !== 'all' && n.category !== categoryFilter) {
+      if (categoryFilter !== 'all' && toDisplayCategory(n.type) !== categoryFilter) {
         return false;
       }
 
-      // Status filter
-      if (statusFilter !== 'all' && n.status !== statusFilter) {
-        return false;
-      }
+      if (statusFilter === 'unread' && n.isRead) return false;
+      if (statusFilter === 'read' && !n.isRead) return false;
 
-      // Date filter
       if (dateFilter !== 'all') {
         const now = new Date();
-        const notifDate = new Date(n.timestamp);
+        const notifDate = new Date(n.createdAt);
         const daysDiff = Math.floor((now.getTime() - notifDate.getTime()) / 86400000);
-
         if (dateFilter === 'today' && daysDiff > 0) return false;
         if (dateFilter === 'week' && daysDiff > 7) return false;
         if (dateFilter === 'month' && daysDiff > 30) return false;
@@ -144,10 +202,10 @@ export default function NotificationHistoryPage() {
 
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
-    const groups: { [key: string]: Notification[] } = {};
+    const groups: { [key: string]: UserNotification[] } = {};
 
-    filteredNotifications.forEach(n => {
-      const date = new Date(n.timestamp);
+    filteredNotifications.forEach((n) => {
+      const date = new Date(n.createdAt);
       const today = new Date();
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
@@ -161,55 +219,21 @@ export default function NotificationHistoryPage() {
         key = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
       }
 
-      if (!groups[key]) {
-        groups[key] = [];
-      }
+      if (!groups[key]) groups[key] = [];
       groups[key].push(n);
     });
 
     return groups;
   }, [filteredNotifications]);
 
-  // Selection handlers
-  const toggleSelection = (id: string) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
-  };
-
-  const selectAll = () => {
-    if (selectedIds.size === filteredNotifications.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredNotifications.map(n => n.id)));
-    }
-  };
-
-  const handleBulkMarkAsRead = () => {
-    selectedIds.forEach(id => markAsRead(id));
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkArchive = () => {
-    selectedIds.forEach(id => archiveNotification(id));
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkDelete = () => {
-    selectedIds.forEach(id => deleteNotification(id));
-    setSelectedIds(new Set());
-  };
-
-  // Stats
   const stats = {
     total: notifications.length,
     unread: unreadCount,
-    archived: notifications.filter(n => n.status === 'archived').length,
+    read: notifications.length - unreadCount,
   };
+
+  const hasActiveFilters =
+    searchTerm !== '' || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter !== 'all';
 
   return (
     <div className="w-full py-2 space-y-3">
@@ -225,7 +249,15 @@ export default function NotificationHistoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={markAllAsRead} disabled={unreadCount === 0}>
+          <Button variant="outline" onClick={loadNotifications} disabled={isLoading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleMarkAllRead}
+            disabled={unreadCount === 0 || isMutating}
+          >
             <CheckCheck className="w-4 h-4 mr-2" />
             Mark all read
           </Button>
@@ -238,8 +270,21 @@ export default function NotificationHistoryPage() {
         </div>
       </div>
 
+      {/* Error banner */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
+          <span className="text-sm text-red-700 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            {error}
+          </span>
+          <Button variant="ghost" size="sm" onClick={loadNotifications}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -269,20 +314,9 @@ export default function NotificationHistoryPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Read</p>
-                <p className="text-2xl font-bold">{stats.total - stats.unread - stats.archived}</p>
+                <p className="text-2xl font-bold">{stats.read}</p>
               </div>
               <Check className="w-8 h-8 text-green-300" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Archived</p>
-                <p className="text-2xl font-bold">{stats.archived}</p>
-              </div>
-              <Archive className="w-8 h-8 text-gray-300" />
             </div>
           </CardContent>
         </Card>
@@ -292,7 +326,6 @@ export default function NotificationHistoryPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-2 items-center">
-            {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -303,14 +336,13 @@ export default function NotificationHistoryPage() {
               />
             </div>
 
-            {/* Category Filter */}
-            <Select value={categoryFilter} onValueChange={(v: string) => setCategoryFilter(v as NotificationCategory | 'all')}>
+            <Select value={categoryFilter} onValueChange={(v: string) => setCategoryFilter(v as DisplayCategory | 'all')}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {(Object.keys(categoryConfig) as NotificationCategory[]).map(cat => (
+                {(Object.keys(categoryConfig) as DisplayCategory[]).map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     <span className="flex items-center gap-2">
                       {React.createElement(categoryConfig[cat].icon, { className: 'w-4 h-4' })}
@@ -321,8 +353,7 @@ export default function NotificationHistoryPage() {
               </SelectContent>
             </Select>
 
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v as 'all' | 'unread' | 'read' | 'archived')}>
+            <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v as 'all' | 'unread' | 'read')}>
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -330,11 +361,9 @@ export default function NotificationHistoryPage() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="unread">Unread</SelectItem>
                 <SelectItem value="read">Read</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
 
-            {/* Date Filter */}
             <Select value={dateFilter} onValueChange={(v: string) => setDateFilter(v as 'all' | 'today' | 'week' | 'month')}>
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Date" />
@@ -347,8 +376,7 @@ export default function NotificationHistoryPage() {
               </SelectContent>
             </Select>
 
-            {/* Clear filters */}
-            {(searchTerm || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter !== 'all') && (
+            {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -367,56 +395,30 @@ export default function NotificationHistoryPage() {
         </CardContent>
       </Card>
 
-      {/* Bulk Actions */}
-      {selectedIds.size > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
-          <span className="text-sm text-blue-800">
-            {selectedIds.size} notification(s) selected
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleBulkMarkAsRead}>
-              <Check className="w-4 h-4 mr-1" />
-              Mark as Read
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkArchive}>
-              <Archive className="w-4 h-4 mr-1" />
-              Archive
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleBulkDelete} className="text-red-600 hover:text-red-700">
-              <Trash2 className="w-4 h-4 mr-1" />
-              Delete
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Notifications List */}
       <Card>
         <CardContent className="p-0">
-          {filteredNotifications.length === 0 ? (
-            <div className="py-16 text-center">
+          {isLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center text-center">
+              <RefreshCw className="w-8 h-8 text-gray-300 animate-spin mb-2" />
+              <p className="text-gray-500 font-medium">Loading notifications...</p>
+            </div>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="py-16 flex flex-col items-center text-center">
               <Bell className="w-16 h-16 text-gray-200 mb-2" />
               <p className="text-gray-500 font-medium">No notifications found</p>
               <p className="text-sm text-gray-400 mt-1">
-                {searchTerm || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter !== 'all'
-                  ? 'Try adjusting your filters'
-                  : "You're all caught up!"}
+                {hasActiveFilters ? 'Try adjusting your filters' : "You're all caught up!"}
               </p>
             </div>
           ) : (
             <>
-              {/* Select All Header */}
               <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-gray-50">
-                <Checkbox
-                  checked={selectedIds.size === filteredNotifications.length && filteredNotifications.length > 0}
-                  onChange={selectAll}
-                />
                 <span className="text-sm text-gray-600">
                   {filteredNotifications.length} notification(s)
                 </span>
               </div>
 
-              {/* Grouped Notifications */}
               {Object.entries(groupedNotifications).map(([dateGroup, notifs]) => (
                 <div key={dateGroup}>
                   <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
@@ -424,53 +426,38 @@ export default function NotificationHistoryPage() {
                       {dateGroup}
                     </span>
                   </div>
-                  {notifs.map(notification => {
-                    const config = categoryConfig[notification.category];
+                  {notifs.map((notification) => {
+                    const displayCat = toDisplayCategory(notification.type);
+                    const config = categoryConfig[displayCat];
                     const Icon = config.icon;
-                    const isSelected = selectedIds.has(notification.id);
-                    const isEscalated = notification.metadata?.escalated;
+                    const badge = priorityBadge(notification.priority);
 
                     return (
                       <div
                         key={notification.id}
                         className={`
                           group px-4 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all
-                          ${notification.status === 'unread' ? 'bg-blue-50/50' : ''}
-                          ${notification.status === 'archived' ? 'opacity-60' : ''}
-                          ${isSelected ? 'bg-blue-50' : ''}
-                          ${isEscalated ? 'bg-red-50 border-l-4 border-l-red-500' : ''}
+                          ${!notification.isRead ? 'bg-blue-50/50' : ''}
                         `}
                       >
                         <div className="flex items-start gap-2">
-                          {/* Checkbox */}
-                          <Checkbox
-                            checked={isSelected}
-                            onChange={() => toggleSelection(notification.id)}
-                            className="mt-1"
-                          />
-
-                          {/* Icon */}
                           <div className={`flex-shrink-0 w-10 h-10 rounded-full ${config.bgColor} flex items-center justify-center`}>
                             <Icon className={`w-5 h-5 ${config.color}`} />
                           </div>
 
-                          {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <p className={`text-sm font-medium ${notification.status === 'unread' ? 'text-gray-900' : 'text-gray-700'}`}>
+                                <p className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
                                   {notification.title}
                                 </p>
-                                {notification.sender && (
-                                  <p className="text-xs text-gray-500">{notification.sender.name}</p>
-                                )}
                               </div>
                               <div className="flex items-center gap-2">
-                                {notification.status === 'unread' && (
+                                {!notification.isRead && (
                                   <span className="w-2 h-2 bg-blue-600 rounded-full" />
                                 )}
-                                <span className="text-xs text-gray-400" title={formatFullDate(notification.timestamp)}>
-                                  {formatTime(notification.timestamp)}
+                                <span className="text-xs text-gray-400" title={formatFullDate(notification.createdAt)}>
+                                  {formatTime(notification.createdAt)}
                                 </span>
                               </div>
                             </div>
@@ -480,86 +467,39 @@ export default function NotificationHistoryPage() {
                             </p>
 
                             <div className="flex items-center gap-2 mt-2">
-                              {notification.module && (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${config.bgColor} ${config.color}`}>
-                                  {notification.module}
-                                </span>
-                              )}
-                              {notification.priority === 'critical' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">
-                                  Critical
-                                </span>
-                              )}
-                              {notification.priority === 'high' && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">
-                                  High Priority
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${config.bgColor} ${config.color}`}>
+                                {config.label}
+                              </span>
+                              {badge && (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${badge.className}`}>
+                                  {badge.label}
                                 </span>
                               )}
                             </div>
 
-                            {/* Actions */}
-                            {notification.actions && notification.actions.length > 0 && (
+                            {notification.actionUrl && (
                               <div className="flex gap-2 mt-3">
-                                {notification.actions.map(action => (
-                                  action.href ? (
-                                    <Link
-                                      key={action.id}
-                                      href={action.href}
-                                      className={`
-                                        px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
-                                        ${action.variant === 'primary'
-                                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }
-                                      `}
-                                    >
-                                      {action.label}
-                                    </Link>
-                                  ) : (
-                                    <button
-                                      key={action.id}
-                                      onClick={action.onClick}
-                                      className={`
-                                        px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
-                                        ${action.variant === 'primary'
-                                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }
-                                      `}
-                                    >
-                                      {action.label}
-                                    </button>
-                                  )
-                                ))}
+                                <Link
+                                  href={notification.actionUrl}
+                                  className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-blue-600 text-white hover:bg-blue-700"
+                                >
+                                  View
+                                </Link>
                               </div>
                             )}
                           </div>
 
                           {/* Quick Actions */}
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {notification.status === 'unread' && (
+                            {!notification.isRead && (
                               <button
-                                onClick={() => markAsRead(notification.id)}
+                                onClick={() => handleMarkAsRead(notification.id)}
                                 className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
                                 title="Mark as read"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
                             )}
-                            <button
-                              onClick={() => archiveNotification(notification.id)}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="Archive"
-                            >
-                              <Archive className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteNotification(notification.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
                           </div>
                         </div>
                       </div>
