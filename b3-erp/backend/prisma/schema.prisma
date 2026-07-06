@@ -19877,3 +19877,231 @@ model KittingOrder {
 
   @@map("inv_kitting_orders")
 }
+
+model FinanceExchangeRate {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  from_currency String
+  to_currency String
+  rate Decimal @default(0)
+  previous_rate Decimal @default(0)
+  effective_date DateTime? @db.Date
+  source String?
+  type String @default("spot")
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_exchange_rates")
+}
+
+model FinanceRecurringTransaction {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  type String?
+  amount Decimal @default(0)
+  frequency String @default("monthly")
+  next_run_date DateTime? @db.Date
+  end_date DateTime? @db.Date
+  status String @default("active")
+  account_name String?
+  party_name String?
+  occurrences_generated Int @default(0)
+  description String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_recurring_transactions")
+}
+
+model FinanceApprovalWorkflow {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  document_type String?
+  description String?
+  min_amount Decimal @default(0)
+  max_amount Decimal?
+  steps Json?
+  status String @default("active")
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_approval_workflows")
+}
+
+model FinanceAlert {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  category String?
+  severity String @default("medium")
+  condition_type String?
+  threshold_value Decimal?
+  message String?
+  status String @default("active")
+  is_enabled Boolean @default(true)
+  last_triggered_at DateTime?
+  trigger_count Int @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_alerts")
+}
+
+model FinanceDocument {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  category String?
+  document_type String?
+  reference_number String?
+  file_url String?
+  file_size String?
+  status String @default("active")
+  uploaded_by String?
+  tags Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_documents")
+}
+
+model FinanceAuditTrail {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  entity_type String?
+  entity_id String?
+  action String?
+  performed_by String?
+  description String?
+  ip_address String?
+  changes Json?
+  created_at DateTime @default(now())
+
+  @@map("finance_audit_trail")
+}
+
+model FinanceCreditLimit {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  customer_id String?
+  customer_name String
+  credit_limit Decimal @default(0)
+  credit_used Decimal @default(0)
+  payment_terms String?
+  credit_rating String?
+  risk_category String @default("low")
+  status String @default("active")
+  on_hold Boolean @default(false)
+  review_date DateTime? @db.Date
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_credit_limits")
+}
+
+model FinanceInvestment {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  investment_type String?
+  principal_amount Decimal @default(0)
+  current_value Decimal @default(0)
+  interest_rate Decimal @default(0)
+  start_date DateTime? @db.Date
+  maturity_date DateTime? @db.Date
+  institution String?
+  status String @default("active")
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_investments")
+}
+
+model FinanceReportTemplate {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  category String?
+  description String?
+  report_type String?
+  columns Json?
+  filters Json?
+  group_by String?
+  is_shared Boolean @default(false)
+  created_by String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_report_templates")
+}
+
+// --- Compliance module (GDPR data-subject requests + regulatory reports) ---
+
+model ComplianceDataRequest {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  reference String
+  subject_name String
+  subject_email String?
+  request_type String @default("data_export")
+  status String @default("pending")
+  received_at DateTime? @db.Date
+  deadline_at DateTime? @db.Date
+  completed_at DateTime? @db.Date
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("compliance_data_requests")
+}
+
+model ComplianceRegReport {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  report_type String @default("Internal")
+  status String @default("Scheduled")
+  report_date DateTime? @db.Date
+  file_size String?
+  file_url String?
+  generated_by String?
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("compliance_reg_reports")
+}
+
+// --- Overtime settings (rates + rules) — /hr/overtime/settings ---
+
+model HrOvertimeRate {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  grade String
+  designation String?
+  hourly_rate Decimal @default(0)
+  multiplier Decimal @default(1)
+  effective_from DateTime? @db.Date
+  status String @default("active")
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("hr_overtime_rates")
+}
+
+model HrOvertimeSetting {
+  id String @id @default(uuid())
+  company_id String @unique @default("default-company-id")
+  ot_rules Json?
+  comp_off_rules Json?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("hr_overtime_settings")
+}

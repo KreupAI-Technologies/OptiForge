@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Plus, Download, Eye, Edit, Trash2, Copy, Layout, Filter, BarChart3, PieChart, TrendingUp } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface ReportTemplate {
   id: string
@@ -31,110 +32,72 @@ interface DataSource {
 }
 
 export default function ReportBuilderPage() {
-  const [reports] = useState<ReportTemplate[]>([
-    {
-      id: '1',
-      name: 'Monthly P&L Statement',
-      description: 'Comprehensive profit and loss statement with department breakdown',
-      category: 'financial_statements',
-      reportType: 'table',
-      dataSources: ['General Ledger', 'Cost Centers'],
-      columns: ['Account', 'Current Month', 'YTD', 'Budget', 'Variance'],
-      filters: ['Date Range', 'Department', 'Cost Center'],
-      groupBy: ['Account Category', 'Department'],
-      createdBy: 'John Doe',
-      createdDate: '2025-09-15',
-      lastModified: '2025-10-10',
-      executionCount: 48,
-      status: 'published',
-      scheduled: true
-    },
-    {
-      id: '2',
-      name: 'Cash Flow Analysis',
-      description: 'Weekly cash flow projection with variance analysis',
-      category: 'analytics',
-      reportType: 'chart',
-      dataSources: ['Bank Transactions', 'AR/AP', 'Budget'],
-      columns: ['Week', 'Opening Balance', 'Receipts', 'Payments', 'Closing Balance'],
-      filters: ['Date Range', 'Bank Account', 'Transaction Type'],
-      groupBy: ['Week', 'Account'],
-      createdBy: 'Jane Smith',
-      createdDate: '2025-08-20',
-      lastModified: '2025-10-15',
-      executionCount: 156,
-      status: 'published',
-      scheduled: true
-    },
-    {
-      id: '3',
-      name: 'GST Reconciliation Report',
-      description: 'GST transaction reconciliation with GSTR-2A matching',
-      category: 'compliance',
-      reportType: 'table',
-      dataSources: ['Tax Transactions', 'GSTR-2A Data'],
-      columns: ['Invoice No', 'Vendor', 'Amount', 'GST Amount', 'Match Status'],
-      filters: ['Tax Period', 'Vendor', 'Match Status'],
-      groupBy: ['Tax Type', 'Match Status'],
-      createdBy: 'Robert Brown',
-      createdDate: '2025-07-10',
-      lastModified: '2025-10-01',
-      executionCount: 24,
-      status: 'published',
-      scheduled: true
-    },
-    {
-      id: '4',
-      name: 'Customer Profitability Dashboard',
-      description: 'Customer-wise revenue, cost, and profit margin analysis',
-      category: 'analytics',
-      reportType: 'dashboard',
-      dataSources: ['Sales', 'Cost of Goods Sold', 'Operating Expenses'],
-      columns: ['Customer', 'Revenue', 'Direct Cost', 'Allocated Cost', 'Profit', 'Margin %'],
-      filters: ['Date Range', 'Customer', 'Product Line'],
-      groupBy: ['Customer', 'Product Category'],
-      createdBy: 'Sarah Wilson',
-      createdDate: '2025-06-05',
-      lastModified: '2025-10-12',
-      executionCount: 92,
-      status: 'published',
-      scheduled: false
-    },
-    {
-      id: '5',
-      name: 'Fixed Assets Register',
-      description: 'Complete fixed assets listing with depreciation details',
-      category: 'financial_statements',
-      reportType: 'table',
-      dataSources: ['Fixed Assets', 'Depreciation Schedule'],
-      columns: ['Asset Code', 'Description', 'Cost', 'Accumulated Dep', 'Book Value', 'Location'],
-      filters: ['Asset Category', 'Location', 'Status'],
-      groupBy: ['Asset Category', 'Department'],
-      createdBy: 'Michael Chen',
-      createdDate: '2025-05-18',
-      lastModified: '2025-09-25',
-      executionCount: 36,
-      status: 'published',
-      scheduled: false
-    },
-    {
-      id: '6',
-      name: 'Budget vs Actual Analysis (Draft)',
-      description: 'Department-wise budget variance with drill-down capability',
-      category: 'custom',
-      reportType: 'dashboard',
-      dataSources: ['Budget', 'Actuals', 'Forecast'],
-      columns: ['Department', 'Budget', 'Actual', 'Variance', 'Forecast'],
-      filters: ['Period', 'Department', 'Account Category'],
-      groupBy: ['Department', 'Month'],
-      createdBy: 'Emily Davis',
-      createdDate: '2025-10-16',
-      lastModified: '2025-10-17',
-      executionCount: 3,
-      status: 'draft',
-      scheduled: false
+  const [reports, setReports] = useState<ReportTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const mapTemplate = (t: any): ReportTemplate => ({
+    id: String(t?.id ?? ''),
+    name: t?.name ?? 'Untitled Report',
+    description: t?.description ?? '',
+    category: (t?.category ?? 'custom') as ReportTemplate['category'],
+    reportType: (t?.reportType ?? 'table') as ReportTemplate['reportType'],
+    dataSources: Array.isArray(t?.dataSources) ? t.dataSources : [],
+    columns: Array.isArray(t?.columns) ? t.columns : [],
+    filters: Array.isArray(t?.filters) ? t.filters : [],
+    groupBy: Array.isArray(t?.groupBy) ? t.groupBy : [],
+    createdBy: t?.createdBy ?? '—',
+    createdDate: t?.createdDate ?? t?.createdAt ?? '',
+    lastModified: t?.lastModified ?? t?.updatedAt ?? t?.createdAt ?? '',
+    executionCount: typeof t?.executionCount === 'number' ? t.executionCount : 0,
+    status: (t?.status ?? 'draft') as ReportTemplate['status'],
+    scheduled: Boolean(t?.scheduled),
+  })
+
+  const loadReports = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await FinanceService.getReportTemplates()
+      const list = Array.isArray(res) ? res.map(mapTemplate) : []
+      setReports(list)
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load report templates')
+      setReports([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  useEffect(() => {
+    loadReports()
+  }, [])
+
+  const handleCreateReport = async () => {
+    try {
+      await FinanceService.createReportTemplate({
+        name: 'New Report',
+        category: 'custom',
+        description: '',
+        reportType: 'table',
+        columns: [],
+        filters: [],
+        groupBy: [],
+      })
+      await loadReports()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to create report template')
+    }
+  }
+
+  const handleDeleteReport = async (id: string) => {
+    try {
+      await FinanceService.deleteReportTemplate(id)
+      await loadReports()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete report template')
+    }
+  }
 
   const [dataSources] = useState<DataSource[]>([
     { id: '1', name: 'General Ledger', type: 'table', category: 'Accounting', fields: 15, icon: FileText },
@@ -182,7 +145,10 @@ export default function ReportBuilderPage() {
             <h1 className="text-3xl font-bold text-gray-900">Custom Report Builder</h1>
             <p className="text-gray-600 mt-1">Drag-and-drop report designer with advanced analytics</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg hover:from-sky-700 hover:to-blue-700">
+          <button
+            onClick={handleCreateReport}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-sky-600 to-blue-600 text-white rounded-lg hover:from-sky-700 hover:to-blue-700"
+          >
             <Plus className="h-5 w-5" />
             Create Report
           </button>
@@ -317,7 +283,10 @@ export default function ReportBuilderPage() {
                     <Download className="h-4 w-4" />
                     Export
                   </button>
-                  <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm flex items-center gap-2">
+                  <button
+                    onClick={() => handleDeleteReport(report.id)}
+                    className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm flex items-center gap-2"
+                  >
                     <Trash2 className="h-4 w-4" />
                     Delete
                   </button>

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DollarSign, Plus, Search, Filter, X, AlertCircle, Calendar, TrendingUp } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { LeaveService } from '@/services/leave.service';
 
 interface EncashmentRequest {
   id: string;
@@ -40,13 +41,46 @@ const leaveTypesForEncashment = [
   { code: 'CO', name: 'Comp Off' }
 ];
 
+function mapEncashment(r: any): EncashmentRequest {
+  const days = Number(r.encashedDays ?? r.requestedDays ?? 0);
+  const amount = Number(r.grossAmount ?? r.totalAmount ?? 0);
+  return {
+    id: r.id,
+    requestDate: r.requestDate || (r.createdAt ? String(r.createdAt).slice(0, 10) : ''),
+    leaveType: r.leaveType || '',
+    leaveTypeCode: r.leaveTypeCode || '',
+    availableBalance: Number(r.availableBalance ?? 0),
+    requestedDays: days,
+    perDayRate: Number(r.perDayRate ?? 0),
+    totalAmount: amount,
+    status: (r.status || 'submitted') as EncashmentRequest['status'],
+    submittedOn: r.submittedOn || undefined,
+    approvedBy: r.approvedBy || undefined,
+    approvedOn: r.approvedOn || undefined,
+    processedOn: r.processedOn || undefined,
+    paymentMode: r.paymentMode || undefined,
+    rejectionReason: r.rejectionReason || undefined,
+    financialYear: r.financialYear || '',
+  };
+}
+
 export default function EncashmentRequestsPage() {
-  const [requests, setRequests] = useState<EncashmentRequest[]>(mockEncashmentRequests);
+  const [requests, setRequests] = useState<EncashmentRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterLeaveType, setFilterLeaveType] = useState<string>('ALL');
   const [showFilters, setShowFilters] = useState(false);
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+
+  const loadRequests = () => {
+    LeaveService.getEncashments()
+      .then((rows) => setRequests(Array.isArray(rows) ? rows.map(mapEncashment) : []))
+      .catch(() => setRequests([]));
+  };
+
+  useEffect(() => {
+    loadRequests();
+  }, []);
 
   // Consistent date formatter to avoid hydration errors
   const formatDate = (dateString: string, includeYear = false) => {
@@ -320,13 +354,13 @@ export default function EncashmentRequestsPage() {
       </div>
 
       {/* New Encashment Request Modal */}
-      {showNewRequestModal && <NewEncashmentRequestModal onClose={() => setShowNewRequestModal(false)} />}
+      {showNewRequestModal && <NewEncashmentRequestModal onClose={() => setShowNewRequestModal(false)} onSuccess={loadRequests} />}
     </div>
   );
 }
 
 // New Encashment Request Modal Component
-function NewEncashmentRequestModal({ onClose }: { onClose: () => void }) {
+function NewEncashmentRequestModal({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) {
   const [isHRMode, setIsHRMode] = useState(false); // Toggle between HR and self-service mode
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
@@ -384,23 +418,35 @@ function NewEncashmentRequestModal({ onClose }: { onClose: () => void }) {
   const exceedsBalance = selectedLeave ? daysNum > selectedLeave.encashable : false;
   const canSubmit = selectedEmployee && selectedLeaveType && daysNum > 0 && !exceedsBalance;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
 
-    // In real app, submit to API
-    console.log('Submitting encashment request:', {
-      employeeId: selectedEmployee,
-      employeeName: selectedEmployeeData?.name,
-      leaveType: selectedLeaveType,
-      days: daysNum,
-      amount: calculatedAmount,
-      remarks,
-      requestedBy: isHRMode ? 'HR' : 'Self'
-    });
-
-    alert(`Encashment request submitted successfully!\n\nEmployee: ${selectedEmployeeData?.name} (${selectedEmployeeData?.code})\nLeave Type: ${selectedLeave?.name}\nDays: ${daysNum}\nAmount: ₹${calculatedAmount.toLocaleString()}`);
-    onClose();
+    setSubmitting(true);
+    try {
+      await LeaveService.createEncashment({
+        employeeId: selectedEmployee,
+        employeeName: selectedEmployeeData?.name,
+        leaveType: selectedLeave?.name,
+        leaveTypeCode: selectedLeaveType,
+        encashedDays: daysNum,
+        perDayRate: selectedLeave?.perDayRate,
+        grossAmount: calculatedAmount,
+        netAmount: calculatedAmount,
+        requestDate: new Date().toISOString().slice(0, 10),
+        submittedOn: new Date().toISOString().slice(0, 10),
+        remarks,
+        status: 'submitted',
+      });
+      onSuccess?.();
+      onClose();
+    } catch {
+      alert('Failed to submit encashment request. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

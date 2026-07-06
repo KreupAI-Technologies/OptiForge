@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Shield, User, Clock, FileText, Search, Filter, Download } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface AuditLog {
   id: string
@@ -16,12 +17,43 @@ interface AuditLog {
 }
 
 export default function AuditTrailPage() {
-  const [logs] = useState<AuditLog[]>([
-    { id: 'AUD-001', timestamp: '2025-10-18 14:30:25', user: 'john.doe@company.com', action: 'UPDATE', module: 'Journal Entry', record: 'JE-2025-123', oldValue: 'Amount: 50000', newValue: 'Amount: 55000', ipAddress: '192.168.1.10' },
-    { id: 'AUD-002', timestamp: '2025-10-18 14:15:10', user: 'jane.smith@company.com', action: 'CREATE', module: 'Invoice', record: 'INV-2025-456', oldValue: '-', newValue: 'Status: Draft', ipAddress: '192.168.1.11' },
-    { id: 'AUD-003', timestamp: '2025-10-18 13:45:30', user: 'robert.brown@company.com', action: 'DELETE', module: 'Payment', record: 'PAY-2025-789', oldValue: 'Status: Draft', newValue: '-', ipAddress: '192.168.1.12' },
-    { id: 'AUD-004', timestamp: '2025-10-18 13:30:15', user: 'sarah.wilson@company.com', action: 'APPROVE', module: 'Journal Entry', record: 'JE-2025-120', oldValue: 'Status: Pending', newValue: 'Status: Approved', ipAddress: '192.168.1.13' }
-  ])
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadLogs = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await FinanceService.getAuditTrail()
+        const mapped: AuditLog[] = (data || []).map((a: any) => {
+          let changesStr = ''
+          if (a.changes != null) {
+            changesStr = typeof a.changes === 'string' ? a.changes : JSON.stringify(a.changes)
+          }
+          return {
+            id: String(a.id),
+            timestamp: a.createdAt ?? '',
+            user: a.performedBy ?? '-',
+            action: String(a.action ?? '').toUpperCase(),
+            module: a.entityType ?? '-',
+            record: a.entityId ?? '-',
+            oldValue: a.description ?? '-',
+            newValue: changesStr || '-',
+            ipAddress: a.ipAddress ?? '-',
+          }
+        })
+        setLogs(mapped)
+      } catch (e: any) {
+        setError(e?.message ?? 'Failed to load audit trail')
+        setLogs([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadLogs()
+  }, [])
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -86,6 +118,15 @@ export default function AuditTrailPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {loading && (
+                <tr><td colSpan={6} className="px-3 py-4 text-sm text-gray-500 text-center">Loading audit logs…</td></tr>
+              )}
+              {error && (
+                <tr><td colSpan={6} className="px-3 py-4 text-sm text-red-600 text-center">{error}</td></tr>
+              )}
+              {!loading && !error && logs.length === 0 && (
+                <tr><td colSpan={6} className="px-3 py-4 text-sm text-gray-500 text-center">No audit logs found.</td></tr>
+              )}
               {logs.map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2 text-sm text-gray-900">{log.timestamp}</td>

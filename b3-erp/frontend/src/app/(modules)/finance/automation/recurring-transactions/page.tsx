@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RefreshCw, Calendar, CheckCircle, Clock, FileText, DollarSign, TrendingUp } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface RecurringTransaction {
   id: string
@@ -21,120 +22,107 @@ interface RecurringTransaction {
   accountsAffected: string[]
 }
 
-export default function RecurringTransactionsPage() {
-  const [transactions] = useState<RecurringTransaction[]>([
-    {
-      id: '1',
-      templateName: 'Monthly Rent Payment',
-      transactionType: 'journal_entry',
-      description: 'Office rent payment - Monthly recurring',
-      frequency: 'monthly',
-      amount: 150000,
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      nextOccurrence: '2025-11-01',
-      lastPosted: '2025-10-01',
-      totalOccurrences: 12,
-      completedOccurrences: 10,
-      status: 'active',
-      autoPost: true,
-      accountsAffected: ['Rent Expense', 'Cash']
-    },
-    {
-      id: '2',
-      templateName: 'Quarterly Insurance Premium',
-      transactionType: 'payment',
-      description: 'Business insurance premium - Quarterly',
-      frequency: 'quarterly',
-      amount: 75000,
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      nextOccurrence: '2026-01-01',
-      lastPosted: '2025-10-01',
-      totalOccurrences: 4,
-      completedOccurrences: 4,
-      status: 'completed',
-      autoPost: true,
-      accountsAffected: ['Insurance Expense', 'Bank Account']
-    },
-    {
-      id: '3',
-      templateName: 'Monthly Depreciation',
-      transactionType: 'accrual',
-      description: 'Fixed assets depreciation - Monthly',
-      frequency: 'monthly',
-      amount: 85000,
-      startDate: '2025-01-01',
-      endDate: '2026-12-31',
-      nextOccurrence: '2025-11-01',
-      lastPosted: '2025-10-01',
-      totalOccurrences: 24,
-      completedOccurrences: 10,
-      status: 'active',
-      autoPost: true,
-      accountsAffected: ['Depreciation Expense', 'Accumulated Depreciation']
-    },
-    {
-      id: '4',
-      templateName: 'Weekly Salary Accrual',
-      transactionType: 'accrual',
-      description: 'Employee salary accrual - Weekly',
-      frequency: 'weekly',
-      amount: 250000,
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      nextOccurrence: '2025-10-21',
-      lastPosted: '2025-10-14',
-      totalOccurrences: 52,
-      completedOccurrences: 42,
-      status: 'active',
-      autoPost: false,
-      accountsAffected: ['Salary Expense', 'Salary Payable']
-    },
-    {
-      id: '5',
-      templateName: 'Monthly Software Subscription',
-      transactionType: 'invoice',
-      description: 'ERP software subscription - Monthly',
-      frequency: 'monthly',
-      amount: 45000,
-      startDate: '2025-01-01',
-      endDate: '2025-12-31',
-      nextOccurrence: '2025-11-01',
-      lastPosted: '2025-10-01',
-      totalOccurrences: 12,
-      completedOccurrences: 10,
-      status: 'active',
-      autoPost: true,
-      accountsAffected: ['Software Expense', 'Accounts Payable']
-    },
-    {
-      id: '6',
-      templateName: 'Annual License Fee',
-      transactionType: 'payment',
-      description: 'Business license renewal - Yearly',
-      frequency: 'yearly',
-      amount: 25000,
-      startDate: '2025-04-01',
-      endDate: '2030-04-01',
-      nextOccurrence: '2026-04-01',
-      lastPosted: '2025-04-01',
-      totalOccurrences: 5,
-      completedOccurrences: 1,
-      status: 'active',
-      autoPost: false,
-      accountsAffected: ['License Expense', 'Bank Account']
-    }
-  ])
+const TYPE_MAP: Record<string, RecurringTransaction['transactionType']> = {
+  journal_entry: 'journal_entry',
+  journal: 'journal_entry',
+  invoice: 'invoice',
+  payment: 'payment',
+  accrual: 'accrual',
+}
 
-  const [stats] = useState({
-    totalRecurring: 18,
-    activeRecurring: 14,
-    pausedRecurring: 2,
-    completedRecurring: 2,
-    totalMonthlyValue: 1250000,
-    upcomingThisWeek: 3
-  })
+const FREQ_MAP: Record<string, RecurringTransaction['frequency']> = {
+  daily: 'daily',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  yearly: 'yearly',
+  annually: 'yearly',
+}
+
+export default function RecurringTransactionsPage() {
+  const [transactions, setTransactions] = useState<RecurringTransaction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadTransactions = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await FinanceService.getRecurringTransactions()
+      const mapped: RecurringTransaction[] = (data || []).map((t: any) => {
+        const type = String(t.type ?? '').toLowerCase()
+        const freq = String(t.frequency ?? '').toLowerCase()
+        const status = String(t.status ?? 'active').toLowerCase()
+        return {
+          id: String(t.id),
+          templateName: t.name ?? 'Recurring Transaction',
+          transactionType: TYPE_MAP[type] ?? 'journal_entry',
+          description: t.description ?? '',
+          frequency: FREQ_MAP[freq] ?? 'monthly',
+          amount: Number(t.amount ?? 0),
+          startDate: t.nextRunDate ?? '',
+          endDate: t.endDate ?? '',
+          nextOccurrence: t.nextRunDate ?? '',
+          lastPosted: t.nextRunDate ?? '',
+          totalOccurrences: Number(t.occurrencesGenerated ?? 0),
+          completedOccurrences: Number(t.occurrencesGenerated ?? 0),
+          status: (['active', 'paused', 'completed', 'expired'].includes(status)
+            ? status
+            : 'active') as RecurringTransaction['status'],
+          autoPost: true,
+          accountsAffected: [t.accountName, t.partyName].filter(Boolean) as string[],
+        }
+      })
+      setTransactions(mapped)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load recurring transactions')
+      setTransactions([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadTransactions()
+  }, [])
+
+  const handleCreate = async (data: any) => {
+    try {
+      await FinanceService.createRecurringTransaction(data)
+      await loadTransactions()
+    } catch (e) {
+      console.error('Failed to create recurring transaction', e)
+    }
+  }
+
+  const handleUpdate = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateRecurringTransaction(id, data)
+      await loadTransactions()
+    } catch (e) {
+      console.error('Failed to update recurring transaction', e)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await FinanceService.deleteRecurringTransaction(id)
+      await loadTransactions()
+    } catch (e) {
+      console.error('Failed to delete recurring transaction', e)
+    }
+  }
+
+  const stats = {
+    totalRecurring: transactions.length,
+    activeRecurring: transactions.filter((t) => t.status === 'active').length,
+    pausedRecurring: transactions.filter((t) => t.status === 'paused').length,
+    completedRecurring: transactions.filter((t) => t.status === 'completed').length,
+    totalMonthlyValue: transactions
+      .filter((t) => t.frequency === 'monthly')
+      .reduce((sum, t) => sum + t.amount, 0),
+    upcomingThisWeek: 0,
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -173,11 +161,17 @@ export default function RecurringTransactionsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Recurring Transactions</h1>
             <p className="text-gray-600 mt-1">Automated recurring journal entries and payments</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700">
+          <button
+            onClick={() => handleCreate({ companyId: 'default-company-id', name: 'New Recurring Transaction', frequency: 'monthly', amount: 0 })}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700"
+          >
             <RefreshCw className="h-5 w-5" />
             New Template
           </button>
         </div>
+
+        {loading && <p className="text-sm text-gray-500">Loading recurring transactions…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -230,6 +224,9 @@ export default function RecurringTransactionsPage() {
         </div>
 
         <div className="space-y-2">
+          {!loading && transactions.length === 0 && (
+            <p className="text-sm text-gray-500">No recurring transactions found.</p>
+          )}
           {transactions.map((txn) => (
             <div key={txn.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
               <div className="flex items-start justify-between mb-2">
@@ -268,11 +265,11 @@ export default function RecurringTransactionsPage() {
                 </div>
                 <div className="bg-blue-50 rounded-lg p-3">
                   <p className="text-xs text-gray-600 mb-1">Next Occurrence</p>
-                  <p className="text-sm font-semibold text-blue-700">{new Date(txn.nextOccurrence).toLocaleDateString('en-IN')}</p>
+                  <p className="text-sm font-semibold text-blue-700">{txn.nextOccurrence ? new Date(txn.nextOccurrence).toLocaleDateString('en-IN') : '-'}</p>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-3">
                   <p className="text-xs text-gray-600 mb-1">Last Posted</p>
-                  <p className="text-sm font-semibold text-purple-700">{new Date(txn.lastPosted).toLocaleDateString('en-IN')}</p>
+                  <p className="text-sm font-semibold text-purple-700">{txn.lastPosted ? new Date(txn.lastPosted).toLocaleDateString('en-IN') : '-'}</p>
                 </div>
                 <div className="bg-teal-50 rounded-lg p-3">
                   <p className="text-xs text-gray-600 mb-1">Progress</p>
@@ -280,7 +277,7 @@ export default function RecurringTransactionsPage() {
                   <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                     <div
                       className="bg-teal-600 h-1.5 rounded-full"
-                      style={{ width: `${(txn.completedOccurrences / txn.totalOccurrences) * 100}%` }}
+                      style={{ width: `${txn.totalOccurrences ? (txn.completedOccurrences / txn.totalOccurrences) * 100 : 0}%` }}
                     />
                   </div>
                 </div>
@@ -298,14 +295,23 @@ export default function RecurringTransactionsPage() {
               </div>
 
               <div className="flex gap-2 mt-4">
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                <button
+                  onClick={() => handleUpdate(txn.id, { name: txn.templateName })}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
                   Edit Template
                 </button>
-                <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm">
+                <button
+                  onClick={() => console.log('Post now', txn.id)}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+                >
                   Post Now
                 </button>
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
-                  View History
+                <button
+                  onClick={() => handleDelete(txn.id)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
+                  Delete
                 </button>
               </div>
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   Plus,
   Search,
@@ -44,104 +44,89 @@ interface AnticipatedReceipt {
   daysUntilDue: number;
 }
 
+const computeDaysUntilDue = (expectedDate?: string): number => {
+  if (!expectedDate) return 0;
+  const due = new Date(expectedDate);
+  if (isNaN(due.getTime())) return 0;
+  const today = new Date();
+  const diff = Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  return diff;
+};
+
+const mapReceipt = (r: any): AnticipatedReceipt => {
+  const expectedAmount = Number(r?.expectedAmount) || 0;
+  const receivedAmount = Number(r?.receivedAmount) || 0;
+  const expectedDate = r?.expectedDate ? String(r.expectedDate).slice(0, 10) : '';
+  return {
+    id: String(r?.id ?? ''),
+    receiptNumber: r?.receiptNumber ?? '',
+    customerName: r?.customerName ?? '',
+    customerId: r?.customerId ?? '',
+    expectedDate,
+    expectedAmount,
+    receivedAmount,
+    balanceAmount: expectedAmount - receivedAmount,
+    status: (r?.status as AnticipatedReceipt['status']) ?? 'Pending',
+    referenceType: r?.referenceType ?? 'Reference',
+    referenceNumber: r?.referenceNumber ?? '',
+    description: r?.description ?? '',
+    confidenceLevel: Number(r?.confidenceLevel) || 0,
+    paymentMethod: r?.expectedPaymentMethod ?? r?.paymentMethod ?? '',
+    contactPerson: r?.contactPerson ?? '',
+    contactEmail: r?.contactEmail ?? '',
+    daysUntilDue: computeDaysUntilDue(expectedDate),
+  };
+};
+
 export default function AnticipatedReceiptsPage() {
-  const [receipts] = useState<AnticipatedReceipt[]>([
-    {
-      id: '1',
-      receiptNumber: 'AR-2025-001',
-      customerName: 'Taj Hotels Limited',
-      customerId: 'CUST-001',
-      expectedDate: '2025-10-20',
-      expectedAmount: 1725000,
-      receivedAmount: 0,
-      balanceAmount: 1725000,
-      status: 'Pending',
-      referenceType: 'Sales Invoice',
-      referenceNumber: 'INV-2025-145',
-      description: 'Payment for commercial kitchen equipment supply',
-      confidenceLevel: 95,
-      paymentMethod: 'Bank Transfer',
-      contactPerson: 'Rajesh Kumar',
-      contactEmail: 'rajesh.k@tajhotels.com',
-      daysUntilDue: 2,
-    },
-    {
-      id: '2',
-      receiptNumber: 'AR-2025-002',
-      customerName: 'BigBasket Pvt Ltd',
-      customerId: 'CUST-002',
-      expectedDate: '2025-10-22',
-      expectedAmount: 1150000,
-      receivedAmount: 500000,
-      balanceAmount: 650000,
-      status: 'Partially Received',
-      referenceType: 'Sales Invoice',
-      referenceNumber: 'INV-2025-156',
-      description: 'Cold storage unit - Partial payment pending',
-      confidenceLevel: 85,
-      paymentMethod: 'NEFT',
-      contactPerson: 'Priya Sharma',
-      contactEmail: 'priya.s@bigbasket.com',
-      daysUntilDue: 4,
-    },
-    {
-      id: '3',
-      receiptNumber: 'AR-2025-003',
-      customerName: 'Larsen & Toubro Limited',
-      customerId: 'CUST-003',
-      expectedDate: '2025-10-18',
-      expectedAmount: 3200000,
-      receivedAmount: 0,
-      balanceAmount: 3200000,
-      status: 'Overdue',
-      referenceType: 'Sales Invoice',
-      referenceNumber: 'INV-2025-142',
-      description: 'HT Switchgear panels - Payment overdue',
-      confidenceLevel: 75,
-      paymentMethod: 'RTGS',
-      contactPerson: 'Amit Patel',
-      contactEmail: 'amit.p@lnttechservices.com',
-      daysUntilDue: -2,
-    },
-    {
-      id: '4',
-      receiptNumber: 'AR-2025-004',
-      customerName: 'ITC Hotels',
-      customerId: 'CUST-004',
-      expectedDate: '2025-10-25',
-      expectedAmount: 950000,
-      receivedAmount: 0,
-      balanceAmount: 950000,
-      status: 'Pending',
-      referenceType: 'Sales Invoice',
-      referenceNumber: 'INV-2025-167',
-      description: 'Kitchen renovation - Grand Chola Chennai',
-      confidenceLevel: 90,
-      paymentMethod: 'Cheque',
-      contactPerson: 'Sunita Reddy',
-      contactEmail: 'sunita.r@itchotels.in',
-      daysUntilDue: 7,
-    },
-    {
-      id: '5',
-      receiptNumber: 'AR-2025-005',
-      customerName: 'Godrej Appliances',
-      customerId: 'CUST-005',
-      expectedDate: '2025-10-28',
-      expectedAmount: 1680000,
-      receivedAmount: 0,
-      balanceAmount: 1680000,
-      status: 'Pending',
-      referenceType: 'Sales Invoice',
-      referenceNumber: 'INV-2025-178',
-      description: 'Cold room assembly equipment',
-      confidenceLevel: 88,
-      paymentMethod: 'Bank Transfer',
-      contactPerson: 'Vikram Singh',
-      contactEmail: 'vikram.s@godrej.com',
-      daysUntilDue: 10,
-    },
-  ]);
+  const [receipts, setReceipts] = useState<AnticipatedReceipt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadReceipts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await FinanceService.getAnticipatedReceipts();
+      setReceipts(Array.isArray(data) ? data.map(mapReceipt) : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load anticipated receipts');
+      setReceipts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReceipts();
+  }, [loadReceipts]);
+
+  const handleCreateReceipt = async (data: any) => {
+    try {
+      await FinanceService.createAnticipatedReceipt(data);
+      await loadReceipts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create receipt');
+    }
+  };
+
+  const handleUpdateReceipt = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateAnticipatedReceipt(id, data);
+      await loadReceipts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update receipt');
+    }
+  };
+
+  const handleDeleteReceipt = async (id: string) => {
+    try {
+      await FinanceService.deleteAnticipatedReceipt(id);
+      await loadReceipts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete receipt');
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -154,7 +139,9 @@ export default function AnticipatedReceiptsPage() {
     totalPending: receipts.reduce((sum, r) => sum + r.balanceAmount, 0),
     overdueCount: receipts.filter((r) => r.status === 'Overdue').length,
     thisWeek: receipts.filter((r) => r.daysUntilDue >= 0 && r.daysUntilDue <= 7).length,
-    avgConfidence: receipts.reduce((sum, r) => sum + r.confidenceLevel, 0) / receipts.length,
+    avgConfidence: receipts.length
+      ? receipts.reduce((sum, r) => sum + r.confidenceLevel, 0) / receipts.length
+      : 0,
   };
 
   const filteredReceipts = receipts.filter((receipt) => {
@@ -228,13 +215,13 @@ export default function AnticipatedReceiptsPage() {
                 </h1>
                 <p className="text-gray-600 mt-1">Track and manage expected customer payments</p>
               </div>
-              <Link
-                href="/finance/cash/anticipated-receipts"
+              <button
+                onClick={() => handleCreateReceipt({ status: 'Pending' })}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-semibold">Add New Receipt</span>
-              </Link>
+              </button>
             </div>
 
             {/* Stats Cards */}
@@ -255,7 +242,7 @@ export default function AnticipatedReceiptsPage() {
                 </div>
                 <p className="text-3xl font-bold">{formatCurrency(stats.totalReceived)}</p>
                 <p className="text-sm text-green-100 mt-2">
-                  {((stats.totalReceived / stats.totalExpected) * 100).toFixed(1)}% collected
+                  {(stats.totalExpected ? (stats.totalReceived / stats.totalExpected) * 100 : 0).toFixed(1)}% collected
                 </p>
               </div>
 
@@ -278,6 +265,18 @@ export default function AnticipatedReceiptsPage() {
               </div>
             </div>
           </div>
+
+          {/* Loading / Error states */}
+          {loading && (
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-3 text-center text-gray-500">
+              Loading anticipated receipts...
+            </div>
+          )}
+          {error && !loading && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl shadow-lg p-4 mb-3">
+              {error}
+            </div>
+          )}
 
           {/* Filters */}
           <div className="bg-white rounded-xl shadow-lg p-3 mb-3">
@@ -452,14 +451,14 @@ export default function AnticipatedReceiptsPage() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleUpdateReceipt(receipt.id, { status: receipt.status })}
                             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-
+                            onClick={() => handleDeleteReceipt(receipt.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Mail className="w-4 h-4" />
                           </button>

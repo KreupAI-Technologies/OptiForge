@@ -1,10 +1,35 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
 export default function Page() {
-  const complianceScore = 94;
-  const stats = { licenses: 8, activeAudits: 2, findings: 5, overdue: 1 };
+  const [complianceScore, setComplianceScore] = useState(94);
+  const [stats, setStats] = useState({ licenses: 0, activeAudits: 0, findings: 0, overdue: 0 });
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [licenseRes, auditRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/hr/compliance-licenses/summary?companyId=default-company-id`),
+          fetch(`${API_BASE_URL}/hr/compliance-audits/summary?companyId=default-company-id`),
+        ]);
+        const licenseSummary = licenseRes.ok ? await licenseRes.json() : {};
+        const auditSummary = auditRes.ok ? await auditRes.json() : {};
+        setStats({
+          licenses: licenseSummary?.total ?? 0,
+          activeAudits: auditSummary?.total ?? 0,
+          findings: licenseSummary?.findings ?? auditSummary?.findings ?? 0,
+          overdue: licenseSummary?.overdue ?? auditSummary?.overdue ?? 0,
+        });
+      } catch {
+        // keep defaults on failure
+      }
+    }
+    loadData();
+  }, []);
 
   return (
     <div className="w-full h-full px-3 py-2">

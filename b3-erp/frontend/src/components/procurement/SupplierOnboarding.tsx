@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   UserPlus,
   CheckCircle,
@@ -71,6 +71,7 @@ import {
   Funnel,
   LabelList
 } from 'recharts'
+import { procurementPagesService } from '@/services/procurement-pages.service'
 
 interface OnboardingApplication {
   id: string
@@ -113,68 +114,42 @@ export default function SupplierOnboarding() {
   const [selectedApplication, setSelectedApplication] = useState<OnboardingApplication | null>(null)
   const [showNewApplication, setShowNewApplication] = useState(false)
 
-  // Mock data
-  const applications: OnboardingApplication[] = [
-    {
-      id: 'APP001',
-      companyName: 'TechVision Solutions',
-      contactName: 'Robert Chen',
-      email: 'rchen@techvision.com',
-      phone: '+1-555-0123',
-      category: 'IT Services',
-      status: 'verification',
-      progress: 75,
-      submittedDate: '2024-02-10',
-      lastUpdate: '2024-02-14',
-      assignedTo: 'Sarah Johnson',
-      riskScore: 25,
-      priority: 'high'
-    },
-    {
-      id: 'APP002',
-      companyName: 'Global Logistics Partners',
-      contactName: 'Maria Garcia',
-      email: 'mgarcia@glp.com',
-      phone: '+1-555-0456',
-      category: 'Logistics',
-      status: 'documentation',
-      progress: 45,
-      submittedDate: '2024-02-12',
-      lastUpdate: '2024-02-13',
-      assignedTo: 'Mike Johnson',
-      riskScore: 40,
-      priority: 'medium'
-    },
-    {
-      id: 'APP003',
-      companyName: 'Premium Materials Inc',
-      contactName: 'James Wilson',
-      email: 'jwilson@premiummaterials.com',
-      phone: '+1-555-0789',
-      category: 'Raw Materials',
-      status: 'screening',
-      progress: 20,
-      submittedDate: '2024-02-14',
-      lastUpdate: '2024-02-15',
-      assignedTo: 'Lisa Wong',
-      riskScore: 15,
-      priority: 'high'
-    },
-    {
-      id: 'APP004',
-      companyName: 'Quality Components Ltd',
-      contactName: 'Emily Brown',
-      email: 'ebrown@qualitycomp.com',
-      phone: '+1-555-0234',
-      category: 'Components',
-      status: 'approval',
-      progress: 90,
-      submittedDate: '2024-02-08',
-      lastUpdate: '2024-02-14',
-      assignedTo: 'David Lee',
-      priority: 'low'
+  // Applications (loaded from API)
+  const [applications, setApplications] = useState<OnboardingApplication[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadOnboarding = async () => {
+      try {
+        const data = await procurementPagesService.getOnboardingInsights()
+        const apps = Array.isArray(data?.applications) ? data.applications : []
+        const mapped: OnboardingApplication[] = apps.map((a: any) => ({
+          id: a?.vendorId ?? '',
+          companyName: a?.vendorName ?? '',
+          contactName: a?.contactName ?? '',
+          email: a?.email ?? '',
+          phone: a?.phone ?? '',
+          category: a?.category ?? '',
+          status: (a?.stage ?? 'new') as OnboardingApplication['status'],
+          progress: a?.progress ?? 0,
+          submittedDate: a?.submittedAt ?? '',
+          lastUpdate: a?.lastUpdate ?? '',
+          assignedTo: a?.assignedTo ?? '',
+          riskScore: a?.riskScore ?? 0,
+          priority: (a?.priority ?? 'medium') as OnboardingApplication['priority']
+        }))
+        if (!cancelled && mapped.length > 0) {
+          setApplications(mapped)
+        }
+      } catch (err) {
+        console.error('Failed to load onboarding insights:', err)
+      }
     }
-  ]
+    loadOnboarding()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const onboardingSteps: OnboardingStep[] = [
     {

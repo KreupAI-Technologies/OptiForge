@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FinanceService, Account } from '@/services/finance.service';
 import {
   BookOpen,
   Calendar,
@@ -40,7 +41,7 @@ interface AccountLedger {
 }
 
 export default function GeneralLedgerPage() {
-  const [selectedAccount, setSelectedAccount] = useState('1110');
+  const [selectedAccount, setSelectedAccount] = useState('');
   const [startDate, setStartDate] = useState('2025-01-01');
   const [endDate, setEndDate] = useState('2025-01-31');
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,186 +49,134 @@ export default function GeneralLedgerPage() {
   const [showReconciled, setShowReconciled] = useState(true);
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
 
-  // Sample general ledger data
-  const ledgerData: AccountLedger = {
-    accountCode: '1110',
-    accountName: 'Cash & Bank',
-    accountType: 'Asset',
-    openingBalance: 14500000,
-    closingBalance: 15750000,
-    entries: [
-      {
-        id: 'GL001',
-        date: '2025-01-02',
-        voucherNumber: 'PMT-2025-001',
-        voucherType: 'Payment',
-        description: 'Payment to ABC Suppliers for Invoice INV-2024-125',
-        debit: 0,
-        credit: 250000,
-        balance: 14250000,
-        costCenter: 'CC-OPS-001',
-        department: 'Operations',
-        reconciled: true
-      },
-      {
-        id: 'GL002',
-        date: '2025-01-05',
-        voucherNumber: 'RCP-2025-001',
-        voucherType: 'Receipt',
-        description: 'Receipt from XYZ Corp for Invoice INV-2025-001',
-        debit: 500000,
-        credit: 0,
-        balance: 14750000,
-        costCenter: 'CC-SAL-001',
-        department: 'Sales',
-        reconciled: true
-      },
-      {
-        id: 'GL003',
-        date: '2025-01-08',
-        voucherNumber: 'JE-2025-005',
-        voucherType: 'Journal Entry',
-        description: 'Bank charges for December 2024',
-        debit: 0,
-        credit: 1500,
-        balance: 14748500,
-        costCenter: 'CC-FIN-001',
-        department: 'Finance',
-        reconciled: false
-      },
-      {
-        id: 'GL004',
-        date: '2025-01-10',
-        voucherNumber: 'RCP-2025-002',
-        voucherType: 'Receipt',
-        description: 'Receipt from DEF Industries for Invoice INV-2025-003',
-        debit: 750000,
-        credit: 0,
-        balance: 15498500,
-        costCenter: 'CC-SAL-001',
-        department: 'Sales',
-        project: 'PRJ-2025-01',
-        reconciled: true
-      },
-      {
-        id: 'GL005',
-        date: '2025-01-12',
-        voucherNumber: 'PMT-2025-003',
-        voucherType: 'Payment',
-        description: 'Salary payment for January 2025',
-        debit: 0,
-        credit: 2000000,
-        balance: 13498500,
-        costCenter: 'CC-HR-001',
-        department: 'Human Resources',
-        reconciled: true
-      },
-      {
-        id: 'GL006',
-        date: '2025-01-15',
-        voucherNumber: 'RCP-2025-003',
-        voucherType: 'Receipt',
-        description: 'Receipt from GHI Enterprises for Invoice INV-2025-005',
-        debit: 300000,
-        credit: 0,
-        balance: 13798500,
-        costCenter: 'CC-SAL-001',
-        department: 'Sales',
-        reconciled: false
-      },
-      {
-        id: 'GL007',
-        date: '2025-01-18',
-        voucherNumber: 'PMT-2025-005',
-        voucherType: 'Payment',
-        description: 'Payment to JKL Contractors for services',
-        debit: 0,
-        credit: 450000,
-        balance: 13348500,
-        costCenter: 'CC-OPS-001',
-        department: 'Operations',
-        reconciled: true
-      },
-      {
-        id: 'GL008',
-        date: '2025-01-20',
-        voucherNumber: 'RCP-2025-004',
-        voucherType: 'Receipt',
-        description: 'Receipt from MNO Corporation',
-        debit: 1200000,
-        credit: 0,
-        balance: 14548500,
-        costCenter: 'CC-SAL-001',
-        department: 'Sales',
-        reconciled: true
-      },
-      {
-        id: 'GL009',
-        date: '2025-01-22',
-        voucherNumber: 'JE-2025-012',
-        voucherType: 'Journal Entry',
-        description: 'Interest income credited by bank',
-        debit: 25000,
-        credit: 0,
-        balance: 14573500,
-        costCenter: 'CC-FIN-001',
-        department: 'Finance',
-        reconciled: false
-      },
-      {
-        id: 'GL010',
-        date: '2025-01-25',
-        voucherNumber: 'RCP-2025-005',
-        voucherType: 'Receipt',
-        description: 'Receipt from PQR Industries for Invoice INV-2025-008',
-        debit: 850000,
-        credit: 0,
-        balance: 15423500,
-        costCenter: 'CC-SAL-001',
-        department: 'Sales',
-        reconciled: true
-      },
-      {
-        id: 'GL011',
-        date: '2025-01-28',
-        voucherNumber: 'PMT-2025-008',
-        voucherType: 'Payment',
-        description: 'Payment for office rent - January 2025',
-        debit: 0,
-        credit: 150000,
-        balance: 15273500,
-        reconciled: true
-      },
-      {
-        id: 'GL012',
-        date: '2025-01-30',
-        voucherNumber: 'RCP-2025-006',
-        voucherType: 'Receipt',
-        description: 'Receipt from STU Enterprises',
-        debit: 500000,
-        credit: 0,
-        balance: 15773500,
-        costCenter: 'CC-SAL-001',
-        department: 'Sales',
-        reconciled: false
-      },
-      {
-        id: 'GL013',
-        date: '2025-01-31',
-        voucherNumber: 'JE-2025-018',
-        voucherType: 'Adjustment',
-        description: 'Bank reconciliation adjustment',
-        debit: 0,
-        credit: 23500,
-        balance: 15750000,
-        costCenter: 'CC-FIN-001',
-        department: 'Finance',
-        reconciled: false
-      }
-    ]
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [ledgerData, setLedgerData] = useState<AccountLedger>({
+    accountCode: '',
+    accountName: '',
+    accountType: '',
+    openingBalance: 0,
+    closingBalance: 0,
+    entries: [],
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Map an arbitrary report/account-type value to the JSX voucherType union
+  const mapVoucherType = (raw: any): LedgerEntry['voucherType'] => {
+    const v = String(raw || '').toLowerCase();
+    if (v.includes('invoice')) return 'Invoice';
+    if (v.includes('payment')) return 'Payment';
+    if (v.includes('receipt')) return 'Receipt';
+    if (v.includes('adjust')) return 'Adjustment';
+    return 'Journal Entry';
   };
 
-  const filteredEntries = ledgerData.entries.filter(entry => {
+  // Load chart of accounts once for the dropdown
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const accts = await FinanceService.getChartOfAccounts();
+        if (cancelled) return;
+        const list = Array.isArray(accts) ? accts : [];
+        setAccounts(list);
+        if (!selectedAccount && list.length > 0) {
+          setSelectedAccount(list[0].id);
+        }
+      } catch (e: any) {
+        if (!cancelled) setAccounts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load ledger report whenever the selected account / date range changes
+  useEffect(() => {
+    if (!selectedAccount) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const report = await FinanceService.getGeneralLedgerReport({
+          accountId: selectedAccount,
+          startDate,
+          endDate,
+        });
+        if (cancelled) return;
+
+        const rawEntries: any[] = Array.isArray(report)
+          ? report
+          : Array.isArray(report?.entries)
+            ? report.entries
+            : Array.isArray(report?.transactions)
+              ? report.transactions
+              : Array.isArray(report?.data)
+                ? report.data
+                : [];
+
+        const entries: LedgerEntry[] = rawEntries.map((r: any, i: number) => {
+          const debit = Number(r.debit ?? r.debitAmount ?? 0) || 0;
+          const credit = Number(r.credit ?? r.creditAmount ?? 0) || 0;
+          return {
+            id: String(r.id ?? r.entryId ?? `GL-${i}`),
+            date: String(r.date ?? r.entryDate ?? r.transactionDate ?? ''),
+            voucherNumber: String(r.voucherNumber ?? r.entryNumber ?? r.reference ?? r.referenceNumber ?? ''),
+            voucherType: mapVoucherType(r.voucherType ?? r.type ?? r.transactionType),
+            description: String(r.description ?? r.narration ?? ''),
+            debit,
+            credit,
+            balance: Number(r.balance ?? r.runningBalance ?? 0) || 0,
+            costCenter: r.costCenter ?? undefined,
+            department: r.department ?? undefined,
+            project: r.project ?? undefined,
+            reconciled: Boolean(r.reconciled ?? r.isReconciled ?? false),
+          };
+        });
+
+        const acct = accounts.find((a) => a.id === selectedAccount);
+        const openingBalance = Number(report?.openingBalance ?? 0) || 0;
+        const closingBalance =
+          report?.closingBalance !== null && report?.closingBalance !== undefined
+            ? Number(report.closingBalance) || 0
+            : entries.length > 0
+              ? entries[entries.length - 1].balance
+              : openingBalance;
+
+        setLedgerData({
+          accountCode: String(report?.accountCode ?? acct?.code ?? ''),
+          accountName: String(report?.accountName ?? acct?.name ?? ''),
+          accountType: String(report?.accountType ?? acct?.type ?? ''),
+          openingBalance,
+          closingBalance,
+          entries,
+        });
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || 'Failed to load ledger');
+          setLedgerData({
+            accountCode: '',
+            accountName: '',
+            accountType: '',
+            openingBalance: 0,
+            closingBalance: 0,
+            entries: [],
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount, startDate, endDate, accounts]);
+
+  const filteredEntries = (ledgerData.entries || []).filter(entry => {
     const matchesSearch =
       entry.voucherNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -372,11 +321,12 @@ export default function GeneralLedgerPage() {
                     onChange={(e) => setSelectedAccount(e.target.value)}
                     className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="1110">1110 - Cash & Bank</option>
-                    <option value="1120">1120 - Accounts Receivable</option>
-                    <option value="2110">2110 - Accounts Payable</option>
-                    <option value="4100">4100 - Sales Revenue</option>
-                    <option value="5110">5110 - Raw Materials</option>
+                    {accounts.length === 0 && <option value="">No accounts</option>}
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.code} - {acc.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -442,7 +392,11 @@ export default function GeneralLedgerPage() {
                   Show Reconciled
                 </label>
                 <div className="text-gray-400 text-sm ml-auto">
-                  Showing {filteredEntries.length} of {ledgerData.entries.length} entries
+                  {loading
+                    ? 'Loading…'
+                    : error
+                      ? <span className="text-red-400">{error}</span>
+                      : `Showing ${filteredEntries.length} of ${ledgerData.entries.length} entries`}
                 </div>
               </div>
             </div>

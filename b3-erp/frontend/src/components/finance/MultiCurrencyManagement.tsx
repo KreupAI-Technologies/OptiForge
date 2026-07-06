@@ -5,6 +5,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
+import { FinanceService } from '@/services/finance.service';
 import {
   DollarSign, Globe, ArrowRightLeft, TrendingUpIcon,
   TrendingDownIcon, ClockIcon, AlertTriangle, CheckCircleIcon,
@@ -211,72 +212,50 @@ const MultiCurrencyManagement: React.FC = () => {
     }
   ]);
 
-  const [exchangeRates] = useState<ExchangeRate[]>([
-    {
-      id: '1',
-      fromCurrency: 'USD',
-      toCurrency: 'EUR',
-      rate: 0.8542,
-      inverseRate: 1.1707,
-      date: '2024-01-18T14:30:00Z',
-      source: 'api',
-      provider: 'European Central Bank',
-      isActive: true,
-      volatility: 0.012,
-      bid: 0.8540,
-      ask: 0.8544,
-      spread: 0.0004,
-      lastUpdated: '2024-01-18T14:30:00Z'
-    },
-    {
-      id: '2',
-      fromCurrency: 'USD',
-      toCurrency: 'GBP',
-      rate: 0.7895,
-      inverseRate: 1.2666,
-      date: '2024-01-18T14:30:00Z',
-      source: 'api',
-      provider: 'Bank of England',
-      isActive: true,
-      volatility: 0.015,
-      bid: 0.7893,
-      ask: 0.7897,
-      spread: 0.0004,
-      lastUpdated: '2024-01-18T14:30:00Z'
-    },
-    {
-      id: '3',
-      fromCurrency: 'USD',
-      toCurrency: 'JPY',
-      rate: 147.25,
-      inverseRate: 0.0068,
-      date: '2024-01-18T14:30:00Z',
-      source: 'api',
-      provider: 'Bank of Japan',
-      isActive: true,
-      volatility: 0.008,
-      bid: 147.20,
-      ask: 147.30,
-      spread: 0.10,
-      lastUpdated: '2024-01-18T14:30:00Z'
-    },
-    {
-      id: '4',
-      fromCurrency: 'USD',
-      toCurrency: 'CAD',
-      rate: 1.3245,
-      inverseRate: 0.7550,
-      date: '2024-01-18T14:30:00Z',
-      source: 'api',
-      provider: 'Bank of Canada',
-      isActive: true,
-      volatility: 0.010,
-      bid: 1.3243,
-      ask: 1.3247,
-      spread: 0.0004,
-      lastUpdated: '2024-01-18T14:30:00Z'
-    }
-  ]);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
+  const [ratesLoading, setRatesLoading] = useState(true);
+  const [ratesError, setRatesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadRates = async () => {
+      setRatesLoading(true);
+      setRatesError(null);
+      try {
+        const data = await FinanceService.getExchangeRates();
+        const mapped: ExchangeRate[] = (Array.isArray(data) ? data : []).map((r: any) => {
+          const rate = Number(r?.rate) || 0;
+          const dateStr = r?.effectiveDate ? String(r.effectiveDate) : '';
+          return {
+            id: String(r?.id ?? ''),
+            fromCurrency: r?.fromCurrency ?? '',
+            toCurrency: r?.toCurrency ?? '',
+            rate,
+            inverseRate: rate ? 1 / rate : 0,
+            date: dateStr,
+            source: (r?.source as ExchangeRate['source']) ?? 'api',
+            provider: r?.source ?? '',
+            isActive: r?.isActive !== false,
+            volatility: 0,
+            bid: undefined,
+            ask: undefined,
+            spread: undefined,
+            lastUpdated: dateStr,
+          };
+        });
+        if (!cancelled) setExchangeRates(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setRatesError(err instanceof Error ? err.message : 'Failed to load exchange rates');
+          setExchangeRates([]);
+        }
+      } finally {
+        if (!cancelled) setRatesLoading(false);
+      }
+    };
+    loadRates();
+    return () => { cancelled = true; };
+  }, []);
 
   const [currencyExposures] = useState<CurrencyExposure[]>([
     {
@@ -852,6 +831,17 @@ const MultiCurrencyManagement: React.FC = () => {
           Add Rate
         </button>
       </div>
+
+      {ratesLoading && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center text-gray-500">
+          Loading exchange rates...
+        </div>
+      )}
+      {ratesError && !ratesLoading && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">
+          {ratesError}
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">

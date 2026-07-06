@@ -970,6 +970,32 @@ export class LeaveService {
       applicationsByDepartment: Record<string, number>;
     }>('/hr/leave/statistics');
   }
+
+  // ==========================================================================
+  // Leave encashment (backed by /hr/leave-encashments)
+  // ==========================================================================
+  static async getEncashments(status?: string): Promise<any[]> {
+    const q = status ? `?companyId=default-company-id&status=${status}` : '?companyId=default-company-id';
+    return this.request<any[]>(`/hr/leave-encashments${q}`);
+  }
+
+  static async getEncashmentById(id: string): Promise<any> {
+    return this.request<any>(`/hr/leave-encashments/${id}`);
+  }
+
+  static async createEncashment(data: Record<string, any>): Promise<any> {
+    return this.request<any>('/hr/leave-encashments', {
+      method: 'POST',
+      body: JSON.stringify({ companyId: 'default-company-id', ...data }),
+    });
+  }
+
+  static async updateEncashment(id: string, data: Record<string, any>): Promise<any> {
+    return this.request<any>(`/hr/leave-encashments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 // Export singleton instance

@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { procurementPagesService } from '@/services/procurement-pages.service'
 import {
   DollarSign,
   TrendingUp,
@@ -110,129 +111,78 @@ export default function SpendAnalysis() {
   const [isScheduleReportModalOpen, setIsScheduleReportModalOpen] = useState(false)
   const [isDashboardCustomizationModalOpen, setIsDashboardCustomizationModalOpen] = useState(false)
 
-  // Mock data
-  const spendByCategory: SpendData[] = [
-    {
-      category: 'Raw Materials',
-      current: 5200000,
-      previous: 4800000,
-      budget: 5000000,
-      variance: -200000,
-      trend: 'up',
-      suppliers: 24,
-      transactions: 1250
-    },
-    {
-      category: 'IT Services',
-      current: 2800000,
-      previous: 3000000,
-      budget: 2900000,
-      variance: 100000,
-      trend: 'down',
-      suppliers: 15,
-      transactions: 450
-    },
-    {
-      category: 'Logistics',
-      current: 3500000,
-      previous: 3200000,
-      budget: 3400000,
-      variance: -100000,
-      trend: 'up',
-      suppliers: 12,
-      transactions: 890
-    },
-    {
-      category: 'Professional Services',
-      current: 1800000,
-      previous: 1600000,
-      budget: 1900000,
-      variance: 100000,
-      trend: 'up',
-      suppliers: 28,
-      transactions: 320
-    },
-    {
-      category: 'MRO Supplies',
-      current: 1200000,
-      previous: 1300000,
-      budget: 1250000,
-      variance: 50000,
-      trend: 'down',
-      suppliers: 45,
-      transactions: 2100
-    },
-    {
-      category: 'Facilities',
-      current: 950000,
-      previous: 1000000,
-      budget: 1000000,
-      variance: 50000,
-      trend: 'down',
-      suppliers: 8,
-      transactions: 180
+  // API-backed data
+  const [spendByCategory, setSpendByCategory] = useState<SpendData[]>([])
+  const [monthlySpendTrend, setMonthlySpendTrend] = useState<{ month: string; actual: number; budget: number; forecast: number }[]>([])
+  const [savingsOpportunities, setSavingsOpportunities] = useState<SavingsOpportunity[]>([])
+  const [topSupplierSpend, setTopSupplierSpend] = useState<{ supplier: string; spend: number; category: string; invoices: number; avgDays: number }[]>([])
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [categories, trend, savings, vendors] = await Promise.all([
+          procurementPagesService.getSpendCategoryAnalysis(),
+          procurementPagesService.getSpendTrend(),
+          procurementPagesService.getSpendSavings(),
+          procurementPagesService.getSpendVendorAnalysis()
+        ])
+
+        setSpendByCategory(
+          (categories ?? []).map((c: any): SpendData => {
+            const current = c.totalSpend ?? 0
+            return {
+              category: c.categoryName ?? c.categoryCode ?? '',
+              current,
+              previous: c.previousSpend ?? current,
+              budget: c.budget ?? current,
+              variance: c.variance ?? 0,
+              trend: (c.trend as SpendData['trend']) ?? 'stable',
+              suppliers: c.vendorCount ?? 0,
+              transactions: c.transactionCount ?? 0
+            }
+          })
+        )
+
+        setMonthlySpendTrend(
+          (trend ?? []).map((t: any) => ({
+            month: t.period ?? '',
+            actual: t.totalSpend ?? 0,
+            budget: t.budget ?? t.totalSpend ?? 0,
+            forecast: t.forecast ?? t.totalSpend ?? 0
+          }))
+        )
+
+        setSavingsOpportunities(
+          (savings ?? []).map((s: any): SavingsOpportunity => ({
+            id: s.id ?? '',
+            category: s.category ?? '',
+            type: s.type ?? '',
+            potential: s.potentialSavings ?? 0,
+            difficulty: (s.effort as SavingsOpportunity['difficulty']) ?? 'medium',
+            timeframe: s.timeline ?? '',
+            impact: (s.impact as SavingsOpportunity['impact']) ?? 'medium',
+            status: (s.status as SavingsOpportunity['status']) ?? 'identified'
+          }))
+        )
+
+        setTopSupplierSpend(
+          (vendors ?? []).map((v: any) => ({
+            supplier: v.vendorName ?? '',
+            spend: v.totalSpend ?? 0,
+            category: Array.isArray(v.categories) ? (v.categories[0] ?? '') : (v.categories ?? ''),
+            invoices: v.transactionCount ?? 0,
+            avgDays: v.paymentPerformance ?? 0
+          }))
+        )
+      } catch (err) {
+        setSpendByCategory([])
+        setMonthlySpendTrend([])
+        setSavingsOpportunities([])
+        setTopSupplierSpend([])
+      }
     }
-  ]
-
-  const monthlySpendTrend = [
-    { month: 'Jan', actual: 2100000, budget: 2200000, forecast: 2150000 },
-    { month: 'Feb', actual: 2250000, budget: 2200000, forecast: 2180000 },
-    { month: 'Mar', actual: 2180000, budget: 2300000, forecast: 2250000 },
-    { month: 'Apr', actual: 2350000, budget: 2300000, forecast: 2280000 },
-    { month: 'May', actual: 2420000, budget: 2400000, forecast: 2380000 },
-    { month: 'Jun', actual: 2380000, budget: 2400000, forecast: 2400000 }
-  ]
-
-  const savingsOpportunities: SavingsOpportunity[] = [
-    {
-      id: 'OPP001',
-      category: 'Raw Materials',
-      type: 'Volume Consolidation',
-      potential: 520000,
-      difficulty: 'medium',
-      timeframe: 'Q2 2024',
-      impact: 'high',
-      status: 'in_progress'
-    },
-    {
-      id: 'OPP002',
-      category: 'IT Services',
-      type: 'Contract Renegotiation',
-      potential: 280000,
-      difficulty: 'easy',
-      timeframe: 'Q1 2024',
-      impact: 'medium',
-      status: 'identified'
-    },
-    {
-      id: 'OPP003',
-      category: 'Logistics',
-      type: 'Route Optimization',
-      potential: 350000,
-      difficulty: 'hard',
-      timeframe: 'Q3 2024',
-      impact: 'high',
-      status: 'identified'
-    },
-    {
-      id: 'OPP004',
-      category: 'MRO Supplies',
-      type: 'Supplier Consolidation',
-      potential: 180000,
-      difficulty: 'easy',
-      timeframe: 'Q1 2024',
-      impact: 'medium',
-      status: 'in_progress'
-    }
-  ]
-
-  const topSupplierSpend = [
-    { supplier: 'Global Materials Inc', spend: 3200000, category: 'Raw Materials', invoices: 245, avgDays: 28 },
-    { supplier: 'TechPro Solutions', spend: 1800000, category: 'IT Services', invoices: 85, avgDays: 45 },
-    { supplier: 'FastTrack Logistics', spend: 2100000, category: 'Logistics', invoices: 320, avgDays: 15 },
-    { supplier: 'Premier Manufacturing', spend: 1500000, category: 'Raw Materials', invoices: 180, avgDays: 30 },
-    { supplier: 'Office Supplies Co', spend: 450000, category: 'MRO Supplies', invoices: 520, avgDays: 7 }
-  ]
+    load()
+  }, [])
 
   const spendByRegion = [
     { region: 'North America', spend: 6500000, suppliers: 45, growth: 8.2 },

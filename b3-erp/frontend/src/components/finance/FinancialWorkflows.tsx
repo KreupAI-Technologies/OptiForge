@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GitBranch, Users, Shield, Clock, CheckCircle, XCircle, AlertCircle, Play, Pause, SkipForward, RotateCcw, Eye, Plus, X, Filter, Download, ChevronRight, ChevronDown, User, Lock, Unlock, Activity, TrendingUp, Calendar, Target, FileText, Settings, Bell } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Sankey, Treemap, RadialBarChart, RadialBar } from 'recharts';
 
 interface Workflow {
@@ -126,70 +127,79 @@ const FinancialWorkflows = () => {
   const [showDelegationModal, setShowDelegationModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Mock data
-  const workflows: Workflow[] = [
-    {
-      id: 'WF001',
-      name: 'Invoice Approval Workflow',
-      type: 'approval',
-      category: 'invoice',
-      status: 'active',
-      priority: 'high',
-      createdBy: 'Admin',
-      createdDate: '2024-01-15',
-      modifiedDate: '2024-03-20',
-      description: 'Multi-level approval for vendor invoices based on amount',
-      triggers: [
-        { id: 'T001', type: 'document', operator: 'equals', value: 'invoice', description: 'When invoice is submitted' }
-      ],
-      stages: [
-        { id: 'S001', sequence: 1, name: 'Department Head Approval', type: 'approval', assignmentType: 'role', assignedTo: ['Department Head'], sla: 24, parallel: false },
-        { id: 'S002', sequence: 2, name: 'Finance Review', type: 'review', assignmentType: 'group', assignedTo: ['Finance Team'], sla: 48, parallel: false },
-        { id: 'S003', sequence: 3, name: 'CFO Approval', type: 'approval', assignmentType: 'user', assignedTo: ['John Smith'], sla: 72, escalationTo: 'CEO', parallel: false }
-      ],
-      rules: []
-    },
-    {
-      id: 'WF002',
-      name: 'Expense Report Approval',
-      type: 'approval',
-      category: 'expense',
-      status: 'active',
-      priority: 'medium',
-      createdBy: 'Admin',
-      createdDate: '2024-01-20',
-      modifiedDate: '2024-03-15',
-      description: 'Employee expense report approval process',
-      triggers: [
-        { id: 'T002', type: 'amount', operator: 'greater', value: 500, description: 'Expense report over $500' }
-      ],
-      stages: [
-        { id: 'S004', sequence: 1, name: 'Manager Approval', type: 'approval', assignmentType: 'dynamic', assignedTo: ['Manager'], sla: 24, parallel: false },
-        { id: 'S005', sequence: 2, name: 'Finance Verification', type: 'review', assignmentType: 'group', assignedTo: ['Finance Team'], sla: 24, parallel: false }
-      ],
-      rules: []
-    },
-    {
-      id: 'WF003',
-      name: 'Payment Authorization',
-      type: 'approval',
-      category: 'payment',
-      status: 'active',
-      priority: 'critical',
-      createdBy: 'CFO',
-      createdDate: '2024-02-01',
-      modifiedDate: '2024-03-25',
-      description: 'Payment authorization based on amount thresholds',
-      triggers: [
-        { id: 'T003', type: 'amount', operator: 'between', value: [10000, 100000], description: 'Payment between $10K-$100K' }
-      ],
-      stages: [
-        { id: 'S006', sequence: 1, name: 'Treasury Review', type: 'review', assignmentType: 'role', assignedTo: ['Treasury Manager'], sla: 12, parallel: false },
-        { id: 'S007', sequence: 2, name: 'Dual Authorization', type: 'approval', assignmentType: 'group', assignedTo: ['Controller', 'CFO'], sla: 24, parallel: true }
-      ],
-      rules: []
+  // Approval workflows loaded from the finance API
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [workflowsLoading, setWorkflowsLoading] = useState(true);
+  const [workflowsError, setWorkflowsError] = useState<string | null>(null);
+
+  const VALID_CATEGORIES: Workflow['category'][] = ['invoice', 'payment', 'expense', 'journal', 'budget', 'purchase', 'general'];
+
+  const loadWorkflows = async () => {
+    try {
+      setWorkflowsLoading(true);
+      setWorkflowsError(null);
+      const data = await FinanceService.getApprovalWorkflows();
+      const mapped: Workflow[] = (data || []).map((w: any) => {
+        const docType = String(w.documentType ?? 'general').toLowerCase();
+        const category = (VALID_CATEGORIES.includes(docType as Workflow['category'])
+          ? docType
+          : 'general') as Workflow['category'];
+        const rawSteps = Array.isArray(w.steps) ? w.steps : [];
+        const stages: WorkflowStage[] = rawSteps.map((s: any, i: number) => ({
+          id: String(s?.id ?? `${w.id}-S${i + 1}`),
+          sequence: Number(s?.sequence ?? i + 1),
+          name: s?.name ?? s?.approverRole ?? s?.role ?? `Stage ${i + 1}`,
+          type: (s?.type ?? 'approval') as WorkflowStage['type'],
+          assignmentType: (s?.assignmentType ?? 'role') as WorkflowStage['assignmentType'],
+          assignedTo: Array.isArray(s?.assignedTo)
+            ? s.assignedTo
+            : s?.approverRole
+              ? [s.approverRole]
+              : [],
+          sla: Number(s?.sla ?? 24),
+          escalationTo: s?.escalationTo,
+          parallel: Boolean(s?.parallel ?? false),
+        }));
+        const isActive = w.isActive ?? String(w.status ?? '').toLowerCase() === 'active';
+        return {
+          id: String(w.id),
+          name: w.name ?? 'Workflow',
+          type: 'approval',
+          category,
+          status: isActive ? 'active' : 'inactive',
+          priority: 'medium',
+          createdBy: w.createdBy ?? '-',
+          createdDate: w.createdAt ?? '-',
+          modifiedDate: w.updatedAt ?? '-',
+          description: w.description ?? '',
+          triggers: [
+            {
+              id: `${w.id}-T`,
+              type: 'amount',
+              operator: 'between',
+              value: [w.minAmount ?? 0, w.maxAmount ?? 0],
+              description:
+                w.minAmount != null || w.maxAmount != null
+                  ? `Amount between ${w.minAmount ?? 0} and ${w.maxAmount ?? '∞'}`
+                  : `When ${category} is submitted`,
+            },
+          ],
+          stages,
+          rules: [],
+        };
+      });
+      setWorkflows(mapped);
+    } catch (e: any) {
+      setWorkflowsError(e?.message ?? 'Failed to load workflows');
+      setWorkflows([]);
+    } finally {
+      setWorkflowsLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    loadWorkflows();
+  }, []);
 
   const workflowInstances: WorkflowInstance[] = [
     {
@@ -546,6 +556,11 @@ const FinancialWorkflows = () => {
           </div>
         </div>
 
+        {workflowsLoading && <p className="text-sm text-gray-500 mb-2">Loading workflows…</p>}
+        {workflowsError && <p className="text-sm text-red-600 mb-2">{workflowsError}</p>}
+        {!workflowsLoading && workflows.length === 0 && (
+          <p className="text-sm text-gray-500 mb-2">No workflows found.</p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {workflows
             .filter(w => filterStatus === 'all' || w.status === filterStatus)

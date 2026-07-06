@@ -1,29 +1,71 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Calendar, User, Briefcase, MapPin, IndianRupee, BadgeCheck } from "lucide-react";
+import { OnboardingService } from "@/services/onboarding.service";
+
+interface OfferView {
+  id: string;
+  candidate: string;
+  role: string;
+  department: string;
+  location: string;
+  ctcLpa: number;
+  offerDate: string;
+  expiryDate: string;
+  status: string;
+  recruiter: string;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: "Draft",
+  sent: "Pending",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  expired: "Expired",
+  withdrawn: "Withdrawn",
+};
 
 export default function OfferDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
 
-  const data = useMemo(
-    () => ({
-      id,
-      candidate: "Candidate Name",
-      role: "Role Title",
-      department: "Department",
-      location: "Location",
-      ctcLpa: 8.5,
-      offerDate: "2025-10-10",
-      expiryDate: "2025-10-25",
-      status: "Pending" as const,
-      recruiter: "Recruiter Name",
-    }),
-    [id]
-  );
+  const [data, setData] = useState<OfferView>({
+    id,
+    candidate: "-",
+    role: "-",
+    department: "-",
+    location: "-",
+    ctcLpa: 0,
+    offerDate: "-",
+    expiryDate: "-",
+    status: "Pending",
+    recruiter: "-",
+  });
+
+  useEffect(() => {
+    if (!id) return;
+    OnboardingService.getOfferById(id)
+      .then((offer) => {
+        if (!offer) return;
+        const o = offer as any;
+        setData({
+          id: o.offerNumber || o.id || id,
+          candidate: o.candidateName || "-",
+          role: o.positionTitle || "-",
+          department: o.departmentName || o.departmentId || "-",
+          location: o.location || "-",
+          ctcLpa: o.offeredSalary != null ? Number(o.offeredSalary) / 100000 : (Number(o.salary) || 0),
+          offerDate: o.createdAt ? String(o.createdAt).slice(0, 10) : "-",
+          expiryDate: o.offerExpiryDate ? String(o.offerExpiryDate).slice(0, 10) : "-",
+          status: STATUS_LABEL[o.status] || o.status || "Pending",
+          recruiter: o.createdBy || "-",
+        });
+      })
+      .catch(() => {});
+  }, [id]);
 
   return (
     <div className="w-full h-full px-3 py-2">

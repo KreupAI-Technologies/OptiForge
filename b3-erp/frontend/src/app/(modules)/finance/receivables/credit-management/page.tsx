@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   CreditCard,
   TrendingUp,
@@ -64,103 +65,110 @@ export default function CreditManagementPage() {
   const [isApproveRejectModalOpen, setIsApproveRejectModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<CreditCustomer | null>(null)
 
-  const [customers] = useState<CreditCustomer[]>([
-    {
-      id: 'CUS-001',
-      customerCode: 'CUST-2025-001',
-      customerName: 'ABC Manufacturing Ltd',
-      creditLimit: 5000000,
-      creditUsed: 3500000,
-      creditAvailable: 1500000,
-      utilizationPercent: 70,
-      paymentTerms: 'Net 30',
-      averagePaymentDays: 28,
-      overdueAmount: 0,
-      status: 'good',
-      creditScore: 85,
-      lastReviewDate: '2025-09-15',
-      nextReviewDate: '2026-03-15',
-      riskRating: 'low',
-      outstandingInvoices: 5,
-      totalSales: 25000000
-    },
-    {
-      id: 'CUS-002',
-      customerCode: 'CUST-2025-002',
-      customerName: 'XYZ Industries Pvt Ltd',
-      creditLimit: 3000000,
-      creditUsed: 2850000,
-      creditAvailable: 150000,
-      utilizationPercent: 95,
-      paymentTerms: 'Net 45',
-      averagePaymentDays: 48,
-      overdueAmount: 450000,
-      status: 'warning',
-      creditScore: 65,
-      lastReviewDate: '2025-08-01',
-      nextReviewDate: '2026-02-01',
-      riskRating: 'medium',
-      outstandingInvoices: 8,
-      totalSales: 18000000
-    },
-    {
-      id: 'CUS-003',
-      customerCode: 'CUST-2025-003',
-      customerName: 'Global Tech Solutions',
-      creditLimit: 8000000,
-      creditUsed: 8200000,
-      creditAvailable: -200000,
-      utilizationPercent: 103,
-      paymentTerms: 'Net 60',
-      averagePaymentDays: 75,
-      overdueAmount: 1200000,
-      status: 'critical',
-      creditScore: 45,
-      lastReviewDate: '2025-07-10',
-      nextReviewDate: '2026-01-10',
-      riskRating: 'high',
-      outstandingInvoices: 12,
-      totalSales: 45000000
-    },
-    {
-      id: 'CUS-004',
-      customerCode: 'CUST-2025-004',
-      customerName: 'Premium Enterprises',
-      creditLimit: 10000000,
-      creditUsed: 2500000,
-      creditAvailable: 7500000,
-      utilizationPercent: 25,
-      paymentTerms: 'Net 15',
-      averagePaymentDays: 12,
-      overdueAmount: 0,
-      status: 'good',
-      creditScore: 95,
-      lastReviewDate: '2025-10-01',
-      nextReviewDate: '2026-04-01',
-      riskRating: 'low',
-      outstandingInvoices: 3,
-      totalSales: 35000000
-    },
-    {
-      id: 'CUS-005',
-      customerCode: 'CUST-2025-005',
-      customerName: 'Delta Manufacturing Co',
-      creditLimit: 2000000,
-      creditUsed: 2500000,
-      creditAvailable: -500000,
-      utilizationPercent: 125,
-      paymentTerms: 'Net 30',
-      averagePaymentDays: 65,
-      overdueAmount: 800000,
-      status: 'blocked',
-      creditScore: 30,
-      lastReviewDate: '2025-06-20',
-      nextReviewDate: '2025-12-20',
-      riskRating: 'very_high',
-      outstandingInvoices: 10,
-      totalSales: 12000000
+  const [customers, setCustomers] = useState<CreditCustomer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Map raw credit-limit records from the API into the CreditCustomer shape
+  // the JSX reads. Computes availableCredit + utilization % here.
+  const mapCreditLimit = (r: any): CreditCustomer => {
+    const creditLimit = Number(r?.creditLimit) || 0
+    const creditUsed = Number(r?.creditUsed) || 0
+    const creditAvailable = creditLimit - creditUsed
+    const utilizationPercent = creditLimit > 0
+      ? Math.round((creditUsed / creditLimit) * 100)
+      : 0
+
+    // Derive display status: an explicit hold/blocked wins, else infer from utilization.
+    const onHold = r?.onHold === true || String(r?.status).toLowerCase() === 'blocked'
+    let status: CreditCustomer['status']
+    if (onHold) status = 'blocked'
+    else if (utilizationPercent > 100) status = 'critical'
+    else if (utilizationPercent > 90) status = 'warning'
+    else status = 'good'
+
+    // Normalise risk category to the JSX's riskRating union.
+    const riskRaw = String(r?.riskCategory ?? '').toLowerCase().replace(/\s+/g, '_')
+    const riskRating: CreditCustomer['riskRating'] =
+      riskRaw === 'low' || riskRaw === 'medium' || riskRaw === 'high' || riskRaw === 'very_high'
+        ? (riskRaw as CreditCustomer['riskRating'])
+        : 'medium'
+
+    // Map credit rating (e.g. 'A'/'B'/numeric) to a 0-100 score for display.
+    const ratingRaw = r?.creditRating
+    let creditScore = 0
+    if (typeof ratingRaw === 'number') {
+      creditScore = ratingRaw
+    } else if (typeof ratingRaw === 'string') {
+      const letterMap: Record<string, number> = { AAA: 95, AA: 90, A: 85, BBB: 75, BB: 65, B: 55, CCC: 45, CC: 35, C: 25, D: 15 }
+      creditScore = letterMap[ratingRaw.toUpperCase()] ?? (Number(ratingRaw) || 0)
     }
-  ])
+
+    return {
+      id: String(r?.id ?? r?.customerId ?? ''),
+      customerCode: String(r?.customerId ?? r?.id ?? ''),
+      customerName: String(r?.customerName ?? ''),
+      creditLimit,
+      creditUsed,
+      creditAvailable,
+      utilizationPercent,
+      paymentTerms: String(r?.paymentTerms ?? '-'),
+      averagePaymentDays: Number(r?.averagePaymentDays) || 0,
+      overdueAmount: Number(r?.overdueAmount) || 0,
+      status,
+      creditScore,
+      lastReviewDate: r?.lastReviewDate ?? r?.reviewDate ?? '',
+      nextReviewDate: r?.reviewDate ?? r?.nextReviewDate ?? '',
+      riskRating,
+      outstandingInvoices: Number(r?.outstandingInvoices) || 0,
+      totalSales: Number(r?.totalSales) || 0,
+    }
+  }
+
+  const loadCustomers = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await FinanceService.getCreditLimits()
+      setCustomers((Array.isArray(data) ? data : []).map(mapCreditLimit))
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load credit limits')
+      setCustomers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCustomers()
+  }, [loadCustomers])
+
+  const handleDeleteCustomer = async (id: string) => {
+    try {
+      await FinanceService.deleteCreditLimit(id)
+      await loadCustomers()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete credit limit')
+    }
+  }
+
+  const handleHoldCustomer = async (id: string) => {
+    try {
+      await FinanceService.updateCreditLimit(id, { onHold: true, status: 'blocked' })
+      await loadCustomers()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to place credit hold')
+    }
+  }
+
+  const handleReleaseCustomer = async (id: string) => {
+    try {
+      await FinanceService.updateCreditLimit(id, { onHold: false, status: 'active' })
+      await loadCustomers()
+    } catch (e: any) {
+      setError(e?.message || 'Failed to release credit hold')
+    }
+  }
 
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch =
@@ -248,6 +256,12 @@ export default function CreditManagementPage() {
             New Credit Review
           </button>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+            {error}
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -492,12 +506,17 @@ export default function CreditManagementPage() {
                     <Edit className="h-4 w-4" />
                     Adjust Limit
                   </button>
-                  {customer.status === 'critical' || customer.status === 'blocked' ? (
+                  {customer.status === 'blocked' ? (
                     <button
-                      onClick={() => {
-                        setSelectedCustomer(customer)
-                        setIsCreditHoldModalOpen(true)
-                      }}
+                      onClick={() => handleReleaseCustomer(customer.id)}
+                      className="flex items-center gap-2 px-4 py-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Release Hold
+                    </button>
+                  ) : customer.status === 'critical' ? (
+                    <button
+                      onClick={() => handleHoldCustomer(customer.id)}
                       className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <AlertTriangle className="h-4 w-4" />
@@ -521,7 +540,13 @@ export default function CreditManagementPage() {
           ))}
         </div>
 
-        {filteredCustomers.length === 0 && (
+        {loading && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading credit limits…</h3>
+          </div>
+        )}
+
+        {!loading && filteredCustomers.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Users className="h-12 w-12 text-gray-400 mb-2" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Customers Found</h3>
@@ -533,19 +558,19 @@ export default function CreditManagementPage() {
       {/* Modals */}
       <CreditReviewModal
         isOpen={isCreditReviewModalOpen}
-        onClose={() => setIsCreditReviewModalOpen(false)}
+        onClose={() => { setIsCreditReviewModalOpen(false); loadCustomers() }}
         customer={selectedCustomer}
       />
 
       <CreditHoldModal
         isOpen={isCreditHoldModalOpen}
-        onClose={() => setIsCreditHoldModalOpen(false)}
+        onClose={() => { setIsCreditHoldModalOpen(false); loadCustomers() }}
         customer={selectedCustomer}
       />
 
       <ReleaseCreditHoldModal
         isOpen={isReleaseCreditHoldModalOpen}
-        onClose={() => setIsReleaseCreditHoldModalOpen(false)}
+        onClose={() => { setIsReleaseCreditHoldModalOpen(false); loadCustomers() }}
         customer={selectedCustomer}
       />
 
@@ -556,7 +581,7 @@ export default function CreditManagementPage() {
 
       <CreditApprovalRequestModal
         isOpen={isCreditApprovalModalOpen}
-        onClose={() => setIsCreditApprovalModalOpen(false)}
+        onClose={() => { setIsCreditApprovalModalOpen(false); loadCustomers() }}
         customer={selectedCustomer}
       />
 

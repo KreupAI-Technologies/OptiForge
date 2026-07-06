@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { FinanceService } from '@/services/finance.service';
 import {
   Plus,
   Calendar,
@@ -59,150 +60,99 @@ interface ChecklistItem {
 }
 
 export default function FinancialPeriodsPage() {
-  const [financialYears] = useState<FinancialYear[]>([
-    {
-      id: '1',
-      yearCode: 'FY2025-26',
-      yearName: 'Financial Year 2025-2026',
-      startDate: '2025-04-01',
-      endDate: '2026-03-31',
-      status: 'Open',
-      isCurrent: true,
-      periodsCount: 12,
-      openPeriodsCount: 6,
-    },
-    {
-      id: '2',
-      yearCode: 'FY2024-25',
-      yearName: 'Financial Year 2024-2025',
-      startDate: '2024-04-01',
-      endDate: '2025-03-31',
-      status: 'Open',
-      isCurrent: false,
-      periodsCount: 12,
-      openPeriodsCount: 7,
-    },
-    {
-      id: '3',
-      yearCode: 'FY2023-24',
-      yearName: 'Financial Year 2023-2024',
-      startDate: '2023-04-01',
-      endDate: '2024-03-31',
-      status: 'Closed',
-      isCurrent: false,
-      periodsCount: 12,
-      openPeriodsCount: 0,
-    },
-  ]);
+  const [financialYears, setFinancialYears] = useState<FinancialYear[]>([]);
+  const [periods, setPeriods] = useState<FinancialPeriod[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [periods] = useState<FinancialPeriod[]>([
-    {
-      id: '1',
-      periodCode: 'FY2025-P01',
-      periodName: 'April 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 1,
-      startDate: '2025-04-01',
-      endDate: '2025-04-30',
-      status: 'Closed',
-      isCurrent: false,
-      transactionsCount: 245,
-    },
-    {
-      id: '2',
-      periodCode: 'FY2025-P02',
-      periodName: 'May 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 2,
-      startDate: '2025-05-01',
-      endDate: '2025-05-31',
-      status: 'Closed',
-      isCurrent: false,
-      transactionsCount: 312,
-    },
-    {
-      id: '3',
-      periodCode: 'FY2025-P03',
-      periodName: 'June 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 3,
-      startDate: '2025-06-01',
-      endDate: '2025-06-30',
-      status: 'Closed',
-      isCurrent: false,
-      transactionsCount: 289,
-    },
-    {
-      id: '4',
-      periodCode: 'FY2025-P04',
-      periodName: 'July 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 4,
-      startDate: '2025-07-01',
-      endDate: '2025-07-31',
-      status: 'Closed',
-      isCurrent: false,
-      transactionsCount: 267,
-    },
-    {
-      id: '5',
-      periodCode: 'FY2025-P05',
-      periodName: 'August 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 5,
-      startDate: '2025-08-01',
-      endDate: '2025-08-31',
-      status: 'Closed',
-      isCurrent: false,
-      transactionsCount: 298,
-    },
-    {
-      id: '6',
-      periodCode: 'FY2025-P06',
-      periodName: 'September 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 6,
-      startDate: '2025-09-01',
-      endDate: '2025-09-30',
-      status: 'Closed',
-      isCurrent: false,
-      transactionsCount: 321,
-    },
-    {
-      id: '7',
-      periodCode: 'FY2025-P07',
-      periodName: 'October 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 7,
-      startDate: '2025-10-01',
-      endDate: '2025-10-31',
-      status: 'Open',
-      isCurrent: true,
-      transactionsCount: 156,
-    },
-    {
-      id: '8',
-      periodCode: 'FY2025-P08',
-      periodName: 'November 2025',
-      yearCode: 'FY2025-26',
-      periodType: 'Month',
-      periodNumber: 8,
-      startDate: '2025-11-01',
-      endDate: '2025-11-30',
-      status: 'Open',
-      isCurrent: false,
-      transactionsCount: 0,
-    },
-  ]);
+  const [selectedYear, setSelectedYear] = useState('');
 
-  const [selectedYear, setSelectedYear] = useState('FY2025-26');
+  const normalizeStatus = (s: any): 'Open' | 'Closed' | 'Locked' => {
+    const v = String(s || '').toLowerCase();
+    if (v.includes('lock')) return 'Locked';
+    if (v.includes('close')) return 'Closed';
+    return 'Open';
+  };
+
+  const normalizePeriodType = (t: any): FinancialPeriod['periodType'] => {
+    const v = String(t || '').toLowerCase();
+    if (v.includes('quarter')) return 'Quarter';
+    if (v.includes('half')) return 'Half Year';
+    if (v.includes('year') || v.includes('annual')) return 'Year';
+    return 'Month';
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [rawYears, rawPeriods] = await Promise.all([
+          FinanceService.getFinancialYears(),
+          FinanceService.getFinancialPeriods(),
+        ]);
+        if (cancelled) return;
+
+        const periodsList = Array.isArray(rawPeriods) ? rawPeriods : [];
+
+        const years: FinancialYear[] = (Array.isArray(rawYears) ? rawYears : []).map((y: any) => {
+          const yearPeriods = periodsList.filter(
+            (p: any) => p.financialYearId === y.id,
+          );
+          const openCount = yearPeriods.filter(
+            (p: any) => normalizeStatus(p.status) === 'Open',
+          ).length;
+          return {
+            id: String(y.id),
+            yearCode: String(y.yearCode ?? ''),
+            yearName: String(y.yearName ?? y.yearCode ?? ''),
+            startDate: String(y.startDate ?? ''),
+            endDate: String(y.endDate ?? ''),
+            status: normalizeStatus(y.status),
+            isCurrent: Boolean(y.isCurrent),
+            periodsCount: yearPeriods.length,
+            openPeriodsCount: openCount,
+          };
+        });
+
+        const yearCodeById = new Map<string, string>(
+          years.map((y) => [y.id, y.yearCode]),
+        );
+
+        const mappedPeriods: FinancialPeriod[] = periodsList.map((p: any) => ({
+          id: String(p.id),
+          periodCode: String(p.periodCode ?? ''),
+          periodName: String(p.periodName ?? p.periodCode ?? ''),
+          yearCode: yearCodeById.get(String(p.financialYearId)) ?? String(p.financialYearId ?? ''),
+          periodType: normalizePeriodType(p.periodType),
+          periodNumber: Number(p.periodNumber) || 0,
+          startDate: String(p.startDate ?? ''),
+          endDate: String(p.endDate ?? ''),
+          status: normalizeStatus(p.status),
+          isCurrent: Boolean(p.isCurrent),
+          transactionsCount: Number(p.transactionsCount ?? 0) || 0,
+        }));
+
+        setFinancialYears(years);
+        setPeriods(mappedPeriods);
+
+        const current = years.find((y) => y.isCurrent) ?? years[0];
+        if (current) setSelectedYear((prev) => prev || current.yearCode);
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || 'Failed to load financial periods');
+          setFinancialYears([]);
+          setPeriods([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [showAccrualsModal, setShowAccrualsModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -271,6 +221,8 @@ export default function FinancialPeriodsPage() {
           <div className="mb-3">
             <div className="flex items-center justify-end mb-2">
               <div className="flex items-center gap-3">
+                {loading && <span className="text-sm text-gray-500">Loading…</span>}
+                {error && <span className="text-sm text-red-600">{error}</span>}
                 <Link
                   href="/finance/accounting/periods"
                   className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"

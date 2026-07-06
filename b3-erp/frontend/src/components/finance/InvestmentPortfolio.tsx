@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, PieChart, Activity, AlertTriangle, Target, Calendar, BarChart3, Shield, Clock, ArrowUpRight, ArrowDownRight, Plus, X, Filter, Download, ChevronUp, ChevronDown, Info, Star, Briefcase, Globe, Building2, Check } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Treemap } from 'recharts';
 
 interface Investment {
@@ -123,17 +124,82 @@ const InvestmentPortfolio = () => {
     }
   ];
 
-  const investments: Investment[] = [
-    { id: 'INV001', symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', sector: 'Technology', quantity: 1000, purchasePrice: 150, currentPrice: 185, purchaseDate: '2023-01-15', marketValue: 185000, unrealizedGainLoss: 35000, unrealizedGainLossPercent: 23.33, dividendYield: 0.5, rating: 'AAA' },
-    { id: 'INV002', symbol: 'MSFT', name: 'Microsoft Corp.', type: 'stock', sector: 'Technology', quantity: 800, purchasePrice: 250, currentPrice: 380, purchaseDate: '2023-02-01', marketValue: 304000, unrealizedGainLoss: 104000, unrealizedGainLossPercent: 52, dividendYield: 0.8, rating: 'AAA' },
-    { id: 'INV003', symbol: 'VOO', name: 'Vanguard S&P 500 ETF', type: 'etf', sector: 'Diversified', quantity: 500, purchasePrice: 380, currentPrice: 420, purchaseDate: '2023-03-10', marketValue: 210000, unrealizedGainLoss: 20000, unrealizedGainLossPercent: 10.53, dividendYield: 1.5 },
-    { id: 'INV004', symbol: 'GOOGL', name: 'Alphabet Inc.', type: 'stock', sector: 'Technology', quantity: 500, purchasePrice: 100, currentPrice: 140, purchaseDate: '2023-04-05', marketValue: 70000, unrealizedGainLoss: 20000, unrealizedGainLossPercent: 40, dividendYield: 0, rating: 'AA' },
-    { id: 'INV005', symbol: 'TSLA', name: 'Tesla Inc.', type: 'stock', sector: 'Automotive', quantity: 300, purchasePrice: 200, currentPrice: 250, purchaseDate: '2023-05-20', marketValue: 75000, unrealizedGainLoss: 15000, unrealizedGainLossPercent: 25, dividendYield: 0, rating: 'BBB' },
-    { id: 'INV006', symbol: 'AGG', name: 'iShares Core US Aggregate Bond', type: 'bond', sector: 'Fixed Income', quantity: 2000, purchasePrice: 100, currentPrice: 102, purchaseDate: '2023-01-10', marketValue: 204000, unrealizedGainLoss: 4000, unrealizedGainLossPercent: 2, couponRate: 3.5 },
-    { id: 'INV007', symbol: 'BND', name: 'Vanguard Total Bond Market', type: 'bond', sector: 'Fixed Income', quantity: 1500, purchasePrice: 75, currentPrice: 76, purchaseDate: '2023-02-15', marketValue: 114000, unrealizedGainLoss: 1500, unrealizedGainLossPercent: 1.33, couponRate: 3.2 },
-    { id: 'INV008', symbol: 'TLT', name: '20+ Year Treasury Bond', type: 'bond', sector: 'Government', quantity: 1000, purchasePrice: 90, currentPrice: 92, purchaseDate: '2023-03-20', marketValue: 92000, unrealizedGainLoss: 2000, unrealizedGainLossPercent: 2.22, couponRate: 2.8 },
-    { id: 'INV009', symbol: 'REIT', name: 'Real Estate Investment Trust', type: 'real-estate', sector: 'Real Estate', quantity: 500, purchasePrice: 120, currentPrice: 130, purchaseDate: '2023-04-25', marketValue: 65000, unrealizedGainLoss: 5000, unrealizedGainLossPercent: 8.33, dividendYield: 4.5 }
-  ];
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [investmentsLoading, setInvestmentsLoading] = useState(true);
+  const [investmentsError, setInvestmentsError] = useState<string | null>(null);
+
+  const mapInvestment = (inv: any): Investment => {
+    const principalAmount = Number(inv?.principalAmount) || 0;
+    const currentValue = Number(inv?.currentValue) || 0;
+    const gainLoss = currentValue - principalAmount;
+    const gainLossPercent = principalAmount ? (gainLoss / principalAmount) * 100 : 0;
+    const rawType = String(inv?.investmentType ?? '').toLowerCase();
+    const allowedTypes = ['stock', 'bond', 'mutual-fund', 'etf', 'commodity', 'real-estate', 'crypto', 'alternative'];
+    const type = (allowedTypes.includes(rawType) ? rawType : 'alternative') as Investment['type'];
+    return {
+      id: String(inv?.id ?? ''),
+      symbol: inv?.name ? String(inv.name).slice(0, 6).toUpperCase() : '—',
+      name: inv?.name ?? '',
+      type,
+      sector: inv?.institution ?? '—',
+      quantity: 1,
+      purchasePrice: principalAmount,
+      currentPrice: currentValue,
+      purchaseDate: inv?.startDate ? String(inv.startDate).slice(0, 10) : '',
+      marketValue: currentValue,
+      unrealizedGainLoss: gainLoss,
+      unrealizedGainLossPercent: gainLossPercent,
+      dividendYield: Number(inv?.interestRate) || 0,
+      rating: inv?.status ?? undefined,
+      maturityDate: inv?.maturityDate ? String(inv.maturityDate).slice(0, 10) : undefined,
+      couponRate: Number(inv?.interestRate) || undefined,
+    };
+  };
+
+  const loadInvestments = useCallback(async () => {
+    setInvestmentsLoading(true);
+    setInvestmentsError(null);
+    try {
+      const data = await FinanceService.getInvestments();
+      setInvestments(Array.isArray(data) ? data.map(mapInvestment) : []);
+    } catch (err) {
+      setInvestmentsError(err instanceof Error ? err.message : 'Failed to load investments');
+      setInvestments([]);
+    } finally {
+      setInvestmentsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInvestments();
+  }, [loadInvestments]);
+
+  const handleCreateInvestment = async (data: any) => {
+    try {
+      await FinanceService.createInvestment(data);
+      await loadInvestments();
+    } catch (err) {
+      setInvestmentsError(err instanceof Error ? err.message : 'Failed to create investment');
+    }
+  };
+
+  const handleUpdateInvestment = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateInvestment(id, data);
+      await loadInvestments();
+    } catch (err) {
+      setInvestmentsError(err instanceof Error ? err.message : 'Failed to update investment');
+    }
+  };
+
+  const handleDeleteInvestment = async (id: string) => {
+    try {
+      await FinanceService.deleteInvestment(id);
+      await loadInvestments();
+    } catch (err) {
+      setInvestmentsError(err instanceof Error ? err.message : 'Failed to delete investment');
+    }
+  };
 
   const transactions: Transaction[] = [
     { id: 'T001', portfolioId: 'P001', investmentId: 'INV001', type: 'buy', quantity: 100, price: 180, totalAmount: 18000, date: '2024-03-01', status: 'completed' },
@@ -404,7 +470,7 @@ const InvestmentPortfolio = () => {
               Filter
             </button>
             <button
-              onClick={() => setShowTransactionModal(true)}
+              onClick={() => { handleCreateInvestment({}); setShowTransactionModal(true); }}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -412,6 +478,16 @@ const InvestmentPortfolio = () => {
             </button>
           </div>
         </div>
+
+        {investmentsLoading && (
+          <p className="text-center text-gray-500 py-4">Loading investments...</p>
+        )}
+        {investmentsError && !investmentsLoading && (
+          <p className="text-center text-red-600 py-4">{investmentsError}</p>
+        )}
+        {!investmentsLoading && !investmentsError && investments.length === 0 && (
+          <p className="text-center text-gray-500 py-4">No investments found.</p>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full">
@@ -456,12 +532,28 @@ const InvestmentPortfolio = () => {
                     {investment.unrealizedGainLossPercent.toFixed(2)}%
                   </td>
                   <td className="text-center py-2">
-                    <button
-                      onClick={() => setSelectedInvestment(investment)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      <Info className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setSelectedInvestment(investment)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <Info className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleUpdateInvestment(investment.id, { status: investment.rating })}
+                        className="text-gray-600 hover:text-gray-800"
+                        title="Update"
+                      >
+                        <ArrowUpRight className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteInvestment(investment.id)}
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -480,8 +572,11 @@ const InvestmentPortfolio = () => {
                   )}
                 </td>
                 <td className="text-right py-2 text-green-600">
-                  +{((investments.reduce((sum, inv) => sum + inv.unrealizedGainLoss, 0) /
-                    investments.reduce((sum, inv) => sum + (inv.purchasePrice * inv.quantity), 0)) * 100).toFixed(2)}%
+                  +{(() => {
+                    const cost = investments.reduce((sum, inv) => sum + (inv.purchasePrice * inv.quantity), 0);
+                    const gain = investments.reduce((sum, inv) => sum + inv.unrealizedGainLoss, 0);
+                    return (cost ? (gain / cost) * 100 : 0).toFixed(2);
+                  })()}%
                 </td>
                 <td></td>
               </tr>

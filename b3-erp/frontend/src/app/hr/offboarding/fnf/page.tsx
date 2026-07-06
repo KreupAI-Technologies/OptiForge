@@ -2,14 +2,50 @@
 
 import { DollarSign, FileText, CheckCircle, Calculator, CreditCard, Clock, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
+import { OffboardingService, SettlementStatus } from '@/services/offboarding.service';
 
 export default function FNFPage() {
-    const stats = {
-        pendingSettlements: 12,
-        completedSettlements: 45,
-        totalDisbursed: 2850000,
+    const [stats, setStats] = useState({
+        pendingSettlements: 0,
+        completedSettlements: 0,
+        totalDisbursed: 0,
         avgProcessingTime: '5 days'
-    };
+    });
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const [dashboard, settlementsRes] = await Promise.all([
+                    OffboardingService.getOffboardingDashboard(),
+                    OffboardingService.getSettlements(),
+                ]);
+                if (!mounted) return;
+                const settlements = settlementsRes?.data ?? [];
+                const paid = settlements.filter((s) => s.status === SettlementStatus.PAID);
+                const totalDisbursed = paid.reduce((sum, s) => sum + (s.netPayable || 0), 0);
+                setStats({
+                    pendingSettlements: dashboard?.pendingSettlements ?? 0,
+                    completedSettlements: paid.length,
+                    totalDisbursed,
+                    // No matching real field; keep static text
+                    avgProcessingTime: '5 days'
+                });
+            } catch {
+                if (!mounted) return;
+                setStats({
+                    pendingSettlements: 0,
+                    completedSettlements: 0,
+                    totalDisbursed: 0,
+                    avgProcessingTime: '5 days'
+                });
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const modules = [
         {

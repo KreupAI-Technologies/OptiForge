@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   TrendingUp,
   TrendingDown,
@@ -46,102 +47,83 @@ interface VarianceData {
   }
 }
 
-export default function VarianceAnalysisPage() {
-  const [variances] = useState<VarianceData[]>([
-    {
-      id: 'VAR-001',
-      productCode: 'PRD-HP500',
-      productName: 'Hydraulic Press HP-500',
-      period: 'October 2025',
-      quantityProduced: 12,
-      standardCost: {
-        material: 850000,
-        labor: 250000,
-        overhead: 180000,
-        total: 1280000
-      },
-      actualCost: {
-        material: 912000,
-        labor: 235000,
-        overhead: 188000,
-        total: 1335000
-      },
-      variance: {
-        material: 62000,
-        labor: -15000,
-        overhead: 8000,
-        total: 55000
-      },
-      variancePercent: {
-        material: 7.3,
-        labor: -6.0,
-        overhead: 4.4,
-        total: 4.3
-      }
+const num = (v: any) => Number(v ?? 0)
+
+const mapVariance = (r: any): VarianceData => {
+  const totalMaterial = num(r?.totalMaterialVariance ?? num(r?.materialPriceVariance) + num(r?.materialQuantityVariance))
+  const totalLabor = num(r?.totalLaborVariance ?? num(r?.laborRateVariance) + num(r?.laborEfficiencyVariance))
+  const totalOverhead = num(r?.totalOverheadVariance ?? r?.overheadSpendingVariance)
+  const totalVariance = num(r?.totalVariance ?? totalMaterial + totalLabor + totalOverhead)
+  const standardTotal = num(r?.standardCost)
+  const actualTotal = num(r?.actualCost)
+  // Per-component standard/actual are not provided by the API; derive actual = standard + variance
+  // and split standard total across components using variance shares only when available.
+  const stdMaterial = standardTotal ? standardTotal - totalLabor - totalOverhead : 0
+  const pct = (variance: number, base: number) => (base ? (variance / base) * 100 : 0)
+  return {
+    id: String(r?.id ?? ''),
+    productCode: r?.varianceNumber ?? r?.productCode ?? '',
+    productName: r?.productName ?? '',
+    period: r?.analysisDate ?? '',
+    quantityProduced: num(r?.quantityProduced),
+    standardCost: {
+      material: stdMaterial,
+      labor: 0,
+      overhead: 0,
+      total: standardTotal
     },
-    {
-      id: 'VAR-002',
-      productCode: 'PRD-CM350',
-      productName: 'CNC Machine CM-350',
-      period: 'October 2025',
-      quantityProduced: 8,
-      standardCost: {
-        material: 1250000,
-        labor: 380000,
-        overhead: 270000,
-        total: 1900000
-      },
-      actualCost: {
-        material: 1198000,
-        labor: 395000,
-        overhead: 262000,
-        total: 1855000
-      },
-      variance: {
-        material: -52000,
-        labor: 15000,
-        overhead: -8000,
-        total: -45000
-      },
-      variancePercent: {
-        material: -4.2,
-        labor: 3.9,
-        overhead: -3.0,
-        total: -2.4
-      }
+    actualCost: {
+      material: stdMaterial + totalMaterial,
+      labor: totalLabor,
+      overhead: totalOverhead,
+      total: actualTotal || standardTotal + totalVariance
     },
-    {
-      id: 'VAR-003',
-      productCode: 'PRD-CP1000',
-      productName: 'Control Panel CP-1000',
-      period: 'October 2025',
-      quantityProduced: 25,
-      standardCost: {
-        material: 420000,
-        labor: 95000,
-        overhead: 68000,
-        total: 583000
-      },
-      actualCost: {
-        material: 435000,
-        labor: 92000,
-        overhead: 71000,
-        total: 598000
-      },
-      variance: {
-        material: 15000,
-        labor: -3000,
-        overhead: 3000,
-        total: 15000
-      },
-      variancePercent: {
-        material: 3.6,
-        labor: -3.2,
-        overhead: 4.4,
-        total: 2.6
-      }
+    variance: {
+      material: totalMaterial,
+      labor: totalLabor,
+      overhead: totalOverhead,
+      total: totalVariance
+    },
+    variancePercent: {
+      material: pct(totalMaterial, standardTotal),
+      labor: pct(totalLabor, standardTotal),
+      overhead: pct(totalOverhead, standardTotal),
+      total: num(r?.variancePercentage ?? pct(totalVariance, standardTotal))
     }
-  ])
+  }
+}
+
+export default function VarianceAnalysisPage() {
+  const [variances, setVariances] = useState<VarianceData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadVariances = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await FinanceService.getVarianceAnalysis()
+      setVariances((Array.isArray(res) ? res : []).map(mapVariance))
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load variance analysis')
+      setVariances([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadVariances()
+  }, [])
+
+  const handleDelete = async (id: string) => {
+    try {
+      await FinanceService.deleteVariance(id)
+      await loadVariances()
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to delete variance')
+    }
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -169,11 +151,11 @@ export default function VarianceAnalysisPage() {
     return <CheckCircle className="h-5 w-5 text-gray-600" />
   }
 
-  // Calculate totals
-  const totalStandard = variances.reduce((sum, v) => sum + (v.standardCost.total * v.quantityProduced), 0)
-  const totalActual = variances.reduce((sum, v) => sum + (v.actualCost.total * v.quantityProduced), 0)
+  // Calculate totals (fall back to per-record totals when quantity is unavailable)
+  const totalStandard = variances.reduce((sum, v) => sum + (v.standardCost.total * (v.quantityProduced || 1)), 0)
+  const totalActual = variances.reduce((sum, v) => sum + (v.actualCost.total * (v.quantityProduced || 1)), 0)
   const totalVariance = totalActual - totalStandard
-  const totalVariancePercent = ((totalVariance / totalStandard) * 100)
+  const totalVariancePercent = totalStandard ? ((totalVariance / totalStandard) * 100) : 0
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-red-50 to-orange-50 px-3 py-2">
@@ -195,6 +177,13 @@ export default function VarianceAnalysisPage() {
             </button>
           </div>
         </div>
+
+        {loading && (
+          <div className="text-sm text-gray-500">Loading variance analysis...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
+        )}
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -275,6 +264,9 @@ export default function VarianceAnalysisPage() {
                   <div className="text-right">
                     <p className="text-sm text-gray-600">Quantity Produced</p>
                     <p className="text-2xl font-bold text-gray-900">{variance.quantityProduced} units</p>
+                    <button onClick={() => handleDelete(variance.id)} className="mt-1 text-xs text-red-600 hover:underline">
+                      Delete
+                    </button>
                   </div>
                 </div>
 

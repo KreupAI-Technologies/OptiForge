@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ShieldCheck,
   Plus,
@@ -93,783 +94,86 @@ export default function DriverCompliancePage() {
   const [selectedRating, setSelectedRating] = useState('all');
   const [showExpiringSoon, setShowExpiringSoon] = useState(false);
 
-  const [complianceData, setComplianceData] = useState<DriverCompliance[]>([
-    {
-      id: 1,
-      driverId: 'DRV-001',
-      driverName: 'Ramesh Sharma',
-      vehicleNumber: 'MH-01-AB-1234',
-      vehicleType: '32-Ft Truck',
-      employmentDate: '2022-01-15',
-      licenseNumber: 'MH-2013-0098765',
-      licenseType: 'Heavy Vehicle',
-      licenseIssueDate: '2018-03-15',
-      licenseExpiryDate: '2028-03-14',
-      licenseDaysToExpiry: 1240,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-RS-001',
-      medicalIssueDate: '2024-08-01',
-      medicalExpiryDate: '2025-07-31',
-      medicalDaysToExpiry: 283,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-RS-001',
-      policeVerificationDate: '2024-01-10',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-01-15',
-      insurancePolicyNumber: 'INS-DRV-2024-001',
-      insuranceExpiryDate: '2025-12-31',
-      insuranceDaysToExpiry: 436,
-      insuranceStatus: 'active',
-      trainingCertificates: [
-        {
-          name: 'Defensive Driving',
-          issueDate: '2024-06-15',
-          expiryDate: '2026-06-14',
-          status: 'valid'
-        },
-        {
-          name: 'Hazardous Materials Handling',
-          issueDate: '2024-03-20',
-          expiryDate: '2026-03-19',
-          status: 'valid'
-        },
-        {
-          name: 'First Aid & Emergency Response',
-          issueDate: '2023-11-10',
-          expiryDate: '2025-11-09',
-          status: 'valid'
-        }
-      ],
-      hoursOfServiceCompliance: 98,
-      restPeriodCompliance: 97,
-      speedLimitCompliance: 96,
-      vehicleInspectionCompliance: 100,
-      totalViolations: 1,
-      criticalViolations: 0,
-      minorViolations: 1,
-      lastViolationDate: '2024-06-15',
-      violationDetails: [
-        {
-          date: '2024-06-15',
-          type: 'Minor Speeding',
-          severity: 'minor',
-          description: 'Exceeded speed limit by 8 km/h on highway',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-09-15',
-      nextAuditDate: '2025-03-15',
-      auditScore: 96,
-      auditStatus: 'compliant',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-02-10',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: '2024-04-15',
-          status: 'completed'
-        }
-      ],
-      complianceScore: 96,
-      complianceRating: 'excellent',
-      criticalAlerts: 0,
-      warnings: 0,
-      status: 'compliant',
-      lastUpdated: '2024-10-20',
-      notes: 'Excellent compliance record. Role model for other drivers.'
-    },
-    {
-      id: 2,
-      driverId: 'DRV-002',
-      driverName: 'Suresh Kumar',
-      vehicleNumber: 'KA-05-CD-5678',
-      vehicleType: '20-Ft Container',
-      employmentDate: '2021-05-10',
-      licenseNumber: 'KA-2015-0123456',
-      licenseType: 'Medium Vehicle',
-      licenseIssueDate: '2015-07-20',
-      licenseExpiryDate: '2025-07-19',
-      licenseDaysToExpiry: 272,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-SK-002',
-      medicalIssueDate: '2024-09-10',
-      medicalExpiryDate: '2025-09-09',
-      medicalDaysToExpiry: 323,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-SK-002',
-      policeVerificationDate: '2024-05-15',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-05-20',
-      insurancePolicyNumber: 'INS-DRV-2024-002',
-      insuranceExpiryDate: '2025-11-30',
-      insuranceDaysToExpiry: 405,
-      insuranceStatus: 'active',
-      trainingCertificates: [
-        {
-          name: 'Defensive Driving',
-          issueDate: '2023-08-10',
-          expiryDate: '2025-08-09',
-          status: 'valid'
-        },
-        {
-          name: 'Load Securing',
-          issueDate: '2024-01-15',
-          expiryDate: '2026-01-14',
-          status: 'valid'
-        }
-      ],
-      hoursOfServiceCompliance: 95,
-      restPeriodCompliance: 93,
-      speedLimitCompliance: 91,
-      vehicleInspectionCompliance: 98,
-      totalViolations: 2,
-      criticalViolations: 0,
-      minorViolations: 2,
-      lastViolationDate: '2024-08-20',
-      violationDetails: [
-        {
-          date: '2024-08-20',
-          type: 'Speeding',
-          severity: 'minor',
-          description: 'Exceeded speed limit by 12 km/h in city limits',
-          penalty: 'Fine ₹500',
-          status: 'resolved'
-        },
-        {
-          date: '2024-05-10',
-          type: 'Documentation Incomplete',
-          severity: 'minor',
-          description: 'Missing trip log entry',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-08-01',
-      nextAuditDate: '2025-02-01',
-      auditScore: 88,
-      auditStatus: 'compliant',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-03-05',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: null,
-          status: 'pending'
-        }
-      ],
-      complianceScore: 88,
-      complianceRating: 'good',
-      criticalAlerts: 0,
-      warnings: 1,
-      status: 'compliant',
-      lastUpdated: '2024-10-18',
-      notes: 'Good overall compliance. Needs to complete pending Road Safety training.'
-    },
-    {
-      id: 3,
-      driverId: 'DRV-003',
-      driverName: 'Mohan Das',
-      vehicleNumber: 'WB-02-EF-9012',
-      vehicleType: '40-Ft Truck',
-      employmentDate: '2021-08-20',
-      licenseNumber: 'WB-2012-0087654',
-      licenseType: 'Heavy Vehicle',
-      licenseIssueDate: '2012-09-10',
-      licenseExpiryDate: '2027-09-09',
-      licenseDaysToExpiry: 1054,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-MD-003',
-      medicalIssueDate: '2024-07-15',
-      medicalExpiryDate: '2025-07-14',
-      medicalDaysToExpiry: 266,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-MD-003',
-      policeVerificationDate: '2024-08-01',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-08-05',
-      insurancePolicyNumber: 'INS-DRV-2024-003',
-      insuranceExpiryDate: '2025-10-31',
-      insuranceDaysToExpiry: 375,
-      insuranceStatus: 'active',
-      trainingCertificates: [
-        {
-          name: 'Defensive Driving',
-          issueDate: '2024-05-01',
-          expiryDate: '2026-04-30',
-          status: 'valid'
-        },
-        {
-          name: 'Long-Haul Operations',
-          issueDate: '2024-02-10',
-          expiryDate: '2026-02-09',
-          status: 'valid'
-        },
-        {
-          name: 'Advanced Vehicle Inspection',
-          issueDate: '2023-10-15',
-          expiryDate: '2025-10-14',
-          status: 'expiring-soon'
-        }
-      ],
-      hoursOfServiceCompliance: 97,
-      restPeriodCompliance: 96,
-      speedLimitCompliance: 94,
-      vehicleInspectionCompliance: 99,
-      totalViolations: 1,
-      criticalViolations: 0,
-      minorViolations: 1,
-      lastViolationDate: '2024-04-12',
-      violationDetails: [
-        {
-          date: '2024-04-12',
-          type: 'Rest Period Violation',
-          severity: 'minor',
-          description: 'Delayed rest break by 25 minutes',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-09-01',
-      nextAuditDate: '2025-03-01',
-      auditScore: 92,
-      auditStatus: 'compliant',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-01-20',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: '2024-03-15',
-          status: 'completed'
-        }
-      ],
-      complianceScore: 92,
-      complianceRating: 'excellent',
-      criticalAlerts: 0,
-      warnings: 1,
-      status: 'compliant',
-      lastUpdated: '2024-10-19',
-      notes: 'Renew Advanced Vehicle Inspection certificate before expiry.'
-    },
-    {
-      id: 4,
-      driverId: 'DRV-004',
-      driverName: 'Prakash Reddy',
-      vehicleNumber: 'TS-09-GH-3456',
-      vehicleType: '24-Ft Truck',
-      employmentDate: '2024-09-01',
-      licenseNumber: 'TS-2018-0045678',
-      licenseType: 'Medium Vehicle',
-      licenseIssueDate: '2018-11-05',
-      licenseExpiryDate: '2025-11-04',
-      licenseDaysToExpiry: 379,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-PR-004',
-      medicalIssueDate: '2024-08-25',
-      medicalExpiryDate: '2025-08-24',
-      medicalDaysToExpiry: 307,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-PR-004',
-      policeVerificationDate: '2024-08-28',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-08-30',
-      insurancePolicyNumber: 'INS-DRV-2024-004',
-      insuranceExpiryDate: '2024-12-31',
-      insuranceDaysToExpiry: 72,
-      insuranceStatus: 'expiring-soon',
-      trainingCertificates: [
-        {
-          name: 'Basic Safety Training',
-          issueDate: '2024-09-05',
-          expiryDate: '2026-09-04',
-          status: 'valid'
-        }
-      ],
-      hoursOfServiceCompliance: 88,
-      restPeriodCompliance: 85,
-      speedLimitCompliance: 82,
-      vehicleInspectionCompliance: 90,
-      totalViolations: 4,
-      criticalViolations: 1,
-      minorViolations: 3,
-      lastViolationDate: '2024-10-15',
-      violationDetails: [
-        {
-          date: '2024-10-15',
-          type: 'Traffic Violation',
-          severity: 'major',
-          description: 'Running red light',
-          penalty: 'Fine ₹2000 + 3-day suspension',
-          status: 'pending'
-        },
-        {
-          date: '2024-10-08',
-          type: 'Speeding',
-          severity: 'minor',
-          description: 'Exceeded speed limit by 15 km/h',
-          penalty: 'Fine ₹1000',
-          status: 'resolved'
-        },
-        {
-          date: '2024-09-25',
-          type: 'Documentation Missing',
-          severity: 'minor',
-          description: 'Incomplete delivery documentation',
-          penalty: 'Written warning',
-          status: 'resolved'
-        },
-        {
-          date: '2024-09-18',
-          type: 'Vehicle Inspection',
-          severity: 'minor',
-          description: 'Failed to report tire wear',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-10-01',
-      nextAuditDate: '2025-01-01',
-      auditScore: 72,
-      auditStatus: 'conditional',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-09-10',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: null,
-          status: 'overdue'
-        },
-        {
-          name: 'Defensive Driving',
-          completionDate: null,
-          status: 'overdue'
-        }
-      ],
-      complianceScore: 68,
-      complianceRating: 'fair',
-      criticalAlerts: 3,
-      warnings: 4,
-      status: 'under-review',
-      lastUpdated: '2024-10-20',
-      notes: 'CRITICAL: Multiple violations. Under performance review. Insurance expiring soon. Mandatory trainings overdue.'
-    },
-    {
-      id: 5,
-      driverId: 'DRV-005',
-      driverName: 'Ganesh Patil',
-      vehicleNumber: 'MH-12-IJ-7890',
-      vehicleType: '18-Ft Truck',
-      employmentDate: '2022-02-01',
-      licenseNumber: 'MH-2014-0056789',
-      licenseType: 'Light Commercial Vehicle',
-      licenseIssueDate: '2014-05-20',
-      licenseExpiryDate: '2026-05-19',
-      licenseDaysToExpiry: 576,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-GP-005',
-      medicalIssueDate: '2024-09-01',
-      medicalExpiryDate: '2025-08-31',
-      medicalDaysToExpiry: 314,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-GP-005',
-      policeVerificationDate: '2024-01-20',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-01-25',
-      insurancePolicyNumber: 'INS-DRV-2024-005',
-      insuranceExpiryDate: '2026-01-31',
-      insuranceDaysToExpiry: 468,
-      insuranceStatus: 'active',
-      trainingCertificates: [
-        {
-          name: 'Defensive Driving',
-          issueDate: '2024-07-01',
-          expiryDate: '2026-06-30',
-          status: 'valid'
-        },
-        {
-          name: 'City Driving Excellence',
-          issueDate: '2024-04-10',
-          expiryDate: '2026-04-09',
-          status: 'valid'
-        },
-        {
-          name: 'Customer Service Excellence',
-          issueDate: '2024-02-15',
-          expiryDate: '2026-02-14',
-          status: 'valid'
-        },
-        {
-          name: 'First Aid Certified',
-          issueDate: '2023-12-01',
-          expiryDate: '2025-11-30',
-          status: 'valid'
-        }
-      ],
-      hoursOfServiceCompliance: 99,
-      restPeriodCompliance: 99,
-      speedLimitCompliance: 98,
-      vehicleInspectionCompliance: 100,
-      totalViolations: 0,
-      criticalViolations: 0,
-      minorViolations: 0,
-      lastViolationDate: null,
-      violationDetails: [],
-      lastAuditDate: '2024-09-20',
-      nextAuditDate: '2025-03-20',
-      auditScore: 98,
-      auditStatus: 'compliant',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-01-15',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: '2024-02-20',
-          status: 'completed'
-        }
-      ],
-      complianceScore: 98,
-      complianceRating: 'excellent',
-      criticalAlerts: 0,
-      warnings: 0,
-      status: 'compliant',
-      lastUpdated: '2024-10-20',
-      notes: 'Perfect compliance record. Zero violations. Exemplary driver.'
-    },
-    {
-      id: 6,
-      driverId: 'DRV-006',
-      driverName: 'Vijay Singh',
-      vehicleNumber: 'DL-03-KL-2468',
-      vehicleType: '28-Ft Truck',
-      employmentDate: '2021-09-15',
-      licenseNumber: 'DL-2011-0034567',
-      licenseType: 'Heavy Vehicle',
-      licenseIssueDate: '2011-12-10',
-      licenseExpiryDate: '2026-12-09',
-      licenseDaysToExpiry: 780,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-VS-006',
-      medicalIssueDate: '2024-06-20',
-      medicalExpiryDate: '2025-06-19',
-      medicalDaysToExpiry: 241,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-VS-006',
-      policeVerificationDate: '2024-09-05',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-09-10',
-      insurancePolicyNumber: 'INS-DRV-2024-006',
-      insuranceExpiryDate: '2025-09-30',
-      insuranceDaysToExpiry: 344,
-      insuranceStatus: 'active',
-      trainingCertificates: [
-        {
-          name: 'Night Operations Specialist',
-          issueDate: '2024-03-15',
-          expiryDate: '2026-03-14',
-          status: 'valid'
-        },
-        {
-          name: 'Defensive Driving',
-          issueDate: '2023-09-20',
-          expiryDate: '2025-09-19',
-          status: 'expiring-soon'
-        }
-      ],
-      hoursOfServiceCompliance: 96,
-      restPeriodCompliance: 94,
-      speedLimitCompliance: 90,
-      vehicleInspectionCompliance: 97,
-      totalViolations: 2,
-      criticalViolations: 0,
-      minorViolations: 2,
-      lastViolationDate: '2024-08-10',
-      violationDetails: [
-        {
-          date: '2024-08-10',
-          type: 'Minor Speeding',
-          severity: 'minor',
-          description: 'Exceeded speed limit by 10 km/h',
-          penalty: 'Fine ₹500',
-          status: 'resolved'
-        },
-        {
-          date: '2024-03-22',
-          type: 'Documentation Delay',
-          severity: 'minor',
-          description: 'Late submission of trip report',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-07-15',
-      nextAuditDate: '2025-01-15',
-      auditScore: 90,
-      auditStatus: 'compliant',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-02-28',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: '2024-04-10',
-          status: 'completed'
-        }
-      ],
-      complianceScore: 90,
-      complianceRating: 'good',
-      criticalAlerts: 0,
-      warnings: 1,
-      status: 'compliant',
-      lastUpdated: '2024-10-17',
-      notes: 'Renew Defensive Driving certificate. Good compliance overall.'
-    },
-    {
-      id: 7,
-      driverId: 'DRV-007',
-      driverName: 'Murugan Subramanian',
-      vehicleNumber: 'TN-01-MN-1357',
-      vehicleType: '32-Ft Truck',
-      employmentDate: '2021-04-30',
-      licenseNumber: 'TN-2013-0067890',
-      licenseType: 'Heavy Vehicle',
-      licenseIssueDate: '2013-08-15',
-      licenseExpiryDate: '2025-08-14',
-      licenseDaysToExpiry: 297,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-MS-007',
-      medicalIssueDate: '2024-05-10',
-      medicalExpiryDate: '2025-05-09',
-      medicalDaysToExpiry: 200,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-MS-007',
-      policeVerificationDate: '2024-04-20',
-      policeVerificationStatus: 'verified',
-      backgroundCheck: 'clear',
-      backgroundCheckDate: '2024-04-25',
-      insurancePolicyNumber: 'INS-DRV-2024-007',
-      insuranceExpiryDate: '2025-06-30',
-      insuranceDaysToExpiry: 252,
-      insuranceStatus: 'active',
-      trainingCertificates: [
-        {
-          name: 'Port Operations Training',
-          issueDate: '2024-01-20',
-          expiryDate: '2026-01-19',
-          status: 'valid'
-        },
-        {
-          name: 'Container Handling',
-          issueDate: '2023-10-05',
-          expiryDate: '2025-10-04',
-          status: 'expiring-soon'
-        }
-      ],
-      hoursOfServiceCompliance: 92,
-      restPeriodCompliance: 89,
-      speedLimitCompliance: 87,
-      vehicleInspectionCompliance: 94,
-      totalViolations: 3,
-      criticalViolations: 1,
-      minorViolations: 2,
-      lastViolationDate: '2024-06-20',
-      violationDetails: [
-        {
-          date: '2024-06-20',
-          type: 'Accident',
-          severity: 'major',
-          description: 'Minor collision in port area',
-          penalty: 'Fine ₹5000 + Retraining required',
-          status: 'resolved'
-        },
-        {
-          date: '2024-07-15',
-          type: 'Rest Period Violation',
-          severity: 'minor',
-          description: 'Insufficient rest period between trips',
-          penalty: 'Written warning',
-          status: 'resolved'
-        },
-        {
-          date: '2024-05-05',
-          type: 'Documentation Error',
-          severity: 'minor',
-          description: 'Incorrect load documentation',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-08-10',
-      nextAuditDate: '2025-02-10',
-      auditScore: 78,
-      auditStatus: 'conditional',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: '2024-03-01',
-          status: 'completed'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: null,
-          status: 'pending'
-        },
-        {
-          name: 'Post-Accident Safety Training',
-          completionDate: '2024-07-01',
-          status: 'completed'
-        }
-      ],
-      complianceScore: 78,
-      complianceRating: 'fair',
-      criticalAlerts: 1,
-      warnings: 3,
-      status: 'compliant',
-      lastUpdated: '2024-10-16',
-      notes: 'Completed post-accident retraining. Monitor closely. Container Handling certificate expiring soon.'
-    },
-    {
-      id: 8,
-      driverId: 'DRV-008',
-      driverName: 'Bharat Patel',
-      vehicleNumber: 'GJ-01-OP-2580',
-      vehicleType: '20-Ft Truck',
-      employmentDate: '2024-10-01',
-      licenseNumber: 'GJ-2019-0078901',
-      licenseType: 'Light Commercial Vehicle',
-      licenseIssueDate: '2019-06-10',
-      licenseExpiryDate: '2025-06-09',
-      licenseDaysToExpiry: 231,
-      licenseStatus: 'valid',
-      medicalCertificate: 'MED-2024-BP-008',
-      medicalIssueDate: '2024-09-25',
-      medicalExpiryDate: '2025-03-24',
-      medicalDaysToExpiry: 154,
-      medicalStatus: 'valid',
-      policeVerification: 'PV-2024-BP-008',
-      policeVerificationDate: '2024-09-20',
-      policeVerificationStatus: 'pending',
-      backgroundCheck: 'pending',
-      backgroundCheckDate: '2024-09-28',
-      insurancePolicyNumber: 'INS-DRV-2024-008',
-      insuranceExpiryDate: '2024-11-30',
-      insuranceDaysToExpiry: 40,
-      insuranceStatus: 'expiring-soon',
-      trainingCertificates: [
-        {
-          name: 'Basic Safety Training',
-          issueDate: '2024-10-05',
-          expiryDate: '2026-10-04',
-          status: 'valid'
-        }
-      ],
-      hoursOfServiceCompliance: 85,
-      restPeriodCompliance: 82,
-      speedLimitCompliance: 78,
-      vehicleInspectionCompliance: 88,
-      totalViolations: 5,
-      criticalViolations: 0,
-      minorViolations: 5,
-      lastViolationDate: '2024-10-18',
-      violationDetails: [
-        {
-          date: '2024-10-18',
-          type: 'Multiple Speeding',
-          severity: 'minor',
-          description: 'Three speeding violations in one week',
-          penalty: 'Fine ₹1500 + Warning',
-          status: 'pending'
-        },
-        {
-          date: '2024-10-15',
-          type: 'Documentation Missing',
-          severity: 'minor',
-          description: 'Incomplete pre-trip inspection log',
-          penalty: 'Written warning',
-          status: 'pending'
-        },
-        {
-          date: '2024-10-12',
-          type: 'Late Delivery',
-          severity: 'minor',
-          description: 'Delayed delivery without notification',
-          penalty: 'Written warning',
-          status: 'resolved'
-        },
-        {
-          date: '2024-10-08',
-          type: 'Customer Complaint',
-          severity: 'minor',
-          description: 'Unprofessional behavior reported',
-          penalty: 'Mandatory counseling',
-          status: 'pending'
-        },
-        {
-          date: '2024-10-05',
-          type: 'Vehicle Inspection',
-          severity: 'minor',
-          description: 'Failed to report vehicle damage',
-          penalty: 'Written warning',
-          status: 'resolved'
-        }
-      ],
-      lastAuditDate: '2024-10-05',
-      nextAuditDate: '2024-12-05',
-      auditScore: 58,
-      auditStatus: 'non-compliant',
-      mandatoryTrainings: [
-        {
-          name: 'Annual Safety Training 2024',
-          completionDate: null,
-          status: 'overdue'
-        },
-        {
-          name: 'Road Safety Awareness',
-          completionDate: null,
-          status: 'overdue'
-        },
-        {
-          name: 'Defensive Driving',
-          completionDate: null,
-          status: 'overdue'
-        },
-        {
-          name: 'Customer Service Training',
-          completionDate: null,
-          status: 'overdue'
-        }
-      ],
-      complianceScore: 58,
-      complianceRating: 'poor',
-      criticalAlerts: 5,
-      warnings: 6,
-      status: 'non-compliant',
-      lastUpdated: '2024-10-20',
-      notes: 'URGENT: Multiple compliance issues. Insurance expiring very soon. Police verification pending. All mandatory trainings overdue. Performance under review for potential termination.'
-    }
-  ]);
+  const [complianceData, setComplianceData] = useState<DriverCompliance[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const rows = await LogisticsService.getDriverCompliance();
+        if (!mounted || !Array.isArray(rows)) return;
+        const mapped: DriverCompliance[] = rows.map((row: any, index: number) => {
+          const status: DriverCompliance['status'] =
+            row.verificationStatus === 'compliant' || row.verificationStatus === 'non-compliant' || row.verificationStatus === 'under-review'
+              ? row.verificationStatus
+              : row.verificationStatus === 'verified' || row.verificationStatus === 'approved'
+                ? 'compliant'
+                : row.verificationStatus === 'rejected' || row.verificationStatus === 'expired'
+                  ? 'non-compliant'
+                  : 'under-review';
+          const licenseStatus: DriverCompliance['licenseStatus'] =
+            row.verificationStatus === 'expired' ? 'expired' : row.verificationStatus === 'expiring-soon' ? 'expiring-soon' : 'valid';
+          return {
+            id: typeof row.id === 'number' ? row.id : index + 1,
+            driverId: row.driverId ?? row.driver?.employeeId ?? '',
+            driverName: row.driver?.name ?? row.driverName ?? '',
+            vehicleNumber: row.driver?.vehicleNumber ?? row.vehicleNumber ?? '',
+            vehicleType: row.driver?.vehicleType ?? row.vehicleType ?? '',
+            employmentDate: row.driver?.employmentDate ?? '',
+            licenseNumber: row.documentNumber ?? row.licenseNumber ?? '',
+            licenseType: row.complianceType ?? row.documentType ?? '',
+            licenseIssueDate: row.issueDate ?? '',
+            licenseExpiryDate: row.expiryDate ?? '',
+            licenseDaysToExpiry: row.daysToExpiry ?? 0,
+            licenseStatus,
+            medicalCertificate: row.medicalCertificate ?? '',
+            medicalIssueDate: row.medicalIssueDate ?? '',
+            medicalExpiryDate: row.medicalExpiryDate ?? '',
+            medicalDaysToExpiry: row.medicalDaysToExpiry ?? 0,
+            medicalStatus: 'valid',
+            policeVerification: row.policeVerification ?? '',
+            policeVerificationDate: row.policeVerificationDate ?? '',
+            policeVerificationStatus: 'verified',
+            backgroundCheck: 'clear',
+            backgroundCheckDate: row.backgroundCheckDate ?? '',
+            insurancePolicyNumber: row.insurancePolicyNumber ?? '',
+            insuranceExpiryDate: row.insuranceExpiryDate ?? '',
+            insuranceDaysToExpiry: row.insuranceDaysToExpiry ?? 0,
+            insuranceStatus: 'active',
+            trainingCertificates: Array.isArray(row.trainingCertificates) ? row.trainingCertificates : [],
+            hoursOfServiceCompliance: row.hoursOfServiceCompliance ?? 0,
+            restPeriodCompliance: row.restPeriodCompliance ?? 0,
+            speedLimitCompliance: row.speedLimitCompliance ?? 0,
+            vehicleInspectionCompliance: row.vehicleInspectionCompliance ?? 0,
+            totalViolations: row.totalViolations ?? 0,
+            criticalViolations: row.criticalViolations ?? 0,
+            minorViolations: row.minorViolations ?? 0,
+            lastViolationDate: row.lastViolationDate ?? null,
+            violationDetails: Array.isArray(row.violationDetails) ? row.violationDetails : [],
+            lastAuditDate: row.lastAuditDate ?? '',
+            nextAuditDate: row.nextAuditDate ?? '',
+            auditScore: row.auditScore ?? 0,
+            auditStatus: 'compliant',
+            mandatoryTrainings: Array.isArray(row.mandatoryTrainings) ? row.mandatoryTrainings : [],
+            complianceScore: row.complianceScore ?? 0,
+            complianceRating: row.complianceRating ?? 'good',
+            criticalAlerts: row.criticalAlerts ?? 0,
+            warnings: row.warnings ?? 0,
+            status,
+            lastUpdated: row.updatedAt ?? row.createdAt ?? '',
+            notes: row.notes ?? '',
+          };
+        });
+        setComplianceData(mapped);
+      } catch {
+        // keep []
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
 
   const getComplianceRatingColor = (rating: string) => {
     const colors: { [key: string]: string } = {

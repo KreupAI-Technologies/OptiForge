@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import { Factory, TrendingUp, DollarSign, Package, Users, Zap, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 
 interface ProductionSync {
@@ -20,21 +21,71 @@ interface ProductionSync {
 }
 
 export default function ProductionIntegrationPage() {
-  const [syncData] = useState<ProductionSync[]>([
-    { id: '1', batchNumber: 'BATCH-2025-001', productName: 'Widget A', quantityProduced: 1000, productionDate: '2025-10-15', materialCost: 450000, laborCost: 150000, overheadCost: 100000, totalCost: 700000, unitCost: 700, syncStatus: 'synced', journalEntry: 'JE-2025-543', lastSyncTime: '2025-10-15 18:30:00' },
-    { id: '2', batchNumber: 'BATCH-2025-002', productName: 'Widget B', quantityProduced: 500, productionDate: '2025-10-16', materialCost: 250000, laborCost: 80000, overheadCost: 50000, totalCost: 380000, unitCost: 760, syncStatus: 'synced', journalEntry: 'JE-2025-544', lastSyncTime: '2025-10-16 19:15:00' },
-    { id: '3', batchNumber: 'BATCH-2025-003', productName: 'Widget C', quantityProduced: 2000, productionDate: '2025-10-17', materialCost: 800000, laborCost: 200000, overheadCost: 150000, totalCost: 1150000, unitCost: 575, syncStatus: 'pending', journalEntry: '-', lastSyncTime: '-' },
-    { id: '4', batchNumber: 'BATCH-2025-004', productName: 'Widget D', quantityProduced: 750, productionDate: '2025-10-18', materialCost: 350000, laborCost: 100000, overheadCost: 75000, totalCost: 525000, unitCost: 700, syncStatus: 'failed', journalEntry: '-', lastSyncTime: '2025-10-18 10:45:00' }
-  ])
+  const [syncData, setSyncData] = useState<ProductionSync[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [integrationStats] = useState({
-    totalBatchesToday: 12,
-    syncedBatches: 9,
-    pendingBatches: 2,
-    failedBatches: 1,
-    totalProductionValue: 4500000,
-    lastSyncTime: '2025-10-18 14:30:00'
-  })
+  // Job cost sheets (finance ↔ production WIP / job costing) mapped into the
+  // ProductionSync shape the table reads.
+  const mapJobCostSheet = (r: any): ProductionSync => {
+    const materialCost = Number(r?.materialCost ?? r?.totalMaterialCost ?? r?.directMaterialCost) || 0
+    const laborCost = Number(r?.laborCost ?? r?.totalLaborCost ?? r?.directLaborCost) || 0
+    const overheadCost = Number(r?.overheadCost ?? r?.totalOverheadCost ?? r?.manufacturingOverhead) || 0
+    const totalCost = Number(r?.totalActualCost ?? r?.totalEstimatedCost ?? (materialCost + laborCost + overheadCost)) || 0
+    const qty = Number(r?.quantityProduced ?? r?.quantity ?? r?.completedQuantity) || 0
+    const unitCost = qty > 0 ? Math.round(totalCost / qty) : 0
+
+    const rawStatus = String(r?.status ?? '').toLowerCase()
+    let syncStatus: ProductionSync['syncStatus'] = 'synced'
+    if (rawStatus.includes('fail') || rawStatus.includes('error')) syncStatus = 'failed'
+    else if (rawStatus.includes('pending') || rawStatus.includes('open') || rawStatus.includes('draft') || rawStatus.includes('progress')) syncStatus = 'pending'
+
+    return {
+      id: String(r?.id ?? r?.jobNumber ?? ''),
+      batchNumber: String(r?.jobNumber ?? r?.batchNumber ?? r?.id ?? ''),
+      productName: String(r?.customer ?? r?.customerName ?? r?.productName ?? r?.projectName ?? '-'),
+      quantityProduced: qty,
+      productionDate: r?.startDate ?? r?.productionDate ?? r?.createdAt ?? '',
+      materialCost,
+      laborCost,
+      overheadCost,
+      totalCost,
+      unitCost,
+      syncStatus,
+      journalEntry: String(r?.journalEntry ?? r?.journalEntryNumber ?? '-'),
+      lastSyncTime: r?.updatedAt ?? r?.lastSyncTime ?? '-',
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await FinanceService.getJobCostSheets()
+        if (active) setSyncData((Array.isArray(data) ? data : []).map(mapJobCostSheet))
+      } catch (e: any) {
+        if (active) {
+          setError(e?.message || 'Failed to load job cost sheets')
+          setSyncData([])
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
+
+  // Derived integration stats from the loaded job cost sheets.
+  const integrationStats = {
+    totalBatchesToday: syncData.length,
+    syncedBatches: syncData.filter((b) => b.syncStatus === 'synced').length,
+    pendingBatches: syncData.filter((b) => b.syncStatus === 'pending').length,
+    failedBatches: syncData.filter((b) => b.syncStatus === 'failed').length,
+    totalProductionValue: syncData.reduce((s, b) => s + b.totalCost, 0),
+    lastSyncTime: new Date().toLocaleString('en-IN'),
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -123,6 +174,21 @@ export default function ProductionIntegrationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
+                {loading && (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">Loading job cost sheets…</td>
+                  </tr>
+                )}
+                {!loading && error && (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-red-600">{error}</td>
+                  </tr>
+                )}
+                {!loading && !error && syncData.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">No production job cost sheets found.</td>
+                  </tr>
+                )}
                 {syncData.map((batch) => (
                   <tr key={batch.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2">

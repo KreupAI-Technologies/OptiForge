@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   Factory,
   Package,
@@ -39,105 +40,86 @@ interface WIPItem {
   completionPercentage: number
 }
 
+const wnum = (v: any) => Number(v ?? 0)
+
+const mapWipStatus = (s: any): WIPItem['status'] => {
+  const v = String(s ?? '').toLowerCase().replace(/[\s-]/g, '_')
+  if (v === 'completed' || v === 'complete') return 'completed'
+  if (v === 'on_hold' || v === 'hold') return 'on_hold'
+  if (v === 'not_started' || v === 'draft' || v === 'planned') return 'not_started'
+  return 'in_progress'
+}
+
+const mapWip = (r: any): WIPItem => {
+  const material = wnum(r?.materialCost)
+  const labor = wnum(r?.laborCost)
+  const overhead = wnum(r?.overheadCost)
+  const total = wnum(r?.totalWIPValue ?? material + labor + overhead)
+  const completion = wnum(r?.completionPercentage)
+  const quantity = wnum(r?.quantity)
+  // API does not expose a separate estimate; project total from completion %.
+  const factor = completion > 0 ? 100 / completion : 1
+  const estMaterial = material * factor
+  const estLabor = labor * factor
+  const estOverhead = overhead * factor
+  const completedQty = Math.round((quantity * completion) / 100)
+  return {
+    id: String(r?.id ?? ''),
+    workOrderId: r?.productionOrderNumber ?? r?.wipNumber ?? '',
+    productName: r?.productName ?? '',
+    quantityOrdered: quantity,
+    quantityCompleted: completedQty,
+    quantityInProgress: Math.max(quantity - completedQty, 0),
+    status: mapWipStatus(r?.status),
+    startDate: r?.startDate ?? r?.valuationDate ?? '',
+    targetDate: r?.targetDate ?? r?.valuationDate ?? '',
+    costIncurred: {
+      material,
+      labor,
+      overhead,
+      total
+    },
+    estimatedCost: {
+      material: estMaterial,
+      labor: estLabor,
+      overhead: estOverhead,
+      total: estMaterial + estLabor + estOverhead
+    },
+    completionPercentage: completion
+  }
+}
+
 export default function WIPAccountingPage() {
-  const [wipItems] = useState<WIPItem[]>([
-    {
-      id: 'WIP-001',
-      workOrderId: 'WO-2025-089',
-      productName: 'Hydraulic Press HP-500',
-      quantityOrdered: 50,
-      quantityCompleted: 35,
-      quantityInProgress: 15,
-      status: 'in_progress',
-      startDate: '2025-09-01',
-      targetDate: '2025-11-30',
-      costIncurred: {
-        material: 29750000,
-        labor: 8750000,
-        overhead: 6300000,
-        total: 44800000
-      },
-      estimatedCost: {
-        material: 42500000,
-        labor: 12500000,
-        overhead: 9000000,
-        total: 64000000
-      },
-      completionPercentage: 70
-    },
-    {
-      id: 'WIP-002',
-      workOrderId: 'WO-2025-092',
-      productName: 'CNC Machine CM-350',
-      quantityOrdered: 30,
-      quantityCompleted: 18,
-      quantityInProgress: 12,
-      status: 'in_progress',
-      startDate: '2025-08-15',
-      targetDate: '2025-12-15',
-      costIncurred: {
-        material: 22500000,
-        labor: 6840000,
-        overhead: 4860000,
-        total: 34200000
-      },
-      estimatedCost: {
-        material: 37500000,
-        labor: 11400000,
-        overhead: 8100000,
-        total: 57000000
-      },
-      completionPercentage: 60
-    },
-    {
-      id: 'WIP-003',
-      workOrderId: 'WO-2025-095',
-      productName: 'Control Panel CP-1000',
-      quantityOrdered: 100,
-      quantityCompleted: 75,
-      quantityInProgress: 25,
-      status: 'in_progress',
-      startDate: '2025-09-20',
-      targetDate: '2025-11-20',
-      costIncurred: {
-        material: 31500000,
-        labor: 7125000,
-        overhead: 5100000,
-        total: 43725000
-      },
-      estimatedCost: {
-        material: 42000000,
-        labor: 9500000,
-        overhead: 6800000,
-        total: 58300000
-      },
-      completionPercentage: 75
-    },
-    {
-      id: 'WIP-004',
-      workOrderId: 'WO-2025-098',
-      productName: 'Conveyor System CS-200',
-      quantityOrdered: 40,
-      quantityCompleted: 10,
-      quantityInProgress: 30,
-      status: 'in_progress',
-      startDate: '2025-10-01',
-      targetDate: '2025-12-31',
-      costIncurred: {
-        material: 6500000,
-        labor: 1800000,
-        overhead: 1250000,
-        total: 9550000
-      },
-      estimatedCost: {
-        material: 26000000,
-        labor: 7200000,
-        overhead: 5000000,
-        total: 38200000
-      },
-      completionPercentage: 25
+  const [wipItems, setWipItems] = useState<WIPItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadWip = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await FinanceService.getWipAccounting()
+      setWipItems((Array.isArray(res) ? res : []).map(mapWip))
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load WIP accounting')
+      setWipItems([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  useEffect(() => {
+    loadWip()
+  }, [])
+
+  const handleDelete = async (id: string) => {
+    try {
+      await FinanceService.deleteWip(id)
+      await loadWip()
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to delete WIP record')
+    }
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -166,7 +148,9 @@ export default function WIPAccountingPage() {
   const totalWIPValue = wipItems.reduce((sum, item) => sum + item.costIncurred.total, 0)
   const totalEstimatedCost = wipItems.reduce((sum, item) => sum + item.estimatedCost.total, 0)
   const totalQuantityInProgress = wipItems.reduce((sum, item) => sum + item.quantityInProgress, 0)
-  const avgCompletion = wipItems.reduce((sum, item) => sum + item.completionPercentage, 0) / wipItems.length
+  const avgCompletion = wipItems.length > 0
+    ? wipItems.reduce((sum, item) => sum + item.completionPercentage, 0) / wipItems.length
+    : 0
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-blue-50 px-3 py-2">
@@ -182,6 +166,13 @@ export default function WIPAccountingPage() {
             WIP Report
           </button>
         </div>
+
+        {loading && (
+          <div className="text-sm text-gray-500">Loading WIP records...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -249,6 +240,9 @@ export default function WIPAccountingPage() {
                     <span className={`px-3 py-1 rounded-full text-sm font-medium border border-white/30 bg-white/20`}>
                       {item.status.replace('_', ' ').toUpperCase()}
                     </span>
+                    <button onClick={() => handleDelete(item.id)} className="px-3 py-1 rounded-full text-sm font-medium border border-white/30 bg-white/20 hover:bg-white/30 transition-colors">
+                      Delete
+                    </button>
                   </div>
                 </div>
 
@@ -352,7 +346,7 @@ export default function WIPAccountingPage() {
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-600 mb-1">Cost per Unit (Incurred)</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {formatCurrency(item.costIncurred.total / item.quantityOrdered)}
+                        {formatCurrency(item.quantityOrdered > 0 ? item.costIncurred.total / item.quantityOrdered : 0)}
                       </p>
                     </div>
                   </div>

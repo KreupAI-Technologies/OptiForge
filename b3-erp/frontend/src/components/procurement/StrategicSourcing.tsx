@@ -41,6 +41,7 @@ import {
   DevelopStrategyModal,
   TrackImplementationModal
 } from '@/components/procurement/StrategicSourcingModals'
+import { procurementPagesService } from '@/services/procurement-pages.service'
 import {
   LineChart,
   Line,
@@ -118,65 +119,47 @@ export default function StrategicSourcing() {
   const [showAIInsights, setShowAIInsights] = useState(true)
   const [showAlerts, setShowAlerts] = useState(true)
 
-  // Mock data
-  const strategies: SourcingStrategy[] = [
-    {
-      id: 'STR001',
-      category: 'Raw Materials',
-      status: 'active',
-      spend: 5200000,
-      savingsTarget: 520000,
-      actualSavings: 380000,
-      suppliers: 12,
-      leadSupplier: 'Global Materials Inc',
-      riskLevel: 'medium',
-      nextReview: '2024-03-15',
-      strategy: 'Consolidation & Long-term Contracts',
-      owner: 'John Matthews'
-    },
-    {
-      id: 'STR002',
-      category: 'IT Services',
-      status: 'active',
-      spend: 2800000,
-      savingsTarget: 420000,
-      actualSavings: 450000,
-      suppliers: 8,
-      leadSupplier: 'TechPro Solutions',
-      riskLevel: 'low',
-      nextReview: '2024-04-01',
-      strategy: 'Preferred Partnership Program',
-      owner: 'Sarah Chen'
-    },
-    {
-      id: 'STR003',
-      category: 'Logistics',
-      status: 'planning',
-      spend: 3500000,
-      savingsTarget: 350000,
-      actualSavings: 0,
-      suppliers: 15,
-      leadSupplier: 'FastTrack Logistics',
-      riskLevel: 'high',
-      nextReview: '2024-02-28',
-      strategy: 'Regional Optimization',
-      owner: 'Mike Johnson'
-    },
-    {
-      id: 'STR004',
-      category: 'MRO Supplies',
-      status: 'review',
-      spend: 1200000,
-      savingsTarget: 180000,
-      actualSavings: 195000,
-      suppliers: 25,
-      leadSupplier: 'Industrial Supply Co',
-      riskLevel: 'low',
-      nextReview: '2024-03-20',
-      strategy: 'E-catalog Implementation',
-      owner: 'Lisa Wong'
+  // Sourcing strategies (loaded from API)
+  const [strategies, setStrategies] = useState<SourcingStrategy[]>([])
+
+  useEffect(() => {
+    const loadStrategies = async () => {
+      try {
+        const data = await procurementPagesService.getStrategicSourcingInsights()
+        const events = Array.isArray(data?.events) ? data.events : []
+        if (events.length === 0) return
+
+        const validStatuses = ['active', 'planning', 'review', 'expired']
+        const mapped: SourcingStrategy[] = events.map((event: any) => {
+          const rawStatus = String(event?.status ?? '').toLowerCase()
+          const status = (validStatuses.includes(rawStatus)
+            ? rawStatus
+            : 'planning') as SourcingStrategy['status']
+          const savingsTarget = Number(event?.targetSavings) || 0
+          return {
+            id: String(event?.id ?? ''),
+            category: event?.category ?? event?.title ?? '',
+            status,
+            spend: Number(event?.estimatedValue) || 0,
+            savingsTarget,
+            actualSavings: 0,
+            suppliers: Number(event?.suppliersInvited) || 0,
+            leadSupplier: '',
+            riskLevel: 'medium',
+            nextReview: '',
+            strategy: event?.title ?? '',
+            owner: ''
+          }
+        })
+
+        setStrategies(mapped)
+      } catch (error) {
+        console.error('Failed to load strategic sourcing insights:', error)
+      }
     }
-  ]
+
+    loadStrategies()
+  }, [])
 
   const categorySpendData: CategorySpend[] = [
     { category: 'Raw Materials', current: 5200000, previous: 5500000, budget: 5000000, variance: -200000, trend: 'down' },

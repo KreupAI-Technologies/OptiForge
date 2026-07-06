@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   Building,
   DollarSign,
@@ -37,132 +38,56 @@ interface ProfitCenter {
   status: 'active' | 'inactive'
 }
 
+const mapProfitCenter = (r: any): ProfitCenter => ({
+  id: String(r?.id ?? ''),
+  code: r?.costCenterCode ?? r?.code ?? '',
+  name: r?.costCenterName ?? r?.name ?? '',
+  manager: r?.managerName ?? r?.manager ?? '',
+  type: (r?.type ?? 'business_unit') as ProfitCenter['type'],
+  // Revenue/cost/profit are not part of the cost-center entity — default to 0.
+  revenue: 0,
+  directCosts: 0,
+  allocatedCosts: 0,
+  grossProfit: 0,
+  grossProfitMargin: 0,
+  netProfit: 0,
+  netProfitMargin: 0,
+  employeeCount: 0,
+  customers: 0,
+  status: r?.isActive === false ? 'inactive' : 'active'
+})
+
 export default function ProfitCentersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const [profitCenters] = useState<ProfitCenter[]>([
-    {
-      id: 'PC-001',
-      code: 'PC-HYDPRESS',
-      name: 'Hydraulic Press Division',
-      manager: 'John Doe',
-      type: 'product_line',
-      revenue: 250000000,
-      directCosts: 150000000,
-      allocatedCosts: 35000000,
-      grossProfit: 100000000,
-      grossProfitMargin: 40,
-      netProfit: 65000000,
-      netProfitMargin: 26,
-      employeeCount: 85,
-      customers: 45,
-      status: 'active'
-    },
-    {
-      id: 'PC-002',
-      code: 'PC-CNC',
-      name: 'CNC Machines Division',
-      manager: 'Jane Smith',
-      type: 'product_line',
-      revenue: 180000000,
-      directCosts: 108000000,
-      allocatedCosts: 28000000,
-      grossProfit: 72000000,
-      grossProfitMargin: 40,
-      netProfit: 44000000,
-      netProfitMargin: 24.44,
-      employeeCount: 65,
-      customers: 38,
-      status: 'active'
-    },
-    {
-      id: 'PC-003',
-      code: 'PC-AUTO',
-      name: 'Automation Solutions',
-      manager: 'Robert Brown',
-      type: 'business_unit',
-      revenue: 320000000,
-      directCosts: 192000000,
-      allocatedCosts: 48000000,
-      grossProfit: 128000000,
-      grossProfitMargin: 40,
-      netProfit: 80000000,
-      netProfitMargin: 25,
-      employeeCount: 120,
-      customers: 62,
-      status: 'active'
-    },
-    {
-      id: 'PC-004',
-      code: 'PC-NORTH',
-      name: 'North Region',
-      manager: 'Sarah Wilson',
-      type: 'region',
-      revenue: 150000000,
-      directCosts: 97500000,
-      allocatedCosts: 22500000,
-      grossProfit: 52500000,
-      grossProfitMargin: 35,
-      netProfit: 30000000,
-      netProfitMargin: 20,
-      employeeCount: 55,
-      customers: 78,
-      status: 'active'
-    },
-    {
-      id: 'PC-005',
-      code: 'PC-SOUTH',
-      name: 'South Region',
-      manager: 'Michael Chen',
-      type: 'region',
-      revenue: 120000000,
-      directCosts: 78000000,
-      allocatedCosts: 18000000,
-      grossProfit: 42000000,
-      grossProfitMargin: 35,
-      netProfit: 24000000,
-      netProfitMargin: 20,
-      employeeCount: 42,
-      customers: 65,
-      status: 'active'
-    },
-    {
-      id: 'PC-006',
-      code: 'PC-SPARES',
-      name: 'Spare Parts Division',
-      manager: 'Emily Davis',
-      type: 'product_line',
-      revenue: 80000000,
-      directCosts: 56000000,
-      allocatedCosts: 12000000,
-      grossProfit: 24000000,
-      grossProfitMargin: 30,
-      netProfit: 12000000,
-      netProfitMargin: 15,
-      employeeCount: 28,
-      customers: 125,
-      status: 'active'
-    },
-    {
-      id: 'PC-007',
-      code: 'PC-SERVICE',
-      name: 'After-Sales Service',
-      manager: 'David Martinez',
-      type: 'business_unit',
-      revenue: 95000000,
-      directCosts: 52250000,
-      allocatedCosts: 14250000,
-      grossProfit: 42750000,
-      grossProfitMargin: 45,
-      netProfit: 28500000,
-      netProfitMargin: 30,
-      employeeCount: 48,
-      customers: 95,
-      status: 'active'
+  const [profitCenters, setProfitCenters] = useState<ProfitCenter[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await FinanceService.getProfitCenters()
+        if (active) setProfitCenters((Array.isArray(res) ? res : []).map(mapProfitCenter))
+      } catch (e: any) {
+        if (active) {
+          setError(e?.message ?? 'Failed to load profit centers')
+          setProfitCenters([])
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const filteredCenters = profitCenters.filter(center => {
     const matchesSearch =
@@ -197,7 +122,7 @@ export default function ProfitCentersPage() {
   const totalRevenue = profitCenters.reduce((sum, pc) => sum + pc.revenue, 0)
   const totalGrossProfit = profitCenters.reduce((sum, pc) => sum + pc.grossProfit, 0)
   const totalNetProfit = profitCenters.reduce((sum, pc) => sum + pc.netProfit, 0)
-  const avgNetMargin = (totalNetProfit / totalRevenue) * 100
+  const avgNetMargin = totalRevenue > 0 ? (totalNetProfit / totalRevenue) * 100 : 0
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50 px-3 py-2">
@@ -213,6 +138,13 @@ export default function ProfitCentersPage() {
             Add Profit Center
           </button>
         </div>
+
+        {loading && (
+          <div className="text-sm text-gray-500">Loading profit centers...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -232,7 +164,7 @@ export default function ProfitCentersPage() {
               <div>
                 <p className="text-sm font-medium text-green-600">Gross Profit</p>
                 <p className="text-2xl font-bold text-green-900 mt-1">{formatCurrency(totalGrossProfit)}</p>
-                <p className="text-xs text-green-700 mt-1">{((totalGrossProfit/totalRevenue)*100).toFixed(1)}% margin</p>
+                <p className="text-xs text-green-700 mt-1">{(totalRevenue > 0 ? (totalGrossProfit/totalRevenue)*100 : 0).toFixed(1)}% margin</p>
               </div>
               <TrendingUp className="h-10 w-10 text-green-600" />
             </div>

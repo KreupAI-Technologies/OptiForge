@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   Users, Globe, Award, TrendingUp, BarChart3, Target, Plus,
   Edit, Download, RefreshCw, Settings, CheckCircle, XCircle,
@@ -31,8 +32,8 @@ const SupplierDiversity: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
 
-  // Mock data - Diverse suppliers
-  const diverseSuppliers: DiverseSupplier[] = [
+  // Diverse suppliers - seeded with sample data, populated from API
+  const [diverseSuppliers, setDiverseSuppliers] = useState<DiverseSupplier[]>([
     {
       id: 'DS001',
       name: 'Women Tech Solutions Inc',
@@ -111,7 +112,50 @@ const SupplierDiversity: React.FC = () => {
       expirationDate: '2026-06-18',
       rating: 4.7
     }
-  ];
+  ]);
+
+  // Populate diverse suppliers from the diversity insights API
+  useEffect(() => {
+    const loadDiversity = async () => {
+      try {
+        const data = await procurementPagesService.getDiversityInsights();
+        const vendors = Array.isArray(data?.vendors) ? data.vendors : [];
+        if (vendors.length === 0) return;
+
+        const mapDiversityType = (
+          classification: string
+        ): DiverseSupplier['diversityType'] => {
+          const c = (classification || '').toLowerCase();
+          if (c.includes('women')) return 'women';
+          if (c.includes('veteran')) return 'veteran';
+          if (c.includes('disab')) return 'disability';
+          if (c.includes('lgbt')) return 'lgbt';
+          if (c.includes('small')) return 'small-business';
+          return 'minority';
+        };
+
+        const mapped: DiverseSupplier[] = vendors.map((v: any, idx: number) => ({
+          id: String(v?.vendorId ?? `DS${idx + 1}`),
+          name: String(v?.vendorName ?? 'Unknown Supplier'),
+          category: String(v?.classification ?? 'Uncategorized'),
+          certifications: v?.certified ? [String(v?.classification ?? 'Certified')] : [],
+          annualSpend: Number(v?.spend ?? 0),
+          diversityType: mapDiversityType(v?.classification),
+          status: v?.certified ? 'active' : 'pending',
+          certifiedBy: v?.certified ? String(v?.classification ?? '') : '',
+          certificationDate: '',
+          expirationDate: '',
+          rating: 0,
+        }));
+
+        if (mapped.length > 0) setDiverseSuppliers(mapped);
+      } catch (err) {
+        // Keep seeded sample data on failure
+        console.error('Failed to load diversity insights', err);
+      }
+    };
+    loadDiversity();
+  }, []);
 
   // Mock data - Monthly diversity spend
   const monthlyDiversitySpend = [

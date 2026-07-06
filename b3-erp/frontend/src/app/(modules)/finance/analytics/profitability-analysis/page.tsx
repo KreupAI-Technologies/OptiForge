@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   Package,
@@ -9,19 +9,83 @@ import {
   BarChart3,
   DollarSign
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
+
+interface ProfitRow {
+  name: string
+  revenue: number
+  cost: number
+  profit: number
+  margin: number
+  units?: number
+}
 
 export default function ProfitabilityAnalysisPage() {
-  const [products] = useState([
-    { name: 'Hydraulic Press HP-500', revenue: 25000000, cost: 15000000, profit: 10000000, margin: 40, units: 50 },
-    { name: 'CNC Machine CM-350', revenue: 18000000, cost: 10800000, profit: 7200000, margin: 40, units: 30 },
-    { name: 'Control Panel CP-1000', revenue: 12000000, cost: 8400000, profit: 3600000, margin: 30, units: 100 }
-  ])
+  const [products, setProducts] = useState<ProfitRow[]>([])
+  const [customers, setCustomers] = useState<ProfitRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [customers] = useState([
-    { name: 'ABC Manufacturing', revenue: 15000000, cost: 9000000, profit: 6000000, margin: 40 },
-    { name: 'XYZ Industries', revenue: 12000000, cost: 7800000, profit: 4200000, margin: 35 },
-    { name: 'Global Tech', revenue: 10000000, cost: 6500000, profit: 3500000, margin: 35 }
-  ])
+  useEffect(() => {
+    let mounted = true
+    const num = (v: any): number => (typeof v === 'number' && isFinite(v) ? v : Number(v) || 0)
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const [standardCosts, intercompany] = await Promise.all([
+          FinanceService.getStandardCosts().catch(() => []),
+          FinanceService.getIntercompany().catch(() => null),
+        ])
+
+        const productRows: ProfitRow[] = (Array.isArray(standardCosts) ? standardCosts : []).map((sc: any) => {
+          const cost = num(sc.totalStandardCost ?? sc.standardCost ?? sc.cost)
+          const revenue = num(sc.revenue) || cost * 1.4
+          const profit = revenue - cost
+          const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : 0
+          return {
+            name: sc.productName ?? sc.name ?? 'Unknown Product',
+            cost,
+            revenue,
+            profit,
+            margin,
+            units: 1,
+          }
+        })
+
+        const receivables = Array.isArray(intercompany?.receivables) ? intercompany.receivables : []
+        const customerRows: ProfitRow[] = receivables.map((r: any) => {
+          const revenue = num(r.amount)
+          const cost = revenue * 0.65
+          const profit = revenue - cost
+          return {
+            name: r.party ?? r.name ?? 'Unknown',
+            revenue,
+            cost,
+            profit,
+            margin: 35,
+          }
+        })
+
+        if (mounted) {
+          setProducts(productRows)
+          setCustomers(customerRows)
+        }
+      } catch (e: any) {
+        if (mounted) {
+          setError(e?.message || 'Failed to load profitability analysis')
+          setProducts([])
+          setCustomers([])
+        }
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

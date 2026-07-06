@@ -173,6 +173,17 @@ export class LogisticsService {
     return request<any[]>(`/logistics/shipments${qs ? `?${qs}` : ''}`);
   }
 
+  static async getShipmentById(id: string): Promise<any> {
+    return request<any>(`/logistics/shipments/${id}`);
+  }
+
+  static async updateShipment(id: string, data: any): Promise<any> {
+    return request<any>(`/logistics/shipments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   static async getFreightCharges(filters?: {
     status?: string;
     carrier?: string;
@@ -392,6 +403,107 @@ export class LogisticsService {
     return request<{ success: boolean }>(`/logistics/packaging-types/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // ==========================================================================
+  // Logistics Management (fleet maintenance, driver compliance, load planning,
+  // dispatch, analytics) — /logistics/management/*
+  // ==========================================================================
+
+  static async getVehicleMaintenance(filters?: {
+    vehicleId?: string;
+    maintenanceType?: string;
+    status?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams(
+      Object.entries(filters || {}).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    return request<any[]>(`/logistics/management/vehicle-maintenance${q ? `?${q}` : ''}`);
+  }
+
+  static async createVehicleMaintenance(data: any): Promise<any> {
+    return request<any>('/logistics/management/vehicle-maintenance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateVehicleMaintenance(id: string, data: any): Promise<any> {
+    return request<any>(`/logistics/management/vehicle-maintenance/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getDriverCompliance(filters?: {
+    driverId?: string;
+    complianceType?: string;
+    status?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams(
+      Object.entries(filters || {}).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    return request<any[]>(`/logistics/management/driver-compliance${q ? `?${q}` : ''}`);
+  }
+
+  static async createDriverCompliance(data: any): Promise<any> {
+    return request<any>('/logistics/management/driver-compliance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateDriverCompliance(id: string, data: any): Promise<any> {
+    return request<any>(`/logistics/management/driver-compliance/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getLoadPlans(filters?: {
+    loadType?: string;
+    status?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams(
+      Object.entries(filters || {}).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    return request<any[]>(`/logistics/management/load-plans${q ? `?${q}` : ''}`);
+  }
+
+  static async createLoadPlan(data: any): Promise<any> {
+    return request<any>('/logistics/management/load-plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async getDispatchBoard(filters?: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<any[]> {
+    const q = new URLSearchParams(
+      Object.entries(filters || {}).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    return request<any[]>(`/logistics/management/dispatch-board${q ? `?${q}` : ''}`);
+  }
+
+  static async getLogisticsDashboard(): Promise<any> {
+    return request<any>('/logistics/management/dashboard');
+  }
+
+  static async getDeliveryPerformance(startDate?: string, endDate?: string): Promise<any> {
+    const q = new URLSearchParams(
+      Object.entries({ startDate, endDate }).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    return request<any>(`/logistics/management/delivery-performance${q ? `?${q}` : ''}`);
+  }
+
+  static async getFreightSpend(startDate?: string, endDate?: string): Promise<any> {
+    const q = new URLSearchParams(
+      Object.entries({ startDate, endDate }).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    return request<any>(`/logistics/management/freight-spend${q ? `?${q}` : ''}`);
   }
 }
 

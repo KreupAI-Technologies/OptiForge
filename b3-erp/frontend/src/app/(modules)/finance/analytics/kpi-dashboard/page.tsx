@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -15,6 +15,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface KPI {
   label: string
@@ -30,128 +31,63 @@ interface KPI {
 export default function KPIDashboardPage() {
   const [period] = useState('This Month')
 
-  const [kpis] = useState<KPI[]>([
-    {
-      label: 'Revenue',
-      value: '₹45.2Cr',
-      change: 12.5,
-      trend: 'up',
-      target: 42000000,
-      actual: 45200000,
-      icon: DollarSign,
-      color: 'blue'
-    },
-    {
-      label: 'Gross Profit Margin',
-      value: '38.5%',
-      change: 2.3,
-      trend: 'up',
-      target: 35,
-      actual: 38.5,
-      icon: TrendingUp,
-      color: 'green'
-    },
-    {
-      label: 'Operating Expenses',
-      value: '₹12.8Cr',
-      change: -5.2,
-      trend: 'down',
-      target: 14000000,
-      actual: 12800000,
-      icon: CreditCard,
-      color: 'orange'
-    },
-    {
-      label: 'Net Profit Margin',
-      value: '22.3%',
-      change: 3.8,
-      trend: 'up',
-      target: 20,
-      actual: 22.3,
-      icon: Activity,
-      color: 'purple'
-    },
-    {
-      label: 'Current Ratio',
-      value: '2.45',
-      change: 0.15,
-      trend: 'up',
-      target: 2.0,
-      actual: 2.45,
-      icon: BarChart3,
-      color: 'cyan'
-    },
-    {
-      label: 'Quick Ratio',
-      value: '1.85',
-      change: 0.12,
-      trend: 'up',
-      target: 1.5,
-      actual: 1.85,
-      icon: PieChart,
-      color: 'indigo'
-    },
-    {
-      label: 'Days Sales Outstanding',
-      value: '42 days',
-      change: -5,
-      trend: 'down',
-      target: 45,
-      actual: 42,
-      icon: ShoppingCart,
-      color: 'pink'
-    },
-    {
-      label: 'Days Payable Outstanding',
-      value: '38 days',
-      change: 3,
-      trend: 'up',
-      target: 35,
-      actual: 38,
-      icon: Package,
-      color: 'teal'
-    },
-    {
-      label: 'Return on Assets',
-      value: '15.2%',
-      change: 1.8,
-      trend: 'up',
-      target: 12,
-      actual: 15.2,
-      icon: TrendingUp,
-      color: 'emerald'
-    },
-    {
-      label: 'Debt-to-Equity',
-      value: '0.65',
-      change: -0.08,
-      trend: 'down',
-      target: 0.8,
-      actual: 0.65,
-      icon: BarChart3,
-      color: 'violet'
-    },
-    {
-      label: 'Working Capital',
-      value: '₹28.5Cr',
-      change: 8.2,
-      trend: 'up',
-      target: 250000000,
-      actual: 285000000,
-      icon: DollarSign,
-      color: 'amber'
-    },
-    {
-      label: 'Cash Conversion Cycle',
-      value: '52 days',
-      change: -4,
-      trend: 'down',
-      target: 55,
-      actual: 52,
-      icon: Activity,
-      color: 'rose'
+  const [kpis, setKpis] = useState<KPI[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const dash = (await FinanceService.getAdvancedDashboard()) || {}
+        const generalLedger = dash.generalLedger || {}
+        const compliance = dash.compliance || {}
+        const treasury = dash.treasury || {}
+        const cashForecast = dash.cashForecast || {}
+
+        const num = (v: any): number => (typeof v === 'number' && isFinite(v) ? v : 0)
+        const fmt = (v: number): string =>
+          new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            minimumFractionDigits: 0,
+            notation: 'compact',
+          }).format(v)
+
+        const cashPosition = num(treasury.cashPosition)
+        const openReceivable = num(compliance.openReceivable)
+        const openPayable = num(compliance.openPayable)
+        const netProjected = num(cashForecast.netProjected)
+        const totalDebit = num(generalLedger.totalDebit)
+        const totalCredit = num(generalLedger.totalCredit)
+        const postedJournalCount = num(generalLedger.postedJournalCount)
+
+        const built: KPI[] = [
+          { label: 'Cash Position', value: fmt(cashPosition), change: 0, trend: 'up', target: cashPosition || 1, actual: cashPosition, icon: DollarSign, color: 'blue' },
+          { label: 'Open Receivable', value: fmt(openReceivable), change: 0, trend: 'up', target: openReceivable || 1, actual: openReceivable, icon: TrendingUp, color: 'green' },
+          { label: 'Open Payable', value: fmt(openPayable), change: 0, trend: 'up', target: openPayable || 1, actual: openPayable, icon: CreditCard, color: 'orange' },
+          { label: 'Net Cash Forecast', value: fmt(netProjected), change: 0, trend: netProjected >= 0 ? 'up' : 'down', target: netProjected || 1, actual: netProjected, icon: Activity, color: 'purple' },
+          { label: 'Total Debit', value: fmt(totalDebit), change: 0, trend: 'up', target: totalDebit || 1, actual: totalDebit, icon: BarChart3, color: 'cyan' },
+          { label: 'Total Credit', value: fmt(totalCredit), change: 0, trend: 'up', target: totalCredit || 1, actual: totalCredit, icon: PieChart, color: 'indigo' },
+          { label: 'Posted Journals', value: postedJournalCount, change: 0, trend: 'up', target: postedJournalCount || 1, actual: postedJournalCount, icon: Package, color: 'teal' },
+        ]
+        if (mounted) setKpis(built)
+      } catch (e: any) {
+        if (mounted) {
+          setError(e?.message || 'Failed to load KPI dashboard')
+          setKpis([])
+        }
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const getProgressColor = (actual: number, target: number) => {
     const percentage = (actual / target) * 100

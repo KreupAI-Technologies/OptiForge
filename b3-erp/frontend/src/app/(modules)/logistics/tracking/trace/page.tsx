@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import { ArrowLeft, Search, MapPin, Truck, Package, Clock, CheckCircle, Navigation, Phone, User, Fuel, Route, RefreshCw } from 'lucide-react';
 
 interface TrackingEvent {
@@ -84,9 +85,46 @@ export default function TraceTrackingPage() {
     }
   };
 
+  const [availableTraces, setAvailableTraces] = useState<ShipmentTrace[]>(Object.values(sampleTraces));
+
+  useEffect(() => {
+    const loadShipments = async () => {
+      try {
+        const shipments = await LogisticsService.getShipments();
+        if (Array.isArray(shipments) && shipments.length > 0) {
+          const mapped: ShipmentTrace[] = shipments.map((s: any) => ({
+            shipmentNo: s.shipmentCode || s.shipmentNumber || s.shipmentNo || s.id || '',
+            trackingNumber: s.trackingNumber || s.tracking_number || '',
+            origin: s.origin || '',
+            destination: s.destination || '',
+            currentLocation: s.currentLocation || s.origin || '',
+            status: (s.status as ShipmentTrace['status']) || 'pending',
+            estimatedDelivery: s.estimatedDelivery || s.eta || '',
+            vehicleNo: s.vehicleNo || s.vehicleNumber || '',
+            driverName: s.driverName || '',
+            driverPhone: s.driverPhone || '',
+            distanceCovered: s.distanceCovered || '',
+            distanceRemaining: s.distanceRemaining || '',
+            progress: typeof s.progress === 'number' ? s.progress : 0,
+            events: Array.isArray(s.events) ? s.events : [],
+          }));
+          setAvailableTraces(mapped);
+        }
+      } catch {
+        // Keep seeded mock traces on error
+      }
+    };
+    loadShipments();
+  }, []);
+
   const handleTrack = () => {
-    const trace = sampleTraces[trackingQuery];
-    if (trace) {
+    const query = trackingQuery.trim().toLowerCase();
+    const trace = availableTraces.find(
+      (t) =>
+        (t.trackingNumber && t.trackingNumber.toLowerCase().includes(query)) ||
+        (t.shipmentNo && t.shipmentNo.toLowerCase().includes(query))
+    );
+    if (query && trace) {
       setShipmentTrace(trace);
     } else {
       alert('Tracking number not found. Try: TRK-CHN-2025-4521 or TRK-CHN-2025-4524');

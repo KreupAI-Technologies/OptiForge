@@ -1,14 +1,41 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, User, Download, Trash2, CheckCircle, Clock, XCircle, Search, Filter } from 'lucide-react';
+import { ComplianceService, ComplianceDataRequest, DataRequestSummary } from '@/services/compliance.service';
+
+interface DsrRow {
+    id: string;
+    user: string;
+    type: string;
+    status: string;
+    date: string;
+    deadline: string;
+}
+
+function mapRequest(r: ComplianceDataRequest): DsrRow {
+    return {
+        id: r.reference || r.id,
+        user: r.subject_name,
+        type: r.request_type,
+        status: r.status,
+        date: r.received_at ? String(r.received_at).slice(0, 10) : '-',
+        deadline: r.deadline_at ? String(r.deadline_at).slice(0, 10) : '-',
+    };
+}
 
 export default function GDPRPage() {
-    const [requests, setRequests] = useState([
-        { id: 'DSR-2024-001', user: 'Alice Smith', type: 'Data Export', status: 'completed', date: '2024-03-15', deadline: '2024-04-14' },
-        { id: 'DSR-2024-002', user: 'Bob Jones', type: 'Right to be Forgotten', status: 'processing', date: '2024-03-18', deadline: '2024-04-17' },
-        { id: 'DSR-2024-003', user: 'Charlie Brown', type: 'Data Correction', status: 'pending', date: '2024-03-20', deadline: '2024-04-19' },
-    ]);
+    const [requests, setRequests] = useState<DsrRow[]>([]);
+    const [summary, setSummary] = useState<DataRequestSummary | null>(null);
+
+    useEffect(() => {
+        ComplianceService.getDataRequests()
+            .then((rows) => setRequests(Array.isArray(rows) ? rows.map(mapRequest) : []))
+            .catch(() => setRequests([]));
+        ComplianceService.getDataRequestSummary()
+            .then(setSummary)
+            .catch(() => setSummary(null));
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
@@ -34,19 +61,19 @@ export default function GDPRPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
                         <p className="text-sm text-gray-500 mb-1">Total Requests</p>
-                        <p className="text-3xl font-bold text-gray-900">142</p>
+                        <p className="text-3xl font-bold text-gray-900">{summary?.total ?? 0}</p>
                     </div>
                     <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
                         <p className="text-sm text-gray-500 mb-1">Pending</p>
-                        <p className="text-3xl font-bold text-yellow-600">5</p>
+                        <p className="text-3xl font-bold text-yellow-600">{summary?.pending ?? 0}</p>
                     </div>
                     <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
                         <p className="text-sm text-gray-500 mb-1">Completed</p>
-                        <p className="text-3xl font-bold text-green-600">135</p>
+                        <p className="text-3xl font-bold text-green-600">{summary?.completed ?? 0}</p>
                     </div>
                     <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                        <p className="text-sm text-gray-500 mb-1">Avg. Response Time</p>
-                        <p className="text-3xl font-bold text-blue-600">4 Days</p>
+                        <p className="text-sm text-gray-500 mb-1">Processing</p>
+                        <p className="text-3xl font-bold text-blue-600">{summary?.processing ?? 0}</p>
                     </div>
                 </div>
 

@@ -23,6 +23,7 @@ import {
   ScheduleReportModal,
   DashboardCustomizationModal
 } from '@/components/procurement/AnalyticsModals'
+import { procurementPagesService } from '@/services/procurement-pages.service'
 
 interface ProcurementAnalyticsProps {}
 
@@ -74,14 +75,28 @@ const ProcurementAnalytics: React.FC<ProcurementAnalyticsProps> = () => {
     { month: 'Jun', spend: 2450000, orders: 125, avgValue: 19600 }
   ];
 
-  // Mock supplier performance data
-  const supplierPerformance = [
-    { supplier: 'Tech Components Ltd', spend: 450000, orders: 67, performance: 98, risk: 'low' },
-    { supplier: 'Metal Works Inc', spend: 380000, orders: 45, performance: 95, risk: 'low' },
-    { supplier: 'Chemical Supply Co', spend: 320000, orders: 52, performance: 92, risk: 'medium' },
-    { supplier: 'Global Electronics', spend: 280000, orders: 38, performance: 88, risk: 'medium' },
-    { supplier: 'Plastic Solutions', spend: 220000, orders: 29, performance: 94, risk: 'low' }
-  ];
+  // Supplier performance data — wired to real API (topVendors from getAnalyticsInsights)
+  const [supplierPerformance, setSupplierPerformance] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const insights = await procurementPagesService.getAnalyticsInsights();
+        const topVendors = Array.isArray(insights?.topVendors) ? insights.topVendors : [];
+        setSupplierPerformance(
+          topVendors.map((v: any) => ({
+            supplier: v?.vendorName ?? '',
+            spend: v?.spend ?? 0,
+            orders: v?.orders ?? 0,
+            performance: v?.rating ?? 0,
+            risk: v?.risk ?? 'low',
+          }))
+        );
+      } catch {
+        setSupplierPerformance([]);
+      }
+    })();
+  }, []);
 
   // Mock procurement cycle time data
   const cycleTimeAnalysis = [

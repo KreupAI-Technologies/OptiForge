@@ -19,3 +19,5 @@ export * from './procurement-category.controller';
 export * from './savings-initiative.controller';
 export * from './vendor-scorecard.controller';
 export * from './vendor.controller';
+export * from './spend-analysis.controller';
+export * from './procurement-insights.controller';

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Zap, Play, Pause, CheckCircle, Settings, GitBranch, Clock, TrendingUp } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface Workflow {
   id: string
@@ -20,106 +21,87 @@ interface Workflow {
 }
 
 export default function AutomatedWorkflowsPage() {
-  const [workflows] = useState<Workflow[]>([
-    {
-      id: '1',
-      name: 'Monthly Depreciation Calculation',
-      description: 'Automatically calculate and post depreciation for all fixed assets',
-      trigger: 'Last day of month at 11:00 PM',
-      triggerType: 'scheduled',
-      actions: ['Calculate depreciation', 'Create journal entries', 'Post to GL', 'Send notification'],
-      frequency: 'Monthly',
-      lastRun: '2025-09-30 23:00:00',
-      nextRun: '2025-10-31 23:00:00',
-      executionCount: 24,
-      successRate: 100,
-      status: 'active',
-      category: 'accounting'
-    },
-    {
-      id: '2',
-      name: 'Bank Reconciliation Auto-Match',
-      description: 'Match bank statement entries with GL transactions automatically',
-      trigger: 'Bank statement import',
-      triggerType: 'event',
-      actions: ['Load bank statement', 'Match transactions', 'Create reconciliation report', 'Flag discrepancies'],
-      frequency: 'Daily',
-      lastRun: '2025-10-18 08:00:00',
-      nextRun: 'On bank statement upload',
-      executionCount: 142,
-      successRate: 95,
-      status: 'active',
-      category: 'reconciliation'
-    },
-    {
-      id: '3',
-      name: 'Accounts Receivable Aging Report',
-      description: 'Generate and email AR aging reports to management',
-      trigger: 'Every Monday at 9:00 AM',
-      triggerType: 'scheduled',
-      actions: ['Calculate aging buckets', 'Generate PDF report', 'Email to stakeholders', 'Update dashboard'],
-      frequency: 'Weekly',
-      lastRun: '2025-10-14 09:00:00',
-      nextRun: '2025-10-21 09:00:00',
-      executionCount: 48,
-      successRate: 98,
-      status: 'active',
-      category: 'reporting'
-    },
-    {
-      id: '4',
-      name: 'GST Return Auto-Compilation',
-      description: 'Compile GST data and prepare draft return for review',
-      trigger: '5th day of month at 10:00 AM',
-      triggerType: 'scheduled',
-      actions: ['Extract GST transactions', 'Reconcile with GSTR-2A', 'Generate GSTR-3B draft', 'Alert tax team'],
-      frequency: 'Monthly',
-      lastRun: '2025-10-05 10:00:00',
-      nextRun: '2025-11-05 10:00:00',
-      executionCount: 12,
-      successRate: 92,
-      status: 'active',
-      category: 'compliance'
-    },
-    {
-      id: '5',
-      name: 'Invoice Approval Workflow',
-      description: 'Route invoices for approval based on amount thresholds',
-      trigger: 'Invoice creation',
-      triggerType: 'event',
-      actions: ['Check approval threshold', 'Route to approver', 'Send notification', 'Track approval status'],
-      frequency: 'Real-time',
-      lastRun: '2025-10-18 14:30:00',
-      nextRun: 'On invoice creation',
-      executionCount: 856,
-      successRate: 99,
-      status: 'active',
-      category: 'accounting'
-    },
-    {
-      id: '6',
-      name: 'Period-End Accrual Posting',
-      description: 'Post standard accrual entries at month-end',
-      trigger: 'Last day of month at 6:00 PM',
-      triggerType: 'scheduled',
-      actions: ['Calculate accruals', 'Create accrual JEs', 'Post to GL', 'Generate reversal entries'],
-      frequency: 'Monthly',
-      lastRun: '2025-09-30 18:00:00',
-      nextRun: '2025-10-31 18:00:00',
-      executionCount: 18,
-      successRate: 100,
-      status: 'paused',
-      category: 'accounting'
-    }
-  ])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [stats] = useState({
-    totalWorkflows: 24,
-    activeWorkflows: 22,
-    pausedWorkflows: 2,
-    totalExecutions: 3420,
-    averageSuccessRate: 97.5
-  })
+  const loadWorkflows = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await FinanceService.getApprovalWorkflows()
+      const mapped: Workflow[] = (data || []).map((w: any) => {
+        const steps = Array.isArray(w.steps) ? w.steps : []
+        const actions = steps.map((s: any) =>
+          typeof s === 'string' ? s : (s?.name ?? s?.approverRole ?? s?.role ?? 'Approval step'),
+        )
+        const range =
+          w.minAmount != null || w.maxAmount != null
+            ? `Amount ${w.minAmount ?? 0} - ${w.maxAmount ?? '∞'}`
+            : 'On document submission'
+        return {
+          id: String(w.id),
+          name: w.name ?? 'Workflow',
+          description: w.description ?? '',
+          trigger: range,
+          triggerType: 'event',
+          actions: actions.length ? actions : ['Route for approval'],
+          frequency: 'Real-time',
+          lastRun: '-',
+          nextRun: 'On document submission',
+          executionCount: steps.length,
+          successRate: 0,
+          status: (w.isActive ?? String(w.status).toLowerCase() === 'active') ? 'active' : 'paused',
+          category: 'accounting',
+        }
+      })
+      setWorkflows(mapped)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load workflows')
+      setWorkflows([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadWorkflows()
+  }, [])
+
+  const handleCreate = async (data: any) => {
+    try {
+      await FinanceService.createApprovalWorkflow(data)
+      await loadWorkflows()
+    } catch (e) {
+      console.error('Failed to create workflow', e)
+    }
+  }
+
+  const handleUpdate = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateApprovalWorkflow(id, data)
+      await loadWorkflows()
+    } catch (e) {
+      console.error('Failed to update workflow', e)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await FinanceService.deleteApprovalWorkflow(id)
+      await loadWorkflows()
+    } catch (e) {
+      console.error('Failed to delete workflow', e)
+    }
+  }
+
+  const stats = {
+    totalWorkflows: workflows.length,
+    activeWorkflows: workflows.filter((w) => w.status === 'active').length,
+    pausedWorkflows: workflows.filter((w) => w.status === 'paused').length,
+    totalExecutions: workflows.reduce((sum, w) => sum + w.executionCount, 0),
+    averageSuccessRate: 0,
+  }
 
   const getTriggerIcon = (type: string) => {
     switch (type) {
@@ -148,11 +130,17 @@ export default function AutomatedWorkflowsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Automated Workflows</h1>
             <p className="text-gray-600 mt-1">Rule-based automation engine for financial processes</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700">
+          <button
+            onClick={() => handleCreate({ companyId: 'default-company-id', name: 'New Workflow', documentType: 'invoice', isActive: true, steps: [] })}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700"
+          >
             <Zap className="h-5 w-5" />
             Create Workflow
           </button>
         </div>
+
+        {loading && <p className="text-sm text-gray-500">Loading workflows…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -197,6 +185,9 @@ export default function AutomatedWorkflowsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {!loading && workflows.length === 0 && (
+            <p className="text-sm text-gray-500">No workflows found.</p>
+          )}
           {workflows.map((workflow) => (
             <div key={workflow.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
               <div className="flex items-start justify-between mb-2">
@@ -260,13 +251,19 @@ export default function AutomatedWorkflowsPage() {
               </div>
 
               <div className="flex gap-2 mt-4">
-                <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+                <button
+                  onClick={() => handleUpdate(workflow.id, { isActive: workflow.status !== 'active' })}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                >
                   <Settings className="h-4 w-4" />
                   Configure
                 </button>
-                <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm">
+                <button
+                  onClick={() => handleDelete(workflow.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm"
+                >
                   <Play className="h-4 w-4" />
-                  Run Now
+                  Delete
                 </button>
               </div>
             </div>

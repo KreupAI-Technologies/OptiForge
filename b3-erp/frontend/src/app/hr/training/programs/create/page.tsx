@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Save, BookOpen, Users, Clock, Trash2, Layout } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface Module {
   id: string;
@@ -11,6 +14,7 @@ interface Module {
 }
 
 export default function CreateProgramPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -43,10 +47,22 @@ export default function CreateProgramPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Program Created:', formData);
-    alert('Training Program Created Successfully (Mock)');
+    try {
+      const res = await fetch(`${API_BASE_URL}/hr/training-programs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          companyId: 'default-company-id'
+        })
+      });
+      if (!res.ok) throw new Error('Request failed');
+      router.back();
+    } catch {
+      alert('Failed to save. Please try again.');
+    }
   };
 
   return (

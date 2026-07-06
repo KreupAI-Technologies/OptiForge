@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   DollarSign,
   Globe,
@@ -17,6 +17,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface Currency {
   id: string
@@ -31,108 +32,76 @@ interface Currency {
   countries: string[]
 }
 
+const CURRENCY_META: Record<string, { name: string; symbol: string; countries: string[] }> = {
+  INR: { name: 'Indian Rupee', symbol: '₹', countries: ['India'] },
+  USD: { name: 'US Dollar', symbol: '$', countries: ['United States'] },
+  EUR: { name: 'Euro', symbol: '€', countries: ['European Union'] },
+  GBP: { name: 'British Pound', symbol: '£', countries: ['United Kingdom'] },
+  JPY: { name: 'Japanese Yen', symbol: '¥', countries: ['Japan'] },
+  AED: { name: 'UAE Dirham', symbol: 'د.إ', countries: ['United Arab Emirates'] },
+  SGD: { name: 'Singapore Dollar', symbol: 'S$', countries: ['Singapore'] },
+  CNY: { name: 'Chinese Yuan', symbol: '¥', countries: ['China'] },
+}
+
 export default function CurrencyManagementPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
-  const [currencies] = useState<Currency[]>([
-    {
-      id: 'CUR-001',
-      code: 'INR',
-      name: 'Indian Rupee',
-      symbol: '₹',
-      decimalPlaces: 2,
-      isBaseCurrency: true,
-      isActive: true,
-      currentRate: 1.0000,
-      lastUpdated: '2025-10-18',
-      countries: ['India']
-    },
-    {
-      id: 'CUR-002',
-      code: 'USD',
-      name: 'US Dollar',
-      symbol: '$',
-      decimalPlaces: 2,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 0.0120,
-      lastUpdated: '2025-10-18',
-      countries: ['United States']
-    },
-    {
-      id: 'CUR-003',
-      code: 'EUR',
-      name: 'Euro',
-      symbol: '€',
-      decimalPlaces: 2,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 0.0111,
-      lastUpdated: '2025-10-18',
-      countries: ['European Union']
-    },
-    {
-      id: 'CUR-004',
-      code: 'GBP',
-      name: 'British Pound',
-      symbol: '£',
-      decimalPlaces: 2,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 0.0095,
-      lastUpdated: '2025-10-18',
-      countries: ['United Kingdom']
-    },
-    {
-      id: 'CUR-005',
-      code: 'JPY',
-      name: 'Japanese Yen',
-      symbol: '¥',
-      decimalPlaces: 0,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 1.7850,
-      lastUpdated: '2025-10-18',
-      countries: ['Japan']
-    },
-    {
-      id: 'CUR-006',
-      code: 'AED',
-      name: 'UAE Dirham',
-      symbol: 'د.إ',
-      decimalPlaces: 2,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 0.0441,
-      lastUpdated: '2025-10-18',
-      countries: ['United Arab Emirates']
-    },
-    {
-      id: 'CUR-007',
-      code: 'SGD',
-      name: 'Singapore Dollar',
-      symbol: 'S$',
-      decimalPlaces: 2,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 0.0161,
-      lastUpdated: '2025-10-18',
-      countries: ['Singapore']
-    },
-    {
-      id: 'CUR-008',
-      code: 'CNY',
-      name: 'Chinese Yuan',
-      symbol: '¥',
-      decimalPlaces: 2,
-      isBaseCurrency: false,
-      isActive: true,
-      currentRate: 0.0868,
-      lastUpdated: '2025-10-18',
-      countries: ['China']
+  const [currencies, setCurrencies] = useState<Currency[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadCurrencies = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const rates = await FinanceService.getExchangeRates()
+      // Build a currency list from the exchange-rate pairs.
+      const map = new Map<string, Currency>()
+      const addCurrency = (code: string, rate: number, effectiveDate: string, isBase: boolean) => {
+        if (!code) return
+        const meta = CURRENCY_META[code] || { name: code, symbol: code, countries: [] }
+        if (!map.has(code)) {
+          map.set(code, {
+            id: code,
+            code,
+            name: meta.name,
+            symbol: meta.symbol,
+            decimalPlaces: code === 'JPY' ? 0 : 2,
+            isBaseCurrency: isBase,
+            isActive: true,
+            currentRate: isBase ? 1 : rate,
+            lastUpdated: effectiveDate,
+            countries: meta.countries,
+          })
+        }
+      }
+      ;(Array.isArray(rates) ? rates : []).forEach((r: any) => {
+        const effectiveDate = r?.effectiveDate ? String(r.effectiveDate).slice(0, 10) : ''
+        addCurrency(r?.toCurrency, Number(r?.rate) || 0, effectiveDate, true)
+        addCurrency(r?.fromCurrency, Number(r?.rate) ? 1 / Number(r.rate) : 0, effectiveDate, false)
+      })
+      setCurrencies(Array.from(map.values()))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load currencies')
+      setCurrencies([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }, [])
+
+  useEffect(() => {
+    loadCurrencies()
+  }, [loadCurrencies])
+
+  const handleAddCurrency = async (data: any) => {
+    try {
+      await FinanceService.createExchangeRate(data)
+      await loadCurrencies()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add currency')
+    }
+  }
 
   const filteredCurrencies = currencies.filter(currency => {
     const matchesSearch =
@@ -155,7 +124,10 @@ export default function CurrencyManagementPage() {
             <h1 className="text-3xl font-bold text-gray-900">Currency Management</h1>
             <p className="text-gray-600 mt-1">Manage currencies and exchange rates for multi-currency transactions</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-md">
+          <button
+            onClick={() => handleAddCurrency({})}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-md"
+          >
             <Plus className="h-5 w-5" />
             Add Currency
           </button>
@@ -244,8 +216,23 @@ export default function CurrencyManagementPage() {
           </div>
         </div>
 
+        {/* Loading / Error states */}
+        {loading && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center text-gray-500">
+            Loading currencies...
+          </div>
+        )}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl shadow-sm p-4">
+            {error}
+          </div>
+        )}
+
         {/* Currency List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {!loading && filteredCurrencies.length === 0 && (
+            <p className="text-center text-gray-500 py-6">No currencies found.</p>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b-2 border-gray-200">

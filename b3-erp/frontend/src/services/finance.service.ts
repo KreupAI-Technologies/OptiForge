@@ -1199,6 +1199,293 @@ export class FinanceService {
       body: JSON.stringify(data),
     });
   }
+
+  // ==========================================================================
+  // Reports (reuse existing finance/reports/* aggregation endpoints)
+  // ==========================================================================
+  private static toArray(res: any): any[] {
+    return Array.isArray(res) ? res : (res?.data ?? []);
+  }
+
+  static async getFinancialRatios(params?: { periodId?: string; asOfDate?: string }): Promise<any> {
+    const q = new URLSearchParams();
+    if (params?.periodId) q.set('periodId', params.periodId);
+    if (params?.asOfDate) q.set('asOfDate', params.asOfDate);
+    return this.request<any>(`/finance/reports/financial-ratios?${q.toString()}`);
+  }
+
+  static async getGeneralLedgerReport(params?: {
+    accountId?: string;
+    startDate?: string;
+    endDate?: string;
+    periodId?: string;
+  }): Promise<any> {
+    const q = new URLSearchParams();
+    if (params?.accountId) q.set('accountId', params.accountId);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.periodId) q.set('periodId', params.periodId);
+    return this.request<any>(`/finance/reports/general-ledger-report?${q.toString()}`);
+  }
+
+  static async getProfitLoss(params?: { startDate?: string; endDate?: string; periodId?: string }): Promise<any> {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.periodId) q.set('periodId', params.periodId);
+    return this.request<any>(`/finance/reports/profit-loss?${q.toString()}`);
+  }
+
+  static async getBalanceSheet(asOfDate: string): Promise<any> {
+    return this.request<any>(`/finance/reports/balance-sheet?asOfDate=${encodeURIComponent(asOfDate)}`);
+  }
+
+  static async getAdvancedDashboard(): Promise<any> {
+    return this.request<any>('/finance/advanced/dashboard');
+  }
+
+  // ==========================================================================
+  // Costing operations (standard costs, variance, WIP, profit centers)
+  // ==========================================================================
+  static async getStandardCosts(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/standard-costs'));
+  }
+  static async getStandardCost(id: string): Promise<any> {
+    return this.request<any>(`/finance/standard-costs/${id}`);
+  }
+  static async createStandardCost(data: any): Promise<any> {
+    return this.request<any>('/finance/standard-costs', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateStandardCost(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/standard-costs/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteStandardCost(id: string): Promise<void> {
+    await this.request<any>(`/finance/standard-costs/${id}`, { method: 'DELETE' });
+  }
+
+  static async getVarianceAnalysis(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/variance-analysis'));
+  }
+  static async getVariance(id: string): Promise<any> {
+    return this.request<any>(`/finance/variance-analysis/${id}`);
+  }
+  static async createVariance(data: any): Promise<any> {
+    return this.request<any>('/finance/variance-analysis', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateVariance(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/variance-analysis/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteVariance(id: string): Promise<void> {
+    await this.request<any>(`/finance/variance-analysis/${id}`, { method: 'DELETE' });
+  }
+
+  static async getWipAccounting(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/wip-accounting'));
+  }
+  static async getWip(id: string): Promise<any> {
+    return this.request<any>(`/finance/wip-accounting/${id}`);
+  }
+  static async createWip(data: any): Promise<any> {
+    return this.request<any>('/finance/wip-accounting', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateWip(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/wip-accounting/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteWip(id: string): Promise<void> {
+    await this.request<any>(`/finance/wip-accounting/${id}`, { method: 'DELETE' });
+  }
+
+  static async getProfitCenters(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/profit-centers'));
+  }
+
+  // ==========================================================================
+  // Anticipated cash (receipts / payments)
+  // ==========================================================================
+  static async getAnticipatedReceipts(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/anticipated-receipts'));
+  }
+  static async createAnticipatedReceipt(data: any): Promise<any> {
+    return this.request<any>('/finance/anticipated-receipts', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateAnticipatedReceipt(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/anticipated-receipts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteAnticipatedReceipt(id: string): Promise<void> {
+    await this.request<any>(`/finance/anticipated-receipts/${id}`, { method: 'DELETE' });
+  }
+
+  static async getAnticipatedPayments(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/anticipated-payments'));
+  }
+  static async createAnticipatedPayment(data: any): Promise<any> {
+    return this.request<any>('/finance/anticipated-payments', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateAnticipatedPayment(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/anticipated-payments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteAnticipatedPayment(id: string): Promise<void> {
+    await this.request<any>(`/finance/anticipated-payments/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Financial years / periods
+  // ==========================================================================
+  static async getFinancialYears(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/financial-years'));
+  }
+  static async createFinancialYear(data: any): Promise<any> {
+    return this.request<any>('/finance/financial-years', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateFinancialYear(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/financial-years/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async getFinancialPeriods(financialYearId?: string): Promise<any[]> {
+    const q = financialYearId ? `?financialYearId=${financialYearId}` : '';
+    return this.toArray(await this.request<any>(`/finance/financial-periods${q}`));
+  }
+  static async createFinancialPeriod(data: any): Promise<any> {
+    return this.request<any>('/finance/financial-periods', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateFinancialPeriod(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/financial-periods/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+
+  // ==========================================================================
+  // Consolidation / intercompany
+  // ==========================================================================
+  static async getConsolidation(): Promise<any> {
+    return this.request<any>('/finance/consolidation');
+  }
+  static async getIntercompany(): Promise<any> {
+    return this.request<any>('/finance/intercompany');
+  }
+
+  // ==========================================================================
+  // Exchange rates / multi-currency
+  // ==========================================================================
+  static async getExchangeRates(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/exchange-rates'));
+  }
+  static async createExchangeRate(data: any): Promise<any> {
+    return this.request<any>('/finance/exchange-rates', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateExchangeRate(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/exchange-rates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteExchangeRate(id: string): Promise<void> {
+    await this.request<any>(`/finance/exchange-rates/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Automation: recurring transactions, workflows, alerts
+  // ==========================================================================
+  static async getRecurringTransactions(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/recurring-transactions'));
+  }
+  static async createRecurringTransaction(data: any): Promise<any> {
+    return this.request<any>('/finance/recurring-transactions', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateRecurringTransaction(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/recurring-transactions/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteRecurringTransaction(id: string): Promise<void> {
+    await this.request<any>(`/finance/recurring-transactions/${id}`, { method: 'DELETE' });
+  }
+
+  static async getApprovalWorkflows(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/approval-workflows'));
+  }
+  static async createApprovalWorkflow(data: any): Promise<any> {
+    return this.request<any>('/finance/approval-workflows', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateApprovalWorkflow(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/approval-workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteApprovalWorkflow(id: string): Promise<void> {
+    await this.request<any>(`/finance/approval-workflows/${id}`, { method: 'DELETE' });
+  }
+
+  static async getAlerts(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/alerts'));
+  }
+  static async createAlert(data: any): Promise<any> {
+    return this.request<any>('/finance/alerts', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateAlert(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/alerts/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteAlert(id: string): Promise<void> {
+    await this.request<any>(`/finance/alerts/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Controls: documents, audit-trail
+  // ==========================================================================
+  static async getDocuments(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/documents'));
+  }
+  static async createDocument(data: any): Promise<any> {
+    return this.request<any>('/finance/documents', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateDocument(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/documents/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteDocument(id: string): Promise<void> {
+    await this.request<any>(`/finance/documents/${id}`, { method: 'DELETE' });
+  }
+
+  static async getAuditTrail(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/audit-trail'));
+  }
+
+  // ==========================================================================
+  // Receivables: credit management
+  // ==========================================================================
+  static async getCreditLimits(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/credit-limits'));
+  }
+  static async createCreditLimit(data: any): Promise<any> {
+    return this.request<any>('/finance/credit-limits', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateCreditLimit(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/credit-limits/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteCreditLimit(id: string): Promise<void> {
+    await this.request<any>(`/finance/credit-limits/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Investments
+  // ==========================================================================
+  static async getInvestments(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/investments'));
+  }
+  static async createInvestment(data: any): Promise<any> {
+    return this.request<any>('/finance/investments', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateInvestment(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/investments/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteInvestment(id: string): Promise<void> {
+    await this.request<any>(`/finance/investments/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Report builder templates
+  // ==========================================================================
+  static async getReportTemplates(): Promise<any[]> {
+    return this.toArray(await this.request<any>('/finance/report-templates'));
+  }
+  static async createReportTemplate(data: any): Promise<any> {
+    return this.request<any>('/finance/report-templates', { method: 'POST', body: JSON.stringify(data) });
+  }
+  static async updateReportTemplate(id: string, data: any): Promise<any> {
+    return this.request<any>(`/finance/report-templates/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  static async deleteReportTemplate(id: string): Promise<void> {
+    await this.request<any>(`/finance/report-templates/${id}`, { method: 'DELETE' });
+  }
 }
 
 // Export singleton instance

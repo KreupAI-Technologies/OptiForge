@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   Package,
   Plus,
@@ -44,184 +45,41 @@ export default function LoadPlanningPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
 
-  const [loads, setLoads] = useState<LoadDetails[]>([
-    {
-      id: 1,
-      loadId: 'LD-2024-001',
-      loadName: 'Mumbai-Delhi Load #1',
-      vehicleType: '32-Ft Truck',
-      origin: 'Mumbai Warehouse',
-      destination: 'Delhi Distribution Center',
-      shipments: 15,
-      totalWeight: 18500,
-      totalVolume: 42,
-      vehicleCapacityWeight: 20000,
-      vehicleCapacityVolume: 45,
-      loadingDate: '2024-10-22',
-      estimatedDeparture: '2024-10-22 18:00',
-      routeCode: 'RT-MUM-DEL-001',
-      priority: 'high',
-      loadUtilization: 93,
-      status: 'ready',
-      assignedTo: 'Rajesh Kumar',
-      specialRequirements: ['Temperature Controlled', 'Fragile Items'],
-      totalValue: 2500000
-    },
-    {
-      id: 2,
-      loadId: 'LD-2024-002',
-      loadName: 'Bangalore-Chennai Load #1',
-      vehicleType: '20-Ft Container',
-      origin: 'Bangalore Plant',
-      destination: 'Chennai Port',
-      shipments: 8,
-      totalWeight: 8200,
-      totalVolume: 18,
-      vehicleCapacityWeight: 10000,
-      vehicleCapacityVolume: 22,
-      loadingDate: '2024-10-23',
-      estimatedDeparture: '2024-10-23 08:00',
-      routeCode: 'RT-BLR-CHN-001',
-      priority: 'urgent',
-      loadUtilization: 82,
-      status: 'planning',
-      assignedTo: 'Priya Singh',
-      specialRequirements: ['Export Documentation'],
-      totalValue: 1200000
-    },
-    {
-      id: 3,
-      loadId: 'LD-2024-003',
-      loadName: 'Kolkata-Mumbai Load #1',
-      vehicleType: '40-Ft Truck',
-      origin: 'Kolkata Depot',
-      destination: 'Mumbai Warehouse',
-      shipments: 22,
-      totalWeight: 28000,
-      totalVolume: 65,
-      vehicleCapacityWeight: 30000,
-      vehicleCapacityVolume: 68,
-      loadingDate: '2024-10-22',
-      estimatedDeparture: '2024-10-22 06:00',
-      routeCode: 'RT-KOL-MUM-001',
-      priority: 'normal',
-      loadUtilization: 96,
-      status: 'loading',
-      assignedTo: 'Amit Patel',
-      specialRequirements: [],
-      totalValue: 3800000
-    },
-    {
-      id: 4,
-      loadId: 'LD-2024-004',
-      loadName: 'Hyderabad-Bangalore Load #2',
-      vehicleType: '24-Ft Truck',
-      origin: 'Hyderabad Factory',
-      destination: 'Bangalore Plant',
-      shipments: 12,
-      totalWeight: 11500,
-      totalVolume: 28,
-      vehicleCapacityWeight: 15000,
-      vehicleCapacityVolume: 32,
-      loadingDate: '2024-10-21',
-      estimatedDeparture: '2024-10-21 14:00',
-      routeCode: 'RT-HYD-BLR-001',
-      priority: 'high',
-      loadUtilization: 88,
-      status: 'dispatched',
-      assignedTo: 'Vikram Malhotra',
-      specialRequirements: ['Hazardous Materials'],
-      totalValue: 1800000
-    },
-    {
-      id: 5,
-      loadId: 'LD-2024-005',
-      loadName: 'Pune-Goa Load #1',
-      vehicleType: '18-Ft Truck',
-      origin: 'Pune Hub',
-      destination: 'Goa Distribution',
-      shipments: 6,
-      totalWeight: 4500,
-      totalVolume: 12,
-      vehicleCapacityWeight: 8000,
-      vehicleCapacityVolume: 16,
-      loadingDate: '2024-10-24',
-      estimatedDeparture: '2024-10-24 10:00',
-      routeCode: 'RT-PUN-GOA-001',
-      priority: 'low',
-      loadUtilization: 75,
-      status: 'planning',
-      assignedTo: 'Sunita Desai',
-      specialRequirements: [],
-      totalValue: 650000
-    },
-    {
-      id: 6,
-      loadId: 'LD-2024-006',
-      loadName: 'Delhi-Jammu Load #1',
-      vehicleType: '28-Ft Truck',
-      origin: 'Delhi Distribution Center',
-      destination: 'Jammu Depot',
-      shipments: 10,
-      totalWeight: 14000,
-      totalVolume: 35,
-      vehicleCapacityWeight: 18000,
-      vehicleCapacityVolume: 38,
-      loadingDate: '2024-10-22',
-      estimatedDeparture: '2024-10-22 22:00',
-      routeCode: 'RT-DEL-JAM-001',
-      priority: 'normal',
-      loadUtilization: 92,
-      status: 'loaded',
-      assignedTo: 'Rajesh Kumar',
-      specialRequirements: ['Cold Chain'],
-      totalValue: 2100000
-    },
-    {
-      id: 7,
-      loadId: 'LD-2024-007',
-      loadName: 'Chennai-Kochi Load #1',
-      vehicleType: '32-Ft Truck',
-      origin: 'Chennai Port',
-      destination: 'Kochi Depot',
-      shipments: 14,
-      totalWeight: 16800,
-      totalVolume: 40,
-      vehicleCapacityWeight: 20000,
-      vehicleCapacityVolume: 45,
-      loadingDate: '2024-10-23',
-      estimatedDeparture: '2024-10-23 16:00',
-      routeCode: 'RT-CHN-KOC-001',
-      priority: 'high',
-      loadUtilization: 89,
-      status: 'ready',
-      assignedTo: 'Priya Singh',
-      specialRequirements: ['Oversized Items'],
-      totalValue: 2800000
-    },
-    {
-      id: 8,
-      loadId: 'LD-2024-008',
-      loadName: 'Ahmedabad-Mumbai Load #3',
-      vehicleType: '20-Ft Truck',
-      origin: 'Ahmedabad Factory',
-      destination: 'Mumbai Warehouse',
-      shipments: 9,
-      totalWeight: 7200,
-      totalVolume: 16,
-      vehicleCapacityWeight: 10000,
-      vehicleCapacityVolume: 22,
-      loadingDate: '2024-10-21',
-      estimatedDeparture: '2024-10-21 20:00',
-      routeCode: 'RT-AHM-MUM-001',
-      priority: 'normal',
-      loadUtilization: 73,
-      status: 'dispatched',
-      assignedTo: 'Amit Patel',
-      specialRequirements: [],
-      totalValue: 980000
-    }
-  ]);
+  const [loads, setLoads] = useState<LoadDetails[]>([]);
+
+  useEffect(() => {
+    const loadLoadPlans = async () => {
+      try {
+        const rows = await LogisticsService.getLoadPlans();
+        const mapped: LoadDetails[] = (rows || []).map((row: any, index: number) => ({
+          id: typeof row.id === 'number' ? row.id : index + 1,
+          loadId: row.loadId ?? row.loadNumber ?? String(row.id ?? ''),
+          loadName: row.loadName ?? row.loadType ?? '',
+          vehicleType: row.vehicleType ?? row.loadType ?? '',
+          origin: row.origin ?? '',
+          destination: row.destination ?? '',
+          shipments: row.shipments ?? 0,
+          totalWeight: row.totalWeight ?? 0,
+          totalVolume: row.totalVolume ?? 0,
+          vehicleCapacityWeight: row.vehicleCapacityWeight ?? 0,
+          vehicleCapacityVolume: row.vehicleCapacityVolume ?? 0,
+          loadingDate: row.loadingDate ?? row.planDate ?? '',
+          estimatedDeparture: row.estimatedDeparture ?? row.planDate ?? '',
+          routeCode: row.routeCode ?? '',
+          priority: row.priority ?? 'normal',
+          loadUtilization: row.loadUtilization ?? 0,
+          status: row.status ?? 'planning',
+          assignedTo: row.assignedTo ?? '',
+          specialRequirements: Array.isArray(row.specialRequirements) ? row.specialRequirements : [],
+          totalValue: row.totalValue ?? 0,
+        }));
+        setLoads(mapped);
+      } catch (error) {
+        setLoads([]);
+      }
+    };
+    loadLoadPlans();
+  }, []);
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {

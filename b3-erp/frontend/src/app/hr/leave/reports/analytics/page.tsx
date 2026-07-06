@@ -1,10 +1,28 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Users, Calendar, AlertTriangle, Download, Target, Award } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 export default function LeaveAnalyticsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('current_fy');
+  const [totalLeaves, setTotalLeaves] = useState(0);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/hr/leave-applications?companyId=default-company-id`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        setTotalLeaves(list.length);
+      } catch {
+        // keep defaults on failure
+      }
+    }
+    loadData();
+  }, []);
 
   return (
     <div className="p-6 space-y-3">
@@ -33,7 +51,7 @@ export default function LeaveAnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-3">
           <div className="text-blue-100 text-sm mb-1">Total Leaves (YTD)</div>
-          <div className="text-3xl font-bold">3,875</div>
+          <div className="text-3xl font-bold">{totalLeaves.toLocaleString()}</div>
           <div className="flex items-center gap-1 text-blue-100 text-xs mt-2">
             <TrendingUp className="w-3 h-3" />
             8.5% vs last year

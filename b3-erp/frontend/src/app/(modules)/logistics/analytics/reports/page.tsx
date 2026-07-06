@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   FileText,
   Download,
@@ -274,6 +275,29 @@ export default function ReportsPage() {
       status: 'available'
     }
   ]);
+
+  // `reports` above is a static catalog of report definitions (not live data),
+  // so it stays hardcoded. Live delivery/dashboard metrics are fetched into a
+  // guarded state for use when KPI slots are added to the JSX.
+  const [metrics, setMetrics] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [performance, dashboard] = await Promise.all([
+          LogisticsService.getDeliveryPerformance(),
+          LogisticsService.getLogisticsDashboard(),
+        ]);
+        if (mounted) setMetrics({ performance, dashboard });
+      } catch {
+        // Leave metrics as null on error; the catalog UI is unaffected.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const categories: ReportCategory[] = [
     { name: 'Delivery', count: 3, icon: Package, color: 'blue' },

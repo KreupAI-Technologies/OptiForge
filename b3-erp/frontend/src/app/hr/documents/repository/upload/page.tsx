@@ -1,8 +1,55 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { Upload, Folder, AlertCircle } from 'lucide-react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+const FOLDERS = [
+  'HR Policies',
+  'Employee Handbooks',
+  'Templates',
+  'Circulars & Notices',
+  'Compliance Documents',
+  'Training Materials',
+];
+
 export default function UploadRepositoryPage() {
+  const [folder, setFolder] = useState(FOLDERS[0]);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      for (const file of Array.from(files)) {
+        const res = await fetch(`${API_BASE_URL}/hr/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyId: 'default-company-id',
+            docCategory: folder,
+            documentType: 'repository',
+            title: file.name,
+            fileName: file.name,
+            uploadedOn: new Date().toISOString().slice(0, 10),
+            status: 'pending',
+          }),
+        });
+        if (!res.ok) throw new Error('upload failed');
+      }
+      setMessage({ type: 'success', text: `Uploaded ${files.length} document(s) to "${folder}".` });
+    } catch {
+      setMessage({ type: 'error', text: 'Upload failed. Please try again.' });
+    } finally {
+      setSaving(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="w-full h-full px-3 py-2">
       <div className="mb-3">
@@ -12,24 +59,46 @@ export default function UploadRepositoryPage() {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">Select Destination Folder</h2>
-        <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option>HR Policies</option>
-          <option>Employee Handbooks</option>
-          <option>Templates</option>
-          <option>Circulars & Notices</option>
-          <option>Compliance Documents</option>
-          <option>Training Materials</option>
+        <select
+          value={folder}
+          onChange={(e) => setFolder(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {FOLDERS.map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
         </select>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+        <div
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+        >
           <Upload className="h-12 w-12 text-gray-400 mb-2" />
           <p className="text-gray-700 font-medium mb-2">Click to upload or drag and drop</p>
           <p className="text-sm text-gray-500">PDF, DOC, DOCX, XLS, XLSX up to 10MB</p>
-          <button className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
-            Select Files
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => fileInputRef.current?.click()}
+            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
+          >
+            {saving ? 'Uploading...' : 'Select Files'}
           </button>
+          {message && (
+            <p className={`mt-3 text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+              {message.text}
+            </p>
+          )}
         </div>
       </div>
 

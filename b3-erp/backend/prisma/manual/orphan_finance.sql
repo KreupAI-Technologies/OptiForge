@@ -249,3 +249,172 @@ CREATE TABLE IF NOT EXISTS "finance_advanced_features" (
 );
 CREATE INDEX IF NOT EXISTS "IDX_finance_advanced_features_company"
   ON "finance_advanced_features" ("company_id", "sort_order");
+
+-- ============================================================================
+-- Finance extras — new page-backing tables (additive, idempotent).
+-- Entity: src/modules/finance/entities/finance-extras.entity.ts
+-- Column names match the TypeORM @Column({ name }) snake_case mappings.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS "finance_exchange_rates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "from_currency" varchar(10) NOT NULL,
+  "to_currency" varchar(10) NOT NULL,
+  "rate" numeric(18,6) NOT NULL DEFAULT 0,
+  "previous_rate" numeric(18,6) NOT NULL DEFAULT 0,
+  "effective_date" date NULL,
+  "source" varchar(100) NULL,
+  "type" varchar(20) NOT NULL DEFAULT 'spot',
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_exchange_rates" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_exchange_rates_company" ON "finance_exchange_rates" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_recurring_transactions" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "type" varchar(50) NULL,
+  "amount" numeric(15,2) NOT NULL DEFAULT 0,
+  "frequency" varchar(50) NOT NULL DEFAULT 'monthly',
+  "next_run_date" date NULL,
+  "end_date" date NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "account_name" varchar(255) NULL,
+  "party_name" varchar(255) NULL,
+  "occurrences_generated" integer NOT NULL DEFAULT 0,
+  "description" text NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_recurring_transactions" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_recurring_txn_company" ON "finance_recurring_transactions" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_approval_workflows" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "document_type" varchar(100) NULL,
+  "description" text NULL,
+  "min_amount" numeric(15,2) NOT NULL DEFAULT 0,
+  "max_amount" numeric(15,2) NULL,
+  "steps" jsonb NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_approval_workflows" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_approval_wf_company" ON "finance_approval_workflows" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_alerts" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "category" varchar(100) NULL,
+  "severity" varchar(50) NOT NULL DEFAULT 'medium',
+  "condition_type" varchar(100) NULL,
+  "threshold_value" numeric(15,2) NULL,
+  "message" text NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "is_enabled" boolean NOT NULL DEFAULT true,
+  "last_triggered_at" timestamp NULL,
+  "trigger_count" integer NOT NULL DEFAULT 0,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_alerts" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_alerts_company" ON "finance_alerts" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_documents" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "category" varchar(100) NULL,
+  "document_type" varchar(100) NULL,
+  "reference_number" varchar(100) NULL,
+  "file_url" text NULL,
+  "file_size" varchar(50) NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "uploaded_by" varchar(100) NULL,
+  "tags" jsonb NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_documents" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_documents_company" ON "finance_documents" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_audit_trail" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "entity_type" varchar(100) NULL,
+  "entity_id" varchar(100) NULL,
+  "action" varchar(100) NULL,
+  "performed_by" varchar(100) NULL,
+  "description" varchar(255) NULL,
+  "ip_address" varchar(50) NULL,
+  "changes" jsonb NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_audit_trail" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_audit_trail_company" ON "finance_audit_trail" ("company_id", "created_at");
+
+CREATE TABLE IF NOT EXISTS "finance_credit_limits" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "customer_id" varchar(100) NULL,
+  "customer_name" varchar(255) NOT NULL,
+  "credit_limit" numeric(15,2) NOT NULL DEFAULT 0,
+  "credit_used" numeric(15,2) NOT NULL DEFAULT 0,
+  "payment_terms" varchar(100) NULL,
+  "credit_rating" varchar(20) NULL,
+  "risk_category" varchar(50) NOT NULL DEFAULT 'low',
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "on_hold" boolean NOT NULL DEFAULT false,
+  "review_date" date NULL,
+  "notes" text NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_credit_limits" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_credit_limits_company" ON "finance_credit_limits" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_investments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "investment_type" varchar(100) NULL,
+  "principal_amount" numeric(15,2) NOT NULL DEFAULT 0,
+  "current_value" numeric(15,2) NOT NULL DEFAULT 0,
+  "interest_rate" numeric(8,4) NOT NULL DEFAULT 0,
+  "start_date" date NULL,
+  "maturity_date" date NULL,
+  "institution" varchar(100) NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'active',
+  "notes" text NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_investments" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_investments_company" ON "finance_investments" ("company_id");
+
+CREATE TABLE IF NOT EXISTS "finance_report_templates" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "category" varchar(100) NULL,
+  "description" text NULL,
+  "report_type" varchar(100) NULL,
+  "columns" jsonb NULL,
+  "filters" jsonb NULL,
+  "group_by" varchar(255) NULL,
+  "is_shared" boolean NOT NULL DEFAULT false,
+  "created_by" varchar(100) NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_report_templates" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_report_templates_company" ON "finance_report_templates" ("company_id");

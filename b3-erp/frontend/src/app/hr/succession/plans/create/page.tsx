@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, User, Briefcase, Target, Calendar, Save, AlertCircle } from 'lucide-react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface SuccessionPlanForm {
   positionTitle: string;
@@ -25,6 +28,7 @@ interface SuccessionPlanForm {
 }
 
 export default function Page() {
+  const router = useRouter();
   const [formData, setFormData] = useState<SuccessionPlanForm>({
     positionTitle: '',
     department: '',
@@ -101,11 +105,22 @@ export default function Page() {
     return newErrors.length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      console.log('Succession plan created:', formData);
-      // Reset form or redirect
+    if (!validateForm()) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/hr/succession-plans`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          companyId: 'default-company-id'
+        })
+      });
+      if (!res.ok) throw new Error('Request failed');
+      router.push('/hr/succession/plans/tracking');
+    } catch {
+      alert('Failed to save. Please try again.');
     }
   };
 

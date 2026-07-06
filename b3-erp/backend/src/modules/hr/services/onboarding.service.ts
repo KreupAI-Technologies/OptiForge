@@ -195,6 +195,10 @@ export class OnboardingService {
         return { data, total, page, limit };
     }
 
+    async getOfferById(id: string) {
+        return this.prisma.offerManagement.findUnique({ where: { id } });
+    }
+
     async updateOfferStatus(id: string, status: string, data?: {
         rejectionReason?: string;
         signedOfferUrl?: string;

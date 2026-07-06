@@ -14,6 +14,7 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   AreaChart, Area, ScatterChart, Scatter, Treemap, Sankey
 } from 'recharts';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 
 interface QualityAssuranceProps {}
 
@@ -95,14 +96,30 @@ const QualityAssurance: React.FC<QualityAssuranceProps> = () => {
     { name: 'Documentation', value: 8, color: '#8B5CF6' }
   ];
 
-  // Mock data for supplier quality scores
-  const supplierQualityScores = [
-    { supplier: 'Tech Components Ltd', score: 98.5, trend: 'up', inspections: 45 },
-    { supplier: 'Metal Works Inc', score: 97.2, trend: 'stable', inspections: 38 },
-    { supplier: 'Chemical Supply Co', score: 95.8, trend: 'down', inspections: 52 },
-    { supplier: 'Plastic Solutions', score: 99.1, trend: 'up', inspections: 29 },
-    { supplier: 'Global Electronics', score: 96.4, trend: 'up', inspections: 41 }
-  ];
+  // Supplier quality scores - loaded from API
+  const [supplierQualityScores, setSupplierQualityScores] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadSupplierQualityScores = async () => {
+      try {
+        const data = await procurementPagesService.getQualityAssuranceInsights();
+        const vendors = data?.vendors ?? [];
+        if (Array.isArray(vendors) && vendors.length > 0) {
+          setSupplierQualityScores(
+            vendors.map((v: any) => ({
+              supplier: v?.vendorName ?? '',
+              score: v?.qualityScore ?? 0,
+              trend: 'stable',
+              inspections: v?.inspectionsTotal ?? 0,
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('Failed to load supplier quality scores:', error);
+      }
+    };
+    loadSupplierQualityScores();
+  }, []);
 
   // Mock data for inspection templates
   const inspectionTemplates = [

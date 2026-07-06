@@ -5,6 +5,8 @@ import { Building, Calendar, Users, CheckCircle, Clock, Search, Filter, Plus, Us
 import DataTable from '@/components/DataTable';
 import { toast } from '@/hooks/use-toast';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
 interface NewJoiner {
   id: string;
   employeeCode: string;
@@ -34,97 +36,57 @@ export default function Page() {
   const [scheduleDate, setScheduleDate] = useState('');
   const [mentorName, setMentorName] = useState('');
 
-  const [joiners, setJoiners] = useState<NewJoiner[]>([
-    {
-      id: '1',
-      employeeCode: 'EMP-2024-001',
-      name: 'Aarav Gupta',
-      department: 'Engineering',
-      designation: 'Senior Developer',
-      joinDate: '2024-10-15',
-      mentor: 'Rohan Mehta',
-      inductionStatus: 'In Progress',
-      inductionProgress: 60,
-      scheduledDate: '2024-10-16',
-      tasks: [
-        { id: 't1', label: 'Team Introduction', completed: true },
-        { id: 't2', label: 'System Access Setup', completed: true },
-        { id: 't3', label: 'Project Knowledge Transfer', completed: false },
-        { id: 't4', label: 'HR Policy Walkthrough', completed: true },
-        { id: 't5', label: 'Department Goals Overview', completed: false },
-      ]
-    },
-    {
-      id: '2',
-      employeeCode: 'EMP-2024-002',
-      name: 'Ishita Sharma',
-      department: 'Product',
-      designation: 'Product Manager',
-      joinDate: '2024-10-18',
-      mentor: null,
-      inductionStatus: 'Pending',
-      inductionProgress: 0,
-      scheduledDate: null,
-      tasks: [
-        { id: 't1', label: 'Team Introduction', completed: false },
-        { id: 't2', label: 'System Access Setup', completed: false },
-        { id: 't3', label: 'Product Roadmap Review', completed: false },
-        { id: 't4', label: 'Stakeholder Meeting', completed: false },
-      ]
-    },
-    {
-      id: '3',
-      employeeCode: 'EMP-2024-003',
-      name: 'Vihaan Patel',
-      department: 'Marketing',
-      designation: 'Marketing Executive',
-      joinDate: '2024-10-10',
-      mentor: 'Sanya Kapoor',
-      inductionStatus: 'Completed',
-      inductionProgress: 100,
-      scheduledDate: '2024-10-11',
-      tasks: [
-        { id: 't1', label: 'Team Introduction', completed: true },
-        { id: 't2', label: 'Tool Access & Training', completed: true },
-        { id: 't3', label: 'Campaign Overview', completed: true },
-        { id: 't4', label: 'Brand Guidelines', completed: true },
-      ]
-    },
-    {
-      id: '4',
-      employeeCode: 'EMP-2024-004',
-      name: 'Meera Reddy',
-      department: 'Sales',
-      designation: 'Sales Associate',
-      joinDate: '2024-10-20',
-      mentor: null,
-      inductionStatus: 'Scheduled',
-      inductionProgress: 0,
-      scheduledDate: '2024-10-22',
-      tasks: [
-        { id: 't1', label: 'Sales Team Intro', completed: false },
-        { id: 't2', label: 'CRM Training', completed: false },
-        { id: 't3', label: 'Product Demo Training', completed: false },
-      ]
-    },
-    {
-      id: '5',
-      employeeCode: 'EMP-2024-005',
-      name: 'Arjun Singh',
-      department: 'Engineering',
-      designation: 'QA Engineer',
-      joinDate: '2024-10-19',
-      mentor: 'Priya Verma',
-      inductionStatus: 'In Progress',
-      inductionProgress: 30,
-      scheduledDate: '2024-10-21',
-      tasks: [
-        { id: 't1', label: 'Team Introduction', completed: true },
-        { id: 't2', label: 'Test Environment Setup', completed: false },
-        { id: 't3', label: 'Automation Framework KT', completed: false },
-      ]
-    },
-  ]);
+  const [joiners, setJoiners] = useState<NewJoiner[]>([]);
+
+  // Fetch onboarding tasks / induction records from backend
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/hr/onboarding-tasks?companyId=default-company-id`);
+        if (!res.ok) {
+          if (!cancelled) setJoiners([]);
+          return;
+        }
+        const json = await res.json();
+        const rows = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+        if (!Array.isArray(rows) || rows.length === 0) {
+          if (!cancelled) setJoiners([]);
+          return;
+        }
+        // Map raw rows defensively into the NewJoiner shape.
+        const mapped: NewJoiner[] = rows.map((r: any, idx: number) => {
+          const rawTasks = Array.isArray(r?.tasks) ? r.tasks : [];
+          const tasks = rawTasks.map((t: any, ti: number) => ({
+            id: String(t?.id ?? `t${ti + 1}`),
+            label: String(t?.label ?? t?.name ?? t?.title ?? ''),
+            completed: Boolean(t?.completed ?? t?.done ?? false),
+          }));
+          const statusRaw = String(r?.inductionStatus ?? r?.status ?? 'Pending');
+          const allowed = ['Pending', 'Scheduled', 'In Progress', 'Completed'];
+          const inductionStatus = (allowed.includes(statusRaw) ? statusRaw : 'Pending') as NewJoiner['inductionStatus'];
+          return {
+            id: String(r?.id ?? r?._id ?? idx),
+            employeeCode: String(r?.employeeCode ?? r?.code ?? ''),
+            name: String(r?.name ?? r?.employeeName ?? ''),
+            department: String(r?.department ?? ''),
+            designation: String(r?.designation ?? ''),
+            joinDate: String(r?.joinDate ?? r?.joinedOn ?? ''),
+            mentor: r?.mentor ?? null,
+            inductionStatus,
+            inductionProgress: Number(r?.inductionProgress ?? r?.progress ?? 0) || 0,
+            scheduledDate: r?.scheduledDate ?? null,
+            tasks,
+          };
+        });
+        if (!cancelled) setJoiners(mapped);
+      } catch {
+        if (!cancelled) setJoiners([]);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   // Derived Stats
   const stats = useMemo(() => {
@@ -177,9 +139,34 @@ export default function Page() {
     setShowChecklistModal(true);
   };
 
-  const handleScheduleSubmit = () => {
+  const handleScheduleSubmit = async () => {
     if (!selectedJoiner || !scheduleDate || !mentorName) {
       toast({ title: 'Error', description: 'Please fill all fields', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/hr/onboarding-tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: 'default-company-id',
+          employeeId: selectedJoiner.id,
+          employeeCode: selectedJoiner.employeeCode,
+          name: selectedJoiner.name,
+          department: selectedJoiner.department,
+          designation: selectedJoiner.designation,
+          mentor: mentorName,
+          scheduledDate: scheduleDate,
+          inductionStatus: 'Scheduled',
+        }),
+      });
+      if (!res.ok) {
+        alert('Failed to save.');
+        return;
+      }
+    } catch {
+      alert('Failed to save.');
       return;
     }
 

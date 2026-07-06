@@ -1,15 +1,78 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { GitBranch, CheckCircle, Clock, XCircle, User, ArrowRight } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
+
+interface WorkflowRow {
+  id: string
+  name: string
+  levels: number
+  type: string
+  active: boolean
+  pendingApprovals: number
+}
 
 export default function ApprovalWorkflowsPage() {
-  const [workflows] = useState([
-    { id: '1', name: 'Journal Entry Approval', levels: 3, type: 'Sequential', active: true, pendingApprovals: 5 },
-    { id: '2', name: 'Payment Approval', levels: 2, type: 'Parallel', active: true, pendingApprovals: 12 },
-    { id: '3', name: 'Budget Approval', levels: 4, type: 'Sequential', active: true, pendingApprovals: 3 },
-    { id: '4', name: 'Purchase Order Approval', levels: 2, type: 'Parallel', active: true, pendingApprovals: 8 }
-  ])
+  const [workflows, setWorkflows] = useState<WorkflowRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadWorkflows = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await FinanceService.getApprovalWorkflows()
+      const mapped: WorkflowRow[] = (data || []).map((w: any) => {
+        const steps = Array.isArray(w.steps) ? w.steps : []
+        return {
+          id: String(w.id),
+          name: w.name ?? 'Workflow',
+          levels: steps.length,
+          type: w.documentType ?? 'Sequential',
+          active: w.isActive ?? String(w.status ?? '').toLowerCase() === 'active',
+          pendingApprovals: 0,
+        }
+      })
+      setWorkflows(mapped)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load workflows')
+      setWorkflows([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadWorkflows()
+  }, [])
+
+  const handleCreate = async (data: any) => {
+    try {
+      await FinanceService.createApprovalWorkflow(data)
+      await loadWorkflows()
+    } catch (e) {
+      console.error('Failed to create workflow', e)
+    }
+  }
+
+  const handleUpdate = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateApprovalWorkflow(id, data)
+      await loadWorkflows()
+    } catch (e) {
+      console.error('Failed to update workflow', e)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await FinanceService.deleteApprovalWorkflow(id)
+      await loadWorkflows()
+    } catch (e) {
+      console.error('Failed to delete workflow', e)
+    }
+  }
 
   const [pendingItems] = useState([
     { id: 'JE-123', type: 'Journal Entry', amount: 500000, submittedBy: 'John Doe', currentLevel: 1, totalLevels: 3, approver: 'Jane Smith' },
@@ -28,10 +91,24 @@ export default function ApprovalWorkflowsPage() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50 px-3 py-2">
       <div className="w-full space-y-3">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Approval Workflows</h1>
-          <p className="text-gray-600 mt-1">Multi-level approval configuration and management</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Approval Workflows</h1>
+            <p className="text-gray-600 mt-1">Multi-level approval configuration and management</p>
+          </div>
+          <button
+            onClick={() => handleCreate({ companyId: 'default-company-id', name: 'New Workflow', documentType: 'invoice', isActive: true, steps: [] })}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+          >
+            New Workflow
+          </button>
         </div>
+
+        {loading && <p className="text-sm text-gray-500">Loading workflows…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!loading && workflows.length === 0 && (
+          <p className="text-sm text-gray-500">No workflows found.</p>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {workflows.map((workflow) => (
@@ -47,6 +124,20 @@ export default function ApprovalWorkflowsPage() {
                 <p>Type: {workflow.type}</p>
                 <p>Levels: {workflow.levels}</p>
                 <p className="font-semibold text-orange-600">Pending: {workflow.pendingApprovals}</p>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => handleUpdate(workflow.id, { isActive: !workflow.active })}
+                  className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  {workflow.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <button
+                  onClick={() => handleDelete(workflow.id)}
+                  className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ))}

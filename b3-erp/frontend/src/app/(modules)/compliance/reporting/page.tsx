@@ -1,15 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Calendar, Filter, Plus, MoreVertical } from 'lucide-react';
+import { ComplianceService, ComplianceReport } from '@/services/compliance.service';
+
+interface ReportRow {
+    id: string;
+    name: string;
+    type: string;
+    date: string;
+    status: string;
+    size: string;
+}
+
+function mapReport(r: ComplianceReport): ReportRow {
+    return {
+        id: r.id,
+        name: r.name,
+        type: r.report_type,
+        date: r.report_date ? String(r.report_date).slice(0, 10) : '-',
+        status: r.status,
+        size: r.file_size || '-',
+    };
+}
 
 export default function RegulatoryReportingPage() {
-    const [reports, setReports] = useState([
-        { id: 1, name: 'Annual GDPR Audit', type: 'GDPR', date: '2024-03-01', status: 'Generated', size: '2.4 MB' },
-        { id: 2, name: 'Q1 SOC 2 Compliance', type: 'SOC 2', date: '2024-04-01', status: 'Scheduled', size: '-' },
-        { id: 3, name: 'Monthly Access Log Review', type: 'Internal', date: '2024-03-31', status: 'Generated', size: '15.2 MB' },
-        { id: 4, name: 'HIPAA Security Assessment', type: 'HIPAA', date: '2024-02-15', status: 'Generated', size: '5.8 MB' },
-    ]);
+    const [reports, setReports] = useState<ReportRow[]>([]);
+
+    useEffect(() => {
+        ComplianceService.getReports()
+            .then((rows) => setReports(Array.isArray(rows) ? rows.map(mapReport) : []))
+            .catch(() => setReports([]));
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 px-3 py-2">

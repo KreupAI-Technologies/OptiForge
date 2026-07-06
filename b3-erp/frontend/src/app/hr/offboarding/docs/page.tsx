@@ -2,14 +2,47 @@
 
 import { FileText, Award, File, ChevronRight, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
+import { OffboardingService } from '@/services/offboarding.service';
 
 export default function DocsPage() {
-    const stats = {
-        pendingRequests: 8,
-        generatedToday: 5,
-        issuedThisMonth: 24,
+    const [stats, setStats] = useState({
+        pendingRequests: 0,
+        generatedToday: 0,
+        issuedThisMonth: 0,
         avgTurnaroundTime: '2 days'
-    };
+    });
+
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const dashboard = await OffboardingService.getOffboardingDashboard();
+                if (!mounted) return;
+                setStats({
+                    // Pending document/clearance requests awaiting action
+                    pendingRequests: dashboard?.pendingClearances ?? dashboard?.activeResignations ?? 0,
+                    // Closest real signal for "generated today": exit interviews still pending
+                    generatedToday: dashboard?.exitInterviewsPending ?? 0,
+                    // Issued this month approximated by active resignations in the pipeline
+                    issuedThisMonth: dashboard?.activeResignations ?? 0,
+                    // No matching real field; keep static text
+                    avgTurnaroundTime: '2 days'
+                });
+            } catch {
+                if (!mounted) return;
+                setStats({
+                    pendingRequests: 0,
+                    generatedToday: 0,
+                    issuedThisMonth: 0,
+                    avgTurnaroundTime: '2 days'
+                });
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const modules = [
         {

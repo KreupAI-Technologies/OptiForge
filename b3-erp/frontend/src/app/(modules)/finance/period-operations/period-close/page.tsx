@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Calendar, CheckCircle, Clock, AlertTriangle, Play, Lock } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface CloseTask {
   id: string
@@ -12,18 +13,46 @@ interface CloseTask {
 }
 
 export default function PeriodClosePage() {
-  const [tasks] = useState<CloseTask[]>([
-    { id: '1', task: 'Reconcile bank accounts', status: 'completed', assignedTo: 'Finance Team', dueDate: '2025-10-20' },
-    { id: '2', task: 'Post all transactions', status: 'completed', assignedTo: 'Accounting Team', dueDate: '2025-10-21' },
-    { id: '3', task: 'Review accounts receivable', status: 'in_progress', assignedTo: 'AR Team', dueDate: '2025-10-22' },
-    { id: '4', task: 'Review accounts payable', status: 'in_progress', assignedTo: 'AP Team', dueDate: '2025-10-22' },
-    { id: '5', task: 'Depreciation calculation', status: 'pending', assignedTo: 'Fixed Assets Team', dueDate: '2025-10-23' },
-    { id: '6', task: 'Inventory valuation', status: 'pending', assignedTo: 'Inventory Team', dueDate: '2025-10-23' },
-    { id: '7', task: 'Accrue expenses', status: 'pending', assignedTo: 'Finance Team', dueDate: '2025-10-24' },
-    { id: '8', task: 'Review trial balance', status: 'pending', assignedTo: 'Controller', dueDate: '2025-10-25' },
-    { id: '9', task: 'Generate financial statements', status: 'pending', assignedTo: 'Finance Team', dueDate: '2025-10-26' },
-    { id: '10', task: 'Close period', status: 'pending', assignedTo: 'CFO', dueDate: '2025-10-27' }
-  ])
+  const [tasks, setTasks] = useState<CloseTask[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const periods = await FinanceService.getFinancialPeriods()
+        const list = Array.isArray(periods) ? periods : []
+        // Pick the current (or most recent open) period and derive its
+        // closing checklist into the task list the JSX renders.
+        const current =
+          list.find((p: any) => p?.isCurrent) ||
+          list.find((p: any) => String(p?.status).toLowerCase() === 'open') ||
+          list[0]
+        const checklist: any[] = Array.isArray(current?.closingChecklist)
+          ? current.closingChecklist
+          : []
+        const mapped: CloseTask[] = checklist.map((c: any, i: number) => ({
+          id: String(i + 1),
+          task: c?.taskName ?? c?.task ?? `Task ${i + 1}`,
+          status: c?.completed ? 'completed' : 'pending',
+          assignedTo: c?.completedBy ?? 'Finance Team',
+          dueDate: current?.endDate ?? new Date().toISOString().slice(0, 10),
+        }))
+        if (active) setTasks(mapped)
+      } catch (e: any) {
+        if (active) setError(e?.message ?? 'Failed to load period close data')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -35,7 +64,7 @@ export default function PeriodClosePage() {
   }
 
   const completedTasks = tasks.filter(t => t.status === 'completed').length
-  const progress = (completedTasks / tasks.length) * 100
+  const progress = tasks.length ? (completedTasks / tasks.length) * 100 : 0
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 px-3 py-2">
