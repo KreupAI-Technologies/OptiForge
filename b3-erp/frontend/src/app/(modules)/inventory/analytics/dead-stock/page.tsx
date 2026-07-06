@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   AlertTriangle,
   Package,
@@ -29,104 +30,46 @@ export default function DeadStockPage() {
   const [selectedAging, setSelectedAging] = useState('all');
   const [selectedAction, setSelectedAction] = useState('all');
 
-  const [deadStockData, setDeadStockData] = useState<DeadStockItem[]>([
-    {
-      itemCode: 'VAL-032',
-      itemName: 'Solenoid Valve - Legacy Model',
-      category: 'Components',
-      currentStock: 28,
-      valueAtCost: 168000,
-      lastMovementDate: '2024-12-15',
-      daysSinceMovement: 38,
-      recommendedAction: 'liquidate',
-      agingCategory: '90-180',
-      potentialLoss: 84000
-    },
-    {
-      itemCode: 'MTR-018',
-      itemName: 'Electric Motor - Discontinued',
-      category: 'Motors',
-      currentStock: 12,
-      valueAtCost: 540000,
-      lastMovementDate: '2024-07-22',
-      daysSinceMovement: 184,
-      recommendedAction: 'write-off',
-      agingCategory: '180-365',
-      potentialLoss: 405000
-    },
-    {
-      itemCode: 'CHS-025',
-      itemName: 'Chassis Frame - Old Design',
-      category: 'Structures',
-      currentStock: 6,
-      valueAtCost: 780000,
-      lastMovementDate: '2023-10-10',
-      daysSinceMovement: 468,
-      recommendedAction: 'repurpose',
-      agingCategory: '1-2 years',
-      potentialLoss: 585000
-    },
-    {
-      itemCode: 'PCB-042',
-      itemName: 'Control Board - Version 1.0',
-      category: 'Electronics',
-      currentStock: 45,
-      valueAtCost: 315000,
-      lastMovementDate: '2022-08-15',
-      daysSinceMovement: 889,
-      recommendedAction: 'write-off',
-      agingCategory: '>2 years',
-      potentialLoss: 283500
-    },
-    {
-      itemCode: 'GRB-015',
-      itemName: 'Gearbox Assembly - Obsolete',
-      category: 'Transmission',
-      currentStock: 8,
-      valueAtCost: 960000,
-      lastMovementDate: '2024-06-05',
-      daysSinceMovement: 231,
-      recommendedAction: 'liquidate',
-      agingCategory: '180-365',
-      potentialLoss: 672000
-    },
-    {
-      itemCode: 'FLT-056',
-      itemName: 'Air Filter - Superseded',
-      category: 'Consumables',
-      currentStock: 120,
-      valueAtCost: 48000,
-      lastMovementDate: '2024-09-18',
-      daysSinceMovement: 126,
-      recommendedAction: 'monitor',
-      agingCategory: '90-180',
-      potentialLoss: 12000
-    },
-    {
-      itemCode: 'HYD-088',
-      itemName: 'Hydraulic Cylinder - Custom',
-      category: 'Hydraulics',
-      currentStock: 4,
-      valueAtCost: 520000,
-      lastMovementDate: '2023-05-20',
-      daysSinceMovement: 611,
-      recommendedAction: 'repurpose',
-      agingCategory: '1-2 years',
-      potentialLoss: 390000
-    },
-    {
-      itemCode: 'SEN-024',
-      itemName: 'Sensor Module - Incompatible',
-      category: 'Electronics',
-      currentStock: 65,
-      valueAtCost: 195000,
-      lastMovementDate: '2024-11-05',
-      daysSinceMovement: 78,
-      recommendedAction: 'monitor',
-      agingCategory: '90-180',
-      potentialLoss: 39000
-    }
-  ]);
+  const [deadStockData, setDeadStockData] = useState<DeadStockItem[]>([]);
+
+  useEffect(() => {
+    const loadDeadStock = async () => {
+      try {
+        const res = await inventoryService.getDeadStock();
+        const items = Array.isArray(res?.items) ? res.items : [];
+        const mapped: DeadStockItem[] = items.map((it: any) => {
+          const days = Number(it?.daysSinceMovement) || 0;
+          const value = Number(it?.value) || 0;
+          const agingCategory: DeadStockItem['agingCategory'] =
+            days > 730 ? '>2 years'
+              : days > 365 ? '1-2 years'
+                : days > 180 ? '180-365'
+                  : '90-180';
+          const recommendedAction: DeadStockItem['recommendedAction'] =
+            days > 730 ? 'write-off'
+              : days > 365 ? 'repurpose'
+                : days > 180 ? 'liquidate'
+                  : 'monitor';
+          return {
+            itemCode: it?.itemCode ?? '',
+            itemName: it?.itemName ?? '',
+            category: it?.category ?? '',
+            currentStock: Number(it?.quantity) || 0,
+            valueAtCost: value,
+            lastMovementDate: it?.lastMovementDate ?? '',
+            daysSinceMovement: days,
+            recommendedAction,
+            agingCategory,
+            potentialLoss: Math.round(value * 0.75),
+          };
+        });
+        setDeadStockData(mapped);
+      } catch (err) {
+        console.error('Failed to load dead stock', err);
+      }
+    };
+    loadDeadStock();
+  }, []);
 
   const getAgingColor = (category: string) => {
     switch (category) {

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   DollarSign,
   TrendingUp,
@@ -30,117 +31,54 @@ export default function CarryingCostPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('this-year');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const [costData, setCostData] = useState<CarryingCostItem[]>([
-    {
-      itemCode: 'FIN-012',
-      itemName: 'Finished Excavator Unit',
-      category: 'Finished Goods',
-      avgInventoryValue: 1250000,
-      storageCost: 37500,
-      capitalCost: 125000,
-      insuranceCost: 25000,
-      obsolescenceCost: 12500,
-      totalCarryingCost: 200000,
-      carryingCostRate: 16.0,
-      annualTurnover: 4
-    },
-    {
-      itemCode: 'CAB-008',
-      itemName: 'Operator Cabin Assembly',
-      category: 'Sub-Assembly',
-      avgInventoryValue: 425000,
-      storageCost: 12750,
-      capitalCost: 42500,
-      insuranceCost: 8500,
-      obsolescenceCost: 4250,
-      totalCarryingCost: 68000,
-      carryingCostRate: 16.0,
-      annualTurnover: 4
-    },
-    {
-      itemCode: 'STL-042',
-      itemName: 'Steel Plates - Grade A',
-      category: 'Raw Materials',
-      avgInventoryValue: 320000,
-      storageCost: 16000,
-      capitalCost: 28800,
-      insuranceCost: 6400,
-      obsolescenceCost: 3200,
-      totalCarryingCost: 54400,
-      carryingCostRate: 17.0,
-      annualTurnover: 6
-    },
-    {
-      itemCode: 'HYD-001',
-      itemName: 'Hydraulic Pump Assembly',
-      category: 'Hydraulics',
-      avgInventoryValue: 245000,
-      storageCost: 7350,
-      capitalCost: 24500,
-      insuranceCost: 4900,
-      obsolescenceCost: 2450,
-      totalCarryingCost: 39200,
-      carryingCostRate: 16.0,
-      annualTurnover: 6
-    },
-    {
-      itemCode: 'ELC-015',
-      itemName: 'Control Panel PCB',
-      category: 'Electronics',
-      avgInventoryValue: 180000,
-      storageCost: 3600,
-      capitalCost: 18000,
-      insuranceCost: 3600,
-      obsolescenceCost: 9000,
-      totalCarryingCost: 34200,
-      carryingCostRate: 19.0,
-      annualTurnover: 7
-    },
-    {
-      itemCode: 'BRG-028',
-      itemName: 'Bearing Assembly Kit',
-      category: 'Components',
-      avgInventoryValue: 95000,
-      storageCost: 2850,
-      capitalCost: 9500,
-      insuranceCost: 1900,
-      obsolescenceCost: 950,
-      totalCarryingCost: 15200,
-      carryingCostRate: 16.0,
-      annualTurnover: 7
-    },
-    {
-      itemCode: 'SPR-056',
-      itemName: 'Spare Parts Kit - Standard',
-      category: 'Spares',
-      avgInventoryValue: 65000,
-      storageCost: 3250,
-      capitalCost: 5850,
-      insuranceCost: 1300,
-      obsolescenceCost: 3250,
-      totalCarryingCost: 13650,
-      carryingCostRate: 21.0,
-      annualTurnover: 3
-    },
-    {
-      itemCode: 'WLD-022',
-      itemName: 'Welding Electrodes',
-      category: 'Consumables',
-      avgInventoryValue: 12000,
-      storageCost: 360,
-      capitalCost: 1080,
-      insuranceCost: 240,
-      obsolescenceCost: 120,
-      totalCarryingCost: 1800,
-      carryingCostRate: 15.0,
-      annualTurnover: 12
-    }
-  ]);
+  const [costData, setCostData] = useState<CarryingCostItem[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await inventoryService.getCarryingCost();
+        const rawItems = Array.isArray(res?.items) ? res.items : [];
+        const mapped: CarryingCostItem[] = rawItems.map((it: any) => {
+          const avgInventoryValue = Number(it?.stockValue ?? 0);
+          const storageCost = Number(it?.storageCost ?? 0);
+          const capitalCost = Number(it?.capitalCost ?? 0);
+          const totalCarryingCost = Number(it?.annualCarryingCost ?? 0);
+          // Derive remaining components from the total (insurance + obsolescence)
+          const remainder = Math.max(totalCarryingCost - storageCost - capitalCost, 0);
+          const obsolescenceCost = Number(it?.obsolescenceRisk ?? remainder);
+          const insuranceCost = Math.max(remainder - obsolescenceCost, 0);
+          const carryingCostRate = avgInventoryValue > 0
+            ? (totalCarryingCost / avgInventoryValue) * 100
+            : 0;
+          return {
+            itemCode: it?.itemCode ?? '',
+            itemName: it?.itemName ?? '',
+            category: it?.category ?? '',
+            avgInventoryValue,
+            storageCost,
+            capitalCost,
+            insuranceCost,
+            obsolescenceCost,
+            totalCarryingCost,
+            carryingCostRate,
+            annualTurnover: Number(it?.annualTurnover ?? 0),
+          };
+        });
+        setCostData(mapped);
+      } catch (err) {
+        console.error('Failed to load carrying cost data', err);
+      }
+    })();
+  }, []);
 
   const totalInventoryValue = costData.reduce((sum, item) => sum + item.avgInventoryValue, 0);
   const totalCarryingCost = costData.reduce((sum, item) => sum + item.totalCarryingCost, 0);
-  const avgCarryingCostRate = ((totalCarryingCost / totalInventoryValue) * 100).toFixed(1);
-  const highestCostItem = costData.reduce((max, item) => item.totalCarryingCost > max.totalCarryingCost ? item : max, costData[0]);
+  const avgCarryingCostRate = totalInventoryValue > 0
+    ? ((totalCarryingCost / totalInventoryValue) * 100).toFixed(1)
+    : '0.0';
+  const highestCostItem = costData.length > 0
+    ? costData.reduce((max, item) => item.totalCarryingCost > max.totalCarryingCost ? item : max, costData[0])
+    : { itemCode: '-', totalCarryingCost: 0 } as CarryingCostItem;
 
   const filteredData = costData.filter(item => {
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;

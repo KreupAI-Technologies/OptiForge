@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Calendar,
@@ -20,6 +20,7 @@ import {
   TurnoverAnalysisData,
   ABCAnalysisData
 } from '@/components/inventory/InventoryAnalyticsModals';
+import { inventoryService } from '@/services/InventoryService';
 
 interface ItemTurnover {
   itemCode: string;
@@ -43,96 +44,36 @@ export default function InventoryTurnoverPage() {
   const [turnoverResult, setTurnoverResult] = useState<TurnoverAnalysisData | null>(null);
   const [abcResult, setABCResult] = useState<ABCAnalysisData | null>(null);
 
-  const [turnoverData, setTurnoverData] = useState<ItemTurnover[]>([
-    {
-      itemCode: 'HYD-001',
-      itemName: 'Hydraulic Pump Assembly',
-      category: 'Hydraulics',
-      avgInventory: 245000,
-      cogs: 1470000,
-      turnoverRatio: 6.0,
-      turnoverDays: 61,
-      trend: 'up',
-      salesValue: 1680000
-    },
-    {
-      itemCode: 'ELC-015',
-      itemName: 'Control Panel PCB',
-      category: 'Electronics',
-      avgInventory: 180000,
-      cogs: 1260000,
-      turnoverRatio: 7.0,
-      turnoverDays: 52,
-      trend: 'up',
-      salesValue: 1450000
-    },
-    {
-      itemCode: 'STL-042',
-      itemName: 'Steel Plates - Grade A',
-      category: 'Raw Materials',
-      avgInventory: 320000,
-      cogs: 1920000,
-      turnoverRatio: 6.0,
-      turnoverDays: 61,
-      trend: 'stable',
-      salesValue: 2150000
-    },
-    {
-      itemCode: 'BRG-028',
-      itemName: 'Bearing Assembly Kit',
-      category: 'Components',
-      avgInventory: 95000,
-      cogs: 665000,
-      turnoverRatio: 7.0,
-      turnoverDays: 52,
-      trend: 'up',
-      salesValue: 780000
-    },
-    {
-      itemCode: 'FIN-012',
-      itemName: 'Finished Excavator Unit',
-      category: 'Finished Goods',
-      avgInventory: 1250000,
-      cogs: 5000000,
-      turnoverRatio: 4.0,
-      turnoverDays: 91,
-      trend: 'stable',
-      salesValue: 6500000
-    },
-    {
-      itemCode: 'SPR-056',
-      itemName: 'Spare Parts Kit - Standard',
-      category: 'Spares',
-      avgInventory: 65000,
-      cogs: 195000,
-      turnoverRatio: 3.0,
-      turnoverDays: 122,
-      trend: 'down',
-      salesValue: 245000
-    },
-    {
-      itemCode: 'WLD-022',
-      itemName: 'Welding Electrodes',
-      category: 'Consumables',
-      avgInventory: 12000,
-      cogs: 144000,
-      turnoverRatio: 12.0,
-      turnoverDays: 30,
-      trend: 'up',
-      salesValue: 165000
-    },
-    {
-      itemCode: 'CAB-008',
-      itemName: 'Operator Cabin Assembly',
-      category: 'Sub-Assembly',
-      avgInventory: 425000,
-      cogs: 1700000,
-      turnoverRatio: 4.0,
-      turnoverDays: 91,
-      trend: 'stable',
-      salesValue: 2100000
-    }
-  ]);
+  const [turnoverData, setTurnoverData] = useState<ItemTurnover[]>([]);
+
+  // Map a raw turnover item from the API into the page's ItemTurnover shape.
+  const mapTurnoverItem = (raw: any): ItemTurnover => {
+    const ratio = Number(raw?.turnoverRatio) || 0;
+    return {
+      itemCode: raw?.itemCode ?? '',
+      itemName: raw?.itemName ?? '',
+      category: raw?.category ?? '',
+      avgInventory: Number(raw?.value) || 0,
+      cogs: Number(raw?.cogs) || 0,
+      turnoverRatio: ratio,
+      turnoverDays: Number(raw?.daysInStock) || (ratio > 0 ? Math.round(365 / ratio) : 0),
+      trend: (raw?.trend as ItemTurnover['trend']) ?? 'stable',
+      salesValue: Number(raw?.salesValue) || 0
+    };
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await inventoryService.getTurnover();
+        const items: any[] = Array.isArray(res?.items) ? res.items : [];
+        setTurnoverData(items.map(mapTurnoverItem));
+      } catch (err) {
+        console.error('Failed to load turnover analysis', err);
+        setTurnoverData([]);
+      }
+    })();
+  }, []);
 
   const getTurnoverColor = (ratio: number) => {
     if (ratio >= 8) return 'text-green-600 bg-green-50 border-green-200';
@@ -146,8 +87,8 @@ export default function InventoryTurnoverPage() {
     return 'Slow Moving';
   };
 
-  const avgTurnoverRatio = (turnoverData.reduce((sum, item) => sum + item.turnoverRatio, 0) / turnoverData.length).toFixed(1);
-  const avgTurnoverDays = Math.round(turnoverData.reduce((sum, item) => sum + item.turnoverDays, 0) / turnoverData.length);
+  const avgTurnoverRatio = (turnoverData.length ? turnoverData.reduce((sum, item) => sum + item.turnoverRatio, 0) / turnoverData.length : 0).toFixed(1);
+  const avgTurnoverDays = turnoverData.length ? Math.round(turnoverData.reduce((sum, item) => sum + item.turnoverDays, 0) / turnoverData.length) : 0;
   const fastMovingCount = turnoverData.filter(item => item.turnoverRatio >= 8).length;
   const slowMovingCount = turnoverData.filter(item => item.turnoverRatio < 4).length;
 
@@ -157,29 +98,51 @@ export default function InventoryTurnoverPage() {
   });
 
   // Handler functions
-  const handleTurnoverGenerate = (config: any) => {
-    console.log('Generating turnover analysis with config:', config);
-    // TODO: API call to generate turnover analysis
-    // const response = await fetch('/api/inventory/analytics/turnover', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setTurnoverResult(data);
+  const handleTurnoverGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getTurnover(config?.warehouse);
+      const items: any[] = Array.isArray(res?.items) ? res.items : [];
+      const mapped: ItemTurnover[] = items.map(mapTurnoverItem);
+      setTurnoverData(mapped);
 
-    setTurnoverResult({
-      period: config.period,
-      startDate: config.startDate,
-      endDate: config.endDate,
-      warehouse: config.warehouse,
-      category: config.category,
-      items: [],
-      summary: {
-        avgTurnoverRatio: 5.8,
-        fastMovingCount: 12,
-        slowMovingCount: 8,
-        nonMovingCount: 3
-      }
-    });
-    setIsTurnoverModalOpen(false);
-    alert('Turnover analysis generated successfully!');
+      const fastMoving = mapped.filter((i) => i.turnoverRatio >= 8).length;
+      const slowMoving = mapped.filter((i) => i.turnoverRatio > 0 && i.turnoverRatio < 4).length;
+      const nonMoving = mapped.filter((i) => i.turnoverRatio === 0).length;
+
+      const classify = (ratio: number): TurnoverAnalysisData['items'][number]['classification'] => {
+        if (ratio === 0) return 'non-moving';
+        if (ratio >= 8) return 'fast-moving';
+        if (ratio >= 4) return 'medium-moving';
+        return 'slow-moving';
+      };
+
+      setTurnoverResult({
+        period: config?.period,
+        startDate: config?.startDate,
+        endDate: config?.endDate,
+        warehouse: config?.warehouse,
+        category: config?.category,
+        items: mapped.map((i) => ({
+          itemCode: i.itemCode,
+          itemName: i.itemName,
+          category: i.category,
+          avgInventory: i.avgInventory,
+          costOfGoodsSold: i.cogs,
+          turnoverRatio: i.turnoverRatio,
+          daysInInventory: i.turnoverDays,
+          classification: classify(i.turnoverRatio)
+        })),
+        summary: {
+          avgTurnoverRatio: Number(res?.avgTurnoverRatio) || 0,
+          fastMovingCount: fastMoving,
+          slowMovingCount: slowMoving,
+          nonMovingCount: nonMoving
+        }
+      });
+      setIsTurnoverModalOpen(false);
+    } catch (err) {
+      console.error('Failed to generate turnover analysis', err);
+    }
   };
 
   const handleABCGenerate = (config: any) => {

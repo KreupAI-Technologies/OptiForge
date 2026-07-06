@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   Zap,
   TrendingUp,
@@ -31,125 +32,45 @@ export default function InventoryVelocityPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('last-90-days');
   const [selectedVelocity, setSelectedVelocity] = useState('all');
 
-  const [velocityData, setVelocityData] = useState<ItemVelocity[]>([
-    {
-      itemCode: 'WLD-022',
-      itemName: 'Welding Electrodes',
-      category: 'Consumables',
-      currentStock: 1200,
-      avgDailyUsage: 45,
-      avgWeeklyUsage: 315,
-      avgMonthlyUsage: 1350,
-      daysOnHand: 27,
-      velocityClass: 'A',
-      trend: 'up',
-      lastMovement: '2025-01-22'
-    },
-    {
-      itemCode: 'HYD-001',
-      itemName: 'Hydraulic Pump Assembly',
-      category: 'Hydraulics',
-      currentStock: 85,
-      avgDailyUsage: 3.2,
-      avgWeeklyUsage: 22,
-      avgMonthlyUsage: 96,
-      daysOnHand: 27,
-      velocityClass: 'A',
-      trend: 'stable',
-      lastMovement: '2025-01-22'
-    },
-    {
-      itemCode: 'ELC-015',
-      itemName: 'Control Panel PCB',
-      category: 'Electronics',
-      currentStock: 120,
-      avgDailyUsage: 4.5,
-      avgWeeklyUsage: 32,
-      avgMonthlyUsage: 135,
-      daysOnHand: 27,
-      velocityClass: 'A',
-      trend: 'up',
-      lastMovement: '2025-01-21'
-    },
-    {
-      itemCode: 'BRG-028',
-      itemName: 'Bearing Assembly Kit',
-      category: 'Components',
-      currentStock: 240,
-      avgDailyUsage: 5.8,
-      avgWeeklyUsage: 41,
-      avgMonthlyUsage: 174,
-      daysOnHand: 41,
-      velocityClass: 'B',
-      trend: 'stable',
-      lastMovement: '2025-01-20'
-    },
-    {
-      itemCode: 'STL-042',
-      itemName: 'Steel Plates - Grade A',
-      category: 'Raw Materials',
-      currentStock: 5200,
-      avgDailyUsage: 85,
-      avgWeeklyUsage: 595,
-      avgMonthlyUsage: 2550,
-      daysOnHand: 61,
-      velocityClass: 'B',
-      trend: 'down',
-      lastMovement: '2025-01-19'
-    },
-    {
-      itemCode: 'CAB-008',
-      itemName: 'Operator Cabin Assembly',
-      category: 'Sub-Assembly',
-      currentStock: 18,
-      avgDailyUsage: 0.6,
-      avgWeeklyUsage: 4,
-      avgMonthlyUsage: 18,
-      daysOnHand: 30,
-      velocityClass: 'B',
-      trend: 'stable',
-      lastMovement: '2025-01-18'
-    },
-    {
-      itemCode: 'SPR-056',
-      itemName: 'Spare Parts Kit - Standard',
-      category: 'Spares',
-      currentStock: 65,
-      avgDailyUsage: 0.8,
-      avgWeeklyUsage: 5,
-      avgMonthlyUsage: 24,
-      daysOnHand: 81,
-      velocityClass: 'C',
-      trend: 'down',
-      lastMovement: '2025-01-15'
-    },
-    {
-      itemCode: 'FLT-018',
-      itemName: 'Oil Filter - Heavy Duty',
-      category: 'Consumables',
-      currentStock: 145,
-      avgDailyUsage: 1.2,
-      avgWeeklyUsage: 8,
-      avgMonthlyUsage: 36,
-      daysOnHand: 121,
-      velocityClass: 'C',
-      trend: 'stable',
-      lastMovement: '2025-01-10'
-    },
-    {
-      itemCode: 'VAL-032',
-      itemName: 'Solenoid Valve - Legacy',
-      category: 'Components',
-      currentStock: 28,
-      avgDailyUsage: 0.1,
-      avgWeeklyUsage: 1,
-      avgMonthlyUsage: 3,
-      daysOnHand: 280,
-      velocityClass: 'D',
-      trend: 'down',
-      lastMovement: '2024-12-15'
-    }
-  ]);
+  const [velocityData, setVelocityData] = useState<ItemVelocity[]>([]);
+
+  useEffect(() => {
+    const loadVelocity = async () => {
+      try {
+        const res = await inventoryService.getVelocity();
+        const items = Array.isArray(res?.items) ? res.items : [];
+        const classMap: Record<string, ItemVelocity['velocityClass']> = {
+          fast: 'A',
+          medium: 'B',
+          slow: 'C',
+          dead: 'D',
+        };
+        const mapped: ItemVelocity[] = items.map((it: any) => {
+          const velocityClass = classMap[String(it?.velocity ?? it?.abcClass).toLowerCase()] ?? 'C';
+          const days = Number(it?.daysSinceMovement) || 0;
+          const monthly = days > 0 ? (Number(it?.quantity) || 0) / (days / 30) : 0;
+          const daily = monthly / 30;
+          return {
+            itemCode: it?.itemCode ?? '',
+            itemName: it?.itemName ?? '',
+            category: it?.category ?? '',
+            currentStock: Number(it?.quantity) || 0,
+            avgDailyUsage: Number(daily.toFixed(1)),
+            avgWeeklyUsage: Number((daily * 7).toFixed(1)),
+            avgMonthlyUsage: Math.round(monthly),
+            daysOnHand: days,
+            velocityClass,
+            trend: velocityClass === 'A' ? 'up' : velocityClass === 'D' ? 'down' : 'stable',
+            lastMovement: it?.lastMovementDate ?? '',
+          };
+        });
+        setVelocityData(mapped);
+      } catch (err) {
+        console.error('Failed to load velocity data', err);
+      }
+    };
+    loadVelocity();
+  }, []);
 
   const getVelocityColor = (velocityClass: string) => {
     switch (velocityClass) {
