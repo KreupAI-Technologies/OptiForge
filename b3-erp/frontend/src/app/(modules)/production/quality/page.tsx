@@ -47,6 +47,7 @@ const ProductionQualityPage = () => {
   const [inspections, setInspections] = useState<QualityInspection[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [inspectionTypeFilter, setInspectionTypeFilter] = useState('all')
@@ -73,7 +74,7 @@ const ProductionQualityPage = () => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshKey])
 
   // Modal state hooks
   const [isViewOpen, setIsViewOpen] = useState(false)
@@ -204,16 +205,19 @@ const ProductionQualityPage = () => {
     setSelectedInspection(null)
   }
 
-  const handleEditSubmit = (data: Inspection) => {
-    // TODO: Replace with actual API call
-    // await fetch(`/api/quality/inspections/${data.id}`, {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(data)
-    // });
-    console.log('Edit inspection submitted:', data)
-    setIsEditOpen(false)
-    setSelectedInspection(null)
+  const handleEditSubmit = async (data: Inspection) => {
+    try {
+      const id = (data as any).id ?? selectedInspection?.inspection_id
+      if (id != null) {
+        await ProductionOrphanService.updateNcr(String(id), data as any)
+      }
+    } catch (err) {
+      console.error('Error updating inspection:', err)
+    } finally {
+      setIsEditOpen(false)
+      setSelectedInspection(null)
+      setRefreshKey((k) => k + 1)
+    }
   }
 
   const handleApproveSubmit = (decision: 'approve' | 'reject' | 'request-changes', comments: string, signature: string) => {
