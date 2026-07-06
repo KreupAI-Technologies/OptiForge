@@ -108,132 +108,23 @@ const mockItems = [
   { code: 'ASSY-DOOR-001', name: 'Cabinet Door Assembly', description: 'Soft-close door with handle', type: 'assembly', uom: 'Units', stock: 8, cost: 1250.00 },
 ];
 
-const mockBOM: BOM = {
-  id: 'BOM-001',
-  bomNumber: 'BOM-2025-001',
-  productCode: 'PROD-CAB-001',
-  productName: 'Premium Kitchen Cabinet - Modular',
-  productDescription: 'High-quality modular kitchen cabinet with soft-close mechanism',
-  drawingNumber: 'DWG-CAB-001-R2',
-  version: 'V2.1',
-  revision: 'R3',
+const emptyBOM: BOM = {
+  id: '',
+  bomNumber: '',
+  productCode: '',
+  productName: '',
+  productDescription: '',
+  drawingNumber: '',
+  version: '',
+  revision: '',
   bomType: 'manufacturing',
-  effectiveDate: '2025-01-15',
+  effectiveDate: '',
   expiryDate: '',
-  batchSize: 10,
-  leadTime: 7,
-  scrapPercentage: 3.5,
-  uom: 'Units',
-  components: [
-    {
-      id: '1',
-      level: 0,
-      itemCode: 'ASSY-FRAME-001',
-      itemName: 'Cabinet Frame Assembly',
-      description: 'Main frame structure with side panels',
-      quantity: 1,
-      uom: 'Unit',
-      itemType: 'assembly',
-      stockAvailable: 15,
-      costPerUnit: 5200.00,
-      extendedCost: 5200.00,
-      makeOrBuy: 'make',
-      scrapPercent: 2.0,
-      isRequired: true,
-      isPhantom: true,
-      children: [
-        {
-          id: '1-1',
-          level: 1,
-          itemCode: 'RM-WOOD-PLY-18',
-          itemName: 'BWP Plywood 18mm',
-          description: 'Boiling Water Proof Plywood - Premium Grade',
-          quantity: 2.5,
-          uom: 'Sheets',
-          itemType: 'raw_material',
-          stockAvailable: 120,
-          costPerUnit: 1800.00,
-          extendedCost: 4500.00,
-          makeOrBuy: 'buy',
-          scrapPercent: 5.0,
-          isRequired: true,
-          isPhantom: false,
-          alternatives: 'RM-WOOD-PLY-19, RM-WOOD-MDF-18',
-        },
-        {
-          id: '1-2',
-          level: 1,
-          itemCode: 'RM-LAMINATE-001',
-          itemName: 'Decorative Laminate',
-          description: 'High-pressure laminate - Matte finish',
-          quantity: 3,
-          uom: 'Sheets',
-          itemType: 'raw_material',
-          stockAvailable: 45,
-          costPerUnit: 150.00,
-          extendedCost: 450.00,
-          makeOrBuy: 'buy',
-          scrapPercent: 8.0,
-          isRequired: true,
-          isPhantom: false,
-        },
-      ],
-    },
-    {
-      id: '2',
-      level: 0,
-      itemCode: 'ASSY-DOOR-001',
-      itemName: 'Cabinet Door Assembly',
-      description: 'Soft-close door with handle',
-      quantity: 2,
-      uom: 'Units',
-      itemType: 'assembly',
-      stockAvailable: 8,
-      costPerUnit: 1250.00,
-      extendedCost: 2500.00,
-      makeOrBuy: 'make',
-      scrapPercent: 1.5,
-      isRequired: true,
-      isPhantom: false,
-      children: [
-        {
-          id: '2-1',
-          level: 1,
-          itemCode: 'SFG-DOOR-PANEL',
-          itemName: 'Door Panel - Laminated',
-          description: 'Pre-laminated door panel',
-          quantity: 1,
-          uom: 'Unit',
-          itemType: 'semi_finished',
-          stockAvailable: 30,
-          costPerUnit: 950.00,
-          extendedCost: 950.00,
-          makeOrBuy: 'make',
-          scrapPercent: 2.0,
-          isRequired: true,
-          isPhantom: false,
-        },
-        {
-          id: '2-2',
-          level: 1,
-          itemCode: 'COMP-HINGE-SC',
-          itemName: 'Soft-Close Hinge',
-          description: 'Hydraulic soft-close hinge',
-          quantity: 2,
-          uom: 'Pieces',
-          itemType: 'purchased_part',
-          stockAvailable: 200,
-          costPerUnit: 85.00,
-          extendedCost: 170.00,
-          makeOrBuy: 'buy',
-          scrapPercent: 0.5,
-          isRequired: true,
-          isPhantom: false,
-          supplierPreference: 'Hettich India',
-        },
-      ],
-    },
-  ],
+  batchSize: 0,
+  leadTime: 0,
+  scrapPercentage: 0,
+  uom: '',
+  components: [],
 };
 
 const itemTypeColors = {
@@ -255,9 +146,9 @@ const itemTypeLabels = {
 export default function BOMEditPage() {
   const router = useRouter();
   const params = useParams();
-  const [bom, setBom] = useState<BOM>(mockBOM);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(mockProducts[0]);
-  const [components, setComponents] = useState<BOMComponent[]>(mockBOM.components);
+  const [bom, setBom] = useState<BOM>(emptyBOM);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [components, setComponents] = useState<BOMComponent[]>([]);
   const [showItemSearch, setShowItemSearch] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set(['1', '2']));
@@ -824,7 +715,7 @@ export default function BOMEditPage() {
       )}
       {error && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {error} — showing sample data.
+          {error}
         </div>
       )}
       {/* Header */}
