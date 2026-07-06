@@ -116,247 +116,48 @@ interface Address {
   country: string;
 }
 
-// Mock data with Indian vendors
-const mockPurchaseOrder: PurchaseOrder = {
-  id: 'PO-001',
-  poNumber: 'PO-2025-00142',
-  status: 'partially_received',
-  vendorName: 'JSW Steel Limited',
-  vendorGST: '27AABCJ8578D1ZS',
-  vendorPAN: 'AABCJ8578D',
-  vendorContact: 'Rajesh Kumar',
-  vendorEmail: 'sales@jswsteel.in',
-  vendorPhone: '+91 836 2513333',
-  poDate: '2025-10-01',
-  expectedDelivery: '2025-10-30',
-  actualDelivery: '2025-10-28',
-  requisitionRef: 'PR-2025-00089',
-  rfqRef: 'RFQ-2025-00056',
-  paymentTerms: 'Net 45',
-  incoterms: 'Ex-Works',
-  freightTerms: 'Vendor Paid',
-  buyerName: 'Amit Sharma',
-  subtotal: 8500000,
-  cgst: 382500,
-  sgst: 382500,
+const emptyPurchaseOrder: PurchaseOrder = {
+  id: '',
+  poNumber: '',
+  status: 'draft',
+  vendorName: '',
+  vendorGST: '',
+  vendorPAN: '',
+  vendorContact: '',
+  vendorEmail: '',
+  vendorPhone: '',
+  poDate: '',
+  expectedDelivery: '',
+  actualDelivery: '',
+  requisitionRef: '',
+  rfqRef: '',
+  paymentTerms: '',
+  incoterms: '',
+  freightTerms: '',
+  buyerName: '',
+  subtotal: 0,
+  cgst: 0,
+  sgst: 0,
   igst: 0,
-  discount: 170000,
-  total: 9095000,
-  receivedValue: 4500000,
-  pendingAmount: 4595000,
-  notes: 'Urgent requirement for production line. Please ensure timely delivery with proper packaging.',
-  termsConditions: '1. Material to be delivered as per delivery schedule\n2. Quality inspection at vendor premises before dispatch\n3. Payment within 45 days from GRN date\n4. Prices are firm and fixed for the PO duration\n5. Penalty for delayed delivery as per contract terms',
+  discount: 0,
+  total: 0,
+  receivedValue: 0,
+  pendingAmount: 0,
+  notes: '',
+  termsConditions: '',
 };
 
-const vendorAddress: Address = {
-  street: 'JSW Centre, Bandra Kurla Complex',
-  city: 'Mumbai',
-  state: 'Maharashtra',
-  pincode: '400051',
-  country: 'India',
+const emptyAddress: Address = {
+  street: '',
+  city: '',
+  state: '',
+  pincode: '',
+  country: '',
 };
 
-const billingAddress: Address = {
-  street: 'Plot No. 45, MIDC Industrial Area',
-  city: 'Pune',
-  state: 'Maharashtra',
-  pincode: '411019',
-  country: 'India',
-};
-
-const deliveryAddress: Address = {
-  street: 'Manufacturing Unit 2, Talegaon Industrial Park',
-  city: 'Pune',
-  state: 'Maharashtra',
-  pincode: '410507',
-  country: 'India',
-};
-
-const mockLineItems: POLineItem[] = [
-  {
-    id: '1',
-    itemCode: 'STL-HR-12MM-001',
-    description: 'Hot Rolled Steel Coils - Grade IS 2062 E250, Thickness 12mm',
-    hsn: '7208',
-    quantity: 500,
-    receivedQty: 300,
-    unit: 'MT',
-    unitPrice: 52000,
-    taxRate: 18,
-    taxType: 'CGST+SGST',
-    discountPercent: 2,
-    taxAmount: 4587600,
-    total: 29974800,
-  },
-  {
-    id: '2',
-    itemCode: 'STL-CR-08MM-002',
-    description: 'Cold Rolled Steel Sheets - Grade IS 513 CR4, Thickness 8mm',
-    hsn: '7209',
-    quantity: 250,
-    receivedQty: 150,
-    unit: 'MT',
-    unitPrice: 58000,
-    taxRate: 18,
-    taxType: 'CGST+SGST',
-    discountPercent: 2,
-    taxAmount: 2545200,
-    total: 16619800,
-  },
-  {
-    id: '3',
-    itemCode: 'STL-TMT-16MM-003',
-    description: 'TMT Steel Bars - Fe 500D Grade, Diameter 16mm, Length 12m',
-    hsn: '7214',
-    quantity: 100,
-    receivedQty: 50,
-    unit: 'MT',
-    unitPrice: 48000,
-    taxRate: 18,
-    taxType: 'CGST+SGST',
-    discountPercent: 2,
-    taxAmount: 846720,
-    total: 5530080,
-  },
-];
-
-const mockDeliverySchedule: DeliverySchedule[] = [
-  {
-    id: '1',
-    deliveryDate: '2025-10-15',
-    quantity: 350,
-    location: 'Pune Manufacturing Unit 2',
-    status: 'completed',
-    deliveredQty: 350,
-  },
-  {
-    id: '2',
-    deliveryDate: '2025-10-28',
-    quantity: 250,
-    location: 'Pune Manufacturing Unit 2',
-    status: 'partial',
-    deliveredQty: 150,
-  },
-  {
-    id: '3',
-    deliveryDate: '2025-11-10',
-    quantity: 250,
-    location: 'Pune Manufacturing Unit 2',
-    status: 'pending',
-    deliveredQty: 0,
-  },
-];
-
-const mockQualitySpecs: QualitySpec[] = [
-  {
-    id: '1',
-    parameter: 'Yield Strength',
-    specification: 'Min 250 MPa',
-    testMethod: 'IS 1608',
-    acceptanceCriteria: 'As per IS 2062 standards',
-  },
-  {
-    id: '2',
-    parameter: 'Tensile Strength',
-    specification: '410-540 MPa',
-    testMethod: 'IS 1608',
-    acceptanceCriteria: 'Within specified range',
-  },
-  {
-    id: '3',
-    parameter: 'Elongation',
-    specification: 'Min 23%',
-    testMethod: 'IS 1608',
-    acceptanceCriteria: 'As per IS 2062 standards',
-  },
-  {
-    id: '4',
-    parameter: 'Chemical Composition',
-    specification: 'C: 0.23%, Mn: 1.5%, S: 0.045%, P: 0.045%',
-    testMethod: 'Spectro Analysis',
-    acceptanceCriteria: 'As per IS 2062 Grade E250',
-  },
-  {
-    id: '5',
-    parameter: 'Surface Finish',
-    specification: 'Free from defects, rust, and scale',
-    testMethod: 'Visual Inspection',
-    acceptanceCriteria: 'No visible defects',
-  },
-  {
-    id: '6',
-    parameter: 'Dimensional Tolerance',
-    specification: '+/- 0.5mm',
-    testMethod: 'Vernier Caliper',
-    acceptanceCriteria: 'Within tolerance limits',
-  },
-];
-
-const mockActivityLog: ActivityLog[] = [
-  {
-    id: '1',
-    date: '2025-10-28',
-    action: 'Partial Delivery',
-    description: 'GRN-2025-00234 created for 150 MT material received',
-    performedBy: 'Warehouse Team',
-    icon: Package,
-    color: 'blue',
-  },
-  {
-    id: '2',
-    date: '2025-10-25',
-    action: 'Quality Inspection',
-    description: 'Quality inspection passed for upcoming delivery',
-    performedBy: 'QC Team',
-    icon: ClipboardCheck,
-    color: 'green',
-  },
-  {
-    id: '3',
-    date: '2025-10-15',
-    action: 'First Delivery',
-    description: 'GRN-2025-00198 created for 350 MT material received',
-    performedBy: 'Warehouse Team',
-    icon: Package,
-    color: 'blue',
-  },
-  {
-    id: '4',
-    date: '2025-10-10',
-    action: 'Vendor Acknowledged',
-    description: 'Vendor confirmed the PO with delivery schedule',
-    performedBy: 'Rajesh Kumar',
-    icon: CheckCircle,
-    color: 'green',
-  },
-  {
-    id: '5',
-    date: '2025-10-05',
-    action: 'PO Sent',
-    description: 'Purchase order sent to vendor via email',
-    performedBy: 'Amit Sharma',
-    icon: Send,
-    color: 'purple',
-  },
-  {
-    id: '6',
-    date: '2025-10-03',
-    action: 'PO Approved',
-    description: 'Purchase order approved by procurement manager',
-    performedBy: 'Priya Desai',
-    icon: CheckSquare,
-    color: 'green',
-  },
-  {
-    id: '7',
-    date: '2025-10-01',
-    action: 'PO Created',
-    description: 'Purchase order created from RFQ-2025-00056',
-    performedBy: 'Amit Sharma',
-    icon: FileText,
-    color: 'gray',
-  },
-];
+const vendorAddress: Address = emptyAddress;
+const billingAddress: Address = emptyAddress;
+const deliveryAddress: Address = emptyAddress;
 
 const statusConfig = {
   draft: { color: 'bg-gray-100 text-gray-700 border-gray-300', icon: FileText, label: 'Draft' },
@@ -393,10 +194,14 @@ export default function ViewPurchaseOrderPage() {
   const params = useParams();
   const poId = params.id as string;
 
-  const [po, setPo] = useState<PurchaseOrder>(mockPurchaseOrder);
-  const [lineItems, setLineItems] = useState<POLineItem[]>(mockLineItems);
+  const [po, setPo] = useState<PurchaseOrder>(emptyPurchaseOrder);
+  const [lineItems, setLineItems] = useState<POLineItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const deliverySchedule: DeliverySchedule[] = [];
+  const qualitySpecs: QualitySpec[] = [];
+  const activityLog: ActivityLog[] = [];
 
   useEffect(() => {
     let cancelled = false;
@@ -888,9 +693,9 @@ export default function ViewPurchaseOrderPage() {
                 Activity Timeline
               </h3>
               <div className="space-y-3">
-                {mockActivityLog.map((activity, index) => {
+                {activityLog.map((activity, index) => {
                   const ActivityIcon = activity.icon;
-                  const isLast = index === mockActivityLog.length - 1;
+                  const isLast = index === activityLog.length - 1;
 
                   return (
                     <div key={activity.id} className="relative">
@@ -1061,7 +866,7 @@ export default function ViewPurchaseOrderPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {mockDeliverySchedule.map((delivery) => {
+                    {deliverySchedule.map((delivery) => {
                       const statusInfo = deliveryStatusConfig[delivery.status];
                       return (
                         <tr key={delivery.id} className="hover:bg-gray-50">
@@ -1104,7 +909,7 @@ export default function ViewPurchaseOrderPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {mockQualitySpecs.map((spec) => (
+                    {qualitySpecs.map((spec) => (
                       <tr key={spec.id} className="hover:bg-gray-50">
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900">{spec.parameter}</td>
                         <td className="px-3 py-2 text-sm text-gray-900">{spec.specification}</td>
