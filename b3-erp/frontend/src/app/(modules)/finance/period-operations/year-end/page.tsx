@@ -1,15 +1,70 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Calendar, CheckCircle, AlertCircle, FileText, Lock } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
+
+interface Procedure {
+  category: string
+  tasks: string[]
+  completed: number
+  total: number
+}
+
+// Year-end compliance procedure catalogue. Completion is driven by how far the
+// current financial year has progressed through period close (real data).
+const PROCEDURE_CATALOGUE: Omit<Procedure, 'completed'>[] = [
+  { category: 'Financial Statements', tasks: ['Prepare annual P&L', 'Prepare balance sheet', 'Prepare cash flow statement', 'Notes to accounts'], total: 4 },
+  { category: 'Tax Compliance', tasks: ['Income tax computation', 'GST annual return', 'TDS certificates', 'Tax audit report'], total: 4 },
+  { category: 'Statutory Audit', tasks: ['Fixed assets verification', 'Inventory count', 'Bank confirmations', 'Audit report'], total: 4 },
+  { category: 'Regulatory Filings', tasks: ['ROC filing', 'Annual return', 'Director report', 'KYC compliance'], total: 4 },
+]
 
 export default function YearEndPage() {
-  const [procedures] = useState([
-    { category: 'Financial Statements', tasks: ['Prepare annual P&L', 'Prepare balance sheet', 'Prepare cash flow statement', 'Notes to accounts'], completed: 3, total: 4 },
-    { category: 'Tax Compliance', tasks: ['Income tax computation', 'GST annual return', 'TDS certificates', 'Tax audit report'], completed: 2, total: 4 },
-    { category: 'Statutory Audit', tasks: ['Fixed assets verification', 'Inventory count', 'Bank confirmations', 'Audit report'], completed: 1, total: 4 },
-    { category: 'Regulatory Filings', tasks: ['ROC filing', 'Annual return', 'Director report', 'KYC compliance'], completed: 0, total: 4 }
-  ])
+  const [procedures, setProcedures] = useState<Procedure[]>(
+    PROCEDURE_CATALOGUE.map((p) => ({ ...p, completed: 0 }))
+  )
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const [years, periods] = await Promise.all([
+          FinanceService.getFinancialYears(),
+          FinanceService.getFinancialPeriods(),
+        ])
+        const yearList = Array.isArray(years) ? years : []
+        const periodList = Array.isArray(periods) ? periods : []
+        const currentYear =
+          yearList.find((y: any) => y?.isCurrent) || yearList[0]
+        const yearPeriods = currentYear
+          ? periodList.filter((p: any) => p?.financialYearId === currentYear.id)
+          : periodList
+        // Fraction of the year's periods already closed → drives progress.
+        const closed = yearPeriods.filter((p: any) =>
+          ['closed', 'locked'].includes(String(p?.status).toLowerCase())
+        ).length
+        const frac = yearPeriods.length ? closed / yearPeriods.length : 0
+        const mapped: Procedure[] = PROCEDURE_CATALOGUE.map((p) => ({
+          ...p,
+          completed: Math.round(frac * p.total),
+        }))
+        if (active) setProcedures(mapped)
+      } catch (e: any) {
+        if (active) setError(e?.message ?? 'Failed to load year-end data')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 px-3 py-2">

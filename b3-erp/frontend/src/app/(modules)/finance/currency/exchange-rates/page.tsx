@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface ExchangeRate {
   id: string
@@ -39,80 +40,63 @@ export default function ExchangeRatesPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const [exchangeRates] = useState<ExchangeRate[]>([
-    {
-      id: 'EXR-001',
-      fromCurrency: 'USD',
-      toCurrency: 'INR',
-      rate: 83.25,
-      previousRate: 83.15,
-      change: 0.10,
-      changePercent: 0.12,
-      effectiveDate: '2025-10-18',
-      source: 'RBI',
-      type: 'spot'
-    },
-    {
-      id: 'EXR-002',
-      fromCurrency: 'EUR',
-      toCurrency: 'INR',
-      rate: 90.15,
-      previousRate: 90.25,
-      change: -0.10,
-      changePercent: -0.11,
-      effectiveDate: '2025-10-18',
-      source: 'RBI',
-      type: 'spot'
-    },
-    {
-      id: 'EXR-003',
-      fromCurrency: 'GBP',
-      toCurrency: 'INR',
-      rate: 105.45,
-      previousRate: 105.30,
-      change: 0.15,
-      changePercent: 0.14,
-      effectiveDate: '2025-10-18',
-      source: 'RBI',
-      type: 'spot'
-    },
-    {
-      id: 'EXR-004',
-      fromCurrency: 'JPY',
-      toCurrency: 'INR',
-      rate: 0.56,
-      previousRate: 0.56,
-      change: 0.00,
-      changePercent: 0.00,
-      effectiveDate: '2025-10-18',
-      source: 'RBI',
-      type: 'spot'
-    },
-    {
-      id: 'EXR-005',
-      fromCurrency: 'AED',
-      toCurrency: 'INR',
-      rate: 22.65,
-      previousRate: 22.60,
-      change: 0.05,
-      changePercent: 0.22,
-      effectiveDate: '2025-10-18',
-      source: 'RBI',
-      type: 'spot'
-    },
-    {
-      id: 'EXR-006',
-      fromCurrency: 'SGD',
-      toCurrency: 'INR',
-      rate: 62.10,
-      previousRate: 62.05,
-      change: 0.05,
-      changePercent: 0.08,
-      effectiveDate: '2025-10-18',
-      source: 'RBI',
-      type: 'spot'
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadExchangeRates = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await FinanceService.getExchangeRates()
+      const mapped: ExchangeRate[] = (Array.isArray(data) ? data : []).map((r: any) => {
+        const rate = Number(r?.rate) || 0
+        const previousRate = Number(r?.previousRate) || 0
+        const change = rate - previousRate
+        const changePercent = previousRate ? (change / previousRate) * 100 : 0
+        return {
+          id: String(r?.id ?? ''),
+          fromCurrency: r?.fromCurrency ?? '',
+          toCurrency: r?.toCurrency ?? '',
+          rate,
+          previousRate,
+          change,
+          changePercent,
+          effectiveDate: r?.effectiveDate ? String(r.effectiveDate).slice(0, 10) : '',
+          source: r?.source ?? '',
+          type: (r?.type as ExchangeRate['type']) ?? 'spot',
+        }
+      })
+      setExchangeRates(mapped)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load exchange rates')
+      setExchangeRates([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }, [])
+
+  useEffect(() => {
+    loadExchangeRates()
+  }, [loadExchangeRates])
+
+  const handleAddRate = async (data: any) => {
+    try {
+      await FinanceService.createExchangeRate(data)
+      await loadExchangeRates()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create exchange rate')
+    }
+  }
+
+  const handleUpdateRate = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateExchangeRate(id, data)
+      await loadExchangeRates()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update exchange rate')
+    }
+  }
 
   const [rateHistory] = useState<RateHistory[]>([
     { date: '2025-10-18', rate: 83.25, source: 'RBI' },
@@ -135,6 +119,10 @@ export default function ExchangeRatesPage() {
     // Simulate export process
     setTimeout(() => {
       try {
+        if (exchangeRates.length === 0) {
+          alert('No exchange rates available to export.')
+          return
+        }
         // Calculate additional metrics for each rate
         const enrichedData = exchangeRates.map(rate => {
           const buyRate = rate.rate * 0.998 // 0.2% spread for buy
@@ -471,12 +459,30 @@ export default function ExchangeRatesPage() {
           </div>
         </div>
 
+        {/* Loading / Error states */}
+        {loading && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center text-gray-500">
+            Loading exchange rates...
+          </div>
+        )}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl shadow-sm p-4">
+            {error}
+          </div>
+        )}
+
         {/* Current Rates */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Current Exchange Rates</h2>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleAddRate({ type: rateType })}
+                  className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                >
+                  Add Rate
+                </button>
                 <Filter className="h-5 w-5 text-gray-400" />
                 <select
                   value={rateType}
@@ -492,9 +498,15 @@ export default function ExchangeRatesPage() {
           </div>
 
           <div className="p-6">
+            {!loading && exchangeRates.length === 0 && (
+              <p className="text-center text-gray-500 py-6">No exchange rates found.</p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {exchangeRates.map((rate) => (
-                <div key={rate.id} className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all">
+                <div
+                  key={rate.id}
+                  onClick={() => handleUpdateRate(rate.id, { rate: rate.rate })}
+                  className="border-2 border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer">
                   <div className="flex items-center justify-between mb-2">
                     <div>
                       <p className="text-xs text-gray-600">Exchange Rate</p>

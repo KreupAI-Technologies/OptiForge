@@ -10,6 +10,7 @@ import {
   ChevronLeft, ChevronRight, RefreshCw, Info, Hash, BookOpen, CheckCircle
 } from 'lucide-react';
 import { exportToCsv, printCurrentView } from '@/lib/export';
+import { FinanceService } from '@/services/finance.service';
 
 // TypeScript Interfaces
 interface LedgerTransaction {
@@ -26,6 +27,7 @@ interface LedgerTransaction {
 }
 
 interface Account {
+  id: string;
   code: string;
   name: string;
   type: 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense';
@@ -43,179 +45,183 @@ interface MonthBreakdown {
   transactionCount: number;
 }
 
-// Mock Accounts
-const mockAccounts: Account[] = [
-  { code: '1000', name: 'Cash - Operating Account', type: 'Asset', openingBalance: 450000, openingBalanceType: 'Dr' },
-  { code: '1100', name: 'Accounts Receivable - Trade', type: 'Asset', openingBalance: 400000, openingBalanceType: 'Dr' },
-  { code: '1200', name: 'Inventory - Raw Materials', type: 'Asset', openingBalance: 350000, openingBalanceType: 'Dr' },
-  { code: '2000', name: 'Accounts Payable - Trade', type: 'Liability', openingBalance: 250000, openingBalanceType: 'Cr' },
-  { code: '2100', name: 'GST Payable - CGST', type: 'Liability', openingBalance: 50000, openingBalanceType: 'Cr' },
-  { code: '3000', name: 'Share Capital', type: 'Equity', openingBalance: 1000000, openingBalanceType: 'Cr' },
-  { code: '4000', name: 'Sales Revenue - Domestic', type: 'Income', openingBalance: 2400000, openingBalanceType: 'Cr' },
-  { code: '5000', name: 'Raw Material Consumed', type: 'Expense', openingBalance: 800000, openingBalanceType: 'Dr' },
-  { code: '5100', name: 'Salary - Administrative', type: 'Expense', openingBalance: 250000, openingBalanceType: 'Dr' },
-];
+const EMPTY_ACCOUNT: Account = {
+  id: '',
+  code: '',
+  name: '',
+  type: 'Asset',
+  openingBalance: 0,
+  openingBalanceType: 'Dr',
+};
 
-// Mock Ledger Transactions
-const mockLedgerTransactions: LedgerTransaction[] = [
-  {
-    id: 'L-001',
-    date: '2025-10-01',
-    entryNumber: 'JE-2025-001',
-    description: 'Customer payment received from Hotel Paradise Ltd',
-    referenceNumber: 'INV-2025-001',
-    transactionType: 'Manual',
-    debitAmount: 172500,
-    creditAmount: 0,
-    balance: 622500,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-002',
-    date: '2025-10-03',
-    entryNumber: 'JE-2025-002',
-    description: 'Payment to supplier for raw materials',
-    referenceNumber: 'PO-2025-101',
-    transactionType: 'Manual',
-    debitAmount: 0,
-    creditAmount: 125000,
-    balance: 497500,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-003',
-    date: '2025-10-05',
-    entryNumber: 'JE-2025-003',
-    description: 'Bank charges deducted',
-    referenceNumber: 'BANK-CHG-001',
-    transactionType: 'System',
-    debitAmount: 0,
-    creditAmount: 2500,
-    balance: 495000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-004',
-    date: '2025-10-08',
-    entryNumber: 'JE-2025-004',
-    description: 'Cash deposit from retail sales',
-    referenceNumber: 'RETAIL-001',
-    transactionType: 'Manual',
-    debitAmount: 85000,
-    creditAmount: 0,
-    balance: 580000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-005',
-    date: '2025-10-10',
-    entryNumber: 'JE-2025-005',
-    description: 'Salary payment for September 2025',
-    referenceNumber: 'SAL-2025-09',
-    transactionType: 'Manual',
-    debitAmount: 0,
-    creditAmount: 180000,
-    balance: 400000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-006',
-    date: '2025-10-12',
-    entryNumber: 'JE-2025-006',
-    description: 'Rent payment for October 2025',
-    referenceNumber: 'RENT-2025-10',
-    transactionType: 'Manual',
-    debitAmount: 0,
-    creditAmount: 60000,
-    balance: 340000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-007',
-    date: '2025-10-14',
-    entryNumber: 'JE-2025-007',
-    description: 'Customer payment received',
-    referenceNumber: 'INV-2025-015',
-    transactionType: 'Manual',
-    debitAmount: 95000,
-    creditAmount: 0,
-    balance: 435000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-008',
-    date: '2025-10-16',
-    entryNumber: 'JE-2025-008',
-    description: 'Utilities payment - electricity',
-    referenceNumber: 'UTIL-2025-10',
-    transactionType: 'Manual',
-    debitAmount: 0,
-    creditAmount: 15000,
-    balance: 420000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-009',
-    date: '2025-10-18',
-    entryNumber: 'JE-2025-009',
-    description: 'Invoice payment from corporate client',
-    referenceNumber: 'INV-2025-020',
-    transactionType: 'Manual',
-    debitAmount: 250000,
-    creditAmount: 0,
-    balance: 670000,
-    balanceType: 'Dr',
-  },
-  {
-    id: 'L-010',
-    date: '2025-10-20',
-    entryNumber: 'JE-2025-010',
-    description: 'Payment to vendor for supplies',
-    referenceNumber: 'PO-2025-120',
-    transactionType: 'Manual',
-    debitAmount: 0,
-    creditAmount: 85000,
-    balance: 585000,
-    balanceType: 'Dr',
-  },
-];
+// Map a finance.service AccountType to this page's narrow type union
+const mapAccountType = (t: string): Account['type'] => {
+  switch (String(t).toUpperCase()) {
+    case 'ASSET': return 'Asset';
+    case 'LIABILITY': return 'Liability';
+    case 'EQUITY': return 'Equity';
+    case 'REVENUE': return 'Income';
+    case 'EXPENSE': return 'Expense';
+    default: return 'Asset';
+  }
+};
 
-// Mock Month Breakdown
-const mockMonthBreakdown: MonthBreakdown[] = [
-  { month: 'January 2025', openingBalance: 300000, totalDebit: 450000, totalCredit: 380000, closingBalance: 370000, balanceType: 'Dr', transactionCount: 25 },
-  { month: 'February 2025', openingBalance: 370000, totalDebit: 420000, totalCredit: 360000, closingBalance: 430000, balanceType: 'Dr', transactionCount: 22 },
-  { month: 'March 2025', openingBalance: 430000, totalDebit: 480000, totalCredit: 390000, closingBalance: 520000, balanceType: 'Dr', transactionCount: 28 },
-  { month: 'April 2025', openingBalance: 520000, totalDebit: 390000, totalCredit: 410000, closingBalance: 500000, balanceType: 'Dr', transactionCount: 24 },
-  { month: 'May 2025', openingBalance: 500000, totalDebit: 410000, totalCredit: 380000, closingBalance: 530000, balanceType: 'Dr', transactionCount: 26 },
-  { month: 'June 2025', openingBalance: 530000, totalDebit: 370000, totalCredit: 420000, closingBalance: 480000, balanceType: 'Dr', transactionCount: 23 },
-  { month: 'July 2025', openingBalance: 480000, totalDebit: 440000, totalCredit: 390000, closingBalance: 530000, balanceType: 'Dr', transactionCount: 27 },
-  { month: 'August 2025', openingBalance: 530000, totalDebit: 400000, totalCredit: 410000, closingBalance: 520000, balanceType: 'Dr', transactionCount: 25 },
-  { month: 'September 2025', openingBalance: 520000, totalDebit: 380000, totalCredit: 450000, closingBalance: 450000, balanceType: 'Dr', transactionCount: 24 },
-  { month: 'October 2025', openingBalance: 450000, totalDebit: 602500, totalCredit: 467500, closingBalance: 585000, balanceType: 'Dr', transactionCount: 10 },
-];
+const mapTransactionType = (raw: any): LedgerTransaction['transactionType'] => {
+  const v = String(raw || '').toLowerCase();
+  if (v.includes('system') || v.includes('auto')) return 'System';
+  if (v.includes('adjust')) return 'Adjustment';
+  if (v.includes('closing')) return 'Closing';
+  if (v.includes('opening')) return 'Opening';
+  if (v.includes('reversal') || v.includes('reversing')) return 'Reversal';
+  return 'Manual';
+};
 
 export default function LedgerReportPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [selectedAccount, setSelectedAccount] = useState<string>('1000');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [dateFrom, setDateFrom] = useState('2025-10-01');
   const [dateTo, setDateTo] = useState('2025-10-31');
   const [transactionTypeFilter, setTransactionTypeFilter] = useState<string>('all');
-  const [transactions, setTransactions] = useState<LedgerTransaction[]>(mockLedgerTransactions);
+  const [transactions, setTransactions] = useState<LedgerTransaction[]>([]);
+  const [monthBreakdown, setMonthBreakdown] = useState<MonthBreakdown[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showMonthBreakdown, setShowMonthBreakdown] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const itemsPerPage = 15;
 
-  // Get account from URL params
+  // Load chart of accounts for the dropdown
   useEffect(() => {
-    const accountParam = searchParams.get('account');
-    if (accountParam) {
-      setSelectedAccount(accountParam);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const accts = await FinanceService.getChartOfAccounts();
+        if (cancelled) return;
+        const mapped: Account[] = (Array.isArray(accts) ? accts : []).map((a) => ({
+          id: a.id,
+          code: a.code,
+          name: a.name,
+          type: mapAccountType(a.type),
+          openingBalance: Number(a.balance) || 0,
+          openingBalanceType: Number(a.balance) >= 0 ? 'Dr' : 'Cr',
+        }));
+        setAccounts(mapped);
+        // Honour URL param (by code) if present, otherwise default to first
+        const accountParam = searchParams.get('account');
+        const byParam = accountParam
+          ? mapped.find((a) => a.code === accountParam || a.id === accountParam)
+          : undefined;
+        if (byParam) setSelectedAccount(byParam.id);
+        else if (mapped.length > 0) setSelectedAccount((prev) => prev || mapped[0].id);
+      } catch {
+        if (!cancelled) setAccounts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Get selected account details
-  const account = mockAccounts.find((a) => a.code === selectedAccount) || mockAccounts[0];
+  const account = accounts.find((a) => a.id === selectedAccount) || EMPTY_ACCOUNT;
+
+  // Load ledger transactions whenever account / dates / refresh change
+  useEffect(() => {
+    if (!selectedAccount) {
+      setTransactions([]);
+      setMonthBreakdown([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const report = await FinanceService.getGeneralLedgerReport({
+          accountId: selectedAccount,
+          startDate: dateFrom,
+          endDate: dateTo,
+        });
+        if (cancelled) return;
+
+        const rawRows: any[] = Array.isArray(report)
+          ? report
+          : Array.isArray(report?.entries)
+            ? report.entries
+            : Array.isArray(report?.transactions)
+              ? report.transactions
+              : Array.isArray(report?.data)
+                ? report.data
+                : [];
+
+        const rows: LedgerTransaction[] = rawRows.map((r: any, i: number) => {
+          const balance = Number(r.balance ?? r.runningBalance ?? 0) || 0;
+          return {
+            id: String(r.id ?? r.entryId ?? `L-${i}`),
+            date: String(r.date ?? r.entryDate ?? r.transactionDate ?? ''),
+            entryNumber: String(r.entryNumber ?? r.voucherNumber ?? r.reference ?? ''),
+            description: String(r.description ?? r.narration ?? ''),
+            referenceNumber: String(r.referenceNumber ?? r.reference ?? r.voucherNumber ?? ''),
+            transactionType: mapTransactionType(r.transactionType ?? r.type),
+            debitAmount: Number(r.debitAmount ?? r.debit ?? 0) || 0,
+            creditAmount: Number(r.creditAmount ?? r.credit ?? 0) || 0,
+            balance,
+            balanceType: (r.balanceType as 'Dr' | 'Cr') ?? (balance >= 0 ? 'Dr' : 'Cr'),
+          };
+        });
+        setTransactions(rows);
+
+        // Compute a month-wise breakdown from the loaded rows
+        const byMonth = new Map<string, MonthBreakdown & { _order: number }>();
+        rows.forEach((t) => {
+          if (!t.date) return;
+          const d = new Date(t.date);
+          if (isNaN(d.getTime())) return;
+          const key = d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          const order = d.getFullYear() * 12 + d.getMonth();
+          const existing = byMonth.get(key);
+          if (existing) {
+            existing.totalDebit += t.debitAmount;
+            existing.totalCredit += t.creditAmount;
+            existing.closingBalance = t.balance;
+            existing.balanceType = t.balanceType;
+            existing.transactionCount += 1;
+          } else {
+            byMonth.set(key, {
+              _order: order,
+              month: key,
+              openingBalance: t.balance - t.debitAmount + t.creditAmount,
+              totalDebit: t.debitAmount,
+              totalCredit: t.creditAmount,
+              closingBalance: t.balance,
+              balanceType: t.balanceType,
+              transactionCount: 1,
+            });
+          }
+        });
+        const breakdown = Array.from(byMonth.values())
+          .sort((a, b) => a._order - b._order)
+          .map(({ _order, ...rest }) => rest);
+        setMonthBreakdown(breakdown);
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || 'Failed to load ledger');
+          setTransactions([]);
+          setMonthBreakdown([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount, dateFrom, dateTo, refreshKey]);
 
   // Filter transactions
   const filteredTransactions = transactions.filter((transaction) => {
@@ -309,8 +315,9 @@ export default function LedgerReportPage() {
                   onChange={(e) => setSelectedAccount(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg font-semibold"
                 >
-                  {mockAccounts.map((acc) => (
-                    <option key={acc.code} value={acc.code}>
+                  {accounts.length === 0 && <option value="">No accounts</option>}
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
                       {acc.code} - {acc.name}
                     </option>
                   ))}
@@ -456,12 +463,14 @@ export default function LedgerReportPage() {
 
         <div className="flex items-center space-x-2 mt-4">
           <button
-            onClick={() => alert('Refresh data')}
+            onClick={() => setRefreshKey((k) => k + 1)}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
             <span>Refresh Data</span>
           </button>
+          {loading && <span className="text-sm text-gray-500">Loading…</span>}
+          {error && <span className="text-sm text-red-600">{error}</span>}
         </div>
       </div>
 
@@ -487,7 +496,7 @@ export default function LedgerReportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {mockMonthBreakdown.map((month) => (
+                {monthBreakdown.map((month) => (
                   <tr key={month.month} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-semibold text-gray-900">{month.month}</td>
                     <td className="px-3 py-2 text-right font-semibold text-gray-700">

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   Calculator,
   Package,
@@ -14,6 +15,14 @@ import {
   ArrowUpRight,
   Layers
 } from 'lucide-react'
+
+interface BreakdownItem {
+  description: string
+  quantity: number
+  rate: number
+  amount: number
+  uom: string
+}
 
 interface StandardCost {
   id: string
@@ -31,143 +40,94 @@ interface StandardCost {
   uom: string
   lastUpdated: string
   updatedBy: string
+  materialItems: BreakdownItem[]
+  laborItems: BreakdownItem[]
+  overheadItems: BreakdownItem[]
 }
 
 interface CostBreakdown {
   category: string
-  items: {
-    description: string
-    quantity: number
-    rate: number
-    amount: number
-    uom: string
-  }[]
+  items: BreakdownItem[]
+}
+
+const mapBreakdown = (arr: any[]): BreakdownItem[] =>
+  (Array.isArray(arr) ? arr : []).map((c: any) => ({
+    description: c?.description ?? c?.name ?? c?.componentName ?? '',
+    quantity: Number(c?.quantity ?? c?.qty ?? 0),
+    rate: Number(c?.rate ?? c?.unitRate ?? c?.unitCost ?? 0),
+    amount: Number(c?.amount ?? c?.cost ?? c?.totalCost ?? 0),
+    uom: c?.uom ?? c?.unit ?? ''
+  }))
+
+const mapStandardCost = (r: any): StandardCost => {
+  const materialCost = Number(r?.materialCost ?? 0)
+  const laborCost = Number(r?.laborCost ?? 0)
+  const overheadCost = Number(r?.overheadCost ?? 0)
+  const otherCost = Number(r?.otherCost ?? 0)
+  const totalCost = Number(r?.totalStandardCost ?? materialCost + laborCost + overheadCost + otherCost)
+  return {
+    id: String(r?.id ?? ''),
+    productCode: r?.productCode ?? '',
+    productName: r?.productName ?? '',
+    category: r?.category ?? 'Finished Goods',
+    version: r?.version ?? '',
+    effectiveDate: r?.effectiveFromDate ?? r?.effectiveDate ?? '',
+    expiryDate: r?.expiryDate ?? null,
+    status: r?.isActive === false ? 'expired' : (r?.status ?? 'active'),
+    materialCost,
+    laborCost,
+    overheadCost,
+    totalCost,
+    uom: r?.uom ?? 'Each',
+    lastUpdated: r?.updatedAt ?? r?.effectiveFromDate ?? '',
+    updatedBy: r?.updatedBy ?? '',
+    materialItems: mapBreakdown(r?.materialComponents),
+    laborItems: mapBreakdown(r?.laborComponents),
+    overheadItems: mapBreakdown(r?.overheadComponents)
+  }
 }
 
 export default function StandardCostingPage() {
-  const [standardCosts] = useState<StandardCost[]>([
-    {
-      id: 'SC-001',
-      productCode: 'PRD-HP500',
-      productName: 'Hydraulic Press HP-500',
-      category: 'Finished Goods',
-      version: 'V2.0',
-      effectiveDate: '2025-01-01',
-      expiryDate: null,
-      status: 'active',
-      materialCost: 850000,
-      laborCost: 250000,
-      overheadCost: 180000,
-      totalCost: 1280000,
-      uom: 'Each',
-      lastUpdated: '2025-01-15',
-      updatedBy: 'Cost Accountant'
-    },
-    {
-      id: 'SC-002',
-      productCode: 'PRD-CM350',
-      productName: 'CNC Machine CM-350',
-      category: 'Finished Goods',
-      version: 'V1.5',
-      effectiveDate: '2024-10-01',
-      expiryDate: null,
-      status: 'active',
-      materialCost: 1250000,
-      laborCost: 380000,
-      overheadCost: 270000,
-      totalCost: 1900000,
-      uom: 'Each',
-      lastUpdated: '2024-10-10',
-      updatedBy: 'Cost Accountant'
-    },
-    {
-      id: 'SC-003',
-      productCode: 'PRD-CP1000',
-      productName: 'Control Panel CP-1000',
-      category: 'Finished Goods',
-      version: 'V3.1',
-      effectiveDate: '2025-03-01',
-      expiryDate: null,
-      status: 'active',
-      materialCost: 420000,
-      laborCost: 95000,
-      overheadCost: 68000,
-      totalCost: 583000,
-      uom: 'Each',
-      lastUpdated: '2025-03-05',
-      updatedBy: 'Senior Cost Analyst'
-    },
-    {
-      id: 'SC-004',
-      productCode: 'PRD-CS200',
-      productName: 'Conveyor System CS-200',
-      category: 'Finished Goods',
-      version: 'V2.2',
-      effectiveDate: '2024-12-01',
-      expiryDate: null,
-      status: 'active',
-      materialCost: 650000,
-      laborCost: 180000,
-      overheadCost: 125000,
-      totalCost: 955000,
-      uom: 'Each',
-      lastUpdated: '2024-12-08',
-      updatedBy: 'Cost Accountant'
-    },
-    {
-      id: 'SC-005',
-      productCode: 'PRD-HP400',
-      productName: 'Hydraulic Press HP-400',
-      category: 'Finished Goods',
-      version: 'V1.8',
-      effectiveDate: '2024-08-01',
-      expiryDate: '2024-12-31',
-      status: 'expired',
-      materialCost: 720000,
-      laborCost: 210000,
-      overheadCost: 152000,
-      totalCost: 1082000,
-      uom: 'Each',
-      lastUpdated: '2024-08-05',
-      updatedBy: 'Former Cost Analyst'
-    }
-  ])
+  const [standardCosts, setStandardCosts] = useState<StandardCost[]>([])
+  const [selectedCost, setSelectedCost] = useState<StandardCost | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [selectedCost, setSelectedCost] = useState<StandardCost | null>(standardCosts[0])
+  const loadStandardCosts = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await FinanceService.getStandardCosts()
+      const mapped = (Array.isArray(res) ? res : []).map(mapStandardCost)
+      setStandardCosts(mapped)
+      setSelectedCost((prev) =>
+        prev ? mapped.find((c) => c.id === prev.id) ?? mapped[0] ?? null : mapped[0] ?? null
+      )
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load standard costs')
+      setStandardCosts([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadStandardCosts()
+  }, [])
 
   const materialBreakdown: CostBreakdown = {
     category: 'Materials',
-    items: [
-      { description: 'Steel Plates 304 Grade', quantity: 500, rate: 850, amount: 425000, uom: 'kg' },
-      { description: 'Hydraulic Cylinders', quantity: 4, rate: 45000, amount: 180000, uom: 'pcs' },
-      { description: 'Control Valves', quantity: 8, rate: 12500, amount: 100000, uom: 'pcs' },
-      { description: 'Electrical Components', quantity: 1, rate: 85000, amount: 85000, uom: 'lot' },
-      { description: 'Fasteners & Hardware', quantity: 1, rate: 35000, amount: 35000, uom: 'lot' },
-      { description: 'Paint & Coating', quantity: 50, rate: 500, amount: 25000, uom: 'ltr' }
-    ]
+    items: selectedCost?.materialItems ?? []
   }
 
   const laborBreakdown: CostBreakdown = {
     category: 'Labor',
-    items: [
-      { description: 'Fabrication Labor', quantity: 80, rate: 1200, amount: 96000, uom: 'hrs' },
-      { description: 'Assembly Labor', quantity: 60, rate: 1100, amount: 66000, uom: 'hrs' },
-      { description: 'Testing & QC', quantity: 24, rate: 1500, amount: 36000, uom: 'hrs' },
-      { description: 'Finishing & Painting', quantity: 32, rate: 950, amount: 30400, uom: 'hrs' },
-      { description: 'Supervision', quantity: 16, rate: 1350, amount: 21600, uom: 'hrs' }
-    ]
+    items: selectedCost?.laborItems ?? []
   }
 
   const overheadBreakdown: CostBreakdown = {
     category: 'Overheads',
-    items: [
-      { description: 'Factory Rent & Utilities', quantity: 1, rate: 45000, amount: 45000, uom: 'allocation' },
-      { description: 'Machine Depreciation', quantity: 1, rate: 58000, amount: 58000, uom: 'allocation' },
-      { description: 'Quality Control', quantity: 1, rate: 22000, amount: 22000, uom: 'allocation' },
-      { description: 'Maintenance & Tools', quantity: 1, rate: 18000, amount: 18000, uom: 'allocation' },
-      { description: 'Administration', quantity: 1, rate: 25000, amount: 25000, uom: 'allocation' },
-      { description: 'Other Overheads', quantity: 1, rate: 12000, amount: 12000, uom: 'allocation' }
-    ]
+    items: selectedCost?.overheadItems ?? []
   }
 
   const formatCurrency = (amount: number) => {
@@ -176,6 +136,24 @@ export default function StandardCostingPage() {
       currency: 'INR',
       minimumFractionDigits: 0
     }).format(amount)
+  }
+
+  const handleCreate = async () => {
+    try {
+      await FinanceService.createStandardCost({ companyId: 'default-company-id' })
+      await loadStandardCosts()
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to create standard cost')
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await FinanceService.deleteStandardCost(id)
+      await loadStandardCosts()
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to delete standard cost')
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -193,10 +171,16 @@ export default function StandardCostingPage() {
     }
   }
 
-  const totalMaterial = materialBreakdown.items.reduce((sum, item) => sum + item.amount, 0)
-  const totalLabor = laborBreakdown.items.reduce((sum, item) => sum + item.amount, 0)
-  const totalOverhead = overheadBreakdown.items.reduce((sum, item) => sum + item.amount, 0)
-  const grandTotal = totalMaterial + totalLabor + totalOverhead
+  const totalMaterial =
+    materialBreakdown.items.reduce((sum, item) => sum + item.amount, 0) ||
+    (selectedCost?.materialCost ?? 0)
+  const totalLabor =
+    laborBreakdown.items.reduce((sum, item) => sum + item.amount, 0) ||
+    (selectedCost?.laborCost ?? 0)
+  const totalOverhead =
+    overheadBreakdown.items.reduce((sum, item) => sum + item.amount, 0) ||
+    (selectedCost?.overheadCost ?? 0)
+  const grandTotal = selectedCost?.totalCost ?? totalMaterial + totalLabor + totalOverhead
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 px-3 py-2">
@@ -207,11 +191,18 @@ export default function StandardCostingPage() {
             <h1 className="text-3xl font-bold text-gray-900">Standard Costing</h1>
             <p className="text-gray-600 mt-1">Define and manage standard costs for products</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-md">
+          <button onClick={handleCreate} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-md">
             <Calculator className="h-5 w-5" />
             New Standard Cost
           </button>
         </div>
+
+        {loading && (
+          <div className="text-sm text-gray-500">Loading standard costs...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -231,7 +222,11 @@ export default function StandardCostingPage() {
               <div>
                 <p className="text-sm font-medium text-green-600">Avg Material Cost</p>
                 <p className="text-2xl font-bold text-green-900 mt-1">
-                  {formatCurrency(standardCosts.filter(c => c.status === 'active').reduce((sum, c) => sum + c.materialCost, 0) / standardCosts.filter(c => c.status === 'active').length)}
+                  {formatCurrency(
+                    standardCosts.filter(c => c.status === 'active').length > 0
+                      ? standardCosts.filter(c => c.status === 'active').reduce((sum, c) => sum + c.materialCost, 0) / standardCosts.filter(c => c.status === 'active').length
+                      : 0
+                  )}
                 </p>
                 <p className="text-xs text-green-700 mt-1">Per unit</p>
               </div>
@@ -325,6 +320,9 @@ export default function StandardCostingPage() {
                       <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm">
                         <Edit className="h-5 w-5" />
                         <span>Edit</span>
+                      </button>
+                      <button onClick={() => handleDelete(selectedCost.id)} className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-sm">
+                        <span>Delete</span>
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Calendar,
     CheckCircle,
@@ -16,6 +16,7 @@ import {
     RefreshCw,
     Download
 } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 
 interface CloseTask {
     id: string;
@@ -37,24 +38,62 @@ interface CloseHistory {
 
 export default function PeriodClosePage() {
     const [activeTab, setActiveTab] = useState<'checklist' | 'overview' | 'history'>('checklist');
-    const [tasks, setTasks] = useState<CloseTask[]>([
-        { id: '1', task: 'Reconcile Bank Accounts', category: 'Reconciliation', status: 'completed', assignedTo: 'Finance Team', dueDate: '2025-10-20' },
-        { id: '2', task: 'Reconcile Credit Cards', category: 'Reconciliation', status: 'completed', assignedTo: 'Finance Team', dueDate: '2025-10-20' },
-        { id: '3', task: 'Post Recurring Journals', category: 'Accruals', status: 'completed', assignedTo: 'Accounting Team', dueDate: '2025-10-21' },
-        { id: '4', task: 'Calculate Depreciation', category: 'Accruals', status: 'in_progress', assignedTo: 'Fixed Assets', dueDate: '2025-10-22' },
-        { id: '5', task: 'Accrue Payroll Expenses', category: 'Accruals', status: 'pending', assignedTo: 'HR Finance', dueDate: '2025-10-23' },
-        { id: '6', task: 'Review Aged Receivables', category: 'Review', status: 'pending', assignedTo: 'AR Manager', dueDate: '2025-10-24' },
-        { id: '7', task: 'Review Aged Payables', category: 'Review', status: 'pending', assignedTo: 'AP Manager', dueDate: '2025-10-24' },
-        { id: '8', task: 'Inventory Valuation', category: 'Reporting', status: 'blocked', assignedTo: 'Inventory Mgr', dueDate: '2025-10-25' },
-        { id: '9', task: 'Generate Trial Balance', category: 'Reporting', status: 'pending', assignedTo: 'Controller', dueDate: '2025-10-26' },
-        { id: '10', task: 'Final Period Close', category: 'Reporting', status: 'pending', assignedTo: 'CFO', dueDate: '2025-10-27' },
-    ]);
+    const [tasks, setTasks] = useState<CloseTask[]>([]);
+    const [history, setHistory] = useState<CloseHistory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const [history] = useState<CloseHistory[]>([
-        { id: '1', period: 'September 2025', closedBy: 'John Doe', closedDate: '2025-10-02', status: 'Closed', notes: 'Closed on time. No exceptions.' },
-        { id: '2', period: 'August 2025', closedBy: 'Jane Smith', closedDate: '2025-09-03', status: 'Closed', notes: 'Delayed due to bank rec issues.' },
-        { id: '3', period: 'July 2025', closedBy: 'John Doe', closedDate: '2025-08-01', status: 'Closed', notes: '' },
-    ]);
+    useEffect(() => {
+        let active = true;
+        const load = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const periods = await FinanceService.getFinancialPeriods();
+                const list = Array.isArray(periods) ? periods : [];
+                // Current/most-recent-open period → checklist tasks
+                const current =
+                    list.find((p: any) => p?.isCurrent) ||
+                    list.find((p: any) => String(p?.status).toLowerCase() === 'open') ||
+                    list[0];
+                const checklist: any[] = Array.isArray(current?.closingChecklist)
+                    ? current.closingChecklist
+                    : [];
+                const categories: CloseTask['category'][] = ['Reconciliation', 'Accruals', 'Review', 'Reporting'];
+                const mappedTasks: CloseTask[] = checklist.map((c: any, i: number) => ({
+                    id: String(i + 1),
+                    task: c?.taskName ?? c?.task ?? `Task ${i + 1}`,
+                    category: categories[i % categories.length],
+                    status: c?.completed ? 'completed' : 'pending',
+                    assignedTo: c?.completedBy ?? 'Finance Team',
+                    dueDate: current?.endDate ?? new Date().toISOString().slice(0, 10),
+                }));
+                // Closed periods → close history
+                const mappedHistory: CloseHistory[] = list
+                    .filter((p: any) => ['closed', 'locked'].includes(String(p?.status).toLowerCase()))
+                    .map((p: any, i: number) => ({
+                        id: p?.id ?? String(i + 1),
+                        period: p?.periodName ?? p?.periodCode ?? 'Period',
+                        closedBy: p?.closedBy ?? '—',
+                        closedDate: p?.closedAt ?? p?.endDate ?? '',
+                        status: 'Closed' as const,
+                        notes: p?.description ?? '',
+                    }));
+                if (active) {
+                    setTasks(mappedTasks);
+                    setHistory(mappedHistory);
+                }
+            } catch (e: any) {
+                if (active) setError(e?.message ?? 'Failed to load period close data');
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        load();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const getStatusIcon = (status: string) => {
         switch (status) {
@@ -75,7 +114,7 @@ export default function PeriodClosePage() {
     };
 
     const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const progress = (completedTasks / tasks.length) * 100;
+    const progress = tasks.length ? (completedTasks / tasks.length) * 100 : 0;
 
     return (
         <div className="h-screen flex flex-col overflow-hidden bg-gray-50">

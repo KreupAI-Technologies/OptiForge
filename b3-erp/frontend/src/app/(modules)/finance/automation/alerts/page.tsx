@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, AlertTriangle, Info, CheckCircle, Clock, DollarSign, TrendingUp, Settings, Mail, MessageSquare } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface Alert {
   id: string
@@ -28,81 +29,83 @@ interface NotificationRule {
   frequency: string
 }
 
+const SEVERITY_TO_TYPE: Record<string, Alert['type']> = {
+  critical: 'critical',
+  high: 'critical',
+  warning: 'warning',
+  medium: 'warning',
+  info: 'info',
+  low: 'info',
+  success: 'success',
+}
+
+const KNOWN_CATEGORIES: Alert['category'][] = ['payment', 'approval', 'budget', 'compliance', 'reconciliation', 'threshold']
+
 export default function AlertsNotificationsPage() {
-  const [alerts] = useState<Alert[]>([
-    {
-      id: '1',
-      title: 'Payment Overdue',
-      message: 'Invoice INV-2025-456 is overdue by 15 days. Amount: ₹2,50,000',
-      type: 'critical',
-      category: 'payment',
-      timestamp: '2025-10-18 14:30:00',
-      read: false,
-      actionRequired: true,
-      relatedTo: 'INV-2025-456',
-      priority: 'high'
-    },
-    {
-      id: '2',
-      title: 'Approval Pending',
-      message: 'Journal Entry JE-2025-789 requires your approval. Amount: ₹5,00,000',
-      type: 'warning',
-      category: 'approval',
-      timestamp: '2025-10-18 13:45:00',
-      read: false,
-      actionRequired: true,
-      relatedTo: 'JE-2025-789',
-      priority: 'high'
-    },
-    {
-      id: '3',
-      title: 'Budget Threshold Exceeded',
-      message: 'Marketing department has exceeded 90% of monthly budget',
-      type: 'warning',
-      category: 'budget',
-      timestamp: '2025-10-18 12:15:00',
-      read: false,
-      actionRequired: false,
-      relatedTo: 'DEPT-MKT',
-      priority: 'medium'
-    },
-    {
-      id: '4',
-      title: 'Bank Reconciliation Complete',
-      message: 'HDFC Bank account reconciliation for October 2025 completed successfully',
-      type: 'success',
-      category: 'reconciliation',
-      timestamp: '2025-10-18 10:00:00',
-      read: true,
-      actionRequired: false,
-      relatedTo: 'RECON-2025-10',
-      priority: 'low'
-    },
-    {
-      id: '5',
-      title: 'GST Filing Reminder',
-      message: 'GSTR-3B filing due in 5 days for September 2025',
-      type: 'warning',
-      category: 'compliance',
-      timestamp: '2025-10-18 09:00:00',
-      read: false,
-      actionRequired: true,
-      relatedTo: 'GST-SEP-2025',
-      priority: 'high'
-    },
-    {
-      id: '6',
-      title: 'Large Transaction Detected',
-      message: 'Payment of ₹15,00,000 posted to vendor ABC Suppliers Ltd',
-      type: 'info',
-      category: 'threshold',
-      timestamp: '2025-10-18 08:30:00',
-      read: true,
-      actionRequired: false,
-      relatedTo: 'PAY-2025-123',
-      priority: 'medium'
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadAlerts = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await FinanceService.getAlerts()
+      const mapped: Alert[] = (data || []).map((a: any) => {
+        const sev = String(a.severity ?? '').toLowerCase()
+        const cat = String(a.category ?? '').toLowerCase()
+        return {
+          id: String(a.id),
+          title: a.name ?? 'Alert',
+          message: a.message ?? '',
+          type: SEVERITY_TO_TYPE[sev] ?? 'info',
+          category: (KNOWN_CATEGORIES.includes(cat as Alert['category']) ? cat : 'threshold') as Alert['category'],
+          timestamp: a.lastTriggeredAt ?? '',
+          read: !(a.isEnabled ?? true),
+          actionRequired: sev === 'critical' || sev === 'high',
+          relatedTo: a.conditionType ?? (a.thresholdValue != null ? String(a.thresholdValue) : '-'),
+          priority: sev === 'critical' || sev === 'high' ? 'high' : sev === 'warning' || sev === 'medium' ? 'medium' : 'low',
+        }
+      })
+      setAlerts(mapped)
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load alerts')
+      setAlerts([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }
+
+  useEffect(() => {
+    loadAlerts()
+  }, [])
+
+  const handleCreateAlert = async (data: any) => {
+    try {
+      await FinanceService.createAlert(data)
+      await loadAlerts()
+    } catch (e) {
+      console.error('Failed to create alert', e)
+    }
+  }
+
+  const handleToggleAlert = async (id: string, isEnabled: boolean) => {
+    try {
+      await FinanceService.updateAlert(id, { isEnabled })
+      await loadAlerts()
+    } catch (e) {
+      console.error('Failed to update alert', e)
+    }
+  }
+
+  const handleDeleteAlert = async (id: string) => {
+    try {
+      await FinanceService.deleteAlert(id)
+      await loadAlerts()
+    } catch (e) {
+      console.error('Failed to delete alert', e)
+    }
+  }
 
   const [notificationRules] = useState<NotificationRule[]>([
     {
@@ -162,14 +165,14 @@ export default function AlertsNotificationsPage() {
     }
   ])
 
-  const [stats] = useState({
-    totalAlerts: 24,
-    unreadAlerts: 8,
-    criticalAlerts: 3,
-    actionRequired: 5,
-    activeRules: 12,
-    alertsToday: 6
-  })
+  const stats = {
+    totalAlerts: alerts.length,
+    unreadAlerts: alerts.filter((a) => !a.read).length,
+    criticalAlerts: alerts.filter((a) => a.type === 'critical').length,
+    actionRequired: alerts.filter((a) => a.actionRequired).length,
+    activeRules: notificationRules.filter((r) => r.status === 'active').length,
+    alertsToday: alerts.length,
+  }
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -209,11 +212,17 @@ export default function AlertsNotificationsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Alerts & Notifications</h1>
             <p className="text-gray-600 mt-1">Smart notification system for financial events</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-lg hover:from-rose-700 hover:to-pink-700">
+          <button
+            onClick={() => handleCreateAlert({ companyId: 'default-company-id', name: 'New Alert', isEnabled: true })}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-lg hover:from-rose-700 hover:to-pink-700"
+          >
             <Settings className="h-5 w-5" />
             Configure Rules
           </button>
         </div>
+
+        {loading && <p className="text-sm text-gray-500">Loading alerts…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -268,6 +277,9 @@ export default function AlertsNotificationsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold text-gray-900">Recent Alerts</h2>
+            {!loading && alerts.length === 0 && (
+              <p className="text-sm text-gray-500">No alerts found.</p>
+            )}
             {alerts.map((alert) => (
               <div key={alert.id} className={`rounded-xl shadow-sm border-2 p-5 ${getAlertColor(alert.type)} ${!alert.read ? 'ring-2 ring-offset-2 ring-rose-500' : ''}`}>
                 <div className="flex items-start justify-between mb-3">
@@ -293,11 +305,17 @@ export default function AlertsNotificationsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-600">Related to: <span className="font-mono font-semibold">{alert.relatedTo}</span></span>
                   <div className="flex gap-2">
-                    <button className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white">
+                    <button
+                      onClick={() => handleDeleteAlert(alert.id)}
+                      className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-white"
+                    >
                       Dismiss
                     </button>
                     {alert.actionRequired && (
-                      <button className="px-3 py-1 text-xs bg-rose-600 text-white rounded hover:bg-rose-700">
+                      <button
+                        onClick={() => handleToggleAlert(alert.id, alert.read)}
+                        className="px-3 py-1 text-xs bg-rose-600 text-white rounded hover:bg-rose-700"
+                      >
                         Take Action
                       </button>
                     )}

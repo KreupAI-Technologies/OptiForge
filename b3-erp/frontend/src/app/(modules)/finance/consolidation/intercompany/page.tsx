@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   Building2,
   ArrowLeftRight,
@@ -36,60 +37,57 @@ export default function IntercompanyTransactionsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [typeFilter, setTypeFilter] = useState('all')
 
-  const [transactions] = useState<IntercompanyTransaction[]>([
-    {
-      id: 'IC-001',
-      transactionNumber: 'IC-2025-001',
-      transactionDate: '2025-10-15',
-      fromCompany: 'Manufacturing Unit A',
-      toCompany: 'Sales Division B',
-      transactionType: 'transfer',
-      amount: 5000000,
-      currency: 'INR',
-      status: 'reconciled',
-      description: 'Finished goods transfer',
-      eliminationStatus: 'completed'
-    },
-    {
-      id: 'IC-002',
-      transactionNumber: 'IC-2025-002',
-      transactionDate: '2025-10-16',
-      fromCompany: 'Head Office',
-      toCompany: 'Regional Office - North',
-      transactionType: 'loan',
-      amount: 10000000,
-      currency: 'INR',
-      status: 'posted',
-      description: 'Working capital loan',
-      eliminationStatus: 'pending'
-    },
-    {
-      id: 'IC-003',
-      transactionNumber: 'IC-2025-003',
-      transactionDate: '2025-10-17',
-      fromCompany: 'IT Services Division',
-      toCompany: 'Manufacturing Unit A',
-      transactionType: 'service',
-      amount: 1500000,
-      currency: 'INR',
-      status: 'approved',
-      description: 'IT support services',
-      eliminationStatus: 'pending'
-    },
-    {
-      id: 'IC-004',
-      transactionNumber: 'IC-2025-004',
-      transactionDate: '2025-10-18',
-      fromCompany: 'Sales Division B',
-      toCompany: 'Manufacturing Unit A',
-      transactionType: 'purchase',
-      amount: 3500000,
-      currency: 'INR',
-      status: 'pending',
-      description: 'Raw material purchase',
-      eliminationStatus: 'not_required'
+  const [transactions, setTransactions] = useState<IntercompanyTransaction[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await FinanceService.getIntercompany()
+        if (cancelled) return
+        const receivables: any[] = Array.isArray(data?.receivables) ? data.receivables : []
+        const payables: any[] = Array.isArray(data?.payables) ? data.payables : []
+
+        const mapRow = (
+          r: any,
+          i: number,
+          type: 'sale' | 'purchase',
+        ): IntercompanyTransaction => ({
+          id: String(r.id ?? `${type}-${i}`),
+          transactionNumber: String(r.reference ?? r.id ?? ''),
+          transactionDate: String(r.date ?? r.transactionDate ?? ''),
+          fromCompany: type === 'sale' ? 'This Company' : String(r.party ?? ''),
+          toCompany: type === 'sale' ? String(r.party ?? '') : 'This Company',
+          transactionType: type,
+          amount: Number(r.amount) || 0,
+          currency: String(r.currency ?? 'INR'),
+          status: 'posted',
+          description: String(r.description ?? r.reference ?? ''),
+          eliminationStatus: 'pending',
+        })
+
+        const rows: IntercompanyTransaction[] = [
+          ...receivables.map((r, i) => mapRow(r, i, 'sale')),
+          ...payables.map((r, i) => mapRow(r, i, 'purchase')),
+        ]
+        setTransactions(rows)
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || 'Failed to load intercompany transactions')
+          setTransactions([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const filteredTransactions = transactions.filter(txn => {
     const matchesSearch =
@@ -142,6 +140,8 @@ export default function IntercompanyTransactionsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Inter-company Transactions</h1>
             <p className="text-gray-600 mt-1">Manage transactions between group companies</p>
+            {loading && <p className="text-sm text-gray-500 mt-1">Loading…</p>}
+            {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
           </div>
           <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md">
             <Plus className="h-5 w-5" />

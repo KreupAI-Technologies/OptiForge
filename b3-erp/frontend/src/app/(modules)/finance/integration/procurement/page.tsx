@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import { ShoppingCart, FileText, CreditCard, CheckCircle, Clock, XCircle, TrendingUp, DollarSign } from 'lucide-react'
 
 interface ProcurementSync {
@@ -21,25 +22,79 @@ interface ProcurementSync {
 }
 
 export default function ProcurementIntegrationPage() {
-  const [syncData] = useState<ProcurementSync[]>([
-    { id: '1', poNumber: 'PO-2025-1001', supplier: 'ABC Suppliers Ltd', orderDate: '2025-10-10', items: 5, poAmount: 500000, receivedAmount: 500000, invoicedAmount: 500000, paidAmount: 500000, grStatus: 'completed', invoiceStatus: 'matched', paymentStatus: 'paid', syncStatus: 'synced', journalEntries: ['JE-2025-501', 'JE-2025-502', 'JE-2025-503'] },
-    { id: '2', poNumber: 'PO-2025-1002', supplier: 'XYZ Industries', orderDate: '2025-10-12', items: 3, poAmount: 750000, receivedAmount: 750000, invoicedAmount: 750000, paidAmount: 375000, grStatus: 'completed', invoiceStatus: 'matched', paymentStatus: 'partial', syncStatus: 'synced', journalEntries: ['JE-2025-504', 'JE-2025-505'] },
-    { id: '3', poNumber: 'PO-2025-1003', supplier: 'Global Parts Inc', orderDate: '2025-10-15', items: 8, poAmount: 1200000, receivedAmount: 800000, invoicedAmount: 800000, paidAmount: 0, grStatus: 'partial', invoiceStatus: 'received', paymentStatus: 'unpaid', syncStatus: 'synced', journalEntries: ['JE-2025-506'] },
-    { id: '4', poNumber: 'PO-2025-1004', supplier: 'Tech Solutions', orderDate: '2025-10-17', items: 2, poAmount: 300000, receivedAmount: 300000, invoicedAmount: 0, paidAmount: 0, grStatus: 'completed', invoiceStatus: 'pending', paymentStatus: 'unpaid', syncStatus: 'pending', journalEntries: [] },
-    { id: '5', poNumber: 'PO-2025-1005', supplier: 'Premium Materials', orderDate: '2025-10-18', items: 6, poAmount: 950000, receivedAmount: 0, invoicedAmount: 0, paidAmount: 0, grStatus: 'pending', invoiceStatus: 'pending', paymentStatus: 'unpaid', syncStatus: 'synced', journalEntries: [] }
-  ])
+  const [syncData, setSyncData] = useState<ProcurementSync[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [integrationStats] = useState({
-    totalPOs: 45,
-    syncedPOs: 42,
-    pendingPOs: 2,
-    failedPOs: 1,
-    totalPOValue: 12500000,
-    totalReceived: 8750000,
-    totalInvoiced: 7500000,
-    totalPaid: 5250000,
-    lastSyncTime: '2025-10-18 14:45:00'
-  })
+  // Payables from finance ↔ procurement (vendor bills / purchase invoices awaiting
+  // payment). Mapped into the ProcurementSync shape the table reads.
+  const mapPayable = (r: any): ProcurementSync => {
+    const poAmount = Number(r?.totalAmount ?? r?.amount ?? r?.invoiceAmount ?? r?.poAmount) || 0
+    const paidAmount = Number(r?.paidAmount ?? r?.amountPaid) || 0
+    const invoicedAmount = Number(r?.invoicedAmount ?? r?.invoiceAmount ?? poAmount) || 0
+    const receivedAmount = Number(r?.receivedAmount ?? invoicedAmount) || 0
+    const outstanding = Number(r?.outstandingAmount ?? (poAmount - paidAmount))
+
+    let paymentStatus: ProcurementSync['paymentStatus'] = 'unpaid'
+    if (paidAmount > 0 && outstanding > 0) paymentStatus = 'partial'
+    else if (paidAmount > 0 && outstanding <= 0) paymentStatus = 'paid'
+
+    const rawStatus = String(r?.status ?? '').toLowerCase()
+    let invoiceStatus: ProcurementSync['invoiceStatus'] = 'received'
+    if (rawStatus.includes('dispute')) invoiceStatus = 'disputed'
+    else if (rawStatus.includes('match') || paymentStatus === 'paid') invoiceStatus = 'matched'
+    else if (rawStatus.includes('pending') || rawStatus.includes('draft')) invoiceStatus = 'pending'
+
+    return {
+      id: String(r?.id ?? r?.invoiceNumber ?? ''),
+      poNumber: String(r?.poNumber ?? r?.invoiceNumber ?? r?.referenceNumber ?? r?.id ?? ''),
+      supplier: String(r?.vendorName ?? r?.supplierName ?? r?.partyName ?? r?.vendor ?? '-'),
+      orderDate: r?.invoiceDate ?? r?.date ?? r?.dueDate ?? '',
+      items: Number(r?.itemCount ?? r?.lineItems?.length) || 0,
+      poAmount,
+      receivedAmount,
+      invoicedAmount,
+      paidAmount,
+      grStatus: receivedAmount >= poAmount && poAmount > 0 ? 'completed' : receivedAmount > 0 ? 'partial' : 'pending',
+      invoiceStatus,
+      paymentStatus,
+      syncStatus: 'synced',
+      journalEntries: Array.isArray(r?.journalEntries) ? r.journalEntries.map((j: any) => String(j?.entryNumber ?? j)) : [],
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await FinanceService.getPayables()
+        if (active) setSyncData((Array.isArray(data) ? data : []).map(mapPayable))
+      } catch (e: any) {
+        if (active) {
+          setError(e?.message || 'Failed to load procurement payables')
+          setSyncData([])
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
+
+  // Derived integration stats from the loaded payables (replaces mock totals).
+  const integrationStats = {
+    totalPOs: syncData.length,
+    syncedPOs: syncData.filter((p) => p.syncStatus === 'synced').length,
+    pendingPOs: syncData.filter((p) => p.syncStatus === 'pending').length,
+    failedPOs: syncData.filter((p) => p.syncStatus === 'failed').length,
+    totalPOValue: syncData.reduce((s, p) => s + p.poAmount, 0),
+    totalReceived: syncData.reduce((s, p) => s + p.receivedAmount, 0),
+    totalInvoiced: syncData.reduce((s, p) => s + p.invoicedAmount, 0),
+    totalPaid: syncData.reduce((s, p) => s + p.paidAmount, 0),
+    lastSyncTime: new Date().toLocaleString('en-IN'),
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -104,7 +159,7 @@ export default function ProcurementIntegrationPage() {
               <span className="text-sm text-gray-600">Received</span>
             </div>
             <p className="text-2xl font-bold text-green-600">{formatCurrency(integrationStats.totalReceived)}</p>
-            <p className="text-xs text-gray-500 mt-1">{((integrationStats.totalReceived / integrationStats.totalPOValue) * 100).toFixed(0)}% of PO value</p>
+            <p className="text-xs text-gray-500 mt-1">{(integrationStats.totalPOValue ? (integrationStats.totalReceived / integrationStats.totalPOValue) * 100 : 0).toFixed(0)}% of PO value</p>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -113,7 +168,7 @@ export default function ProcurementIntegrationPage() {
               <span className="text-sm text-gray-600">Invoiced</span>
             </div>
             <p className="text-2xl font-bold text-blue-600">{formatCurrency(integrationStats.totalInvoiced)}</p>
-            <p className="text-xs text-gray-500 mt-1">{((integrationStats.totalInvoiced / integrationStats.totalPOValue) * 100).toFixed(0)}% of PO value</p>
+            <p className="text-xs text-gray-500 mt-1">{(integrationStats.totalPOValue ? (integrationStats.totalInvoiced / integrationStats.totalPOValue) * 100 : 0).toFixed(0)}% of PO value</p>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -122,7 +177,7 @@ export default function ProcurementIntegrationPage() {
               <span className="text-sm text-gray-600">Paid</span>
             </div>
             <p className="text-2xl font-bold text-purple-600">{formatCurrency(integrationStats.totalPaid)}</p>
-            <p className="text-xs text-gray-500 mt-1">{((integrationStats.totalPaid / integrationStats.totalPOValue) * 100).toFixed(0)}% of PO value</p>
+            <p className="text-xs text-gray-500 mt-1">{(integrationStats.totalPOValue ? (integrationStats.totalPaid / integrationStats.totalPOValue) * 100 : 0).toFixed(0)}% of PO value</p>
           </div>
         </div>
 
@@ -149,6 +204,21 @@ export default function ProcurementIntegrationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
+                {loading && (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">Loading payables…</td>
+                  </tr>
+                )}
+                {!loading && error && (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-red-600">{error}</td>
+                  </tr>
+                )}
+                {!loading && !error && syncData.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">No procurement payables found.</td>
+                  </tr>
+                )}
                 {syncData.map((po) => (
                   <tr key={po.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2">

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   Calendar,
   TrendingUp,
@@ -33,78 +34,120 @@ interface Department {
 
 export default function MultiYearPlanningPage() {
   const [planHorizon, setPlanHorizon] = useState(5)
-  const [baseYear] = useState(2025)
+  const [baseYear, setBaseYear] = useState(new Date().getFullYear())
 
-  const [yearlyBudgets] = useState<YearlyBudget[]>([
-    {
-      year: 2025,
-      revenue: 500000000,
-      operatingExpenses: 350000000,
-      capitalExpenditure: 50000000,
-      netIncome: 100000000,
-      growthRate: 0,
-      status: 'active'
-    },
-    {
-      year: 2026,
-      revenue: 575000000,
-      operatingExpenses: 390000000,
-      capitalExpenditure: 75000000,
-      netIncome: 110000000,
-      growthRate: 15,
-      status: 'approved'
-    },
-    {
-      year: 2027,
-      revenue: 661250000,
-      operatingExpenses: 438750000,
-      capitalExpenditure: 85000000,
-      netIncome: 137500000,
-      growthRate: 15,
-      status: 'draft'
-    },
-    {
-      year: 2028,
-      revenue: 760437500,
-      operatingExpenses: 494062500,
-      capitalExpenditure: 95000000,
-      netIncome: 171375000,
-      growthRate: 15,
-      status: 'draft'
-    },
-    {
-      year: 2029,
-      revenue: 874503125,
-      operatingExpenses: 556171875,
-      capitalExpenditure: 100000000,
-      netIncome: 218331250,
-      growthRate: 15,
-      status: 'draft'
-    }
-  ])
+  const [yearlyBudgets, setYearlyBudgets] = useState<YearlyBudget[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [departments] = useState<Department[]>([
-    {
-      name: 'Operations',
-      budgets: { 2025: 150000000, 2026: 165000000, 2027: 181500000, 2028: 199650000, 2029: 219615000 }
-    },
-    {
-      name: 'Sales & Marketing',
-      budgets: { 2025: 75000000, 2026: 82500000, 2027: 90750000, 2028: 99825000, 2029: 109807500 }
-    },
-    {
-      name: 'R&D',
-      budgets: { 2025: 50000000, 2026: 60000000, 2027: 72000000, 2028: 86400000, 2029: 103680000 }
-    },
-    {
-      name: 'IT',
-      budgets: { 2025: 35000000, 2026: 38500000, 2027: 42350000, 2028: 46585000, 2029: 51243500 }
-    },
-    {
-      name: 'Administration',
-      budgets: { 2025: 40000000, 2026: 44000000, 2027: 48400000, 2028: 53240000, 2029: 58564000 }
-    }
-  ])
+  const num = (v: any) => Number(v) || 0
+
+  // Extract a fiscal year (number) from a budget record's fiscalYear field,
+  // which may be 2025, "2025", or "FY2025-26".
+  const extractYear = (fy: any): number => {
+    if (typeof fy === 'number') return fy
+    const m = String(fy ?? '').match(/\d{4}/)
+    return m ? parseInt(m[0], 10) : NaN
+  }
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const budgets = await FinanceService.getBudgets()
+        if (!active) return
+        const rows = Array.isArray(budgets) ? budgets : []
+
+        // ---- Group budgets by fiscal year for the year-by-year table --------
+        const byYear = new Map<number, { revenue: number; operatingExpenses: number; capitalExpenditure: number; statuses: string[] }>()
+        for (const b of rows) {
+          const year = extractYear(b?.fiscalYear)
+          if (!Number.isFinite(year)) continue
+          if (!byYear.has(year)) {
+            byYear.set(year, { revenue: 0, operatingExpenses: 0, capitalExpenditure: 0, statuses: [] })
+          }
+          const agg = byYear.get(year)!
+          const bt = String(b?.budgetType ?? '').toLowerCase()
+          const amount = num(b?.totalAmount ?? b?.amount ?? b?.budgetedAmount ?? b?.allocatedAmount)
+          if (bt.includes('revenue') || bt.includes('income') || bt.includes('sales')) {
+            agg.revenue += amount
+          } else if (bt.includes('capital') || bt.includes('capex')) {
+            agg.capitalExpenditure += amount
+          } else {
+            // Default: treat as operating expense budget.
+            agg.operatingExpenses += amount
+          }
+          if (b?.status) agg.statuses.push(String(b.status).toLowerCase())
+        }
+
+        const sortedYears = Array.from(byYear.keys()).sort((a, b) => a - b)
+        const mappedYearly: YearlyBudget[] = sortedYears.map((year, idx) => {
+          const agg = byYear.get(year)!
+          const netIncome = agg.revenue - agg.operatingExpenses - agg.capitalExpenditure
+          const prev = idx > 0 ? byYear.get(sortedYears[idx - 1])! : null
+          const growthRate = prev && prev.revenue > 0
+            ? Math.round(((agg.revenue - prev.revenue) / prev.revenue) * 100)
+            : 0
+          // Pick a representative status from the year's budgets.
+          const s = agg.statuses[0] || 'draft'
+          const status: YearlyBudget['status'] =
+            s.includes('active') ? 'active'
+              : s.includes('approv') ? 'approved'
+                : s.includes('complet') || s.includes('closed') ? 'completed'
+                  : 'draft'
+          return {
+            year,
+            revenue: agg.revenue,
+            operatingExpenses: agg.operatingExpenses,
+            capitalExpenditure: agg.capitalExpenditure,
+            netIncome,
+            growthRate,
+            status,
+          }
+        })
+
+        // ---- Department-wise allocation across the same years ---------------
+        // Sum operating budgets per department per year. Years the department
+        // has no budget for default to 0 (no invented numbers).
+        const deptMap = new Map<string, { [year: number]: number }>()
+        for (const b of rows) {
+          const year = extractYear(b?.fiscalYear)
+          if (!Number.isFinite(year)) continue
+          const dept = String(b?.department ?? b?.departmentName ?? '').trim()
+          if (!dept) continue
+          const amount = num(b?.totalAmount ?? b?.amount ?? b?.budgetedAmount ?? b?.allocatedAmount)
+          if (!deptMap.has(dept)) deptMap.set(dept, {})
+          const rec = deptMap.get(dept)!
+          rec[year] = (rec[year] ?? 0) + amount
+        }
+        const mappedDepartments: Department[] = Array.from(deptMap.entries()).map(([name, budgetsByYear]) => {
+          // Ensure every displayed year has a value (0 where absent).
+          const filled: { [year: number]: number } = {}
+          sortedYears.forEach((y) => { filled[y] = budgetsByYear[y] ?? 0 })
+          return { name, budgets: filled }
+        })
+
+        if (mappedYearly.length > 0) {
+          setBaseYear(mappedYearly[0].year)
+          setPlanHorizon(mappedYearly.length)
+        }
+        setYearlyBudgets(mappedYearly)
+        setDepartments(mappedDepartments)
+      } catch (e: any) {
+        if (active) {
+          setError(e?.message || 'Failed to load budgets')
+          setYearlyBudgets([])
+          setDepartments([])
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -135,7 +178,10 @@ export default function MultiYearPlanningPage() {
   const totalPlannedRevenue = yearlyBudgets.reduce((sum, y) => sum + y.revenue, 0)
   const totalCapex = yearlyBudgets.reduce((sum, y) => sum + y.capitalExpenditure, 0)
   const totalNetIncome = yearlyBudgets.reduce((sum, y) => sum + y.netIncome, 0)
-  const avgGrowthRate = yearlyBudgets.filter(y => y.growthRate > 0).reduce((sum, y) => sum + y.growthRate, 0) / yearlyBudgets.filter(y => y.growthRate > 0).length
+  const growthYears = yearlyBudgets.filter(y => y.growthRate > 0)
+  const avgGrowthRate = growthYears.length > 0
+    ? growthYears.reduce((sum, y) => sum + y.growthRate, 0) / growthYears.length
+    : 0
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-50 px-3 py-2">
@@ -226,6 +272,15 @@ export default function MultiYearPlanningPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
+                  {loading && (
+                    <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">Loading budgets…</td></tr>
+                  )}
+                  {!loading && error && (
+                    <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-red-600">{error}</td></tr>
+                  )}
+                  {!loading && !error && yearlyBudgets.length === 0 && (
+                    <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">No budget data available.</td></tr>
+                  )}
                   {yearlyBudgets.map((budget) => (
                     <tr key={budget.year} className="hover:bg-gray-50">
                       <td className="px-3 py-2">
@@ -301,12 +356,21 @@ export default function MultiYearPlanningPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
+                  {!loading && departments.length === 0 && (
+                    <tr>
+                      <td colSpan={yearlyBudgets.length + 3} className="px-3 py-8 text-center text-sm text-gray-500">
+                        No department-wise budget allocation available.
+                      </td>
+                    </tr>
+                  )}
                   {departments.map((dept) => {
                     const total = Object.values(dept.budgets).reduce((sum, val) => sum + val, 0)
                     const years = Object.keys(dept.budgets).length
                     const firstYear = dept.budgets[baseYear]
                     const lastYear = dept.budgets[baseYear + years - 1]
-                    const cagr = ((Math.pow(lastYear / firstYear, 1 / (years - 1)) - 1) * 100).toFixed(1)
+                    const cagr = (years > 1 && firstYear > 0 && lastYear > 0)
+                      ? ((Math.pow(lastYear / firstYear, 1 / (years - 1)) - 1) * 100).toFixed(1)
+                      : '0.0'
 
                     return (
                       <tr key={dept.name} className="hover:bg-gray-50">

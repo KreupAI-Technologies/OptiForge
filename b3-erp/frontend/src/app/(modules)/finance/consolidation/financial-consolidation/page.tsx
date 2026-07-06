@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { FinanceService } from '@/services/finance.service'
 import {
   Building2,
   PieChart,
@@ -24,14 +25,65 @@ interface ConsolidatedEntity {
 }
 
 export default function FinancialConsolidationPage() {
-  const [entities] = useState<ConsolidatedEntity[]>([
-    { name: 'Manufacturing Unit A', revenue: 250000000, expenses: 180000000, assets: 500000000, liabilities: 200000000, equity: 300000000, netIncome: 70000000 },
-    { name: 'Sales Division B', revenue: 180000000, expenses: 140000000, assets: 300000000, liabilities: 120000000, equity: 180000000, netIncome: 40000000 },
-    { name: 'Regional Office - North', revenue: 150000000, expenses: 120000000, assets: 250000000, liabilities: 100000000, equity: 150000000, netIncome: 30000000 },
-    { name: 'IT Services Division', revenue: 95000000, expenses: 70000000, assets: 150000000, liabilities: 60000000, equity: 90000000, netIncome: 25000000 }
-  ])
+  const [entities, setEntities] = useState<ConsolidatedEntity[]>([])
+  const [eliminations, setEliminations] = useState({ revenue: 0, expenses: 0, assets: 0, liabilities: 0 })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [eliminations] = useState({ revenue: 50000000, expenses: 35000000, assets: 80000000, liabilities: 80000000 })
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await FinanceService.getConsolidation()
+        if (cancelled) return
+        const byType: any[] = Array.isArray(data?.balancesByType) ? data.balancesByType : []
+
+        // Group balances into a single consolidated group entity by account type.
+        const sumType = (predicate: (t: string) => boolean) =>
+          byType
+            .filter((b) => predicate(String(b.type || '').toUpperCase()))
+            .reduce((s, b) => s + (Number(b.balance) || 0), 0)
+
+        const revenue = sumType((t) => t.includes('REVENUE') || t.includes('INCOME'))
+        const expenses = sumType((t) => t.includes('EXPENSE'))
+        const assets = sumType((t) => t.includes('ASSET'))
+        const liabilities = sumType((t) => t.includes('LIABILIT'))
+        const equity = sumType((t) => t.includes('EQUITY'))
+
+        const entity: ConsolidatedEntity = {
+          name: 'Consolidated Group',
+          revenue,
+          expenses,
+          assets,
+          liabilities,
+          equity,
+          netIncome: revenue - expenses,
+        }
+
+        const ic = data?.intercompany ?? {}
+        setEliminations({
+          revenue: 0,
+          expenses: 0,
+          assets: Number(ic.openReceivable) || 0,
+          liabilities: Number(ic.openPayable) || 0,
+        })
+        setEntities(revenue || expenses || assets || liabilities || equity ? [entity] : [])
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || 'Failed to load consolidation')
+          setEntities([])
+          setEliminations({ revenue: 0, expenses: 0, assets: 0, liabilities: 0 })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const consolidated = {
     revenue: entities.reduce((sum, e) => sum + e.revenue, 0) - eliminations.revenue,
@@ -59,6 +111,8 @@ export default function FinancialConsolidationPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Financial Consolidation</h1>
             <p className="text-gray-600 mt-1">Consolidated financial statements for group companies</p>
+            {loading && <p className="text-sm text-gray-500 mt-1">Loading…</p>}
+            {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
           </div>
           <div className="flex items-center gap-3">
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">

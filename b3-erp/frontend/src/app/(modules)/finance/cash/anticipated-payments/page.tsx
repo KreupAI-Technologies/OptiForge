@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   Plus,
   Search,
@@ -49,117 +49,91 @@ interface AnticipatedPayment {
   daysUntilDue: number;
 }
 
+const computeDaysUntilDue = (expectedDate?: string): number => {
+  if (!expectedDate) return 0;
+  const due = new Date(expectedDate);
+  if (isNaN(due.getTime())) return 0;
+  const today = new Date();
+  return Math.floor((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+};
+
+const mapPayment = (p: any): AnticipatedPayment => {
+  const expectedAmount = Number(p?.expectedAmount) || 0;
+  const paidAmount = Number(p?.paidAmount) || 0;
+  const expectedDate = p?.expectedDate ? String(p.expectedDate).slice(0, 10) : '';
+  return {
+    id: String(p?.id ?? ''),
+    paymentNumber: p?.paymentNumber ?? '',
+    vendorName: p?.vendorName ?? '',
+    vendorId: p?.vendorId ?? '',
+    expectedDate,
+    expectedAmount,
+    paidAmount,
+    balanceAmount: expectedAmount - paidAmount,
+    status: (p?.status as AnticipatedPayment['status']) ?? 'Pending',
+    priority: Number(p?.priority) || 5,
+    urgency: (p?.urgency as AnticipatedPayment['urgency']) ?? 'Medium',
+    referenceType: p?.referenceType ?? 'Reference',
+    referenceNumber: p?.referenceNumber ?? '',
+    description: p?.description ?? '',
+    paymentMethod: p?.plannedPaymentMethod ?? p?.paymentMethod ?? '',
+    requiresApproval: Boolean(p?.requiresApproval),
+    isApproved: Boolean(p?.isApproved),
+    approvedBy: p?.approvedBy,
+    contactPerson: p?.contactPerson ?? '',
+    daysUntilDue: computeDaysUntilDue(expectedDate),
+  };
+};
+
 export default function AnticipatedPaymentsPage() {
-  const [payments] = useState<AnticipatedPayment[]>([
-    {
-      id: '1',
-      paymentNumber: 'AP-2025-001',
-      vendorName: 'Stainless Steel Suppliers Ltd',
-      vendorId: 'VEND-001',
-      expectedDate: '2025-10-20',
-      expectedAmount: 850000,
-      paidAmount: 0,
-      balanceAmount: 850000,
-      status: 'Pending',
-      priority: 2,
-      urgency: 'High',
-      referenceType: 'Purchase Invoice',
-      referenceNumber: 'PINV-2025-234',
-      description: 'Raw material purchase for manufacturing',
-      paymentMethod: 'RTGS',
-      requiresApproval: true,
-      isApproved: true,
-      approvedBy: 'CFO - Finance',
-      contactPerson: 'Rakesh Mehta',
-      daysUntilDue: 2,
-    },
-    {
-      id: '2',
-      paymentNumber: 'AP-2025-002',
-      vendorName: 'Industrial Components Corp',
-      vendorId: 'VEND-002',
-      expectedDate: '2025-10-22',
-      expectedAmount: 520000,
-      paidAmount: 200000,
-      balanceAmount: 320000,
-      status: 'Partially Paid',
-      priority: 5,
-      urgency: 'Medium',
-      referenceType: 'Purchase Invoice',
-      referenceNumber: 'PINV-2025-245',
-      description: 'Equipment parts - Balance payment',
-      paymentMethod: 'NEFT',
-      requiresApproval: true,
-      isApproved: true,
-      approvedBy: 'Manager - Procurement',
-      contactPerson: 'Sanjay Gupta',
-      daysUntilDue: 4,
-    },
-    {
-      id: '3',
-      paymentNumber: 'AP-2025-003',
-      vendorName: 'Electricity Board',
-      vendorId: 'VEND-003',
-      expectedDate: '2025-10-18',
-      expectedAmount: 180000,
-      paidAmount: 0,
-      balanceAmount: 180000,
-      status: 'Overdue',
-      priority: 1,
-      urgency: 'Critical',
-      referenceType: 'Utility Bill',
-      referenceNumber: 'EBILL-SEP-2025',
-      description: 'Monthly electricity charges - September',
-      paymentMethod: 'Online',
-      requiresApproval: false,
-      isApproved: true,
-      contactPerson: 'Service Center',
-      daysUntilDue: 0,
-    },
-    {
-      id: '4',
-      paymentNumber: 'AP-2025-004',
-      vendorName: 'ABC Engineering Services',
-      vendorId: 'VEND-004',
-      expectedDate: '2025-10-25',
-      expectedAmount: 450000,
-      paidAmount: 0,
-      balanceAmount: 450000,
-      status: 'Pending',
-      priority: 6,
-      urgency: 'Low',
-      referenceType: 'Service Invoice',
-      referenceNumber: 'SINV-2025-089',
-      description: 'Maintenance services - Quarterly',
-      paymentMethod: 'Cheque',
-      requiresApproval: true,
-      isApproved: false,
-      contactPerson: 'Ravi Kumar',
-      daysUntilDue: 7,
-    },
-    {
-      id: '5',
-      paymentNumber: 'AP-2025-005',
-      vendorName: 'Transport Solutions Pvt Ltd',
-      vendorId: 'VEND-005',
-      expectedDate: '2025-10-21',
-      expectedAmount: 280000,
-      paidAmount: 0,
-      balanceAmount: 280000,
-      status: 'Scheduled',
-      priority: 4,
-      urgency: 'Medium',
-      referenceType: 'Freight Invoice',
-      referenceNumber: 'FINV-2025-156',
-      description: 'Logistics and freight charges',
-      paymentMethod: 'Bank Transfer',
-      requiresApproval: true,
-      isApproved: true,
-      approvedBy: 'Manager - Logistics',
-      contactPerson: 'Pradeep Sharma',
-      daysUntilDue: 3,
-    },
-  ]);
+  const [payments, setPayments] = useState<AnticipatedPayment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPayments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await FinanceService.getAnticipatedPayments();
+      setPayments(Array.isArray(data) ? data.map(mapPayment) : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load anticipated payments');
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPayments();
+  }, [loadPayments]);
+
+  const handleCreatePayment = async (data: any) => {
+    try {
+      await FinanceService.createAnticipatedPayment(data);
+      await loadPayments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create payment');
+    }
+  };
+
+  const handleUpdatePayment = async (id: string, data: any) => {
+    try {
+      await FinanceService.updateAnticipatedPayment(id, data);
+      await loadPayments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update payment');
+    }
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    try {
+      await FinanceService.deleteAnticipatedPayment(id);
+      await loadPayments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete payment');
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -266,13 +240,13 @@ export default function AnticipatedPaymentsPage() {
                 </h1>
                 <p className="text-gray-600 mt-1">Schedule and track upcoming vendor payments</p>
               </div>
-              <Link
-                href="/finance/cash/anticipated-payments"
+              <button
+                onClick={() => handleCreatePayment({ status: 'Pending' })}
                 className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg shadow-lg transition-all hover:shadow-xl"
               >
                 <Plus className="w-5 h-5" />
                 <span className="font-semibold">Add New Payment</span>
-              </Link>
+              </button>
             </div>
 
             {/* Stats Cards */}
@@ -293,7 +267,7 @@ export default function AnticipatedPaymentsPage() {
                 </div>
                 <p className="text-3xl font-bold">{formatCurrency(stats.totalPaid)}</p>
                 <p className="text-sm text-green-100 mt-2">
-                  {((stats.totalPaid / stats.totalExpected) * 100).toFixed(1)}% completed
+                  {(stats.totalExpected ? (stats.totalPaid / stats.totalExpected) * 100 : 0).toFixed(1)}% completed
                 </p>
               </div>
 
@@ -316,6 +290,18 @@ export default function AnticipatedPaymentsPage() {
               </div>
             </div>
           </div>
+
+          {/* Loading / Error states */}
+          {loading && (
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-3 text-center text-gray-500">
+              Loading anticipated payments...
+            </div>
+          )}
+          {error && !loading && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl shadow-lg p-4 mb-3">
+              {error}
+            </div>
+          )}
 
           {/* Filters */}
           <div className="bg-white rounded-xl shadow-lg p-3 mb-3">
@@ -509,21 +495,21 @@ export default function AnticipatedPaymentsPage() {
                       <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           <button
+                            onClick={() => handleDeletePayment(payment.id)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleUpdatePayment(payment.id, { status: payment.status })}
                             className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           {payment.requiresApproval && !payment.isApproved && (
                             <button
+                              onClick={() => handleUpdatePayment(payment.id, { isApproved: true })}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-
                             >
                               <Check className="w-4 h-4" />
                             </button>

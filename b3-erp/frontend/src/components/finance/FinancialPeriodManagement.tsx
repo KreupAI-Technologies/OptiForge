@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calendar, Lock, Unlock, CheckCircle, XCircle, AlertTriangle, Clock, Play, Pause, RotateCcw, ChevronRight, FileText, Settings, Users, Shield, Activity, TrendingUp, Database, RefreshCw, Plus, X, Filter, Download, Eye, Check, AlertCircle } from 'lucide-react';
+import { FinanceService } from '@/services/finance.service';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadialBarChart, RadialBar } from 'recharts';
 
 interface FinancialPeriod {
@@ -101,15 +102,59 @@ const FinancialPeriodManagement = () => {
   const [closingStep, setClosingStep] = useState(1);
   const [selectedYear, setSelectedYear] = useState(2024);
 
-  // Mock data
-  const financialPeriods: FinancialPeriod[] = [
-    { id: 'FP001', periodName: 'January 2024', year: 2024, month: 1, startDate: '2024-01-01', endDate: '2024-01-31', status: 'hard-close', type: 'monthly', closingDeadline: '2024-02-10', actualClosedDate: '2024-02-08', closedBy: 'John Doe' },
-    { id: 'FP002', periodName: 'February 2024', year: 2024, month: 2, startDate: '2024-02-01', endDate: '2024-02-29', status: 'hard-close', type: 'monthly', closingDeadline: '2024-03-10', actualClosedDate: '2024-03-09', closedBy: 'John Doe' },
-    { id: 'FP003', periodName: 'March 2024', year: 2024, month: 3, startDate: '2024-03-01', endDate: '2024-03-31', status: 'soft-close', type: 'monthly', closingDeadline: '2024-04-10' },
-    { id: 'FP004', periodName: 'Q1 2024', year: 2024, quarter: 1, startDate: '2024-01-01', endDate: '2024-03-31', status: 'open', type: 'quarterly', closingDeadline: '2024-04-15' },
-    { id: 'FP005', periodName: 'April 2024', year: 2024, month: 4, startDate: '2024-04-01', endDate: '2024-04-30', status: 'open', type: 'monthly', closingDeadline: '2024-05-10' },
-    { id: 'FP006', periodName: 'May 2024', year: 2024, month: 5, startDate: '2024-05-01', endDate: '2024-05-31', status: 'future', type: 'monthly', closingDeadline: '2024-06-10' }
-  ];
+  // Financial periods loaded from the API
+  const [financialPeriods, setFinancialPeriods] = useState<FinancialPeriod[]>([]);
+
+  const mapPeriodStatus = (s: any): FinancialPeriod['status'] => {
+    const v = String(s || '').toLowerCase().replace(/[_\s]/g, '-');
+    if (v.includes('hard') || v === 'closed' || v.includes('lock')) return 'hard-close';
+    if (v.includes('soft')) return 'soft-close';
+    if (v.includes('archiv')) return 'archived';
+    if (v.includes('future') || v.includes('upcoming')) return 'future';
+    return 'open';
+  };
+
+  const mapPeriodType = (t: any): FinancialPeriod['type'] => {
+    const v = String(t || '').toLowerCase();
+    if (v.includes('quarter')) return 'quarterly';
+    if (v.includes('annual') || v.includes('year')) return 'annual';
+    if (v.includes('custom')) return 'custom';
+    return 'monthly';
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await FinanceService.getFinancialPeriods();
+        if (cancelled) return;
+        const list = Array.isArray(raw) ? raw : [];
+        const mapped: FinancialPeriod[] = list.map((p: any) => {
+          const start = String(p.startDate ?? '');
+          const yr = Number(String(start).slice(0, 4)) || new Date().getFullYear();
+          return {
+            id: String(p.id),
+            periodName: String(p.periodName ?? p.periodCode ?? ''),
+            year: yr,
+            month: p.periodNumber != null ? Number(p.periodNumber) : undefined,
+            startDate: start,
+            endDate: String(p.endDate ?? ''),
+            status: mapPeriodStatus(p.status),
+            type: mapPeriodType(p.periodType),
+            closingDeadline: String(p.closingDeadline ?? p.endDate ?? ''),
+            actualClosedDate: p.actualClosedDate ?? undefined,
+            closedBy: p.closedBy ?? undefined,
+          };
+        });
+        setFinancialPeriods(mapped);
+      } catch {
+        if (!cancelled) setFinancialPeriods([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const closingTasks: ClosingTask[] = [
     { id: 'CT001', periodId: 'FP003', taskName: 'Bank Reconciliation', category: 'reconciliation', sequence: 1, assignedTo: 'Jane Smith', status: 'completed', priority: 'high', estimatedHours: 4, actualHours: 3.5, dueDate: '2024-04-05', completedDate: '2024-04-04', dependencies: [], automated: false },

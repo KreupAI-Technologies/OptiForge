@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   Activity,
@@ -9,6 +9,7 @@ import {
   DollarSign,
   Target
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface Ratio {
   name: string
@@ -19,22 +20,82 @@ interface Ratio {
   category: string
 }
 
+// Local lookup for benchmark/formula/interpretation/category keyed by humanized ratio name.
+const RATIO_META: Record<string, { benchmark: number; formula: string; interpretation: string; category: string }> = {
+  'Current Ratio': { benchmark: 2.0, formula: 'Current Assets / Current Liabilities', interpretation: 'Liquidity position', category: 'Liquidity' },
+  'Quick Ratio': { benchmark: 1.5, formula: '(Current Assets - Inventory) / Current Liabilities', interpretation: 'Short-term liquidity', category: 'Liquidity' },
+  'Cash Ratio': { benchmark: 0.5, formula: 'Cash / Current Liabilities', interpretation: 'Cash position', category: 'Liquidity' },
+  'Gross Profit Margin': { benchmark: 35.0, formula: '(Revenue - COGS) / Revenue × 100', interpretation: 'Gross margin', category: 'Profitability' },
+  'Net Profit Margin': { benchmark: 18.0, formula: 'Net Income / Revenue × 100', interpretation: 'Net profitability', category: 'Profitability' },
+  'Return on Assets (ROA)': { benchmark: 12.0, formula: 'Net Income / Total Assets × 100', interpretation: 'Asset utilization', category: 'Profitability' },
+  'Return on Equity (ROE)': { benchmark: 20.0, formula: 'Net Income / Shareholders Equity × 100', interpretation: 'Return for shareholders', category: 'Profitability' },
+  'Asset Turnover': { benchmark: 1.5, formula: 'Revenue / Total Assets', interpretation: 'Asset efficiency', category: 'Efficiency' },
+  'Inventory Turnover': { benchmark: 6.0, formula: 'COGS / Average Inventory', interpretation: 'Inventory management', category: 'Efficiency' },
+  'Receivables Turnover': { benchmark: 8.0, formula: 'Revenue / Average Receivables', interpretation: 'Collection efficiency', category: 'Efficiency' },
+  'Debt-to-Equity': { benchmark: 1.0, formula: 'Total Debt / Total Equity', interpretation: 'Leverage', category: 'Leverage' },
+  'Debt Ratio': { benchmark: 0.5, formula: 'Total Debt / Total Assets', interpretation: 'Financial risk', category: 'Leverage' },
+  'Interest Coverage': { benchmark: 5.0, formula: 'EBIT / Interest Expense', interpretation: 'Debt service ability', category: 'Leverage' },
+}
+
+// Humanize an API key like "currentRatio" / "current_ratio" into "Current Ratio".
+function humanizeKey(key: string): string {
+  const spaced = key
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return spaced.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export default function FinancialRatiosPage() {
-  const [ratios] = useState<Ratio[]>([
-    { name: 'Current Ratio', value: 2.45, benchmark: 2.0, formula: 'Current Assets / Current Liabilities', interpretation: 'Strong liquidity position', category: 'Liquidity' },
-    { name: 'Quick Ratio', value: 1.85, benchmark: 1.5, formula: '(Current Assets - Inventory) / Current Liabilities', interpretation: 'Good short-term liquidity', category: 'Liquidity' },
-    { name: 'Cash Ratio', value: 0.95, benchmark: 0.5, formula: 'Cash / Current Liabilities', interpretation: 'Excellent cash position', category: 'Liquidity' },
-    { name: 'Gross Profit Margin', value: 38.5, benchmark: 35.0, formula: '(Revenue - COGS) / Revenue × 100', interpretation: 'Above industry average', category: 'Profitability' },
-    { name: 'Net Profit Margin', value: 22.3, benchmark: 18.0, formula: 'Net Income / Revenue × 100', interpretation: 'Strong profitability', category: 'Profitability' },
-    { name: 'Return on Assets (ROA)', value: 15.2, benchmark: 12.0, formula: 'Net Income / Total Assets × 100', interpretation: 'Efficient asset utilization', category: 'Profitability' },
-    { name: 'Return on Equity (ROE)', value: 24.8, benchmark: 20.0, formula: 'Net Income / Shareholders Equity × 100', interpretation: 'Excellent return for shareholders', category: 'Profitability' },
-    { name: 'Asset Turnover', value: 1.65, benchmark: 1.5, formula: 'Revenue / Total Assets', interpretation: 'Good asset efficiency', category: 'Efficiency' },
-    { name: 'Inventory Turnover', value: 8.2, benchmark: 6.0, formula: 'COGS / Average Inventory', interpretation: 'Efficient inventory management', category: 'Efficiency' },
-    { name: 'Receivables Turnover', value: 8.7, benchmark: 8.0, formula: 'Revenue / Average Receivables', interpretation: 'Good collection efficiency', category: 'Efficiency' },
-    { name: 'Debt-to-Equity', value: 0.65, benchmark: 1.0, formula: 'Total Debt / Total Equity', interpretation: 'Conservative leverage', category: 'Leverage' },
-    { name: 'Debt Ratio', value: 0.39, benchmark: 0.5, formula: 'Total Debt / Total Assets', interpretation: 'Low financial risk', category: 'Leverage' },
-    { name: 'Interest Coverage', value: 12.5, benchmark: 5.0, formula: 'EBIT / Interest Expense', interpretation: 'Strong ability to service debt', category: 'Leverage' }
-  ])
+  const [ratios, setRatios] = useState<Ratio[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await FinanceService.getFinancialRatios()
+        const flat: Ratio[] = []
+        const walk = (obj: any) => {
+          if (!obj || typeof obj !== 'object') return
+          Object.entries(obj).forEach(([key, val]) => {
+            if (typeof val === 'number' && isFinite(val)) {
+              const name = humanizeKey(key)
+              const meta = RATIO_META[name]
+              flat.push({
+                name,
+                value: val,
+                benchmark: meta?.benchmark ?? 0,
+                formula: meta?.formula ?? '',
+                interpretation: meta?.interpretation ?? '',
+                category: meta?.category ?? 'Other',
+              })
+            } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+              // Nested groups like { liquidity: {...}, profitability: {...} }
+              walk(val)
+            }
+          })
+        }
+        walk(res)
+        if (mounted) setRatios(flat)
+      } catch (e: any) {
+        if (mounted) {
+          setError(e?.message || 'Failed to load financial ratios')
+          setRatios([])
+        }
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const categories = ['Liquidity', 'Profitability', 'Efficiency', 'Leverage']
 
