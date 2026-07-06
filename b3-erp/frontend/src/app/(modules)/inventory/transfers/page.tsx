@@ -36,6 +36,7 @@ import {
   TransferStatus,
   TransferPriority
 } from '@/services/stock-transfer.service'
+import { inventoryService } from '@/services/InventoryService'
 import { exportToCsv, printCurrentView } from '@/lib/export'
 
 interface StockTransfer {
@@ -235,15 +236,32 @@ const InventoryTransfersPage = () => {
 
   const handleCreateTransferSubmit = async (data: CreateTransferData, isDraft: boolean) => {
     try {
-      // Note: CreateTransferData from modal may have different structure
-      // This is a simplified mapping - adjust based on actual modal data structure
-      console.log('Creating transfer:', data, 'isDraft:', isDraft)
-
+      await inventoryService.createStockTransfer({
+        transferType: 'Warehouse to Warehouse',
+        isDraft,
+        transferDate: data?.transferDate ?? new Date().toISOString().slice(0, 10),
+        expectedDelivery: data?.expectedDelivery,
+        fromWarehouseId: data?.fromWarehouse,
+        toWarehouseId: data?.toWarehouse,
+        priority: data?.priority,
+        purpose: data?.reason,
+        remarks: data?.notes,
+        lines: (data?.items ?? []).map((l, i) => ({
+          lineNumber: i + 1,
+          itemId: l?.itemId,
+          itemName: l?.itemName,
+          requestedQuantity: l?.transferQty ?? 0,
+          uom: l?.uom,
+          batchNumber: l?.batchNumber,
+          serialNumbers: l?.serialNumbers,
+        })),
+      })
       // Refresh the list after creating
       await fetchTransfers()
       setIsCreateOpen(false)
     } catch (err) {
       console.error('Failed to create transfer:', err)
+      setError('Failed to create transfer. Please try again.')
     }
   }
 
@@ -316,10 +334,27 @@ const InventoryTransfersPage = () => {
     setIsDispatchOpen(true)
   }
 
-  const handleDispatchSubmit = (data: DispatchTransferData) => {
-    console.log('Dispatching transfer:', data)
-    // TODO: Implement API call
-    setIsDispatchOpen(false)
+  const handleDispatchSubmit = async (data: DispatchTransferData) => {
+    if (!selectedTransfer) {
+      setIsDispatchOpen(false)
+      return
+    }
+    try {
+      await stockTransferService.dispatchTransfer(selectedTransfer.id, {
+        items: [],
+        vehicleNumber: data?.vehicleNumber,
+        driverName: data?.driverName,
+        trackingNumber: data?.trackingNumber,
+        expectedArrivalDate: data?.dispatchDate,
+        remarks: data?.notes,
+      })
+      await fetchTransfers()
+    } catch (err) {
+      console.error('Failed to dispatch transfer:', err)
+      setError('Failed to dispatch transfer. Please try again.')
+    } finally {
+      setIsDispatchOpen(false)
+    }
   }
 
   const handleReceive = () => {
@@ -327,10 +362,27 @@ const InventoryTransfersPage = () => {
     setIsReceiveOpen(true)
   }
 
-  const handleReceiveSubmit = (data: ReceiveTransferData) => {
-    console.log('Receiving transfer:', data)
-    // TODO: Implement API call
-    setIsReceiveOpen(false)
+  const handleReceiveSubmit = async (data: ReceiveTransferData) => {
+    if (!selectedTransfer) {
+      setIsReceiveOpen(false)
+      return
+    }
+    try {
+      await stockTransferService.receiveTransfer(selectedTransfer.id, {
+        items: (data?.itemsReceived ?? []).map((item) => ({
+          itemId: item?.itemId,
+          receivedQuantity: item?.receivedQuantity ?? 0,
+          receivedCondition: item?.condition === 'damaged' ? 'DAMAGED' : 'GOOD',
+        })),
+        remarks: data?.qcNotes,
+      })
+      await fetchTransfers()
+    } catch (err) {
+      console.error('Failed to receive transfer:', err)
+      setError('Failed to receive transfer. Please try again.')
+    } finally {
+      setIsReceiveOpen(false)
+    }
   }
 
   const handleReceiveReject = async () => {

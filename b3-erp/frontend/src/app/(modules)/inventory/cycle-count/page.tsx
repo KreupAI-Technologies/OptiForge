@@ -271,40 +271,51 @@ export default function CycleCountPage() {
 
   // Modal handlers
   const handleCreateSchedule = (data: CycleCountSchedule) => {
-    // TODO: API call to create schedule
-    console.log('Creating schedule:', data);
+    // No backend mutation endpoint yet; optimistic local update.
+    if (data) {
+      const newCount: CycleCount = {
+        id: `local-${Date.now()}`,
+        countNumber: data.scheduleId || `CC-${Date.now()}`,
+        warehouse: data.warehouse || 'Unknown Warehouse',
+        zone: data.zones?.[0] || 'Unknown Zone',
+        countType: 'Full',
+        scheduledDate: data.startDate || new Date().toISOString().split('T')[0],
+        assignedTo: data.assignedTo || 'Unassigned',
+        itemsToCount: 0,
+        itemsCounted: 0,
+        variancesFound: 0,
+        status: 'scheduled',
+        accuracy: 0,
+      };
+      setCycleCounts((prev) => [...prev, newCount]);
+    }
     setIsCreateScheduleModalOpen(false);
-    // Refresh data after creation
   };
 
   const handleStartSession = (data: CycleCountSession) => {
-    // TODO: API call to start session
-    console.log('Starting session:', data);
-
-    // Add new count to the list
-    const newCount: CycleCount = {
-      id: `local-${cycleCounts.length + 1}`,
-      countNumber: data.sessionId,
-      warehouse: data.warehouse,
-      zone: data.zones[0] || 'Unknown Zone',
-      countType: 'ABC', // Default, should be from form
-      scheduledDate: data.countDate,
-      assignedTo: data.assignedTo,
-      itemsToCount: data.totalItems,
-      itemsCounted: data.countedItems,
-      variancesFound: data.discrepancies,
-      status: 'in-progress',
-      accuracy: 0
-    };
-
-    setCycleCounts([...cycleCounts, newCount]);
+    // No backend mutation endpoint yet; optimistic local update.
+    if (data) {
+      const newCount: CycleCount = {
+        id: `local-${Date.now()}`,
+        countNumber: data.sessionId,
+        warehouse: data.warehouse,
+        zone: data.zones?.[0] || 'Unknown Zone',
+        countType: 'ABC', // Default, should be from form
+        scheduledDate: data.countDate,
+        assignedTo: data.assignedTo,
+        itemsToCount: data.totalItems ?? 0,
+        itemsCounted: data.countedItems ?? 0,
+        variancesFound: data.discrepancies ?? 0,
+        status: 'in-progress',
+        accuracy: 0
+      };
+      setCycleCounts((prev) => [...prev, newCount]);
+    }
     setIsStartSessionModalOpen(false);
   };
 
   const handleUpdateCount = (itemId: string, countedQuantity: number, notes?: string) => {
-    // TODO: API call to update item count
-    console.log('Updating count:', { itemId, countedQuantity, notes });
-
+    // No backend mutation endpoint yet; optimistic local update.
     if (selectedSession) {
       const updatedItems = selectedSession.items.map(item => {
         if (item.itemId === itemId) {
@@ -357,10 +368,8 @@ export default function CycleCountPage() {
   };
 
   const handleCompleteSession = () => {
-    // TODO: API call to complete session
+    // No backend mutation endpoint yet; optimistic local update.
     if (selectedSession) {
-      console.log('Completing session:', selectedSession.sessionId);
-
       // Update the status in cycleCounts
       setCycleCounts(cycleCounts.map(count =>
         count.countNumber === selectedSession.sessionId

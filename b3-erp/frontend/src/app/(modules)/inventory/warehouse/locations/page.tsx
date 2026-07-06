@@ -45,6 +45,7 @@ export default function WarehouseLocationsPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +108,7 @@ export default function WarehouseLocationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const filteredLocations = locations.filter(loc => {
     const matchesSearch = loc.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,32 +166,26 @@ export default function WarehouseLocationsPage() {
   };
 
   // Handle bin creation
-  const handleCreateBin = (data: BinData) => {
-    // TODO: Integrate with API to create bin location
-    console.log('Creating bin:', data);
-
-    // Update local state
-    const newLocation: Location = {
-      id: data.binId,
-      code: data.binCode,
-      name: `${data.row} - ${data.rack} - ${data.level}`,
-      warehouse: 'Mumbai Central Warehouse', // Default warehouse
-      zone: 'Zone A', // Default zone
-      aisle: data.row,
-      rack: data.rack,
-      shelf: data.level,
-      bin: data.binCode,
-      locationType: 'storage',
-      capacity: data.capacity,
-      currentOccupancy: data.currentLoad,
-      utilizationPercent: data.capacity > 0 ? Math.round((data.currentLoad / data.capacity) * 100) : 0,
-      status: data.status,
-      itemsStored: 0,
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
-
-    setLocationList([...locationList, newLocation]);
-    setIsCreateBinOpen(false);
+  const handleCreateBin = async (data: BinData) => {
+    const binCode = data?.binCode;
+    if (!binCode) return;
+    try {
+      await inventoryService.createStockLocation({
+        locationCode: binCode,
+        locationName: binCode,
+        zone: data?.zoneId,
+        aisle: data?.row,
+        rack: data?.rack,
+        shelf: data?.level,
+        bin: binCode,
+        locationType: 'storage',
+        status: 'Active',
+      });
+      setIsCreateBinOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Failed to create bin location:', err);
+    }
   };
 
   // Handle bin/location click to view details
@@ -201,10 +196,23 @@ export default function WarehouseLocationsPage() {
   };
 
   // Handle bin/location edit
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = async (location: Location) => {
     setSelectedLocation(location);
-    // Could open CreateBinModal with pre-filled data for editing
-    console.log('Edit location:', location);
+    if (!location?.id) return;
+    try {
+      await inventoryService.updateStockLocation(location.id, {
+        locationCode: location.code,
+        locationName: location.name,
+        zone: location.zone,
+        aisle: location.aisle,
+        rack: location.rack,
+        shelf: location.shelf,
+        bin: location.bin,
+      });
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Failed to update location:', err);
+    }
   };
 
   // Get status-based row color for table

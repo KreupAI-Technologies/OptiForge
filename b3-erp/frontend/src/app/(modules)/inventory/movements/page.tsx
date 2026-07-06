@@ -67,6 +67,7 @@ const InventoryMovementsPage = () => {
   const [movements, setMovements] = useState<InventoryMovement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -117,7 +118,8 @@ const InventoryMovementsPage = () => {
     return () => {
       cancelled = true
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey])
 
   // Derive summary stat cards from the loaded movements list.
   const stats = useMemo(() => {
@@ -217,30 +219,96 @@ const InventoryMovementsPage = () => {
     setIsReceiveOpen(true)
   }
 
-  const handleReceiveStockSubmit = (data: ReceiveStockData) => {
-    console.log('Receiving stock:', data)
-    // TODO: Implement API call
-    setIsReceiveOpen(false)
+  const handleReceiveStockSubmit = async (data: any) => {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const items: any[] = (data.items ?? [data])
+      const payload = {
+        entryType: 'Material Receipt',
+        postingDate: data.date ?? data.receiptDate ?? today,
+        toWarehouseId: data.warehouseId ?? data.warehouse ?? items[0]?.warehouse,
+        referenceNumber: data.reference ?? data.deliveryNoteNumber ?? data.poReference,
+        remarks: data.notes,
+        lines: items.map((l: any, i: number) => ({
+          lineNumber: i + 1,
+          itemId: l.itemId ?? l.itemCode,
+          itemCode: l.itemCode,
+          itemName: l.itemName,
+          quantity: l.quantity ?? l.receivedQuantity ?? 0,
+          uom: l.uom,
+        })),
+      }
+      await inventoryService.createStockEntry(payload)
+      setIsReceiveOpen(false)
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to receive stock.')
+    }
   }
 
   const handleIssueStock = () => {
     setIsIssueOpen(true)
   }
 
-  const handleIssueStockSubmit = (data: IssueStockData) => {
-    console.log('Issuing stock:', data)
-    // TODO: Implement API call
-    setIsIssueOpen(false)
+  const handleIssueStockSubmit = async (data: any) => {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const items: any[] = (data.items ?? [data])
+      const payload = {
+        entryType: 'Material Issue',
+        postingDate: data.date ?? data.issueDate ?? today,
+        fromWarehouseId: data.warehouseId ?? data.warehouse ?? items[0]?.fromWarehouse,
+        referenceNumber: data.reference ?? data.departmentWorkOrder,
+        remarks: data.notes,
+        lines: items.map((l: any, i: number) => ({
+          lineNumber: i + 1,
+          itemId: l.itemId ?? l.itemCode,
+          itemCode: l.itemCode,
+          itemName: l.itemName,
+          quantity: l.quantity ?? l.issueQuantity ?? 0,
+          uom: l.uom,
+        })),
+      }
+      await inventoryService.createStockEntry(payload)
+      setIsIssueOpen(false)
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to issue stock.')
+    }
   }
 
   const handleRecordReturn = () => {
     setIsReturnOpen(true)
   }
 
-  const handleRecordReturnSubmit = (data: ReturnStockData) => {
-    console.log('Recording return:', data)
-    // TODO: Implement API call
-    setIsReturnOpen(false)
+  const handleRecordReturnSubmit = async (data: any) => {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const items: any[] = (data.items ?? [data])
+      const isPurchaseReturn = String(
+        data.returnType ?? data.returnReason ?? data.originalIssueRef ?? ''
+      ).toLowerCase().includes('purchase')
+      const payload = {
+        entryType: isPurchaseReturn ? 'Purchase Return' : 'Sales Return',
+        postingDate: data.date ?? data.returnDate ?? today,
+        toWarehouseId: data.warehouseId ?? data.warehouse ?? items[0]?.toWarehouse,
+        referenceNumber: data.reference ?? data.originalIssueRef,
+        remarks: data.notes ?? data.returnReason,
+        lines: items.map((l: any, i: number) => ({
+          lineNumber: i + 1,
+          itemId: l.itemId ?? l.itemCode,
+          itemCode: l.itemCode,
+          itemName: l.itemName,
+          quantity: l.quantity ?? l.returnQuantity ?? 0,
+          uom: l.uom,
+        })),
+      }
+      await inventoryService.createStockEntry(payload)
+      setIsReturnOpen(false)
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to record return.')
+    }
   }
 
   const convertToMovement = (movement: InventoryMovement): Movement => {

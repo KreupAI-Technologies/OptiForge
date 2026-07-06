@@ -201,73 +201,91 @@ export default function AdjustmentsPage() {
   };
 
   // Modal handlers
-  const handleCreateAdjustment = (data: StockAdjustmentData) => {
-    // TODO: Integrate with API to create adjustment
-    console.log('Creating adjustment:', data);
-
-    // Mock: Add to local state
-    const newAdjustment: Adjustment = {
-      id: adjustments.length + 1,
-      adjustmentNumber: data.adjustmentNumber,
-      date: data.adjustmentDate,
-      warehouse: data.warehouse,
-      type: 'quantity',
-      reason: data.reason,
-      itemsCount: data.items.length,
-      adjustmentValue: data.totalCostImpact,
-      adjustmentType: data.items.reduce((sum, item) => sum + item.difference, 0) > 0 ? 'increase' : 'decrease',
-      createdBy: 'Current User',
-      status: 'draft'
-    };
-
-    setAdjustments([newAdjustment, ...adjustments]);
-    setIsCreateModalOpen(false);
+  const handleCreateAdjustment = async (data: any) => {
+    try {
+      const lines: any[] = (data.lines ?? data.items ?? [data]);
+      const payload = {
+        adjustmentType: data.adjustmentType ?? 'Physical Inventory',
+        adjustmentDate: data.adjustmentDate ?? new Date().toISOString().slice(0, 10),
+        warehouseId: data.warehouseId ?? data.warehouse,
+        reason: data.reason,
+        remarks: data.remarks ?? data.notes,
+        lines: lines.map((l: any, i: number) => ({
+          lineNumber: i + 1,
+          itemId: l.itemId ?? l.itemCode,
+          itemCode: l.itemCode,
+          itemName: l.itemName,
+          systemQuantity: l.systemQuantity ?? l.currentQuantity ?? l.currentQty ?? 0,
+          physicalQuantity: l.physicalQuantity ?? l.adjustedQuantity ?? l.adjustedQty ?? 0,
+          uom: l.uom,
+          adjustmentReason: l.reason ?? data.reason,
+          remarks: l.remarks,
+        })),
+      };
+      await inventoryService.createStockAdjustment(payload);
+      setIsCreateModalOpen(false);
+      await loadAdjustments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create adjustment.');
+    }
   };
 
-  const handleBulkAdjustment = (data: BulkAdjustmentData) => {
-    // TODO: Integrate with API to create bulk adjustments
-    console.log('Creating bulk adjustment:', data);
-
-    // Mock: Add to local state
-    const newAdjustment: Adjustment = {
-      id: adjustments.length + 1,
-      adjustmentNumber: `ADJ-BULK-${Date.now()}`,
-      date: data.adjustmentDate,
-      warehouse: data.warehouse,
-      type: 'quantity',
-      reason: data.reason,
-      itemsCount: data.items.length,
-      adjustmentValue: data.items.reduce((sum, item) => sum + item.costImpact, 0),
-      adjustmentType: data.adjustmentType,
-      createdBy: 'Current User',
-      status: 'draft'
-    };
-
-    setAdjustments([newAdjustment, ...adjustments]);
-    setIsBulkModalOpen(false);
+  const handleBulkAdjustment = async (data: any) => {
+    try {
+      const items: any[] = (data.items ?? data.lines ?? []);
+      const payload = {
+        adjustmentType: data.adjustmentType ?? 'Physical Inventory',
+        adjustmentDate: data.adjustmentDate ?? new Date().toISOString().slice(0, 10),
+        warehouseId: data.warehouseId ?? data.warehouse,
+        reason: data.reason,
+        remarks: data.remarks ?? data.notes,
+        lines: items.map((l: any, i: number) => ({
+          lineNumber: i + 1,
+          itemId: l.itemId ?? l.itemCode,
+          itemCode: l.itemCode,
+          itemName: l.itemName,
+          systemQuantity: l.systemQuantity ?? l.currentQuantity ?? l.currentQty ?? 0,
+          physicalQuantity: l.physicalQuantity ?? l.adjustedQuantity ?? l.adjustedQty ?? 0,
+          uom: l.uom,
+          adjustmentReason: l.reason ?? data.reason,
+          remarks: l.remarks,
+        })),
+      };
+      await inventoryService.createStockAdjustment(payload);
+      setIsBulkModalOpen(false);
+      await loadAdjustments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create bulk adjustment.');
+    }
   };
 
-  const handleReconciliation = (data: ReconciliationData) => {
-    // TODO: Integrate with API to create reconciliation
-    console.log('Creating reconciliation:', data);
-
-    // Mock: Add to local state
-    const newAdjustment: Adjustment = {
-      id: adjustments.length + 1,
-      adjustmentNumber: data.reconciliationNumber,
-      date: data.reconciliationDate,
-      warehouse: data.warehouse,
-      type: 'quantity',
-      reason: 'Stock Reconciliation',
-      itemsCount: data.items.length,
-      adjustmentValue: Math.abs(data.variance * 100), // Mock calculation
-      adjustmentType: data.variance > 0 ? 'increase' : 'decrease',
-      createdBy: data.performedBy,
-      status: 'pending-approval'
-    };
-
-    setAdjustments([newAdjustment, ...adjustments]);
-    setIsReconciliationModalOpen(false);
+  const handleReconciliation = async (data: any) => {
+    try {
+      const items: any[] = (data.items ?? data.lines ?? []);
+      const payload = {
+        adjustmentType: 'Cycle Count',
+        adjustmentDate: data.reconciliationDate ?? data.adjustmentDate ?? new Date().toISOString().slice(0, 10),
+        warehouseId: data.warehouseId ?? data.warehouse,
+        reason: data.reason ?? 'Stock Reconciliation',
+        remarks: data.remarks ?? data.notes,
+        lines: items.map((l: any, i: number) => ({
+          lineNumber: i + 1,
+          itemId: l.itemId ?? l.itemCode,
+          itemCode: l.itemCode,
+          itemName: l.itemName,
+          systemQuantity: l.systemQuantity ?? l.systemQty ?? 0,
+          physicalQuantity: l.physicalQuantity ?? l.physicalQty ?? 0,
+          uom: l.uom,
+          adjustmentReason: l.reason ?? 'Stock Reconciliation',
+          remarks: l.remarks,
+        })),
+      };
+      await inventoryService.createStockAdjustment(payload);
+      setIsReconciliationModalOpen(false);
+      await loadAdjustments();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create reconciliation.');
+    }
   };
 
   const handleExport = (_format: string, _filters: any) => {
