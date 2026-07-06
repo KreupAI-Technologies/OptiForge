@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, Clock, Users, TrendingUp, Activity, Phone, Mail, Bell, Eye, CheckCircle2, XCircle } from 'lucide-react';
+import { ITILService } from '@/services/support.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
 interface CriticalIncident {
   id: string;
@@ -35,176 +38,54 @@ interface CriticalIncident {
 const CriticalIncidentsPage = () => {
   const [selectedIncident, setSelectedIncident] = useState<CriticalIncident | null>(null);
 
-  const [incidents] = useState<CriticalIncident[]>([
-    {
-      id: '1',
-      incidentNumber: 'INC-2025-0088',
-      title: 'Email Service Complete Outage',
-      description: 'Complete email service failure affecting all automated notifications, order confirmations, and internal communications',
-      priority: 'P0',
-      severity: 'Critical',
-      status: 'War Room Active',
-      category: 'Application Error',
-      affectedServices: ['Email Service', 'SMTP Server', 'Notification System', 'Order Management'],
-      reportedBy: 'Amit Patel',
-      reportedAt: '2025-10-21 13:15:00',
-      assignedTo: 'Vikram Singh',
-      assignedTeam: 'DevOps Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 14:30:00',
-      timeElapsed: '1h 45m',
-      slaStatus: 'At Risk',
-      slaRemaining: '15 minutes',
-      escalationLevel: 2,
-      escalationPath: ['Team Lead', 'IT Manager', 'CTO'],
-      warRoom: true,
-      businessImpact: 'All automated communications down, customer orders not confirmed',
-      revenueImpact: '₹5L/hour',
-      lastUpdate: '2025-10-21 14:50:00',
-      updateFrequency: 'Every 5 minutes',
-      criticalityScore: 95,
-    },
-    {
-      id: '2',
-      incidentNumber: 'INC-2025-0089',
-      title: 'ERP Application Severe Performance Degradation',
-      description: 'All users experiencing severe slowness across all modules, timeout errors frequent, operations at near standstill',
-      priority: 'P1',
-      severity: 'Critical',
-      status: 'In Progress',
-      category: 'Performance Issue',
-      affectedServices: ['ERP Application', 'Database Server', 'API Gateway', 'Load Balancer'],
-      reportedBy: 'Rajesh Kumar',
-      reportedAt: '2025-10-21 14:30:00',
-      assignedTo: 'Priya Sharma',
-      assignedTeam: 'Infrastructure Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 18:00:00',
-      timeElapsed: '30m',
-      slaStatus: 'Within SLA',
-      slaRemaining: '30 minutes',
-      escalationLevel: 1,
-      escalationPath: ['Team Lead', 'IT Manager'],
-      warRoom: false,
-      businessImpact: 'All business operations severely impacted, productivity at 20%',
-      revenueImpact: '₹3L/hour',
-      lastUpdate: '2025-10-21 14:50:00',
-      updateFrequency: 'Every 10 minutes',
-      criticalityScore: 88,
-    },
-    {
-      id: '3',
-      incidentNumber: 'INC-2025-0087',
-      title: 'Payment Gateway Complete Failure',
-      description: 'All payment processing down, unable to accept any online payments, gateway returns system error for all transactions',
-      priority: 'P0',
-      severity: 'Critical',
-      status: 'Investigating',
-      category: 'Integration Failure',
-      affectedServices: ['Payment Gateway', 'Order Management', 'Finance Module', 'Customer Portal'],
-      reportedBy: 'Sneha Reddy',
-      reportedAt: '2025-10-21 11:00:00',
-      assignedTo: 'Rahul Mehta',
-      assignedTeam: 'Integration Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 16:00:00',
-      timeElapsed: '4h',
-      slaStatus: 'Breached',
-      slaRemaining: 'SLA exceeded by 3h 45m',
-      escalationLevel: 3,
-      escalationPath: ['Team Lead', 'IT Manager', 'CTO', 'CEO'],
-      warRoom: true,
-      businessImpact: 'Zero online revenue, all e-commerce operations halted',
-      revenueImpact: '₹8L/hour',
-      lastUpdate: '2025-10-21 14:55:00',
-      updateFrequency: 'Every 5 minutes',
-      criticalityScore: 98,
-    },
-    {
-      id: '4',
-      incidentNumber: 'INC-2025-0090',
-      title: 'Database Server Primary Node Failure',
-      description: 'Primary database server crashed, failover to secondary in progress, some data sync issues reported',
-      priority: 'P0',
-      severity: 'Critical',
-      status: 'Failover In Progress',
-      category: 'Hardware Failure',
-      affectedServices: ['Database Server', 'ERP Application', 'All Modules'],
-      reportedBy: 'System Monitor',
-      reportedAt: '2025-10-21 14:45:00',
-      assignedTo: 'Suresh Kumar',
-      assignedTeam: 'Database Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 15:30:00',
-      timeElapsed: '15m',
-      slaStatus: 'Within SLA',
-      slaRemaining: '45 minutes',
-      escalationLevel: 2,
-      escalationPath: ['Team Lead', 'IT Manager', 'CTO'],
-      warRoom: true,
-      businessImpact: 'Partial system availability, read-only mode, critical operations halted',
-      revenueImpact: '₹10L/hour',
-      lastUpdate: '2025-10-21 14:58:00',
-      updateFrequency: 'Every 3 minutes',
-      criticalityScore: 100,
-    },
-    {
-      id: '5',
-      incidentNumber: 'INC-2025-0091',
-      title: 'Security Breach - Unauthorized Access Detected',
-      description: 'Multiple unauthorized login attempts detected from foreign IP addresses, potential security breach in progress',
-      priority: 'P0',
-      severity: 'Critical',
-      status: 'Active Response',
-      category: 'Security Incident',
-      affectedServices: ['Authentication Service', 'User Management', 'Security Module'],
-      reportedBy: 'Security System',
-      reportedAt: '2025-10-21 14:00:00',
-      assignedTo: 'Naveen Kumar',
-      assignedTeam: 'Security Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 16:00:00',
-      timeElapsed: '1h',
-      slaStatus: 'Within SLA',
-      slaRemaining: '1 hour',
-      escalationLevel: 3,
-      escalationPath: ['Security Lead', 'CISO', 'CTO', 'CEO'],
-      warRoom: true,
-      businessImpact: 'Potential data breach, system security compromised, compliance risk',
-      revenueImpact: 'Incalculable - Legal/Compliance risk',
-      lastUpdate: '2025-10-21 14:55:00',
-      updateFrequency: 'Every 5 minutes',
-      criticalityScore: 99,
-    },
-    {
-      id: '6',
-      incidentNumber: 'INC-2025-0092',
-      title: 'Production Line Data Feed Failure',
-      description: 'Real-time production data feed stopped, unable to monitor production status, work orders not updating',
-      priority: 'P1',
-      severity: 'High',
-      status: 'In Progress',
-      category: 'Integration Failure',
-      affectedServices: ['Production Module', 'IoT Gateway', 'Data Sync Service'],
-      reportedBy: 'Meera Nair',
-      reportedAt: '2025-10-21 13:30:00',
-      assignedTo: 'Karthik Iyer',
-      assignedTeam: 'Production IT Team',
-      impactedUsers: 45,
-      estimatedResolution: '2025-10-21 16:30:00',
-      timeElapsed: '1h 30m',
-      slaStatus: 'Within SLA',
-      slaRemaining: '2 hours',
-      escalationLevel: 1,
-      escalationPath: ['Team Lead', 'Operations Manager'],
-      warRoom: false,
-      businessImpact: 'Production monitoring blind, quality control compromised',
-      revenueImpact: '₹2L/hour',
-      lastUpdate: '2025-10-21 14:45:00',
-      updateFrequency: 'Every 15 minutes',
-      criticalityScore: 82,
-    },
-  ]);
+  const [incidents, setIncidents] = useState<CriticalIncident[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadIncidents = async () => {
+      try {
+        const res = await ITILService.getIncidents(COMPANY_ID, { priority: 'P1' });
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const mapped: CriticalIncident[] = rows.map((r: any) => ({
+          id: r?.id ?? '',
+          incidentNumber: r?.incidentNumber ?? '',
+          title: r?.title ?? '',
+          description: r?.description ?? '',
+          priority: (r?.priority === 'critical' ? 'P0' : 'P1') as 'P0' | 'P1',
+          severity: (r?.impact === 'critical' ? 'Critical' : 'High') as 'Critical' | 'High',
+          status: r?.status ?? '',
+          category: r?.category ?? '',
+          affectedServices: Array.isArray(r?.affectedServices) ? r.affectedServices : [],
+          reportedBy: r?.reportedBy ?? '',
+          reportedAt: r?.createdAt ? String(r.createdAt) : '',
+          assignedTo: r?.assignedTo ?? 'Unassigned',
+          assignedTeam: r?.assignedTeam ?? '',
+          impactedUsers: typeof r?.impactedUsers === 'number' ? r.impactedUsers : 0,
+          estimatedResolution: r?.resolvedAt ? String(r.resolvedAt) : '',
+          timeElapsed: '',
+          slaStatus: 'Within SLA',
+          slaRemaining: '',
+          escalationLevel: typeof r?.reopenedCount === 'number' ? r.reopenedCount : 0,
+          escalationPath: [],
+          warRoom: false,
+          businessImpact: r?.impact ? `Impact: ${r.impact}` : '',
+          revenueImpact: '',
+          lastUpdate: r?.updatedAt ? String(r.updatedAt) : '',
+          updateFrequency: '',
+          criticalityScore: r?.priority === 'critical' ? 95 : 85,
+        }));
+        if (!cancelled) setIncidents(mapped);
+      } catch {
+        if (!cancelled) setIncidents([]);
+      }
+    };
+
+    loadIncidents();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = {
     totalCritical: incidents.length,

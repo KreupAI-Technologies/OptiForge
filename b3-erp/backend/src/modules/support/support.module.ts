@@ -35,6 +35,7 @@ import { SupportHardwareAssetController } from './controllers/support-hardware-a
 import { SupportSoftwareAssetController } from './controllers/support-software-asset.controller';
 import { SupportScheduledChangeController } from './controllers/support-scheduled-change.controller';
 import { OmnichannelInteractionController } from './controllers/omnichannel-interaction.controller';
+import { ITILController } from './controllers/itil.controller';
 import { SupportAutomationRuleService } from './services/support-automation-rule.service';
 import { SupportFaqService } from './services/support-faq.service';
 import { SupportTicketCategoryService } from './services/support-ticket-category.service';
@@ -109,6 +110,7 @@ import { SupportController } from './support.controller';
     SupportSoftwareAssetController,
     SupportScheduledChangeController,
     OmnichannelInteractionController,
+    ITILController,
     SupportController,
   ],
   providers: [

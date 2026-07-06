@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { AlertTriangle, FileText, Users, Clock, Save, Send, ArrowLeft, CheckCircle2, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { ITILService } from '@/services/support.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
 interface AffectedService {
   id: string;
@@ -131,12 +134,45 @@ const CreateIncidentPage = () => {
     router.push('/support/incidents/tracking');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (validateForm()) {
-      alert(`Incident created successfully!\nPriority: ${formData.priority}\nSeverity: ${formData.severity}\nAffected Services: ${selectedServices.length}`);
+
+    if (!validateForm()) {
+      return;
+    }
+
+    const priorityMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+      P0: 'critical',
+      P1: 'high',
+      P2: 'medium',
+      P3: 'low',
+    };
+    const impactMap: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
+      Critical: 'critical',
+      High: 'high',
+      Medium: 'medium',
+      Low: 'low',
+    };
+
+    const priority = priorityMap[formData.priority] ?? 'medium';
+    const impact = impactMap[formData.severity] ?? 'medium';
+
+    try {
+      await ITILService.createIncident({
+        title: formData.title,
+        description: formData.description,
+        priority,
+        impact,
+        urgency: impact,
+        category: formData.category,
+        status: 'open',
+        reportedBy: formData.reportedBy || undefined,
+        companyId: COMPANY_ID,
+      });
       router.push('/support/incidents/tracking');
+    } catch (err) {
+      setErrors({ submit: 'Failed to create incident. Please try again.' });
+      alert('Failed to create incident. Please try again.');
     }
   };
 

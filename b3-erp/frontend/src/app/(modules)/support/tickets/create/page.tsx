@@ -1,12 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Ticket, User, Mail, Phone, AlertCircle, Upload, X, Save,
   Calendar, Tag, Flag, FileText, Paperclip
 } from 'lucide-react'
+import { createTicket } from '@/services/support-management.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 
 export default function CreateTicket() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -42,9 +47,26 @@ export default function CreateTicket() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Creating ticket:', formData)
+    try {
+      await createTicket({
+        companyId: COMPANY_ID,
+        subject: formData.title,
+        description: formData.description,
+        priority: formData.priority,
+        channel: 'web',
+        customerId: '',
+        customerName: formData.requester,
+        customerEmail: formData.email,
+        customerPhone: formData.phone || undefined,
+        categoryId: formData.category || undefined,
+        tags: formData.tags,
+      } as any)
+      router.push('/support/tickets')
+    } catch (err) {
+      console.error('Failed to create ticket', err)
+    }
   }
 
   const getPriorityColor = (priority: string) => {

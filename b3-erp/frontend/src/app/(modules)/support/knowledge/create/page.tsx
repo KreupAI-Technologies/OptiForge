@@ -1,13 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Save, Eye, FileText, Tag, Users, Globe, Lock, AlertCircle,
   Plus, X, Upload, Link, Image, Code, List, Bold, Italic,
   Underline, AlignLeft, AlignCenter, AlignRight, BookOpen
 } from 'lucide-react'
+import { KnowledgeBaseService } from '@/services/support.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 
 export default function CreateKnowledgeArticle() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -89,9 +94,24 @@ export default function CreateKnowledgeArticle() {
     }))
   }
 
-  const handleSubmit = (status: 'draft' | 'review' | 'published') => {
-    console.log('Submitting article:', { ...formData, status })
-    // Handle form submission
+  const handleSubmit = async (status: 'draft' | 'review' | 'published') => {
+    try {
+      await KnowledgeBaseService.createArticle({
+        companyId: COMPANY_ID,
+        title: formData.title,
+        content: formData.content,
+        summary: formData.summary,
+        category: formData.category,
+        subcategory: formData.subcategory,
+        tags: formData.tags,
+        isPublic: status === 'published' && formData.visibility === 'public',
+        isInternal: formData.visibility === 'internal',
+      } as any)
+      router.push('/support/knowledge')
+    } catch (err) {
+      console.error('Failed to create article:', err)
+      alert('Failed to create article. Please try again.')
+    }
   }
 
   return (

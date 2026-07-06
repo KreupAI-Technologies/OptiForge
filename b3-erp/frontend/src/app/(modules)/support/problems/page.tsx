@@ -1,10 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   AlertTriangle, Plus, Search, Filter, Eye, Users, Calendar,
   TrendingUp, Clock, FileText, ChevronRight, BarChart
 } from 'lucide-react'
+import { ITILService } from '@/services/support.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
+
+const mapStatus = (status: string): Problem['status'] => {
+  switch (status) {
+    case 'open': return 'Investigating'
+    case 'root_cause_identified': return 'Root Cause Identified'
+    case 'known_error': return 'Known Error'
+    case 'resolved':
+    case 'closed': return 'Resolved'
+    default: return 'New'
+  }
+}
 
 interface Problem {
   id: string
@@ -26,100 +40,45 @@ export default function Problems() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
 
-  const [problems] = useState<Problem[]>([
-    {
-      id: '1',
-      problemId: 'PRB-2024-008',
-      title: 'Recurring database connection timeouts',
-      description: 'Database connections timing out during peak hours causing application slowdowns',
-      status: 'Investigating',
-      priority: 'high',
-      relatedIncidents: 5,
-      createdAt: '2024-10-15',
-      assignedTo: 'Rajesh Kumar',
-      category: 'Database',
-      impact: 'Multiple users affected during peak hours',
-      workaround: 'Restart connection pool every 2 hours'
-    },
-    {
-      id: '2',
-      problemId: 'PRB-2024-007',
-      title: 'Intermittent email delivery failures',
-      description: 'Emails not being delivered consistently to external domains',
-      status: 'Known Error',
-      priority: 'medium',
-      relatedIncidents: 12,
-      createdAt: '2024-10-10',
-      assignedTo: 'Priya Sharma',
-      category: 'Email Service',
-      impact: 'Email notifications delayed or not sent',
-      workaround: 'Manual retry through admin panel'
-    },
-    {
-      id: '3',
-      problemId: 'PRB-2024-006',
-      title: 'Mobile app crashes on iOS 17',
-      description: 'Application crashes when accessing reports module on iOS 17 devices',
-      status: 'Root Cause Identified',
-      priority: 'high',
-      relatedIncidents: 8,
-      createdAt: '2024-10-05',
-      assignedTo: 'Amit Patel',
-      category: 'Mobile App',
-      impact: 'iOS 17 users cannot access reports',
-      workaround: 'Use web browser instead of mobile app'
-    },
-    {
-      id: '4',
-      problemId: 'PRB-2024-005',
-      title: 'Report generation timeout for large datasets',
-      description: 'Reports with more than 10K records timeout after 2 minutes',
-      status: 'Investigating',
-      priority: 'medium',
-      relatedIncidents: 6,
-      createdAt: '2024-09-28',
-      assignedTo: 'Sneha Reddy',
-      category: 'Reporting',
-      impact: 'Cannot generate comprehensive reports',
-      workaround: 'Split reports into smaller date ranges'
-    },
-    {
-      id: '5',
-      problemId: 'PRB-2024-004',
-      title: 'Incorrect inventory count after sync',
-      description: 'Inventory quantities showing discrepancies after warehouse sync',
-      status: 'Known Error',
-      priority: 'critical',
-      relatedIncidents: 15,
-      createdAt: '2024-09-20',
-      assignedTo: 'Vikram Singh',
-      category: 'Inventory',
-      impact: 'Stock levels inaccurate leading to ordering issues',
-      workaround: 'Manual reconciliation required after each sync'
-    },
-    {
-      id: '6',
-      problemId: 'PRB-2024-003',
-      title: 'Session timeout during data entry',
-      description: 'Users getting logged out while entering data in long forms',
-      status: 'Resolved',
-      priority: 'low',
-      relatedIncidents: 18,
-      createdAt: '2024-09-10',
-      assignedTo: 'Anjali Desai',
-      category: 'Authentication',
-      impact: 'Data loss and user frustration'
-    }
-  ])
+  const [problems, setProblems] = useState<Problem[]>([])
 
-  const [stats] = useState({
-    totalProblems: 24,
-    investigating: 8,
-    knownErrors: 6,
-    rootCauseIdentified: 4,
-    resolved: 6,
-    avgResolutionTime: '18 days'
-  })
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        const res = await ITILService.getProblems(COMPANY_ID)
+        const rows = Array.isArray((res as any)?.data) ? (res as any).data : []
+        const mapped: Problem[] = rows.map((p: any) => ({
+          id: p?.id ?? '',
+          problemId: p?.problemNumber ?? '',
+          title: p?.title ?? '',
+          description: p?.description ?? '',
+          status: mapStatus(p?.status ?? ''),
+          priority: (p?.priority ?? 'medium') as Problem['priority'],
+          relatedIncidents: p?.relatedIncidents ?? 0,
+          createdAt: p?.createdAt ? String(p.createdAt).slice(0, 10) : '',
+          assignedTo: p?.assignedTo ?? '',
+          category: p?.category ?? '',
+          impact: p?.impact ?? '',
+          workaround: p?.workaround ?? ''
+        }))
+        if (mounted) setProblems(mapped)
+      } catch (e) {
+        if (mounted) setProblems([])
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [])
+
+  const stats = {
+    totalProblems: problems.length,
+    investigating: problems.filter(p => p.status === 'Investigating').length,
+    knownErrors: problems.filter(p => p.status === 'Known Error').length,
+    rootCauseIdentified: problems.filter(p => p.status === 'Root Cause Identified').length,
+    resolved: problems.filter(p => p.status === 'Resolved').length,
+    avgResolutionTime: '—'
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
