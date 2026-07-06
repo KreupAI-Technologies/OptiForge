@@ -145,29 +145,38 @@ export default function InventoryTurnoverPage() {
     }
   };
 
-  const handleABCGenerate = (config: any) => {
-    console.log('Generating ABC analysis with config:', config);
-    // TODO: API call to generate ABC analysis
-    // const response = await fetch('/api/inventory/analytics/abc', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setABCResult(data);
+  const handleABCGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getABCAnalysis(config?.warehouse);
+      const items: any[] = Array.isArray((res as any)?.items) ? (res as any).items : [];
 
-    setABCResult({
-      analysisDate: config.analysisDate,
-      warehouse: config.warehouse,
-      criteria: config.criteria,
-      items: [],
-      summary: {
-        aClassCount: 15,
-        bClassCount: 35,
-        cClassCount: 78,
-        aClassValue: 5600000,
-        bClassValue: 1800000,
-        cClassValue: 625000
-      }
-    });
-    setIsABCModalOpen(false);
-    alert('ABC analysis generated successfully!');
+      setABCResult({
+        analysisDate: config?.analysisDate,
+        warehouse: config?.warehouse,
+        criteria: config?.criteria,
+        items: items.map((i: any) => ({
+          itemCode: i.itemCode,
+          itemName: i.itemName,
+          annualUsage: Number(i.annualUsage) || 0,
+          unitCost: Number(i.unitCost) || 0,
+          annualValue: Number(i.annualValue) || 0,
+          cumulativeValue: Number(i.cumulativeValue) || 0,
+          cumulativePercentage: Number(i.cumulativePercentage) || 0,
+          classification: i.classification
+        })),
+        summary: {
+          aClassCount: Number(res?.aClass?.count) || 0,
+          bClassCount: Number(res?.bClass?.count) || 0,
+          cClassCount: Number(res?.cClass?.count) || 0,
+          aClassValue: Number(res?.aClass?.value) || 0,
+          bClassValue: Number(res?.bClass?.value) || 0,
+          cClassValue: Number(res?.cClass?.value) || 0
+        }
+      });
+      setIsABCModalOpen(false);
+    } catch (err) {
+      console.error('Failed to generate ABC analysis', err);
+    }
   };
 
   return (
