@@ -45,235 +45,8 @@ interface IncrementLetter {
   templateUsed: string
 }
 
-const mockLetters: IncrementLetter[] = [
-  {
-    id: 'IL-2025-001',
-    employeeId: 'EMP001',
-    employeeName: 'Rajesh Kumar',
-    designation: 'Senior Production Manager',
-    department: 'Production',
-    incrementType: 'annual',
-    effectiveDate: '2025-04-01',
-    oldBasic: 45000,
-    newBasic: 47700,
-    incrementAmount: 2700,
-    incrementPercentage: 6.0,
-    letterDate: '2025-03-15',
-    letterNumber: 'MFG/HR/INC/2025/001',
-    status: 'acknowledged',
-    approvedBy: 'HR Director',
-    approvedDate: '2025-03-14',
-    sentDate: '2025-03-15',
-    sentVia: 'both',
-    acknowledgedDate: '2025-03-16',
-    downloadedDate: '2025-03-15',
-    emailAddress: 'rajesh.kumar@company.com',
-    templateUsed: 'Annual Increment Letter Template',
-    remarks: 'Regular annual increment FY 2025-26'
-  },
-  {
-    id: 'IL-2025-002',
-    employeeId: 'EMP002',
-    employeeName: 'Priya Sharma',
-    designation: 'Quality Control Manager',
-    department: 'Quality Assurance',
-    incrementType: 'performance',
-    effectiveDate: '2025-07-01',
-    oldBasic: 42000,
-    newBasic: 45360,
-    incrementAmount: 3360,
-    incrementPercentage: 8.0,
-    letterDate: '2025-06-20',
-    letterNumber: 'MFG/HR/INC/2025/002',
-    status: 'sent',
-    approvedBy: 'CEO',
-    approvedDate: '2025-06-18',
-    sentDate: '2025-06-20',
-    sentVia: 'email',
-    performanceRating: 'excellent',
-    emailAddress: 'priya.sharma@company.com',
-    templateUsed: 'Performance Increment Letter Template',
-    remarks: 'Q1 performance increment - excellent rating'
-  },
-  {
-    id: 'IL-2025-003',
-    employeeId: 'EMP003',
-    employeeName: 'Amit Patel',
-    designation: 'Warehouse Supervisor',
-    department: 'Logistics',
-    incrementType: 'annual',
-    effectiveDate: '2025-04-01',
-    oldBasic: 32000,
-    newBasic: 33600,
-    incrementAmount: 1600,
-    incrementPercentage: 5.0,
-    letterDate: '2025-03-18',
-    letterNumber: 'MFG/HR/INC/2025/003',
-    status: 'approved',
-    approvedBy: 'HR Manager',
-    approvedDate: '2025-03-17',
-    emailAddress: 'amit.patel@company.com',
-    templateUsed: 'Annual Increment Letter Template'
-  },
-  {
-    id: 'IL-2025-004',
-    employeeId: 'EMP004',
-    employeeName: 'Sneha Reddy',
-    designation: 'Production Supervisor',
-    department: 'Production',
-    incrementType: 'promotion',
-    effectiveDate: '2025-05-01',
-    oldBasic: 28000,
-    newBasic: 33600,
-    incrementAmount: 5600,
-    incrementPercentage: 20.0,
-    letterDate: '2025-04-25',
-    letterNumber: 'MFG/HR/INC/2025/004',
-    status: 'acknowledged',
-    approvedBy: 'CEO',
-    approvedDate: '2025-04-22',
-    sentDate: '2025-04-25',
-    sentVia: 'both',
-    acknowledgedDate: '2025-04-26',
-    downloadedDate: '2025-04-25',
-    emailAddress: 'sneha.reddy@company.com',
-    templateUsed: 'Promotion Increment Letter Template',
-    remarks: 'Promoted from Operator to Supervisor'
-  },
-  {
-    id: 'IL-2025-005',
-    employeeId: 'EMP005',
-    employeeName: 'Vikram Singh',
-    designation: 'Maintenance Technician',
-    department: 'Maintenance',
-    incrementType: 'performance',
-    effectiveDate: '2025-10-01',
-    oldBasic: 30000,
-    newBasic: 32100,
-    incrementAmount: 2100,
-    incrementPercentage: 7.0,
-    letterDate: '2025-09-25',
-    letterNumber: 'MFG/HR/INC/2025/005',
-    status: 'sent',
-    approvedBy: 'Operations Head',
-    approvedDate: '2025-09-23',
-    sentDate: '2025-09-25',
-    sentVia: 'email',
-    performanceRating: 'excellent',
-    emailAddress: 'vikram.singh@company.com',
-    templateUsed: 'Performance Increment Letter Template',
-    remarks: 'Q3 performance increment'
-  },
-  {
-    id: 'IL-2025-006',
-    employeeId: 'EMP006',
-    employeeName: 'Anita Desai',
-    designation: 'HR Executive',
-    department: 'Human Resources',
-    incrementType: 'annual',
-    effectiveDate: '2025-04-01',
-    oldBasic: 35000,
-    newBasic: 36750,
-    incrementAmount: 1750,
-    incrementPercentage: 5.0,
-    letterDate: '2025-03-20',
-    letterNumber: 'MFG/HR/INC/2025/006',
-    status: 'draft',
-    emailAddress: 'anita.desai@company.com',
-    templateUsed: 'Annual Increment Letter Template'
-  },
-  {
-    id: 'IL-2025-007',
-    employeeId: 'EMP007',
-    employeeName: 'Rahul Verma',
-    designation: 'Accounts Manager',
-    department: 'Finance',
-    incrementType: 'performance',
-    effectiveDate: '2025-07-01',
-    oldBasic: 48000,
-    newBasic: 52800,
-    incrementAmount: 4800,
-    incrementPercentage: 10.0,
-    letterDate: '2025-06-22',
-    letterNumber: 'MFG/HR/INC/2025/007',
-    status: 'acknowledged',
-    approvedBy: 'CFO',
-    approvedDate: '2025-06-20',
-    sentDate: '2025-06-22',
-    sentVia: 'both',
-    acknowledgedDate: '2025-06-23',
-    downloadedDate: '2025-06-22',
-    performanceRating: 'outstanding',
-    emailAddress: 'rahul.verma@company.com',
-    templateUsed: 'Performance Increment Letter Template',
-    remarks: 'Outstanding performance - Q1 rating'
-  },
-  {
-    id: 'IL-2025-008',
-    employeeId: 'EMP008',
-    employeeName: 'Meera Krishnan',
-    designation: 'Purchase Executive',
-    department: 'Purchase',
-    incrementType: 'annual',
-    effectiveDate: '2025-04-01',
-    oldBasic: 32000,
-    newBasic: 33920,
-    incrementAmount: 1920,
-    incrementPercentage: 6.0,
-    letterDate: '2025-03-22',
-    letterNumber: 'MFG/HR/INC/2025/008',
-    status: 'sent',
-    approvedBy: 'HR Manager',
-    approvedDate: '2025-03-21',
-    sentDate: '2025-03-22',
-    sentVia: 'email',
-    emailAddress: 'meera.krishnan@company.com',
-    templateUsed: 'Annual Increment Letter Template'
-  },
-  {
-    id: 'IL-2025-009',
-    employeeId: 'EMP009',
-    employeeName: 'Arjun Nair',
-    designation: 'Sales Manager',
-    department: 'Sales',
-    incrementType: 'arrears',
-    effectiveDate: '2025-01-01',
-    oldBasic: 40000,
-    newBasic: 42400,
-    incrementAmount: 2400,
-    incrementPercentage: 6.0,
-    letterDate: '2025-03-25',
-    letterNumber: 'MFG/HR/INC/2025/009',
-    status: 'approved',
-    approvedBy: 'HR Director',
-    approvedDate: '2025-03-24',
-    emailAddress: 'arjun.nair@company.com',
-    templateUsed: 'Arrears Increment Letter Template',
-    remarks: 'Delayed increment with arrears for Jan-Mar 2025'
-  },
-  {
-    id: 'IL-2025-010',
-    employeeId: 'EMP010',
-    employeeName: 'Kavita Joshi',
-    designation: 'IT Administrator',
-    department: 'IT',
-    incrementType: 'performance',
-    effectiveDate: '2025-10-01',
-    oldBasic: 38000,
-    newBasic: 40660,
-    incrementAmount: 2660,
-    incrementPercentage: 7.0,
-    letterDate: '2025-09-28',
-    letterNumber: 'MFG/HR/INC/2025/010',
-    status: 'draft',
-    performanceRating: 'excellent',
-    emailAddress: 'kavita.joshi@company.com',
-    templateUsed: 'Performance Increment Letter Template'
-  }
-]
-
 export default function IncrementLettersPage() {
-  const [letters, setLetters] = useState<IncrementLetter[]>(mockLetters)
+  const [letters, setLetters] = useState<IncrementLetter[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -289,8 +62,8 @@ export default function IncrementLettersPage() {
       setLoadError(null)
       try {
         const raw = await HrPayrollService.getSalaryRevisions('increment-letters')
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: String(r.id ?? r.details?.id ?? ''),
             employeeId: String(r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? ''),
             employeeName: String(r.employeeName ?? r.details?.employeeName ?? ''),
@@ -323,7 +96,7 @@ export default function IncrementLettersPage() {
           setLetters(mapped)
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load')
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setLetters([]) }
       } finally {
         if (!cancelled) setIsLoading(false)
       }

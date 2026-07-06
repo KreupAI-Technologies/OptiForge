@@ -39,162 +39,7 @@ export default function PayslipsReportPage() {
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const mockPayslips: PayslipRecord[] = [
-    {
-      id: 'PS-2025-11-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      monthYear: 'November 2025',
-      payPeriod: '01-Nov-2025 to 30-Nov-2025',
-      basic: 20000,
-      hra: 10000,
-      conveyance: 1600,
-      specialAllowance: 18125,
-      grossSalary: 49725,
-      pfEmployee: 2400,
-      esi: 373,
-      pt: 200,
-      tds: 1250,
-      totalDeductions: 4223,
-      netSalary: 45502,
-      paymentDate: '2025-12-01',
-      paymentMode: 'bank',
-      status: 'sent',
-      emailSent: true,
-      emailDate: '2025-12-01',
-      acknowledgedDate: '2025-12-01'
-    },
-    {
-      id: 'PS-2025-11-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      monthYear: 'November 2025',
-      payPeriod: '01-Nov-2025 to 30-Nov-2025',
-      basic: 14500,
-      hra: 7250,
-      conveyance: 1600,
-      specialAllowance: 12626,
-      grossSalary: 35976,
-      pfEmployee: 1740,
-      esi: 270,
-      pt: 200,
-      tds: 450,
-      totalDeductions: 2660,
-      netSalary: 33316,
-      paymentDate: '2025-12-01',
-      paymentMode: 'bank',
-      status: 'sent',
-      emailSent: true,
-      emailDate: '2025-12-01'
-    },
-    {
-      id: 'PS-2025-11-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Production Operator',
-      department: 'Production',
-      monthYear: 'November 2025',
-      payPeriod: '01-Nov-2025 to 30-Nov-2025',
-      basic: 8800,
-      hra: 4400,
-      conveyance: 1600,
-      specialAllowance: 7074,
-      grossSalary: 21874,
-      pfEmployee: 1056,
-      esi: 164,
-      pt: 200,
-      tds: 0,
-      totalDeductions: 1420,
-      netSalary: 20454,
-      paymentDate: '2025-12-01',
-      paymentMode: 'bank',
-      status: 'generated',
-      emailSent: false
-    },
-    {
-      id: 'PS-2025-11-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      monthYear: 'November 2025',
-      payPeriod: '01-Nov-2025 to 30-Nov-2025',
-      basic: 13725,
-      hra: 6862,
-      conveyance: 1600,
-      specialAllowance: 11914,
-      grossSalary: 34101,
-      pfEmployee: 1647,
-      esi: 256,
-      pt: 200,
-      tds: 380,
-      loanEMI: 2500,
-      totalDeductions: 4983,
-      netSalary: 29118,
-      paymentDate: '2025-12-01',
-      paymentMode: 'bank',
-      status: 'sent',
-      emailSent: true,
-      emailDate: '2025-12-01',
-      acknowledgedDate: '2025-12-02'
-    },
-    {
-      id: 'PS-2025-11-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      monthYear: 'November 2025',
-      payPeriod: '01-Nov-2025 to 30-Nov-2025',
-      basic: 12720,
-      hra: 6360,
-      conveyance: 1600,
-      specialAllowance: 10920,
-      grossSalary: 31600,
-      pfEmployee: 1526,
-      esi: 237,
-      pt: 200,
-      tds: 320,
-      advanceRecovery: 3000,
-      totalDeductions: 5283,
-      netSalary: 26317,
-      paymentDate: '2025-12-01',
-      paymentMode: 'bank',
-      status: 'generated',
-      emailSent: false
-    },
-    {
-      id: 'PS-2025-11-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      designation: 'HR Executive',
-      department: 'HR',
-      monthYear: 'November 2025',
-      payPeriod: '01-Nov-2025 to 30-Nov-2025',
-      basic: 13220,
-      hra: 6610,
-      conveyance: 1600,
-      specialAllowance: 11419,
-      grossSalary: 32849,
-      pfEmployee: 1586,
-      esi: 246,
-      pt: 200,
-      tds: 350,
-      totalDeductions: 2382,
-      netSalary: 30467,
-      paymentDate: '2025-12-01',
-      paymentMode: 'bank',
-      status: 'sent',
-      emailSent: true,
-      emailDate: '2025-12-01'
-    }
-  ];
-
-  const [rows, setRows] = useState<PayslipRecord[]>(mockPayslips);
+  const [rows, setRows] = useState<PayslipRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -205,8 +50,8 @@ export default function PayslipsReportPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getReports('payslips');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.details?.employeeId ?? r.employeeCode ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -237,7 +82,10 @@ export default function PayslipsReportPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

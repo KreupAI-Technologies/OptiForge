@@ -25,85 +25,7 @@ export default function DepartmentCostReportPage() {
   const [selectedMonth, setSelectedMonth] = useState('2025-11');
   const [sortBy, setSortBy] = useState<'department' | 'cost' | 'employees'>('cost');
 
-  const mockDepartmentCosts: DepartmentCost[] = [
-    {
-      department: 'Production',
-      employeeCount: 2,
-      totalGross: 71599,
-      totalNet: 65956,
-      totalPF: 3456,
-      totalESI: 537,
-      totalPT: 400,
-      totalTDS: 1250,
-      employerPF: 8592,
-      employerESI: 2148,
-      totalCost: 82339,
-      avgCostPerEmployee: 41170,
-      percentageOfTotal: 38.5
-    },
-    {
-      department: 'Quality',
-      employeeCount: 1,
-      totalGross: 35976,
-      totalNet: 33316,
-      totalPF: 1740,
-      totalESI: 270,
-      totalPT: 200,
-      totalTDS: 450,
-      employerPF: 4317,
-      employerESI: 1079,
-      totalCost: 41372,
-      avgCostPerEmployee: 41372,
-      percentageOfTotal: 19.3
-    },
-    {
-      department: 'Maintenance',
-      employeeCount: 1,
-      totalGross: 34101,
-      totalNet: 29118,
-      totalPF: 1647,
-      totalESI: 256,
-      totalPT: 200,
-      totalTDS: 380,
-      employerPF: 4092,
-      employerESI: 1023,
-      totalCost: 39216,
-      avgCostPerEmployee: 39216,
-      percentageOfTotal: 18.3
-    },
-    {
-      department: 'Logistics',
-      employeeCount: 1,
-      totalGross: 31600,
-      totalNet: 26317,
-      totalPF: 1526,
-      totalESI: 237,
-      totalPT: 200,
-      totalTDS: 320,
-      employerPF: 3792,
-      employerESI: 948,
-      totalCost: 36340,
-      avgCostPerEmployee: 36340,
-      percentageOfTotal: 17.0
-    },
-    {
-      department: 'HR',
-      employeeCount: 1,
-      totalGross: 32849,
-      totalNet: 30467,
-      totalPF: 1586,
-      totalESI: 246,
-      totalPT: 200,
-      totalTDS: 350,
-      employerPF: 3942,
-      employerESI: 985,
-      totalCost: 37776,
-      avgCostPerEmployee: 37776,
-      percentageOfTotal: 17.6
-    }
-  ];
-
-  const [rows, setRows] = useState<DepartmentCost[]>(mockDepartmentCosts);
+  const [rows, setRows] = useState<DepartmentCost[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -114,8 +36,8 @@ export default function DepartmentCostReportPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getReports('dept-cost');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             department: r.department ?? r.details?.department ?? '',
             employeeCount: r.details?.employeeCount ?? r.employeeCount ?? 0,
             totalGross: r.details?.totalGross ?? r.totalGross ?? r.amount ?? 0,
@@ -133,7 +55,10 @@ export default function DepartmentCostReportPage() {
           setRows(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

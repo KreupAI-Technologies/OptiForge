@@ -715,107 +715,7 @@ export default function UANManagementPage() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeUAN | null>(null);
 
-  const mockEmployees: EmployeeUAN[] = [
-    {
-      id: 'UAN-001',
-      employeeId: 'EMP001',
-      employeeName: 'Rajesh Kumar',
-      designation: 'Senior Production Manager',
-      department: 'Production',
-      dateOfJoining: '2020-01-15',
-      uan: '101234567890',
-      uanStatus: 'active',
-      pfAccountNumber: 'KA/BLR/0012345/001',
-      aadharLinked: true,
-      bankLinked: true,
-      nomineeAdded: true,
-      kycCompleted: true,
-      lastUpdated: '2025-01-15'
-    },
-    {
-      id: 'UAN-002',
-      employeeId: 'EMP002',
-      employeeName: 'Priya Sharma',
-      designation: 'Quality Control Supervisor',
-      department: 'Quality',
-      dateOfJoining: '2021-03-20',
-      uan: '101234567891',
-      uanStatus: 'active',
-      pfAccountNumber: 'KA/BLR/0012345/002',
-      aadharLinked: true,
-      bankLinked: true,
-      nomineeAdded: true,
-      kycCompleted: true,
-      lastUpdated: '2024-11-20'
-    },
-    {
-      id: 'UAN-003',
-      employeeId: 'EMP003',
-      employeeName: 'Amit Patel',
-      designation: 'Production Operator',
-      department: 'Production',
-      dateOfJoining: '2022-06-10',
-      uan: '101234567892',
-      uanStatus: 'active',
-      pfAccountNumber: 'KA/BLR/0012345/003',
-      aadharLinked: true,
-      bankLinked: false,
-      nomineeAdded: true,
-      kycCompleted: false,
-      lastUpdated: '2024-10-10'
-    },
-    {
-      id: 'UAN-004',
-      employeeId: 'EMP004',
-      employeeName: 'Neha Singh',
-      designation: 'Maintenance Engineer',
-      department: 'Maintenance',
-      dateOfJoining: '2021-08-15',
-      uan: '101234567893',
-      uanStatus: 'active',
-      pfAccountNumber: 'KA/BLR/0012345/004',
-      previousUAN: '100987654321',
-      aadharLinked: true,
-      bankLinked: true,
-      nomineeAdded: true,
-      kycCompleted: true,
-      lastUpdated: '2024-12-01'
-    },
-    {
-      id: 'UAN-005',
-      employeeId: 'EMP005',
-      employeeName: 'Vikram Desai',
-      designation: 'Logistics Coordinator',
-      department: 'Logistics',
-      dateOfJoining: '2024-01-10',
-      uan: '101234567894',
-      uanStatus: 'active',
-      pfAccountNumber: 'KA/BLR/0012345/005',
-      aadharLinked: true,
-      bankLinked: true,
-      nomineeAdded: false,
-      kycCompleted: false,
-      lastUpdated: '2024-09-15'
-    },
-    {
-      id: 'UAN-006',
-      employeeId: 'EMP006',
-      employeeName: 'Kavita Mehta',
-      designation: 'HR Executive',
-      department: 'HR',
-      dateOfJoining: '2023-02-01',
-      uan: '',
-      uanStatus: 'pending',
-      pfAccountNumber: 'KA/BLR/0012345/006',
-      aadharLinked: false,
-      bankLinked: false,
-      nomineeAdded: false,
-      kycCompleted: false,
-      lastUpdated: '2025-02-01'
-    }
-  ];
-
-  const [rows, setRows] = useState<EmployeeUAN[]>(mockEmployees);
+  const [rows, setRows] = useState<EmployeeUAN[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -825,8 +725,8 @@ export default function UANManagementPage() {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = await HrPayrollService.getStatutoryFilings('pf-uan');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             employeeId: r.employeeId ?? r.details?.employeeId ?? '',
             employeeName: r.employeeName ?? r.details?.employeeName ?? '',
@@ -845,7 +745,7 @@ export default function UANManagementPage() {
           } as EmployeeUAN));
           setRows(mapped);
         }
-      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      } catch (e) { if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); } }
       finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };

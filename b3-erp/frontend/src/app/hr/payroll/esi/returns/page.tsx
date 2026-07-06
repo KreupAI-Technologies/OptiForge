@@ -45,86 +45,9 @@ export default function ESIReturnsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const mockReturns: ESIReturn[] = [
-    {
-      id: 'ESI-RET-2025-H2',
-      returnPeriod: 'Oct 2025 - Mar 2026',
-      periodType: 'half-yearly',
-      fromMonth: 'October 2025',
-      toMonth: 'March 2026',
-      establishmentCode: 'ESINBNG12345',
-      employeeCount: 5,
-      totalWages: 945900,
-      employeeContribution: 7094,
-      employerContribution: 28377,
-      totalDue: 35471,
-      status: 'pending',
-      dueDate: '2026-04-30'
-    },
-    {
-      id: 'ESI-RET-2025-H1',
-      returnPeriod: 'Apr 2025 - Sep 2025',
-      periodType: 'half-yearly',
-      fromMonth: 'April 2025',
-      toMonth: 'September 2025',
-      establishmentCode: 'ESINBNG12345',
-      employeeCount: 5,
-      totalWages: 945900,
-      employeeContribution: 7094,
-      employerContribution: 28377,
-      totalDue: 35471,
-      filedOn: '2025-10-15',
-      filedBy: 'HR Admin',
-      acknowledgeNumber: 'ESI-ACK-202510150001',
-      status: 'accepted',
-      dueDate: '2025-10-31'
-    },
-    {
-      id: 'ESI-RET-2024-H2',
-      returnPeriod: 'Oct 2024 - Mar 2025',
-      periodType: 'half-yearly',
-      fromMonth: 'October 2024',
-      toMonth: 'March 2025',
-      establishmentCode: 'ESINBNG12345',
-      employeeCount: 4,
-      totalWages: 756720,
-      employeeContribution: 5675,
-      employerContribution: 22702,
-      totalDue: 28377,
-      filedOn: '2025-04-20',
-      filedBy: 'HR Admin',
-      acknowledgeNumber: 'ESI-ACK-202504200001',
-      status: 'accepted',
-      dueDate: '2025-04-30'
-    },
-    {
-      id: 'ESI-RET-2024-H1',
-      returnPeriod: 'Apr 2024 - Sep 2024',
-      periodType: 'half-yearly',
-      fromMonth: 'April 2024',
-      toMonth: 'September 2024',
-      establishmentCode: 'ESINBNG12345',
-      employeeCount: 4,
-      totalWages: 756720,
-      employeeContribution: 5675,
-      employerContribution: 22702,
-      totalDue: 28377,
-      filedOn: '2024-10-18',
-      filedBy: 'HR Admin',
-      status: 'filed',
-      dueDate: '2024-10-31'
-    }
-  ];
+  const [rows, setRows] = useState<ESIReturn[]>([]);
 
-  const [rows, setRows] = useState<ESIReturn[]>(mockReturns);
-
-  // Initialize returns state
-  useEffect(() => {
-    setReturns(mockReturns);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch from backend; override mock only when a non-empty array is returned
+  // Fetch from backend as the sole data source
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -132,8 +55,8 @@ export default function ESIReturnsPage() {
       setLoadError(null);
       try {
         const raw = await HrPayrollService.getStatutoryFilings('esi-returns');
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: r.id ?? r.details?.id ?? '',
             returnPeriod: r.returnPeriod ?? r.details?.returnPeriod ?? r.period ?? '',
             periodType: (r.periodType ?? r.details?.periodType ?? 'half-yearly') as 'half-yearly',
@@ -155,7 +78,7 @@ export default function ESIReturnsPage() {
           setReturns(mapped);
         }
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); setReturns([]); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
