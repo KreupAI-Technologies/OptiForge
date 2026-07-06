@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ProductionOrphanService } from "@/services/production/production-orphan.service";
 import {
   Save,
   X,
@@ -87,57 +88,94 @@ const QualityInspectionEditPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Mock data
-      setWorkOrderId("WO-2025-1001");
-      setProduct("Ball Bearing 6205");
-      setProductCode("PRD-BB-6205");
-      setInspectionType("final");
-      setInspector("Rajesh Kumar");
-      setInspectionDate("2025-10-17T14:30");
-      setShift("Afternoon");
-      setSampleSize(125);
-      setLotSize(1000);
-      setSamplingPlan("Normal Inspection Level II");
-      setAqlLevel("1.5");
-      setLotNumber("LOT-2025-0234");
-      setBatchNumber("BATCH-2025-W42-01");
-      setEquipmentUsed("Digital Micrometer DM-450");
-      setInspectorSignature("RK-2025-10-17");
+      // Mock fallback defaults (used if the API returns nothing / errors)
+      const mock = {
+        workOrderId: "WO-2025-1001",
+        product: "Ball Bearing 6205",
+        productCode: "PRD-BB-6205",
+        inspectionType: "final",
+        inspector: "Rajesh Kumar",
+        inspectionDate: "2025-10-17T14:30",
+        shift: "Afternoon",
+        sampleSize: 125,
+        lotSize: 1000,
+        samplingPlan: "Normal Inspection Level II",
+        aqlLevel: "1.5",
+        lotNumber: "LOT-2025-0234",
+        batchNumber: "BATCH-2025-W42-01",
+        equipmentUsed: "Digital Micrometer DM-450",
+        inspectorSignature: "RK-2025-10-17",
+        testParameters: [
+          {
+            id: "tp-1",
+            parameterName: "Inner Diameter",
+            type: "Dimensional",
+            specification: "25.00 ± 0.02",
+            nominalValue: 25.0,
+            upperTolerance: 25.02,
+            lowerTolerance: 24.98,
+            unit: "mm",
+            actualMeasurement: 25.01,
+            testMethod: "Digital Micrometer",
+            acceptanceCriteria: "Within tolerance",
+            result: "pass",
+            deviation: 0.4,
+          },
+          {
+            id: "tp-2",
+            parameterName: "Outer Diameter",
+            type: "Dimensional",
+            specification: "52.00 ± 0.03",
+            nominalValue: 52.0,
+            upperTolerance: 52.03,
+            lowerTolerance: 51.97,
+            unit: "mm",
+            actualMeasurement: 52.015,
+            testMethod: "Digital Micrometer",
+            acceptanceCriteria: "Within tolerance",
+            result: "pass",
+            deviation: 0.5,
+          },
+        ] as TestParameter[],
+      };
 
-      setTestParameters([
-        {
-          id: "tp-1",
-          parameterName: "Inner Diameter",
-          type: "Dimensional",
-          specification: "25.00 ± 0.02",
-          nominalValue: 25.0,
-          upperTolerance: 25.02,
-          lowerTolerance: 24.98,
-          unit: "mm",
-          actualMeasurement: 25.01,
-          testMethod: "Digital Micrometer",
-          acceptanceCriteria: "Within tolerance",
-          result: "pass",
-          deviation: 0.4,
-        },
-        {
-          id: "tp-2",
-          parameterName: "Outer Diameter",
-          type: "Dimensional",
-          specification: "52.00 ± 0.03",
-          nominalValue: 52.0,
-          upperTolerance: 52.03,
-          lowerTolerance: 51.97,
-          unit: "mm",
-          actualMeasurement: 52.015,
-          testMethod: "Digital Micrometer",
-          acceptanceCriteria: "Within tolerance",
-          result: "pass",
-          deviation: 0.5,
-        },
-      ]);
+      let d: any = mock;
+      try {
+        const res = await ProductionOrphanService.getNcr(inspectionId);
+        const rec = Array.isArray(res) ? res[0] : (res?.data ?? res);
+        if (rec && typeof rec === "object") {
+          d = rec;
+        }
+      } catch {
+        d = mock;
+      }
+
+      setWorkOrderId(d?.workOrderId ?? d?.workOrderNumber ?? mock.workOrderId);
+      setProduct(d?.product ?? d?.productName ?? mock.product);
+      setProductCode(d?.productCode ?? mock.productCode);
+      setInspectionType(d?.inspectionType ?? mock.inspectionType);
+      setInspector(d?.inspector ?? mock.inspector);
+      setInspectionDate(d?.inspectionDate ?? mock.inspectionDate);
+      setShift(d?.shift ?? mock.shift);
+      setSampleSize(d?.sampleSize ?? mock.sampleSize);
+      setLotSize(d?.lotSize ?? mock.lotSize);
+      setSamplingPlan(d?.samplingPlan ?? mock.samplingPlan);
+      setAqlLevel(d?.aqlLevel ?? mock.aqlLevel);
+      setLotNumber(d?.lotNumber ?? mock.lotNumber);
+      setBatchNumber(d?.batchNumber ?? mock.batchNumber);
+      setEquipmentUsed(
+        Array.isArray(d?.equipmentUsed)
+          ? d.equipmentUsed.join(", ")
+          : (d?.equipmentUsed ?? mock.equipmentUsed)
+      );
+      setInspectorSignature(d?.inspectorSignature ?? mock.inspectorSignature);
+      setTestParameters(
+        Array.isArray(d?.testParameters) && d.testParameters.length > 0
+          ? d.testParameters
+          : mock.testParameters
+      );
+      setOverallDisposition(d?.overallDisposition ?? "Accept");
 
       setLoading(false);
     };
@@ -229,10 +267,37 @@ const QualityInspectionEditPage = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Inspection report saved successfully!");
-    router.push(`/production/quality/view/${inspectionId}`);
+    try {
+      await ProductionOrphanService.updateNcr(inspectionId, {
+        workOrderId,
+        product,
+        productCode,
+        inspectionType,
+        inspector,
+        inspectionDate,
+        shift,
+        sampleSize,
+        lotSize,
+        samplingPlan,
+        aqlLevel,
+        lotNumber,
+        batchNumber,
+        equipmentUsed,
+        testParameters,
+        overallDisposition,
+        inspectorSignature,
+        defects,
+        rootCause,
+        correctiveAction,
+        preventiveAction,
+        disposition,
+      });
+      router.push(`/production/quality/view/${inspectionId}`);
+    } catch (err) {
+      alert("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
