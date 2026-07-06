@@ -61,66 +61,7 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
-  const mockPTReturns: PTReturn[] = [
-    {
-      id: '1',
-      returnMonth: '2025-10',
-      state: 'Maharashtra',
-      rcNumber: 'PT/MH/12345/2024',
-      dueDate: '2025-11-20',
-      filingDate: '2025-11-18',
-      status: 'filed',
-      totalEmployees: 245,
-      coveredEmployees: 245,
-      totalPTDeducted: 490000,
-      totalPTPaid: 490000,
-      challanNumber: 'PT/MH/2025/10/001',
-      remarks: 'October 2025 PT filed successfully'
-    },
-    {
-      id: '2',
-      returnMonth: '2025-09',
-      state: 'Maharashtra',
-      rcNumber: 'PT/MH/12345/2024',
-      dueDate: '2025-10-20',
-      filingDate: '2025-10-18',
-      status: 'filed',
-      totalEmployees: 242,
-      coveredEmployees: 242,
-      totalPTDeducted: 484000,
-      totalPTPaid: 484000,
-      challanNumber: 'PT/MH/2025/09/001'
-    },
-    {
-      id: '3',
-      returnMonth: '2025-08',
-      state: 'Maharashtra',
-      rcNumber: 'PT/MH/12345/2024',
-      dueDate: '2025-09-20',
-      filingDate: '2025-09-19',
-      status: 'filed',
-      totalEmployees: 240,
-      coveredEmployees: 240,
-      totalPTDeducted: 480000,
-      totalPTPaid: 480000,
-      challanNumber: 'PT/MH/2025/08/001'
-    },
-    {
-      id: '4',
-      returnMonth: '2025-11',
-      state: 'Maharashtra',
-      rcNumber: 'PT/MH/12345/2024',
-      dueDate: '2025-12-20',
-      status: 'pending_approval',
-      totalEmployees: 248,
-      coveredEmployees: 248,
-      totalPTDeducted: 496000,
-      totalPTPaid: 496000,
-      remarks: 'Awaiting payroll manager approval'
-    }
-  ];
-
-  const sourcePTReturns = items.length > 0 ? items : mockPTReturns;
+  const sourcePTReturns = items;
 
   const filteredReturns = sourcePTReturns.filter(ret => {
     const returnDate = new Date(ret.returnMonth);

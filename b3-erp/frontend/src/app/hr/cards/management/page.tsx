@@ -68,76 +68,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockCards: Card[] = rows.length ? rows : [
-    {
-      id: '1',
-      cardNumber: '**** **** **** 5678',
-      cardType: 'credit',
-      assignedTo: 'Rajesh Kumar',
-      employeeCode: 'EMP234',
-      department: 'Sales',
-      designation: 'Regional Manager',
-      issueDate: '2024-01-15',
-      expiryDate: '2027-01-31',
-      limit: 150000,
-      spent: 85000,
-      available: 65000,
-      status: 'active',
-      cardProvider: 'HDFC Bank',
-      lastUsedDate: '2025-10-20'
-    },
-    {
-      id: '2',
-      cardNumber: '**** **** **** 1234',
-      cardType: 'fuel',
-      assignedTo: 'Priya Sharma',
-      employeeCode: 'EMP456',
-      department: 'Engineering',
-      designation: 'Technical Lead',
-      issueDate: '2024-03-10',
-      expiryDate: '2026-03-31',
-      limit: 50000,
-      spent: 28000,
-      available: 22000,
-      status: 'active',
-      cardProvider: 'Indian Oil',
-      lastUsedDate: '2025-10-18'
-    },
-    {
-      id: '3',
-      cardNumber: '**** **** **** 9012',
-      cardType: 'credit',
-      assignedTo: 'Amit Patel',
-      employeeCode: 'EMP789',
-      department: 'Quality',
-      designation: 'Quality Manager',
-      issueDate: '2023-06-20',
-      expiryDate: '2026-06-30',
-      limit: 200000,
-      spent: 145000,
-      available: 55000,
-      status: 'active',
-      cardProvider: 'ICICI Bank',
-      lastUsedDate: '2025-10-22'
-    },
-    {
-      id: '4',
-      cardNumber: '**** **** **** 3456',
-      cardType: 'credit',
-      assignedTo: 'Vikram Singh',
-      employeeCode: 'EMP567',
-      department: 'IT',
-      designation: 'IT Manager',
-      issueDate: '2023-09-01',
-      expiryDate: '2025-09-30',
-      limit: 100000,
-      spent: 100000,
-      available: 0,
-      status: 'expired',
-      cardProvider: 'SBI',
-      lastUsedDate: '2025-09-15'
-    }
-  ];
+  const mockCards: Card[] = rows;
 
   const filteredCards = mockCards.filter(c => {
     const matchesType = selectedType === 'all' || c.cardType === selectedType;

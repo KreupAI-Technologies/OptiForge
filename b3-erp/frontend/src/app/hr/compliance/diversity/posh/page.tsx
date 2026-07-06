@@ -87,67 +87,6 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
-  const mockComplaints: POSHComplaint[] = [
-    {
-      id: '1',
-      complaintNumber: 'POSH2025001',
-      filedDate: '2025-01-22',
-      complainantDetails: 'Anonymous',
-      respondentName: 'Confidential',
-      respondentDesignation: 'Team Lead',
-      respondentDepartment: 'IT',
-      incidentDate: '2025-01-18',
-      incidentLocation: 'Office premises - 3rd Floor',
-      category: 'verbal',
-      severity: 'serious',
-      status: 'formal_inquiry',
-      icAssigned: 'Internal Complaints Committee',
-      targetCompletionDate: '2025-03-22',
-      confidential: true,
-      remarks: 'Formal inquiry initiated. Witness statements being recorded.'
-    },
-    {
-      id: '2',
-      complaintNumber: 'POSH2024025',
-      filedDate: '2024-12-15',
-      complainantDetails: 'Employee ID: EMP***',
-      respondentName: 'Confidential',
-      respondentDesignation: 'Manager',
-      respondentDepartment: 'Sales',
-      incidentDate: '2024-12-10',
-      incidentLocation: 'Client meeting - External',
-      category: 'quid_pro_quo',
-      severity: 'severe',
-      status: 'resolved',
-      icAssigned: 'Internal Complaints Committee',
-      targetCompletionDate: '2025-02-15',
-      actualCompletionDate: '2025-01-20',
-      actionTaken: 'Respondent found guilty. Termination recommended and executed. Complainant provided support and counseling.',
-      confidential: true,
-      remarks: 'Case closed. Preventive measures implemented.'
-    },
-    {
-      id: '3',
-      complaintNumber: 'POSH2024018',
-      filedDate: '2024-11-05',
-      complainantDetails: 'Anonymous',
-      respondentName: 'Confidential',
-      respondentDesignation: 'Senior Engineer',
-      respondentDepartment: 'Manufacturing',
-      incidentDate: '2024-11-01',
-      incidentLocation: 'Production floor',
-      category: 'hostile_environment',
-      severity: 'moderate',
-      status: 'resolved',
-      icAssigned: 'Internal Complaints Committee',
-      targetCompletionDate: '2025-01-05',
-      actualCompletionDate: '2024-12-28',
-      actionTaken: 'Respondent issued written warning. Mandatory sensitization training. Monitoring period of 6 months.',
-      confidential: true,
-      remarks: 'Resolved amicably. Both parties counseled.'
-    }
-  ];
-
   const icMembers: ICMember[] = [
     { name: 'Priya Sharma', designation: 'HR Director', role: 'Presiding Officer', gender: 'Female', tenure: '2024-2026' },
     { name: 'Neha Desai', designation: 'Legal Counsel', role: 'Member', gender: 'Female', tenure: '2024-2026' },
@@ -162,7 +101,7 @@ export default function Page() {
     { id: '4', date: '2024-10-05', topic: 'Creating Respectful Workplaces', attendees: 200, trainer: 'External Consultant', department: 'All Departments' }
   ];
 
-  const sourceComplaints = items.length > 0 ? items : mockComplaints;
+  const sourceComplaints = items;
 
   const filteredComplaints = useMemo(() => {
     return sourceComplaints.filter(complaint => {

@@ -63,70 +63,7 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
-  const mockLWFReturns: LWFReturn[] = [
-    {
-      id: '1',
-      returnMonth: '2025-10',
-      state: 'Maharashtra',
-      registrationNumber: 'LWF/MH/12345',
-      dueDate: '2025-11-15',
-      filingDate: '2025-11-13',
-      status: 'filed',
-      totalEmployees: 245,
-      coveredEmployees: 245,
-      employeeContribution: 24500,
-      employerContribution: 49000,
-      totalContribution: 73500,
-      challanNumber: 'LWF/MH/2025/10/001',
-      remarks: 'LWF contribution for October 2025 filed successfully'
-    },
-    {
-      id: '2',
-      returnMonth: '2025-09',
-      state: 'Maharashtra',
-      registrationNumber: 'LWF/MH/12345',
-      dueDate: '2025-10-15',
-      filingDate: '2025-10-13',
-      status: 'filed',
-      totalEmployees: 242,
-      coveredEmployees: 242,
-      employeeContribution: 24200,
-      employerContribution: 48400,
-      totalContribution: 72600,
-      challanNumber: 'LWF/MH/2025/09/001'
-    },
-    {
-      id: '3',
-      returnMonth: '2025-08',
-      state: 'Maharashtra',
-      registrationNumber: 'LWF/MH/12345',
-      dueDate: '2025-09-15',
-      filingDate: '2025-09-13',
-      status: 'filed',
-      totalEmployees: 240,
-      coveredEmployees: 240,
-      employeeContribution: 24000,
-      employerContribution: 48000,
-      totalContribution: 72000,
-      challanNumber: 'LWF/MH/2025/08/001'
-    },
-    {
-      id: '4',
-      returnMonth: '2025-11',
-      state: 'Maharashtra',
-      registrationNumber: 'LWF/MH/12345',
-      dueDate: '2025-12-15',
-      status: 'pending_approval',
-      totalEmployees: 248,
-      coveredEmployees: 248,
-      employeeContribution: 24800,
-      employerContribution: 49600,
-      totalContribution: 74400,
-      remarks: 'Awaiting finance team approval'
-    }
-  ];
-
-  const sourceLWFReturns = items.length > 0 ? items : mockLWFReturns;
+  const sourceLWFReturns = items;
 
   const filteredReturns = sourceLWFReturns.filter(ret => {
     const returnDate = new Date(ret.returnMonth);

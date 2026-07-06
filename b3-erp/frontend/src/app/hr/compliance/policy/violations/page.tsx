@@ -65,74 +65,7 @@ export default function Page() {
     return () => { active = false; };
   }, []);
 
-  const mockViolations: PolicyViolation[] = [
-    {
-      id: '1',
-      employeeId: 'EMP015',
-      employeeName: 'Karan Malhotra',
-      department: 'Manufacturing',
-      violationType: 'safety',
-      policyViolated: 'Workplace Safety Policy - PPE Requirement',
-      reportedDate: '2025-01-20',
-      incidentDate: '2025-01-18',
-      reportedBy: 'Suresh Mehta (Safety Officer)',
-      severity: 'serious',
-      status: 'under_investigation',
-      investigationAssignedTo: 'Rajesh Kumar',
-      description: 'Employee found not wearing safety helmet in high-risk zone',
-      remarks: 'First offense - counseling scheduled'
-    },
-    {
-      id: '2',
-      employeeId: 'EMP022',
-      employeeName: 'Deepak Singh',
-      department: 'IT',
-      violationType: 'security',
-      policyViolated: 'Information Security Policy - Data Access',
-      reportedDate: '2025-01-15',
-      incidentDate: '2025-01-14',
-      reportedBy: 'Amit Patel (IT Manager)',
-      severity: 'critical',
-      status: 'escalated',
-      investigationAssignedTo: 'HR Director',
-      description: 'Unauthorized access to confidential employee data',
-      actionTaken: 'Immediate suspension pending investigation',
-      remarks: 'Escalated to senior management'
-    },
-    {
-      id: '3',
-      employeeId: 'EMP033',
-      employeeName: 'Pooja Reddy',
-      department: 'Sales',
-      violationType: 'attendance',
-      policyViolated: 'Attendance and Leave Policy',
-      reportedDate: '2025-01-10',
-      incidentDate: '2025-01-08',
-      reportedBy: 'Department Manager',
-      severity: 'minor',
-      status: 'resolved',
-      description: 'Unauthorized absence without prior intimation',
-      actionTaken: 'Written warning issued',
-      remarks: 'Employee acknowledged and apologized'
-    },
-    {
-      id: '4',
-      employeeId: 'EMP044',
-      employeeName: 'Sanjay Gupta',
-      department: 'Finance',
-      violationType: 'code_of_conduct',
-      policyViolated: 'Code of Conduct - Professional Behavior',
-      reportedDate: '2025-01-22',
-      incidentDate: '2025-01-21',
-      reportedBy: 'Colleague Report (Anonymous)',
-      severity: 'moderate',
-      status: 'reported',
-      description: 'Inappropriate behavior towards colleague during meeting',
-      remarks: 'Investigation to be initiated'
-    }
-  ];
-
-  const sourceViolations = items.length > 0 ? items : mockViolations;
+  const sourceViolations = items;
 
   const filteredViolations = useMemo(() => {
     return sourceViolations.filter(violation => {

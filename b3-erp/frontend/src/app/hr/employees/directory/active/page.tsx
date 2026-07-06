@@ -88,32 +88,7 @@ export default function ActiveEmployeesPage() {
     };
   }, []);
 
-  const mockActiveEmployees: ActiveEmployee[] = rows.length ? rows : [
-    { id: 'AE001', employeeCode: 'KMF2020001', name: 'Rajesh Kumar Sharma', designation: 'Production Manager', department: 'Production',
-      email: 'rajesh.sharma@company.com', phone: '+91 98765 43210', joiningDate: '2020-01-15', employeeType: 'permanent',
-      workMode: 'onsite', location: 'Plant A', supervisor: 'VP Operations', yearsOfService: 4, performanceRating: 4.5, lastAppraisal: '2024-01-15' },
-    { id: 'AE002', employeeCode: 'KMF2019002', name: 'Meera Nair', designation: 'Quality Control Head', department: 'Quality',
-      email: 'meera.nair@company.com', phone: '+91 98765 43212', joiningDate: '2019-06-20', employeeType: 'permanent',
-      workMode: 'onsite', location: 'Quality Lab', supervisor: 'VP Quality', yearsOfService: 5, performanceRating: 4.8, lastAppraisal: '2024-06-20' },
-    { id: 'AE003', employeeCode: 'KMF2021003', name: 'Arun Patel', designation: 'Senior Software Engineer', department: 'IT',
-      email: 'arun.patel@company.com', phone: '+91 98765 43214', joiningDate: '2021-03-10', employeeType: 'permanent',
-      workMode: 'hybrid', location: 'IT Department', supervisor: 'IT Manager', yearsOfService: 3, performanceRating: 4.6, lastAppraisal: '2024-03-10' },
-    { id: 'AE004', employeeCode: 'KMF2022004', name: 'Kavita Desai', designation: 'HR Executive', department: 'Human Resources',
-      email: 'kavita.desai@company.com', phone: '+91 98765 43216', joiningDate: '2022-01-05', employeeType: 'permanent',
-      workMode: 'onsite', location: 'HR Department', supervisor: 'HR Manager', yearsOfService: 2, performanceRating: 4.2, lastAppraisal: '2024-01-05' },
-    { id: 'AE005', employeeCode: 'CTR2023001', name: 'Arjun Mehta', designation: 'QA Tester', department: 'Quality',
-      email: 'arjun.mehta@vendor.com', phone: '+91 98765 12345', joiningDate: '2023-01-01', employeeType: 'contract',
-      workMode: 'onsite', location: 'Quality Lab', supervisor: 'QC Head', yearsOfService: 1, performanceRating: 4.0, lastAppraisal: '2024-01-01' },
-    { id: 'AE006', employeeCode: 'KMF2023006', name: 'Priya Menon', designation: 'Accounts Assistant', department: 'Finance',
-      email: 'priya.menon@company.com', phone: '+91 98765 43220', joiningDate: '2023-06-01', employeeType: 'contract',
-      workMode: 'hybrid', location: 'Finance Dept', supervisor: 'Finance Manager', yearsOfService: 1, performanceRating: 4.4, lastAppraisal: '2024-06-01' },
-    { id: 'AE007', employeeCode: 'KMF2024007', name: 'Vikram Singh', designation: 'Production Supervisor', department: 'Production',
-      email: 'vikram.singh@company.com', phone: '+91 98765 43218', joiningDate: '2024-02-15', employeeType: 'permanent',
-      workMode: 'onsite', location: 'Plant A', supervisor: 'Production Manager', yearsOfService: 0, performanceRating: 4.0, lastAppraisal: '2024-08-15' },
-    { id: 'AE008', employeeCode: 'INT2024001', name: 'Sneha Reddy', designation: 'Marketing Intern', department: 'Marketing',
-      email: 'sneha.reddy@company.com', phone: '+91 98765 12380', joiningDate: '2024-06-01', employeeType: 'intern',
-      workMode: 'hybrid', location: 'Marketing Dept', supervisor: 'Marketing Manager', yearsOfService: 0, performanceRating: 3.8, lastAppraisal: '2024-09-01' }
-  ];
+  const mockActiveEmployees: ActiveEmployee[] = rows;
 
   const departments = ['all', 'Production', 'Quality', 'IT', 'Human Resources', 'Finance', 'Marketing'];
   const employeeTypes = ['all', 'permanent', 'contract', 'intern'];
