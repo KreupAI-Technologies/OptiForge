@@ -1459,16 +1459,33 @@ export class CommonMastersService {
     }
 
     async createBarcode(data: {
-        code: string; itemId: string; companyId: string;
+        code?: string; barcode?: string; itemId: string; companyId: string;
+        barcodeType?: string; description?: string;
     }) {
-        return this.prisma.barcode.create({ data });
+        return this.prisma.barcode.create({
+            data: {
+                code: (data.code ?? data.barcode) as string,
+                itemId: data.itemId,
+                companyId: data.companyId,
+                barcodeType: data.barcodeType,
+                description: data.description,
+            },
+        });
     }
 
     async updateBarcode(id: string, data: {
-        code?: string; isActive?: boolean;
+        code?: string; barcode?: string; barcodeType?: string; description?: string; isActive?: boolean;
     }) {
         await this.findByIdOrThrow(this.prisma.barcode, id, 'Barcode');
-        return this.prisma.barcode.update({ where: { id }, data });
+        return this.prisma.barcode.update({
+            where: { id },
+            data: {
+                code: data.code ?? data.barcode,
+                barcodeType: data.barcodeType,
+                description: data.description,
+                isActive: data.isActive,
+            },
+        });
     }
 
     async deleteBarcode(id: string) {
@@ -1940,6 +1957,45 @@ export class CommonMastersService {
     async deleteHrGrade(id: string) {
         await this.findByIdOrThrow(this.prisma.hrGrade, id, 'HrGrade');
         return this.prisma.hrGrade.delete({ where: { id } });
+    }
+
+    // ===========================
+    // LOCATION CRUD
+    // ===========================
+    async findAllLocations(companyId: string) {
+        return this.prisma.location.findMany({
+            where: { companyId },
+            include: { parent: { select: { id: true, name: true } } },
+            orderBy: { name: 'asc' },
+        });
+    }
+
+    async findLocationById(id: string) {
+        return this.findByIdOrThrow(this.prisma.location, id, 'Location');
+    }
+
+    async createLocation(data: {
+        code: string; name: string; companyId: string; type?: string; parentId?: string;
+        address?: any; coordinates?: any; contact?: any; operational?: any;
+        logistics?: any; compliance?: any; facilities?: string[]; restrictions?: string[];
+        status?: string;
+    }) {
+        return this.prisma.location.create({ data });
+    }
+
+    async updateLocation(id: string, data: {
+        code?: string; name?: string; type?: string; parentId?: string;
+        address?: any; coordinates?: any; contact?: any; operational?: any;
+        logistics?: any; compliance?: any; facilities?: string[]; restrictions?: string[];
+        status?: string; isActive?: boolean;
+    }) {
+        await this.findByIdOrThrow(this.prisma.location, id, 'Location');
+        return this.prisma.location.update({ where: { id }, data });
+    }
+
+    async deleteLocation(id: string) {
+        await this.findByIdOrThrow(this.prisma.location, id, 'Location');
+        return this.prisma.location.delete({ where: { id } });
     }
 
 }

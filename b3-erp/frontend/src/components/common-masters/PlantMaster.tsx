@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Factory, Plus, Search, Filter, Edit2, Trash2, MoreVertical,
   MapPin, Phone, Mail, Calendar, Users, Package, Truck,
@@ -8,6 +8,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, TrendingUp, Clock,
   BarChart2, Settings, Wrench, DollarSign, Building2
 } from 'lucide-react';
+import { commonMastersService, Plant as ApiPlant } from '@/services/common-masters.service';
 
 interface Plant {
   id: string;
@@ -126,236 +127,122 @@ interface Plant {
   };
 }
 
-const mockPlants: Plant[] = [
-  {
-    id: '1',
-    code: 'PLT-MFG-001',
-    name: 'Main Manufacturing Plant',
-    type: 'Manufacturing',
-    companyId: '1',
-    companyName: 'TechCorp Industries Ltd',
-    branchId: '1',
-    branchName: 'Head Office',
-    address: {
-      line1: '123 Industrial Area',
-      line2: 'Phase II',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      country: 'India',
-      pincode: '400001',
-      coordinates: {
-        latitude: 19.0760,
-        longitude: 72.8777
-      }
-    },
-    contact: {
-      phone: '+91-22-23456789',
-      altPhone: '+91-22-23456790',
-      fax: '+91-22-23456791',
-      email: 'plant1@techcorp.com',
-      plantManager: 'John Davis',
-      productionHead: 'Mike Wilson'
-    },
-    capacity: {
-      installed: 10000,
-      utilized: 7500,
-      available: 2500,
-      unitOfMeasure: 'units/day',
-      shiftCapacity: 3500,
-      annualCapacity: 3000000,
-      efficiency: 75
-    },
-    infrastructure: {
-      totalArea: 50000,
-      coveredArea: 35000,
-      openArea: 15000,
-      warehouseArea: 10000,
-      productionFloors: 3,
-      loadingBays: 8,
-      powerCapacity: '5000 KVA',
-      waterCapacity: '100000 liters/day',
-      wasteManagement: 'ETP & STP installed'
-    },
-    production: {
-      productLines: ['Electronics', 'Automotive Parts', 'Consumer Goods'],
-      processes: ['Molding', 'Assembly', 'Testing', 'Packaging'],
-      technologies: ['CNC Machining', 'Injection Molding', '3D Printing', 'Robotic Assembly'],
-      certifications: ['ISO 9001:2015', 'ISO 14001:2015', 'IATF 16949'],
-      qualityStandards: ['Six Sigma', 'Lean Manufacturing', 'TQM']
-    },
-    workforce: {
-      totalEmployees: 500,
-      shifts: 3,
-      skilled: 200,
-      semiSkilled: 150,
-      unskilled: 100,
-      contractual: 30,
-      administrative: 20
-    },
-    equipment: {
-      totalMachines: 150,
-      cnc: 50,
-      conventional: 60,
-      automated: 30,
-      robots: 10,
-      avgAge: 5,
-      maintenanceType: 'Predictive'
-    },
-    performance: {
-      oee: 72,
-      productivity: 85,
-      quality: 98.5,
-      uptime: 92,
-      cycleTime: 45,
-      leadTime: 3,
-      defectRate: 1.5
-    },
-    costs: {
-      operatingCost: 5000000,
-      maintenanceCost: 500000,
-      energyCost: 800000,
-      laborCost: 2000000,
-      overheadRate: 25,
-      currency: 'INR'
-    },
-    compliance: {
-      licenses: ['Factory License', 'Pollution Control', 'Fire Safety'],
-      permits: ['Building Permit', 'Environmental Permit', 'Labor Permit'],
-      environmentClearance: true,
-      safetyRating: 'A+',
-      lastAuditDate: new Date('2024-01-15'),
-      nextAuditDate: new Date('2024-07-15')
-    },
-    integration: {
-      erpEnabled: true,
-      mesEnabled: true,
-      scadaEnabled: true,
-      iotEnabled: true,
-      warehouses: ['WH-001', 'WH-002'],
-      costCenters: ['CC-PROD-001', 'CC-PROD-002']
-    },
-    status: 'Active',
-    metadata: {
-      establishedDate: new Date('2010-01-01'),
-      createdAt: new Date('2023-01-01'),
-      updatedAt: new Date('2024-03-20'),
-      createdBy: 'Admin',
-      updatedBy: 'Plant Manager'
-    }
+// Maps a sparse backend Plant record onto the rich local Plant interface.
+// Backend only provides code/name/companyId/branchId/isActive/timestamps; the
+// remaining UI-only fields are filled with sensible empty defaults so the
+// existing JSX renders without changes.
+const mapApiPlant = (p: ApiPlant): Plant => ({
+  id: p.id,
+  code: p.code,
+  name: p.name,
+  type: 'Manufacturing',
+  companyId: p.companyId,
+  companyName: '',
+  branchId: p.branchId || '',
+  branchName: p.branch?.name || '',
+  address: {
+    line1: '',
+    city: '',
+    state: '',
+    country: '',
+    pincode: ''
   },
-  {
-    id: '2',
-    code: 'PLT-ASM-001',
-    name: 'Assembly Plant East',
-    type: 'Assembly',
-    companyId: '1',
-    companyName: 'TechCorp Industries Ltd',
-    branchId: '2',
-    branchName: 'Eastern Branch',
-    address: {
-      line1: '456 Tech Park',
-      city: 'Chennai',
-      state: 'Tamil Nadu',
-      country: 'India',
-      pincode: '600001'
-    },
-    contact: {
-      phone: '+91-44-34567890',
-      email: 'plant2@techcorp.com',
-      plantManager: 'Sarah Chen',
-      productionHead: 'Robert Kumar'
-    },
-    capacity: {
-      installed: 5000,
-      utilized: 4000,
-      available: 1000,
-      unitOfMeasure: 'units/day',
-      shiftCapacity: 2000,
-      annualCapacity: 1500000,
-      efficiency: 80
-    },
-    infrastructure: {
-      totalArea: 30000,
-      coveredArea: 22000,
-      openArea: 8000,
-      warehouseArea: 5000,
-      productionFloors: 2,
-      loadingBays: 5,
-      powerCapacity: '3000 KVA',
-      waterCapacity: '50000 liters/day',
-      wasteManagement: 'ETP installed'
-    },
-    production: {
-      productLines: ['Electronics Assembly', 'PCB Assembly'],
-      processes: ['SMT', 'Wave Soldering', 'Testing', 'Packaging'],
-      technologies: ['SMT Lines', 'AOI', 'ICT', 'Functional Testing'],
-      certifications: ['ISO 9001:2015', 'IPC-A-610'],
-      qualityStandards: ['Lean Manufacturing', 'Kaizen']
-    },
-    workforce: {
-      totalEmployees: 300,
-      shifts: 2,
-      skilled: 120,
-      semiSkilled: 100,
-      unskilled: 60,
-      contractual: 15,
-      administrative: 5
-    },
-    equipment: {
-      totalMachines: 80,
-      cnc: 10,
-      conventional: 20,
-      automated: 40,
-      robots: 10,
-      avgAge: 3,
-      maintenanceType: 'Preventive'
-    },
-    performance: {
-      oee: 78,
-      productivity: 88,
-      quality: 99.2,
-      uptime: 94,
-      cycleTime: 30,
-      leadTime: 2,
-      defectRate: 0.8
-    },
-    costs: {
-      operatingCost: 3000000,
-      maintenanceCost: 300000,
-      energyCost: 500000,
-      laborCost: 1200000,
-      overheadRate: 20,
-      currency: 'INR'
-    },
-    compliance: {
-      licenses: ['Factory License', 'Fire Safety'],
-      permits: ['Building Permit', 'Labor Permit'],
-      environmentClearance: true,
-      safetyRating: 'A',
-      lastAuditDate: new Date('2024-02-10'),
-      nextAuditDate: new Date('2024-08-10')
-    },
-    integration: {
-      erpEnabled: true,
-      mesEnabled: true,
-      scadaEnabled: false,
-      iotEnabled: true,
-      warehouses: ['WH-003'],
-      costCenters: ['CC-ASM-001']
-    },
-    status: 'Active',
-    metadata: {
-      establishedDate: new Date('2015-06-01'),
-      createdAt: new Date('2023-03-15'),
-      updatedAt: new Date('2024-03-18'),
-      createdBy: 'Admin',
-      updatedBy: 'Plant Manager'
-    }
+  contact: {
+    phone: '',
+    email: '',
+    plantManager: '',
+    productionHead: ''
+  },
+  capacity: {
+    installed: 0,
+    utilized: 0,
+    available: 0,
+    unitOfMeasure: 'units/day',
+    shiftCapacity: 0,
+    annualCapacity: 0,
+    efficiency: 0
+  },
+  infrastructure: {
+    totalArea: 0,
+    coveredArea: 0,
+    openArea: 0,
+    warehouseArea: 0,
+    productionFloors: 0,
+    loadingBays: 0,
+    powerCapacity: '',
+    waterCapacity: '',
+    wasteManagement: ''
+  },
+  production: {
+    productLines: [],
+    processes: [],
+    technologies: [],
+    certifications: [],
+    qualityStandards: []
+  },
+  workforce: {
+    totalEmployees: 0,
+    shifts: 0,
+    skilled: 0,
+    semiSkilled: 0,
+    unskilled: 0,
+    contractual: 0,
+    administrative: 0
+  },
+  equipment: {
+    totalMachines: 0,
+    cnc: 0,
+    conventional: 0,
+    automated: 0,
+    robots: 0,
+    avgAge: 0,
+    maintenanceType: 'Preventive'
+  },
+  performance: {
+    oee: 0,
+    productivity: 0,
+    quality: 0,
+    uptime: 0,
+    cycleTime: 0,
+    leadTime: 0,
+    defectRate: 0
+  },
+  costs: {
+    operatingCost: 0,
+    maintenanceCost: 0,
+    energyCost: 0,
+    laborCost: 0,
+    overheadRate: 0,
+    currency: 'INR'
+  },
+  compliance: {
+    licenses: [],
+    permits: [],
+    environmentClearance: false,
+    safetyRating: '',
+    lastAuditDate: new Date(),
+    nextAuditDate: new Date()
+  },
+  integration: {
+    erpEnabled: false,
+    mesEnabled: false,
+    scadaEnabled: false,
+    iotEnabled: false,
+    warehouses: [],
+    costCenters: []
+  },
+  status: p.isActive ? 'Active' : 'Inactive',
+  metadata: {
+    establishedDate: new Date(),
+    createdAt: p.createdAt ? new Date(p.createdAt) : new Date(),
+    updatedAt: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+    createdBy: '',
+    updatedBy: ''
   }
-];
+});
 
 export default function PlantMaster() {
-  const [plants, setPlants] = useState<Plant[]>(mockPlants);
+  const [plants, setPlants] = useState<Plant[]>([]);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -363,15 +250,68 @@ export default function PlantMaster() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
 
+  const loadPlants = async () => {
+    try {
+      const data = await commonMastersService.getAllPlants();
+      setPlants(data.map(mapApiPlant));
+    } catch (error) {
+      console.error('Failed to load plants:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadPlants();
+  }, []);
+
   const handleEdit = (plant: Plant) => {
     setSelectedPlant(plant);
     setIsModalOpen(true);
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this plant?')) {
-      setPlants(plants.filter(p => p.id !== id));
+      try {
+        await commonMastersService.deletePlant(id);
+        await loadPlants();
+      } catch (error) {
+        console.error('Failed to delete plant:', error);
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    // The modal uses uncontrolled inputs; read the basic-info code/name fields.
+    const codeInput = document.querySelector<HTMLInputElement>('input[data-field="plant-code"]');
+    const nameInput = document.querySelector<HTMLInputElement>('input[data-field="plant-name"]');
+    const code = codeInput?.value?.trim() || '';
+    const name = nameInput?.value?.trim() || '';
+
+    if (!code || !name) {
+      alert('Plant Code and Plant Name are required.');
+      return;
+    }
+
+    try {
+      if (selectedPlant) {
+        await commonMastersService.updatePlant(selectedPlant.id, {
+          code,
+          name,
+          companyId: selectedPlant.companyId || 'default-company-id',
+          branchId: selectedPlant.branchId || undefined,
+        });
+      } else {
+        await commonMastersService.createPlant({
+          code,
+          name,
+          companyId: 'default-company-id',
+        });
+      }
+      setIsModalOpen(false);
+      await loadPlants();
+    } catch (error) {
+      console.error('Failed to save plant:', error);
+      alert('Failed to save plant.');
     }
   };
 
@@ -655,6 +595,7 @@ export default function PlantMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="plant-code"
                         defaultValue={selectedPlant?.code}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="PLT-XXX-000"
@@ -666,6 +607,7 @@ export default function PlantMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="plant-name"
                         defaultValue={selectedPlant?.name}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter plant name"
@@ -1570,10 +1512,7 @@ export default function PlantMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Plant saved successfully!');
-                }}
+                onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {selectedPlant ? 'Update' : 'Create'} Plant

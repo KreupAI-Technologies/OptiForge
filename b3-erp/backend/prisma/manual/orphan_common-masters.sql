@@ -112,3 +112,37 @@ CREATE TABLE IF NOT EXISTS "core_hr_grades" (
   CONSTRAINT "PK_core_hr_grades" PRIMARY KEY ("id"),
   CONSTRAINT "UQ_core_hr_grades_code_company" UNIQUE ("gradeCode", "companyId")
 );
+
+-- ---------------------------------------------------------------------------
+-- Location master (physical/geographic location hierarchy) — backs the
+-- location-master page and /common-masters/locations endpoints.
+-- JSON columns hold the nested address/coordinates/contact/operational/
+-- logistics/compliance structures used by the LocationMaster component.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "core_locations" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "code" varchar NOT NULL,
+  "name" varchar NOT NULL,
+  "type" varchar NOT NULL DEFAULT 'Site',
+  "parentId" uuid,
+  "address" jsonb,
+  "coordinates" jsonb,
+  "contact" jsonb,
+  "operational" jsonb,
+  "logistics" jsonb,
+  "compliance" jsonb,
+  "facilities" text[] NOT NULL DEFAULT '{}',
+  "restrictions" text[] NOT NULL DEFAULT '{}',
+  "status" varchar NOT NULL DEFAULT 'Active',
+  "companyId" uuid NOT NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_core_locations" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_core_locations_code_company" UNIQUE ("code", "companyId")
+);
+
+-- Barcode master enrichment: optional type/description columns for the
+-- barcode-master page. ALTER is additive and idempotent.
+ALTER TABLE IF EXISTS "core_barcodes" ADD COLUMN IF NOT EXISTS "barcodeType" varchar;
+ALTER TABLE IF EXISTS "core_barcodes" ADD COLUMN IF NOT EXISTS "description" varchar;

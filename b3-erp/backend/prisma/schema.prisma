@@ -166,6 +166,7 @@ model Company {
   installationTypes InstallationType[]
   kitchenAppliances KitchenAppliance[]
   counterMaterials  CounterMaterial[]
+  locations         Location[]
 
   // System Masters
   roles             Role[]
@@ -670,14 +671,16 @@ model Item {
 }
 
 model Barcode {
-  id        String   @id @default(uuid())
-  code      String
-  itemId    String
-  item      Item     @relation(fields: [itemId], references: [id])
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id])
-  isActive  Boolean  @default(true)
-  
+  id          String   @id @default(uuid())
+  code        String
+  barcodeType String?
+  description String?
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  isActive    Boolean  @default(true)
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -19758,3 +19761,32 @@ model WorkflowBuilderGraphs {
   @@map("workflow_builder_graphs")
 }
 
+
+// --- Location Master (physical/geographic location hierarchy; orphan common-masters page) ---
+model Location {
+  id           String   @id @default(uuid())
+  code         String
+  name         String
+  type         String   @default("Site") // Country, State, City, Area, Zone, Site
+  parentId     String?
+  parent       Location?  @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children     Location[] @relation("LocationHierarchy")
+  address      Json?
+  coordinates  Json?
+  contact      Json?
+  operational  Json?
+  logistics    Json?
+  compliance   Json?
+  facilities   String[]
+  restrictions String[]
+  status       String   @default("Active")
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([code, companyId])
+  @@map("core_locations")
+}

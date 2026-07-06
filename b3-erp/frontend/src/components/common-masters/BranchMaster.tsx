@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Building2, Plus, Search, Filter, Edit2, Trash2, MoreVertical,
   MapPin, Phone, Mail, Globe, Users, Calendar, Clock,
   TrendingUp, AlertTriangle, CheckCircle2, XCircle, AlertCircle,
   DollarSign, Shield, FileText, Package, Truck, CreditCard
 } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Branch {
   id: string;
@@ -87,154 +88,8 @@ interface Branch {
   };
 }
 
-const mockBranches: Branch[] = [
-  {
-    id: '1',
-    code: 'BR-HO-001',
-    name: 'Corporate Head Office',
-    type: 'Head Office',
-    companyId: '1',
-    companyName: 'TechCorp Industries Ltd',
-    address: {
-      line1: '123 Corporate Tower',
-      line2: 'Financial District',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      country: 'India',
-      pincode: '400001',
-      landmark: 'Near Stock Exchange'
-    },
-    contact: {
-      phone: '+91-22-12345678',
-      altPhone: '+91-22-12345679',
-      fax: '+91-22-12345680',
-      email: 'ho@techcorp.com',
-      website: 'www.techcorp.com'
-    },
-    registration: {
-      gstNo: '27AAACT2727Q1Z5',
-      panNo: 'AAACT2727Q',
-      tanNo: 'MUMS12345D',
-      cinNo: 'L72200MH2000PLC123456',
-      licenseNo: 'MFG/2024/001'
-    },
-    banking: {
-      bankName: 'State Bank of India',
-      accountNo: '00000012345678901',
-      accountName: 'TechCorp Industries Ltd',
-      ifscCode: 'SBIN0001234',
-      swiftCode: 'SBININBB',
-      branchAddress: 'Fort Branch, Mumbai'
-    },
-    operational: {
-      branchManager: 'John Smith',
-      employees: 250,
-      departments: ['Admin', 'Finance', 'HR', 'IT', 'Operations'],
-      costCenter: 'CC-001',
-      profitCenter: 'PC-001',
-      businessSegment: 'Corporate'
-    },
-    accounting: {
-      currency: 'INR',
-      fiscalYear: 'April-March',
-      taxRegion: 'India-Maharashtra',
-      chartOfAccounts: 'COA-IND-001',
-      cashAccount: 'ACC-1001',
-      bankAccount: 'ACC-1002'
-    },
-    settings: {
-      inventoryEnabled: true,
-      salesEnabled: true,
-      purchaseEnabled: true,
-      manufacturingEnabled: true,
-      serviceEnabled: true,
-      warehouseLinked: 'WH-001'
-    },
-    performance: {
-      revenue: 50000000,
-      expenses: 35000000,
-      profit: 15000000,
-      targetRevenue: 60000000,
-      employeeProductivity: 200000
-    },
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-01-01'),
-      updatedAt: new Date('2024-03-20'),
-      createdBy: 'System',
-      updatedBy: 'Admin'
-    }
-  },
-  {
-    id: '2',
-    code: 'BR-RO-002',
-    name: 'North Regional Office',
-    type: 'Regional Office',
-    companyId: '1',
-    companyName: 'TechCorp Industries Ltd',
-    address: {
-      line1: '456 Business Park',
-      line2: 'Sector 18',
-      city: 'Gurgaon',
-      state: 'Haryana',
-      country: 'India',
-      pincode: '122001'
-    },
-    contact: {
-      phone: '+91-124-4567890',
-      email: 'north@techcorp.com'
-    },
-    registration: {
-      gstNo: '06AAACT2727Q1Z5',
-      panNo: 'AAACT2727Q'
-    },
-    banking: {
-      bankName: 'HDFC Bank',
-      accountNo: '50100234567890',
-      accountName: 'TechCorp Industries Ltd - North',
-      ifscCode: 'HDFC0001234'
-    },
-    operational: {
-      branchManager: 'Sarah Johnson',
-      employees: 75,
-      departments: ['Sales', 'Service', 'Admin'],
-      costCenter: 'CC-002',
-      profitCenter: 'PC-002',
-      businessSegment: 'North Region'
-    },
-    accounting: {
-      currency: 'INR',
-      fiscalYear: 'April-March',
-      taxRegion: 'India-Haryana',
-      chartOfAccounts: 'COA-IND-001'
-    },
-    settings: {
-      inventoryEnabled: true,
-      salesEnabled: true,
-      purchaseEnabled: false,
-      manufacturingEnabled: false,
-      serviceEnabled: true,
-      warehouseLinked: 'WH-002'
-    },
-    performance: {
-      revenue: 15000000,
-      expenses: 10000000,
-      profit: 5000000,
-      targetRevenue: 20000000,
-      employeeProductivity: 200000
-    },
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-03-15'),
-      updatedAt: new Date('2024-03-10'),
-      createdBy: 'Admin',
-      updatedBy: 'Manager'
-    }
-  }
-];
-
 export default function BranchMaster() {
-  const [branches, setBranches] = useState<Branch[]>(mockBranches);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -242,15 +97,85 @@ export default function BranchMaster() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
 
+  const loadBranches = async () => {
+    try {
+      const data = await commonMastersService.getAllBranches();
+      const mapped: Branch[] = data.map((b) => ({
+        id: b.id,
+        code: '',
+        name: b.name,
+        type: 'Branch',
+        companyId: b.companyId,
+        companyName: '',
+        address: {
+          line1: b.address || '',
+          city: b.city?.name || '',
+          state: '',
+          country: '',
+          pincode: '',
+        },
+        contact: {
+          phone: '',
+          email: '',
+        },
+        registration: {},
+        banking: {
+          bankName: '',
+          accountNo: '',
+          accountName: '',
+          ifscCode: '',
+        },
+        operational: {
+          branchManager: '',
+          employees: 0,
+          departments: [],
+        },
+        accounting: {
+          currency: 'INR',
+          fiscalYear: 'April-March',
+          taxRegion: '',
+          chartOfAccounts: '',
+        },
+        settings: {
+          inventoryEnabled: false,
+          salesEnabled: false,
+          purchaseEnabled: false,
+          manufacturingEnabled: false,
+          serviceEnabled: false,
+        },
+        performance: {},
+        status: b.isActive ? 'Active' : 'Inactive',
+        metadata: {
+          createdAt: new Date(b.createdAt),
+          updatedAt: new Date(b.updatedAt),
+          createdBy: '',
+          updatedBy: '',
+        },
+      }));
+      setBranches(mapped);
+    } catch (error) {
+      console.error('Failed to load branches:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadBranches();
+  }, []);
+
   const handleEdit = (branch: Branch) => {
     setSelectedBranch(branch);
     setIsModalOpen(true);
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this branch?')) {
-      setBranches(branches.filter(b => b.id !== id));
+      try {
+        await commonMastersService.deleteBranch(id);
+        await loadBranches();
+      } catch (error) {
+        console.error('Failed to delete branch:', error);
+      }
     }
   };
 
@@ -518,6 +443,7 @@ export default function BranchMaster() {
                         Branch Name *
                       </label>
                       <input
+                        id="branch-name-input"
                         type="text"
                         defaultValue={selectedBranch?.name}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -599,6 +525,7 @@ export default function BranchMaster() {
                       Address Line 1 *
                     </label>
                     <input
+                      id="branch-address-input"
                       type="text"
                       defaultValue={selectedBranch?.address.line1}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -1057,9 +984,26 @@ export default function BranchMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Branch saved successfully!');
+                onClick={async () => {
+                  const nameEl = document.getElementById('branch-name-input') as HTMLInputElement | null;
+                  const addressEl = document.getElementById('branch-address-input') as HTMLInputElement | null;
+                  const name = nameEl?.value?.trim() || '';
+                  const address = addressEl?.value?.trim() || '';
+                  try {
+                    if (selectedBranch) {
+                      await commonMastersService.updateBranch(selectedBranch.id, { name, address });
+                    } else {
+                      await commonMastersService.createBranch({
+                        name,
+                        companyId: 'default-company-id',
+                        address,
+                      });
+                    }
+                    setIsModalOpen(false);
+                    await loadBranches();
+                  } catch (error) {
+                    console.error('Failed to save branch:', error);
+                  }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
