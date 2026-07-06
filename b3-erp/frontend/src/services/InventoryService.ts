@@ -374,6 +374,45 @@ class InventoryService {
         return (response as any)?.data ?? response;
     }
 
+    // ---- Inventory policies (settings/policies) ----
+    async getPolicies(filters?: { policyType?: string; status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.policyType) params.append('policyType', filters.policyType);
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/policies?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createPolicy(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/policies', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updatePolicy(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/policies/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deletePolicy(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/policies/${id}`);
+    }
+
+    // ---- Stock locations (settings/storage) ----
+    async createStockLocation(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-locations', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateStockLocation(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/stock-locations/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteStockLocation(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/stock-locations/${id}`);
+    }
+
     // ---- Stock ledger (movements) ----
     async getStockLedger(filters?: { itemId?: string; warehouseId?: string; fromDate?: string; toDate?: string }): Promise<any[]> {
         const params = new URLSearchParams();

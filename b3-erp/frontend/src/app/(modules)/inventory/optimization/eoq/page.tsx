@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
     ArrowLeft,
     Calculator,
@@ -19,10 +20,13 @@ interface EOQItem {
     id: string;
     itemCode: string;
     itemName: string;
+    category?: string;
     annualDemand: number;
     orderingCost: number; // Cost per order
     unitCost: number;
     holdingCostPercentage: number; // e.g. 0.20 for 20%
+    eoq?: number; // Backend-computed EOQ, when available
+    orderFrequency?: number; // annualDemand / eoq
 }
 
 const EOQPage = () => {
@@ -39,36 +43,43 @@ const EOQPage = () => {
     const [cycleTime, setCycleTime] = useState<number>(0); // Days
     const [totalCost, setTotalCost] = useState<number>(0);
 
-    // Mock Items for Simulation
-    const [simulationItems, setSimulationItems] = useState<EOQItem[]>([
-        {
-            id: '1',
-            itemCode: 'RM-001',
-            itemName: 'Steel Sheet',
-            annualDemand: 5000,
-            orderingCost: 100,
-            unitCost: 50,
-            holdingCostPercentage: 0.20
-        },
-        {
-            id: '2',
-            itemCode: 'COMP-002',
-            itemName: 'Control Chip',
-            annualDemand: 20000,
-            orderingCost: 25,
-            unitCost: 10,
-            holdingCostPercentage: 0.15
-        },
-        {
-            id: '3',
-            itemCode: 'PKG-003',
-            itemName: 'Shipping Box',
-            annualDemand: 50000,
-            orderingCost: 150,
-            unitCost: 2,
-            holdingCostPercentage: 0.25
+    // Items for Simulation (loaded from backend)
+    const [simulationItems, setSimulationItems] = useState<EOQItem[]>([]);
+
+    const loadItems = async () => {
+        try {
+            const res = await inventoryService.getOptimization();
+            const list = Array.isArray(res?.items) ? res.items : [];
+            const mapped: EOQItem[] = list.map((row: any, idx: number) => {
+                const annualDemand = Number(row?.annualDemand) || 0;
+                const unitCost = Number(row?.unitCost) || 0;
+                const eoq = Number(row?.eoq) || 0;
+                const orderFrequency = eoq > 0 ? annualDemand / eoq : 0;
+                return {
+                    id: String(row?.id ?? idx),
+                    itemCode: row?.itemCode ?? '',
+                    itemName: row?.itemName ?? '',
+                    category: row?.category ?? '',
+                    annualDemand,
+                    // Backend does not return ordering cost / holding % directly;
+                    // use conventional defaults so per-item math stays sensible.
+                    orderingCost: Number(row?.orderingCost) || 50,
+                    unitCost,
+                    holdingCostPercentage: Number(row?.holdingCostPercentage) || 0.20,
+                    eoq,
+                    orderFrequency,
+                };
+            });
+            setSimulationItems(mapped);
+        } catch (err) {
+            console.error('Failed to load EOQ optimization data', err);
+            setSimulationItems([]);
         }
-    ]);
+    };
+
+    useEffect(() => {
+        loadItems();
+    }, []);
 
     useEffect(() => {
         // EOQ Formula: sqrt((2 * D * S) / H)
@@ -93,13 +104,17 @@ const EOQPage = () => {
     }, [demand, orderCost, holdingCost]);
 
     const calculateItemEOQ = (item: EOQItem) => {
+        // Prefer backend-computed EOQ when available.
+        if (item.eoq && item.eoq > 0) return Math.round(item.eoq);
         const h = item.unitCost * item.holdingCostPercentage;
+        if (!(h > 0)) return 0;
         const q = Math.sqrt((2 * item.annualDemand * item.orderingCost) / h);
-        return Math.round(q);
+        return Math.round(q) || 0;
     };
 
     const calculateItemTotalCost = (item: EOQItem) => {
         const q = calculateItemEOQ(item);
+        if (!(q > 0)) return 0;
         const h = item.unitCost * item.holdingCostPercentage;
         const orderingTotal = (item.annualDemand / q) * item.orderingCost;
         const holdingTotal = (q / 2) * h;

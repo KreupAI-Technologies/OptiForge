@@ -61,6 +61,8 @@ import { StorageLocationService as StorageLocationClassificationService } from '
 import { PutawayStrategyService } from './services/putaway-strategy.service';
 import { VEDAnalysisService } from './services/ved-analysis.service';
 import { InventoryAnalyticsController } from './controllers/inventory-analytics.controller';
+import { InventoryPolicyController } from './controllers/inventory-policy.controller';
+import { InventoryPolicyService } from './services/inventory-policy.service';
 
 @Module({
   imports: [
@@ -97,8 +99,10 @@ import { InventoryAnalyticsController } from './controllers/inventory-analytics.
     ReorderManagementController,
     CycleCountController,
     InventoryAnalyticsController,
+    InventoryPolicyController,
   ],
   providers: [
+    InventoryPolicyService,
     WarehouseService,
     StockLocationService,
     StockEntryService,

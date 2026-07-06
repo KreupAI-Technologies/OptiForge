@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
     ArrowLeft,
     ShieldCheck,
@@ -29,6 +30,9 @@ interface SafetyStockItem {
     stdDevLeadTime: number;
     unitCost: number;
     currentSafetystock: number;
+    suggestedSafetyStock?: number; // Backend recommendation, when available
+    currentReorderLevel?: number;
+    suggestedReorderLevel?: number;
     holdingCostRate: number; // annual percentage
 }
 
@@ -40,48 +44,45 @@ const SafetyStockPage = () => {
     const [serviceLevel, setServiceLevel] = useState<number>(95);
     const [zScore, setZScore] = useState<number>(1.645);
 
-    // State for items
-    const [items, setItems] = useState<SafetyStockItem[]>([
-        {
-            id: '1',
-            itemCode: 'RM-STEEL-001',
-            itemName: 'Steel Sheet 2mm',
-            category: 'Raw Materials',
-            avgDailyDemand: 25,
-            stdDevDemand: 5,
-            leadTime: 10,
-            stdDevLeadTime: 2,
-            unitCost: 45.00,
-            currentSafetystock: 50,
-            holdingCostRate: 0.20
-        },
-        {
-            id: '2',
-            itemCode: 'COMP-CHIP-X5',
-            itemName: 'Control Chip X5',
-            category: 'Electronics',
-            avgDailyDemand: 100,
-            stdDevDemand: 20,
-            leadTime: 15,
-            stdDevLeadTime: 3,
-            unitCost: 12.50,
-            currentSafetystock: 150,
-            holdingCostRate: 0.15
-        },
-        {
-            id: '3',
-            itemCode: 'PKG-BOX-L',
-            itemName: 'Large Box',
-            category: 'Packaging',
-            avgDailyDemand: 200,
-            stdDevDemand: 30,
-            leadTime: 5,
-            stdDevLeadTime: 1,
-            unitCost: 0.85,
-            currentSafetystock: 300,
-            holdingCostRate: 0.10
+    // State for items (loaded from backend)
+    const [items, setItems] = useState<SafetyStockItem[]>([]);
+
+    const loadItems = async () => {
+        try {
+            const res = await inventoryService.getOptimization();
+            const list = Array.isArray(res?.items) ? res.items : [];
+            const mapped: SafetyStockItem[] = list.map((row: any, idx: number) => {
+                const annualDemand = Number(row?.annualDemand) || 0;
+                // Derive an approximate daily demand for the statistical model
+                // (backend supplies annual demand, not daily samples).
+                const avgDailyDemand = annualDemand > 0 ? annualDemand / 365 : 0;
+                return {
+                    id: String(row?.id ?? idx),
+                    itemCode: row?.itemCode ?? '',
+                    itemName: row?.itemName ?? '',
+                    category: row?.category ?? '',
+                    avgDailyDemand,
+                    stdDevDemand: avgDailyDemand * 0.2, // conservative variability estimate
+                    leadTime: Number(row?.leadTime) || 7,
+                    stdDevLeadTime: Number(row?.stdDevLeadTime) || 1,
+                    unitCost: Number(row?.unitCost) || 0,
+                    currentSafetystock: Number(row?.currentSafetyStock) || 0,
+                    suggestedSafetyStock: Number(row?.suggestedSafetyStock) || 0,
+                    currentReorderLevel: Number(row?.currentReorderLevel) || 0,
+                    suggestedReorderLevel: Number(row?.suggestedReorderLevel) || 0,
+                    holdingCostRate: Number(row?.holdingCostRate) || 0.20,
+                };
+            });
+            setItems(mapped);
+        } catch (err) {
+            console.error('Failed to load safety stock optimization data', err);
+            setItems([]);
         }
-    ]);
+    };
+
+    useEffect(() => {
+        loadItems();
+    }, []);
 
     // Update Z-score when service level changes
     useEffect(() => {
@@ -99,6 +100,10 @@ const SafetyStockPage = () => {
     }, [serviceLevel]);
 
     const calculateRecommendedSafetyStock = (item: SafetyStockItem) => {
+        // Prefer backend-suggested safety stock when available.
+        if (item.suggestedSafetyStock && item.suggestedSafetyStock > 0) {
+            return Math.ceil(item.suggestedSafetyStock);
+        }
         // Formula: SS = Z * sqrt((AvgLeadTime * stdDevDemand^2) + (AvgDailyDemand^2 * stdDevLeadTime^2))
         const varianceDemand = Math.pow(item.stdDevDemand, 2);
         const varianceLeadTime = Math.pow(item.stdDevLeadTime, 2);
@@ -146,9 +151,12 @@ const SafetyStockPage = () => {
                         <Download className="w-4 h-4" />
                         Export Analysis
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all">
-                        <Save className="w-4 h-4" />
-                        Apply Recommendations
+                    <button
+                        onClick={loadItems}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-all"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                        Refresh
                     </button>
                 </div>
             </div>

@@ -84,3 +84,26 @@ CREATE TABLE IF NOT EXISTS "cycle_count_items" (
 
 CREATE INDEX IF NOT EXISTS "IDX_cycle_count_items_plan_id"
   ON "cycle_count_items" ("planId");
+
+-- ---------------------------------------------------------------------------
+-- Inventory policy master (settings/policies page). Additive-only.
+-- Column names quoted to match the Prisma @map model (camelCase).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "inv_inventory_policies" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "policyCode" character varying(100) NOT NULL,
+  "policyName" character varying(255) NOT NULL,
+  "policyType" character varying(50) NOT NULL,
+  "category" character varying(255),
+  "description" text,
+  "parameters" jsonb,
+  "appliesTo" character varying(255),
+  "status" character varying(30) NOT NULL DEFAULT 'active',
+  "companyId" character varying NOT NULL DEFAULT 'default-company-id',
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_inv_inventory_policies" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_inv_inventory_policies_company"
+  ON "inv_inventory_policies" ("companyId");

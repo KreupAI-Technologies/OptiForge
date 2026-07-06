@@ -19790,3 +19790,22 @@ model Location {
   @@unique([code, companyId])
   @@map("core_locations")
 }
+
+/// Inventory policy master (reorder / valuation / cycle-count / shelf-life / reservation).
+/// Backed by manual SQL table inv_inventory_policies. Parameters stored as JSON.
+model InventoryPolicy {
+  id          String   @id @default(uuid())
+  policyCode  String
+  policyName  String
+  policyType  String
+  category    String?
+  description String?
+  parameters  Json?
+  appliesTo   String?
+  status      String   @default("active")
+  companyId   String   @default("default-company-id")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("inv_inventory_policies")
+}

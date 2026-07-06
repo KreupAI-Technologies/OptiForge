@@ -600,6 +600,30 @@ class CommonMastersService {
     }
 
     /**
+     * Get all Units of Measure (UOM master)
+     */
+    async getAllUoms(companyId?: string): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<any[]>(`/api/v1/common-masters/uoms?${params.toString()}`);
+        return response.data || [];
+    }
+
+    async createUom(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/api/v1/common-masters/uoms', data);
+        return response.data;
+    }
+
+    async updateUom(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/api/v1/common-masters/uoms/${id}`, data);
+        return response.data;
+    }
+
+    async deleteUom(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/uoms/${id}`);
+    }
+
+    /**
      * Get all Item Groups
      */
     async getAllItemGroups(companyId?: string): Promise<ItemGroup[]> {
