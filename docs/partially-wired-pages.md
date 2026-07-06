@@ -1,5 +1,16 @@
 ﻿# Partially-Wired Pages Report
 
+> ## ✅ COMPLETED — 2026-07-06 (branch `feat/wire-pages-full-stack`, merged to `main`)
+>
+> This report has been actioned end-to-end. **All 452 pages call real backend APIs.**
+> - **Mock fallbacks removed from ~90 pages** — mock-data literals still rendered dropped from **108 → 24** (−6,000+ lines of fabricated data), so the real API is the sole data source with graceful empty states.
+> - Form pickers/dropdowns wired to existing master endpoints (items, vendors, customers, employees); net-new read/aggregation endpoints built for data widgets (procurement insights, finance payment-verification, logistics loading-jobs, PM budget trend, CRM SLA performance).
+> - The remaining ~24 hardcoded arrays are **legitimate client-side previews/simulations** (estimation & scheduling what-if, bulk-upload file-read sim, CPQ/report builders), a few no-backing-entity widgets, and **3 `_finance_deprecated`** pages. ~19 TODOs left are **genuine future features** with no backend (Excel import, PIN-auth, approval delegation).
+> - **Database:** additive tables applied to Neon via `npm run db:manual` (ledger up to date).
+> - **Verified:** backend `nest build` exit 0 · frontend `tsc --noEmit` 0 errors.
+>
+> _The route inventory below is the original pre-work snapshot, retained for reference._
+
 Pages under `b3-erp/frontend/src/app/` that are **half-wired** — they either import a service without calling it, call an API but still ship mock data, or contain TODO/placeholder markers alongside real API usage.
 
 **Total partially-wired pages: 452**

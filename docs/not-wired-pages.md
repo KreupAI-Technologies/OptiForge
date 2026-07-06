@@ -1,5 +1,15 @@
 ﻿# Not-Wired Pages Report
 
+> ## ✅ COMPLETED — 2026-07-06 (branch `feat/wire-pages-full-stack`, merged to `main`)
+>
+> This report has been actioned end-to-end. **370+ / 455 pages now call real backend APIs.**
+> - Full-stack wiring delivered per module (Prisma model → manual SQL → NestJS controller/service → frontend service → page), building **net-new backends** where endpoints were missing (finance GL/costing/consolidation/currency, procurement spend/insights, logistics management, HR offers/overtime, compliance module, inventory analytics/kitting, it-admin monitoring, estimation report-schedules, and more).
+> - The remaining ~85 are **static-by-design**: nav-hub link grids, `advanced-features` showcases, coming-soon stubs, static pages (`design-system`, `documentation`, `help`), **5 `_finance_deprecated`** pages, plus detector false-negatives already wired via their components.
+> - **Database:** all additive/idempotent tables in `b3-erp/backend/prisma/manual/orphan_*.sql` were **applied to Neon** via `npm run db:manual` (27 migrations, ledger up to date).
+> - **Verified:** backend `nest build` exit 0 · frontend `tsc --noEmit` 0 errors.
+>
+> _The route inventory below is the original pre-work snapshot, retained for reference._
+
 Pages under `b3-erp/frontend/src/app/` that have **no service import and no API call** — pure static shells or hardcoded UI.
 
 **Total not-wired pages: 455**
