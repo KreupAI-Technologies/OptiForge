@@ -39,32 +39,6 @@ interface JournalTemplate {
   icon: any;
 }
 
-// Mock Accounts Data
-const mockAccounts: Account[] = [
-  { code: '1000', name: 'Cash - Operating Account', type: 'Asset', balance: 500000 },
-  { code: '1100', name: 'Accounts Receivable - Trade', type: 'Asset', balance: 250000 },
-  { code: '1200', name: 'Inventory - Raw Materials', type: 'Asset', balance: 350000 },
-  { code: '1300', name: 'Inventory - Finished Goods', type: 'Asset', balance: 200000 },
-  { code: '1500', name: 'Fixed Assets - Equipment', type: 'Asset', balance: 1000000 },
-  { code: '1510', name: 'Accumulated Depreciation', type: 'Asset', balance: -250000 },
-  { code: '2000', name: 'Accounts Payable - Trade', type: 'Liability', balance: 180000 },
-  { code: '2100', name: 'Accrued Expenses', type: 'Liability', balance: 45000 },
-  { code: '2200', name: 'Short-term Loan', type: 'Liability', balance: 300000 },
-  { code: '2210', name: 'GST Payable - CGST', type: 'Liability', balance: 50000 },
-  { code: '2211', name: 'GST Payable - SGST', type: 'Liability', balance: 50000 },
-  { code: '3000', name: 'Owner\'s Capital', type: 'Equity', balance: 1000000 },
-  { code: '3100', name: 'Retained Earnings', type: 'Equity', balance: 500000 },
-  { code: '4000', name: 'Revenue - Product Sales', type: 'Income', balance: 750000 },
-  { code: '4100', name: 'Revenue - Service Income', type: 'Income', balance: 250000 },
-  { code: '5000', name: 'COGS - Raw Materials', type: 'Expense', balance: 400000 },
-  { code: '5100', name: 'Depreciation Expense', type: 'Expense', balance: 50000 },
-  { code: '5200', name: 'Salary Expense', type: 'Expense', balance: 180000 },
-  { code: '5300', name: 'Rent Expense', type: 'Expense', balance: 60000 },
-  { code: '5400', name: 'Utilities Expense', type: 'Expense', balance: 25000 },
-  { code: '5500', name: 'Marketing Expense', type: 'Expense', balance: 40000 },
-  { code: '5600', name: 'Interest Expense', type: 'Expense', balance: 30000 },
-];
-
 // Journal Entry Templates
 const journalTemplates: JournalTemplate[] = [
   {
@@ -212,7 +186,7 @@ export default function AddJournalEntryPage() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingAsDraft, setSavingAsDraft] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -222,23 +196,21 @@ export default function AddJournalEntryPage() {
       try {
         const coa = await FinanceService.getChartOfAccounts();
         if (cancelled) return;
-        if (Array.isArray(coa) && coa.length) {
-          const typeMap: Record<string, Account['type']> = {
-            ASSET: 'Asset',
-            LIABILITY: 'Liability',
-            EQUITY: 'Equity',
-            REVENUE: 'Income',
-            EXPENSE: 'Expense',
-          };
-          setAccounts(
-            coa.map((a: any) => ({
-              code: String(a.code ?? ''),
-              name: String(a.name ?? ''),
-              type: typeMap[String(a.type)] ?? 'Asset',
-              balance: Number(a.balance ?? 0),
-            })),
-          );
-        }
+        const typeMap: Record<string, Account['type']> = {
+          ASSET: 'Asset',
+          LIABILITY: 'Liability',
+          EQUITY: 'Equity',
+          REVENUE: 'Income',
+          EXPENSE: 'Expense',
+        };
+        setAccounts(
+          (Array.isArray(coa) ? coa : []).map((a: any) => ({
+            code: String(a.code ?? ''),
+            name: String(a.name ?? ''),
+            type: typeMap[String(a.type)] ?? 'Asset',
+            balance: Number(a.balance ?? 0),
+          })),
+        );
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message || 'Failed to load accounts');
       } finally {

@@ -43,61 +43,18 @@ interface Account {
   balance: number;
 }
 
-// Mock Accounts Data
-const mockAccounts: Account[] = [
-  { code: '1000', name: 'Cash - Operating Account', type: 'Asset', balance: 500000 },
-  { code: '1100', name: 'Accounts Receivable - Trade', type: 'Asset', balance: 250000 },
-  { code: '1200', name: 'Inventory - Raw Materials', type: 'Asset', balance: 350000 },
-  { code: '1300', name: 'Inventory - Finished Goods', type: 'Asset', balance: 200000 },
-  { code: '1500', name: 'Fixed Assets - Equipment', type: 'Asset', balance: 1000000 },
-  { code: '1510', name: 'Accumulated Depreciation', type: 'Asset', balance: -250000 },
-  { code: '2000', name: 'Accounts Payable - Trade', type: 'Liability', balance: 180000 },
-  { code: '2100', name: 'Accrued Expenses', type: 'Liability', balance: 45000 },
-  { code: '2200', name: 'Short-term Loan', type: 'Liability', balance: 300000 },
-  { code: '3000', name: 'Owner\'s Capital', type: 'Equity', balance: 1000000 },
-  { code: '3100', name: 'Retained Earnings', type: 'Equity', balance: 500000 },
-  { code: '4000', name: 'Revenue - Product Sales', type: 'Income', balance: 750000 },
-  { code: '4100', name: 'Revenue - Service Income', type: 'Income', balance: 250000 },
-  { code: '5000', name: 'COGS - Raw Materials', type: 'Expense', balance: 400000 },
-  { code: '5100', name: 'Depreciation Expense', type: 'Expense', balance: 50000 },
-  { code: '5200', name: 'Salary Expense', type: 'Expense', balance: 180000 },
-  { code: '5300', name: 'Rent Expense', type: 'Expense', balance: 60000 },
-  { code: '5400', name: 'Utilities Expense', type: 'Expense', balance: 25000 },
-];
-
-// Mock GL Entry Data
-const mockGLEntry: GLEntry = {
-  id: 'JE-001',
-  entryNumber: 'JE-2025-001',
-  entryDate: '2025-10-01',
-  description: 'Customer payment received from Hotel Paradise Ltd',
-  referenceNumber: 'INV-2025-001',
-  sourceDocument: 'Sales Invoice',
+// Empty entry shell; hydrated from the backend on mount.
+const emptyGLEntry: GLEntry = {
+  id: '',
+  entryNumber: '',
+  entryDate: '',
+  description: '',
+  referenceNumber: '',
+  sourceDocument: '',
   entryType: 'Manual',
   status: 'Draft',
-  notes: 'Payment received via bank transfer',
-  journalLines: [
-    {
-      id: 'JL-001',
-      lineNumber: 1,
-      accountCode: '1000',
-      accountName: 'Cash - Operating Account',
-      description: 'Customer payment received',
-      debitAmount: 172500,
-      creditAmount: 0,
-      costCenter: 'CC-001',
-    },
-    {
-      id: 'JL-002',
-      lineNumber: 2,
-      accountCode: '1100',
-      accountName: 'Accounts Receivable - Trade',
-      description: 'Clear receivable from Hotel Paradise Ltd',
-      debitAmount: 0,
-      creditAmount: 172500,
-      costCenter: 'CC-001',
-    },
-  ],
+  notes: '',
+  journalLines: [],
 };
 
 export default function GLEntryEditPage() {
@@ -105,9 +62,9 @@ export default function GLEntryEditPage() {
   const params = useParams();
   const entryId = params.id as string;
 
-  const [entry, setEntry] = useState<GLEntry>(mockGLEntry);
+  const [entry, setEntry] = useState<GLEntry>(emptyGLEntry);
   const [journalLines, setJournalLines] = useState<JournalLine[]>(entry.journalLines);
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAccountSearch, setShowAccountSearch] = useState<number | null>(null);
   const [accountSearchQuery, setAccountSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
@@ -121,7 +78,7 @@ export default function GLEntryEditPage() {
         // Hydrate account lookup list from the backend chart of accounts.
         try {
           const coa = await FinanceService.getChartOfAccounts();
-          if (!cancelled && Array.isArray(coa) && coa.length) {
+          if (!cancelled && Array.isArray(coa)) {
             const typeMap: Record<string, Account['type']> = {
               ASSET: 'Asset',
               LIABILITY: 'Liability',
@@ -139,7 +96,7 @@ export default function GLEntryEditPage() {
             );
           }
         } catch {
-          /* keep seed accounts */
+          /* accounts remain empty on error */
         }
 
         if (entryId) {

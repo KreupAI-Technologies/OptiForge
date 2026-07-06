@@ -94,47 +94,47 @@ interface ActivityLog {
   status: 'success' | 'info' | 'warning' | 'error';
 }
 
-const mockPayment: Payment = {
-  id: 'PAY-001',
-  paymentNumber: 'PAY-2025-001',
+// Empty payment shell; hydrated from the backend on mount. Enum fields use
+// valid defaults so config lookups (statusConfig/methodConfig) never crash
+// before data loads.
+const emptyPayment: Payment = {
+  id: '',
+  paymentNumber: '',
   paymentType: 'received',
-  invoiceNumber: 'INV-2025-001',
-  invoiceId: 'INV-001',
+  invoiceNumber: '',
+  invoiceId: '',
   partyType: 'customer',
-  partyName: 'Hotel Paradise Ltd',
-  partyId: 'CUST-001',
-  partyEmail: 'accounts@hotelparadise.com',
-  partyPhone: '+91 98765 43210',
-  partyAddress: '123, MG Road, Bangalore, Karnataka - 560001',
-  partyGSTIN: '29AABCT1332L1Z5',
-  paymentDate: '2025-10-15',
-  transactionDate: '2025-10-15',
-  dueDate: '2025-10-31',
-  invoiceAmount: 172500,
-  invoicePaidAmount: 172500,
+  partyName: '',
+  partyId: '',
+  partyEmail: '',
+  partyPhone: '',
+  partyAddress: '',
+  partyGSTIN: '',
+  paymentDate: '',
+  transactionDate: '',
+  dueDate: '',
+  invoiceAmount: 0,
+  invoicePaidAmount: 0,
   invoiceBalanceAmount: 0,
-  paymentAmount: 172500,
-  transactionFee: 172.5,
-  netAmount: 172327.5,
+  paymentAmount: 0,
+  transactionFee: 0,
+  netAmount: 0,
   currency: 'INR',
-  paymentMethod: 'neft',
-  status: 'completed',
-  referenceNumber: 'NEFT-20251015-HP001',
-  transactionId: 'HDFC2025101512345678',
-  bankName: 'HDFC Bank',
-  bankAccountNumber: '50200012345678',
-  bankIFSC: 'HDFC0001234',
-  bankBranch: 'MG Road, Bangalore',
-  reconciliationStatus: 'reconciled',
-  reconciledBy: 'Sarah Finance',
-  reconciledDate: '2025-10-16',
-  processedBy: 'Finance Team',
-  approvedBy: 'John Manager',
-  notes: 'Full payment received against INV-2025-001',
-  internalNotes: 'Payment cleared on same day. Customer is regular and reliable.',
-  attachments: ['receipt_001.pdf', 'bank_statement_oct15.pdf'],
-  createdAt: '2025-10-15T10:30:00',
-  updatedAt: '2025-10-16T14:20:00',
+  paymentMethod: 'bank_transfer',
+  status: 'pending',
+  referenceNumber: '',
+  transactionId: '',
+  bankName: '',
+  bankAccountNumber: '',
+  bankIFSC: '',
+  bankBranch: '',
+  reconciliationStatus: 'not_reconciled',
+  processedBy: '',
+  notes: '',
+  internalNotes: '',
+  attachments: [],
+  createdAt: '',
+  updatedAt: '',
 };
 
 const mockActivityLogs: ActivityLog[] = [
@@ -255,7 +255,7 @@ export default function PaymentViewPage() {
   const router = useRouter();
   const params = useParams();
   const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'activity'>('overview');
-  const [payment, setPayment] = useState<Payment>(mockPayment);
+  const [payment, setPayment] = useState<Payment>(emptyPayment);
   const [activityLogs] = useState<ActivityLog[]>(mockActivityLogs);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
