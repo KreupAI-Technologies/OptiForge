@@ -209,58 +209,6 @@ const initialFormData: FormData = {
   attachments: [],
 };
 
-// Mock Data for fetching
-const mockProjects = [
-  {
-    id: '1',
-    projectNumber: 'PRJ-2024-001',
-    projectName: 'Taj Hotel Commercial Kitchen Installation',
-    projectType: 'Commercial Kitchen',
-    customer: 'Taj Hotels Limited',
-    customerId: 'CUST-001',
-    location: 'Mumbai, Maharashtra',
-    salesOrderNumber: 'SO-2024-456',
-    projectManager: 'Rajesh Kumar',
-    startDate: '2024-01-15',
-    endDate: '2024-04-30',
-    status: 'In Progress',
-    progress: 65,
-    budget: 8500000,
-    actualCost: 5200000,
-    phase: 'Installation',
-    priority: 'P1',
-    team: 12,
-    deliverables: 8,
-    completedDeliverables: 5,
-    description: 'Complete installation of commercial kitchen equipment for Taj Hotel Mumbai.',
-    contractValue: 10000000,
-  },
-  {
-    id: '2',
-    projectNumber: 'PRJ-2024-002',
-    projectName: 'BigBasket Cold Storage Facility',
-    projectType: 'Cold Room',
-    customer: 'BigBasket Pvt Ltd',
-    customerId: 'CUST-002',
-    location: 'Bangalore, Karnataka',
-    salesOrderNumber: 'SO-2024-478',
-    projectManager: 'Priya Sharma',
-    startDate: '2024-02-01',
-    endDate: '2024-05-15',
-    status: 'In Progress',
-    progress: 45,
-    budget: 12000000,
-    actualCost: 4800000,
-    phase: 'Civil Work',
-    priority: 'P1',
-    team: 18,
-    deliverables: 12,
-    completedDeliverables: 4,
-    description: 'Construction and setup of cold storage facility.',
-    contractValue: 15000000,
-  },
-];
-
 export default function EditProjectPage({ params }: { params: { id: string } }) {
   const { loadProject } = useProjectContext();
   const router = useRouter();
@@ -286,35 +234,40 @@ export default function EditProjectPage({ params }: { params: { id: string } }) 
 
   // Fetch Project Data
   useEffect(() => {
-    // Simulate API fetch
-    const project = mockProjects.find(p => p.id === id);
-    if (project) {
-      setFormData({
-        ...initialFormData,
-        projectName: project.projectName,
-        projectType: project.projectType,
-        salesOrderNumber: project.salesOrderNumber,
-        customerName: project.customer,
-        customerId: project.customerId || '',
-        location: project.location,
-        description: project.description || '',
-        startDate: project.startDate,
-        endDate: project.endDate,
-        estimatedBudget: project.budget.toString(),
-        contractValue: project.contractValue?.toString() || '',
-        priority: project.priority,
-        // In a real app, you'd fetch team members and deliverables here
-      });
+    let mounted = true;
+    (async () => {
+      try {
+        const project = await projectManagementService.getProject(id);
+        if (!mounted || !project) return;
+        setFormData({
+          ...initialFormData,
+          projectName: project.name ?? '',
+          projectType: project.projectType ?? initialFormData.projectType,
+          salesOrderNumber: project.projectCode ?? '',
+          customerName: project.clientName ?? '',
+          location: project.location ?? '',
+          description: project.description ?? '',
+          startDate: project.startDate ?? '',
+          endDate: project.endDate ?? '',
+          estimatedBudget: project.budgetAllocated != null ? String(project.budgetAllocated) : '',
+          contractValue: '',
+          priority: project.priority ?? initialFormData.priority,
+          projectManager: project.projectManagerId ?? '',
+        });
 
-      // Initialize global ProjectContext
-      loadProject({
-        id: id,
-        name: project.projectName,
-        projectType: project.projectType as any,
-        customerName: project.customer,
-        status: project.status as any
-      });
-    }
+        // Initialize global ProjectContext
+        loadProject({
+          id: id,
+          name: project.name,
+          projectType: project.projectType as any,
+          customerName: project.clientName,
+          status: project.status as any
+        });
+      } catch (error) {
+        console.error('Error loading project:', error);
+      }
+    })();
+    return () => { mounted = false; };
   }, [id, loadProject]);
 
   // Form field definitions for progress indicator

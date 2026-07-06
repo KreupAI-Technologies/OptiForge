@@ -60,183 +60,6 @@ interface Deliverable {
     notes: string;
 }
 
-const mockDeliverables: Deliverable[] = [
-    {
-        id: '1',
-        deliverableNumber: 'DEL-001',
-        deliverableName: 'Kitchen Equipment Delivery',
-        projectNumber: 'PRJ-2024-001',
-        projectName: 'Taj Hotel Commercial Kitchen',
-        type: 'Equipment',
-        description: 'Commercial cooking range, ovens, and refrigeration units',
-        assignedTo: 'Logistics Team',
-        plannedDate: '2024-02-15',
-        actualDate: '2024-02-14',
-        status: 'Completed',
-        progress: 100,
-        dependencies: [],
-        quantity: 25,
-        unit: 'Units',
-        notes: 'All equipment delivered in good condition',
-    },
-    {
-        id: '2',
-        deliverableNumber: 'DEL-002',
-        deliverableName: 'Site Preparation & Civil Work',
-        projectNumber: 'PRJ-2024-001',
-        projectName: 'Taj Hotel Commercial Kitchen',
-        type: 'Installation',
-        description: 'Floor reinforcement, drainage, and electrical infrastructure',
-        assignedTo: 'Civil Team',
-        plannedDate: '2024-03-01',
-        actualDate: '2024-03-03',
-        status: 'Completed',
-        progress: 100,
-        dependencies: ['DEL-001'],
-        quantity: 1,
-        unit: 'Phase',
-        notes: 'Minor delays due to weather',
-    },
-    {
-        id: '3',
-        deliverableNumber: 'DEL-003',
-        deliverableName: 'Equipment Installation',
-        projectNumber: 'PRJ-2024-001',
-        projectName: 'Taj Hotel Commercial Kitchen',
-        type: 'Installation',
-        description: 'Installation of cooking equipment, exhaust systems, and refrigeration',
-        assignedTo: 'Rajesh Kumar',
-        plannedDate: '2024-03-20',
-        status: 'In Progress',
-        progress: 65,
-        dependencies: ['DEL-002'],
-        quantity: 25,
-        unit: 'Units',
-        notes: 'Refrigeration pending',
-    },
-    {
-        id: '4',
-        deliverableNumber: 'DEL-004',
-        deliverableName: 'Cold Room Panel Assembly',
-        projectNumber: 'PRJ-2024-002',
-        projectName: 'BigBasket Cold Storage',
-        type: 'Installation',
-        description: 'Assembly of insulated panels and door systems',
-        assignedTo: 'Priya Sharma',
-        plannedDate: '2024-03-10',
-        status: 'In Progress',
-        progress: 45,
-        dependencies: ['DEL-005'],
-        quantity: 120,
-        unit: 'Panels',
-        notes: 'On track',
-    },
-    {
-        id: '5',
-        deliverableNumber: 'DEL-005',
-        deliverableName: 'Cold Room Materials Procurement',
-        projectNumber: 'PRJ-2024-002',
-        projectName: 'BigBasket Cold Storage',
-        type: 'Equipment',
-        description: 'Insulated panels, refrigeration units, and control systems',
-        assignedTo: 'Procurement Team',
-        plannedDate: '2024-02-20',
-        actualDate: '2024-02-18',
-        status: 'Completed',
-        progress: 100,
-        dependencies: [],
-        quantity: 150,
-        unit: 'Items',
-        notes: 'All materials received',
-    },
-    {
-        id: '6',
-        deliverableNumber: 'DEL-006',
-        deliverableName: 'Switchgear Testing Documentation',
-        projectNumber: 'PRJ-2024-003',
-        projectName: 'L&T Switchgear Panel',
-        type: 'Documentation',
-        description: 'Complete testing reports, FAT certificates, and compliance documents',
-        assignedTo: 'QA Team',
-        plannedDate: '2024-03-15',
-        status: 'Delayed',
-        progress: 75,
-        dependencies: ['DEL-007'],
-        quantity: 1,
-        unit: 'Set',
-        notes: 'Waiting for final test results',
-    },
-    {
-        id: '7',
-        deliverableNumber: 'DEL-007',
-        deliverableName: 'Switchgear Manufacturing',
-        projectNumber: 'PRJ-2024-003',
-        projectName: 'L&T Switchgear Panel',
-        type: 'Equipment',
-        description: 'Manufacturing of HT switchgear panels',
-        assignedTo: 'Production Team',
-        plannedDate: '2024-02-28',
-        actualDate: '2024-03-05',
-        status: 'Completed',
-        progress: 100,
-        dependencies: [],
-        quantity: 8,
-        unit: 'Panels',
-        notes: 'Manufacturing completed with minor delays',
-    },
-    {
-        id: '8',
-        deliverableNumber: 'DEL-008',
-        deliverableName: 'Staff Training Program',
-        projectNumber: 'PRJ-2024-001',
-        projectName: 'Taj Hotel Commercial Kitchen',
-        type: 'Training',
-        description: 'Training hotel staff on equipment operation and maintenance',
-        assignedTo: 'Training Team',
-        plannedDate: '2024-04-15',
-        status: 'Not Started',
-        progress: 0,
-        dependencies: ['DEL-003'],
-        quantity: 15,
-        unit: 'Staff',
-        notes: 'Scheduled after installation completion',
-    },
-    {
-        id: '9',
-        deliverableNumber: 'DEL-009',
-        deliverableName: 'Design & Drawings Approval',
-        projectNumber: 'PRJ-2024-004',
-        projectName: 'ITC Grand Kitchen Renovation',
-        type: 'Documentation',
-        description: 'Detailed engineering drawings and layout plans',
-        assignedTo: 'Design Team',
-        plannedDate: '2024-03-10',
-        status: 'In Progress',
-        progress: 80,
-        dependencies: [],
-        quantity: 1,
-        unit: 'Set',
-        notes: 'Client review pending',
-    },
-    {
-        id: '10',
-        deliverableNumber: 'DEL-010',
-        deliverableName: 'Commissioning & Handover',
-        projectNumber: 'PRJ-2024-005',
-        projectName: 'Godrej Cold Room',
-        type: 'Service',
-        description: 'Final commissioning, testing, and project handover',
-        assignedTo: 'Commissioning Team',
-        plannedDate: '2024-05-25',
-        status: 'Not Started',
-        progress: 0,
-        dependencies: ['DEL-011'],
-        quantity: 1,
-        unit: 'Project',
-        notes: 'Pending installation completion',
-    },
-];
-
 export default function DeliverablesListPage() {
     const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
     const [loading, setLoading] = useState(true);
@@ -267,12 +90,11 @@ export default function DeliverablesListPage() {
                     unit: r.unit ?? '',
                     notes: r.notes ?? '',
                 }));
-                // Fall back to sample data when the backend has no rows yet.
-                setDeliverables(mapped.length > 0 ? mapped : mockDeliverables);
+                setDeliverables(mapped);
             } catch (e) {
                 if (!mounted) return;
                 setError('Failed to load deliverables');
-                setDeliverables(mockDeliverables);
+                setDeliverables([]);
             } finally {
                 if (mounted) setLoading(false);
             }
@@ -459,7 +281,7 @@ export default function DeliverablesListPage() {
                     <div className="text-sm text-gray-500">Loading deliverables…</div>
                 )}
                 {error && (
-                    <div className="text-sm text-red-600">{error} — showing sample data.</div>
+                    <div className="text-sm text-red-600">{error}</div>
                 )}
                 {/* Header Actions */}
                 <div className="flex justify-between mb-2">

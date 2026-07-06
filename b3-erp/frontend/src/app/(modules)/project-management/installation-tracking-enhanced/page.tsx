@@ -124,21 +124,8 @@ const FORM_FIELDS = [
     { name: 'supervisor', required: true },
 ];
 
-const mockProjects = [
-    { id: 'PRJ-2025-001', name: 'Taj Hotels - Commercial Kitchen Setup' },
-    { id: 'PRJ-2025-002', name: 'BigBasket - Cold Room Installation' },
-    { id: 'PRJ-2025-003', name: 'L&T Campus - Industrial Kitchen' },
-    { id: 'PRJ-2025-004', name: 'ITC Grand - Bakery Equipment Setup' },
-];
-
-const mockEquipment = [
-    { code: 'EQ-CK-001', name: 'Gas Cooking Range - 6 Burner' },
-    { code: 'EQ-EX-001', name: 'Exhaust Hood with Filters' },
-    { code: 'EQ-CR-010', name: 'PUF Insulation Panels - Walls' },
-    { code: 'EQ-CR-020', name: 'Refrigeration Compressor Unit' },
-    { code: 'EQ-DW-001', name: 'Commercial Dishwasher' },
-    { code: 'EQ-BK-005', name: 'Deck Oven - 3 Deck Electric' },
-];
+interface ProjectOption { id: string; name: string; }
+interface EquipmentItem { code: string; name: string; }
 
 const DEFAULT_SAFETY_CHECKLIST: SafetyCheckItem[] = [
     { id: '1', item: 'PPE available for all team members', checked: false, remarks: '' },
@@ -169,17 +156,32 @@ export default function InstallationTrackingEnhancedPage() {
     const [currentStep, setCurrentStep] = useState(0);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [showDraftBanner, setShowDraftBanner] = useState(true);
-    const [equipmentCatalog, setEquipmentCatalog] = useState(mockEquipment);
+    const [equipmentCatalog, setEquipmentCatalog] = useState<EquipmentItem[]>([]);
+    const [projects, setProjects] = useState<ProjectOption[]>([]);
 
     useEffect(() => {
         let active = true;
         (async () => {
             try {
                 const rows = await projectManagementService.listEquipmentCatalog();
-                if (!active || !rows || rows.length === 0) return;
+                if (!active || !rows) return;
                 setEquipmentCatalog(rows.map((r) => ({ code: r.code || '', name: r.name || '' })));
             } catch {
-                // keep static fallback
+                if (active) setEquipmentCatalog([]);
+            }
+        })();
+        return () => { active = false; };
+    }, []);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const rows = await projectManagementService.getProjects();
+                if (!active) return;
+                setProjects((Array.isArray(rows) ? rows : []).map((p) => ({ id: p.id, name: p.name })));
+            } catch {
+                if (active) setProjects([]);
             }
         })();
         return () => { active = false; };
@@ -259,7 +261,7 @@ export default function InstallationTrackingEnhancedPage() {
     };
 
     const handleProjectChange = (projectId: string) => {
-        const project = mockProjects.find(p => p.id === projectId);
+        const project = projects.find(p => p.id === projectId);
         updateFormData('projectId', projectId);
         updateFormData('projectName', project?.name || '');
 
@@ -457,7 +459,7 @@ export default function InstallationTrackingEnhancedPage() {
                                             <SelectValue placeholder="Select project" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {mockProjects.map(project => (
+                                            {projects.map(project => (
                                                 <SelectItem key={project.id} value={project.id}>
                                                     {project.id} - {project.name}
                                                 </SelectItem>
