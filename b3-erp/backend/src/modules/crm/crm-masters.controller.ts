@@ -380,6 +380,11 @@ export class CrmMastersController {
         return this.crmMastersService.findAllSlas(companyId || DEFAULT_COMPANY_ID);
     }
 
+    @Get('slas/performance')
+    async getSlaPerformance(@Query('companyId') companyId?: string) {
+        return this.crmMastersService.getSlaPerformance(companyId || DEFAULT_COMPANY_ID);
+    }
+
     @Get('slas/:id')
     async findSlaById(@Param('id') id: string) {
         return this.crmMastersService.findSlaById(id);

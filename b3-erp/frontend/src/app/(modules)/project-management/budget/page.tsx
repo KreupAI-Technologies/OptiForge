@@ -106,17 +106,13 @@ export default function BudgetManagementPage() {
 
    setBudgetData(mappedBudgets)
 
-   // Mock trend data for now as API doesn't provide historical trend yet
-   // In a real implementation, we would fetch this from a separate endpoint or aggregate time logs
-   const mockTrend: SpendingTrend[] = [
-    { month: 'Nov', planned: 15000, actual: 14500, forecast: 15000 },
-    { month: 'Dec', planned: 30000, actual: 28000, forecast: 31000 },
-    { month: 'Jan', planned: 55000, actual: 52000, forecast: 57000 },
-    { month: 'Feb', planned: 80000, actual: 75700, forecast: 82300 },
-    { month: 'Mar', planned: 100000, actual: 95000, forecast: 104000 },
-    { month: 'Apr', planned: 110000, actual: 105700, forecast: 114800 },
-   ]
-   setSpendingTrend(mockTrend)
+   // Historical spending trend from the budget-trend aggregation endpoint
+   try {
+    const trend = await projectManagementService.getBudgetTrend(projectId)
+    setSpendingTrend((trend || []) as SpendingTrend[])
+   } catch {
+    setSpendingTrend([])
+   }
 
   } catch (error) {
    console.error('Failed to fetch budget data:', error)

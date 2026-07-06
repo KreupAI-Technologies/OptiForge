@@ -759,6 +759,82 @@ export class CrmMastersService {
         return this.findByIdOrThrow(this.prisma.crmSla, id, 'SLA');
     }
 
+    // SLA performance aggregation: groups support tickets by SLA policy and
+    // computes first-response / resolution compliance against each policy's
+    // configured thresholds. Real data-driven metrics for the CRM SLA page.
+    async getSlaPerformance(companyId: string) {
+        const [slas, tickets] = await Promise.all([
+            this.prisma.crmSla.findMany({ where: { companyId }, orderBy: { name: 'asc' } }),
+            this.prisma.crmSupportTicket.findMany({
+                where: { companyId, isActive: true, slaId: { not: null } },
+            }),
+        ]);
+
+        const HOUR = 1000 * 60 * 60;
+        return slas.map((sla) => {
+            const scoped = tickets.filter((t) => t.slaId === sla.id);
+            const respLimitMs = (sla.responseTimeHours || 0) * HOUR;
+            const resLimitMs = (sla.resolutionTimeHours || 0) * HOUR;
+
+            let metFirstResponse = 0;
+            let breachedFirstResponse = 0;
+            let metResolution = 0;
+            let breachedResolution = 0;
+            let sumFirstResponseMin = 0;
+            let firstResponseCount = 0;
+            let sumResolutionHrs = 0;
+            let resolutionCount = 0;
+
+            for (const t of scoped) {
+                const created = t.createdAt ? new Date(t.createdAt).getTime() : 0;
+                if (t.firstResponseAt && created) {
+                    const dt = new Date(t.firstResponseAt).getTime() - created;
+                    sumFirstResponseMin += dt / (1000 * 60);
+                    firstResponseCount++;
+                    if (respLimitMs === 0 || dt <= respLimitMs) metFirstResponse++;
+                    else breachedFirstResponse++;
+                }
+                if (t.resolvedAt && created) {
+                    const dt = new Date(t.resolvedAt).getTime() - created;
+                    sumResolutionHrs += dt / HOUR;
+                    resolutionCount++;
+                    if (resLimitMs === 0 || dt <= resLimitMs) metResolution++;
+                    else breachedResolution++;
+                }
+            }
+
+            const frTotal = metFirstResponse + breachedFirstResponse;
+            const resTotal = metResolution + breachedResolution;
+            const firstResponseCompliance = frTotal ? (metFirstResponse / frTotal) * 100 : 0;
+            const resolutionCompliance = resTotal ? (metResolution / resTotal) * 100 : 0;
+
+            return {
+                policyId: sla.id,
+                policyName: sla.name,
+                period: 'All Time',
+                totalTickets: scoped.length,
+                metFirstResponse,
+                metResolution,
+                breachedFirstResponse,
+                breachedResolution,
+                avgFirstResponseTime: firstResponseCount
+                    ? Math.round(sumFirstResponseMin / firstResponseCount)
+                    : 0,
+                avgResolutionTime: resolutionCount
+                    ? Math.round((sumResolutionHrs / resolutionCount) * 10) / 10
+                    : 0,
+                firstResponseCompliance: Math.round(firstResponseCompliance * 10) / 10,
+                resolutionCompliance: Math.round(resolutionCompliance * 10) / 10,
+                trend:
+                    firstResponseCompliance >= 90
+                        ? 'improving'
+                        : firstResponseCompliance >= 80
+                            ? 'stable'
+                            : 'declining',
+            };
+        });
+    }
+
     async createSla(data: any) {
         return this.prisma.crmSla.create({ data });
     }

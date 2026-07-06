@@ -16,6 +16,11 @@ export class ProjectBudgetsController {
         return this.budgetsService.findAll(projectId);
     }
 
+    @Get('trend')
+    getTrend(@Query('projectId') projectId: string) {
+        return this.budgetsService.getSpendingTrend(projectId);
+    }
+
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.budgetsService.findOne(id);
