@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   DollarSign,
   TrendingUp,
@@ -321,6 +322,50 @@ export default function SpendAnalyticsPage() {
       other: 4258800
     }
   ]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const spend = await LogisticsService.getFreightSpend();
+        // byParty is a Record<partyName, totalSpend> (see getFreightSpendAnalysis).
+        // Normalize to a { name, value } list, then map into VendorSpend fields.
+        const partyEntries: Array<{ name: string; value: number }> = Array.isArray(
+          spend?.byParty,
+        )
+          ? spend.byParty.map((p: any) => ({
+              name: p?.name ?? p?.partyName ?? 'Unknown',
+              value: Number(p?.value ?? p?.totalSpend ?? p?.totalAmount ?? 0),
+            }))
+          : spend?.byParty && typeof spend.byParty === 'object'
+            ? Object.entries(spend.byParty as Record<string, number>).map(
+                ([name, value]) => ({ name, value: Number(value) || 0 }),
+              )
+            : [];
+
+        if (partyEntries.length > 0) {
+          const mapped: VendorSpend[] = partyEntries.map((party, idx) => ({
+            id: idx + 1,
+            vendorName: party.name,
+            vendorType: 'Freight Vendor',
+            totalSpend: party.value,
+            invoiceCount: 0,
+            avgInvoiceValue: 0,
+            onTimePayment: 0,
+            discountsReceived: 0,
+            rating: 0,
+            status: 'active',
+          }));
+          if (mounted) setVendorSpend(mapped);
+        }
+      } catch {
+        // On error keep the existing seed so the UI is not empty.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {

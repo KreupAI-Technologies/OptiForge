@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ArrowLeft,
   Save,
@@ -180,6 +181,90 @@ export default function EditShipmentPage({ params }: { params: { id: string } })
     },
   ]);
 
+  useEffect(() => {
+    let active = true;
+    const loadShipment = async () => {
+      try {
+        const record = await LogisticsService.getShipmentById(params.id);
+        if (!active || !record) return;
+
+        setFormData(prev => ({
+          ...prev,
+          shipmentNumber: record.shipmentNumber ?? record.shipmentNo ?? prev.shipmentNumber,
+          trackingNumber: record.trackingNumber ?? prev.trackingNumber,
+          carrier: record.carrier ?? record.carrierName ?? prev.carrier,
+          carrierService: record.carrierService ?? prev.carrierService,
+          vehicleNumber: record.vehicleNumber ?? prev.vehicleNumber,
+          vehicleType: record.vehicleType ?? prev.vehicleType,
+          driverName: record.driverName ?? prev.driverName,
+          driverPhone: record.driverPhone ?? prev.driverPhone,
+          driverLicense: record.driverLicense ?? prev.driverLicense,
+
+          fromWarehouse: record.fromWarehouse ?? prev.fromWarehouse,
+          fromAddress: record.fromAddress ?? prev.fromAddress,
+          fromCity: record.fromCity ?? prev.fromCity,
+          fromState: record.fromState ?? prev.fromState,
+          fromPincode: record.fromPincode ?? prev.fromPincode,
+          fromContactPerson: record.fromContactPerson ?? prev.fromContactPerson,
+          fromContactPhone: record.fromContactPhone ?? prev.fromContactPhone,
+
+          toCustomer: record.toCustomer ?? record.customer ?? prev.toCustomer,
+          toAddress: record.toAddress ?? prev.toAddress,
+          toCity: record.toCity ?? prev.toCity,
+          toState: record.toState ?? prev.toState,
+          toPincode: record.toPincode ?? prev.toPincode,
+          toContactPerson: record.toContactPerson ?? prev.toContactPerson,
+          toContactPhone: record.toContactPhone ?? prev.toContactPhone,
+
+          status: record.status ?? prev.status,
+          priority: record.priority ?? prev.priority,
+
+          scheduledPickupDate: record.scheduledPickupDate ?? prev.scheduledPickupDate,
+          scheduledPickupTime: record.scheduledPickupTime ?? prev.scheduledPickupTime,
+          expectedDeliveryDate: record.expectedDeliveryDate ?? prev.expectedDeliveryDate,
+          expectedDeliveryTime: record.expectedDeliveryTime ?? prev.expectedDeliveryTime,
+
+          shipmentType: record.shipmentType ?? prev.shipmentType,
+          serviceType: record.serviceType ?? prev.serviceType,
+          paymentTerms: record.paymentTerms ?? prev.paymentTerms,
+          insuranceRequired: record.insuranceRequired ?? prev.insuranceRequired,
+          insuranceValue: record.insuranceValue ?? prev.insuranceValue,
+
+          freightCharges: record.freightCharges ?? prev.freightCharges,
+          insuranceCharges: record.insuranceCharges ?? prev.insuranceCharges,
+          loadingCharges: record.loadingCharges ?? prev.loadingCharges,
+          unloadingCharges: record.unloadingCharges ?? prev.unloadingCharges,
+          packagingCharges: record.packagingCharges ?? prev.packagingCharges,
+          otherCharges: record.otherCharges ?? prev.otherCharges,
+
+          specialInstructions: record.specialInstructions ?? prev.specialInstructions,
+          remarks: record.remarks ?? prev.remarks,
+        }));
+
+        const lineItems = record.items ?? record.shipmentItems ?? record.lineItems;
+        if (Array.isArray(lineItems) && lineItems.length > 0) {
+          setItems(lineItems.map((line: any, idx: number): ShipmentItem => ({
+            id: line.id?.toString() ?? (idx + 1).toString(),
+            itemCode: line.itemCode ?? '',
+            itemName: line.itemName ?? '',
+            quantity: line.quantity ?? 0,
+            weight: line.weight ?? 0,
+            volume: line.volume ?? 0,
+            packageType: line.packageType ?? 'Boxes',
+            remarks: line.remarks ?? '',
+          })));
+        }
+      } catch (error) {
+        // Leave existing defaults in place on failure.
+        console.error('Failed to load shipment', error);
+      }
+    };
+    loadShipment();
+    return () => {
+      active = false;
+    };
+  }, [params.id]);
+
   // Available options
   const carriers = [
     'Blue Dart Express',
@@ -283,11 +368,18 @@ export default function EditShipmentPage({ params }: { params: { id: string } })
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await LogisticsService.updateShipment(params.id, {
+        ...formData,
+        items,
+      });
       router.push(`/logistics/shipping/view/${params.id}`);
-    }, 1500);
+    } catch (error) {
+      console.error('Failed to update shipment', error);
+      setErrors(prev => ({ ...prev, submit: 'Failed to save shipment. Please try again.' }));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {
