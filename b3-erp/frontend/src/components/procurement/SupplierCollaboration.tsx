@@ -14,6 +14,7 @@ import {
   CollaborateDesignModal,
   MessageSuppliersModal
 } from '@/components/procurement/SupplierCollaborationModals';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie,
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -39,48 +40,40 @@ const SupplierCollaboration: React.FC<SupplierCollaborationProps> = () => {
   const [isOnline, setIsOnline] = useState(true);
   const [activeCollaborators, setActiveCollaborators] = useState(12);
 
-  // Mock supplier data
-  const suppliers = [
-    {
-      id: 'SUP001',
-      name: 'Tech Components Ltd',
-      contact: 'John Smith',
-      email: 'john@techcomponents.com',
-      phone: '+1-555-0123',
-      status: 'active',
-      tier: 'strategic',
-      projects: 8,
-      rating: 4.8,
-      lastActivity: '2024-12-16',
-      collaborationScore: 92
-    },
-    {
-      id: 'SUP002',
-      name: 'Metal Works Inc',
-      contact: 'Sarah Johnson',
-      email: 'sarah@metalworks.com',
-      phone: '+1-555-0234',
-      status: 'active',
-      tier: 'preferred',
-      projects: 5,
-      rating: 4.6,
-      lastActivity: '2024-12-15',
-      collaborationScore: 87
-    },
-    {
-      id: 'SUP003',
-      name: 'Global Electronics',
-      contact: 'Mike Chen',
-      email: 'mike@globalelectronics.com',
-      phone: '+1-555-0345',
-      status: 'active',
-      tier: 'approved',
-      projects: 3,
-      rating: 4.4,
-      lastActivity: '2024-12-14',
-      collaborationScore: 79
-    }
-  ];
+  // Supplier data (loaded from API)
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCollaboration = async () => {
+      try {
+        const data = await procurementPagesService.getCollaborationInsights();
+        const partners = Array.isArray(data?.partners) ? data.partners : [];
+        const mapped = partners.map((p: any) => ({
+          id: p?.vendorId ?? '',
+          name: p?.vendorName ?? '',
+          contact: p?.contact ?? '',
+          email: p?.email ?? '',
+          phone: p?.phone ?? '',
+          status: p?.status ?? '',
+          tier: p?.tier ?? '',
+          projects: p?.openThreads ?? 0,
+          rating: p?.rating ?? 0,
+          lastActivity: p?.lastActivity ?? '',
+          collaborationScore: p?.sharedDocuments ?? 0
+        }));
+        if (!cancelled && mapped.length > 0) {
+          setSuppliers(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to load collaboration insights:', err);
+      }
+    };
+    loadCollaboration();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Mock collaboration projects
   const collaborationProjects = [

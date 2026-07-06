@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   Shield, CheckCircle, AlertTriangle, XCircle, Clock,
   FileText, Award, Users, Target, Activity, BarChart3,
@@ -33,39 +34,38 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
     incidentsThisMonth: 2
   };
 
-  // Mock compliance requirements
-  const complianceRequirements = [
-    {
-      id: 'REQ001',
-      category: 'Data Protection',
-      requirement: 'GDPR Compliance',
-      status: 'compliant',
-      score: 98,
-      lastAudit: '2024-11-15',
-      nextReview: '2025-05-15',
-      owner: 'Legal Team'
-    },
-    {
-      id: 'REQ002',
-      category: 'Financial',
-      requirement: 'SOX Controls',
-      status: 'compliant',
-      score: 95,
-      lastAudit: '2024-10-20',
-      nextReview: '2025-04-20',
-      owner: 'Finance Team'
-    },
-    {
-      id: 'REQ003',
-      category: 'Environmental',
-      requirement: 'ISO 14001',
-      status: 'pending',
-      score: 88,
-      lastAudit: '2024-09-10',
-      nextReview: '2025-03-10',
-      owner: 'Operations'
-    }
-  ];
+  // Compliance requirements (loaded from API)
+  const [complianceRequirements, setComplianceRequirements] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await procurementPagesService.getComplianceInsights();
+        const requirements = data?.requirements ?? [];
+        setComplianceRequirements(
+          (requirements as any[]).map((r: any) => {
+            const met = r?.met ?? 0;
+            const total = r?.total ?? 0;
+            return {
+              id: r?.id ?? '',
+              requirement: r?.name ?? '',
+              category: r?.category ?? '',
+              status: r?.status ?? '',
+              score: total > 0 ? Math.round((met / total) * 100) : 0,
+              met,
+              total,
+              lastAudit: r?.lastAudit ?? '',
+              nextReview: r?.nextReview ?? '',
+              owner: r?.owner ?? '',
+            };
+          })
+        );
+      } catch (err) {
+        console.error('Failed to load compliance insights:', err);
+        setComplianceRequirements([]);
+      }
+    })();
+  }, []);
 
   // Handler Functions
   const handleRunAudit = () => {

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   Shield,
   AlertTriangle,
@@ -89,87 +90,62 @@ export default function ProcurementRiskManagement() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mock data - Risks
-  const risks: Risk[] = [
-    {
-      id: 'RISK001',
-      title: 'Single Source Dependency - Critical Components',
-      category: 'supply-chain',
-      severity: 'critical',
-      likelihood: 75,
-      impact: 90,
-      riskScore: 6750,
-      status: 'mitigating',
-      owner: 'Sarah Johnson',
-      supplier: 'Tech Components Ltd',
-      identifiedDate: '2024-01-15',
-      lastReviewDate: '2024-02-10',
-      mitigationPlan: 'Identify and qualify alternate suppliers',
-      residualRisk: 4500
-    },
-    {
-      id: 'RISK002',
-      title: 'Supplier Financial Instability',
-      category: 'financial',
-      severity: 'high',
-      likelihood: 60,
-      impact: 80,
-      riskScore: 4800,
-      status: 'monitoring',
-      owner: 'Michael Chen',
-      supplier: 'Metal Works Inc',
-      identifiedDate: '2024-02-01',
-      lastReviewDate: '2024-02-15',
-      mitigationPlan: 'Enhanced financial monitoring, payment terms adjustment',
-      residualRisk: 3200
-    },
-    {
-      id: 'RISK003',
-      title: 'Geopolitical Disruption - APAC Region',
-      category: 'geopolitical',
-      severity: 'high',
-      likelihood: 40,
-      impact: 95,
-      riskScore: 3800,
-      status: 'assessed',
-      owner: 'Emily Davis',
-      identifiedDate: '2024-01-20',
-      lastReviewDate: '2024-02-05',
-      mitigationPlan: 'Diversify geographic sourcing, increase safety stock',
-      residualRisk: 2500
-    },
-    {
-      id: 'RISK004',
-      title: 'Regulatory Compliance Changes',
-      category: 'compliance',
-      severity: 'medium',
-      likelihood: 70,
-      impact: 50,
-      riskScore: 3500,
-      status: 'mitigating',
-      owner: 'Robert Wilson',
-      identifiedDate: '2024-01-10',
-      lastReviewDate: '2024-02-12',
-      mitigationPlan: 'Compliance assessment, supplier certification updates',
-      residualRisk: 2000
-    },
-    {
-      id: 'RISK005',
-      title: 'Capacity Constraints - Peak Season',
-      category: 'operational',
-      severity: 'medium',
-      likelihood: 65,
-      impact: 60,
-      riskScore: 3900,
-      status: 'monitoring',
-      owner: 'Lisa Anderson',
-      supplier: 'Express Logistics Ltd',
-      identifiedDate: '2024-02-05',
-      lastReviewDate: '2024-02-14',
-      mitigationPlan: 'Capacity planning, backup suppliers identified',
-      residualRisk: 2300
-    }
-  ];
+  // Risks - populated from getRiskInsights() (falls back to [] on error)
+  const [risks, setRisks] = useState<Risk[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await procurementPagesService.getRiskInsights();
+        const assessments: any[] = data?.assessments ?? [];
+        if (!assessments.length) return;
+
+        const validCategories: Risk['category'][] = [
+          'supply-chain', 'financial', 'compliance', 'operational', 'strategic', 'geopolitical'
+        ];
+        const mapCategory = (c: any): Risk['category'] => {
+          const norm = String(c ?? '').toLowerCase().replace(/[\s_]+/g, '-');
+          return (validCategories.includes(norm as Risk['category'])
+            ? norm
+            : 'operational') as Risk['category'];
+        };
+        const mapSeverity = (level: any): Risk['severity'] => {
+          const norm = String(level ?? '').toLowerCase();
+          return (['critical', 'high', 'medium', 'low'].includes(norm)
+            ? norm
+            : 'medium') as Risk['severity'];
+        };
+
+        const mapped: Risk[] = assessments.map((a) => {
+          const financial = Number(a?.factors?.financial ?? 0);
+          const operational = Number(a?.factors?.operational ?? 0);
+          const compliance = Number(a?.factors?.compliance ?? 0);
+          const geographic = Number(a?.factors?.geographic ?? 0);
+          const score = Number(a?.riskScore ?? 0);
+          return {
+            id: String(a?.vendorId ?? ''),
+            title: String(a?.vendorName ?? 'Vendor Risk'),
+            category: mapCategory(a?.category),
+            severity: mapSeverity(a?.riskLevel),
+            likelihood: Math.round((financial + operational + compliance + geographic) / 4) || score,
+            impact: Math.round((financial + operational + compliance + geographic) / 4) || score,
+            riskScore: score,
+            status: 'assessed',
+            owner: String(a?.vendorName ?? 'Unassigned'),
+            supplier: String(a?.vendorName ?? ''),
+            identifiedDate: new Date().toISOString().slice(0, 10),
+            lastReviewDate: new Date().toISOString().slice(0, 10),
+            mitigationPlan: undefined,
+            residualRisk: Number(a?.spendExposure ?? 0),
+          };
+        });
+
+        setRisks(mapped);
+      } catch {
+        // keep empty [] on failure
+      }
+    })();
+  }, []);
 
   const riskTrends = [
     { month: 'Jan', critical: 2, high: 5, medium: 8, low: 3 },

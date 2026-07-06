@@ -14,6 +14,7 @@ import {
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 
 interface EProcurementMarketplaceProps {}
 
@@ -142,42 +143,37 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
     { id: 'machinery', name: 'Machinery', count: 287 }
   ];
 
-  // Mock data for supplier stores
-  const supplierStores = [
-    {
-      id: 'STR001',
-      name: 'Metal Works Inc',
-      rating: 4.8,
-      products: 156,
-      responseTime: '< 2 hours',
-      onTimeDelivery: 98.5,
-      categories: ['Raw Materials', 'Components'],
-      certifications: ['ISO 9001', 'ISO 14001'],
-      joinedDate: '2020-03-15'
-    },
-    {
-      id: 'STR002',
-      name: 'Tech Components Ltd',
-      rating: 4.9,
-      products: 234,
-      responseTime: '< 1 hour',
-      onTimeDelivery: 99.2,
-      categories: ['Electronics', 'Automation'],
-      certifications: ['ISO 9001', 'RoHS', 'CE'],
-      joinedDate: '2019-07-22'
-    },
-    {
-      id: 'STR003',
-      name: 'Global Electronics',
-      rating: 4.7,
-      products: 189,
-      responseTime: '< 3 hours',
-      onTimeDelivery: 97.8,
-      categories: ['Electronics', 'Components'],
-      certifications: ['ISO 9001', 'UL', 'CE'],
-      joinedDate: '2021-01-10'
-    }
-  ];
+  // Supplier stores (connected suppliers) loaded from backend
+  const [supplierStores, setSupplierStores] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadMarketplaceInsights = async () => {
+      try {
+        const data = await procurementPagesService.getMarketplaceInsights();
+        const catalogs = data?.catalogs ?? [];
+        if (Array.isArray(catalogs) && catalogs.length > 0) {
+          setSupplierStores(
+            catalogs.map((c: any) => ({
+              id: c?.vendorId ?? '',
+              name: c?.vendorName ?? '',
+              rating: c?.rating ?? 0,
+              products: c?.catalogItems ?? 0,
+              responseTime: c?.punchoutEnabled ? 'Punch-out enabled' : 'Standard',
+              onTimeDelivery: 0,
+              categories: [],
+              certifications: [],
+              joinedDate: '',
+              orders: c?.ordersYtd ?? 0,
+              punchout: c?.punchoutEnabled ?? false,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to load marketplace insights', err);
+      }
+    };
+    loadMarketplaceInsights();
+  }, []);
 
   // Mock data for recent orders
   const recentOrders = [
@@ -620,7 +616,7 @@ const EProcurementMarketplace: React.FC<EProcurementMarketplaceProps> = () => {
               </div>
 
               <div className="flex flex-wrap gap-2 mb-2">
-                {store.certifications.map((cert, index) => (
+                {store.certifications.map((cert: any, index: number) => (
                   <span key={index} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
                     {cert}
                   </span>

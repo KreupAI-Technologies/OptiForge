@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { procurementPagesService } from '@/services/procurement-pages.service'
 import {
   Cpu,
   Bot,
@@ -143,68 +144,33 @@ export default function ProcurementAutomation() {
   }
 
   // Mock data
-  const automationRules: AutomationRule[] = [
-    {
-      id: 'AUTO001',
-      name: 'Auto-approve Low Value POs',
-      type: 'approval',
-      status: 'active',
-      triggersPerDay: 45,
-      successRate: 98.5,
-      timeSaved: 120,
-      lastRun: '5 mins ago',
-      nextRun: 'Continuous',
-      aiEnabled: false
-    },
-    {
-      id: 'AUTO002',
-      name: 'Invoice 3-Way Matching',
-      type: 'matching',
-      status: 'active',
-      triggersPerDay: 128,
-      successRate: 94.2,
-      timeSaved: 320,
-      lastRun: '2 mins ago',
-      nextRun: 'Continuous',
-      aiEnabled: true
-    },
-    {
-      id: 'AUTO003',
-      name: 'Demand Forecasting',
-      type: 'prediction',
-      status: 'active',
-      triggersPerDay: 8,
-      successRate: 87.3,
-      timeSaved: 45,
-      lastRun: '1 hour ago',
-      nextRun: 'Daily 6:00 AM',
-      aiEnabled: true
-    },
-    {
-      id: 'AUTO004',
-      name: 'Supplier Selection Optimization',
-      type: 'optimization',
-      status: 'testing',
-      triggersPerDay: 12,
-      successRate: 91.8,
-      timeSaved: 90,
-      lastRun: '3 hours ago',
-      nextRun: 'On demand',
-      aiEnabled: true
-    },
-    {
-      id: 'AUTO005',
-      name: 'Contract Renewal Workflow',
-      type: 'workflow',
-      status: 'active',
-      triggersPerDay: 3,
-      successRate: 100,
-      timeSaved: 60,
-      lastRun: 'Yesterday',
-      nextRun: 'Weekly',
-      aiEnabled: false
+  const [automationRules, setAutomationRules] = useState<AutomationRule[]>([])
+
+  useEffect(() => {
+    const loadAutomationRules = async () => {
+      try {
+        const insights = await procurementPagesService.getAutomationInsights()
+        const rules: any[] = Array.isArray(insights?.rules) ? insights.rules : []
+        if (rules.length === 0) return
+        const mapped: AutomationRule[] = rules.map((r: any) => ({
+          id: String(r?.id ?? ''),
+          name: String(r?.name ?? 'Untitled Rule'),
+          type: 'workflow',
+          status: r?.active ? 'active' : 'paused',
+          triggersPerDay: Number(r?.runs ?? 0),
+          successRate: 100,
+          timeSaved: Number(r?.savedHours ?? 0),
+          lastRun: '—',
+          nextRun: 'Continuous',
+          aiEnabled: false
+        }))
+        setAutomationRules(mapped)
+      } catch (err) {
+        console.error('Failed to load automation rules', err)
+      }
     }
-  ]
+    loadAutomationRules()
+  }, [])
 
   const aiInsights: AIInsight[] = [
     {
