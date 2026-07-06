@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MasterDataService, mdLabel, MDCustomer } from '@/services/master-data.service';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -182,15 +183,51 @@ export default function AddEditContractPage() {
     return { subtotal, tax, total };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
+    const totals = calculateTotals();
+    const primaryContact = contacts.find((c) => c.isPrimary) || contacts[0];
+    const payload = {
+      contractType,
+      customerId: customerId || '',
+      customerName: customerName || '',
+      customerContactPerson: primaryContact?.name || undefined,
+      customerEmail: primaryContact?.email || undefined,
+      customerPhone: primaryContact?.phone || undefined,
+      equipmentIds: [] as string[],
+      coverageScope: coverageHours === 'Custom' ? customCoverageHours : coverageHours,
+      startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+      endDate: endDate ? new Date(endDate).toISOString() : new Date().toISOString(),
+      duration: 12,
+      pricingTier: 'Standard',
+      contractValue: Number(totals.total) || 0,
+      currency: 'INR',
+      billingFrequency,
+      paymentTerms,
+      responseTimeSLA: Number(responseTimeSLA) || 0,
+      resolutionTimeSLA: Number(resolutionTimeSLA) || 0,
+      visitFrequency: billingFrequency,
+      serviceCoverage: [] as string[],
+      inclusions: inclusions ? [inclusions] : [],
+      exclusions: exclusions ? [exclusions] : [],
+      partsIncluded: false,
+      laborIncluded: true,
+      consumablesIncluded: false,
+      autoRenewal,
+      notes: notes || undefined,
+      createdBy: 'system',
+    };
+
+    try {
+      await AfterSalesPagesService.createContract(payload);
       router.push('/after-sales-service/service-contracts');
-    }, 1500);
+    } catch (err) {
+      console.error('Failed to create contract', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const { subtotal, tax, total } = calculateTotals();

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   Shield,
   Save,
@@ -118,14 +119,43 @@ export default function AddWarrantyPage() {
     calculateEndDate(startDate, warrantyDuration);
   }, [startDate, warrantyDuration]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const buildPayload = () => ({
+    warrantyType,
+    warrantyNumber,
+    status,
+    customerId,
+    customerName,
+    customerPhone,
+    customerEmail,
+    startDate,
+    warrantyDuration,
+    endDate,
+    coverage,
+    coverageLimit,
+    deductible,
+    isExtended,
+    baseWarrantyNumber,
+    baseWarrantyEndDate,
+    coveredProducts,
+    coverageInclusions,
+    coverageExclusions,
+    claimProcess,
+    notes,
+    createdBy: 'system',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await AfterSalesPagesService.createWarranty(buildPayload());
       router.push('/after-sales-service/warranties');
-    }, 1500);
+    } catch (err) {
+      console.error('Create failed', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {

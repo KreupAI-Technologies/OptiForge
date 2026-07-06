@@ -124,4 +124,66 @@ export class AfterSalesPagesService {
         : '/after-sales/warranties/claims',
     );
   }
+
+  // ---- Detail (by-id) reads ----------------------------------------------
+  static installation<T = any>(id: string): Promise<T> {
+    return request<T>(`/after-sales/installations/${encodeURIComponent(id)}`);
+  }
+  static fieldJob<T = any>(id: string): Promise<T> {
+    return request<T>(
+      `/after-sales/field-service/jobs/${encodeURIComponent(id)}`,
+    );
+  }
+  static invoice<T = any>(id: string): Promise<T> {
+    return request<T>(
+      `/after-sales/billing/invoices/${encodeURIComponent(id)}`,
+    );
+  }
+  static warranty<T = any>(id: string): Promise<T> {
+    return request<T>(`/after-sales/warranties/${encodeURIComponent(id)}`);
+  }
+  static knowledgeArticles<T = any[]>(): Promise<T> {
+    return request<T>('/after-sales/knowledge');
+  }
+  static knowledgeArticle<T = any>(id: string): Promise<T> {
+    return request<T>(`/after-sales/knowledge/${encodeURIComponent(id)}`);
+  }
+
+  // ---- Creates -----------------------------------------------------------
+  static createServiceRequest<T = any>(body: any): Promise<T> {
+    return request<T>('/after-sales/service-requests', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+  static createInstallation<T = any>(body: any): Promise<T> {
+    return request<T>('/after-sales/installations', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+  static createWarranty<T = any>(body: any): Promise<T> {
+    return request<T>('/after-sales/warranties', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+  static createContract<T = any>(body: any): Promise<T> {
+    return request<T>('/after-sales/contracts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+  static createInvoice<T = any>(body: any): Promise<T> {
+    return request<T>('/after-sales/billing/invoices', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+  static renewContract<T = any>(id: string, body: any): Promise<T> {
+    return request<T>(
+      `/after-sales/contracts/${encodeURIComponent(id)}/renew`,
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  }
 }

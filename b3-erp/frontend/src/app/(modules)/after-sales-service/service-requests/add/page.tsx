@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   Headphones,
   Save,
@@ -90,14 +91,41 @@ export default function AddServiceRequestPage() {
     setResolutionTimeSLA(sla.resolution.toString());
   }, [priority]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const buildPayload = () => ({
+    ticketNumber,
+    priority,
+    channel,
+    customerId,
+    customerName,
+    contactPerson,
+    contactPhone,
+    contactEmail,
+    issueType,
+    issueTitle,
+    issueDescription,
+    equipmentAffected,
+    serviceAddress,
+    preferredDate,
+    preferredTime,
+    linkedContract,
+    linkedWarranty,
+    responseTimeSLA,
+    resolutionTimeSLA,
+    createdBy: 'system',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await AfterSalesPagesService.createServiceRequest(buildPayload());
       router.push('/after-sales-service/service-requests');
-    }, 1500);
+    } catch (err) {
+      console.error('Create failed', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getPriorityInfo = (p: string) => {

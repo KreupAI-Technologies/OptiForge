@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Navigation, Clock, Phone, User, CheckCircle, AlertTriangle, Battery, Wifi, RefreshCw, Search, Filter, Calendar, Truck, Wrench, Home, Building2, Zap, TrendingUp, X, Eye, BarChart3, Mail } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 
 interface TechnicianLocation {
   id: string;
@@ -33,7 +34,71 @@ interface TechnicianLocation {
   responseTime: number; // in minutes
 }
 
-const mockTechnicians: TechnicianLocation[] = [
+const VALID_STATUSES = ['available', 'on_job', 'in_transit', 'on_break', 'offline'];
+
+function mapJobToTechnician(job: any, index: number): TechnicianLocation {
+  const engineer = job?.engineer || job?.assignedEngineer || job?.technician || {};
+  const engineerName =
+    engineer?.name ||
+    job?.engineerName ||
+    job?.technicianName ||
+    job?.assignedTo ||
+    'Unassigned';
+  const engineerId =
+    engineer?.id ||
+    job?.engineerId ||
+    job?.technicianId ||
+    `TECH${String(index + 1).padStart(3, '0')}`;
+  const rawStatus = String(job?.technicianStatus || engineer?.status || job?.status || 'available')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const currentStatus = (VALID_STATUSES.includes(rawStatus)
+    ? rawStatus
+    : 'on_job') as TechnicianLocation['currentStatus'];
+  const network = String(job?.networkStatus || engineer?.networkStatus || 'online').toLowerCase();
+  const skills =
+    (Array.isArray(engineer?.skillSet) && engineer.skillSet) ||
+    (Array.isArray(engineer?.skills) && engineer.skills) ||
+    (Array.isArray(job?.skillSet) && job.skillSet) ||
+    [];
+  const location =
+    job?.location ||
+    job?.currentLocation ||
+    job?.customer?.address ||
+    job?.address ||
+    '';
+  return {
+    id: String(job?.id ?? job?._id ?? engineerId ?? index),
+    technicianId: String(engineerId),
+    technicianName: String(engineerName),
+    phone: engineer?.phone || job?.phone || '',
+    email: engineer?.email || job?.email || '',
+    currentStatus,
+    currentJob: job?.jobNumber || job?.number || job?.id || undefined,
+    currentCustomer: job?.customer?.name || job?.customerName || undefined,
+    latitude: Number(job?.latitude ?? engineer?.latitude ?? job?.lat ?? 0) || 0,
+    longitude: Number(job?.longitude ?? engineer?.longitude ?? job?.lng ?? 0) || 0,
+    location: String(location),
+    lastUpdated: job?.lastUpdated || job?.updatedAt || job?.updated_at || new Date().toISOString(),
+    batteryLevel: Number(engineer?.batteryLevel ?? job?.batteryLevel ?? 100) || 0,
+    networkStatus: (['online', 'offline', 'poor'].includes(network)
+      ? network
+      : 'online') as TechnicianLocation['networkStatus'],
+    todayJobs: Number(engineer?.todayJobs ?? job?.todayJobs ?? 0) || 0,
+    completedJobs: Number(engineer?.completedJobs ?? job?.completedJobs ?? 0) || 0,
+    pendingJobs: Number(engineer?.pendingJobs ?? job?.pendingJobs ?? 0) || 0,
+    totalDistance: Number(engineer?.totalDistance ?? job?.totalDistance ?? 0) || 0,
+    workingHours: Number(engineer?.workingHours ?? job?.workingHours ?? 0) || 0,
+    nextJobLocation: job?.nextJobLocation || undefined,
+    nextJobTime: job?.nextJobTime || undefined,
+    vehicleNumber: engineer?.vehicleNumber || job?.vehicleNumber || undefined,
+    skillSet: (skills as any[]).map((s) => String(s)),
+    rating: Number(engineer?.rating ?? job?.rating ?? 0) || 0,
+    responseTime: Number(engineer?.responseTime ?? job?.responseTime ?? 0) || 0,
+  };
+}
+
+const _unusedMockTechnicians: TechnicianLocation[] = [
   {
     id: '1',
     technicianId: 'TECH001',
@@ -249,6 +314,19 @@ export default function TechnicianTrackingPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [selectedMapTech, setSelectedMapTech] = useState<TechnicianLocation | null>(null);
+  const [technicians, setTechnicians] = useState<TechnicianLocation[]>([]);
+
+  // Load technicians (derived from field-service jobs) from API
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AfterSalesPagesService.fieldJobs();
+        setTechnicians(Array.isArray(raw) ? raw.map(mapJobToTechnician) : []);
+      } catch {
+        setTechnicians([]);
+      }
+    })();
+  }, []);
 
   // Update current time every minute
   useEffect(() => {
@@ -275,7 +353,7 @@ export default function TechnicianTrackingPage() {
         break;
       case 'active':
         setStatusFilter('all');
-        const activeList = mockTechnicians.filter(t => t.currentStatus === 'on_job' || t.currentStatus === 'in_transit');
+        const activeList = technicians.filter(t => t.currentStatus === 'on_job' || t.currentStatus === 'in_transit');
         setToast({ message: `${activeList.length} active technicians found`, type: 'info' });
         break;
       case 'available':
@@ -301,7 +379,7 @@ export default function TechnicianTrackingPage() {
   };
 
   // Filter technicians
-  const filteredTechnicians = mockTechnicians.filter(tech => {
+  const filteredTechnicians = technicians.filter(tech => {
     const matchesSearch = tech.technicianName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tech.technicianId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tech.location.toLowerCase().includes(searchTerm.toLowerCase());
@@ -310,12 +388,12 @@ export default function TechnicianTrackingPage() {
   });
 
   // Statistics
-  const totalTechnicians = mockTechnicians.length;
-  const activeTechnicians = mockTechnicians.filter(t => t.currentStatus === 'on_job' || t.currentStatus === 'in_transit').length;
-  const availableTechnicians = mockTechnicians.filter(t => t.currentStatus === 'available').length;
-  const totalJobsToday = mockTechnicians.reduce((sum, t) => sum + t.todayJobs, 0);
-  const completedJobsToday = mockTechnicians.reduce((sum, t) => sum + t.completedJobs, 0);
-  const avgResponseTime = Math.round(mockTechnicians.reduce((sum, t) => sum + t.responseTime, 0) / totalTechnicians);
+  const totalTechnicians = technicians.length;
+  const activeTechnicians = technicians.filter(t => t.currentStatus === 'on_job' || t.currentStatus === 'in_transit').length;
+  const availableTechnicians = technicians.filter(t => t.currentStatus === 'available').length;
+  const totalJobsToday = technicians.reduce((sum, t) => sum + t.todayJobs, 0);
+  const completedJobsToday = technicians.reduce((sum, t) => sum + t.completedJobs, 0);
+  const avgResponseTime = totalTechnicians ? Math.round(technicians.reduce((sum, t) => sum + t.responseTime, 0) / totalTechnicians) : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -544,7 +622,7 @@ export default function TechnicianTrackingPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Interactive Map View</h3>
                 <p className="text-gray-600 mb-2">Integrate with Google Maps, Mapbox, or OpenStreetMap</p>
                 <div className="grid grid-cols-3 gap-2 max-w-md">
-                  {mockTechnicians.slice(0, 6).map((tech) => (
+                  {technicians.slice(0, 6).map((tech) => (
                     <button
                       key={tech.id}
                       onClick={(e) => handleMapTechClick(tech, e)}
@@ -852,21 +930,21 @@ export default function TechnicianTrackingPage() {
                   <div className="bg-white rounded-lg p-3 border border-blue-200">
                     <div className="text-sm text-gray-600 mb-1">Total Distance</div>
                     <div className="text-3xl font-bold text-blue-600">
-                      {mockTechnicians.reduce((sum, t) => sum + t.totalDistance, 0).toFixed(1)} km
+                      {technicians.reduce((sum, t) => sum + t.totalDistance, 0).toFixed(1)} km
                     </div>
                     <div className="text-xs text-blue-600 mt-1">Covered today</div>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-purple-200">
                     <div className="text-sm text-gray-600 mb-1">Working Hours</div>
                     <div className="text-3xl font-bold text-purple-600">
-                      {mockTechnicians.reduce((sum, t) => sum + t.workingHours, 0).toFixed(1)}h
+                      {technicians.reduce((sum, t) => sum + t.workingHours, 0).toFixed(1)}h
                     </div>
                     <div className="text-xs text-purple-600 mt-1">Total logged today</div>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-orange-200">
                     <div className="text-sm text-gray-600 mb-1">Avg Rating</div>
                     <div className="text-3xl font-bold text-orange-600">
-                      {(mockTechnicians.reduce((sum, t) => sum + t.rating, 0) / totalTechnicians).toFixed(1)}
+                      {(totalTechnicians ? technicians.reduce((sum, t) => sum + t.rating, 0) / totalTechnicians : 0).toFixed(1)}
                     </div>
                     <div className="text-xs text-orange-600 mt-1">Out of 5.0</div>
                   </div>
@@ -881,11 +959,11 @@ export default function TechnicianTrackingPage() {
                 </h3>
                 <div className="grid grid-cols-5 gap-2">
                   {[
-                    { status: 'available', label: 'Available', count: mockTechnicians.filter(t => t.currentStatus === 'available').length, color: 'green' },
-                    { status: 'on_job', label: 'On Job', count: mockTechnicians.filter(t => t.currentStatus === 'on_job').length, color: 'blue' },
-                    { status: 'in_transit', label: 'In Transit', count: mockTechnicians.filter(t => t.currentStatus === 'in_transit').length, color: 'yellow' },
-                    { status: 'on_break', label: 'On Break', count: mockTechnicians.filter(t => t.currentStatus === 'on_break').length, color: 'orange' },
-                    { status: 'offline', label: 'Offline', count: mockTechnicians.filter(t => t.currentStatus === 'offline').length, color: 'gray' },
+                    { status: 'available', label: 'Available', count: technicians.filter(t => t.currentStatus === 'available').length, color: 'green' },
+                    { status: 'on_job', label: 'On Job', count: technicians.filter(t => t.currentStatus === 'on_job').length, color: 'blue' },
+                    { status: 'in_transit', label: 'In Transit', count: technicians.filter(t => t.currentStatus === 'in_transit').length, color: 'yellow' },
+                    { status: 'on_break', label: 'On Break', count: technicians.filter(t => t.currentStatus === 'on_break').length, color: 'orange' },
+                    { status: 'offline', label: 'Offline', count: technicians.filter(t => t.currentStatus === 'offline').length, color: 'gray' },
                   ].map((item) => (
                     <div key={item.status} className="bg-gray-50 rounded-lg p-3 text-center">
                       <div className={`text-3xl font-bold text-${item.color}-600 mb-1`}>{item.count}</div>
@@ -932,20 +1010,20 @@ export default function TechnicianTrackingPage() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-700">Pending Jobs</span>
                         <span className="text-sm font-bold text-blue-600">
-                          {mockTechnicians.reduce((sum, t) => sum + t.pendingJobs, 0)}
+                          {technicians.reduce((sum, t) => sum + t.pendingJobs, 0)}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-3">
                         <div
                           className="bg-blue-600 h-3 rounded-full transition-all"
-                          style={{ width: `${(mockTechnicians.reduce((sum, t) => sum + t.pendingJobs, 0) / totalJobsToday) * 100}%` }}
+                          style={{ width: `${(technicians.reduce((sum, t) => sum + t.pendingJobs, 0) / totalJobsToday) * 100}%` }}
                         ></div>
                       </div>
                     </div>
 
                     <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200 mt-4">
                       <div className="text-sm font-medium text-gray-700 mb-2">Top Performers Today</div>
-                      {mockTechnicians
+                      {technicians
                         .sort((a, b) => b.completedJobs - a.completedJobs)
                         .slice(0, 3)
                         .map((tech, index) => (
@@ -978,9 +1056,9 @@ export default function TechnicianTrackingPage() {
                     <div>
                       <div className="text-sm font-medium text-gray-700 mb-3">Response Time Distribution</div>
                       {[
-                        { range: '< 15 min', count: mockTechnicians.filter(t => t.responseTime < 15).length, color: 'green' },
-                        { range: '15-20 min', count: mockTechnicians.filter(t => t.responseTime >= 15 && t.responseTime <= 20).length, color: 'yellow' },
-                        { range: '> 20 min', count: mockTechnicians.filter(t => t.responseTime > 20).length, color: 'red' },
+                        { range: '< 15 min', count: technicians.filter(t => t.responseTime < 15).length, color: 'green' },
+                        { range: '15-20 min', count: technicians.filter(t => t.responseTime >= 15 && t.responseTime <= 20).length, color: 'yellow' },
+                        { range: '> 20 min', count: technicians.filter(t => t.responseTime > 20).length, color: 'red' },
                       ].map((item) => (
                         <div key={item.range} className="mb-3">
                           <div className="flex items-center justify-between mb-1">
@@ -999,7 +1077,7 @@ export default function TechnicianTrackingPage() {
 
                     <div className="bg-orange-50 rounded-lg p-3 border border-orange-200 mt-4">
                       <div className="text-sm font-medium text-gray-700 mb-2">Fastest Responders</div>
-                      {mockTechnicians
+                      {technicians
                         .sort((a, b) => a.responseTime - b.responseTime)
                         .slice(0, 3)
                         .map((tech, index) => (
@@ -1024,7 +1102,7 @@ export default function TechnicianTrackingPage() {
                     Distance Traveled
                   </h3>
                   <div className="space-y-3">
-                    {mockTechnicians
+                    {technicians
                       .sort((a, b) => b.totalDistance - a.totalDistance)
                       .map((tech) => (
                         <div key={tech.id} className="flex items-center justify-between">
@@ -1033,7 +1111,7 @@ export default function TechnicianTrackingPage() {
                             <div className="w-full bg-gray-200 rounded-full h-2">
                               <div
                                 className="bg-gradient-to-r from-emerald-600 to-teal-600 h-2 rounded-full transition-all"
-                                style={{ width: `${(tech.totalDistance / Math.max(...mockTechnicians.map(t => t.totalDistance))) * 100}%` }}
+                                style={{ width: `${(tech.totalDistance / (Math.max(...technicians.map(t => t.totalDistance), 1) || 1)) * 100}%` }}
                               ></div>
                             </div>
                           </div>
@@ -1049,8 +1127,8 @@ export default function TechnicianTrackingPage() {
                     Skills Distribution
                   </h3>
                   <div className="space-y-3">
-                    {Array.from(new Set(mockTechnicians.flatMap(t => t.skillSet))).map((skill) => {
-                      const count = mockTechnicians.filter(t => t.skillSet.includes(skill)).length;
+                    {Array.from(new Set(technicians.flatMap(t => t.skillSet))).map((skill) => {
+                      const count = technicians.filter(t => t.skillSet.includes(skill)).length;
                       return (
                         <div key={skill} className="flex items-center justify-between">
                           <div className="flex-1">
@@ -1077,7 +1155,7 @@ export default function TechnicianTrackingPage() {
                   Technician Ratings
                 </h3>
                 <div className="grid grid-cols-4 gap-2">
-                  {mockTechnicians
+                  {technicians
                     .sort((a, b) => b.rating - a.rating)
                     .map((tech) => (
                       <div key={tech.id} className="bg-gradient-to-br from-gray-50 to-emerald-50 rounded-lg p-3 border border-gray-200">

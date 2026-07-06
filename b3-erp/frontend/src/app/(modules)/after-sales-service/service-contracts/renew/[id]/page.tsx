@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   RefreshCw,
   Save,
@@ -20,8 +21,8 @@ export default function RenewContractPage({ params }: { params: { id: string } }
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Original Contract Data
-  const originalContract = {
+  // Original Contract Data (fallback defaults so every field the JSX reads is defined)
+  const FALLBACK_CONTRACT = {
     id: params.id,
     contractNumber: 'AMC-2025-0001',
     contractType: 'AMC',
@@ -38,6 +39,25 @@ export default function RenewContractPage({ params }: { params: { id: string } }
       customerRating: 4.8
     }
   };
+
+  const [originalContract, setOriginalContract] = useState(FALLBACK_CONTRACT);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await AfterSalesPagesService.contract(String(params.id));
+        if (!cancelled && data && typeof data === 'object') {
+          setOriginalContract(prev => ({ ...prev, ...data }));
+        }
+      } catch {
+        // keep fallback on error
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   // Renewal Form State
   const [renewalType, setRenewalType] = useState<'Standard' | 'Modified'>('Standard');

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { FileText, Search, Eye, Edit, Trash2, Plus, Calendar, User, Tag, ThumbsUp, MessageSquare, TrendingUp, Filter, ChevronRight, X, CheckCircle, AlertTriangle, BarChart3, Clock, Star } from 'lucide-react';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 
 interface Article {
   id: string;
@@ -18,6 +19,26 @@ interface Article {
   status: 'published' | 'draft';
   tags: string[];
   readTime: number;
+}
+
+function mapArticle(a: any): Article {
+  const status = String(a?.status || 'published').toLowerCase();
+  return {
+    id: String(a?.id ?? a?._id ?? ''),
+    title: a?.title || a?.name || '',
+    description: a?.description || a?.summary || a?.content || '',
+    category: a?.category || a?.categoryName || 'General',
+    author: a?.author || a?.authorName || a?.createdBy || '',
+    dateCreated: a?.dateCreated || a?.createdAt || a?.created_at || '',
+    dateUpdated: a?.dateUpdated || a?.updatedAt || a?.updated_at || a?.dateCreated || a?.createdAt || '',
+    views: Number(a?.views ?? a?.viewCount ?? 0) || 0,
+    likes: Number(a?.likes ?? a?.likeCount ?? 0) || 0,
+    comments: Number(a?.comments ?? a?.commentCount ?? 0) || 0,
+    featured: Boolean(a?.featured ?? a?.isFeatured ?? false),
+    status: status === 'draft' ? 'draft' : 'published',
+    tags: Array.isArray(a?.tags) ? a.tags.map((t: any) => String(t)) : [],
+    readTime: Number(a?.readTime ?? a?.readingTime ?? 0) || 0,
+  };
 }
 
 const mockArticles: Article[] = [
@@ -159,6 +180,19 @@ export default function ArticlesPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [articles, setArticles] = useState<Article[]>([]);
+
+  // Load articles from API
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AfterSalesPagesService.knowledgeArticles();
+        setArticles(Array.isArray(raw) ? raw.map(mapArticle) : []);
+      } catch {
+        setArticles([]);
+      }
+    })();
+  }, []);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -201,7 +235,7 @@ export default function ArticlesPage() {
   const categories = ['Maintenance', 'Troubleshooting', 'Warranty', 'Installation', 'Optimization', 'Service Plans'];
 
   const filteredArticles = useMemo(() => {
-    let filtered = mockArticles.filter(article => {
+    let filtered = articles.filter(article => {
       const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         article.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || article.category === selectedCategory;
@@ -219,13 +253,13 @@ export default function ArticlesPage() {
     }
 
     return filtered;
-  }, [searchTerm, selectedCategory, selectedStatus, sortBy]);
+  }, [articles, searchTerm, selectedCategory, selectedStatus, sortBy]);
 
   const stats = {
-    total: mockArticles.length,
-    published: mockArticles.filter(a => a.status === 'published').length,
-    draft: mockArticles.filter(a => a.status === 'draft').length,
-    featured: mockArticles.filter(a => a.featured).length
+    total: articles.length,
+    published: articles.filter(a => a.status === 'published').length,
+    draft: articles.filter(a => a.status === 'draft').length,
+    featured: articles.filter(a => a.featured).length
   };
 
   return (
