@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { capaService, CAPAType, CAPASource, CAPAPriority, type CreateCAPADto } from '@/services/capa.service';
 
 export default function CreateCAPAPage() {
     const router = useRouter();
@@ -42,21 +43,26 @@ export default function CreateCAPAPage() {
         e.preventDefault();
         setLoading(true);
 
-        // Map frontend type/priority to backend enum values if needed
-        // Assuming backend expects lowercase or specific enum strings
-        const payload = {
-            ...formData,
-            capaType: formData.type, // Map type to capaType
+        const payload: CreateCAPADto = {
+            title: formData.title,
+            description: formData.description,
+            type: (formData.type as CAPAType) || CAPAType.CORRECTIVE,
+            source: CAPASource.INTERNAL_OBSERVATION,
+            priority: (formData.priority as CAPAPriority) || CAPAPriority.MEDIUM,
+            problemStatement: formData.problemStatement,
+            impactDescription: formData.description,
+            affectedAreas: [],
+            targetCompletionDate: new Date(formData.targetDate),
+            ownerId: 'default-user-id',
+            ownerName: formData.ownerName || 'Unassigned',
+            ownerDepartment: 'Quality',
+            notes: [formData.rootCauseAnalysis, formData.actionPlan, formData.notes]
+                .filter(Boolean)
+                .join('\n\n') || undefined,
         };
 
         try {
-            const response = await fetch('/api/quality/capa', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error('Failed to create CAPA');
+            await capaService.createCAPA(payload);
 
             addToast({
                 title: 'Success',

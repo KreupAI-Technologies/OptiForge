@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { ncrService, NCRCategory, NCRSeverity, NCRPriority, type CreateNCRDto } from '@/services/ncr.service';
 
 export default function CreateNCRPage() {
     const router = useRouter();
@@ -38,14 +39,31 @@ export default function CreateNCRPage() {
         e.preventDefault();
         setLoading(true);
 
-        try {
-            const response = await fetch('/api/quality/ncr', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+        const sourceMap: Record<string, CreateNCRDto['sourceType']> = {
+            'inspection': 'inspection',
+            'customer-complaint': 'customer',
+            'internal-audit': 'audit',
+            'production': 'production',
+        };
+        const payload: CreateNCRDto = {
+            title: formData.title,
+            description: formData.description,
+            category: NCRCategory.PROCESS,
+            severity: (formData.severity as NCRSeverity) || NCRSeverity.MINOR,
+            priority: formData.severity === 'critical' ? NCRPriority.HIGH
+                : formData.severity === 'major' ? NCRPriority.MEDIUM : NCRPriority.LOW,
+            sourceType: sourceMap[formData.source] || 'internal',
+            productName: formData.title,
+            productCode: 'N/A',
+            totalQuantity: 0,
+            affectedQuantity: 0,
+            discoveredLocation: 'N/A',
+            discoveredBy: 'default-user-id',
+            discoveredByName: formData.reportedBy || 'Unknown',
+        };
 
-            if (!response.ok) throw new Error('Failed to create NCR');
+        try {
+            await ncrService.createNCR(payload);
 
             addToast({
                 title: 'Success',

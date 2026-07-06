@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/FormUX';
 import { StepIndicator, Step } from '@/components/ui/StepIndicator';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { inspectionService, type CreateInspectionDto } from '@/services/inspection.service';
 
 interface ChecklistItem {
   id: string;
@@ -257,16 +258,39 @@ export default function NewInspectionEnhancedPage() {
   const nextStep = () => { if (validateStep(currentStep)) setCurrentStep((prev) => Math.min(prev + 1, 4)); };
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  const handleSubmit = () => {
-    if (validateStep(currentStep)) {
+  const buildPayload = (): CreateInspectionDto => ({
+    type: formData.inspectionType as CreateInspectionDto['type'],
+    productName: formData.itemName,
+    productCode: formData.itemCode,
+    lotNumber: formData.lotNumber || undefined,
+    totalQuantity: Number(formData.lotQuantity) || 0,
+    sampledQuantity: Number(formData.sampleSize) || 0,
+    scheduledDate: new Date(`${formData.scheduledDate}T${formData.scheduledTime || '09:00'}`),
+    inspectorId: 'default-user-id',
+    inspectorName: formData.assignedTo || 'Unassigned',
+    workstation: formData.workCenter || undefined,
+    notes: formData.specialInstructions || undefined,
+  });
+
+  const handleSubmit = async () => {
+    if (!validateStep(currentStep)) return;
+    try {
+      await inspectionService.createInspection(buildPayload());
       clearDraft();
       alert('Inspection scheduled successfully!');
       router.push('/quality/inspections');
+    } catch (err) {
+      console.error('Error scheduling inspection:', err);
+      alert('Failed to schedule inspection');
     }
   };
 
-  const handleSaveDraft = () => {
-    alert('Inspection saved as draft!');
+  const handleSaveDraft = async () => {
+    try {
+      await inspectionService.createInspection(buildPayload());
+    } catch (err) {
+      console.error('Error saving inspection draft:', err);
+    }
     router.push('/quality/inspections');
   };
 
