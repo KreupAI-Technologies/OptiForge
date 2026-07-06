@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign, Plus, Search, Edit2, Trash2, TrendingUp, Package, Eye, X,
   Download, Filter, Truck, Ship, Plane, Train, CheckCircle2, AlertTriangle
 } from 'lucide-react';
+import { logisticsService } from '@/services/logistics.service';
 
 interface FreightRate {
   id: string;
@@ -196,6 +197,39 @@ export default function FreightMaster() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRate, setSelectedRate] = useState<FreightRate | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [freightRates, setFreightRates] = useState<FreightRate[]>([]);
+
+  const mapRow = (row: any): FreightRate => ({
+    id: String(row?.id ?? row?._id ?? ''),
+    code: row?.code || row?.chargeCode || '',
+    name: row?.name || row?.chargeType || row?.description || '',
+    mode: (row?.mode || 'Road') as FreightRate['mode'],
+    serviceLevel: (row?.serviceLevel || 'Standard') as FreightRate['serviceLevel'],
+    baseRate: Number(row?.baseRate ?? row?.amount ?? 0) || 0,
+    perKmRate: Number(row?.perKmRate ?? 0) || 0,
+    perKgRate: Number(row?.perKgRate ?? 0) || 0,
+    minimumCharge: Number(row?.minimumCharge ?? 0) || 0,
+    maximumWeight: Number(row?.maximumWeight ?? 0) || 0,
+    fuelSurcharge: Number(row?.fuelSurcharge ?? 0) || 0,
+    currency: row?.currency || 'INR',
+    validFrom: row?.validFrom ? new Date(row.validFrom) : new Date(),
+    validTo: row?.validTo ? new Date(row.validTo) : new Date(),
+    zones: Array.isArray(row?.zones) ? row.zones : [],
+    status: (row?.status || 'Active') as FreightRate['status'],
+  });
+
+  const loadFreightRates = async () => {
+    try {
+      const data = await logisticsService.getFreightCharges();
+      setFreightRates(Array.isArray(data) ? data.map(mapRow) : []);
+    } catch {
+      setFreightRates([]);
+    }
+  };
+
+  useEffect(() => {
+    loadFreightRates();
+  }, []);
 
   React.useEffect(() => {
     if (toast) {
@@ -204,7 +238,7 @@ export default function FreightMaster() {
     }
   }, [toast]);
 
-  const filteredRates = mockFreightRates.filter((rate) => {
+  const filteredRates = freightRates.filter((rate) => {
     const matchesSearch =
       rate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       rate.code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -215,13 +249,14 @@ export default function FreightMaster() {
     return matchesSearch && matchesMode && matchesServiceLevel && matchesStatus;
   });
 
+  const activeRates = freightRates.filter(r => r.status === 'Active');
   const stats = {
-    total: mockFreightRates.length,
-    active: mockFreightRates.filter(r => r.status === 'Active').length,
-    inactive: mockFreightRates.filter(r => r.status === 'Inactive').length,
-    expired: mockFreightRates.filter(r => r.status === 'Expired').length,
-    avgBaseRate: Math.round(mockFreightRates.filter(r => r.status === 'Active').reduce((sum, r) => sum + r.baseRate, 0) / mockFreightRates.filter(r => r.status === 'Active').length),
-    avgPerKm: (mockFreightRates.filter(r => r.status === 'Active').reduce((sum, r) => sum + r.perKmRate, 0) / mockFreightRates.filter(r => r.status === 'Active').length).toFixed(2)
+    total: freightRates.length,
+    active: activeRates.length,
+    inactive: freightRates.filter(r => r.status === 'Inactive').length,
+    expired: freightRates.filter(r => r.status === 'Expired').length,
+    avgBaseRate: activeRates.length ? Math.round(activeRates.reduce((sum, r) => sum + r.baseRate, 0) / activeRates.length) : 0,
+    avgPerKm: activeRates.length ? (activeRates.reduce((sum, r) => sum + r.perKmRate, 0) / activeRates.length).toFixed(2) : '0.00'
   };
 
   const handleView = (rate: FreightRate) => {
@@ -465,7 +500,15 @@ export default function FreightMaster() {
                           <Edit2 className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => setToast({ message: `Rate ${rate.name} deleted`, type: 'success' })}
+                          onClick={async () => {
+                            try {
+                              await logisticsService.deleteFreightCharge(rate.id);
+                              await loadFreightRates();
+                              setToast({ message: `Rate ${rate.name} deleted`, type: 'success' });
+                            } catch {
+                              setToast({ message: `Failed to delete ${rate.name}`, type: 'error' });
+                            }
+                          }}
                           className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Delete"
                         >

@@ -198,6 +198,50 @@ export class LogisticsService {
     );
   }
 
+  static async createTransportCompany(data: any): Promise<any> {
+    return request<any>(`/logistics/transport-companies`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updateTransportCompany(id: string, data: any): Promise<any> {
+    return request<any>(`/logistics/transport-companies/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteTransportCompany(
+    id: string,
+  ): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>(
+      `/logistics/transport-companies/${id}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  static async getConsolidationOpportunities(): Promise<any[]> {
+    return request<any[]>(`/logistics/consolidation/opportunities`);
+  }
+
+  static async getConsolidationReport(): Promise<any> {
+    return request<any>(`/logistics/consolidation/report`);
+  }
+
+  static async createFreightCharge(data: any): Promise<any> {
+    return request<any>(`/logistics/freight-charges`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deleteFreightCharge(id: string): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>(`/logistics/freight-charges/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   static async getTrackingEvents(filters?: {
     status?: string;
     eventType?: string;
@@ -267,6 +311,120 @@ export class LogisticsService {
     const qs = params.toString();
     return request<any[]>(`/logistics/yard-vehicles${qs ? `?${qs}` : ''}`);
   }
+
+  // ==========================================================================
+  // Port Master
+  // ==========================================================================
+
+  static async getPorts(filters?: {
+    type?: string;
+    status?: string;
+  }): Promise<PortDto[]> {
+    const params = new URLSearchParams();
+    if (filters?.type) params.set('type', filters.type);
+    if (filters?.status) params.set('status', filters.status);
+    const qs = params.toString();
+    return request<PortDto[]>(`/logistics/ports${qs ? `?${qs}` : ''}`);
+  }
+
+  static async createPort(data: Partial<PortDto>): Promise<PortDto> {
+    return request<PortDto>(`/logistics/ports`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updatePort(
+    id: string,
+    data: Partial<PortDto>,
+  ): Promise<PortDto> {
+    return request<PortDto>(`/logistics/ports/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deletePort(id: string): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>(`/logistics/ports/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // Packaging Types
+  // ==========================================================================
+
+  static async getPackagingTypes(filters?: {
+    type?: string;
+    status?: string;
+  }): Promise<PackagingTypeDto[]> {
+    const params = new URLSearchParams();
+    if (filters?.type) params.set('type', filters.type);
+    if (filters?.status) params.set('status', filters.status);
+    const qs = params.toString();
+    return request<PackagingTypeDto[]>(
+      `/logistics/packaging-types${qs ? `?${qs}` : ''}`,
+    );
+  }
+
+  static async createPackagingType(
+    data: Partial<PackagingTypeDto>,
+  ): Promise<PackagingTypeDto> {
+    return request<PackagingTypeDto>(`/logistics/packaging-types`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async updatePackagingType(
+    id: string,
+    data: Partial<PackagingTypeDto>,
+  ): Promise<PackagingTypeDto> {
+    return request<PackagingTypeDto>(`/logistics/packaging-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  static async deletePackagingType(
+    id: string,
+  ): Promise<{ success: boolean }> {
+    return request<{ success: boolean }>(`/logistics/packaging-types/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export interface PortDto {
+  id: string;
+  code: string;
+  name: string;
+  portCode?: string;
+  type?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  facilities?: string[];
+  customsAvailable?: boolean;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PackagingTypeDto {
+  id: string;
+  code: string;
+  name: string;
+  type?: string;
+  material?: string;
+  dimensions?: string;
+  maxWeight?: number;
+  cost?: number;
+  reusable?: boolean;
+  recyclable?: boolean;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const logisticsService = LogisticsService;

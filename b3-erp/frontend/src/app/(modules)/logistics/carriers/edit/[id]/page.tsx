@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ArrowLeft,
   Save,
@@ -51,6 +52,74 @@ interface CarrierForm {
   podEnabled: boolean;
 
   remarks: string;
+}
+
+const COMPANY_TYPE_MAP: Record<string, string> = {
+  'fleet owner': 'Fleet Owner',
+  'broker': 'Broker',
+  'freight forwarder': 'Freight Forwarder',
+  '3pl': '3PL',
+  'courier': 'Courier',
+  'courier service': 'Courier',
+  'express delivery': 'Courier',
+  'rail': 'Rail',
+  'air': 'Air',
+  'sea': 'Sea',
+};
+
+const SERVICE_TYPE_MAP: Record<string, string> = {
+  'road': 'Road',
+  'surface': 'Road',
+  'surface premium': 'Road',
+  'rail': 'Rail',
+  'air': 'Air',
+  'air express': 'Air',
+  'express': 'Air',
+  'sea': 'Sea',
+  'courier': 'Courier',
+  'multimodal': 'Multimodal',
+};
+
+function buildPayload(formData: CarrierForm): Record<string, any> {
+  const payload: Record<string, any> = {
+    companyCode: formData.carrierCode,
+    companyName: formData.carrierName,
+    address: formData.address,
+    city: formData.city,
+    state: formData.state,
+    postalCode: formData.pincode,
+    country: formData.country,
+    email: formData.email,
+    phone: formData.phone,
+    contactPersonName: formData.contactPerson,
+    contactPersonEmail: formData.email,
+    contactPersonPhone: formData.phone,
+  };
+
+  // companyType — best-effort map; omit entirely if no match
+  const mappedType = COMPANY_TYPE_MAP[(formData.carrierType || '').toLowerCase()];
+  if (mappedType) {
+    payload.companyType = mappedType;
+  }
+
+  // serviceTypes — normalize from serviceTypes + transportModes, dedupe, default ['Road']
+  const rawServices = [...(formData.serviceTypes || []), ...(formData.transportModes || [])];
+  const mappedServices = Array.from(
+    new Set(
+      rawServices
+        .map(s => SERVICE_TYPE_MAP[(s || '').toLowerCase()])
+        .filter((s): s is string => Boolean(s))
+    )
+  );
+  payload.serviceTypes = mappedServices.length > 0 ? mappedServices : ['Road'];
+
+  // Optional fields — include only when truthy
+  if (formData.website) payload.website = formData.website;
+  if (formData.gstNumber) payload.gstNumber = formData.gstNumber;
+  if (formData.panNumber) payload.panNumber = formData.panNumber;
+  if (formData.coverageArea) payload.serviceAreas = [formData.coverageArea];
+
+  return payload;
 }
 
 export default function EditCarrierPage({ params }: { params: { id: string } }) {
@@ -125,6 +194,43 @@ export default function EditCarrierPage({ params }: { params: { id: string } }) 
     'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
     'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi',
   ];
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await LogisticsService.getTransportCompanies();
+        const c = (list || []).find((x: any) => String(x.id) === String(params.id));
+        if (!c) return;
+
+        const serviceAreas: string[] = Array.isArray(c.serviceAreas) ? c.serviceAreas : [];
+        const serviceTypes: string[] = Array.isArray(c.serviceTypes) ? c.serviceTypes : [];
+
+        setFormData(prev => ({
+          ...prev,
+          carrierCode: c.companyCode ?? '',
+          carrierName: c.companyName ?? '',
+          carrierType: c.companyType ?? prev.carrierType,
+          contactPerson: c.contactPersonName ?? '',
+          email: c.email ?? c.contactPersonEmail ?? '',
+          phone: c.phone ?? c.contactPersonPhone ?? '',
+          website: c.website ?? '',
+          address: c.address ?? '',
+          city: c.city ?? '',
+          state: c.state ?? '',
+          pincode: c.postalCode ?? '',
+          country: c.country ?? '',
+          serviceTypes: serviceTypes.length > 0 ? serviceTypes : prev.serviceTypes,
+          transportModes: serviceTypes.length > 0 ? serviceTypes : prev.transportModes,
+          coverageArea: serviceAreas.length > 0 ? serviceAreas[0] : '',
+          gstNumber: c.gstNumber ?? '',
+          panNumber: c.panNumber ?? '',
+        }));
+      } catch (err) {
+        console.error('Failed to load carrier', err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id]);
 
   const handleInputChange = (field: keyof CarrierForm, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -212,11 +318,14 @@ export default function EditCarrierPage({ params }: { params: { id: string } }) 
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await LogisticsService.updateTransportCompany(String(params.id), buildPayload(formData));
       router.push(`/logistics/carriers/view/${params.id}`);
-    }, 1500);
+    } catch (err) {
+      console.error('Failed to update carrier', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {

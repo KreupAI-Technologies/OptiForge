@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogisticsService } from '@/services/logistics.service';
 import {
   ArrowLeft,
   Save,
@@ -52,6 +53,74 @@ interface CarrierForm {
   podEnabled: boolean;
 
   remarks: string;
+}
+
+const COMPANY_TYPE_MAP: Record<string, string> = {
+  'fleet owner': 'Fleet Owner',
+  'broker': 'Broker',
+  'freight forwarder': 'Freight Forwarder',
+  '3pl': '3PL',
+  'courier': 'Courier',
+  'courier service': 'Courier',
+  'express delivery': 'Courier',
+  'rail': 'Rail',
+  'air': 'Air',
+  'sea': 'Sea',
+};
+
+const SERVICE_TYPE_MAP: Record<string, string> = {
+  'road': 'Road',
+  'surface': 'Road',
+  'surface premium': 'Road',
+  'rail': 'Rail',
+  'air': 'Air',
+  'air express': 'Air',
+  'express': 'Air',
+  'sea': 'Sea',
+  'courier': 'Courier',
+  'multimodal': 'Multimodal',
+};
+
+function buildPayload(formData: CarrierForm): Record<string, any> {
+  const payload: Record<string, any> = {
+    companyCode: formData.carrierCode,
+    companyName: formData.carrierName,
+    address: formData.address,
+    city: formData.city,
+    state: formData.state,
+    postalCode: formData.pincode,
+    country: formData.country,
+    email: formData.email,
+    phone: formData.phone,
+    contactPersonName: formData.contactPerson,
+    contactPersonEmail: formData.email,
+    contactPersonPhone: formData.phone,
+  };
+
+  // companyType — best-effort map; omit entirely if no match
+  const mappedType = COMPANY_TYPE_MAP[(formData.carrierType || '').toLowerCase()];
+  if (mappedType) {
+    payload.companyType = mappedType;
+  }
+
+  // serviceTypes — normalize from serviceTypes + transportModes, dedupe, default ['Road']
+  const rawServices = [...(formData.serviceTypes || []), ...(formData.transportModes || [])];
+  const mappedServices = Array.from(
+    new Set(
+      rawServices
+        .map(s => SERVICE_TYPE_MAP[(s || '').toLowerCase()])
+        .filter((s): s is string => Boolean(s))
+    )
+  );
+  payload.serviceTypes = mappedServices.length > 0 ? mappedServices : ['Road'];
+
+  // Optional fields — include only when truthy
+  if (formData.website) payload.website = formData.website;
+  if (formData.gstNumber) payload.gstNumber = formData.gstNumber;
+  if (formData.panNumber) payload.panNumber = formData.panNumber;
+  if (formData.coverageArea) payload.serviceAreas = [formData.coverageArea];
+
+  return payload;
 }
 
 export default function AddCarrierPage() {
@@ -220,11 +289,14 @@ export default function AddCarrierPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await LogisticsService.createTransportCompany(buildPayload(formData));
       router.push('/logistics/carriers');
-    }, 1500);
+    } catch (err) {
+      console.error('Failed to create carrier', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {

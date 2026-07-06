@@ -190,3 +190,43 @@ CREATE TABLE IF NOT EXISTS "logistics_yard_vehicles" (
   "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
   CONSTRAINT "PK_logistics_yard_vehicles" PRIMARY KEY ("id")
 );
+
+-- ---------------------------------------------------------------------------
+-- Port Master — backing table for the logistics/port-master page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_ports" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "code" varchar(50) NOT NULL,
+  "name" varchar(200) NOT NULL,
+  "portCode" varchar(50),
+  "type" varchar(30) NOT NULL DEFAULT 'Seaport',
+  "country" varchar(100),
+  "state" varchar(100),
+  "city" varchar(100),
+  "facilities" jsonb NOT NULL DEFAULT '[]'::jsonb,
+  "customsAvailable" boolean NOT NULL DEFAULT false,
+  "status" varchar(30) NOT NULL DEFAULT 'Active',
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_ports" PRIMARY KEY ("id")
+);
+
+-- ---------------------------------------------------------------------------
+-- Packaging Types — backing table for the logistics/packaging-master page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "logistics_packaging_types" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "code" varchar(50) NOT NULL,
+  "name" varchar(200) NOT NULL,
+  "type" varchar(30) NOT NULL DEFAULT 'Box',
+  "material" varchar(150),
+  "dimensions" varchar(100),
+  "maxWeight" numeric(12,2) NOT NULL DEFAULT 0,
+  "cost" numeric(15,2) NOT NULL DEFAULT 0,
+  "reusable" boolean NOT NULL DEFAULT false,
+  "recyclable" boolean NOT NULL DEFAULT false,
+  "status" varchar(30) NOT NULL DEFAULT 'Active',
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_logistics_packaging_types" PRIMARY KEY ("id")
+);
