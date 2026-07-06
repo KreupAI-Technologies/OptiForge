@@ -55,4 +55,19 @@ export class ProcurementInsightsController {
   onboarding() {
     return this.service.getOnboarding();
   }
+
+  @Get('vendor-activities')
+  vendorActivities() {
+    return this.service.getVendorActivities();
+  }
+
+  @Get('vendor-risk')
+  vendorRisk() {
+    return this.service.getVendorRisk();
+  }
+
+  @Get('pending-actions')
+  pendingActions() {
+    return this.service.getPendingActions();
+  }
 }

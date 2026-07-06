@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { exportToCsv } from '@/lib/export';
 import { procurementVendorScorecardService } from '@/services/procurement-vendor-scorecard.service';
+import { procurementPagesService } from '@/services/procurement-pages.service';
 import {
   Building2,
   TrendingUp,
@@ -222,141 +223,55 @@ const VendorManagementDashboard = () => {
           setVendors([]);
         }
 
-        // Mock Activities
-        const mockActivities: VendorActivity[] = [
-          {
-            id: 'A001',
-            vendor_name: 'Tata Steel Limited',
-            activity_type: 'grn_received',
-            description: 'GRN-2025-00123 received for PO-2025-00089',
-            date: '2025-01-15',
-            time: '10:30 AM',
-            status: 'success'
-          },
-          {
-            id: 'A002',
-            vendor_name: 'Bosch India',
-            activity_type: 'po_created',
-            description: 'New PO created: PO-2025-00090 for INR 2.5L',
-            date: '2025-01-14',
-            time: '03:45 PM',
-            status: 'info'
-          },
-          {
-            id: 'A003',
-            vendor_name: 'ABC Chemicals Ltd',
-            activity_type: 'issue_reported',
-            description: 'Quality issue reported - Rejection rate exceeds 10%',
-            date: '2025-01-14',
-            time: '11:20 AM',
-            status: 'error'
-          },
-          {
-            id: 'A004',
-            vendor_name: 'JSW Steel',
-            activity_type: 'payment_made',
-            description: 'Payment of INR 5.2L processed for Invoice INV-2025-00345',
-            date: '2025-01-13',
-            time: '02:15 PM',
-            status: 'success'
-          },
-          {
-            id: 'A005',
-            vendor_name: 'Essar Steel',
-            activity_type: 'performance_review',
-            description: 'Quarterly performance review completed - Rating: 3.8/5',
-            date: '2025-01-12',
-            time: '04:00 PM',
-            status: 'warning'
-          },
-          {
-            id: 'A006',
-            vendor_name: 'SKF Bearings',
-            activity_type: 'contract_renewed',
-            description: 'Annual contract renewed for 1 year',
-            date: '2025-01-10',
-            time: '10:00 AM',
-            status: 'success'
-          }
-        ];
+        // Activities, at-risk vendors, and pending actions from procurement insights
+        try {
+          const acts = await procurementPagesService.getVendorActivities();
+          setActivities(
+            (acts || []).map((a: any) => ({
+              id: String(a.id),
+              vendor_name: a.vendor_name ?? '',
+              activity_type: a.activity_type ?? 'po_created',
+              description: a.description ?? '',
+              date: a.date ?? '',
+              time: a.time ?? '',
+              status: a.status ?? 'info',
+            })) as VendorActivity[]
+          );
+        } catch {
+          setActivities([]);
+        }
 
-        setActivities(mockActivities);
+        try {
+          const risk = await procurementPagesService.getVendorRisk();
+          setRiskVendors(
+            (risk || []).map((r: any) => ({
+              vendor_name: r.vendor_name ?? '',
+              risk_level: r.risk_level ?? 'medium',
+              issues: Array.isArray(r.issues) ? r.issues : [],
+              last_delivery_delay: Number(r.last_delivery_delay ?? 0),
+              rejection_rate: Number(r.rejection_rate ?? 0),
+              financial_risk: Boolean(r.financial_risk),
+            })) as RiskVendor[]
+          );
+        } catch {
+          setRiskVendors([]);
+        }
 
-        // Mock Risk Vendors
-        const mockRiskVendors: RiskVendor[] = [
-          {
-            vendor_name: 'ABC Chemicals Ltd',
-            risk_level: 'high',
-            issues: ['High rejection rate (11.5%)', 'Late deliveries', 'Contract expiring soon'],
-            last_delivery_delay: 8,
-            rejection_rate: 11.5,
-            financial_risk: true
-          },
-          {
-            vendor_name: 'XYZ Trading Co',
-            risk_level: 'medium',
-            issues: ['Moderate rejection rate (7.2%)', 'Inconsistent delivery times'],
-            last_delivery_delay: 5,
-            rejection_rate: 7.2,
-            financial_risk: false
-          },
-          {
-            vendor_name: 'Essar Steel',
-            risk_level: 'medium',
-            issues: ['Below average OTD (78.5%)', 'Contract expiring in 2 months'],
-            last_delivery_delay: 6,
-            rejection_rate: 8.8,
-            financial_risk: false
-          }
-        ];
-
-        setRiskVendors(mockRiskVendors);
-
-        // Mock Pending Actions
-        const mockPendingActions: PendingAction[] = [
-          {
-            id: 'PA001',
-            action_type: 'approval',
-            vendor_name: 'New Vendor: Tech Solutions India',
-            description: 'Vendor registration pending approval',
-            due_date: '2025-01-18',
-            priority: 'high'
-          },
-          {
-            id: 'PA002',
-            action_type: 'review',
-            vendor_name: 'ABC Chemicals Ltd',
-            description: 'Performance review due - Multiple quality issues',
-            due_date: '2025-01-20',
-            priority: 'high'
-          },
-          {
-            id: 'PA003',
-            action_type: 'contract_renewal',
-            vendor_name: 'Essar Steel',
-            description: 'Contract expires on 31-Mar-2025',
-            due_date: '2025-03-31',
-            priority: 'medium'
-          },
-          {
-            id: 'PA004',
-            action_type: 'review',
-            vendor_name: 'XYZ Trading Co',
-            description: 'Quarterly performance review pending',
-            due_date: '2025-01-25',
-            priority: 'medium'
-          },
-          {
-            id: 'PA005',
-            action_type: 'approval',
-            vendor_name: 'New Vendor: Global Imports Ltd',
-            description: 'Vendor registration pending approval',
-            due_date: '2025-01-22',
-            priority: 'low'
-          }
-        ];
-
-        setPendingActions(mockPendingActions);
+        try {
+          const actions = await procurementPagesService.getPendingActions();
+          setPendingActions(
+            (actions || []).map((a: any) => ({
+              id: String(a.id),
+              action_type: a.action_type ?? 'approval',
+              vendor_name: a.vendor_name ?? '',
+              description: a.description ?? '',
+              due_date: a.due_date ?? '',
+              priority: a.priority ?? 'medium',
+            })) as PendingAction[]
+          );
+        } catch {
+          setPendingActions([]);
+        }
 
         setLoading(false);
       }, 1200);

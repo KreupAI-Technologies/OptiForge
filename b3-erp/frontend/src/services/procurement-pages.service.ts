@@ -28,6 +28,9 @@ export const procurementPagesService = {
   async getMarketplaceInsights(): Promise<any> { return request('/procurement/insights/marketplace'); },
   async getCollaborationInsights(): Promise<any> { return request('/procurement/insights/collaboration'); },
   async getOnboardingInsights(): Promise<any> { return request('/procurement/insights/onboarding'); },
+  async getVendorActivities(): Promise<any[]> { return asArray(await request('/procurement/insights/vendor-activities')); },
+  async getVendorRisk(): Promise<any[]> { return asArray(await request('/procurement/insights/vendor-risk')); },
+  async getPendingActions(): Promise<any[]> { return asArray(await request('/procurement/insights/pending-actions')); },
 
   // ---- Spend analysis (procurement/spend-analysis/*) ----
   async getSpendOverview(): Promise<any> { return request('/procurement/spend-analysis/overview'); },

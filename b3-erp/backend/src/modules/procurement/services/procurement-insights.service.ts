@@ -330,6 +330,109 @@ export class ProcurementInsightsService {
     };
   }
 
+  // ---- vendor-management: recent activity feed (real POs) ----
+  async getVendorActivities(limit = 20) {
+    const pos = await this.poRepo.find({
+      order: { poDate: 'DESC' },
+      take: limit,
+    });
+    const statusMap: Record<string, string> = {
+      draft: 'info',
+      pending_approval: 'warning',
+      approved: 'success',
+      sent: 'info',
+      acknowledged: 'success',
+      partially_received: 'warning',
+      received: 'success',
+      cancelled: 'error',
+      closed: 'success',
+    };
+    return pos.map((po) => {
+      const d = po.poDate ? new Date(po.poDate) : new Date();
+      return {
+        id: po.id,
+        vendor_name: po.vendorName || 'Unknown Vendor',
+        activity_type: 'po_created',
+        description: `PO ${po.poNumber} — ${po.status}`,
+        date: d.toISOString().slice(0, 10),
+        time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        status: statusMap[String(po.status).toLowerCase()] || 'info',
+      };
+    });
+  }
+
+  // ---- vendor-management: at-risk vendors (derived from rating) ----
+  async getVendorRisk() {
+    const vendors = await this.loadVendors();
+    const { byVendor } = await this.poAggregate();
+    return vendors
+      .map((v) => {
+        const rating = Number(v.rating) || 0;
+        const score = Math.max(10, Math.min(95, Math.round(100 - rating * 15)));
+        const level: 'low' | 'medium' | 'high' =
+          score >= 70 ? 'high' : score >= 45 ? 'medium' : 'low';
+        const issues: string[] = [];
+        if (rating < 3) issues.push(`Low rating (${rating.toFixed(1)}/5)`);
+        if ((byVendor.get(v.id)?.count ?? 0) === 0) issues.push('No recent purchase orders');
+        if (v.status && v.status !== 'active') issues.push(`Status: ${v.status}`);
+        if (!issues.length) issues.push('Monitoring recommended');
+        return {
+          vendor_name: this.vendorName(v),
+          risk_level: level,
+          issues,
+          last_delivery_delay: 0,
+          rejection_rate: Math.round((100 - rating * 20) * 10) / 10,
+          financial_risk: rating < 2.5,
+        };
+      })
+      .filter((r) => r.risk_level !== 'low')
+      .slice(0, 20);
+  }
+
+  // ---- vendor-management: pending actions (approvals + reviews) ----
+  async getPendingActions() {
+    const [pos, vendors] = await Promise.all([
+      this.poRepo.find({ order: { poDate: 'DESC' }, take: 100 }),
+      this.loadVendors(),
+    ]);
+    const actions: Array<{
+      id: string;
+      action_type: string;
+      vendor_name: string;
+      description: string;
+      due_date: string;
+      priority: string;
+    }> = [];
+    for (const po of pos) {
+      const st = String(po.status).toLowerCase();
+      if (st === 'draft' || st === 'pending_approval') {
+        actions.push({
+          id: po.id,
+          action_type: 'approval',
+          vendor_name: po.vendorName || 'Unknown Vendor',
+          description: `PO ${po.poNumber} pending approval`,
+          due_date: po.deliveryDate
+            ? new Date(po.deliveryDate).toISOString().slice(0, 10)
+            : '',
+          priority: 'high',
+        });
+      }
+    }
+    for (const v of vendors) {
+      if ((Number(v.rating) || 0) < 3) {
+        actions.push({
+          id: `vendor-${v.id}`,
+          action_type: 'review',
+          vendor_name: this.vendorName(v),
+          description: 'Performance review due — low rating',
+          due_date: '',
+          priority: 'medium',
+        });
+      }
+    }
+    return actions.slice(0, 25);
+  }
+
   private groupCount<T>(
     items: T[],
     key: (t: T) => string,
