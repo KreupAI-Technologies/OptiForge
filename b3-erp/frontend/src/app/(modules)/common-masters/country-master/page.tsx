@@ -20,40 +20,35 @@ export default function CountryMasterPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Fetch countries from the live backend, mapping the raw API shape to the page's Country model.
+  const loadCountries = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await commonMastersService.getAllCountries()) as any[];
+      const mapped: Country[] = raw.map((c) => ({
+        id: String(c.id ?? ''),
+        code: c.code ?? '',
+        name: c.name ?? '',
+        dialCode: c.dialCode ?? c.phoneCode ?? '',
+        currency: c.currency ?? '',
+        currencySymbol: c.currencySymbol ?? '',
+        flag: c.flag ?? '',
+        continent: c.continent ?? '',
+        isActive: c.isActive ?? true,
+        createdAt: c.createdAt ?? '',
+        updatedAt: c.updatedAt ?? '',
+      }));
+      setCountries(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load countries');
+      setCountries([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await commonMastersService.getAllCountries()) as any[];
-        const mapped: Country[] = raw.map((c) => ({
-          id: String(c.id ?? ''),
-          code: c.code ?? '',
-          name: c.name ?? '',
-          dialCode: c.dialCode ?? c.phoneCode ?? '',
-          currency: c.currency ?? '',
-          currencySymbol: c.currencySymbol ?? '',
-          flag: c.flag ?? '',
-          continent: c.continent ?? '',
-          isActive: c.isActive ?? true,
-          createdAt: c.createdAt ?? '',
-          updatedAt: c.updatedAt ?? '',
-        }));
-        if (!cancelled) setCountries(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load countries');
-          setCountries([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadCountries();
   }, []);
 
   // Toast notification effect
@@ -195,11 +190,19 @@ export default function CountryMasterPage() {
     // TODO: Implement edit functionality
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const country = countries.find(c => c.id === id);
     if (confirm(`Are you sure you want to delete ${country?.name}?`)) {
+      const previous = countries;
       setCountries(prev => prev.filter(c => c.id !== id));
-      showToast(`${country?.name} deleted successfully`, 'success');
+      try {
+        await commonMastersService.deleteCountry(id);
+        showToast(`${country?.name} deleted successfully`, 'success');
+        await loadCountries();
+      } catch (err) {
+        setCountries(previous);
+        showToast(err instanceof Error ? err.message : `Failed to delete ${country?.name}`, 'error');
+      }
     }
   };
 
