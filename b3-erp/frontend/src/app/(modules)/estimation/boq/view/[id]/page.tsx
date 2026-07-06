@@ -67,138 +67,6 @@ interface BOQStage {
   color: string;
 }
 
-// Mock BOQ data
-const mockBOQ: BOQ = {
-  id: '1',
-  boqNumber: 'BOQ-2025-001',
-  projectName: 'Manufacturing Plant Expansion - Phase 2',
-  clientName: 'Tata Steel Ltd.',
-  revisionNumber: 2,
-  status: 'approved',
-  totalItems: 156,
-  totalQuantity: 8542,
-  estimatedValue: 12500000,
-  linkedEstimation: 'EST-2025-045',
-  createdBy: 'Rajesh Kumar',
-  createdDate: '2025-09-15',
-  approvedBy: 'Amit Sharma - Project Director',
-  approvedDate: '2025-10-10',
-  projectLocation: 'Jamshedpur, Jharkhand',
-  projectDuration: '18 months',
-  currency: 'INR',
-};
-
-// Mock BOQ items
-const mockBOQItems: BOQItem[] = [
-  {
-    id: 'item1',
-    itemNo: 'A.1.1',
-    description: 'Structural Steel Beams - Grade IS 2062',
-    unit: 'MT',
-    quantity: 450,
-    unitRate: 65000,
-    totalAmount: 29250000,
-    specifications: 'IS 2062 E250 grade, hot rolled',
-    category: 'Structural'
-  },
-  {
-    id: 'item2',
-    itemNo: 'A.1.2',
-    description: 'Reinforcement Steel Bars - Grade Fe 500',
-    unit: 'MT',
-    quantity: 280,
-    unitRate: 52000,
-    totalAmount: 14560000,
-    specifications: 'Fe 500D grade, TMT bars',
-    category: 'Structural'
-  },
-  {
-    id: 'item3',
-    itemNo: 'A.2.1',
-    description: 'Concrete M25 Grade',
-    unit: 'Cum',
-    quantity: 1200,
-    unitRate: 6500,
-    totalAmount: 7800000,
-    specifications: 'Ready mix concrete, M25 grade',
-    category: 'Civil Works'
-  },
-  {
-    id: 'item4',
-    itemNo: 'B.1.1',
-    description: 'HVAC System - Industrial Grade',
-    unit: 'Set',
-    quantity: 12,
-    unitRate: 850000,
-    totalAmount: 10200000,
-    specifications: '50 TR capacity, energy efficient',
-    category: 'HVAC'
-  },
-  {
-    id: 'item5',
-    itemNo: 'C.1.1',
-    description: 'Electrical Panel - 1000 KVA',
-    unit: 'No',
-    quantity: 4,
-    unitRate: 1250000,
-    totalAmount: 5000000,
-    specifications: 'LT Panel with auto changeover',
-    category: 'Electrical'
-  },
-];
-
-// Mock activities
-const mockActivities: BOQActivity[] = [
-  {
-    id: 'a1',
-    boqId: '1',
-    type: 'status_change',
-    title: 'BOQ Approved',
-    description: 'BOQ approved by Project Director after technical review',
-    performedBy: 'Amit Sharma',
-    timestamp: '2025-10-10 16:30',
-    metadata: { previousStatus: 'under_review', newStatus: 'approved' }
-  },
-  {
-    id: 'a2',
-    boqId: '1',
-    type: 'revision',
-    title: 'BOQ Revised',
-    description: 'Updated quantities based on revised drawings. Steel quantities increased by 12%.',
-    performedBy: 'Rajesh Kumar',
-    timestamp: '2025-10-08 11:20',
-    metadata: { revisionFrom: 1, revisionTo: 2 }
-  },
-  {
-    id: 'a3',
-    boqId: '1',
-    type: 'costing',
-    title: 'Linked to Estimation',
-    description: 'BOQ linked to cost estimation EST-2025-045 for detailed pricing',
-    performedBy: 'Priya Sharma',
-    timestamp: '2025-10-05 14:45'
-  },
-  {
-    id: 'a4',
-    boqId: '1',
-    type: 'note',
-    title: 'Technical Note Added',
-    description: 'All structural steel to be procured from approved vendors only. Quality certificates mandatory.',
-    performedBy: 'Rajesh Kumar',
-    timestamp: '2025-09-28 10:15'
-  },
-  {
-    id: 'a5',
-    boqId: '1',
-    type: 'attachment',
-    title: 'Documents Uploaded',
-    description: 'Uploaded revised architectural drawings and specifications',
-    performedBy: 'Rajesh Kumar',
-    timestamp: '2025-09-22 16:00',
-    metadata: { attachmentCount: 8 }
-  },
-];
-
 const getBOQStages = (boq: BOQ): BOQStage[] => {
   const stages: BOQStage[] = [
     { id: 'draft', name: 'Draft', status: 'completed', date: boq.createdDate, icon: FileText, color: 'gray' },
@@ -243,8 +111,9 @@ export default function ViewBOQPage() {
   const params = useParams();
   const boqId = params.id as string;
 
-  const [boq, setBoq] = useState<BOQ>(mockBOQ);
-  const [boqItems, setBoqItems] = useState<BOQItem[]>(mockBOQItems);
+  const [boq, setBoq] = useState<BOQ | null>(null);
+  const [boqItems, setBoqItems] = useState<BOQItem[]>([]);
+  const [activities] = useState<BOQActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -256,22 +125,29 @@ export default function ViewBOQPage() {
       try {
         const raw = (await estimationBOQService.findOne(boqId)) as any;
         if (!cancelled && raw) {
-          setBoq((prev) => ({
-            ...prev,
-            id: raw.id ?? prev.id,
-            boqNumber: raw.boqNumber ?? prev.boqNumber,
-            projectName: raw.projectName ?? prev.projectName,
-            clientName: raw.clientName ?? prev.clientName,
-            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as BOQ['status']) || prev.status,
-            estimatedValue: raw.estimatedValue != null ? Number(raw.estimatedValue) : prev.estimatedValue,
-            projectLocation: raw.projectLocation ?? prev.projectLocation,
-            projectDuration: raw.projectDuration ?? prev.projectDuration,
-            currency: raw.currency ?? prev.currency,
-          }));
+          setBoq({
+            id: raw.id ?? boqId,
+            boqNumber: raw.boqNumber ?? '',
+            projectName: raw.projectName ?? '',
+            clientName: raw.clientName ?? '',
+            revisionNumber: raw.revisionNumber != null ? Number(raw.revisionNumber) : 0,
+            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as BOQ['status']) || 'draft',
+            totalItems: raw.totalItems != null ? Number(raw.totalItems) : 0,
+            totalQuantity: raw.totalQuantity != null ? Number(raw.totalQuantity) : 0,
+            estimatedValue: raw.estimatedValue != null ? Number(raw.estimatedValue) : 0,
+            linkedEstimation: raw.linkedEstimation ?? null,
+            createdBy: raw.createdBy ?? '',
+            createdDate: raw.createdDate ?? '',
+            approvedBy: raw.approvedBy ?? null,
+            approvedDate: raw.approvedDate ?? null,
+            projectLocation: raw.projectLocation ?? '',
+            projectDuration: raw.projectDuration ?? '',
+            currency: raw.currency ?? 'INR',
+          });
         }
         try {
           const items = (await estimationBOQService.findItems(boqId)) as any[];
-          if (!cancelled && Array.isArray(items) && items.length) {
+          if (!cancelled && Array.isArray(items)) {
             setBoqItems(items.map((it: any, idx: number) => ({
               id: it.id ?? String(idx),
               itemNo: it.itemNo ?? String(idx + 1),
@@ -284,7 +160,7 @@ export default function ViewBOQPage() {
               specifications: it.specifications ?? '',
             })));
           }
-        } catch { /* keep sample items */ }
+        } catch { /* no items */ }
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load BOQ');
       } finally {
@@ -315,6 +191,10 @@ export default function ViewBOQPage() {
           {loadError}
         </div>
       )}
+      {!isLoading && !boq ? (
+        <div className="p-6 text-gray-500">BOQ not found.</div>
+      ) : !boq ? null : (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -646,11 +526,13 @@ export default function ViewBOQPage() {
 
             {/* Activities List */}
             <div className="space-y-2">
-              {mockActivities
-                .filter(activity => activity.boqId === boqId)
+              {activities.length === 0 && (
+                <p className="text-sm text-gray-500">No activity recorded.</p>
+              )}
+              {activities
                 .map((activity, index) => {
                   const ActivityIcon = activityIcons[activity.type];
-                  const isLast = index === mockActivities.filter(a => a.boqId === boqId).length - 1;
+                  const isLast = index === activities.length - 1;
 
                   return (
                     <div key={activity.id} className="relative">
@@ -700,6 +582,8 @@ export default function ViewBOQPage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

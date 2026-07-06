@@ -92,20 +92,15 @@ interface HistoricalProject {
   accuracy: 'excellent' | 'good' | 'fair' | 'poor';
 }
 
-const mockHistoricalProjects: HistoricalProject[] = [
-  { id: '1', name: 'Assembly Line Modernization', completedDate: '2024-11-15', estimatedCost: 480000, actualCost: 495000, variance: 15000, variancePercent: 3.1, duration: 120, category: 'manufacturing', accuracy: 'excellent' as const },
-  { id: '2', name: 'CNC Machine Installation', completedDate: '2024-09-20', estimatedCost: 420000, actualCost: 445000, variance: 25000, variancePercent: 5.9, duration: 90, category: 'manufacturing', accuracy: 'good' as const },
-];
-
-const mockBenchmarkMetrics = {
-  averageAccuracy: 94.5,
-  totalProjects: 12,
-  onBudgetProjects: 9,
-  overBudgetProjects: 3,
+const emptyBenchmarkMetrics = {
+  averageAccuracy: 0,
+  totalProjects: 0,
+  onBudgetProjects: 0,
+  overBudgetProjects: 0,
   underBudgetProjects: 0,
-  avgVariancePercent: 4.2,
-  bestAccuracy: 98.5,
-  worstAccuracy: 88.0,
+  avgVariancePercent: 0,
+  bestAccuracy: 0,
+  worstAccuracy: 0,
 };
 
 // Mock Data - What-If Simulation
@@ -125,9 +120,9 @@ export default function EstimationAdvancedFeaturesPage() {
   const [selectedVersion1, setSelectedVersion1] = useState<string>('1');
   const [selectedVersion2, setSelectedVersion2] = useState<string>('3');
 
-  // Live analytics: pull historical benchmarks/projects, fall back to samples.
-  const [historicalProjects, setHistoricalProjects] = useState<HistoricalProject[]>(mockHistoricalProjects);
-  const [benchmarkMetrics, setBenchmarkMetrics] = useState(mockBenchmarkMetrics);
+  // Live analytics: pull historical benchmarks/projects.
+  const [historicalProjects, setHistoricalProjects] = useState<HistoricalProject[]>([]);
+  const [benchmarkMetrics, setBenchmarkMetrics] = useState(emptyBenchmarkMetrics);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -201,7 +196,7 @@ export default function EstimationAdvancedFeaturesPage() {
     <div className="w-full h-full px-4 py-2">
       {analyticsError && (
         <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          {analyticsError} — showing sample benchmarks.
+          {analyticsError}
         </div>
       )}
       {/* Header */}

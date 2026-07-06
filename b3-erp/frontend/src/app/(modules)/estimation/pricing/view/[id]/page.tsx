@@ -93,149 +93,6 @@ interface PriceStage {
   color: string;
 }
 
-// Mock price list data
-const mockPriceList: PriceList = {
-  id: '1',
-  priceListNumber: 'PL-2025-001',
-  priceListName: 'B2B Dealers - Premium Tier A',
-  description: 'Premium pricing for tier A wholesale dealers with 15% standard margin',
-  status: 'active',
-  customerSegment: 'wholesale',
-  currency: 'INR',
-  effectiveFrom: '2025-10-01',
-  effectiveTo: '2026-03-31',
-  totalItems: 245,
-  averageMarginPercent: 18.5,
-  discountRange: '5-15%',
-  createdBy: 'Priya Patel',
-  createdDate: '2025-09-15',
-  approvedBy: 'Rajesh Kumar - Sales Director',
-  approvedDate: '2025-09-28',
-  lastModified: '2025-10-05',
-  modifiedBy: 'Amit Desai',
-  linkedProducts: 245,
-  priceRevision: 3,
-  region: 'West India - Maharashtra',
-  taxIncluded: false,
-};
-
-// Mock price items
-const mockPriceItems: PriceItem[] = [
-  {
-    id: 'item1',
-    itemCode: 'MK-BASE-001',
-    description: 'Standard Base Cabinet 600mm - Oak Finish',
-    category: 'Base Cabinets',
-    basePrice: 12500,
-    discountPercent: 10,
-    finalPrice: 11250,
-    marginPercent: 18,
-    unit: 'Unit',
-    currency: 'INR',
-  },
-  {
-    id: 'item2',
-    itemCode: 'MK-WALL-002',
-    description: 'Wall Cabinet 800mm with Glass Door',
-    category: 'Wall Cabinets',
-    basePrice: 15800,
-    discountPercent: 12,
-    finalPrice: 13904,
-    marginPercent: 20,
-    unit: 'Unit',
-    currency: 'INR',
-  },
-  {
-    id: 'item3',
-    itemCode: 'MK-COUNT-003',
-    description: 'Granite Countertop - Black Galaxy',
-    category: 'Countertops',
-    basePrice: 450,
-    discountPercent: 8,
-    finalPrice: 414,
-    marginPercent: 22,
-    unit: 'Sq.Ft',
-    currency: 'INR',
-  },
-  {
-    id: 'item4',
-    itemCode: 'HW-HINGE-001',
-    description: 'Soft Close Hinge - German Import',
-    category: 'Hardware',
-    basePrice: 285,
-    discountPercent: 15,
-    finalPrice: 242,
-    marginPercent: 25,
-    unit: 'Piece',
-    currency: 'INR',
-  },
-  {
-    id: 'item5',
-    itemCode: 'MK-TALL-004',
-    description: 'Tall Unit 2100mm - Full Extension',
-    category: 'Tall Units',
-    basePrice: 28500,
-    discountPercent: 10,
-    finalPrice: 25650,
-    marginPercent: 19,
-    unit: 'Unit',
-    currency: 'INR',
-  },
-];
-
-// Mock price history
-const mockPriceHistory: PriceHistory[] = [
-  {
-    id: 'h1',
-    priceListId: '1',
-    type: 'status_change',
-    title: 'Price List Activated',
-    description: 'Price list activated and made effective from October 1, 2025',
-    performedBy: 'Rajesh Kumar',
-    timestamp: '2025-10-01 09:00',
-    metadata: { previousStatus: 'approved', newStatus: 'active' },
-  },
-  {
-    id: 'h2',
-    priceListId: '1',
-    type: 'price_update',
-    title: 'Bulk Price Update - Hardware Category',
-    description: 'Updated pricing for all hardware items due to currency fluctuation. Average increase of 3.5%',
-    performedBy: 'Amit Desai',
-    timestamp: '2025-10-05 14:30',
-    metadata: { itemsAffected: 42, averagePriceChange: '+3.5%' },
-  },
-  {
-    id: 'h3',
-    priceListId: '1',
-    type: 'approval',
-    title: 'Price List Approved',
-    description: 'Price list reviewed and approved by Sales Director after regional analysis',
-    performedBy: 'Rajesh Kumar',
-    timestamp: '2025-09-28 16:45',
-    metadata: { previousStatus: 'under_review', newStatus: 'approved' },
-  },
-  {
-    id: 'h4',
-    priceListId: '1',
-    type: 'revision',
-    title: 'Price List Revised - Revision 3',
-    description: 'Updated margins for premium tier customers. Base cabinet margins increased by 2%',
-    performedBy: 'Priya Patel',
-    timestamp: '2025-09-25 11:20',
-    metadata: { revisionFrom: 2, revisionTo: 3, itemsAffected: 78 },
-  },
-  {
-    id: 'h5',
-    priceListId: '1',
-    type: 'note',
-    title: 'Pricing Strategy Note',
-    description: 'Competitive analysis completed. Our pricing is 8-12% lower than competitors while maintaining healthy margins',
-    performedBy: 'Priya Patel',
-    timestamp: '2025-09-20 10:15',
-  },
-];
-
 const getPriceStages = (priceList: PriceList): PriceStage[] => {
   const stages: PriceStage[] = [
     { id: 'draft', name: 'Draft', status: 'completed', date: priceList.createdDate, icon: FileText, color: 'gray' },
@@ -287,7 +144,9 @@ export default function ViewPricingPage() {
   const params = useParams();
   const priceListId = params.id as string;
 
-  const [priceList, setPriceList] = useState<PriceList>(mockPriceList);
+  const [priceList, setPriceList] = useState<PriceList | null>(null);
+  const [priceItems] = useState<PriceItem[]>([]);
+  const [priceHistory] = useState<PriceHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -299,18 +158,30 @@ export default function ViewPricingPage() {
       try {
         const raw = (await estimationPricingService.findOne('default', priceListId)) as any;
         if (!cancelled && raw) {
-          setPriceList((prev) => ({
-            ...prev,
-            id: raw.id ?? prev.id,
-            priceListNumber: raw.pricingNumber ?? raw.priceListNumber ?? prev.priceListNumber,
-            priceListName: raw.name ?? raw.priceListName ?? prev.priceListName,
-            description: raw.description ?? prev.description,
-            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as PriceList['status']) || prev.status,
-            currency: raw.currency ?? prev.currency,
-            averageMarginPercent: raw.marginPercent != null ? Number(raw.marginPercent) : prev.averageMarginPercent,
-            createdBy: raw.createdBy ?? prev.createdBy,
-            approvedBy: raw.approvedBy ?? prev.approvedBy,
-          }));
+          setPriceList({
+            id: raw.id ?? priceListId,
+            priceListNumber: raw.pricingNumber ?? raw.priceListNumber ?? '',
+            priceListName: raw.name ?? raw.priceListName ?? '',
+            description: raw.description ?? '',
+            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as PriceList['status']) || 'draft',
+            customerSegment: (String(raw.customerSegment ?? 'all').toLowerCase() as PriceList['customerSegment']) || 'all',
+            currency: raw.currency ?? 'INR',
+            effectiveFrom: raw.effectiveFrom ?? '',
+            effectiveTo: raw.effectiveTo ?? '',
+            totalItems: raw.totalItems != null ? Number(raw.totalItems) : 0,
+            averageMarginPercent: raw.marginPercent != null ? Number(raw.marginPercent) : 0,
+            discountRange: raw.discountRange ?? '',
+            createdBy: raw.createdBy ?? '',
+            createdDate: raw.createdDate ?? '',
+            approvedBy: raw.approvedBy ?? null,
+            approvedDate: raw.approvedDate ?? null,
+            lastModified: raw.lastModified ?? '',
+            modifiedBy: raw.modifiedBy ?? '',
+            linkedProducts: raw.linkedProducts != null ? Number(raw.linkedProducts) : 0,
+            priceRevision: raw.priceRevision != null ? Number(raw.priceRevision) : 0,
+            region: raw.region ?? '',
+            taxIncluded: Boolean(raw.taxIncluded),
+          });
         }
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load pricing');
@@ -334,6 +205,10 @@ export default function ViewPricingPage() {
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
       {isLoading && (<div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading pricing...</div>)}
       {loadError && !isLoading && (<div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>)}
+      {!isLoading && !priceList ? (
+        <div className="p-6 text-gray-500">Price list not found.</div>
+      ) : !priceList ? null : (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -659,7 +534,7 @@ export default function ViewPricingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {mockPriceItems.map((item) => (
+                  {priceItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.itemCode}</td>
                       <td className="px-4 py-3">
@@ -696,11 +571,13 @@ export default function ViewPricingPage() {
 
             {/* History Timeline */}
             <div className="space-y-2">
-              {mockPriceHistory
-                .filter(history => history.priceListId === priceListId)
+              {priceHistory.length === 0 && (
+                <p className="text-sm text-gray-500">No price history recorded.</p>
+              )}
+              {priceHistory
                 .map((history, index) => {
                   const HistoryIcon = historyIcons[history.type];
-                  const isLast = index === mockPriceHistory.filter(h => h.priceListId === priceListId).length - 1;
+                  const isLast = index === priceHistory.length - 1;
 
                   return (
                     <div key={history.id} className="relative">
@@ -756,6 +633,8 @@ export default function ViewPricingPage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
