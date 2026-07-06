@@ -28,82 +28,7 @@ export default function BiometricDevicesPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const mockDevices: BiometricDevice[] = [
-    {
-      id: 'DEV001', deviceId: 'BIO-1001', name: 'Main Gate Entry', model: 'ZKTeco K40',
-      location: 'Main Entrance', ipAddress: '192.168.1.100', port: 4370, status: 'online',
-      lastSyncTime: '2024-11-20T15:30:00', totalPunchesToday: 452, enrolledUsers: 125,
-      storageUsed: 65, batteryBackup: true, installedDate: '2024-01-15'
-    },
-    {
-      id: 'DEV002', deviceId: 'BIO-1002', name: 'Main Gate Exit', model: 'ZKTeco K40',
-      location: 'Main Entrance', ipAddress: '192.168.1.101', port: 4370, status: 'online',
-      lastSyncTime: '2024-11-20T15:29:00', totalPunchesToday: 448, enrolledUsers: 125,
-      storageUsed: 63, batteryBackup: true, installedDate: '2024-01-15'
-    },
-    {
-      id: 'DEV003', deviceId: 'BIO-1003', name: 'Production Floor A', model: 'Anviz M5',
-      location: 'Plant A - Production', ipAddress: '192.168.1.102', port: 5005, status: 'online',
-      lastSyncTime: '2024-11-20T15:28:00', totalPunchesToday: 312, enrolledUsers: 78,
-      storageUsed: 45, batteryBackup: false, installedDate: '2024-02-01'
-    },
-    {
-      id: 'DEV004', deviceId: 'BIO-1004', name: 'Production Floor B', model: 'Anviz M5',
-      location: 'Plant B - Production', ipAddress: '192.168.1.103', port: 5005, status: 'online',
-      lastSyncTime: '2024-11-20T15:27:00', totalPunchesToday: 298, enrolledUsers: 72,
-      storageUsed: 42, batteryBackup: false, installedDate: '2024-02-01'
-    },
-    {
-      id: 'DEV005', deviceId: 'BIO-1005', name: 'Quality Lab', model: 'Realtime T502',
-      location: 'Quality Department', ipAddress: '192.168.1.104', port: 4370, status: 'online',
-      lastSyncTime: '2024-11-20T15:31:00', totalPunchesToday: 48, enrolledUsers: 15,
-      storageUsed: 12, batteryBackup: true, installedDate: '2024-01-20'
-    },
-    {
-      id: 'DEV006', deviceId: 'BIO-1006', name: 'Office Block - Floor 1', model: 'ZKTeco F18',
-      location: 'Office Building - Floor 1', ipAddress: '192.168.1.105', port: 4370, status: 'offline',
-      lastSyncTime: '2024-11-20T12:15:00', totalPunchesToday: 0, enrolledUsers: 45,
-      storageUsed: 28, batteryBackup: false, installedDate: '2024-03-10'
-    },
-    {
-      id: 'DEV007', deviceId: 'BIO-1007', name: 'Office Block - Floor 2', model: 'ZKTeco F18',
-      location: 'Office Building - Floor 2', ipAddress: '192.168.1.106', port: 4370, status: 'online',
-      lastSyncTime: '2024-11-20T15:30:00', totalPunchesToday: 84, enrolledUsers: 42,
-      storageUsed: 25, batteryBackup: false, installedDate: '2024-03-10'
-    },
-    {
-      id: 'DEV008', deviceId: 'BIO-1008', name: 'Warehouse Entry', model: 'Anviz M3',
-      location: 'Warehouse', ipAddress: '192.168.1.107', port: 5005, status: 'online',
-      lastSyncTime: '2024-11-20T15:26:00', totalPunchesToday: 125, enrolledUsers: 32,
-      storageUsed: 18, batteryBackup: true, installedDate: '2024-04-05'
-    },
-    {
-      id: 'DEV009', deviceId: 'BIO-1009', name: 'Canteen Entry', model: 'Realtime T501',
-      location: 'Canteen', ipAddress: '192.168.1.108', port: 4370, status: 'online',
-      lastSyncTime: '2024-11-20T15:32:00', totalPunchesToday: 287, enrolledUsers: 125,
-      storageUsed: 8, batteryBackup: false, installedDate: '2024-01-25'
-    },
-    {
-      id: 'DEV010', deviceId: 'BIO-1010', name: 'Security Gate 1', model: 'ZKTeco K40',
-      location: 'Security Post 1', ipAddress: '192.168.1.109', port: 4370, status: 'online',
-      lastSyncTime: '2024-11-20T15:29:00', totalPunchesToday: 156, enrolledUsers: 125,
-      storageUsed: 55, batteryBackup: true, installedDate: '2024-01-15'
-    },
-    {
-      id: 'DEV011', deviceId: 'BIO-1011', name: 'Security Gate 2', model: 'ZKTeco K40',
-      location: 'Security Post 2', ipAddress: '192.168.1.110', port: 4370, status: 'error',
-      lastSyncTime: '2024-11-20T14:45:00', totalPunchesToday: 45, enrolledUsers: 125,
-      storageUsed: 92, batteryBackup: true, installedDate: '2024-01-15'
-    },
-    {
-      id: 'DEV012', deviceId: 'BIO-1012', name: 'IT Department', model: 'Anviz M5',
-      location: 'IT Office', ipAddress: '192.168.1.111', port: 5005, status: 'online',
-      lastSyncTime: '2024-11-20T15:31:00', totalPunchesToday: 36, enrolledUsers: 12,
-      storageUsed: 15, batteryBackup: false, installedDate: '2024-02-15'
-    }
-  ];
-
-  const [rows, setRows] = useState<BiometricDevice[]>(mockDevices);
+  const [rows, setRows] = useState<BiometricDevice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -113,8 +38,8 @@ export default function BiometricDevicesPage() {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = await HrAttendanceService.getBiometric();
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: String(r.id ?? r.details?.id ?? ''),
             deviceId: r.details?.deviceId ?? r.employeeCode ?? '',
             name: r.details?.name ?? r.employeeName ?? '',
@@ -132,7 +57,7 @@ export default function BiometricDevicesPage() {
           } as BiometricDevice));
           setRows(mapped);
         }
-      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      } catch (e) { if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); } }
       finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };

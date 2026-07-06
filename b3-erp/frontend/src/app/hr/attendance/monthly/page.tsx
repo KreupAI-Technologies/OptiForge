@@ -33,60 +33,9 @@ export default function MonthlyAttendancePage() {
   const [selectedMonth, setSelectedMonth] = useState('2024-11');
   const [showFilters, setShowFilters] = useState(false);
 
-  const mockMonthlyAttendance: MonthlyAttendance[] = [
-    {
-      id: '1', employeeCode: 'KMF2020001', name: 'Rajesh Kumar', department: 'Production', designation: 'Manager',
-      totalDays: 30, workingDays: 22, presentDays: 21, absentDays: 1, lateMarks: 3, halfDays: 0,
-      paidLeaves: 0, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 189, expectedHours: 198,
-      attendancePercentage: 95.45, punctualityScore: 86.36
-    },
-    {
-      id: '2', employeeCode: 'KMF2019002', name: 'Meera Nair', department: 'Quality', designation: 'QC Head',
-      totalDays: 30, workingDays: 22, presentDays: 20, absentDays: 0, lateMarks: 5, halfDays: 1,
-      paidLeaves: 2, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 185.5, expectedHours: 198,
-      attendancePercentage: 100, punctualityScore: 77.27
-    },
-    {
-      id: '3', employeeCode: 'KMF2021003', name: 'Arun Patel', department: 'IT', designation: 'Sr. Engineer',
-      totalDays: 30, workingDays: 22, presentDays: 22, absentDays: 0, lateMarks: 1, halfDays: 0,
-      paidLeaves: 0, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 198, expectedHours: 198,
-      attendancePercentage: 100, punctualityScore: 95.45
-    },
-    {
-      id: '4', employeeCode: 'KMF2022004', name: 'Kavita Desai', department: 'HR', designation: 'Executive',
-      totalDays: 30, workingDays: 22, presentDays: 19, absentDays: 0, lateMarks: 2, halfDays: 2,
-      paidLeaves: 3, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 180, expectedHours: 198,
-      attendancePercentage: 100, punctualityScore: 90.91
-    },
-    {
-      id: '5', employeeCode: 'KMF2020005', name: 'Vikram Singh', department: 'Production', designation: 'Supervisor',
-      totalDays: 30, workingDays: 22, presentDays: 22, absentDays: 0, lateMarks: 0, halfDays: 0,
-      paidLeaves: 0, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 198, expectedHours: 198,
-      attendancePercentage: 100, punctualityScore: 100
-    },
-    {
-      id: '6', employeeCode: 'KMF2018006', name: 'Priya Menon', department: 'Finance', designation: 'Accountant',
-      totalDays: 30, workingDays: 22, presentDays: 18, absentDays: 2, lateMarks: 4, halfDays: 1,
-      paidLeaves: 2, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 171, expectedHours: 198,
-      attendancePercentage: 90.91, punctualityScore: 81.82
-    },
-    {
-      id: '7', employeeCode: 'KMF2019007', name: 'Suresh Babu', department: 'Logistics', designation: 'Manager',
-      totalDays: 30, workingDays: 22, presentDays: 21, absentDays: 1, lateMarks: 2, halfDays: 0,
-      paidLeaves: 0, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 189, expectedHours: 198,
-      attendancePercentage: 95.45, punctualityScore: 90.91
-    },
-    {
-      id: '8', employeeCode: 'KMF2021008', name: 'Anjali Reddy', department: 'Marketing', designation: 'Executive',
-      totalDays: 30, workingDays: 22, presentDays: 20, absentDays: 0, lateMarks: 6, halfDays: 0,
-      paidLeaves: 2, unpaidLeaves: 0, weekOffs: 4, holidays: 4, workHours: 180, expectedHours: 198,
-      attendancePercentage: 100, punctualityScore: 72.73
-    },
-  ];
-
   const departments = ['all', 'Production', 'Quality', 'IT', 'HR', 'Finance', 'Logistics', 'Marketing'];
 
-  const [rows, setRows] = useState<MonthlyAttendance[]>(mockMonthlyAttendance);
+  const [rows, setRows] = useState<MonthlyAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -96,8 +45,8 @@ export default function MonthlyAttendancePage() {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = await HrAttendanceService.getMonthly();
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             id: String(r.id ?? r.employeeId ?? ''),
             employeeCode: r.employeeCode ?? r.details?.employeeCode ?? '',
             name: r.employeeName ?? r.name ?? r.details?.name ?? '',
@@ -120,7 +69,7 @@ export default function MonthlyAttendancePage() {
           } as MonthlyAttendance));
           setRows(mapped);
         }
-      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      } catch (e) { if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); } }
       finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };

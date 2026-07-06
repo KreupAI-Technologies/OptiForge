@@ -24,41 +24,7 @@ export default function AttendanceCalendarPage() {
     { code: 'KMF2022004', name: 'Kavita Desai' }
   ];
 
-  // Mock attendance data for November 2024
-  const mockAttendance: DayAttendance[] = [
-    { date: 1, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 2, status: 'week_off' },
-    { date: 3, status: 'week_off' },
-    { date: 4, status: 'present', checkIn: '09:15 AM', checkOut: '06:15 PM' },
-    { date: 5, status: 'holiday' },
-    { date: 6, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 7, status: 'late', checkIn: '09:30 AM', checkOut: '06:30 PM' },
-    { date: 8, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 9, status: 'week_off' },
-    { date: 10, status: 'week_off' },
-    { date: 11, status: 'leave' },
-    { date: 12, status: 'leave' },
-    { date: 13, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 14, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 15, status: 'half_day', checkIn: '09:00 AM', checkOut: '01:00 PM' },
-    { date: 16, status: 'week_off' },
-    { date: 17, status: 'week_off' },
-    { date: 18, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 19, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 20, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 21, status: 'late', checkIn: '09:45 AM', checkOut: '06:45 PM' },
-    { date: 22, status: 'absent' },
-    { date: 23, status: 'week_off' },
-    { date: 24, status: 'week_off' },
-    { date: 25, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 26, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 27, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 28, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 29, status: 'present', checkIn: '09:00 AM', checkOut: '06:00 PM' },
-    { date: 30, status: 'week_off' }
-  ];
-
-  const [rows, setRows] = useState<DayAttendance[]>(mockAttendance);
+  const [rows, setRows] = useState<DayAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -68,8 +34,8 @@ export default function AttendanceCalendarPage() {
       setIsLoading(true); setLoadError(null);
       try {
         const raw = await HrAttendanceService.getCalendar();
-        if (!cancelled && Array.isArray(raw) && raw.length > 0) {
-          const mapped = raw.map((r: any) => ({
+        if (!cancelled) {
+          const mapped = (Array.isArray(raw) ? raw : []).map((r: any) => ({
             date: r.date ?? r.details?.date ?? 0,
             status: (r.status ?? r.details?.status ?? 'present') as DayAttendance['status'],
             checkIn: r.details?.checkIn,
@@ -77,7 +43,7 @@ export default function AttendanceCalendarPage() {
           } as DayAttendance));
           setRows(mapped);
         }
-      } catch (e) { if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load'); }
+      } catch (e) { if (!cancelled) { setLoadError(e instanceof Error ? e.message : 'Failed to load'); setRows([]); } }
       finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };
