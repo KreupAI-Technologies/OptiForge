@@ -1,17 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Calendar, Save, Clock, Mail, FileText } from 'lucide-react'
+import { estimationReportScheduleService } from '@/services/estimation-report-schedule.service'
 
 export default function ScheduleReportByIdPage() {
   const router = useRouter()
   const params = useParams()
   const reportId = params?.id as string
 
-  // Mock report data based on ID
-  const reportName = `Report ${reportId}`
-
+  const [scheduleId, setScheduleId] = useState<string | null>(null)
+  const [reportName, setReportName] = useState(`Report ${reportId}`)
   const [frequency, setFrequency] = useState('weekly')
   const [dayOfWeek, setDayOfWeek] = useState('monday')
   const [dayOfMonth, setDayOfMonth] = useState('1')
@@ -19,33 +19,71 @@ export default function ScheduleReportByIdPage() {
   const [recipients, setRecipients] = useState('')
   const [format, setFormat] = useState('pdf')
   const [isActive, setIsActive] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Attempt to load an existing schedule for this id and prefill the form.
+  useEffect(() => {
+    if (!reportId) return
+    let mounted = true
+    const load = async () => {
+      try {
+        const s = await estimationReportScheduleService.getSchedule(reportId)
+        if (!mounted || !s) return
+        setScheduleId(s.id ?? reportId)
+        if (s.reportType) setReportName(s.reportType)
+        if (s.frequency) setFrequency(s.frequency)
+        if (s.dayOfWeek) setDayOfWeek(s.dayOfWeek)
+        if (s.dayOfMonth) setDayOfMonth(s.dayOfMonth)
+        if (s.time) setTime(s.time)
+        if (s.format) setFormat(s.format)
+        if (Array.isArray(s.recipients)) setRecipients(s.recipients.join(', '))
+        if (typeof s.isActive === 'boolean') setIsActive(s.isActive)
+      } catch (e) {
+        // No existing schedule for this id; treat as a new schedule for the report.
+        console.warn('No existing schedule found for', reportId, e)
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [reportId])
 
   const handleBack = () => {
     router.push('/estimation/analytics/reports')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!recipients.trim()) {
       alert('Please enter at least one recipient email')
       return
     }
 
-    const schedule = {
-      reportId,
-      reportName,
+    const payload = {
+      reportType: reportName,
       frequency,
       dayOfWeek,
       dayOfMonth,
       time,
-      recipients: recipients.split(',').map(e => e.trim()),
       format,
-      isActive,
-      createdAt: new Date().toISOString()
+      recipients: recipients.split(',').map(e => e.trim()).filter(Boolean),
+      isActive
     }
 
-    console.log('Creating schedule:', schedule)
-    alert(`Report scheduled successfully!\n\nReport: ${reportName}\nFrequency: ${frequency}\nRecipients: ${recipients}`)
-    router.push('/estimation/analytics/reports')
+    setSaving(true)
+    try {
+      if (scheduleId) {
+        await estimationReportScheduleService.updateSchedule(scheduleId, payload)
+      } else {
+        await estimationReportScheduleService.createSchedule(payload)
+      }
+      router.push('/estimation/analytics/reports')
+    } catch (error) {
+      console.error('Failed to save schedule:', error)
+      alert('Failed to save schedule. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -67,10 +105,11 @@ export default function ScheduleReportByIdPage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={saving}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            Save Schedule
+            {saving ? 'Saving...' : 'Save Schedule'}
           </button>
         </div>
       </div>
@@ -271,10 +310,11 @@ export default function ScheduleReportByIdPage() {
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Save Schedule
+              {saving ? 'Saving...' : 'Save Schedule'}
             </button>
           </div>
         </div>

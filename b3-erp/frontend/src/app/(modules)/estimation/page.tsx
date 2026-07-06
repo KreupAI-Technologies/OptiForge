@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { costEstimateService, CostEstimate } from '@/services/estimation-cost-estimate.service'
 import {
   Calculator,
   FileText,
@@ -49,105 +50,110 @@ interface RecentActivity {
   status: string
 }
 
+const STATUS_MAP: Record<string, Estimate['status']> = {
+  Draft: 'draft',
+  'Pending Approval': 'under_review',
+  Approved: 'approved',
+  Rejected: 'rejected',
+  'Converted to Order': 'converted',
+}
+
 export default function EstimationDashboard() {
-  const [stats] = useState<EstimationStats>({
-    totalEstimates: 156,
-    pendingEstimates: 23,
-    approvedEstimates: 45,
-    convertedToOrders: 38,
-    totalEstimatedValue: 450000000,
-    avgEstimateValue: 2884615,
-    conversionRate: 24.4,
-    avgProcessingTime: 3.5,
-    estimatesThisMonth: 42,
-    winRate: 84.4
+  const [stats, setStats] = useState<EstimationStats>({
+    totalEstimates: 0,
+    pendingEstimates: 0,
+    approvedEstimates: 0,
+    convertedToOrders: 0,
+    totalEstimatedValue: 0,
+    avgEstimateValue: 0,
+    conversionRate: 0,
+    avgProcessingTime: 0,
+    estimatesThisMonth: 0,
+    winRate: 0,
   })
 
-  const [recentEstimates] = useState<Estimate[]>([
-    {
-      id: 'EST-2025-089',
-      customer: 'ABC Manufacturing Ltd',
-      project: 'Hydraulic Press System Installation',
-      estimatedValue: 45000000,
-      status: 'approved',
-      createdDate: '2025-10-15',
-      validUntil: '2025-11-15',
-      estimator: 'Estimator Team A',
-      priority: 'high',
-      items: 25
-    },
-    {
-      id: 'EST-2025-090',
-      customer: 'XYZ Industries Inc',
-      project: 'CNC Machine Upgrade Package',
-      estimatedValue: 32000000,
-      status: 'under_review',
-      createdDate: '2025-10-16',
-      validUntil: '2025-11-16',
-      estimator: 'Estimator Team B',
-      priority: 'high',
-      items: 18
-    },
-    {
-      id: 'EST-2025-091',
-      customer: 'Tech Solutions Pvt Ltd',
-      project: 'Automation System Integration',
-      estimatedValue: 28000000,
-      status: 'submitted',
-      createdDate: '2025-10-17',
-      validUntil: '2025-11-17',
-      estimator: 'Estimator Team A',
-      priority: 'medium',
-      items: 22
-    },
-    {
-      id: 'EST-2025-092',
-      customer: 'Global Exports Corp',
-      project: 'Complete Production Line Setup',
-      estimatedValue: 56000000,
-      status: 'draft',
-      createdDate: '2025-10-18',
-      validUntil: '2025-11-18',
-      estimator: 'Estimator Team C',
-      priority: 'high',
-      items: 35
-    }
-  ])
+  const [recentEstimates, setRecentEstimates] = useState<Estimate[]>([])
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
 
-  const [recentActivities] = useState<RecentActivity[]>([
-    {
-      id: 'ACT-001',
-      estimateId: 'EST-2025-089',
-      action: 'Estimate approved by management',
-      user: 'Approval Manager',
-      timestamp: '2025-10-18 14:30',
-      status: 'approved'
-    },
-    {
-      id: 'ACT-002',
-      estimateId: 'EST-2025-090',
-      action: 'Sent to technical review',
-      user: 'Estimator Team B',
-      timestamp: '2025-10-18 12:15',
-      status: 'under_review'
-    },
-    {
-      id: 'ACT-003',
-      estimateId: 'EST-2025-091',
-      action: 'Submitted to customer',
-      user: 'Estimator Team A',
-      timestamp: '2025-10-17 16:45',
-      status: 'submitted'
-    },
-    {
-      id: 'ACT-004',
-      estimateId: 'EST-2025-088',
-      action: 'Converted to sales order',
-      user: 'Sales Team',
-      timestamp: '2025-10-17 11:20',
-      status: 'converted'
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const raw = await costEstimateService.findAll('default-company-id')
+        const list: CostEstimate[] = Array.isArray(raw) ? raw : []
+        if (!mounted) return
+
+        const total = list.length
+        const pending = list.filter((e) => e.status === 'Pending Approval').length
+        const approved = list.filter((e) => e.status === 'Approved').length
+        const converted = list.filter((e) => e.status === 'Converted to Order').length
+        const totalValue = list.reduce((s, e) => s + (Number(e.totalCost) || 0), 0)
+        const now = new Date()
+        const thisMonth = list.filter((e) => {
+          const d = e.estimateDate || e.createdAt
+          if (!d) return false
+          const dt = new Date(d)
+          return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear()
+        }).length
+
+        setStats({
+          totalEstimates: total,
+          pendingEstimates: pending,
+          approvedEstimates: approved,
+          convertedToOrders: converted,
+          totalEstimatedValue: totalValue,
+          avgEstimateValue: total > 0 ? Math.round(totalValue / total) : 0,
+          conversionRate: total > 0 ? Number(((converted / total) * 100).toFixed(1)) : 0,
+          avgProcessingTime: 0,
+          estimatesThisMonth: thisMonth,
+          winRate:
+            approved + converted > 0
+              ? Number((((approved + converted) / total) * 100).toFixed(1))
+              : 0,
+        })
+
+        const recent = [...list]
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime(),
+          )
+          .slice(0, 6)
+
+        setRecentEstimates(
+          recent.map((e) => ({
+            id: e.estimateNumber || e.id,
+            customer: e.customerName || '—',
+            project: e.title || '—',
+            estimatedValue: Number(e.totalCost) || 0,
+            status: STATUS_MAP[e.status] || 'draft',
+            createdDate: (e.estimateDate || e.createdAt || '').slice(0, 10),
+            validUntil: (e.validUntil || '').slice(0, 10),
+            estimator: e.submittedBy || '—',
+            priority: 'medium',
+            items: 0,
+          })),
+        )
+
+        setRecentActivities(
+          recent.slice(0, 4).map((e) => ({
+            id: `ACT-${e.id}`,
+            estimateId: e.estimateNumber || e.id,
+            action: `Estimate ${e.status.toLowerCase()}`,
+            user: e.submittedBy || e.approvedBy || 'System',
+            timestamp: (e.updatedAt || e.createdAt || '').replace('T', ' ').slice(0, 16),
+            status: STATUS_MAP[e.status] || 'draft',
+          })),
+        )
+      } catch {
+        if (!mounted) return
+        setRecentEstimates([])
+        setRecentActivities([])
+      }
+    })()
+    return () => {
+      mounted = false
     }
-  ])
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {

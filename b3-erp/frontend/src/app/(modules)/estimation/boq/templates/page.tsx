@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Plus, FileText, Copy, Edit, Trash2, Download, Eye, CheckCircle, Clock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { estimationTemplateService } from '@/services/estimation-template.service'
 
 interface BOQTemplate {
   id: string
@@ -52,231 +53,64 @@ export default function BOQTemplatesPage() {
   }
 
   const handleExportTemplate = (template: BOQTemplate) => {
-    exportToCsv(`boq-template-${template.templateCode}`, template.items)
+    exportToCsv(`boq-template-${template.templateCode}`, Array.isArray(template.items) ? template.items : [])
   }
 
-  const [templates] = useState<BOQTemplate[]>([
-    {
-      id: 'BOQ-TPL-001',
-      name: 'Standard Modular Kitchen - 10x10 ft',
-      templateCode: 'MK-STD-10X10',
-      category: 'Modular Kitchen',
-      projectType: 'Residential',
-      description: 'Complete modular kitchen package for 10x10 ft space including cabinets, countertop, sink, and faucet',
-      totalItems: 15,
-      estimatedValue: 285000,
-      lastUsed: '2025-10-18',
-      createdDate: '2024-06-15',
-      createdBy: 'Priya Sharma',
-      status: 'active',
-      usageCount: 45,
-      items: [
-        { itemNo: '1', description: 'Base Cabinet 24" with drawers', unit: 'nos', quantity: 4, rate: 18500, amount: 74000 },
-        { itemNo: '2', description: 'Wall Cabinet 18" with glass doors', unit: 'nos', quantity: 3, rate: 15200, amount: 45600 },
-        { itemNo: '3', description: 'Premium Quartz Countertop', unit: 'sqft', quantity: 40, rate: 850, amount: 34000 },
-        { itemNo: '4', description: 'Stainless Steel Sink Double Bowl', unit: 'nos', quantity: 1, rate: 16500, amount: 16500 },
-        { itemNo: '5', description: 'Brass Kitchen Faucet Pull-Out', unit: 'nos', quantity: 1, rate: 18500, amount: 18500 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-002',
-      name: 'Premium Modular Kitchen - 12x12 ft',
-      templateCode: 'MK-PREM-12X12',
-      category: 'Modular Kitchen',
-      projectType: 'Residential - Premium',
-      description: 'Luxury modular kitchen with imported fittings, premium appliances, and designer countertops',
-      totalItems: 22,
-      estimatedValue: 585000,
-      lastUsed: '2025-10-19',
-      createdDate: '2024-08-10',
-      createdBy: 'Rajesh Kumar',
-      status: 'active',
-      usageCount: 28,
-      items: [
-        { itemNo: '1', description: 'Premium Base Cabinet 30" soft-close', unit: 'nos', quantity: 5, rate: 28500, amount: 142500 },
-        { itemNo: '2', description: 'Designer Wall Cabinet with LED', unit: 'nos', quantity: 4, rate: 22000, amount: 88000 },
-        { itemNo: '3', description: 'Italian Marble Countertop', unit: 'sqft', quantity: 60, rate: 1200, amount: 72000 },
-        { itemNo: '4', description: 'Chimney Hood 90cm Auto-Clean', unit: 'nos', quantity: 1, rate: 35000, amount: 35000 },
-        { itemNo: '5', description: 'Built-in Oven & Microwave', unit: 'nos', quantity: 1, rate: 65000, amount: 65000 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-003',
-      name: 'Budget Kitchen Package - 8x8 ft',
-      templateCode: 'MK-BUD-8X8',
-      category: 'Modular Kitchen',
-      projectType: 'Residential - Economy',
-      description: 'Cost-effective kitchen solution for small spaces with essential components',
-      totalItems: 10,
-      estimatedValue: 145000,
-      lastUsed: '2025-10-15',
-      createdDate: '2024-05-20',
-      createdBy: 'Amit Patel',
-      status: 'active',
-      usageCount: 67,
-      items: [
-        { itemNo: '1', description: 'Base Cabinet 18" standard', unit: 'nos', quantity: 3, rate: 12500, amount: 37500 },
-        { itemNo: '2', description: 'Wall Cabinet 15" plain doors', unit: 'nos', quantity: 2, rate: 9500, amount: 19000 },
-        { itemNo: '3', description: 'Granite Countertop standard', unit: 'sqft', quantity: 25, rate: 450, amount: 11250 },
-        { itemNo: '4', description: 'SS Sink Single Bowl', unit: 'nos', quantity: 1, rate: 11250, amount: 11250 },
-        { itemNo: '5', description: 'Chrome Faucet Single Handle', unit: 'nos', quantity: 1, rate: 9750, amount: 9750 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-004',
-      name: 'Commercial Kitchen - Restaurant Setup',
-      templateCode: 'CK-REST-STD',
-      category: 'Commercial Kitchen',
-      projectType: 'Commercial',
-      description: 'Complete restaurant kitchen setup with heavy-duty appliances and storage',
-      totalItems: 18,
-      estimatedValue: 1250000,
-      lastUsed: '2025-10-12',
-      createdDate: '2024-07-05',
-      createdBy: 'Sneha Reddy',
-      status: 'active',
-      usageCount: 12,
-      items: [
-        { itemNo: '1', description: 'Commercial SS Work Table 6ft', unit: 'nos', quantity: 3, rate: 35000, amount: 105000 },
-        { itemNo: '2', description: 'Heavy Duty Gas Range 4 Burner', unit: 'nos', quantity: 2, rate: 85000, amount: 170000 },
-        { itemNo: '3', description: 'Commercial Chimney 120cm', unit: 'nos', quantity: 1, rate: 125000, amount: 125000 },
-        { itemNo: '4', description: 'Deep Freezer 500L', unit: 'nos', quantity: 1, rate: 95000, amount: 95000 },
-        { itemNo: '5', description: 'Commercial Sink 3 Compartment', unit: 'nos', quantity: 1, rate: 45000, amount: 45000 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-005',
-      name: 'Kitchen Renovation Package',
-      templateCode: 'KR-RENO-STD',
-      category: 'Renovation',
-      projectType: 'Residential',
-      description: 'Kitchen renovation with countertop replacement, new appliances, and updated fittings',
-      totalItems: 12,
-      estimatedValue: 185000,
-      lastUsed: '2025-10-17',
-      createdDate: '2024-09-12',
-      createdBy: 'Vikram Singh',
-      status: 'active',
-      usageCount: 34,
-      items: [
-        { itemNo: '1', description: 'Quartz Countertop Replacement', unit: 'sqft', quantity: 35, rate: 850, amount: 29750 },
-        { itemNo: '2', description: 'Mixer Grinder 750W Premium', unit: 'nos', quantity: 1, rate: 12500, amount: 12500 },
-        { itemNo: '3', description: 'Induction Cooktop 2000W', unit: 'nos', quantity: 1, rate: 8500, amount: 8500 },
-        { itemNo: '4', description: 'Chimney Hood 60cm', unit: 'nos', quantity: 1, rate: 22000, amount: 22000 },
-        { itemNo: '5', description: 'Kitchen Faucet Upgrade', unit: 'nos', quantity: 1, rate: 15000, amount: 15000 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-006',
-      name: 'Builder Package - 3BHK Apartment',
-      templateCode: 'BP-3BHK-STD',
-      category: 'Builder Package',
-      projectType: 'Builder Project',
-      description: 'Standard kitchen package for 3BHK apartments in builder projects',
-      totalItems: 16,
-      estimatedValue: 195000,
-      lastUsed: '2025-10-20',
-      createdDate: '2024-04-18',
-      createdBy: 'Priya Sharma',
-      status: 'active',
-      usageCount: 156,
-      items: [
-        { itemNo: '1', description: 'Base Cabinet 24" Melamine', unit: 'nos', quantity: 3, rate: 14500, amount: 43500 },
-        { itemNo: '2', description: 'Wall Cabinet 18" Melamine', unit: 'nos', quantity: 2, rate: 11500, amount: 23000 },
-        { itemNo: '3', description: 'Granite Countertop Builder Grade', unit: 'sqft', quantity: 30, rate: 420, amount: 12600 },
-        { itemNo: '4', description: 'SS Sink Single Bowl Standard', unit: 'nos', quantity: 1, rate: 9500, amount: 9500 },
-        { itemNo: '5', description: 'Faucet Chrome Finish Basic', unit: 'nos', quantity: 1, rate: 6500, amount: 6500 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-007',
-      name: 'L-Shaped Kitchen - 14x10 ft',
-      templateCode: 'MK-LSHAPE-14X10',
-      category: 'Modular Kitchen',
-      projectType: 'Residential',
-      description: 'L-shaped modular kitchen design with optimized storage and workspace',
-      totalItems: 19,
-      estimatedValue: 425000,
-      lastUsed: '2025-10-16',
-      createdDate: '2024-07-22',
-      createdBy: 'Rajesh Kumar',
-      status: 'active',
-      usageCount: 38,
-      items: [
-        { itemNo: '1', description: 'Base Cabinet 30" Corner Unit', unit: 'nos', quantity: 1, rate: 32000, amount: 32000 },
-        { itemNo: '2', description: 'Base Cabinet 24" Regular', unit: 'nos', quantity: 5, rate: 18500, amount: 92500 },
-        { itemNo: '3', description: 'Wall Cabinet L-Shape Design', unit: 'nos', quantity: 4, rate: 19500, amount: 78000 },
-        { itemNo: '4', description: 'Quartz Countertop L-Shape', unit: 'sqft', quantity: 55, rate: 850, amount: 46750 },
-        { itemNo: '5', description: 'Tall Unit with Pullout', unit: 'nos', quantity: 1, rate: 35000, amount: 35000 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-008',
-      name: 'Island Kitchen - Premium',
-      templateCode: 'MK-ISLAND-PREM',
-      category: 'Modular Kitchen',
-      projectType: 'Residential - Luxury',
-      description: 'Designer island kitchen with breakfast counter and premium appliances',
-      totalItems: 25,
-      estimatedValue: 785000,
-      lastUsed: '2025-10-10',
-      createdDate: '2024-09-05',
-      createdBy: 'Sneha Reddy',
-      status: 'active',
-      usageCount: 15,
-      items: [
-        { itemNo: '1', description: 'Island Cabinet with Breakfast Counter', unit: 'nos', quantity: 1, rate: 125000, amount: 125000 },
-        { itemNo: '2', description: 'Premium Base Cabinets', unit: 'nos', quantity: 6, rate: 28500, amount: 171000 },
-        { itemNo: '3', description: 'Wall Cabinets Glass + Wood', unit: 'nos', quantity: 5, rate: 24000, amount: 120000 },
-        { itemNo: '4', description: 'Italian Marble Island Top', unit: 'sqft', quantity: 45, rate: 1500, amount: 67500 },
-        { itemNo: '5', description: 'Chimney Island Model 90cm', unit: 'nos', quantity: 1, rate: 85000, amount: 85000 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-009',
-      name: 'Hospital Kitchen - 50 Bed Capacity',
-      templateCode: 'HK-50BED-STD',
-      category: 'Institutional Kitchen',
-      projectType: 'Healthcare',
-      description: 'Institutional kitchen setup for hospital with hygiene standards compliance',
-      totalItems: 20,
-      estimatedValue: 985000,
-      lastUsed: '2025-09-28',
-      createdDate: '2024-08-15',
-      createdBy: 'Amit Patel',
-      status: 'active',
-      usageCount: 8,
-      items: [
-        { itemNo: '1', description: 'SS Work Table Medical Grade', unit: 'nos', quantity: 4, rate: 42000, amount: 168000 },
-        { itemNo: '2', description: 'Steam Cooker Commercial', unit: 'nos', quantity: 1, rate: 125000, amount: 125000 },
-        { itemNo: '3', description: 'Food Warmer Cabinet', unit: 'nos', quantity: 2, rate: 55000, amount: 110000 },
-        { itemNo: '4', description: 'Medical Grade Sink System', unit: 'nos', quantity: 2, rate: 38000, amount: 76000 },
-        { itemNo: '5', description: 'Exhaust System Medical Grade', unit: 'nos', quantity: 1, rate: 145000, amount: 145000 }
-      ]
-    },
-    {
-      id: 'BOQ-TPL-010',
-      name: 'U-Shaped Kitchen - 16x12 ft',
-      templateCode: 'MK-USHAPE-16X12',
-      category: 'Modular Kitchen',
-      projectType: 'Residential',
-      description: 'U-shaped kitchen layout with maximum storage and counter space',
-      totalItems: 21,
-      estimatedValue: 495000,
-      lastUsed: '2025-10-14',
-      createdDate: '2024-06-28',
-      createdBy: 'Vikram Singh',
-      status: 'active',
-      usageCount: 42,
-      items: [
-        { itemNo: '1', description: 'Base Cabinet Corner Carousel', unit: 'nos', quantity: 2, rate: 35000, amount: 70000 },
-        { itemNo: '2', description: 'Base Cabinet 24" Soft Close', unit: 'nos', quantity: 6, rate: 18500, amount: 111000 },
-        { itemNo: '3', description: 'Wall Cabinet U-Shape Layout', unit: 'nos', quantity: 6, rate: 16500, amount: 99000 },
-        { itemNo: '4', description: 'Quartz Countertop U-Shape', unit: 'sqft', quantity: 70, rate: 850, amount: 59500 },
-        { itemNo: '5', description: 'Tall Units Pantry Style', unit: 'nos', quantity: 2, rate: 32000, amount: 64000 }
-      ]
+  const [templates, setTemplates] = useState<BOQTemplate[]>([])
+
+  const mapTemplate = (t: any): BOQTemplate => {
+    const items: BOQItem[] = Array.isArray(t?.items)
+      ? t.items.map((it: any) => ({
+          itemNo: String(it?.itemNo ?? it?.itemCode ?? ''),
+          description: it?.description ?? '',
+          unit: it?.unit ?? '',
+          quantity: Number(it?.quantity ?? 0),
+          rate: Number(it?.rate ?? it?.unitRate ?? 0),
+          amount: Number(it?.amount ?? it?.totalAmount ?? 0),
+        }))
+      : []
+    return {
+      id: t?.id ?? '',
+      name: t?.name ?? '',
+      templateCode: t?.templateCode ?? t?.code ?? t?.id ?? '',
+      category: t?.category ?? t?.templateType ?? 'Other',
+      projectType: t?.projectType ?? '',
+      description: t?.description ?? '',
+      totalItems: t?.totalItems != null ? Number(t.totalItems) : items.length,
+      estimatedValue: Number(t?.estimatedValue ?? 0),
+      lastUsed: t?.lastUsedAt ?? t?.lastUsed ?? '',
+      createdDate: t?.createdAt ?? t?.createdDate ?? '',
+      createdBy: t?.createdBy ?? '',
+      status: (t?.isActive === false ? 'archived' : (t?.status ?? 'active')) as BOQTemplate['status'],
+      usageCount: Number(t?.usageCount ?? 0),
+      items,
     }
-  ])
+  }
+
+  const loadTemplates = async () => {
+    try {
+      const res = await estimationTemplateService.findAllTemplates()
+      setTemplates((Array.isArray(res) ? res : []).map(mapTemplate))
+    } catch (error) {
+      console.error('Error loading BOQ templates:', error)
+      setTemplates([])
+    }
+  }
+
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm('Are you sure you want to delete this template?')) return
+    try {
+      await estimationTemplateService.deleteBoqTemplate(templateId)
+      await loadTemplates()
+    } catch (error) {
+      console.error('Error deleting template:', error)
+      alert('Failed to delete template. Please try again.')
+    }
+  }
 
   const categories = ['all', 'Modular Kitchen', 'Commercial Kitchen', 'Renovation', 'Builder Package', 'Institutional Kitchen']
 
@@ -502,6 +336,13 @@ export default function BOQTemplatesPage() {
                 >
                   <Download className="h-4 w-4" />
                   Export
+                </button>
+                <button
+                  onClick={() => handleDeleteTemplate(template.id)}
+                  className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2 col-span-2"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
                 </button>
               </div>
             </div>

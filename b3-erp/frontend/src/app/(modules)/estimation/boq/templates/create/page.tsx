@@ -3,6 +3,9 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, X, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { estimationTemplateService } from '@/services/estimation-template.service';
+
+const companyId = 'default-company-id';
 
 interface BOQItem {
   id: string;
@@ -111,7 +114,7 @@ export default function CreateBOQTemplate() {
     return items.reduce((sum, item) => sum + item.amount, 0);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!templateName.trim()) {
       alert('Please enter template name');
@@ -141,17 +144,21 @@ export default function CreateBOQTemplate() {
       return;
     }
 
-    console.log('Creating template:', {
-      templateName,
-      templateCode,
-      category,
-      description,
-      items,
-      totalValue: calculateTotal(),
-    });
-
-    // Would make API call here
-    router.push('/estimation/boq/templates');
+    try {
+      await estimationTemplateService.createBoqTemplate({
+        companyId,
+        name: templateName,
+        templateCode,
+        category,
+        description,
+        items,
+        estimatedValue: calculateTotal(),
+      });
+      router.push('/estimation/boq/templates');
+    } catch (error) {
+      console.error('Error creating template:', error);
+      alert('Failed to create template. Please try again.');
+    }
   };
 
   return (

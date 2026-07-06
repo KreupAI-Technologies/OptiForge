@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Wrench, DollarSign, Settings, AlertCircle, Calculator } from 'lucide-react'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
+
+const companyId = 'default-company-id'
 
 export default function AddEquipmentRatePage() {
   const router = useRouter()
@@ -60,7 +63,7 @@ export default function AddEquipmentRatePage() {
     return (base * multiplier).toFixed(2)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!equipmentCode.trim()) {
       alert('Please enter equipment code')
@@ -87,31 +90,38 @@ export default function AddEquipmentRatePage() {
       return
     }
 
-    const newRate = {
-      equipmentCode,
-      equipmentName,
-      category,
-      hourlyRate: parseFloat(hourlyRate),
-      dailyRate: parseFloat(calculateDailyRate()),
-      weeklyRate: parseFloat(calculateWeeklyRate()),
-      monthlyRate: parseFloat(calculateMonthlyRate()),
-      dailyMultiplier: parseFloat(dailyMultiplier),
-      weeklyMultiplier: parseFloat(weeklyMultiplier),
-      monthlyMultiplier: parseFloat(monthlyMultiplier),
-      operatorIncluded,
-      fuelIncluded,
-      minimumHours: parseInt(minimumHours),
-      effectiveFrom,
-      status,
-      notes,
-      specifications,
-      maintenanceSchedule,
-      createdAt: new Date().toISOString()
+    try {
+      await estimationResourceRateService.createResourceRate(companyId, {
+        rateType: 'Equipment',
+        code: equipmentCode,
+        name: equipmentName,
+        category,
+        unit: 'Hour',
+        currency: 'INR',
+        standardRate: parseFloat(hourlyRate),
+        isActive: status === 'active',
+        effectiveFrom: effectiveFrom || undefined,
+        description: specifications || undefined,
+        // Equipment-specific extras spread onto the payload
+        dailyRate: parseFloat(calculateDailyRate()),
+        weeklyRate: parseFloat(calculateWeeklyRate()),
+        monthlyRate: parseFloat(calculateMonthlyRate()),
+        dailyMultiplier: parseFloat(dailyMultiplier),
+        weeklyMultiplier: parseFloat(weeklyMultiplier),
+        monthlyMultiplier: parseFloat(monthlyMultiplier),
+        operatorIncluded,
+        fuelIncluded,
+        minimumHours: parseInt(minimumHours),
+        status,
+        notes,
+        specifications,
+        maintenanceSchedule,
+      } as any)
+      router.push('/estimation/rates/equipment')
+    } catch (error) {
+      console.error('Failed to create equipment rate:', error)
+      alert('Failed to save equipment rate. Please try again.')
     }
-
-    console.log('Creating new equipment rate:', newRate)
-    // Would make API call here
-    router.push('/estimation/rates/equipment')
   }
 
   return (

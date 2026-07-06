@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Users, DollarSign, Phone, Mail, AlertCircle, Star, FileText, X } from 'lucide-react'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
+
+const companyId = 'default-company-id'
 
 export default function AddSubcontractorPage() {
   const router = useRouter()
@@ -94,7 +97,7 @@ export default function AddSubcontractorPage() {
     setUnit(getUnitForRateType(newRateType))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!contractorCode.trim()) {
       alert('Please enter contractor code')
@@ -133,36 +136,41 @@ export default function AddSubcontractorPage() {
       return
     }
 
-    const newSubcontractor = {
-      contractorCode,
-      contractorName,
-      serviceType,
-      specialization: specializations,
-      rateType,
-      rate: parseFloat(rate),
-      unit,
-      contactPerson,
-      phone,
-      email,
-      minimumOrder: parseFloat(minimumOrder) || 0,
-      leadTime: parseInt(leadTime) || 0,
-      paymentTerms,
-      effectiveFrom,
-      status,
-      companyAddress,
-      gstNumber,
-      panNumber,
-      bankDetails,
-      insuranceDetails,
-      notes,
-      rating: 0,
-      projectsCompleted: 0,
-      createdAt: new Date().toISOString()
+    try {
+      await estimationResourceRateService.createResourceRate(companyId, {
+        rateType: 'Subcontractor',
+        code: contractorCode,
+        name: contractorName,
+        category: serviceType,
+        unit,
+        currency: 'INR',
+        standardRate: parseFloat(rate),
+        isActive: status === 'active',
+        effectiveFrom: effectiveFrom || undefined,
+        supplierName: contractorName,
+        // Subcontractor-specific extras spread onto the payload
+        serviceType,
+        specialization: specializations,
+        subcontractorRateType: rateType,
+        contactPerson,
+        phone,
+        email,
+        minimumOrder: parseFloat(minimumOrder) || 0,
+        leadTime: parseInt(leadTime) || 0,
+        paymentTerms,
+        status,
+        companyAddress,
+        gstNumber,
+        panNumber,
+        bankDetails,
+        insuranceDetails,
+        notes,
+      } as any)
+      router.push('/estimation/rates/subcontractors')
+    } catch (error) {
+      console.error('Failed to create subcontractor:', error)
+      alert('Failed to save subcontractor. Please try again.')
     }
-
-    console.log('Creating new subcontractor:', newSubcontractor)
-    // Would make API call here
-    router.push('/estimation/rates/subcontractors')
   }
 
   return (

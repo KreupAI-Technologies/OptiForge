@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, GitCompare, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, DollarSign, Percent } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { estimationBOQService, type BOQ } from '@/services/estimation-boq.service'
 
 interface BOQComparison {
   projectName: string
@@ -35,122 +36,91 @@ interface ComparisonItem {
   amount: number
 }
 
+const EMPTY_COMPARISON: BOQComparison = { projectName: '', versions: [] }
+
 export default function BOQComparisonPage() {
   const router = useRouter()
-  const [selectedComparison, setSelectedComparison] = useState('comp-001')
 
-  const [comparisons] = useState<BOQComparison[]>([
-    {
-      projectName: 'Luxury Villa - Modular Kitchen (12x12 ft)',
-      versions: [
-        {
-          id: 'v1',
-          versionName: 'Internal Estimate',
-          versionNumber: 'V1.0',
-          type: 'internal',
-          totalCost: 585000,
-          materialCost: 409500,
-          laborCost: 117000,
-          overheadCost: 58500,
-          profitMargin: 12.0,
-          deliveryDays: 45,
-          warranty: '2 Years',
-          submittedBy: 'Internal Team',
-          submittedDate: '2025-10-10',
-          notes: 'Standard pricing with 12% margin',
-          items: [
-            { itemName: 'Premium Base Cabinet 30"', unit: 'nos', quantity: 5, rate: 28500, amount: 142500 },
-            { itemName: 'Designer Wall Cabinet with LED', unit: 'nos', quantity: 4, rate: 22000, amount: 88000 },
-            { itemName: 'Italian Marble Countertop', unit: 'sqft', quantity: 60, rate: 1200, amount: 72000 },
-            { itemName: 'Chimney Hood 90cm Auto-Clean', unit: 'nos', quantity: 1, rate: 35000, amount: 35000 },
-            { itemName: 'Built-in Oven & Microwave', unit: 'nos', quantity: 1, rate: 65000, amount: 65000 }
-          ]
-        },
-        {
-          id: 'v2',
-          versionName: 'Vendor A Quote',
-          versionNumber: 'VA-Q1',
-          type: 'vendor_a',
-          totalCost: 548000,
-          materialCost: 383600,
-          laborCost: 109600,
-          overheadCost: 54800,
-          profitMargin: 10.5,
-          deliveryDays: 50,
-          warranty: '18 Months',
-          submittedBy: 'Premium Kitchens Pvt Ltd',
-          submittedDate: '2025-10-12',
-          notes: 'Competitive pricing, longer delivery time',
-          items: [
-            { itemName: 'Premium Base Cabinet 30"', unit: 'nos', quantity: 5, rate: 26500, amount: 132500 },
-            { itemName: 'Designer Wall Cabinet with LED', unit: 'nos', quantity: 4, rate: 20500, amount: 82000 },
-            { itemName: 'Imported Marble Countertop', unit: 'sqft', quantity: 60, rate: 1150, amount: 69000 },
-            { itemName: 'Chimney Hood 90cm', unit: 'nos', quantity: 1, rate: 32000, amount: 32000 },
-            { itemName: 'Built-in Appliances', unit: 'nos', quantity: 1, rate: 62000, amount: 62000 }
-          ]
-        },
-        {
-          id: 'v3',
-          versionName: 'Vendor B Quote',
-          versionNumber: 'VB-Q1',
-          type: 'vendor_b',
-          totalCost: 612000,
-          materialCost: 428400,
-          laborCost: 122400,
-          overheadCost: 61200,
-          profitMargin: 14.0,
-          deliveryDays: 40,
-          warranty: '3 Years',
-          submittedBy: 'Elite Interiors & Kitchens',
-          submittedDate: '2025-10-13',
-          notes: 'Premium quality, faster delivery, extended warranty',
-          items: [
-            { itemName: 'Premium Base Cabinet 30" Imported', unit: 'nos', quantity: 5, rate: 31000, amount: 155000 },
-            { itemName: 'Designer Wall Cabinet Premium', unit: 'nos', quantity: 4, rate: 24000, amount: 96000 },
-            { itemName: 'Italian Marble Premium Grade', unit: 'sqft', quantity: 60, rate: 1250, amount: 75000 },
-            { itemName: 'Chimney Hood 90cm Premium', unit: 'nos', quantity: 1, rate: 38000, amount: 38000 },
-            { itemName: 'Built-in Oven Premium Brand', unit: 'nos', quantity: 1, rate: 70000, amount: 70000 }
-          ]
-        },
-        {
-          id: 'v4',
-          versionName: 'Revised Internal',
-          versionNumber: 'V1.1',
-          type: 'revised',
-          totalCost: 565000,
-          materialCost: 395500,
-          laborCost: 113000,
-          overheadCost: 56500,
-          profitMargin: 11.5,
-          deliveryDays: 42,
-          warranty: '2 Years',
-          submittedBy: 'Internal Team',
-          submittedDate: '2025-10-15',
-          notes: 'Optimized costs to match market competition',
-          items: [
-            { itemName: 'Premium Base Cabinet 30"', unit: 'nos', quantity: 5, rate: 27500, amount: 137500 },
-            { itemName: 'Designer Wall Cabinet with LED', unit: 'nos', quantity: 4, rate: 21000, amount: 84000 },
-            { itemName: 'Italian Marble Countertop', unit: 'sqft', quantity: 60, rate: 1180, amount: 70800 },
-            { itemName: 'Chimney Hood 90cm Auto-Clean', unit: 'nos', quantity: 1, rate: 34000, amount: 34000 },
-            { itemName: 'Built-in Oven & Microwave', unit: 'nos', quantity: 1, rate: 63500, amount: 63500 }
-          ]
-        }
-      ]
+  const [boqList, setBoqList] = useState<BOQ[]>([])
+  const [boqId1, setBoqId1] = useState('')
+  const [boqId2, setBoqId2] = useState('')
+  const [isComparing, setIsComparing] = useState(false)
+  const [compareError, setCompareError] = useState<string | null>(null)
+  const [selectedData, setSelectedData] = useState<BOQComparison>(EMPTY_COMPARISON)
+
+  // Load available BOQs for the selectors
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await estimationBOQService.findAll()
+        if (!cancelled) setBoqList(Array.isArray(res) ? res : [])
+      } catch (err) {
+        if (!cancelled) setBoqList([])
+      }
     }
-  ])
+    load()
+    return () => { cancelled = true }
+  }, [])
 
-  const selectedData = comparisons[0] // For this example, using first comparison
+  const handleCompare = async () => {
+    if (!boqId1 || !boqId2 || boqId1 === boqId2) {
+      setCompareError('Please select two different BOQs to compare')
+      return
+    }
+    setIsComparing(true)
+    setCompareError(null)
+    try {
+      const result = (await estimationBOQService.compareBOQs(boqId1, boqId2)) as any
+      const b1 = result?.boq1
+      const b2 = result?.boq2
+      const mapVersion = (b: any, idx: number, type: BOQVersion['type']): BOQVersion => ({
+        id: b?.id ?? `v${idx}`,
+        versionName: b?.projectName ?? b?.boqNumber ?? `BOQ ${idx + 1}`,
+        versionNumber: b?.boqNumber ?? `V${idx + 1}`,
+        type,
+        totalCost: Number(b?.estimatedValue ?? 0),
+        materialCost: 0,
+        laborCost: 0,
+        overheadCost: 0,
+        profitMargin: 0,
+        deliveryDays: 0,
+        warranty: '-',
+        submittedBy: b?.clientName ?? '-',
+        submittedDate: b?.updatedAt ?? b?.createdAt ?? new Date().toISOString(),
+        notes: b?.notes ?? '',
+        items: [],
+      })
+      const versions: BOQVersion[] = []
+      if (b1) versions.push(mapVersion(b1, 0, 'internal'))
+      if (b2) versions.push(mapVersion(b2, 1, 'vendor_a'))
+      setSelectedData({
+        projectName: b1?.projectName ?? b2?.projectName ?? 'BOQ Comparison',
+        versions,
+      })
+    } catch (err) {
+      setCompareError(err instanceof Error ? err.message : 'Failed to compare BOQs')
+      setSelectedData(EMPTY_COMPARISON)
+    } finally {
+      setIsComparing(false)
+    }
+  }
+
+  const hasData = Array.isArray(selectedData.versions) && selectedData.versions.length > 0
 
   const getLowestCost = () => {
+    if (!selectedData.versions.length) return 0
     return Math.min(...selectedData.versions.map(v => v.totalCost))
   }
 
   const getHighestCost = () => {
+    if (!selectedData.versions.length) return 0
     return Math.max(...selectedData.versions.map(v => v.totalCost))
   }
 
   const getCostDifference = (cost: number) => {
     const lowest = getLowestCost()
+    if (!lowest) return 0
     return ((cost - lowest) / lowest) * 100
   }
 
@@ -169,15 +139,23 @@ export default function BOQComparisonPage() {
     }
   }
 
-  const lowestCostVersion = selectedData.versions.reduce((prev, current) =>
-    prev.totalCost < current.totalCost ? prev : current
-  )
+  const EMPTY_VERSION: BOQVersion = {
+    id: '', versionName: '-', versionNumber: '-', type: 'internal', totalCost: 0,
+    materialCost: 0, laborCost: 0, overheadCost: 0, profitMargin: 0, deliveryDays: 0,
+    warranty: '-', submittedBy: '-', submittedDate: new Date().toISOString(), notes: '', items: [],
+  }
 
-  const bestValueVersion = selectedData.versions.reduce((prev, current) => {
-    const prevScore = (100 - getCostDifference(prev.totalCost)) + (prev.profitMargin * 2) + (prev.deliveryDays < 45 ? 10 : 0)
-    const currentScore = (100 - getCostDifference(current.totalCost)) + (current.profitMargin * 2) + (current.deliveryDays < 45 ? 10 : 0)
-    return currentScore > prevScore ? current : prev
-  })
+  const lowestCostVersion = selectedData.versions.length
+    ? selectedData.versions.reduce((prev, current) => (prev.totalCost < current.totalCost ? prev : current))
+    : EMPTY_VERSION
+
+  const bestValueVersion = selectedData.versions.length
+    ? selectedData.versions.reduce((prev, current) => {
+        const prevScore = (100 - getCostDifference(prev.totalCost)) + (prev.profitMargin * 2) + (prev.deliveryDays < 45 ? 10 : 0)
+        const currentScore = (100 - getCostDifference(current.totalCost)) + (current.profitMargin * 2) + (current.deliveryDays < 45 ? 10 : 0)
+        return currentScore > prevScore ? current : prev
+      })
+    : EMPTY_VERSION
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -197,6 +175,55 @@ export default function BOQComparisonPage() {
         </div>
       </div>
 
+      {/* BOQ Selectors */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">First BOQ</label>
+            <select
+              value={boqId1}
+              onChange={(e) => setBoqId1(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select a BOQ</option>
+              {(Array.isArray(boqList) ? boqList : []).map((b) => (
+                <option key={b.id} value={b.id}>{b.boqNumber} - {b.projectName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Second BOQ</label>
+            <select
+              value={boqId2}
+              onChange={(e) => setBoqId2(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select a BOQ</option>
+              {(Array.isArray(boqList) ? boqList : []).map((b) => (
+                <option key={b.id} value={b.id}>{b.boqNumber} - {b.projectName}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleCompare}
+            disabled={isComparing}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            <GitCompare className="h-5 w-5" />
+            {isComparing ? 'Comparing...' : 'Compare'}
+          </button>
+        </div>
+        {compareError && <p className="mt-2 text-sm text-red-600">{compareError}</p>}
+      </div>
+
+      {!hasData && !isComparing && (
+        <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+          <GitCompare className="h-12 w-12 text-gray-400 mb-2 mx-auto" />
+          <p className="text-gray-600">Select two BOQs above and click Compare to see the analysis</p>
+        </div>
+      )}
+
+      {hasData && (<>
       {/* Project Name */}
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-3 text-white mb-3 shadow-lg">
         <div className="flex items-center gap-3">
@@ -447,6 +474,7 @@ export default function BOQComparisonPage() {
           </ul>
         </div>
       </div>
+      </>)}
     </div>
   )
 }

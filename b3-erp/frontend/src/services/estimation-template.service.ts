@@ -62,6 +62,24 @@ export class EstimationTemplateService {
     return (res as EstimateTemplate) ?? null;
   }
 
+  // POST /estimation/templates/boq — create a BOQ template.
+  async createBoqTemplate(payload: unknown): Promise<EstimateTemplate | null> {
+    const res = (await apiClient.post<EstimateTemplate>(`${this.baseUrl}/boq`, payload)) as unknown;
+    if (res && !Array.isArray(res) && (res as { data?: unknown }).data !== undefined) {
+      return (res as { data: EstimateTemplate }).data;
+    }
+    return (res as EstimateTemplate) ?? null;
+  }
+
+  // PATCH /estimation/templates/boq/:id — update a BOQ template.
+  async updateBoqTemplate(id: string, payload: unknown): Promise<EstimateTemplate | null> {
+    const res = (await apiClient.patch<EstimateTemplate>(`${this.baseUrl}/boq/${id}`, payload)) as unknown;
+    if (res && !Array.isArray(res) && (res as { data?: unknown }).data !== undefined) {
+      return (res as { data: EstimateTemplate }).data;
+    }
+    return (res as EstimateTemplate) ?? null;
+  }
+
   // DELETE /estimation/templates/boq/:id — remove a BOQ template.
   async deleteBoqTemplate(id: string): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/boq/${id}`);

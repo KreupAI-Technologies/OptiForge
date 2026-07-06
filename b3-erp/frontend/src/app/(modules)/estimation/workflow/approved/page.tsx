@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import {
   CheckCircle,
   Eye,
@@ -37,201 +38,64 @@ interface ApprovedEstimate {
   responseReceived: boolean
 }
 
+const companyId = 'default-company-id'
+
 export default function EstimateWorkflowApprovedPage() {
   const router = useRouter()
 
-  const [approvedEstimates] = useState<ApprovedEstimate[]>([
-    {
-      id: 'APP-001',
-      estimateNumber: 'EST-2025-0132',
-      projectName: 'Premium Villa - Complete Kitchen Package',
-      customerName: 'Prestige Estates Pvt Ltd',
-      contactPerson: 'Mr. Ramesh Kumar',
-      category: 'Luxury Modular Kitchen',
-      estimatedValue: 6500000,
-      items: 52,
-      submittedBy: 'Amit Sharma',
-      submittedDate: '2025-10-10',
-      approvedBy: 'Mr. Suresh Iyer',
-      approvedDate: '2025-10-12',
-      approvalTime: '15:30',
-      validUntil: '2025-11-12',
-      daysToExpiry: 23,
-      status: 'sent-to-customer',
-      responseReceived: false
-    },
-    {
-      id: 'APP-002',
-      estimateNumber: 'EST-2025-0133',
-      projectName: 'Multi-Cuisine Restaurant Kitchen',
-      customerName: 'Foodventures Hospitality',
-      contactPerson: 'Ms. Priya Menon',
-      category: 'Commercial Kitchen',
-      estimatedValue: 9800000,
-      items: 68,
-      submittedBy: 'Neha Patel',
-      submittedDate: '2025-10-11',
-      approvedBy: 'Mr. Rajesh Gupta',
-      approvedDate: '2025-10-13',
-      approvalTime: '11:20',
-      validUntil: '2025-11-13',
-      daysToExpiry: 24,
-      status: 'under-negotiation',
-      responseReceived: true
-    },
-    {
-      id: 'APP-003',
-      estimateNumber: 'EST-2025-0134',
-      projectName: 'L-Shaped Kitchen with Island',
-      customerName: 'Mrs. Anjali Reddy',
-      contactPerson: 'Mrs. Anjali Reddy',
-      category: 'Island Kitchen',
-      estimatedValue: 4250000,
-      items: 45,
-      submittedBy: 'Vikram Singh',
-      submittedDate: '2025-10-12',
-      approvedBy: 'Ms. Priya Kapoor',
-      approvedDate: '2025-10-14',
-      approvalTime: '10:15',
-      validUntil: '2025-11-14',
-      daysToExpiry: 25,
-      status: 'sent-to-customer',
-      responseReceived: false
-    },
-    {
-      id: 'APP-004',
-      estimateNumber: 'EST-2025-0128',
-      projectName: 'Builder Package - 75 Units',
-      customerName: 'Lodha Developers Ltd',
-      contactPerson: 'Mr. Karthik Iyer',
-      category: 'Builder Package',
-      estimatedValue: 22500000,
-      items: 22,
-      submittedBy: 'Ravi Kumar',
-      submittedDate: '2025-10-08',
-      approvedBy: 'Mr. Anil Sharma (CEO)',
-      approvedDate: '2025-10-10',
-      approvalTime: '14:00',
-      validUntil: '2025-11-10',
-      daysToExpiry: 21,
-      status: 'awaiting-response',
-      responseReceived: false
-    },
-    {
-      id: 'APP-005',
-      estimateNumber: 'EST-2025-0135',
-      projectName: 'Contemporary Parallel Kitchen',
-      customerName: 'Dr. Vikram Patel',
-      contactPerson: 'Dr. Vikram Patel',
-      category: 'Parallel Kitchen',
-      estimatedValue: 2850000,
-      items: 36,
-      submittedBy: 'Amit Sharma',
-      submittedDate: '2025-10-13',
-      approvedBy: 'Mr. Suresh Iyer',
-      approvedDate: '2025-10-15',
-      approvalTime: '09:45',
-      validUntil: '2025-11-15',
-      daysToExpiry: 26,
-      status: 'sent-to-customer',
-      responseReceived: false
-    },
-    {
-      id: 'APP-006',
-      estimateNumber: 'EST-2025-0136',
-      projectName: 'Hotel Suite Kitchenettes - 50 Units',
-      customerName: 'Marriott International',
-      contactPerson: 'Mr. Aditya Sharma',
-      category: 'Institutional Kitchen',
-      estimatedValue: 8500000,
-      items: 15,
-      submittedBy: 'Neha Patel',
-      submittedDate: '2025-10-14',
-      approvedBy: 'Mr. Rajesh Gupta',
-      approvedDate: '2025-10-16',
-      approvalTime: '16:30',
-      validUntil: '2025-11-16',
-      daysToExpiry: 27,
-      status: 'awaiting-response',
-      responseReceived: false
-    },
-    {
-      id: 'APP-007',
-      estimateNumber: 'EST-2025-0131',
-      projectName: 'Compact Kitchen with Smart Storage',
-      customerName: 'Ms. Neha Kapoor',
-      contactPerson: 'Ms. Neha Kapoor',
-      category: 'Compact Kitchen',
-      estimatedValue: 950000,
-      items: 24,
-      submittedBy: 'Vikram Singh',
-      submittedDate: '2025-10-09',
-      approvedBy: 'Ms. Priya Kapoor',
-      approvedDate: '2025-10-11',
-      approvalTime: '13:15',
-      validUntil: '2025-11-11',
-      daysToExpiry: 22,
-      status: 'sent-to-customer',
-      responseReceived: false
-    },
-    {
-      id: 'APP-008',
-      estimateNumber: 'EST-2025-0129',
-      projectName: 'U-Shaped Kitchen with Breakfast Bar',
-      customerName: 'Mr. Sunil Desai',
-      contactPerson: 'Mr. Sunil Desai',
-      category: 'U-Shaped Kitchen',
-      estimatedValue: 3650000,
-      items: 42,
-      submittedBy: 'Ravi Kumar',
-      submittedDate: '2025-10-08',
-      approvedBy: 'Mr. Suresh Iyer',
-      approvedDate: '2025-10-10',
-      approvalTime: '11:00',
-      validUntil: '2025-11-10',
-      daysToExpiry: 21,
-      status: 'under-negotiation',
-      responseReceived: true
-    },
-    {
-      id: 'APP-009',
-      estimateNumber: 'EST-2025-0130',
-      projectName: 'Open Kitchen with Dining Integration',
-      customerName: 'Mrs. Kavita Joshi',
-      contactPerson: 'Mrs. Kavita Joshi',
-      category: 'Open Kitchen',
-      estimatedValue: 4950000,
-      items: 48,
-      submittedBy: 'Amit Sharma',
-      submittedDate: '2025-10-09',
-      approvedBy: 'Mr. Suresh Iyer',
-      approvedDate: '2025-10-11',
-      approvalTime: '15:45',
-      validUntil: '2025-11-11',
-      daysToExpiry: 22,
-      status: 'awaiting-response',
-      responseReceived: false
-    },
-    {
-      id: 'APP-010',
-      estimateNumber: 'EST-2025-0127',
-      projectName: 'Corporate Cafeteria Kitchen',
-      customerName: 'Infosys Technologies Ltd',
-      contactPerson: 'Mr. Harish Rao',
-      category: 'Institutional Kitchen',
-      estimatedValue: 12500000,
-      items: 58,
-      submittedBy: 'Neha Patel',
-      submittedDate: '2025-10-07',
-      approvedBy: 'Mr. Rajesh Gupta',
-      approvedDate: '2025-10-09',
-      approvalTime: '10:30',
-      validUntil: '2025-11-09',
-      daysToExpiry: 20,
-      status: 'sent-to-customer',
-      responseReceived: false
+  const [approvedEstimates, setApprovedEstimates] = useState<ApprovedEstimate[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        setLoading(true)
+        const data = await costEstimateService.findAll(companyId, { status: 'Approved' })
+        const list = Array.isArray(data) ? data : []
+        const mapped: ApprovedEstimate[] = list.map((e) => {
+          const validUntil = e.validUntil || ''
+          let daysToExpiry = 0
+          if (validUntil) {
+            daysToExpiry = Math.max(
+              0,
+              Math.ceil((new Date(validUntil).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            )
+          }
+          const approvedAt = e.approvedAt ? new Date(e.approvedAt) : null
+          return {
+            id: e.id,
+            estimateNumber: e.estimateNumber,
+            projectName: e.title,
+            customerName: e.customerName || '',
+            contactPerson: e.customerName || '',
+            category: e.estimateType || '',
+            estimatedValue: e.totalCost || 0,
+            items: 0,
+            submittedBy: e.submittedBy || '',
+            submittedDate: e.submittedAt ? e.submittedAt.slice(0, 10) : '',
+            approvedBy: e.approvedBy || '',
+            approvedDate: approvedAt ? approvedAt.toISOString().slice(0, 10) : '',
+            approvalTime: approvedAt ? approvedAt.toISOString().slice(11, 16) : '',
+            validUntil,
+            daysToExpiry,
+            status: 'valid',
+            responseReceived: false,
+          }
+        })
+        if (mounted) setApprovedEstimates(mapped)
+      } catch (err) {
+        console.error('Failed to load approved estimates:', err)
+        if (mounted) setApprovedEstimates([])
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -351,7 +215,20 @@ export default function EstimateWorkflowApprovedPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {approvedEstimates.map((estimate) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
+                    Loading approved estimates...
+                  </td>
+                </tr>
+              ) : approvedEstimates.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
+                    No approved estimates found.
+                  </td>
+                </tr>
+              ) : (
+                approvedEstimates.map((estimate) => (
                 <tr key={estimate.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -410,7 +287,8 @@ export default function EstimateWorkflowApprovedPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

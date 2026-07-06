@@ -4,7 +4,10 @@ export const dynamic = 'force-dynamic';
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import { ArrowLeft, Save, FileText, Plus, Trash2, Calculator } from 'lucide-react'
+
+const companyId = 'default-company-id'
 
 interface EstimateItem {
   id: string
@@ -28,6 +31,7 @@ export default function CreateDraftPage() {
   const [category, setCategory] = useState('Modular Kitchen')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<EstimateItem[]>([])
+  const [saving, setSaving] = useState(false)
 
   const categories = [
     'Modular Kitchen',
@@ -103,22 +107,39 @@ export default function CreateDraftPage() {
     return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0
   }
 
-  const handleSaveDraft = () => {
-    const draft = {
-      projectName,
-      customerName,
-      contactPerson,
-      category,
-      notes,
-      items,
-      estimatedValue: calculateTotal(),
-      completionPercent: calculateCompletion(),
-      createdAt: new Date().toISOString()
+  const handleSaveDraft = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      const estimateItems = items.map((item) => ({
+        itemNumber: item.itemCode,
+        description: item.description,
+        category: item.category,
+        unit: item.unit,
+        quantity: item.quantity,
+        unitCost: item.rate,
+        totalCost: item.amount,
+      }))
+      await costEstimateService.create(
+        companyId,
+        {
+          title: projectName,
+          estimateType: 'Preliminary',
+          currency: 'INR',
+          status: 'Draft',
+          customerName,
+          description: notes,
+          totalCost: calculateTotal(),
+        },
+        estimateItems
+      )
+      router.push('/estimation/workflow/drafts')
+    } catch (err) {
+      console.error('Failed to save draft:', err)
+      alert('Failed to save draft. Please try again.')
+    } finally {
+      setSaving(false)
     }
-
-    console.log('Saving draft:', draft)
-    // Would make API call here
-    router.push('/estimation/workflow/drafts')
   }
 
   const handleCancel = () => {
@@ -152,10 +173,11 @@ export default function CreateDraftPage() {
             </div>
             <button
               onClick={handleSaveDraft}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Save Draft
+              {saving ? 'Saving...' : 'Save Draft'}
             </button>
           </div>
         </div>
@@ -385,10 +407,11 @@ export default function CreateDraftPage() {
             </button>
             <button
               onClick={handleSaveDraft}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Save Draft
+              {saving ? 'Saving...' : 'Save Draft'}
             </button>
           </div>
         </div>

@@ -1,8 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
+
+const companyId = 'default-company-id'
 import {
   Users,
   TrendingUp,
@@ -57,218 +60,49 @@ export default function SubcontractorsRatesPage() {
     router.push(`/estimation/rates/subcontractors/history/${subcontractorId}`)
   }
 
-  const [subcontractorRates] = useState<SubcontractorRate[]>([
-    {
-      id: 'SUB-R-001',
-      contractorCode: 'SUB-INST-001',
-      contractorName: 'Premium Kitchen Installers Pvt Ltd',
-      serviceType: 'Installation',
-      specialization: ['Modular Kitchen', 'Countertops', 'Cabinets'],
-      rateType: 'per-sqft',
-      rate: 125,
-      unit: 'SQ.FT',
-      rating: 4.8,
-      projectsCompleted: 145,
-      contactPerson: 'Mr. Rajesh Kumar',
-      phone: '+91-98765-43210',
-      email: 'rajesh@premiuminstall.com',
-      minimumOrder: 100,
-      leadTime: 3,
-      paymentTerms: 'Net 15',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-002',
-      contractorCode: 'SUB-PLUMB-001',
-      contractorName: 'Expert Plumbing Services',
-      serviceType: 'Plumbing',
-      specialization: ['Kitchen Plumbing', 'Gas Lines', 'Water Supply'],
-      rateType: 'per-hour',
-      rate: 450,
-      unit: 'HOUR',
-      rating: 4.6,
-      projectsCompleted: 230,
-      contactPerson: 'Mr. Suresh Iyer',
-      phone: '+91-98765-43211',
-      email: 'contact@expertplumb.com',
-      minimumOrder: 4,
-      leadTime: 1,
-      paymentTerms: 'Net 7',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-003',
-      contractorCode: 'SUB-ELEC-001',
-      contractorName: 'Bright Spark Electricals',
-      serviceType: 'Electrical',
-      specialization: ['Kitchen Wiring', 'Chimney Installation', 'Appliance Hookup'],
-      rateType: 'per-unit',
-      rate: 850,
-      unit: 'POINT',
-      rating: 4.7,
-      projectsCompleted: 185,
-      contactPerson: 'Mr. Anil Sharma',
-      phone: '+91-98765-43212',
-      email: 'anil@brightspark.in',
-      minimumOrder: 5,
-      leadTime: 2,
-      paymentTerms: 'Net 10',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-004',
-      contractorCode: 'SUB-STONE-001',
-      contractorName: 'Master Stone Works',
-      serviceType: 'Stone Fabrication',
-      specialization: ['Granite Cutting', 'Quartz Fabrication', 'Installation'],
-      rateType: 'per-sqft',
-      rate: 180,
-      unit: 'SQ.FT',
-      rating: 4.9,
-      projectsCompleted: 98,
-      contactPerson: 'Mr. Karthik Reddy',
-      phone: '+91-98765-43213',
-      email: 'karthik@masterstoneworks.com',
-      minimumOrder: 25,
-      leadTime: 5,
-      paymentTerms: '50% Advance, 50% on completion',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-005',
-      contractorCode: 'SUB-PAINT-001',
-      contractorName: 'Color Perfect Painters',
-      serviceType: 'Painting & Finishing',
-      specialization: ['Cabinet Finishing', 'Powder Coating', 'Touch-ups'],
-      rateType: 'per-sqft',
-      rate: 65,
-      unit: 'SQ.FT',
-      rating: 4.5,
-      projectsCompleted: 267,
-      contactPerson: 'Mr. Vikram Singh',
-      phone: '+91-98765-43214',
-      email: 'vikram@colorperfect.in',
-      minimumOrder: 200,
-      leadTime: 2,
-      paymentTerms: 'Net 15',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-006',
-      contractorCode: 'SUB-GLASS-001',
-      contractorName: 'Crystal Clear Glass Works',
-      serviceType: 'Glass Work',
-      specialization: ['Cabinet Glass', 'Splashbacks', 'Custom Panels'],
-      rateType: 'per-sqft',
-      rate: 450,
-      unit: 'SQ.FT',
-      rating: 4.6,
-      projectsCompleted: 142,
-      contactPerson: 'Ms. Priya Desai',
-      phone: '+91-98765-43215',
-      email: 'priya@crystalclear.com',
-      minimumOrder: 10,
-      leadTime: 7,
-      paymentTerms: '60% Advance, 40% on completion',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-007',
-      contractorCode: 'SUB-DEMO-001',
-      contractorName: 'Quick Demolition Services',
-      serviceType: 'Demolition',
-      specialization: ['Kitchen Removal', 'Debris Disposal', 'Site Prep'],
-      rateType: 'per-sqft',
-      rate: 45,
-      unit: 'SQ.FT',
-      rating: 4.3,
-      projectsCompleted: 312,
-      contactPerson: 'Mr. Ramesh Patel',
-      phone: '+91-98765-43216',
-      email: 'ramesh@quickdemo.in',
-      minimumOrder: 50,
-      leadTime: 1,
-      paymentTerms: 'COD',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-008',
-      contractorCode: 'SUB-TILE-001',
-      contractorName: 'Pro Tiling Solutions',
-      serviceType: 'Tiling',
-      specialization: ['Backsplash', 'Floor Tiles', 'Wall Tiles'],
-      rateType: 'per-sqft',
-      rate: 85,
-      unit: 'SQ.FT',
-      rating: 4.7,
-      projectsCompleted: 198,
-      contactPerson: 'Mr. Deepak Malhotra',
-      phone: '+91-98765-43217',
-      email: 'deepak@protiling.com',
-      minimumOrder: 100,
-      leadTime: 3,
-      paymentTerms: 'Net 10',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-009',
-      contractorCode: 'SUB-HVAC-001',
-      contractorName: 'Cool Air HVAC Services',
-      serviceType: 'HVAC',
-      specialization: ['Chimney Ducting', 'Ventilation', 'Exhaust Systems'],
-      rateType: 'per-unit',
-      rate: 3500,
-      unit: 'POINT',
-      rating: 4.8,
-      projectsCompleted: 124,
-      contactPerson: 'Mr. Arvind Kumar',
-      phone: '+91-98765-43218',
-      email: 'arvind@coolair.in',
-      minimumOrder: 1,
-      leadTime: 4,
-      paymentTerms: '40% Advance, 60% on completion',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
-    },
-    {
-      id: 'SUB-R-010',
-      contractorCode: 'SUB-CARP-001',
-      contractorName: 'Woodcraft Custom Carpentry',
-      serviceType: 'Carpentry',
-      specialization: ['Custom Cabinets', 'Modifications', 'Repairs'],
-      rateType: 'per-hour',
-      rate: 520,
-      unit: 'HOUR',
-      rating: 4.9,
-      projectsCompleted: 156,
-      contactPerson: 'Mr. Sunil Verma',
-      phone: '+91-98765-43219',
-      email: 'sunil@woodcraft.in',
-      minimumOrder: 4,
-      leadTime: 2,
-      paymentTerms: 'Net 7',
-      effectiveFrom: '2025-10-01',
-      lastUpdated: '2025-10-01',
-      status: 'active'
+  const [subcontractorRates, setSubcontractorRates] = useState<SubcontractorRate[]>([])
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const data = await estimationResourceRateService.findAllSubcontractorRates(companyId)
+        const list = Array.isArray(data) ? data : []
+        const mapped: SubcontractorRate[] = list.map((s) => {
+          const firstService = Array.isArray(s?.services) && s.services.length > 0 ? s.services[0] : undefined
+          return {
+            id: s?.id || '',
+            contractorCode: s?.subcontractorId || '',
+            contractorName: s?.subcontractorName || '',
+            serviceType: firstService?.serviceName || '',
+            specialization: Array.isArray(s?.services) ? s.services.map((sv) => sv?.serviceName).filter(Boolean) : [],
+            rateType: 'fixed',
+            rate: firstService?.rate ?? 0,
+            unit: firstService?.unit || '',
+            rating: s?.performanceRating ?? 0,
+            projectsCompleted: 0,
+            contactPerson: s?.contactPerson || '',
+            phone: s?.phone || '',
+            email: s?.email || '',
+            minimumOrder: firstService?.minimumCharge ?? 0,
+            leadTime: 0,
+            paymentTerms: '',
+            effectiveFrom: s?.createdAt || '',
+            lastUpdated: s?.createdAt || '',
+            status: s?.isActive ? 'active' : 'inactive',
+          }
+        })
+        if (active) setSubcontractorRates(mapped)
+      } catch (error) {
+        console.error('Failed to load subcontractor rates:', error)
+        if (active) setSubcontractorRates([])
+      }
     }
-  ])
+    load()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -291,7 +125,9 @@ export default function SubcontractorsRatesPage() {
   }
 
   const totalSubcontractors = subcontractorRates.length
-  const avgRating = subcontractorRates.reduce((sum, s) => sum + s.rating, 0) / totalSubcontractors
+  const avgRating = totalSubcontractors > 0
+    ? subcontractorRates.reduce((sum, s) => sum + s.rating, 0) / totalSubcontractors
+    : 0
   const activeCount = subcontractorRates.filter(s => s.status === 'active').length
   const totalProjects = subcontractorRates.reduce((sum, s) => sum + s.projectsCompleted, 0)
 
