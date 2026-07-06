@@ -34,164 +34,7 @@ export default function Page() {
   const [selectedReadiness, setSelectedReadiness] = useState<string>('all');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
 
-  const mockAssessments: ReadinessAssessment[] = [
-    {
-      id: '1',
-      name: 'Kavita Singh',
-      employeeCode: 'EMP008',
-      currentRole: 'IT Lead',
-      targetRole: 'CTO',
-      department: 'IT',
-      photo: '👩‍💼',
-      readinessLevel: 'ready_now',
-      overallScore: 92,
-      technicalReadiness: 95,
-      leadershipReadiness: 90,
-      strategicReadiness: 88,
-      culturalFit: 95,
-      businessAcumen: 90,
-      gapAreas: ['Board-level communication', 'P&L management experience'],
-      developmentActions: [
-        { action: 'Executive Leadership Program', status: 'in_progress', dueDate: '2025-03-31' },
-        { action: 'CFO shadowing for P&L exposure', status: 'planned', dueDate: '2025-06-30' },
-        { action: 'Board presentation training', status: 'planned', dueDate: '2025-05-15' }
-      ],
-      estimatedReadyDate: '2025-07-01',
-      assessmentDate: '2025-01-15',
-      assessor: 'Rajesh Kumar (CTO)'
-    },
-    {
-      id: '2',
-      name: 'Arjun Kapoor',
-      employeeCode: 'EMP007',
-      currentRole: 'Sales Lead',
-      targetRole: 'VP Sales',
-      department: 'Sales',
-      photo: '👨‍💼',
-      readinessLevel: '6_months',
-      overallScore: 85,
-      technicalReadiness: 82,
-      leadershipReadiness: 88,
-      strategicReadiness: 80,
-      culturalFit: 90,
-      businessAcumen: 85,
-      gapAreas: ['Multi-regional management', 'Strategic planning', 'Larger team leadership'],
-      developmentActions: [
-        { action: 'Leadership Development Program', status: 'in_progress', dueDate: '2025-04-30' },
-        { action: 'Regional sales strategy project', status: 'in_progress', dueDate: '2025-05-31' },
-        { action: 'Cross-regional team management', status: 'planned', dueDate: '2025-06-30' }
-      ],
-      estimatedReadyDate: '2025-07-15',
-      assessmentDate: '2025-01-10',
-      assessor: 'Priya Sharma (VP Sales)'
-    },
-    {
-      id: '3',
-      name: 'Rahul Mehta',
-      employeeCode: 'EMP015',
-      currentRole: 'Finance Manager',
-      targetRole: 'CFO',
-      department: 'Finance',
-      photo: '👨‍💼',
-      readinessLevel: '1_year',
-      overallScore: 78,
-      technicalReadiness: 88,
-      leadershipReadiness: 75,
-      strategicReadiness: 72,
-      culturalFit: 85,
-      businessAcumen: 75,
-      gapAreas: ['Executive leadership', 'Board interactions', 'Strategic business planning', 'Investor relations'],
-      developmentActions: [
-        { action: 'CFO mentorship program', status: 'in_progress', dueDate: '2025-06-30' },
-        { action: 'Executive MBA (Finance focus)', status: 'in_progress', dueDate: '2026-01-31' },
-        { action: 'Board meeting shadowing', status: 'planned', dueDate: '2025-08-31' },
-        { action: 'Investor presentation training', status: 'planned', dueDate: '2025-09-30' }
-      ],
-      estimatedReadyDate: '2026-01-15',
-      assessmentDate: '2025-01-12',
-      assessor: 'Suresh Iyer (CFO)'
-    },
-    {
-      id: '4',
-      name: 'Neha Gupta',
-      employeeCode: 'EMP012',
-      currentRole: 'HR Manager',
-      targetRole: 'CHRO',
-      department: 'HR',
-      photo: '👩‍💼',
-      readinessLevel: '1_year',
-      overallScore: 80,
-      technicalReadiness: 85,
-      leadershipReadiness: 78,
-      strategicReadiness: 75,
-      culturalFit: 88,
-      businessAcumen: 72,
-      gapAreas: ['C-suite leadership', 'Organizational transformation', 'Business strategy alignment'],
-      developmentActions: [
-        { action: 'Senior HR Leadership Program', status: 'in_progress', dueDate: '2025-05-31' },
-        { action: 'Business strategy workshops', status: 'in_progress', dueDate: '2025-07-31' },
-        { action: 'Change management certification', status: 'planned', dueDate: '2025-08-31' },
-        { action: 'Executive coaching', status: 'in_progress', dueDate: '2025-12-31' }
-      ],
-      estimatedReadyDate: '2026-02-01',
-      assessmentDate: '2025-01-08',
-      assessor: 'Anjali Desai (CHRO)'
-    },
-    {
-      id: '5',
-      name: 'Vikram Singh',
-      employeeCode: 'EMP020',
-      currentRole: 'Operations Manager',
-      targetRole: 'COO',
-      department: 'Operations',
-      photo: '👨‍💼',
-      readinessLevel: '2_years',
-      overallScore: 72,
-      technicalReadiness: 78,
-      leadershipReadiness: 70,
-      strategicReadiness: 68,
-      culturalFit: 80,
-      businessAcumen: 65,
-      gapAreas: ['Executive leadership', 'Cross-functional leadership', 'Strategic planning', 'Business transformation'],
-      developmentActions: [
-        { action: 'Executive Development Program', status: 'planned', dueDate: '2025-09-30' },
-        { action: 'Cross-functional project leadership', status: 'in_progress', dueDate: '2025-12-31' },
-        { action: 'Strategic operations planning', status: 'planned', dueDate: '2026-03-31' },
-        { action: 'Business transformation project', status: 'planned', dueDate: '2026-06-30' }
-      ],
-      estimatedReadyDate: '2027-01-01',
-      assessmentDate: '2025-01-05',
-      assessor: 'Ramesh Nair (COO)'
-    },
-    {
-      id: '6',
-      name: 'Priya Reddy',
-      employeeCode: 'EMP025',
-      currentRole: 'Marketing Manager',
-      targetRole: 'CMO',
-      department: 'Marketing',
-      photo: '👩‍💼',
-      readinessLevel: '2_years',
-      overallScore: 75,
-      technicalReadiness: 80,
-      leadershipReadiness: 72,
-      strategicReadiness: 70,
-      culturalFit: 82,
-      businessAcumen: 70,
-      gapAreas: ['Executive presence', 'Brand strategy at scale', 'Digital transformation leadership'],
-      developmentActions: [
-        { action: 'Advanced Marketing Leadership', status: 'in_progress', dueDate: '2025-08-31' },
-        { action: 'Digital marketing transformation project', status: 'in_progress', dueDate: '2026-01-31' },
-        { action: 'Executive branding workshop', status: 'planned', dueDate: '2026-06-30' },
-        { action: 'CMO mentorship program', status: 'planned', dueDate: '2026-09-30' }
-      ],
-      estimatedReadyDate: '2027-02-01',
-      assessmentDate: '2025-01-07',
-      assessor: 'Amit Verma (CMO)'
-    }
-  ];
-
-  const [rows, setRows] = useState<ReadinessAssessment[]>(mockAssessments);
+  const [rows, setRows] = useState<ReadinessAssessment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -199,9 +42,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<ReadinessAssessment>('talent-readiness');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -257,7 +100,7 @@ export default function Page() {
   const totalAssessments = rows.length;
   const readyNow = rows.filter(a => a.readinessLevel === 'ready_now').length;
   const readySoon = rows.filter(a => ['6_months', '1_year'].includes(a.readinessLevel)).length;
-  const avgScore = Math.round(rows.reduce((sum, a) => sum + a.overallScore, 0) / totalAssessments);
+  const avgScore = totalAssessments ? Math.round(rows.reduce((sum, a) => sum + a.overallScore, 0) / totalAssessments) : 0;
 
   return (
     <div className="w-full h-full px-3 py-2">

@@ -28,115 +28,7 @@ export default function Page() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockPlans: SuccessionPlan[] = [
-    {
-      id: '1',
-      planId: 'SP-2024-001',
-      positionTitle: 'Chief Technology Officer',
-      department: 'IT',
-      currentHolder: 'Rajesh Kumar',
-      status: 'on_track',
-      progress: 75,
-      successors: 3,
-      readySuccessors: 1,
-      startDate: '2024-01-15',
-      targetDate: '2025-06-30',
-      lastUpdated: '2024-10-20',
-      milestones: [
-        { name: 'Identify successors', completed: true, dueDate: '2024-03-01' },
-        { name: 'Assessment complete', completed: true, dueDate: '2024-06-01' },
-        { name: 'Development plans created', completed: true, dueDate: '2024-08-01' },
-        { name: 'Training in progress', completed: false, dueDate: '2025-03-01' },
-        { name: 'Ready for transition', completed: false, dueDate: '2025-06-01' }
-      ]
-    },
-    {
-      id: '2',
-      planId: 'SP-2024-002',
-      positionTitle: 'VP Sales',
-      department: 'Sales',
-      currentHolder: 'Priya Sharma',
-      status: 'at_risk',
-      progress: 45,
-      successors: 2,
-      readySuccessors: 0,
-      startDate: '2024-02-01',
-      targetDate: '2025-03-31',
-      lastUpdated: '2024-10-18',
-      milestones: [
-        { name: 'Identify successors', completed: true, dueDate: '2024-04-01' },
-        { name: 'Assessment complete', completed: true, dueDate: '2024-07-01' },
-        { name: 'Development plans created', completed: false, dueDate: '2024-09-01' },
-        { name: 'Training in progress', completed: false, dueDate: '2025-01-01' },
-        { name: 'Ready for transition', completed: false, dueDate: '2025-03-01' }
-      ]
-    },
-    {
-      id: '3',
-      planId: 'SP-2024-003',
-      positionTitle: 'Finance Manager',
-      department: 'Finance',
-      currentHolder: 'Neha Gupta',
-      status: 'completed',
-      progress: 100,
-      successors: 2,
-      readySuccessors: 2,
-      startDate: '2023-10-01',
-      targetDate: '2024-09-30',
-      lastUpdated: '2024-09-30',
-      milestones: [
-        { name: 'Identify successors', completed: true, dueDate: '2023-12-01' },
-        { name: 'Assessment complete', completed: true, dueDate: '2024-03-01' },
-        { name: 'Development plans created', completed: true, dueDate: '2024-05-01' },
-        { name: 'Training in progress', completed: true, dueDate: '2024-08-01' },
-        { name: 'Ready for transition', completed: true, dueDate: '2024-09-30' }
-      ]
-    },
-    {
-      id: '4',
-      planId: 'SP-2024-004',
-      positionTitle: 'Operations Lead',
-      department: 'Operations',
-      currentHolder: 'Vikram Singh',
-      status: 'delayed',
-      progress: 30,
-      successors: 1,
-      readySuccessors: 0,
-      startDate: '2024-03-01',
-      targetDate: '2024-12-31',
-      lastUpdated: '2024-10-15',
-      milestones: [
-        { name: 'Identify successors', completed: true, dueDate: '2024-05-01' },
-        { name: 'Assessment complete', completed: false, dueDate: '2024-07-01' },
-        { name: 'Development plans created', completed: false, dueDate: '2024-09-01' },
-        { name: 'Training in progress', completed: false, dueDate: '2024-11-01' },
-        { name: 'Ready for transition', completed: false, dueDate: '2024-12-31' }
-      ]
-    },
-    {
-      id: '5',
-      planId: 'SP-2024-005',
-      positionTitle: 'HR Manager',
-      department: 'HR',
-      currentHolder: 'Sunita Reddy',
-      status: 'on_track',
-      progress: 60,
-      successors: 2,
-      readySuccessors: 1,
-      startDate: '2024-04-01',
-      targetDate: '2025-09-30',
-      lastUpdated: '2024-10-22',
-      milestones: [
-        { name: 'Identify successors', completed: true, dueDate: '2024-06-01' },
-        { name: 'Assessment complete', completed: true, dueDate: '2024-08-01' },
-        { name: 'Development plans created', completed: true, dueDate: '2024-10-01' },
-        { name: 'Training in progress', completed: false, dueDate: '2025-06-01' },
-        { name: 'Ready for transition', completed: false, dueDate: '2025-09-30' }
-      ]
-    }
-  ];
-
-  const [rows, setRows] = useState<SuccessionPlan[]>(mockPlans);
+  const [rows, setRows] = useState<SuccessionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -144,9 +36,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<SuccessionPlan>('plan');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

@@ -28,60 +28,7 @@ interface TalentProfile {
 export default function Page() {
   const [selectedEmployee, setSelectedEmployee] = useState('1');
 
-  const mockProfiles: TalentProfile[] = [
-    {
-      id: '1',
-      name: 'Kavita Singh',
-      employeeCode: 'EMP008',
-      currentRole: 'IT Lead',
-      department: 'IT',
-      photo: '👩‍💼',
-      performanceScore: 95,
-      potentialScore: 95,
-      yearsInCompany: 12,
-      totalExperience: 15,
-      education: ['B.Tech Computer Science - IIT Delhi', 'MBA Technology Management - IIM Bangalore'],
-      certifications: ['PMP', 'AWS Solutions Architect', 'Agile Scrum Master', 'TOGAF'],
-      skills: [
-        { name: 'Technology Strategy', level: 95 },
-        { name: 'Team Leadership', level: 90 },
-        { name: 'Cloud Architecture', level: 88 },
-        { name: 'Digital Transformation', level: 92 }
-      ],
-      careerAspirations: ['CTO', 'VP Engineering', 'Chief Digital Officer'],
-      successorFor: ['CTO', 'VP Technology'],
-      developmentPlan: 'Executive Leadership Program - Q1 2025',
-      mentor: 'Rajesh Kumar (CTO)',
-      lastPromotionDate: '2022-04-01'
-    },
-    {
-      id: '2',
-      name: 'Arjun Kapoor',
-      employeeCode: 'EMP007',
-      currentRole: 'Sales Lead',
-      department: 'Sales',
-      photo: '👨‍💼',
-      performanceScore: 85,
-      potentialScore: 95,
-      yearsInCompany: 8,
-      totalExperience: 10,
-      education: ['BBA - Mumbai University', 'MBA Marketing - XLRI Jamshedpur'],
-      certifications: ['Certified Sales Professional', 'Key Account Management', 'Negotiation Expert'],
-      skills: [
-        { name: 'Sales Strategy', level: 85 },
-        { name: 'Client Relations', level: 92 },
-        { name: 'Negotiation', level: 90 },
-        { name: 'Team Management', level: 75 }
-      ],
-      careerAspirations: ['VP Sales', 'Regional Sales Director', 'Business Head'],
-      successorFor: ['Sales Manager', 'VP Sales'],
-      developmentPlan: 'Leadership Development Program - Q2 2025',
-      mentor: 'Priya Sharma (VP Sales)',
-      lastPromotionDate: '2023-01-15'
-    }
-  ];
-
-  const [rows, setRows] = useState<TalentProfile[]>(mockProfiles);
+  const [rows, setRows] = useState<TalentProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -89,9 +36,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<TalentProfile>('talent-profile');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -132,6 +79,8 @@ export default function Page() {
         </select>
       </div>
 
+      {selectedProfile && (
+      <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-3">
         <div className="flex items-start gap-3 mb-3">
           <div className="text-6xl">{selectedProfile.photo}</div>
@@ -261,6 +210,8 @@ export default function Page() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

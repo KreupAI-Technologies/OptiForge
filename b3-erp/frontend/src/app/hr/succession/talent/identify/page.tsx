@@ -23,80 +23,7 @@ export default function Page() {
   const [selectedClassification, setSelectedClassification] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockTalent: TalentEmployee[] = [
-    {
-      id: '1',
-      name: 'Kavita Singh',
-      employeeCode: 'EMP008',
-      currentPosition: 'IT Lead',
-      department: 'IT',
-      performance: 95,
-      potential: 95,
-      classification: 'star',
-      readyFor: ['CTO', 'VP Technology'],
-      strengths: ['Strategic Thinking', 'Technical Excellence', 'Team Leadership'],
-      developmentAreas: ['Executive Communication', 'Business Acumen'],
-      experienceYears: 12
-    },
-    {
-      id: '2',
-      name: 'Arjun Kapoor',
-      employeeCode: 'EMP007',
-      currentPosition: 'Sales Lead',
-      department: 'Sales',
-      performance: 85,
-      potential: 95,
-      classification: 'high_potential',
-      readyFor: ['Sales Manager', 'VP Sales'],
-      strengths: ['Client Relations', 'Negotiation', 'Results Orientation'],
-      developmentAreas: ['Strategic Planning', 'Team Management'],
-      experienceYears: 8
-    },
-    {
-      id: '3',
-      name: 'Divya Nair',
-      employeeCode: 'EMP010',
-      currentPosition: 'Financial Analyst',
-      department: 'Finance',
-      performance: 75,
-      potential: 90,
-      classification: 'high_potential',
-      readyFor: ['Finance Manager'],
-      strengths: ['Analytical Skills', 'Attention to Detail', 'Problem Solving'],
-      developmentAreas: ['Leadership', 'Strategic Thinking'],
-      experienceYears: 5
-    },
-    {
-      id: '4',
-      name: 'Amit Patel',
-      employeeCode: 'EMP003',
-      currentPosition: 'Marketing Manager',
-      department: 'Marketing',
-      performance: 90,
-      potential: 80,
-      classification: 'core_player',
-      readyFor: ['Senior Marketing Manager'],
-      strengths: ['Marketing Strategy', 'Brand Management', 'Digital Marketing'],
-      developmentAreas: ['People Leadership', 'Executive Presence'],
-      experienceYears: 10
-    },
-    {
-      id: '5',
-      name: 'Rohan Mehta',
-      employeeCode: 'EMP009',
-      currentPosition: 'Production Supervisor',
-      department: 'Operations',
-      performance: 85,
-      potential: 85,
-      classification: 'high_potential',
-      readyFor: ['Operations Manager'],
-      strengths: ['Operational Excellence', 'Process Improvement', 'Quality Focus'],
-      developmentAreas: ['Strategic Planning', 'Cross-Functional Collaboration'],
-      experienceYears: 7
-    }
-  ];
-
-  const [rows, setRows] = useState<TalentEmployee[]>(mockTalent);
+  const [rows, setRows] = useState<TalentEmployee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -104,9 +31,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<TalentEmployee>('talent');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

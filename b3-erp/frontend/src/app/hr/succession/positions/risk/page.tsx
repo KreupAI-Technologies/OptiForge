@@ -23,70 +23,7 @@ interface PositionRisk {
 export default function Page() {
   const [selectedRiskLevel, setSelectedRiskLevel] = useState('all');
 
-  const mockRisks: PositionRisk[] = [
-    {
-      id: '1',
-      title: 'Chief Technology Officer',
-      department: 'IT',
-      currentHolder: 'Rajesh Kumar',
-      riskScore: 85,
-      riskLevel: 'critical',
-      retirementRisk: 95,
-      turnoverRisk: 40,
-      knowledgeConcentration: 90,
-      successorReadiness: 30,
-      businessImpact: 100,
-      mitigationActions: ['Accelerate successor development', 'Knowledge transfer program', 'External hiring pipeline'],
-      timeline: '6 months'
-    },
-    {
-      id: '2',
-      title: 'VP Sales',
-      department: 'Sales',
-      currentHolder: 'Priya Sharma',
-      riskScore: 70,
-      riskLevel: 'high',
-      retirementRisk: 20,
-      turnoverRisk: 75,
-      knowledgeConcentration: 80,
-      successorReadiness: 50,
-      businessImpact: 95,
-      mitigationActions: ['Fast-track high potential', 'Document client relationships', 'Strengthen team capability'],
-      timeline: '12 months'
-    },
-    {
-      id: '3',
-      title: 'Finance Manager',
-      department: 'Finance',
-      currentHolder: 'Neha Gupta',
-      riskScore: 45,
-      riskLevel: 'medium',
-      retirementRisk: 30,
-      turnoverRisk: 45,
-      knowledgeConcentration: 60,
-      successorReadiness: 70,
-      businessImpact: 70,
-      mitigationActions: ['Continue current development plan', 'Cross-training initiatives'],
-      timeline: '18 months'
-    },
-    {
-      id: '4',
-      title: 'Operations Lead',
-      department: 'Operations',
-      currentHolder: 'Vikram Singh',
-      riskScore: 65,
-      riskLevel: 'high',
-      retirementRisk: 40,
-      turnoverRisk: 55,
-      knowledgeConcentration: 85,
-      successorReadiness: 35,
-      businessImpact: 85,
-      mitigationActions: ['Identify additional successors', 'Process documentation', 'Leadership training'],
-      timeline: '9 months'
-    }
-  ];
-
-  const [rows, setRows] = useState<PositionRisk[]>(mockRisks);
+  const [rows, setRows] = useState<PositionRisk[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -94,9 +31,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getSuccession<PositionRisk>('position-risk');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
