@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Activity,
@@ -1152,23 +1153,111 @@ export default function ProductionFloorViewPage() {
     ],
   });
 
+  // Load real floor-activity data from the API and merge it over the mock
+  // fallback (which keeps the JSX from crashing when the backend returns
+  // partial rows). Raw ORM fields are mapped defensively.
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => {
-      setLoading(false);
-      setLastRefreshTime(new Date().toLocaleTimeString());
-    }, 1000);
+    let cancelled = false;
+
+    const loadFloorData = async () => {
+      try {
+        let raw: any = null;
+        if (floorId) {
+          try {
+            raw = await ProductionOrphanService.getFloorActivity(floorId);
+          } catch {
+            // Fall through to list fetch below if single-record fetch fails.
+          }
+        }
+        if (!raw) {
+          const list = await ProductionOrphanService.getFloorActivities();
+          if (Array.isArray(list)) {
+            raw =
+              list.find((a: any) => String(a?.id) === String(floorId)) ||
+              list[0] ||
+              null;
+          }
+        }
+
+        if (!cancelled && raw && typeof raw === 'object') {
+          setFloorData((prev) => {
+            const num = (v: any, fallback: number) =>
+              v === null || v === undefined || Number.isNaN(Number(v))
+                ? fallback
+                : Number(v);
+            const str = (v: any, fallback: string) =>
+              v === null || v === undefined ? fallback : String(v);
+            const arr = <T,>(v: any, fallback: T[]): T[] =>
+              Array.isArray(v) ? v : fallback;
+
+            return {
+              ...prev,
+              id: str(raw.id, prev.id),
+              floorName: str(raw.floorName ?? raw.name, prev.floorName),
+              workCenterName: str(
+                raw.workCenterName ?? raw.workCenter,
+                prev.workCenterName
+              ),
+              shift: str(raw.shift, prev.shift),
+              shiftStartTime: str(raw.shiftStartTime, prev.shiftStartTime),
+              shiftEndTime: str(raw.shiftEndTime, prev.shiftEndTime),
+              date: str(raw.date, prev.date),
+              status: str(raw.status, prev.status) as ProductionFloorData['status'],
+              activeWorkOrders: num(raw.activeWorkOrders, prev.activeWorkOrders),
+              outputToday: num(raw.outputToday ?? raw.producedQuantity, prev.outputToday),
+              outputTarget: num(raw.outputTarget ?? raw.targetQuantity, prev.outputTarget),
+              oee: num(raw.oee, prev.oee),
+              availability: num(raw.availability, prev.availability),
+              performance: num(raw.performance, prev.performance),
+              quality: num(raw.quality, prev.quality),
+              downtimeHours: num(raw.downtimeHours, prev.downtimeHours),
+              plannedDowntime: num(raw.plannedDowntime, prev.plannedDowntime),
+              unplannedDowntime: num(raw.unplannedDowntime, prev.unplannedDowntime),
+              supervisor: str(raw.supervisor, prev.supervisor),
+              totalOperators: num(raw.totalOperators, prev.totalOperators),
+              activeOperators: num(raw.activeOperators, prev.activeOperators),
+              floorActivities: arr(raw.floorActivities, prev.floorActivities),
+              operatorPerformance: arr(raw.operatorPerformance, prev.operatorPerformance),
+              materialConsumption: arr(raw.materialConsumption, prev.materialConsumption),
+              toolTracking: arr(raw.toolTracking, prev.toolTracking),
+              downtimeAlerts: arr(raw.downtimeAlerts, prev.downtimeAlerts),
+              materialRequests: arr(raw.materialRequests, prev.materialRequests),
+              qualityAlerts: arr(raw.qualityAlerts, prev.qualityAlerts),
+              shiftHandoverNotes: arr(raw.shiftHandoverNotes, prev.shiftHandoverNotes),
+              activityTimeline: arr(raw.activityTimeline, prev.activityTimeline),
+            };
+          });
+        }
+      } catch (err) {
+        // Keep the mock fallback rendering if the API is unavailable.
+        console.error('Failed to load floor activity', err);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setLastRefreshTime(new Date().toLocaleTimeString());
+        }
+      }
+    };
+
+    loadFloorData();
 
     // Auto-refresh every minute
     if (autoRefresh) {
       const interval = setInterval(() => {
         setLastRefreshTime(new Date().toLocaleTimeString());
-        // In real app, fetch fresh data here
+        loadFloorData();
       }, 60000);
 
-      return () => clearInterval(interval);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+      };
     }
-  }, [autoRefresh]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoRefresh, floorId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

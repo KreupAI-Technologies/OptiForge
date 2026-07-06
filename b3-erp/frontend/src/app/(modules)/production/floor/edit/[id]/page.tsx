@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   Save,
@@ -124,6 +125,52 @@ export default function ProductionFloorEditPage() {
 
   const [notes, setNotes] = useState('');
   const [backflush, setBackflush] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Load the existing floor activity into the form on mount. Raw ORM fields
+  // are mapped defensively so missing values fall back to the empty defaults.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadActivity = async () => {
+      if (!floorId) return;
+      try {
+        const raw: any = await ProductionOrphanService.getFloorActivity(floorId);
+        if (cancelled || !raw || typeof raw !== 'object') return;
+
+        setProductionEntry((prev) => ({
+          ...prev,
+          workCenter: raw.workCenter ?? prev.workCenter,
+          shift: raw.shift ?? prev.shift,
+          workOrder: raw.workOrder ?? raw.currentWO ?? prev.workOrder,
+          operation: raw.operation ?? prev.operation,
+          quantityProduced: Number(
+            raw.quantityProduced ?? raw.producedQuantity ?? prev.quantityProduced
+          ) || 0,
+          startTime: raw.startTime ?? prev.startTime,
+          endTime: raw.endTime ?? prev.endTime,
+          actualCycleTime: Number(raw.actualCycleTime ?? prev.actualCycleTime) || 0,
+          okQuantity: Number(raw.okQuantity ?? prev.okQuantity) || 0,
+          rejectionQuantity: Number(raw.rejectionQuantity ?? prev.rejectionQuantity) || 0,
+          rejectionReason: raw.rejectionReason ?? prev.rejectionReason,
+          reworkQuantity: Number(raw.reworkQuantity ?? prev.reworkQuantity) || 0,
+          operator: raw.operator ?? prev.operator,
+          operatorId: raw.operatorId ?? prev.operatorId,
+        }));
+        if (raw.notes !== undefined && raw.notes !== null) {
+          setNotes(String(raw.notes));
+        }
+      } catch (err) {
+        console.error('Failed to load floor activity', err);
+      }
+    };
+
+    loadActivity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [floorId]);
 
   // Dropdown Options
   const workCenters = [
@@ -446,7 +493,7 @@ export default function ProductionFloorEditPage() {
   };
 
   // Handle Save
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!productionEntry.workCenter) {
       alert('Please select work center');
@@ -461,16 +508,25 @@ export default function ProductionFloorEditPage() {
       return;
     }
 
-    console.log('Production Entry:', productionEntry);
-    console.log('Downtime Entries:', downtimeEntries);
-    console.log('Material Entries:', materialEntries);
-    console.log('Tool Change Entries:', toolChangeEntries);
-    console.log('Labor Entries:', laborEntries);
-    console.log('Notes:', notes);
-
-    // In real app, save to API
-    alert('Production data saved successfully!');
-    router.push(`/production/floor/view/${floorId}`);
+    setSaving(true);
+    try {
+      const payload = {
+        ...productionEntry,
+        downtimeEntries,
+        materialEntries,
+        toolChangeEntries,
+        laborEntries,
+        notes,
+        backflush,
+      };
+      await ProductionOrphanService.updateFloorActivity(floorId, payload);
+      router.push(`/production/floor/view/${floorId}`);
+    } catch (err) {
+      console.error('Failed to save production entry', err);
+      alert('Failed to save production data. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

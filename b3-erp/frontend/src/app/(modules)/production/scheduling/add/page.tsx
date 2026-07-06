@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ProductionOrphanService } from "@/services/production/production-orphan.service";
 import {
   Calendar,
   Clock,
@@ -458,10 +459,25 @@ const ProductionSchedulingAddPage = () => {
     }
 
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Schedule saved as draft!");
-    router.push("/production/scheduling");
+    try {
+      const payload = {
+        scheduleId,
+        planningPeriod,
+        startDate: periodDates.start,
+        endDate: periodDates.end,
+        schedulingMethod,
+        status: "draft",
+        workOrderIds: selectedWOs,
+        constraints,
+      };
+      await ProductionOrphanService.createScheduleLine(payload as any);
+      router.push("/production/scheduling");
+    } catch (err) {
+      console.error("Failed to save schedule draft", err);
+      alert("Failed to save schedule. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePublish = async () => {
@@ -478,10 +494,26 @@ const ProductionSchedulingAddPage = () => {
     }
 
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Schedule published successfully!");
-    router.push("/production/scheduling");
+    try {
+      const payload = {
+        scheduleId,
+        planningPeriod,
+        startDate: periodDates.start,
+        endDate: periodDates.end,
+        schedulingMethod,
+        status: "published",
+        workOrderIds: selectedWOs,
+        constraints,
+        schedulePreview,
+      };
+      await ProductionOrphanService.createScheduleLine(payload as any);
+      router.push("/production/scheduling");
+    } catch (err) {
+      console.error("Failed to publish schedule", err);
+      alert("Failed to publish schedule. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getPeriodDates = () => {
