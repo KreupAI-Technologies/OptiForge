@@ -3,8 +3,46 @@
  * Handles all service contract-related API operations for the After-Sales module
  */
 
+import { apiClient } from './api/client';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 const USE_MOCK_DATA = false;
+
+/**
+ * Raw service-contract record as returned by the NestJS
+ * `after-sales/contracts` controller. This mirrors the backend
+ * `ServiceContract` entity, which is richer than the flat FE view model
+ * above (it carries inclusions/exclusions/coverage used by the terms page).
+ */
+export interface ServiceContractRecord {
+  id: string;
+  contractNumber: string;
+  contractType: string;
+  status: string;
+  customerName?: string;
+  duration?: number;
+  responseTimeSLA?: number;
+  resolutionTimeSLA?: number;
+  visitFrequency?: string;
+  serviceCoverage?: string[];
+  inclusions?: string[];
+  exclusions?: string[];
+  termsAndConditions?: string;
+  partsIncluded?: boolean;
+  laborIncluded?: boolean;
+  consumablesIncluded?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Unwrap a response that may be either a bare array (the NestJS controller
+ * returns raw arrays) or wrapped in an `{ success, data }` envelope.
+ */
+function unwrapArray<T>(res: unknown): T[] {
+  if (Array.isArray(res)) return res as T[];
+  const data = (res as { data?: unknown } | null)?.data;
+  return Array.isArray(data) ? (data as T[]) : [];
+}
 
 // ============================================================================
 // Interfaces
@@ -398,6 +436,32 @@ export class ServiceContractService {
   /**
    * Get service contract statistics
    */
+  /**
+   * Fetch raw service-contract records from the real NestJS controller
+   * (`GET /after-sales/contracts`) via the shared api-client.
+   *
+   * Unlike `getAllServiceContracts`, this returns the full backend entity
+   * shape (`ServiceContractRecord`), including inclusions/exclusions/coverage
+   * and SLA fields that the Contract Terms page derives its templates and SLA
+   * presets from. There is no dedicated templates/SLA-preset route on the
+   * backend, so callers derive that presentation data from these records.
+   */
+  static async getContractRecords(filters?: {
+    status?: string;
+    contractType?: string;
+    customerId?: string;
+  }): Promise<ServiceContractRecord[]> {
+    const query = new URLSearchParams();
+    if (filters?.status) query.set('status', filters.status);
+    if (filters?.contractType) query.set('contractType', filters.contractType);
+    if (filters?.customerId) query.set('customerId', filters.customerId);
+    const qs = query.toString();
+    const res = await apiClient.get<ServiceContractRecord[]>(
+      `/after-sales/contracts${qs ? `?${qs}` : ''}`,
+    );
+    return unwrapArray<ServiceContractRecord>(res);
+  }
+
   static async getStatistics(): Promise<{
     totalContracts: number;
     activeContracts: number;

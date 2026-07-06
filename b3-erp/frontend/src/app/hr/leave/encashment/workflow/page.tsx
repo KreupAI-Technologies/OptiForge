@@ -1,16 +1,73 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Plus, Edit, Trash2, Copy, CheckCircle, AlertCircle, BarChart3, Clock, Users, ArrowRight, GitBranch, Save, X } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { defaultEncashmentWorkflows, workflowTemplates, approverRoles, mockWorkflowStats, ApprovalWorkflow, ApprovalStep } from '@/data/hr/approval-workflows';
+import { defaultEncashmentWorkflows, workflowTemplates, approverRoles, mockWorkflowStats, ApprovalWorkflow, ApprovalStep, WorkflowStats } from '@/data/hr/approval-workflows';
+import { LeaveService } from '@/services/leave.service';
+
+/**
+ * Defensively derive workflow statistics from real leave-encashment records.
+ * Backend records (hr_leave_encashments) expose a `status` string plus
+ * approval fields; the workflow-config UI shape is unrelated, so we guard every
+ * field and only attach real numbers to the default workflow.
+ */
+function deriveStatsFromEncashments(
+  records: any[],
+  defaultWorkflowId: string,
+): WorkflowStats[] {
+  const list = Array.isArray(records) ? records : [];
+  const norm = (s: unknown) => String(s ?? '').toLowerCase();
+  const total = list.length;
+  const pending = list.filter((r) => norm(r?.status) === 'pending').length;
+  const approved = list.filter((r) => ['approved', 'processed', 'paid'].includes(norm(r?.status))).length;
+  const rejected = list.filter((r) => norm(r?.status) === 'rejected').length;
+
+  return mockWorkflowStats.map((s) =>
+    s.workflowId === defaultWorkflowId
+      ? {
+          ...s,
+          totalRequests: total,
+          pendingRequests: pending,
+          approvedRequests: approved,
+          rejectedRequests: rejected,
+        }
+      : s,
+  );
+}
 
 export default function WorkflowConfigurationPage() {
   const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>(defaultEncashmentWorkflows);
-  const [stats] = useState(mockWorkflowStats);
+  const [stats, setStats] = useState<WorkflowStats[]>(mockWorkflowStats);
   const [selectedWorkflow, setSelectedWorkflow] = useState<ApprovalWorkflow | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [recordCount, setRecordCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const records = await LeaveService.getEncashments();
+        if (!active) return;
+        const safe = Array.isArray(records) ? records : [];
+        const defaultWorkflowId =
+          defaultEncashmentWorkflows.find((w) => w.isDefault)?.id ?? mockWorkflowStats[0]?.workflowId ?? '';
+        setStats(deriveStatsFromEncashments(safe, defaultWorkflowId));
+        setRecordCount(safe.length);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load leave-encashment records');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
 
   const getWorkflowStats = (workflowId: string) => {
     return stats.find(s => s.workflowId === workflowId);
@@ -69,6 +126,31 @@ export default function WorkflowConfigurationPage() {
           Create Workflow
         </button>
       </div>
+
+      {/* Loading / Error / Empty states (real leave-encashment data) */}
+      {loading && (
+        <div className="bg-white rounded-lg border p-6 flex items-center gap-3 text-gray-600">
+          <Clock className="w-5 h-5 animate-spin text-blue-600" />
+          <span>Loading leave-encashment records…</span>
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 text-red-700">
+          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+          <div>
+            <div className="font-medium">Failed to load leave-encashment records</div>
+            <div className="text-sm text-red-600 mt-0.5">{error}</div>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && recordCount === 0 && (
+        <div className="bg-white rounded-lg border p-6 flex items-center gap-3 text-gray-500">
+          <BarChart3 className="w-5 h-5 text-gray-400" />
+          <span>No leave-encashment records yet. Workflow statistics will populate once requests are submitted.</span>
+        </div>
+      )}
 
       {/* Statistics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

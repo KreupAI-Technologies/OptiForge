@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   Plus,
@@ -12,8 +12,13 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
+import {
+  ServiceContractService,
+  type ServiceContractRecord,
+} from '@/services/service-contract.service';
 
 interface ContractTemplate {
   id: string;
@@ -40,144 +45,141 @@ interface SLAPreset {
   description: string;
 }
 
+// Map the backend enum contract type (e.g. 'amc', 'extended_warranty') onto
+// the labels this page renders. Falls back to the raw value when unknown.
+function normalizeContractType(raw: unknown): ContractTemplate['contractType'] {
+  const key = String(raw ?? '').toLowerCase().replace(/[\s_-]+/g, '');
+  if (key === 'amc') return 'AMC';
+  if (key === 'cmc') return 'CMC';
+  if (key === 'extendedwarranty') return 'Extended Warranty';
+  // Unknown types are grouped under AMC's label bucket for display purposes.
+  return 'AMC';
+}
+
+function asArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+}
+
+// Derive display templates by grouping real contracts by (normalized) type.
+// Each group's representative record supplies the terms/SLA/coverage, and the
+// group size becomes the usage count.
+function deriveTemplates(records: ServiceContractRecord[]): ContractTemplate[] {
+  const groups = new Map<string, ServiceContractRecord[]>();
+  for (const rec of records) {
+    const label = normalizeContractType(rec.contractType);
+    const bucket = groups.get(label) ?? [];
+    bucket.push(rec);
+    groups.set(label, bucket);
+  }
+
+  const templates: ContractTemplate[] = [];
+  let seq = 1;
+  for (const [label, group] of Array.from(groups.entries())) {
+    // Representative = the record with the richest terms (most inclusions).
+    const rep = [...group].sort(
+      (a, b) => asArray(b.inclusions).length - asArray(a.inclusions).length,
+    )[0];
+    const coverage = asArray(rep.serviceCoverage);
+    templates.push({
+      id: `TPL-${String(seq).padStart(3, '0')}`,
+      name: `${label} Template`,
+      contractType: label as ContractTemplate['contractType'],
+      description:
+        typeof rep.termsAndConditions === 'string' && rep.termsAndConditions
+          ? rep.termsAndConditions
+          : `Derived from ${group.length} ${label} contract${group.length === 1 ? '' : 's'}`,
+      defaultDuration: typeof rep.duration === 'number' ? rep.duration : 12,
+      responseTimeSLA: typeof rep.responseTimeSLA === 'number' ? rep.responseTimeSLA : 0,
+      resolutionTimeSLA:
+        typeof rep.resolutionTimeSLA === 'number' ? rep.resolutionTimeSLA : 0,
+      coverageHours:
+        typeof rep.visitFrequency === 'string' && rep.visitFrequency
+          ? `Visit frequency: ${rep.visitFrequency}`
+          : 'Not specified',
+      inclusions: asArray(rep.inclusions),
+      exclusions: asArray(rep.exclusions),
+      specialTerms: coverage,
+      isDefault: seq === 1,
+      usageCount: group.length,
+    });
+    seq += 1;
+  }
+  return templates;
+}
+
+// Derive SLA presets from the distinct (response, resolution) pairs across the
+// real contracts, ranked fastest-first into P1..P4.
+function deriveSlaPresets(records: ServiceContractRecord[]): SLAPreset[] {
+  const pairs = new Map<string, { response: number; resolution: number }>();
+  for (const rec of records) {
+    const response = typeof rec.responseTimeSLA === 'number' ? rec.responseTimeSLA : undefined;
+    const resolution =
+      typeof rec.resolutionTimeSLA === 'number' ? rec.resolutionTimeSLA : undefined;
+    if (response == null || resolution == null) continue;
+    pairs.set(`${response}-${resolution}`, { response, resolution });
+  }
+
+  const priorities: SLAPreset['priority'][] = ['P1', 'P2', 'P3', 'P4'];
+  const labels = ['Critical', 'High', 'Medium', 'Low'];
+  return Array.from(pairs.values())
+    .sort((a, b) => a.response - b.response || a.resolution - b.resolution)
+    .slice(0, 4)
+    .map((pair, idx) => ({
+      id: `SLA-${String(idx + 1).padStart(3, '0')}`,
+      name: `${labels[idx] ?? `Tier ${idx + 1}`} - ${priorities[idx] ?? 'P4'}`,
+      priority: priorities[idx] ?? 'P4',
+      responseTime: pair.response,
+      resolutionTime: pair.resolution,
+      description: `Response within ${pair.response}h, resolution within ${pair.resolution}h`,
+    }));
+}
+
 export default function ContractTermsConfigPage() {
   const [activeTab, setActiveTab] = useState<'templates' | 'sla' | 'clauses'>('templates');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showSLAModal, setShowSLAModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null>(null);
 
-  // Mock Contract Templates
-  const [templates, setTemplates] = useState<ContractTemplate[]>([
-    {
-      id: 'TPL-001',
-      name: 'Standard AMC - Kitchen Equipment',
-      contractType: 'AMC',
-      description: 'Standard annual maintenance contract for commercial kitchen equipment',
-      defaultDuration: 12,
-      responseTimeSLA: 4,
-      resolutionTimeSLA: 24,
-      coverageHours: 'Business Hours (9 AM - 6 PM)',
-      inclusions: [
-        'Quarterly preventive maintenance visits',
-        'Emergency repair services (unlimited calls)',
-        'Parts replacement (up to ₹50,000 per incident)',
-        'Labor charges included',
-        'Routine inspections and cleaning'
-      ],
-      exclusions: [
-        'Consumables and supplies',
-        'Damages due to misuse or negligence',
-        'Third-party equipment not covered',
-        'Cosmetic repairs',
-        'Upgrades and modifications'
-      ],
-      specialTerms: [
-        'Priority response for P1 incidents',
-        'Dedicated service engineer assigned',
-        'Annual performance review meeting',
-        'Quarterly service reports provided'
-      ],
-      isDefault: true,
-      usageCount: 45
-    },
-    {
-      id: 'TPL-002',
-      name: 'Premium CMC - 24x7 Support',
-      contractType: 'CMC',
-      description: 'Comprehensive maintenance contract with 24x7 support and full coverage',
-      defaultDuration: 12,
-      responseTimeSLA: 2,
-      resolutionTimeSLA: 12,
-      coverageHours: '24x7 Support',
-      inclusions: [
-        'Monthly preventive maintenance visits',
-        '24x7 emergency support hotline',
-        'Complete parts replacement coverage',
-        'All labor charges included',
-        'Priority spare parts inventory',
-        'Remote monitoring and diagnostics'
-      ],
-      exclusions: [
-        'Consumables and supplies',
-        'Major structural modifications',
-        'Equipment relocation costs'
-      ],
-      specialTerms: [
-        'Guaranteed 2-hour response time for P1',
-        'Dedicated account manager',
-        'Monthly performance reports',
-        'Free annual equipment audit'
-      ],
-      isDefault: false,
-      usageCount: 12
-    },
-    {
-      id: 'TPL-003',
-      name: 'Basic Extended Warranty',
-      contractType: 'Extended Warranty',
-      description: 'Extended warranty covering parts and labor beyond manufacturer warranty',
-      defaultDuration: 24,
-      responseTimeSLA: 8,
-      resolutionTimeSLA: 48,
-      coverageHours: 'Business Hours (9 AM - 6 PM)',
-      inclusions: [
-        'Parts replacement coverage',
-        'Labor charges for repairs',
-        'Manufacturing defect coverage',
-        'Annual inspection included'
-      ],
-      exclusions: [
-        'Wear and tear items',
-        'Consumables',
-        'Accidental damage',
-        'Unauthorized repairs',
-        'Commercial misuse'
-      ],
-      specialTerms: [
-        'Transferable warranty',
-        'No deductible for claims',
-        'Claim approval within 24 hours'
-      ],
-      isDefault: false,
-      usageCount: 28
-    }
-  ]);
+  // Contract Templates are DERIVED from real service-contract records.
+  // The backend (`GET /after-sales/contracts`) exposes contracts, not preset
+  // templates, so we group real contracts by contract type and surface the
+  // representative terms/SLA/coverage for each type.
+  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  // SLA Presets are DERIVED from the distinct (responseTime, resolutionTime)
+  // pairs seen across real contracts, ranked into P1..P4 tiers.
+  const [slaPresets, setSlaPresets] = useState<SLAPreset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  // Mock SLA Presets
-  const [slaPresets, setSlaPresets] = useState<SLAPreset[]>([
-    {
-      id: 'SLA-001',
-      name: 'Critical - P1',
-      priority: 'P1',
-      responseTime: 2,
-      resolutionTime: 6,
-      description: 'For critical issues affecting entire operations'
-    },
-    {
-      id: 'SLA-002',
-      name: 'High - P2',
-      priority: 'P2',
-      responseTime: 4,
-      resolutionTime: 24,
-      description: 'For high-priority issues with significant impact'
-    },
-    {
-      id: 'SLA-003',
-      name: 'Medium - P3',
-      priority: 'P3',
-      responseTime: 8,
-      resolutionTime: 48,
-      description: 'For medium-priority issues with moderate impact'
-    },
-    {
-      id: 'SLA-004',
-      name: 'Low - P4',
-      priority: 'P4',
-      responseTime: 24,
-      resolutionTime: 72,
-      description: 'For low-priority routine issues'
-    }
-  ]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const records = await ServiceContractService.getContractRecords();
+        if (cancelled) return;
+        const list = Array.isArray(records) ? records : [];
+        setTemplates(deriveTemplates(list));
+        setSlaPresets(deriveSlaPresets(list));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : 'Failed to load contract terms',
+          );
+          setTemplates([]);
+          setSlaPresets([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   // Standard Clauses Library
   const standardClauses = {
@@ -247,6 +249,14 @@ export default function ContractTermsConfigPage() {
           <p className="text-sm text-gray-500 mt-1">Manage contract templates, SLA presets, and standard clauses</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           {activeTab === 'templates' && (
             <button
               onClick={() => {
@@ -270,6 +280,34 @@ export default function ContractTermsConfigPage() {
           )}
         </div>
       </div>
+
+      {/* Load state banners */}
+      {isLoading && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200 flex items-center gap-2 text-sm text-gray-600">
+          <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+          Loading contract terms from service contracts…
+        </div>
+      )}
+      {!isLoading && loadError && (
+        <div className="bg-red-50 p-4 rounded-lg border border-red-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4" />
+            {loadError}
+          </div>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="text-sm font-medium text-red-700 underline hover:text-red-900"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {!isLoading && !loadError && templates.length === 0 && slaPresets.length === 0 && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200 text-sm text-gray-500 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-gray-400" />
+          No service contracts found yet. Contract templates and SLA presets are derived from existing contracts.
+        </div>
+      )}
 
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

@@ -1,30 +1,136 @@
 'use client';
 
-import { useState } from 'react';
-import { User, Mail, Phone, MapPin, Calendar, Briefcase, Shield, Key, Bell, Eye, EyeOff, Save, Edit2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Mail, Phone, MapPin, Calendar, Briefcase, Shield, Key, Bell, Eye, EyeOff, Save, Edit2, Loader2, AlertCircle } from 'lucide-react';
+import { authService, AuthProfile } from '@/services/auth.service';
+
+interface ProfileData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  designation: string;
+  department: string;
+  location: string;
+  dateOfJoining: string;
+  employeeId: string;
+  reportingTo: string;
+}
+
+const EMPTY_PROFILE: ProfileData = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  designation: '',
+  department: '',
+  location: '',
+  dateOfJoining: '',
+  employeeId: '',
+  reportingTo: '',
+};
+
+/**
+ * Map the backend `AuthProfile` shape onto the page's `ProfileData` structure.
+ * The backend currently exposes only identity fields (name, email, username,
+ * roles). Fields it does not return (phone, designation, department, location,
+ * dateOfJoining, reportingTo) are defensively left blank so the UI never renders
+ * `undefined`.
+ */
+function mapProfile(p: AuthProfile): ProfileData {
+  const roleLabel = Array.isArray(p?.roles) && p.roles.length > 0 ? p.roles[0] : '';
+  return {
+    firstName: p?.firstName ?? '',
+    lastName: p?.lastName ?? '',
+    email: p?.email ?? '',
+    phone: '',
+    designation: p?.userType ?? roleLabel ?? '',
+    department: '',
+    location: '',
+    dateOfJoining: '',
+    employeeId: p?.username ?? p?.id ?? '',
+    reportingTo: '',
+  };
+}
 
 export default function UserProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [showPassword, setShowPassword] = useState(false);
 
-  const [profileData, setProfileData] = useState({
-    firstName: 'Rajesh',
-    lastName: 'Kumar',
-    email: 'rajesh.kumar@company.com',
-    phone: '+91 98765 43210',
-    designation: 'Production Manager',
-    department: 'Manufacturing',
-    location: 'Mumbai, India',
-    dateOfJoining: '2022-01-15',
-    employeeId: 'EMP001234',
-    reportingTo: 'Priya Sharma',
-  });
+  const [profileData, setProfileData] = useState<ProfileData>(EMPTY_PROFILE);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const profile = await authService.getProfile();
+        if (!active) return;
+        setProfileData(mapProfile(profile));
+        setLoaded(true);
+      } catch (err: any) {
+        if (!active) return;
+        setError(err?.response?.data?.message || err?.message || 'Failed to load profile.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSave = () => {
+    // No profile-update endpoint exists on the backend yet; persist locally only.
     setIsEditing(false);
-    alert('Profile updated successfully!');
+    alert('Changes saved locally. Profile updates are not yet persisted to the server.');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-3">
+        <div className="flex items-center gap-3 text-gray-600">
+          <Loader2 className="w-6 h-6 animate-spin" />
+          <span>Loading profile...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-3">
+        <div className="bg-white rounded-lg shadow border border-red-200 p-6 max-w-md w-full text-center">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Unable to load profile</h2>
+          <p className="text-sm text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loaded || (!profileData.firstName && !profileData.lastName && !profileData.email)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-3">
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-6 max-w-md w-full text-center">
+          <User className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">No profile data</h2>
+          <p className="text-sm text-gray-600">Your profile could not be found.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-3">

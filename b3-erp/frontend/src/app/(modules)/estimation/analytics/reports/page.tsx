@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   FileText,
@@ -14,8 +14,15 @@ import {
   BarChart3,
   PieChart,
   LineChart,
-  Activity
+  Activity,
+  Loader2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
+import {
+  estimationReportScheduleService,
+  type ReportSchedule
+} from '@/services/estimation-report-schedule.service'
 
 interface Report {
   id: string
@@ -29,122 +36,91 @@ interface Report {
   size: string
 }
 
+// ---- Defensive transform: NestJS ReportSchedule -> UI Report ----
+// Backend source of truth: estimation/report-schedule.controller.ts
+//   @Controller('estimation/report-schedules') @Get() -> ReportSchedule[]
+
+const REPORT_TYPE_LABELS: Record<string, string> = {
+  summary: 'Summary Reports',
+  performance: 'Performance Reports',
+  quality: 'Quality Reports',
+  team: 'Team Reports',
+  trend: 'Trend Analysis',
+  sales: 'Sales Reports',
+  financial: 'Financial Reports',
+  customer: 'Customer Reports',
+}
+
+function titleCase(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim()
+}
+
+function toCategory(reportType: string | undefined): string {
+  if (!reportType) return 'Summary Reports'
+  const key = reportType.toLowerCase()
+  return REPORT_TYPE_LABELS[key] ?? titleCase(reportType)
+}
+
+function formatDate(value?: string): string {
+  if (!value) return 'Never'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return 'Never'
+  return d.toISOString().split('T')[0]
+}
+
+function toReport(schedule: ReportSchedule): Report {
+  const reportType = schedule.reportType ?? 'report'
+  return {
+    id: schedule.id,
+    name: titleCase(reportType),
+    category: toCategory(reportType),
+    description: `${titleCase(schedule.frequency ?? 'scheduled')} ${titleCase(
+      reportType
+    )} report${
+      Array.isArray(schedule.recipients) && schedule.recipients.length
+        ? ` for ${schedule.recipients.length} recipient(s)`
+        : ''
+    }`,
+    frequency: titleCase(schedule.frequency ?? 'Scheduled'),
+    lastGenerated: formatDate(schedule.lastRunAt),
+    format: (schedule.format ?? 'pdf').toUpperCase(),
+    status: schedule.isActive ? 'scheduled' : 'available',
+    size: '-',
+  }
+}
+
 export default function EstimationAnalyticsReportsPage() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
-  const [reports] = useState<Report[]>([
-    {
-      id: 'RPT-001',
-      name: 'Monthly Estimation Summary',
-      category: 'Summary Reports',
-      description: 'Comprehensive monthly summary of all estimation activities',
-      frequency: 'Monthly',
-      lastGenerated: '2025-10-01',
-      format: 'PDF, Excel',
-      status: 'available',
-      size: '2.4 MB'
-    },
-    {
-      id: 'RPT-002',
-      name: 'Win Rate Analysis',
-      category: 'Performance Reports',
-      description: 'Detailed analysis of estimation win rates by category and value',
-      frequency: 'Weekly',
-      lastGenerated: '2025-10-18',
-      format: 'PDF, Excel',
-      status: 'available',
-      size: '1.8 MB'
-    },
-    {
-      id: 'RPT-003',
-      name: 'Estimation Accuracy Report',
-      category: 'Quality Reports',
-      description: 'Comparison of estimated vs actual costs for completed projects',
-      frequency: 'Quarterly',
-      lastGenerated: '2025-10-01',
-      format: 'PDF, Excel, PowerPoint',
-      status: 'available',
-      size: '3.2 MB'
-    },
-    {
-      id: 'RPT-004',
-      name: 'Estimator Performance',
-      category: 'Team Reports',
-      description: 'Individual estimator performance metrics and productivity analysis',
-      frequency: 'Monthly',
-      lastGenerated: '2025-10-01',
-      format: 'PDF, Excel',
-      status: 'available',
-      size: '1.5 MB'
-    },
-    {
-      id: 'RPT-005',
-      name: 'Category-wise Estimation Trends',
-      category: 'Trend Analysis',
-      description: 'Kitchen category trends, pricing patterns, and market insights',
-      frequency: 'Monthly',
-      lastGenerated: '2025-10-15',
-      format: 'PDF, Excel',
-      status: 'available',
-      size: '2.1 MB'
-    },
-    {
-      id: 'RPT-006',
-      name: 'Conversion Funnel Report',
-      category: 'Sales Reports',
-      description: 'Estimation to order conversion analysis with bottleneck identification',
-      frequency: 'Weekly',
-      lastGenerated: '2025-10-18',
-      format: 'PDF, Excel',
-      status: 'available',
-      size: '1.9 MB'
-    },
-    {
-      id: 'RPT-007',
-      name: 'Pricing Variance Report',
-      category: 'Financial Reports',
-      description: 'Analysis of pricing variations and margin trends',
-      frequency: 'Monthly',
-      lastGenerated: '2025-10-01',
-      format: 'Excel',
-      status: 'available',
-      size: '2.7 MB'
-    },
-    {
-      id: 'RPT-008',
-      name: 'Customer Segment Analysis',
-      category: 'Customer Reports',
-      description: 'Estimation patterns by customer segments and demographics',
-      frequency: 'Quarterly',
-      lastGenerated: '2025-10-01',
-      format: 'PDF, PowerPoint',
-      status: 'available',
-      size: '3.5 MB'
-    },
-    {
-      id: 'RPT-009',
-      name: 'Rejection Reason Analysis',
-      category: 'Quality Reports',
-      description: 'Analysis of estimation rejections with root cause identification',
-      frequency: 'Monthly',
-      lastGenerated: '2025-10-01',
-      format: 'PDF, Excel',
-      status: 'available',
-      size: '1.6 MB'
-    },
-    {
-      id: 'RPT-010',
-      name: 'Turnaround Time Report',
-      category: 'Performance Reports',
-      description: 'Estimation cycle time analysis from draft to approval',
-      frequency: 'Weekly',
-      lastGenerated: '2025-10-18',
-      format: 'Excel',
-      status: 'generating',
-      size: '-'
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadReports = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const schedules = await estimationReportScheduleService.getSchedules()
+      const rows = Array.isArray(schedules) ? schedules : []
+      setReports(rows.map(toReport))
+    } catch (err) {
+      console.error('Failed to load estimation report schedules:', err)
+      setError(
+        err instanceof Error ? err.message : 'Failed to load report schedules'
+      )
+      setReports([])
+    } finally {
+      setLoading(false)
     }
-  ])
+  }, [])
+
+  useEffect(() => {
+    loadReports()
+  }, [loadReports])
 
   const handleDownloadReport = (reportId: string, reportName: string) => {
     console.log('Downloading report:', reportId, reportName)
@@ -220,22 +196,36 @@ export default function EstimationAnalyticsReportsPage() {
     }
   }
 
-  const categories = [
-    'Summary Reports',
-    'Performance Reports',
-    'Quality Reports',
-    'Team Reports',
-    'Trend Analysis',
-    'Sales Reports',
-    'Financial Reports',
-    'Customer Reports'
-  ]
+  // Derived from real report-schedule records where available; falls back to
+  // the standard category set when there are no records yet.
+  const derivedCategories = Array.from(
+    new Set(reports.map((r) => r.category))
+  ).sort()
+  const categories =
+    derivedCategories.length > 0
+      ? derivedCategories
+      : [
+          'Summary Reports',
+          'Performance Reports',
+          'Quality Reports',
+          'Team Reports',
+          'Trend Analysis',
+          'Sales Reports',
+          'Financial Reports',
+          'Customer Reports'
+        ]
 
   return (
     <div className="w-full h-full px-4 py-2">
       {/* Action Buttons */}
       <div className="mb-3 flex justify-end">
         <div className="flex items-center gap-3">
+          <button
+            onClick={loadReports}
+            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <button
             onClick={handleScheduleRecurring}
             className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
@@ -250,6 +240,23 @@ export default function EstimationAnalyticsReportsPage() {
           </button>
         </div>
       </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-red-700">
+            <AlertCircle className="h-5 w-5" />
+            <span className="text-sm">
+              Could not load report schedules: {error}
+            </span>
+          </div>
+          <button
+            onClick={loadReports}
+            className="px-3 py-1.5 text-sm text-red-700 bg-white border border-red-300 rounded-lg hover:bg-red-100">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3">
@@ -278,8 +285,8 @@ export default function EstimationAnalyticsReportsPage() {
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-5 border border-green-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-green-600">Generated This Month</p>
-              <p className="text-2xl font-bold text-green-900 mt-1">24</p>
+              <p className="text-sm font-medium text-green-600">Active Schedules</p>
+              <p className="text-2xl font-bold text-green-900 mt-1">{reports.filter(r => r.status === 'scheduled').length}</p>
               <p className="text-xs text-green-700 mt-1">Automated reports</p>
             </div>
             <Activity className="h-10 w-10 text-green-600" />
@@ -289,9 +296,9 @@ export default function EstimationAnalyticsReportsPage() {
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-5 border border-orange-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-orange-600">Total Downloads</p>
-              <p className="text-2xl font-bold text-orange-900 mt-1">156</p>
-              <p className="text-xs text-orange-700 mt-1">This month</p>
+              <p className="text-sm font-medium text-orange-600">Total Schedules</p>
+              <p className="text-2xl font-bold text-orange-900 mt-1">{reports.length}</p>
+              <p className="text-xs text-orange-700 mt-1">Configured</p>
             </div>
             <Download className="h-10 w-10 text-orange-600" />
           </div>
@@ -326,7 +333,35 @@ export default function EstimationAnalyticsReportsPage() {
         </div>
       </div>
 
+      {/* Loading state */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500">
+          <Loader2 className="h-8 w-8 animate-spin mb-3" />
+          <p className="text-sm">Loading report schedules...</p>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && filteredReports.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-gray-500 border border-dashed border-gray-300 rounded-lg bg-white">
+          <FileText className="h-10 w-10 mb-3 text-gray-400" />
+          <p className="text-sm font-medium text-gray-700">No report schedules found</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {selectedCategory === 'all'
+              ? 'Create a scheduled report to see it here.'
+              : `No reports in "${selectedCategory}".`}
+          </p>
+          <button
+            onClick={handleScheduleRecurring}
+            className="mt-4 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4" />
+            Schedule Report
+          </button>
+        </div>
+      )}
+
       {/* Reports Grid */}
+      {!loading && filteredReports.length > 0 && (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
         {filteredReports.map((report) => (
           <div
@@ -401,6 +436,7 @@ export default function EstimationAnalyticsReportsPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Quick Actions */}
       <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">

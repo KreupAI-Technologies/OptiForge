@@ -10,6 +10,22 @@
 >
 > _The route inventory below is the original pre-work snapshot, retained for reference._
 
+> ## ✅ FOLLOW-UP PASS — 2026-07-06 (branch `feat/wire-remaining-functional-pages`)
+>
+> A fresh import-following scan (resolves page → component → re-export, 3 levels deep) found **73 genuinely-unwired pages** remaining. Of those, the overwhelming majority are **static-by-design** — `advanced-features` showcases, nav-hub link grids (e.g. `finance/{analytics,budgeting,consolidation,currency,tax,reports}`, `settings`, `common-masters`, `portal`), redirect shims (`crm/leads/edit`), coming-soon stubs (`workflow/designer`, `after-sales/field-service/mobile`), demos (`design-system`, `documentation`, `help`, `settings/form-ux-demo`), and the 5 `_finance_deprecated` pages.
+>
+> **7 functional pages that had a real backend sitting unused were wired this pass** (frontend-only wiring to existing NestJS endpoints — no schema changes):
+> - `profile` → `GET /auth/profile` (new `auth.service.ts`)
+> - `notifications` + `notifications/preferences` → `notifications/*` (preferences stays local — no endpoint)
+> - `hr/leave/encashment/workflow` → `GET /hr/leave-encashments`
+> - `after-sales-service/service-contracts/terms` → `GET /after-sales/contracts` (templates/SLA derived from real contracts)
+> - `procurement/grn/matching` → `GET /procurement/purchase-invoices` + `POST :id/three-way-match`
+> - `estimation/analytics/reports` → `GET /estimation/report-schedules`
+>
+> **Deliberately left (need substantial net-new analytics/security backends, deferred by prior passes):** `production/analytics/variance`, `production/{collaboration,resilience}`, `it-admin/security/sessions`, `it-admin/system/scalability`, `reports/dashboards` (client-side builder), `collaboration`, `support/onboarding`. Wiring these would require building aggregation/session backends that don't exist — out of scope for a wiring pass.
+>
+> **Verified:** frontend `tsc --noEmit` 0 errors · backend untouched (`nest build` remains green).
+
 Pages under `b3-erp/frontend/src/app/` that have **no service import and no API call** — pure static shells or hardcoded UI.
 
 **Total not-wired pages: 455**

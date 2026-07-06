@@ -8,6 +8,97 @@ import { USE_LIVE_API } from './api-flags';
 
 const USE_MOCK_DATA = !USE_LIVE_API;
 
+// Domain (NestJS) backend base URL — used by the user-facing notification
+// endpoints below. This backend returns raw JSON (no { success, data }
+// envelope), so we hit it directly with fetch + cookie auth.
+const DOMAIN_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+// ============================================================================
+// User-facing notification API (NestJS notifications module)
+// Backend shape: Prisma `Notification` model
+//   { id, userId, type, title, message, metadata, isRead, priority,
+//     actionUrl, createdAt, updatedAt }
+// ============================================================================
+
+export interface UserNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  metadata?: Record<string, unknown> | null;
+  isRead: boolean;
+  priority: string; // 'info' | 'warning' | 'urgent'
+  actionUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaginatedUserNotifications {
+  notifications: UserNotification[];
+  total: number;
+}
+
+async function domainRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${DOMAIN_API_BASE_URL}${endpoint}`, {
+    credentials: 'include', // send HttpOnly JWT cookie
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  }
+
+  // Endpoints that return no body (e.g. read-all) — guard against empty JSON.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
+/**
+ * User-facing notification operations backed by the NestJS notifications
+ * controller (global prefix `api/v1`).
+ */
+export const userNotificationService = {
+  /** GET /notifications/user/:userId — paginated list for a user */
+  async getForUser(
+    userId: string,
+    page = 1,
+    limit = 50,
+  ): Promise<PaginatedUserNotifications> {
+    return domainRequest<PaginatedUserNotifications>(
+      `/notifications/user/${userId}?page=${page}&limit=${limit}`,
+    );
+  },
+
+  /** GET /notifications/user/:userId/unread-count */
+  async getUnreadCount(userId: string): Promise<number> {
+    const res = await domainRequest<{ count: number }>(
+      `/notifications/user/${userId}/unread-count`,
+    );
+    return res.count;
+  },
+
+  /** PATCH /notifications/:id/read — mark a single notification as read */
+  async markRead(id: string, userId: string): Promise<boolean> {
+    return domainRequest<boolean>(`/notifications/${id}/read`, {
+      method: 'PATCH',
+      body: JSON.stringify({ userId }),
+    });
+  },
+
+  /** PATCH /notifications/user/:userId/read-all — mark all as read */
+  async markAllRead(userId: string): Promise<number> {
+    return domainRequest<number>(`/notifications/user/${userId}/read-all`, {
+      method: 'PATCH',
+    });
+  },
+};
+
 // ============================================================================
 // Interfaces
 // ============================================================================
