@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { projectManagementService } from '@/services/ProjectManagementService'
 import {
   BarChart,
   Bar,
@@ -64,134 +65,44 @@ export default function ResourceCapacityPage() {
 
   const fetchResourceData = async () => {
     setIsLoading(true)
-    setTimeout(() => {
-      const mockResources: Resource[] = [
-        {
-          id: '1',
-          name: 'John Doe',
-          role: 'Senior Engineer',
-          skills: ['Welding', 'CAD', 'Project Management'],
-          hourlyRate: 75,
-          availability: 100,
-          allocations: [
-            {
-              projectId: 'proj-1',
-              projectName: 'Factory Automation',
-              allocationPercentage: 40,
-              startDate: '2024-12-01',
-              endDate: '2024-12-31',
-              color: '#3b82f6',
-            },
-            {
-              projectId: 'proj-2',
-              projectName: 'Conveyor System',
-              allocationPercentage: 30,
-              startDate: '2024-12-01',
-              endDate: '2024-12-15',
-              color: '#10b981',
-            },
-          ],
-        },
-        {
-          id: '2',
-          name: 'Jane Smith',
-          role: 'Design Lead',
-          skills: ['CAD', 'Design', 'Prototyping'],
-          hourlyRate: 85,
-          availability: 100,
-          allocations: [
-            {
-              projectId: 'proj-1',
-              projectName: 'Factory Automation',
-              allocationPercentage: 60,
-              startDate: '2024-12-01',
-              endDate: '2024-12-31',
-              color: '#3b82f6',
-            },
-            {
-              projectId: 'proj-3',
-              projectName: 'Packaging Line',
-              allocationPercentage: 40,
-              startDate: '2024-12-10',
-              endDate: '2024-12-25',
-              color: '#f59e0b',
-            },
-          ],
-        },
-        {
-          id: '3',
-          name: 'Bob Johnson',
-          role: 'Fabrication Specialist',
-          skills: ['Welding', 'Fabrication', 'Quality Control'],
-          hourlyRate: 65,
-          availability: 100,
-          allocations: [
-            {
-              projectId: 'proj-2',
-              projectName: 'Conveyor System',
-              allocationPercentage: 50,
-              startDate: '2024-12-01',
-              endDate: '2024-12-20',
-              color: '#10b981',
-            },
-          ],
-        },
-        {
-          id: '4',
-          name: 'Alice Williams',
-          role: 'Project Manager',
-          skills: ['Project Management', 'Budgeting', 'Leadership'],
-          hourlyRate: 90,
-          availability: 100,
-          allocations: [
-            {
-              projectId: 'proj-1',
-              projectName: 'Factory Automation',
-              allocationPercentage: 20,
-              startDate: '2024-12-01',
-              endDate: '2024-12-31',
-              color: '#3b82f6',
-            },
-            {
-              projectId: 'proj-2',
-              projectName: 'Conveyor System',
-              allocationPercentage: 20,
-              startDate: '2024-12-01',
-              endDate: '2024-12-20',
-              color: '#10b981',
-            },
-            {
-              projectId: 'proj-3',
-              projectName: 'Packaging Line',
-              allocationPercentage: 30,
-              startDate: '2024-12-10',
-              endDate: '2024-12-25',
-              color: '#f59e0b',
-            },
-          ],
-        },
-        {
-          id: '5',
-          name: 'Charlie Brown',
-          role: 'Electrical Engineer',
-          skills: ['Electrical', 'PLC Programming', 'Automation'],
-          hourlyRate: 70,
-          availability: 100,
-          allocations: [
-            {
-              projectId: 'proj-1',
-              projectName: 'Factory Automation',
-              allocationPercentage: 80,
-              startDate: '2024-12-01',
-              endDate: '2024-12-31',
-              color: '#3b82f6',
-            },
-          ],
-        },
-      ]
-      setResources(mockResources)
+    try {
+      const [allocRows, resourceRows] = await Promise.all([
+        projectManagementService.getPmResourceAllocations().catch(() => []),
+        projectManagementService.listAllResources().catch(() => []),
+      ])
+      const palette = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#06b6d4"]
+      const byResource = new Map<string, Resource>()
+      const ensure = (id: string, name: string, role: string, skills: string[], rate: number): Resource => {
+        let r = byResource.get(id)
+        if (!r) {
+          r = { id, name, role, skills, hourlyRate: rate, availability: 100, allocations: [] }
+          byResource.set(id, r)
+        }
+        return r
+      }
+      ;(Array.isArray(resourceRows) ? resourceRows : []).forEach((res: any) => {
+        const id = String(res.id ?? res.resourceId ?? res.employeeId ?? res.name ?? "")
+        if (!id) return
+        ensure(id, res.name ?? res.resourceName ?? res.employeeName ?? "Resource", res.role ?? res.designation ?? res.resourceType ?? "", Array.isArray(res.skills) ? res.skills : [], Number(res.hourlyRate ?? res.rate ?? 0))
+      })
+      ;(Array.isArray(allocRows) ? allocRows : []).forEach((a: any, idx: number) => {
+        const rid = String(a.resourceId ?? a.employeeId ?? a.resource ?? a.resourceName ?? a.name ?? `res-${idx}`)
+        const r = ensure(rid, a.resourceName ?? a.employeeName ?? a.resource ?? a.name ?? "Resource", a.role ?? a.designation ?? "", [], Number(a.hourlyRate ?? 0))
+        r.allocations.push({
+          projectId: String(a.projectId ?? a.project ?? ""),
+          projectName: a.projectName ?? a.project ?? "",
+          allocationPercentage: Number(a.allocationPercentage ?? a.allocation ?? a.percentage ?? 0),
+          startDate: a.startDate ?? "",
+          endDate: a.endDate ?? "",
+          color: palette[idx % palette.length],
+        })
+      })
+      setResources(Array.from(byResource.values()))
+    } catch {
+      setResources([])
+    } finally {
       setIsLoading(false)
-    }, 800)
+    }
   }
 
   const calculateUtilization = (resource: Resource): number => {

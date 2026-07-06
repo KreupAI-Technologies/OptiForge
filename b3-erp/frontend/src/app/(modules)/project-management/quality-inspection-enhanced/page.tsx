@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
   ClipboardCheck,
   Package,
@@ -183,8 +184,21 @@ export default function QualityInspectionEnhancedPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Inspection Submitted:', formData);
+      await projectManagementService.createQualityInspection({
+        companyId: 'default-company-id',
+        projectId: formData.project,
+        projectName: formData.projectName,
+        inspectionType: formData.inspectionType,
+        inspectionDate: formData.inspectionDate,
+        inspectorName: formData.inspector,
+        workPackage: formData.workOrder,
+        overallStatus: formData.overallResult,
+        passed: stats.passed,
+        failed: stats.failed,
+        pending: stats.pending,
+        totalCheckPoints: stats.total,
+        remarks: formData.recommendations,
+      } as any);
       clearDraft();
       router.push('/project-management/quality-inspection');
     } catch (error) {
