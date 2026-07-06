@@ -32,6 +32,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { IotModule } from './modules/iot/iot.module';
 import { ItAdminModule } from './modules/it-admin/it-admin.module';
 import { LogisticsModule } from './modules/logistics/logistics.module';
+import { PackagingModule } from './modules/packaging/packaging.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
@@ -124,6 +125,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     ApprovalsModule,
     ReportsModule,
     LogisticsModule,
+    PackagingModule,
     NotificationsModule,
     SupportModule,
     ItAdminModule,

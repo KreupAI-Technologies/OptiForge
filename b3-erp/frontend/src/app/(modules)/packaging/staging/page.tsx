@@ -23,6 +23,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { PackagingService, PackagingStagingDto } from '@/services/packaging.service';
 
 interface ProjectInfo {
     id: string;
@@ -86,6 +87,22 @@ const mockStagedItems: StagedItem[] = [
     },
 ];
 
+function mapStaging(m: PackagingStagingDto): StagedItem {
+    return {
+        id: m.id || '',
+        woNumber: m.woNumber || '',
+        productName: m.productName || '',
+        quantity: Number(m.quantity) || 0,
+        packingComplete: !!m.packingComplete,
+        shippingBillNumber: m.shippingBillNumber || '',
+        status: (m.status || 'Staging') as StagedItem['status'],
+        stagedDate: m.stagedDate || '',
+        customerName: m.customerName || '',
+        deliveryAddress: m.deliveryAddress || '',
+        transportMethod: (m.transportMethod || 'Own Vehicle') as StagedItem['transportMethod'],
+    };
+}
+
 export default function DispatchStagingPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -134,13 +151,20 @@ export default function DispatchStagingPage() {
 
     // Load staged items when project is selected
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        const loadStaging = async () => {
             setLoading(true);
-            setTimeout(() => {
-                setItems(mockStagedItems);
+            try {
+                const data = await PackagingService.getStaging(selectedProject.id);
+                setItems(Array.isArray(data) ? data.map(mapStaging) : []);
+            } catch (error) {
+                console.error('Failed to load staged items:', error);
+                setItems([]);
+            } finally {
                 setLoading(false);
-            }, 300);
-        }
+            }
+        };
+        loadStaging();
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {

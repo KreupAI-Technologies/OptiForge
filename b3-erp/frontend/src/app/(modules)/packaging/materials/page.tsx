@@ -21,6 +21,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { PackagingService, PackagingMaterialDto } from '@/services/packaging.service';
 
 interface ProjectInfo {
     id: string;
@@ -47,6 +48,18 @@ const mockMaterials: PackingMaterial[] = [
     { id: 'PM-005', name: 'Wooden Crates (Medium)', category: 'Crates', currentStock: 30, required: 10, unit: 'pcs', status: 'Available' },
     { id: 'PM-006', name: 'Stretch Film', category: 'Wrapping', currentStock: 12, required: 8, unit: 'rolls', status: 'Available' },
 ];
+
+function mapMaterial(m: PackagingMaterialDto): PackingMaterial {
+    return {
+        id: m.id || '',
+        name: m.name || '',
+        category: (m.category || 'Crates') as PackingMaterial['category'],
+        currentStock: Number(m.currentStock) || 0,
+        required: Number(m.required) || 0,
+        unit: m.unit || '',
+        status: (m.status || 'Available') as PackingMaterial['status'],
+    };
+}
 
 export default function PackingMaterialsPage() {
     const router = useRouter();
@@ -95,13 +108,20 @@ export default function PackingMaterialsPage() {
 
     // Load materials when project is selected
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        const loadMaterials = async () => {
             setLoading(true);
-            setTimeout(() => {
-                setMaterials(mockMaterials);
+            try {
+                const data = await PackagingService.getMaterials(selectedProject.id);
+                setMaterials(Array.isArray(data) ? data.map(mapMaterial) : []);
+            } catch (error) {
+                console.error('Failed to load materials:', error);
+                setMaterials([]);
+            } finally {
                 setLoading(false);
-            }, 300);
-        }
+            }
+        };
+        loadMaterials();
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {
