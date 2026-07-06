@@ -125,41 +125,8 @@ export default function CreatePurchaseOrderPage() {
 
   const [attachments, setAttachments] = useState<File[]>([])
 
-  // Vendor picker data — loaded from procurement/vendors (falls back to samples)
-  const fallbackVendors: Vendor[] = [
-    {
-      id: '1',
-      code: 'VEND-001',
-      name: 'Tech Supplies Co.',
-      contactPerson: 'Jane Doe',
-      email: 'jane@techsupplies.com',
-      phone: '+1 555 0100',
-      address: '123 Tech Street',
-      city: 'San Francisco',
-      country: 'USA',
-      paymentTerms: 'Net 30',
-      currency: 'USD',
-      taxId: 'US123456789',
-      rating: 4.5
-    },
-    {
-      id: '2',
-      code: 'VEND-002',
-      name: 'Office Furniture Ltd',
-      contactPerson: 'Bob Wilson',
-      email: 'bob@officefurniture.com',
-      phone: '+1 555 0200',
-      address: '456 Furniture Ave',
-      city: 'Chicago',
-      country: 'USA',
-      paymentTerms: 'Net 45',
-      currency: 'USD',
-      taxId: 'US987654321',
-      rating: 4.2
-    }
-  ]
-
-  const [mockVendors, setMockVendors] = useState<Vendor[]>(fallbackVendors)
+  // Vendor picker data — loaded from procurement/vendors
+  const [mockVendors, setMockVendors] = useState<Vendor[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -1154,6 +1121,9 @@ export default function CreatePurchaseOrderPage() {
             </div>
 
             <div className="space-y-2">
+              {mockVendors.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-6">No vendors found.</p>
+              )}
               {mockVendors.map((v) => (
                 <button
                   key={v.id}

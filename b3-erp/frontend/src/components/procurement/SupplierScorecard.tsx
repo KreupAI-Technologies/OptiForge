@@ -172,74 +172,7 @@ export default function SupplierScorecard() {
   }
 
   // Mock data
-  const MOCK_SUPPLIER_SCORES: SupplierScore[] = [
-    {
-      supplierId: 'SUP001',
-      supplierName: 'Global Tech Solutions',
-      category: 'IT Services',
-      overallScore: 92,
-      qualityScore: 95,
-      deliveryScore: 88,
-      priceScore: 90,
-      serviceScore: 94,
-      innovationScore: 92,
-      sustainabilityScore: 85,
-      trend: 'up',
-      rank: 1,
-      tier: 'platinum',
-      lastEvaluation: '2024-02-15'
-    },
-    {
-      supplierId: 'SUP002',
-      supplierName: 'Premier Manufacturing Co',
-      category: 'Raw Materials',
-      overallScore: 88,
-      qualityScore: 90,
-      deliveryScore: 85,
-      priceScore: 88,
-      serviceScore: 86,
-      innovationScore: 82,
-      sustainabilityScore: 90,
-      trend: 'stable',
-      rank: 2,
-      tier: 'gold',
-      lastEvaluation: '2024-02-10'
-    },
-    {
-      supplierId: 'SUP003',
-      supplierName: 'Express Logistics Ltd',
-      category: 'Logistics',
-      overallScore: 85,
-      qualityScore: 82,
-      deliveryScore: 92,
-      priceScore: 85,
-      serviceScore: 88,
-      innovationScore: 78,
-      sustainabilityScore: 80,
-      trend: 'up',
-      rank: 3,
-      tier: 'gold',
-      lastEvaluation: '2024-02-12'
-    },
-    {
-      supplierId: 'SUP004',
-      supplierName: 'Quality Components Inc',
-      category: 'Components',
-      overallScore: 78,
-      qualityScore: 85,
-      deliveryScore: 75,
-      priceScore: 82,
-      serviceScore: 72,
-      innovationScore: 70,
-      sustainabilityScore: 75,
-      trend: 'down',
-      rank: 8,
-      tier: 'silver',
-      lastEvaluation: '2024-02-08'
-    }
-  ]
-
-  const [supplierScores, setSupplierScores] = useState<SupplierScore[]>(MOCK_SUPPLIER_SCORES)
+  const [supplierScores, setSupplierScores] = useState<SupplierScore[]>([])
 
   useEffect(() => {
     let cancelled = false

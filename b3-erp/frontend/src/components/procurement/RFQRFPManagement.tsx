@@ -202,70 +202,7 @@ export default function RFQRFPManagement() {
   };
 
   // Mock data
-  const MOCK_RFQ_LIST: RFQ[] = [
-    {
-      id: 'RFQ-2024-001',
-      title: 'Annual IT Infrastructure Upgrade',
-      type: 'RFP',
-      status: 'evaluation',
-      category: 'IT Services',
-      estimatedValue: 500000,
-      responseDeadline: '2024-03-15',
-      publishDate: '2024-02-01',
-      bidders: 12,
-      responsesReceived: 8,
-      owner: 'John Matthews',
-      priority: 'high',
-      items: 25
-    },
-    {
-      id: 'RFQ-2024-002',
-      title: 'Raw Materials Supply Q2-Q3',
-      type: 'RFQ',
-      status: 'bidding',
-      category: 'Raw Materials',
-      estimatedValue: 1200000,
-      responseDeadline: '2024-03-01',
-      publishDate: '2024-02-10',
-      bidders: 15,
-      responsesReceived: 3,
-      owner: 'Sarah Chen',
-      priority: 'urgent',
-      items: 45
-    },
-    {
-      id: 'RFQ-2024-003',
-      title: 'Logistics Services Contract',
-      type: 'RFP',
-      status: 'published',
-      category: 'Logistics',
-      estimatedValue: 800000,
-      responseDeadline: '2024-03-20',
-      publishDate: '2024-02-12',
-      bidders: 8,
-      responsesReceived: 0,
-      owner: 'Mike Johnson',
-      priority: 'medium',
-      items: 18
-    },
-    {
-      id: 'RFQ-2024-004',
-      title: 'Office Supplies Annual Contract',
-      type: 'RFQ',
-      status: 'awarded',
-      category: 'Office Supplies',
-      estimatedValue: 75000,
-      responseDeadline: '2024-02-15',
-      publishDate: '2024-01-20',
-      bidders: 6,
-      responsesReceived: 6,
-      owner: 'Lisa Wong',
-      priority: 'low',
-      items: 150
-    }
-  ]
-
-  const [rfqList, setRfqList] = useState<RFQ[]>(MOCK_RFQ_LIST)
+  const [rfqList, setRfqList] = useState<RFQ[]>([])
 
   useEffect(() => {
     let cancelled = false

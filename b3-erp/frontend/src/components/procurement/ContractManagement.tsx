@@ -186,77 +186,7 @@ export default function ContractManagement() {
   };
 
   // Sample data — used as fallback until the backend returns contracts.
-  const MOCK_CONTRACTS: Contract[] = [
-    {
-      id: 'CTR-2024-001',
-      title: 'Master Service Agreement - IT Support',
-      supplier: 'TechPro Solutions',
-      type: 'master',
-      status: 'active',
-      value: 2500000,
-      startDate: '2023-01-01',
-      endDate: '2025-12-31',
-      renewalDate: '2025-10-01',
-      owner: 'John Matthews',
-      department: 'IT',
-      compliance: 95,
-      risk: 'low',
-      autoRenew: true,
-      notifications: 2
-    },
-    {
-      id: 'CTR-2024-002',
-      title: 'Raw Materials Supply Agreement',
-      supplier: 'Global Materials Inc',
-      type: 'purchase',
-      status: 'expiring',
-      value: 5200000,
-      startDate: '2022-03-01',
-      endDate: '2024-03-31',
-      renewalDate: '2024-02-28',
-      owner: 'Sarah Chen',
-      department: 'Procurement',
-      compliance: 88,
-      risk: 'medium',
-      autoRenew: false,
-      notifications: 5
-    },
-    {
-      id: 'CTR-2024-003',
-      title: 'Logistics Services Contract',
-      supplier: 'FastTrack Logistics',
-      type: 'service',
-      status: 'negotiation',
-      value: 1800000,
-      startDate: '2024-04-01',
-      endDate: '2026-03-31',
-      owner: 'Mike Johnson',
-      department: 'Operations',
-      compliance: 0,
-      risk: 'medium',
-      autoRenew: false,
-      notifications: 3
-    },
-    {
-      id: 'CTR-2024-004',
-      title: 'Software License Agreement',
-      supplier: 'Software Corp',
-      type: 'purchase',
-      status: 'active',
-      value: 450000,
-      startDate: '2023-06-01',
-      endDate: '2024-05-31',
-      renewalDate: '2024-04-01',
-      owner: 'Lisa Wong',
-      department: 'IT',
-      compliance: 92,
-      risk: 'low',
-      autoRenew: true,
-      notifications: 1
-    }
-  ]
-
-  const [contracts, setContracts] = useState<Contract[]>(MOCK_CONTRACTS)
+  const [contracts, setContracts] = useState<Contract[]>([])
 
   useEffect(() => {
     let cancelled = false
