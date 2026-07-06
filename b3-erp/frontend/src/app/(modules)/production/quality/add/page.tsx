@@ -108,79 +108,7 @@ const QualityInspectionAddPage = () => {
     const dateString = today.toISOString().slice(0, 16);
     setInspectionDate(dateString);
 
-    // Load available work orders
-    const mockWOs: WorkOrder[] = [
-      {
-        id: "WO-2025-1001",
-        product: "Ball Bearing 6205",
-        productCode: "PRD-BB-6205",
-        quantity: 1000,
-        qualitySpecs: [
-          {
-            id: "qs-1",
-            parameterName: "Inner Diameter",
-            type: "Dimensional",
-            specification: "25.00 ± 0.02",
-            nominalValue: 25.0,
-            upperTolerance: 25.02,
-            lowerTolerance: 24.98,
-            unit: "mm",
-            actualMeasurement: "",
-            testMethod: "Digital Micrometer",
-            acceptanceCriteria: "Within tolerance",
-            result: "",
-            deviation: 0,
-          },
-          {
-            id: "qs-2",
-            parameterName: "Outer Diameter",
-            type: "Dimensional",
-            specification: "52.00 ± 0.03",
-            nominalValue: 52.0,
-            upperTolerance: 52.03,
-            lowerTolerance: 51.97,
-            unit: "mm",
-            actualMeasurement: "",
-            testMethod: "Digital Micrometer",
-            acceptanceCriteria: "Within tolerance",
-            result: "",
-            deviation: 0,
-          },
-        ],
-      },
-      {
-        id: "WO-2025-1002",
-        product: "Shaft Assembly SA-450",
-        productCode: "PRD-SA-450",
-        quantity: 500,
-        qualitySpecs: [
-          {
-            id: "qs-3",
-            parameterName: "Length",
-            type: "Dimensional",
-            specification: "450 ± 0.5",
-            nominalValue: 450,
-            upperTolerance: 450.5,
-            lowerTolerance: 449.5,
-            unit: "mm",
-            actualMeasurement: "",
-            testMethod: "Vernier Caliper",
-            acceptanceCriteria: "Within tolerance",
-            result: "",
-            deviation: 0,
-          },
-        ],
-      },
-      {
-        id: "WO-2025-1003",
-        product: "Gear Pinion GP-230",
-        productCode: "PRD-GP-230",
-        quantity: 750,
-        qualitySpecs: [],
-      },
-    ];
-
-    // Load real work orders for the dropdown; fall back to mock if empty/error
+    // Load real work orders for the dropdown
     const loadWorkOrders = async () => {
       try {
         const res: any = await ProductionOrphanService.getWorkOrders();
@@ -195,9 +123,9 @@ const QualityInspectionAddPage = () => {
               qualitySpecs: Array.isArray(wo?.qualitySpecs) ? wo.qualitySpecs : [],
             }))
           : [];
-        setAvailableWOs(mapped.length > 0 ? mapped : mockWOs);
+        setAvailableWOs(mapped);
       } catch {
-        setAvailableWOs(mockWOs);
+        setAvailableWOs([]);
       }
     };
 
