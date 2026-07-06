@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { vendorService } from '@/services/VendorService'
 import {
   Users,
   Building2,
@@ -103,7 +104,7 @@ export default function SupplierRelationshipManagement() {
   const [showHealthDashboard, setShowHealthDashboard] = useState(true)
 
   // Mock data
-  const suppliers: Supplier[] = [
+  const MOCK_SUPPLIERS: Supplier[] = [
     {
       id: 'SUP001',
       name: 'Global Tech Solutions',
@@ -185,6 +186,47 @@ export default function SupplierRelationshipManagement() {
       nextReview: '2024-04-10'
     }
   ]
+
+  const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS)
+
+  useEffect(() => {
+    let cancelled = false
+    const statusMap: Record<string, Supplier['status']> = {
+      ACTIVE: 'active', INACTIVE: 'inactive', BLACKLISTED: 'suspended', SUSPENDED: 'suspended', ONBOARDING: 'onboarding',
+    }
+    const load = async () => {
+      try {
+        const res = await vendorService.getVendors()
+        const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
+        if (!cancelled && list.length) {
+          setSuppliers(list.map((v: any, idx: number): Supplier => ({
+            id: v.id ?? v.vendorCode ?? `SUP${idx + 1}`,
+            name: v.vendorName ?? v.name ?? '—',
+            category: v.category ?? '—',
+            status: statusMap[String(v.status ?? '').toUpperCase()] ?? 'active',
+            tier: v.isApproved ? 'approved' : 'probation',
+            performanceScore: Number(v.averageRating ?? 0) * 20,
+            riskScore: 0,
+            spend: Number(v.totalPurchases ?? 0),
+            contracts: 0,
+            location: v.address ?? '—',
+            contact: {
+              name: v.contactPerson ?? '—',
+              email: v.email ?? '',
+              phone: v.phone ?? '',
+            },
+            certifications: [],
+            lastReview: (v.lastPurchaseDate ?? '').toString().slice(0, 10),
+            nextReview: '',
+          })))
+        }
+      } catch {
+        // keep sample data on error
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const performanceTrend = [
     { month: 'Jan', strategic: 88, preferred: 82, approved: 75 },

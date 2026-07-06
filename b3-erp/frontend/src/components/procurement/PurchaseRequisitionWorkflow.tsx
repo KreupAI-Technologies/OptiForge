@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { purchaseRequisitionService } from '@/services/purchase-requisition.service'
 import {
   FileText,
   Plus,
@@ -114,7 +115,7 @@ export default function PurchaseRequisitionWorkflow() {
   const [searchTerm, setSearchTerm] = useState('')
 
   // Mock data
-  const requisitions: Requisition[] = [
+  const MOCK_REQUISITIONS: Requisition[] = [
     {
       id: 'PR-2024-001',
       title: 'IT Equipment for New Office',
@@ -178,6 +179,47 @@ export default function PurchaseRequisitionWorkflow() {
       category: 'Safety Equipment'
     }
   ]
+
+  const [requisitions, setRequisitions] = useState<Requisition[]>(MOCK_REQUISITIONS)
+
+  useEffect(() => {
+    let cancelled = false
+    const statusMap: Record<string, Requisition['status']> = {
+      DRAFT: 'draft', SUBMITTED: 'pending', PENDING_APPROVAL: 'pending', APPROVED: 'approved',
+      REJECTED: 'rejected', CONVERTED: 'ordered', ORDERED: 'ordered', RECEIVED: 'received',
+    }
+    const priorityMap: Record<string, Requisition['priority']> = {
+      LOW: 'low', MEDIUM: 'medium', HIGH: 'high', URGENT: 'urgent',
+    }
+    const load = async () => {
+      try {
+        const res = await purchaseRequisitionService.getAllRequisitions()
+        const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
+        if (!cancelled && list.length) {
+          setRequisitions(list.map((r: any, idx: number): Requisition => ({
+            id: r.prNumber ?? r.id ?? `PR-${idx + 1}`,
+            title: r.title ?? '—',
+            requestor: r.requestedBy ?? r.requestorName ?? '—',
+            department: r.department ?? '—',
+            date: (r.createdAt ?? r.requestDate ?? '').toString().slice(0, 10),
+            dueDate: (r.requiredDate ?? '').toString().slice(0, 10),
+            priority: priorityMap[String(r.priority ?? '').toUpperCase()] ?? 'medium',
+            status: statusMap[String(r.status ?? '').toUpperCase()] ?? 'draft',
+            totalAmount: Number(r.estimatedTotal ?? r.totalAmount ?? 0),
+            items: Array.isArray(r.items) ? r.items.length : Number(r.itemCount ?? 0),
+            approvalLevel: Number(r.approvalLevel ?? 1),
+            currentApprover: r.currentApprover ?? '—',
+            category: r.category ?? '—',
+            supplier: r.suggestedVendor ?? undefined,
+          })))
+        }
+      } catch {
+        // keep sample data on error
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const requisitionItems: RequisitionItem[] = [
     {

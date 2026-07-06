@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { procurementRFQService } from '@/services/procurement-rfq.service'
 import {
   FileText,
   Send,
@@ -201,7 +202,7 @@ export default function RFQRFPManagement() {
   };
 
   // Mock data
-  const rfqList: RFQ[] = [
+  const MOCK_RFQ_LIST: RFQ[] = [
     {
       id: 'RFQ-2024-001',
       title: 'Annual IT Infrastructure Upgrade',
@@ -263,6 +264,46 @@ export default function RFQRFPManagement() {
       items: 150
     }
   ]
+
+  const [rfqList, setRfqList] = useState<RFQ[]>(MOCK_RFQ_LIST)
+
+  useEffect(() => {
+    let cancelled = false
+    const statusMap: Record<string, RFQ['status']> = {
+      DRAFT: 'draft', PUBLISHED: 'published', SENT: 'published', BIDDING: 'bidding',
+      EVALUATION: 'evaluation', AWARDED: 'awarded', CANCELLED: 'cancelled',
+    }
+    const priorityMap: Record<string, RFQ['priority']> = {
+      LOW: 'low', MEDIUM: 'medium', HIGH: 'high', URGENT: 'urgent',
+    }
+    const load = async () => {
+      try {
+        const res = await procurementRFQService.getAllRFQs()
+        const list = Array.isArray((res as any)?.data) ? (res as any).data : (Array.isArray(res) ? res : [])
+        if (!cancelled && list.length) {
+          setRfqList(list.map((r: any, idx: number): RFQ => ({
+            id: r.rfqNumber ?? r.id ?? `RFQ-${idx + 1}`,
+            title: r.title ?? '—',
+            type: (String(r.type ?? 'RFQ').toUpperCase() as RFQ['type']),
+            status: statusMap[String(r.status ?? '').toUpperCase()] ?? 'draft',
+            category: r.category ?? '—',
+            estimatedValue: Number(r.estimatedValue ?? r.totalValue ?? 0),
+            responseDeadline: (r.dueDate ?? r.responseDeadline ?? '').toString().slice(0, 10),
+            publishDate: (r.sentDate ?? r.publishDate ?? r.createdAt ?? '').toString().slice(0, 10),
+            bidders: Number(r.vendorCount ?? (Array.isArray(r.vendors) ? r.vendors.length : 0)),
+            responsesReceived: Number(r.responsesReceived ?? r.quotationCount ?? 0),
+            owner: r.owner ?? r.createdBy ?? '—',
+            priority: priorityMap[String(r.priority ?? '').toUpperCase()] ?? 'medium',
+            items: Array.isArray(r.items) ? r.items.length : Number(r.itemCount ?? 0),
+          })))
+        }
+      } catch {
+        // keep sample data on error
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const bidResponses: BidResponse[] = [
     {
