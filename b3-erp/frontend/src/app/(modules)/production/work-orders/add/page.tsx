@@ -39,6 +39,7 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { PurchaseRequisitionModal } from '@/components/production/PurchaseRequisitionModal';
+import { workOrderService } from '@/services/work-order.service';
 
 // TypeScript Interfaces
 interface MaterialRequirement {
@@ -577,14 +578,22 @@ export default function AddWorkOrderPage() {
     updateFormData('attachments', formData.attachments.filter((_, i) => i !== index));
   };
 
-  const handleSaveDraft = () => {
-    console.log('Save as Draft:', formData);
-    router.push('/production/work-orders');
+  const handleSaveDraft = async () => {
+    try {
+      await workOrderService.createWorkOrder(formData as any);
+      router.push('/production/work-orders');
+    } catch (error) {
+      console.error('Failed to save work order draft:', error);
+    }
   };
 
-  const handleRelease = () => {
-    console.log('Release Work Order:', formData);
-    router.push('/production/work-orders');
+  const handleRelease = async () => {
+    try {
+      await workOrderService.createWorkOrder(formData as any);
+      router.push('/production/work-orders');
+    } catch (error) {
+      console.error('Failed to create work order:', error);
+    }
   };
 
   const handlePRSubmit = (prData: any) => {

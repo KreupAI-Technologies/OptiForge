@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
+import { workOrderService } from '@/services/work-order.service';
 import {
   ArrowLeft,
   Save,
@@ -313,6 +314,7 @@ export default function EditWorkOrderPage() {
   const [selectedSecondaryWC, setSelectedSecondaryWC] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -492,9 +494,25 @@ export default function EditWorkOrderPage() {
     return material + labor + overhead;
   };
 
-  const handleSubmit = () => {
-    console.log('Updated Work Order Data:', formData);
-    router.push('/production/work-orders');
+  const handleSubmit = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      // Map local form data to the update DTO expected by the work-order service.
+      const payload: any = {
+        priority: formData.priority,
+        plannedQuantity: parseInt(formData.quantity) || 0,
+        plannedStartDate: formData.plannedStartDate,
+        plannedEndDate: formData.plannedEndDate,
+        notes: formData.specialInstructions,
+      };
+      await workOrderService.updateWorkOrder(workOrderId, payload);
+      router.push(`/production/work-orders/view/${workOrderId}`);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to save work order');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -1210,10 +1228,11 @@ export default function EditWorkOrderPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+            disabled={saving}
+            className="flex items-center space-x-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-5 w-5" />
-            <span>Save Changes</span>
+            <span>{saving ? 'Saving…' : 'Save Changes'}</span>
           </button>
         </div>
       </div>
