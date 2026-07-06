@@ -11,3 +11,5 @@ export * from './price-list.service';
 export * from './pricing.service';
 export * from './resource-rate.service';
 export * from './workflow-stage-setting.service';
+export * from './report-schedule.service';
+export * from './estimate-comment.service';

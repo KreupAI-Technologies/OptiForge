@@ -11,3 +11,5 @@ export * from './price-list.controller';
 export * from './pricing.controller';
 export * from './resource-rate.controller';
 export * from './workflow-stage-setting.controller';
+export * from './report-schedule.controller';
+export * from './estimate-comment.controller';
