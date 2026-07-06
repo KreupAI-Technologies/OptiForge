@@ -60,6 +60,7 @@ import { AdjustmentReasonService } from './services/adjustment-reason.service';
 import { StorageLocationService as StorageLocationClassificationService } from './services/storage-location.service';
 import { PutawayStrategyService } from './services/putaway-strategy.service';
 import { VEDAnalysisService } from './services/ved-analysis.service';
+import { InventoryAnalyticsController } from './controllers/inventory-analytics.controller';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { VEDAnalysisService } from './services/ved-analysis.service';
     BatchNumberController,
     ReorderManagementController,
     CycleCountController,
+    InventoryAnalyticsController,
   ],
   providers: [
     WarehouseService,

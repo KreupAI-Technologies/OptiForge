@@ -292,6 +292,98 @@ class InventoryService {
         const response = await apiClient.get<CycleCountSummary[]>(`/inventory/cycle-counts?${params.toString()}`);
         return this.unwrapArray(response) as CycleCountSummary[];
     }
+
+    async getCycleCount(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/cycle-counts/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Derived analytics (GET /inventory/analytics/*) ----
+    async getAgingItems(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/aging?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getDeadStock(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/dead-stock?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getVelocity(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/velocity?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getTurnover(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/turnover?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getCarryingCost(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/carrying-cost?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getOptimization(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/optimization?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock entries create/update (Material Receipt/Issue), used by stock add/edit ----
+    async createStockEntry(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-entries', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateStockEntry(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/stock-entries/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateStockBalance(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/stock-balances/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock transfers ----
+    async getStockTransfer(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/stock-transfers/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async createStockTransfer(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-transfers', data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock adjustments ----
+    async createStockAdjustment(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-adjustments', data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock ledger (movements) ----
+    async getStockLedger(filters?: { itemId?: string; warehouseId?: string; fromDate?: string; toDate?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.itemId) params.append('itemId', filters.itemId);
+        if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
+        if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+        if (filters?.toDate) params.append('toDate', filters.toDate);
+        const response = await apiClient.get<any[]>(`/inventory/stock-entries/stock-ledger?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
 }
 
 export const inventoryService = new InventoryService();
