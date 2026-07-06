@@ -33,6 +33,7 @@ import { WebhookEndpoint } from './entities/webhook-endpoint.entity';
 import { ApiEndpoint } from './entities/api-endpoint.entity';
 import { BackupRecord } from './entities/backup-record.entity';
 import { ExportDataset } from './entities/export-dataset.entity';
+import { SystemMonitor } from './entities/system-monitor.entity';
 
 // Services
 import { UserService } from './services/user.service';
@@ -65,6 +66,7 @@ import { WebhookEndpointService } from './services/webhook-endpoint.service';
 import { ApiEndpointService } from './services/api-endpoint.service';
 import { BackupRecordService } from './services/backup-record.service';
 import { ExportDatasetService } from './services/export-dataset.service';
+import { SystemMonitorService } from './services/system-monitor.service';
 
 // Seeders
 import { RoleSeederService } from './services/role-seeder.service';
@@ -103,6 +105,7 @@ import { WebhookEndpointController } from './controllers/webhook-endpoint.contro
 import { ApiEndpointController } from './controllers/api-endpoint.controller';
 import { BackupRecordController } from './controllers/backup-record.controller';
 import { ExportDatasetController } from './controllers/export-dataset.controller';
+import { SystemMonitorController } from './controllers/system-monitor.controller';
 
 @Module({
   imports: [
@@ -138,6 +141,7 @@ import { ExportDatasetController } from './controllers/export-dataset.controller
       ApiEndpoint,
       BackupRecord,
       ExportDataset,
+      SystemMonitor,
     ]),
   ],
   controllers: [
@@ -168,6 +172,7 @@ import { ExportDatasetController } from './controllers/export-dataset.controller
     ApiEndpointController,
     BackupRecordController,
     ExportDatasetController,
+    SystemMonitorController,
   ],
   providers: [
     UserService,
@@ -201,6 +206,7 @@ import { ExportDatasetController } from './controllers/export-dataset.controller
     ApiEndpointService,
     BackupRecordService,
     ExportDatasetService,
+    SystemMonitorService,
     // Seeders
     RoleSeederService,
     PermissionSeederService,
