@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   PackageMinus,
   Calendar,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 
 interface DisassemblyOrder {
-  id: number;
+  id: string;
   disassemblyNumber: string;
   disassemblyDate: string;
   kitNumber: string;
@@ -42,111 +43,43 @@ export default function DisassemblyPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedReason, setSelectedReason] = useState('all');
 
-  const [disassemblies, setDisassemblies] = useState<DisassemblyOrder[]>([
-    {
-      id: 1,
-      disassemblyNumber: 'DIS-2025-001',
-      disassemblyDate: '2025-01-20',
-      kitNumber: 'KIT-001',
-      kitName: 'Hydraulic System Assembly Kit',
-      quantityOrdered: 2,
-      quantityDisassembled: 2,
-      disassembledBy: 'John Smith',
-      warehouse: 'Assembly Plant',
-      reason: 'Defective Kit',
-      status: 'completed',
-      priority: 'high',
-      startDate: '2025-01-20',
-      completionDate: '2025-01-20',
-      expectedDate: '2025-01-20',
-      componentsReturned: true
-    },
-    {
-      id: 2,
-      disassemblyNumber: 'DIS-2025-002',
-      disassemblyDate: '2025-01-22',
-      kitNumber: 'KIT-002',
-      kitName: 'Control Panel Electronics Kit',
-      quantityOrdered: 3,
-      quantityDisassembled: 1,
-      disassembledBy: 'Sarah Johnson',
-      warehouse: 'Main Warehouse',
-      reason: 'Excess Stock',
-      status: 'in-progress',
-      priority: 'normal',
-      startDate: '2025-01-22',
-      expectedDate: '2025-01-23',
-      componentsReturned: false
-    },
-    {
-      id: 3,
-      disassemblyNumber: 'DIS-2025-003',
-      disassemblyDate: '2025-01-21',
-      kitNumber: 'KIT-003',
-      kitName: 'Excavator Maintenance Kit',
-      quantityOrdered: 5,
-      quantityDisassembled: 0,
-      warehouse: 'Spares Store',
-      reason: 'Customer Return',
-      status: 'pending',
-      priority: 'urgent',
-      expectedDate: '2025-01-23',
-      componentsReturned: false
-    },
-    {
-      id: 4,
-      disassemblyNumber: 'DIS-2025-004',
-      disassemblyDate: '2025-01-19',
-      kitNumber: 'KIT-005',
-      kitName: 'Bearing & Seal Replacement Kit',
-      quantityOrdered: 4,
-      quantityDisassembled: 4,
-      disassembledBy: 'Mike Davis',
-      warehouse: 'Assembly Plant',
-      reason: 'Wrong Configuration',
-      status: 'completed',
-      priority: 'normal',
-      startDate: '2025-01-19',
-      completionDate: '2025-01-19',
-      expectedDate: '2025-01-19',
-      componentsReturned: true
-    },
-    {
-      id: 5,
-      disassemblyNumber: 'DIS-2025-005',
-      disassemblyDate: '2025-01-22',
-      kitNumber: 'KIT-006',
-      kitName: 'Safety Equipment Bundle',
-      quantityOrdered: 6,
-      quantityDisassembled: 3,
-      disassembledBy: 'Emily Chen',
-      warehouse: 'Main Warehouse',
-      reason: 'Damage Assessment',
-      status: 'on-hold',
-      priority: 'high',
-      startDate: '2025-01-22',
-      expectedDate: '2025-01-24',
-      componentsReturned: false
-    },
-    {
-      id: 6,
-      disassemblyNumber: 'DIS-2025-006',
-      disassemblyDate: '2025-01-18',
-      kitNumber: 'KIT-004',
-      kitName: 'Welding Consumables Pack',
-      quantityOrdered: 8,
-      quantityDisassembled: 8,
-      disassembledBy: 'Robert Lee',
-      warehouse: 'FG Store',
-      reason: 'Component Shortage',
-      status: 'completed',
-      priority: 'normal',
-      startDate: '2025-01-18',
-      completionDate: '2025-01-18',
-      expectedDate: '2025-01-18',
-      componentsReturned: true
+  const [disassemblies, setDisassemblies] = useState<DisassemblyOrder[]>([]);
+
+  const loadDisassemblies = async () => {
+    try {
+      const rows = await inventoryService.getDisassemblyOrders();
+      if (!Array.isArray(rows)) {
+        setDisassemblies([]);
+        return;
+      }
+      const mapped: DisassemblyOrder[] = rows.map((row: any) => ({
+        id: String(row?.id ?? ''),
+        disassemblyNumber: row?.orderNumber ?? row?.disassemblyNumber ?? '',
+        disassemblyDate: row?.orderDate ?? row?.disassemblyDate ?? '',
+        kitNumber: row?.kitNumber ?? '',
+        kitName: row?.kitName ?? '',
+        quantityOrdered: row?.quantityOrdered ?? 0,
+        quantityDisassembled: row?.quantityDone ?? row?.quantityDisassembled ?? 0,
+        disassembledBy: row?.handledBy ?? row?.disassembledBy ?? undefined,
+        warehouse: row?.warehouse ?? '',
+        reason: row?.reason ?? '',
+        status: (row?.status ?? 'pending') as DisassemblyOrder['status'],
+        priority: (row?.priority ?? 'normal') as DisassemblyOrder['priority'],
+        startDate: row?.startDate ?? undefined,
+        completionDate: row?.completionDate ?? undefined,
+        expectedDate: row?.expectedDate ?? '',
+        componentsReturned: row?.componentsReturned ?? false
+      }));
+      setDisassemblies(mapped);
+    } catch (err) {
+      console.error('Failed to load disassembly orders', err);
+      setDisassemblies([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadDisassemblies();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {

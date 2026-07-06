@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   Package,
   Boxes,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 
 interface Kit {
-  id: number;
+  id: string;
   kitNumber: string;
   kitName: string;
   category: string;
@@ -36,105 +37,39 @@ export default function KitsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('active');
 
-  const [kits, setKits] = useState<Kit[]>([
-    {
-      id: 1,
-      kitNumber: 'KIT-001',
-      kitName: 'Hydraulic System Assembly Kit',
-      category: 'Sub-Assembly',
-      componentCount: 12,
-      outputQuantity: 1,
-      outputUOM: 'SET',
-      status: 'active',
-      lastAssembled: '2025-01-20',
-      assemblyCount: 45,
-      createdBy: 'John Smith',
-      createdDate: '2024-06-15'
-    },
-    {
-      id: 2,
-      kitNumber: 'KIT-002',
-      kitName: 'Control Panel Electronics Kit',
-      category: 'Electronics',
-      componentCount: 18,
-      outputQuantity: 1,
-      outputUOM: 'UNIT',
-      status: 'active',
-      lastAssembled: '2025-01-22',
-      assemblyCount: 68,
-      createdBy: 'Sarah Johnson',
-      createdDate: '2024-07-20'
-    },
-    {
-      id: 3,
-      kitNumber: 'KIT-003',
-      kitName: 'Excavator Maintenance Kit',
-      category: 'Maintenance',
-      componentCount: 8,
-      outputQuantity: 1,
-      outputUOM: 'KIT',
-      status: 'active',
-      lastAssembled: '2025-01-18',
-      assemblyCount: 32,
-      createdBy: 'Mike Davis',
-      createdDate: '2024-08-10'
-    },
-    {
-      id: 4,
-      kitNumber: 'KIT-004',
-      kitName: 'Welding Consumables Pack',
-      category: 'Consumables',
-      componentCount: 6,
-      outputQuantity: 10,
-      outputUOM: 'PACK',
-      status: 'active',
-      lastAssembled: '2025-01-21',
-      assemblyCount: 120,
-      createdBy: 'Emily Chen',
-      createdDate: '2024-05-05'
-    },
-    {
-      id: 5,
-      kitNumber: 'KIT-005',
-      kitName: 'Bearing & Seal Replacement Kit',
-      category: 'Spares',
-      componentCount: 15,
-      outputQuantity: 1,
-      outputUOM: 'SET',
-      status: 'active',
-      lastAssembled: '2025-01-19',
-      assemblyCount: 28,
-      createdBy: 'Robert Lee',
-      createdDate: '2024-09-12'
-    },
-    {
-      id: 6,
-      kitNumber: 'KIT-006',
-      kitName: 'Safety Equipment Bundle',
-      category: 'Safety',
-      componentCount: 10,
-      outputQuantity: 1,
-      outputUOM: 'SET',
-      status: 'active',
-      lastAssembled: '2025-01-17',
-      assemblyCount: 52,
-      createdBy: 'John Smith',
-      createdDate: '2024-04-18'
-    },
-    {
-      id: 7,
-      kitNumber: 'KIT-007',
-      kitName: 'Old Prototype Kit v1',
-      category: 'Prototype',
-      componentCount: 20,
-      outputQuantity: 1,
-      outputUOM: 'UNIT',
-      status: 'inactive',
-      assemblyCount: 5,
-      createdBy: 'Sarah Johnson',
-      createdDate: '2023-11-22'
+  const [kits, setKits] = useState<Kit[]>([]);
+
+  const loadKits = async () => {
+    try {
+      const rows = await inventoryService.getKits();
+      if (!Array.isArray(rows)) {
+        setKits([]);
+        return;
+      }
+      const mapped: Kit[] = rows.map((row: any) => ({
+        id: String(row?.id ?? ''),
+        kitNumber: row?.kitNumber ?? '',
+        kitName: row?.kitName ?? '',
+        category: row?.category ?? '',
+        componentCount: row?.componentCount ?? 0,
+        outputQuantity: row?.outputQuantity ?? 0,
+        outputUOM: row?.outputUOM ?? '',
+        status: (row?.status ?? 'draft') as Kit['status'],
+        lastAssembled: row?.lastAssembled ?? undefined,
+        assemblyCount: row?.assemblyCount ?? 0,
+        createdBy: row?.createdBy ?? '',
+        createdDate: row?.createdAt ?? row?.createdDate ?? ''
+      }));
+      setKits(mapped);
+    } catch (err) {
+      console.error('Failed to load kits', err);
+      setKits([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadKits();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -164,8 +99,8 @@ export default function KitsPage() {
 
   const totalKits = kits.filter(k => k.status === 'active').length;
   const totalAssemblies = kits.reduce((sum, k) => sum + k.assemblyCount, 0);
-  const avgComponents = Math.round(kits.reduce((sum, k) => sum + k.componentCount, 0) / kits.length);
-  const mostUsedKit = kits.reduce((max, k) => k.assemblyCount > max.assemblyCount ? k : max, kits[0]);
+  const avgComponents = kits.length > 0 ? Math.round(kits.reduce((sum, k) => sum + k.componentCount, 0) / kits.length) : 0;
+  const mostUsedKit = kits.length > 0 ? kits.reduce((max, k) => k.assemblyCount > max.assemblyCount ? k : max, kits[0]) : undefined;
 
   const filteredKits = kits.filter(kit => {
     const matchesSearch = kit.kitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -231,10 +166,10 @@ export default function KitsPage() {
         <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
           <div className="flex items-center justify-between mb-2">
             <BarChart3 className="w-8 h-8 text-orange-600" />
-            <span className="text-2xl font-bold text-orange-900">{mostUsedKit.assemblyCount}</span>
+            <span className="text-2xl font-bold text-orange-900">{mostUsedKit?.assemblyCount ?? 0}</span>
           </div>
           <div className="text-sm font-medium text-orange-700">Most Used Kit</div>
-          <div className="text-xs text-orange-600 mt-1 truncate">{mostUsedKit.kitName}</div>
+          <div className="text-xs text-orange-600 mt-1 truncate">{mostUsedKit?.kitName ?? '—'}</div>
         </div>
       </div>
 
