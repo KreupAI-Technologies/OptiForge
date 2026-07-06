@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     Truck,
     User,
@@ -15,8 +17,47 @@ import {
     ShieldCheck
 } from 'lucide-react';
 
+interface CrateRow {
+    id: string;
+    desc: string;
+    weight: string;
+}
+
 export default function DispatchControlPage() {
+    const { id: projectId } = useParams() as { id: string };
     const [status, setStatus] = useState<'LOADING' | 'IN_TRANSIT' | 'DELIVERED'>('LOADING');
+    const [crates, setCrates] = useState<CrateRow[]>([]);
+    const [siteReady, setSiteReady] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const rows = await projectManagementService.listCrates();
+                if (cancelled) return;
+                const projectCrates = (Array.isArray(rows) ? rows : [])
+                    .filter((c: any) => !c.projectId || c.projectId === projectId)
+                    .map((c: any) => ({
+                        id: c.crateNumber ?? c.crateCode ?? c.id ?? '',
+                        desc: c.description ?? c.contents ?? c.name ?? 'Crate',
+                        weight: c.weight != null ? `${c.weight} KG` : (c.grossWeight != null ? `${c.grossWeight} KG` : '-'),
+                    }));
+                setCrates(projectCrates);
+            } catch { if (!cancelled) setCrates([]); }
+            try {
+                const readiness = await projectManagementService.getInstallationReadiness(projectId);
+                if (!cancelled) {
+                    const r: any = readiness;
+                    if (!r) { setSiteReady(null); }
+                    else if (r.ready != null) { setSiteReady(Boolean(r.ready)); }
+                    else if (r.isReady != null) { setSiteReady(Boolean(r.isReady)); }
+                    else if (r.status != null) { setSiteReady(r.status === 'Ready'); }
+                    else { setSiteReady(null); }
+                }
+            } catch { if (!cancelled) setSiteReady(null); }
+        })();
+        return () => { cancelled = true; };
+    }, [projectId]);
 
     return (
         <div className="w-full space-y-4 px-3 py-2">
@@ -76,15 +117,14 @@ export default function DispatchControlPage() {
                         </div>
 
                         <div className="space-y-3 pt-4 border-t border-gray-50">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Crate Checklist (Project A-42)</h3>
-                            {[
-                                { id: 'CR-001', desc: 'Main Panels (Fragile)', weight: '142 KG' },
-                                { id: 'CR-002', desc: 'Accessories & Fitting', weight: '22 KG' },
-                                { id: 'CR-003', desc: 'Glass Units (High-Care)', weight: '88 KG' },
-                            ].map((crate) => (
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Crate Checklist</h3>
+                            {crates.length === 0 && (
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4 text-center">No crates for this project</div>
+                            )}
+                            {crates.map((crate) => (
                                 <div key={crate.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 hover:shadow-lg hover:shadow-slate-50 transition-all">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 font-black text-[10px]">{crate.id.split('-')[1]}</div>
+                                        <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400 font-black text-[10px]">{(crate.id.split('-')[1] ?? crate.id).slice(0, 3)}</div>
                                         <div>
                                             <div className="text-xs font-black text-slate-900">{crate.desc}</div>
                                             <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{crate.id} • {crate.weight}</div>
@@ -137,11 +177,15 @@ export default function DispatchControlPage() {
                             </div>
                             <div>
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Site Readiness</h4>
-                                <p className="text-xs font-black text-slate-900 italic uppercase tracking-tighter">Verified & Ready</p>
+                                <p className="text-xs font-black text-slate-900 italic uppercase tracking-tighter">
+                                    {siteReady === true ? 'Verified & Ready' : siteReady === false ? 'Not Ready' : 'Pending Check'}
+                                </p>
                             </div>
                         </div>
                         <p className="text-[10px] text-slate-500 leading-relaxed font-bold">
-                            Site Readiness Portal confirmed all mandatory checks (Phase 7.7) are complete. Dispatch unlocked.
+                            {siteReady === true
+                                ? 'Site Readiness Portal confirmed all mandatory checks (Phase 7.7) are complete. Dispatch unlocked.'
+                                : 'Awaiting Site Readiness Portal confirmation of mandatory checks (Phase 7.7).'}
                         </p>
                     </div>
                 </div>

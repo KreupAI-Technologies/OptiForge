@@ -11,10 +11,34 @@ import {
     ArrowLeft
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 
 export default function GoodsReceiptPage() {
     const { id } = useParams() as { id: string };
     const [step, setStep] = useState(1);
+    const [poRef, setPoRef] = useState('');
+    const [deliveryNote, setDeliveryNote] = useState('');
+    const [qcPassed, setQcPassed] = useState(false);
+    const [noDamage, setNoDamage] = useState(false);
+    const [posting, setPosting] = useState(false);
+    const [postError, setPostError] = useState<string | null>(null);
+
+    const postReceipt = async () => {
+        setPosting(true);
+        setPostError(null);
+        try {
+            await projectManagementService.createGoodsReceipt({
+                purchaseOrderId: poRef,
+                receivedBy: 'default-company-id',
+                deliveryNoteRef: deliveryNote,
+            });
+            setStep(3);
+        } catch (e) {
+            setPostError(e instanceof Error ? e.message : 'Failed to post GRN');
+        } finally {
+            setPosting(false);
+        }
+    };
 
     return (
         <div className="w-full max-w-2xl mx-auto space-y-4 px-3 py-4">
@@ -43,6 +67,8 @@ export default function GoodsReceiptPage() {
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Purchase Order Reference</label>
                                 <div className="relative">
                                     <input
+                                        value={poRef}
+                                        onChange={(e) => setPoRef(e.target.value)}
                                         placeholder="PO-2026-0042"
                                         className="w-full p-4 bg-slate-50 border border-gray-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-slate-900 outline-none"
                                     />
@@ -52,6 +78,8 @@ export default function GoodsReceiptPage() {
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Delivery Note #</label>
                                 <input
+                                    value={deliveryNote}
+                                    onChange={(e) => setDeliveryNote(e.target.value)}
                                     placeholder="DN-VEND-9981"
                                     className="w-full p-4 bg-slate-50 border border-gray-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-slate-900 outline-none"
                                 />
@@ -78,11 +106,11 @@ export default function GoodsReceiptPage() {
                                 <div className="p-4 border border-gray-100 rounded-2xl space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs font-black text-slate-900 uppercase tracking-tight">Technical QC Passed?</span>
-                                        <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-slate-900 focus:ring-slate-900" />
+                                        <input type="checkbox" checked={qcPassed} onChange={(e) => setQcPassed(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-slate-900 focus:ring-slate-900" />
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs font-black text-slate-900 uppercase tracking-tight">No Visible Damage?</span>
-                                        <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-slate-900 focus:ring-slate-900" />
+                                        <input type="checkbox" checked={noDamage} onChange={(e) => setNoDamage(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-slate-900 focus:ring-slate-900" />
                                     </div>
                                 </div>
 
@@ -98,9 +126,12 @@ export default function GoodsReceiptPage() {
                                 </div>
                             </div>
 
+                            {postError && (
+                                <div className="text-[10px] font-bold text-red-600 uppercase tracking-widest">{postError}</div>
+                            )}
                             <div className="flex gap-3 pt-4">
                                 <button onClick={() => setStep(1)} className="flex-1 p-4 bg-white border border-gray-200 rounded-2xl text-[10px] font-black uppercase text-slate-400 tracking-widest">Back</button>
-                                <button onClick={() => setStep(3)} className="grow-[2] p-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-100">Post Receipt (GRN)</button>
+                                <button onClick={postReceipt} disabled={posting || !poRef} className="grow-[2] p-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-100 disabled:opacity-50">{posting ? 'Posting…' : 'Post Receipt (GRN)'}</button>
                             </div>
                         </div>
                     )}
@@ -112,7 +143,7 @@ export default function GoodsReceiptPage() {
                             </div>
                             <div>
                                 <h2 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">Receipt Successful</h2>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Inventory updated for PO-2026-0042</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Inventory updated for {poRef || 'PO'}</p>
                             </div>
                             <div className="bg-slate-50 p-4 rounded-2xl border border-gray-100 max-w-xs mx-auto">
                                 <div className="text-[10px] font-black text-slate-400 uppercase mb-1">Stock Location</div>

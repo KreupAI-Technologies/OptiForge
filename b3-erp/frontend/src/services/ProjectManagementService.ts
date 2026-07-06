@@ -2880,6 +2880,30 @@ class ProjectManagementService {
         }
     }
 
+    private async pmModulePost<T>(path: string, body: any): Promise<T | null> {
+        try {
+            const companyId = process.env.NEXT_PUBLIC_COMPANY_ID || 'test';
+            const res = await fetch(`${API_BASE_URL}${path}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-company-id': companyId },
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return (data && (data as any).data !== undefined && !Array.isArray((data as any).data))
+                ? ((data as any).data as T)
+                : (data as T);
+        } catch (error) {
+            console.error(`Error posting ${path}:`, error);
+            throw error;
+        }
+    }
+
+    // Goods receipt (GRN) — [id]/procurement/receipt
+    createGoodsReceipt(data: { purchaseOrderId: string; receivedBy: string; deliveryNoteRef: string }) {
+        return this.pmModulePost<any>('/api/procurement/grn', data);
+    }
+
     // (modules)/project-management page wiring — list endpoints
     getEmergencySpares() { return this.pmModuleGet<any>('/api/project-management/emergency-spares'); }
     getTaSettlementClaims() { return this.pmModuleGet<any>('/api/project-management/ta-settlement/claims'); }
