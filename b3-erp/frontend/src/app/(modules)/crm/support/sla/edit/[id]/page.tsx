@@ -1,29 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, AlertCircle, Plus, X, Clock, Target, TrendingUp } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 export default function EditSLAPolicyPage() {
   const router = useRouter();
   const params = useParams();
+  const slaId = params?.id as string;
 
-  // Mock data - in real app, fetch based on params.id
   const [formData, setFormData] = useState({
-    name: 'Critical Issues - Enterprise',
-    description: 'SLA for critical priority issues from enterprise customers',
-    priority: 'critical' as 'critical' | 'high' | 'medium' | 'low',
+    name: '',
+    description: '',
+    priority: 'medium' as 'critical' | 'high' | 'medium' | 'low',
     category: 'all' as 'technical' | 'billing' | 'general' | 'all',
-    firstResponseTime: '15',
-    resolutionTime: '4',
+    firstResponseTime: '',
+    resolutionTime: '',
     businessHoursOnly: false,
     isActive: true,
   });
 
-  const [appliesTo, setAppliesTo] = useState<string[]>(['Enterprise Plan', 'Premium Support']);
+  const [appliesTo, setAppliesTo] = useState<string[]>(['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Mock performance stats
+  // Performance metrics have no matching backend endpoint; kept as reference-only sample.
   const stats = {
     firstResponseCompliance: 93.3,
     resolutionCompliance: 88.9,
@@ -33,7 +38,40 @@ export default function EditSLAPolicyPage() {
     createdDate: '2024-01-10',
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!slaId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const s = (await crmService.slas.getById(slaId)) as any;
+        if (cancelled || !s) return;
+        const categories: string[] = Array.isArray(s.customerCategories) ? s.customerCategories : [];
+        setFormData({
+          name: s.name ?? '',
+          description: s.description ?? '',
+          priority: (s.priority ?? 'medium') as 'critical' | 'high' | 'medium' | 'low',
+          category: (s.category ?? (Array.isArray(s.ticketCategories) && s.ticketCategories.length === 1 ? s.ticketCategories[0] : 'all')) as 'technical' | 'billing' | 'general' | 'all',
+          firstResponseTime: s.responseTimeHours != null ? String(Number(s.responseTimeHours) * 60) : '',
+          resolutionTime: s.resolutionTimeHours != null ? String(Number(s.resolutionTimeHours)) : '',
+          businessHoursOnly: Boolean(s.businessHoursOnly),
+          isActive: s.isActive ?? (s.status ? s.status === 'active' : true),
+        });
+        setAppliesTo(categories.length ? categories : ['']);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load SLA policy.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [slaId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -48,7 +86,26 @@ export default function EditSLAPolicyPage() {
       return;
     }
 
-    router.push('/crm/support/sla');
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const payload: any = {
+        name: formData.name,
+        description: formData.description,
+        priority: formData.priority,
+        category: formData.category,
+        responseTimeHours: Number(formData.firstResponseTime) / 60,
+        resolutionTimeHours: Number(formData.resolutionTime),
+        businessHoursOnly: formData.businessHoursOnly,
+        isActive: formData.isActive,
+        customerCategories: appliesTo.map((a) => a.trim()).filter(Boolean),
+      };
+      await crmService.slas.update(slaId, payload);
+      router.push('/crm/support/sla');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save SLA policy. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const addAppliesTo = () => {
@@ -91,6 +148,25 @@ export default function EditSLAPolicyPage() {
           <h1 className="text-3xl font-bold text-gray-900">Edit SLA Policy</h1>
           <p className="text-gray-600 mt-2">Update service level agreement targets and response times</p>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading SLA policy…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {submitError && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -295,9 +371,10 @@ export default function EditSLAPolicyPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Changes
+                  {isSubmitting ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </div>

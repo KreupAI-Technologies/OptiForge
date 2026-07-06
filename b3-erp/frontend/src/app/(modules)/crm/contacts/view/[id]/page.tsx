@@ -61,96 +61,22 @@ interface ContactActivity {
   };
 }
 
-// Mock contact data for Sarah Williams
-const mockContact: Contact = {
-  id: '1',
-  salutation: 'Ms.',
-  firstName: 'Sarah',
-  lastName: 'Williams',
-  title: 'Head of Procurement',
-  department: 'Procurement & Supply Chain',
-  email: 'sarah.williams@premierkitchen.com',
-  phone: '+1 (555) 123-4567',
-  mobile: '+1 (555) 987-6543',
-  company: 'Premier Kitchen Designs',
+const emptyContact: Contact = {
+  id: '',
+  salutation: '',
+  firstName: '',
+  lastName: '',
+  title: '',
+  department: '',
+  email: '',
+  phone: '',
+  mobile: '',
+  company: '',
   contactType: 'primary',
   status: 'active',
-  lastContact: '2025-10-09',
-  createdAt: '2025-08-15',
+  lastContact: '',
+  createdAt: '',
 };
-
-// Mock activities
-const mockActivities: ContactActivity[] = [
-  {
-    id: 'ca1',
-    contactId: '1',
-    type: 'email',
-    title: 'Product Inquiry Follow-up',
-    description: 'Sent follow-up email regarding the new kitchen cabinet line pricing and availability. Included product catalog and installation timeline.',
-    performedBy: 'John Martinez',
-    timestamp: '2025-10-09 14:30',
-    metadata: { attachments: 2 }
-  },
-  {
-    id: 'ca2',
-    contactId: '1',
-    type: 'call',
-    title: 'Contract Negotiation Discussion',
-    description: 'Discussed contract terms for the upcoming Q4 bulk order. Sarah requested volume discount pricing and extended payment terms.',
-    performedBy: 'John Martinez',
-    timestamp: '2025-10-08 10:15',
-    metadata: { duration: '35 mins', outcome: 'Positive' }
-  },
-  {
-    id: 'ca3',
-    contactId: '1',
-    type: 'meeting',
-    title: 'On-site Facility Tour',
-    description: 'Conducted facility tour showcasing our manufacturing capabilities and quality control processes. Sarah was impressed with our automation systems.',
-    performedBy: 'Michael Chen',
-    timestamp: '2025-10-05 14:00',
-    metadata: { duration: '2 hours', outcome: 'Very Positive' }
-  },
-  {
-    id: 'ca4',
-    contactId: '1',
-    type: 'video_call',
-    title: 'Product Demo Session',
-    description: 'Virtual demonstration of new smart kitchen cabinet systems with integrated lighting and soft-close mechanisms.',
-    performedBy: 'Jennifer Lee',
-    timestamp: '2025-10-03 11:00',
-    metadata: { duration: '45 mins', outcome: 'Interested' }
-  },
-  {
-    id: 'ca5',
-    contactId: '1',
-    type: 'note',
-    title: 'Budget Planning Note',
-    description: 'Sarah mentioned Q4 budget has been approved for kitchen equipment upgrade. Estimated budget range: $250K-$300K. Decision timeline: End of November.',
-    performedBy: 'John Martinez',
-    timestamp: '2025-10-01 09:15'
-  },
-  {
-    id: 'ca6',
-    contactId: '1',
-    type: 'email',
-    title: 'Monthly Newsletter Sent',
-    description: 'Sent September newsletter featuring new product launches, case studies, and industry trends.',
-    performedBy: 'Marketing Automation',
-    timestamp: '2025-09-28 08:00',
-    metadata: { attachments: 1 }
-  },
-  {
-    id: 'ca7',
-    contactId: '1',
-    type: 'call',
-    title: 'Quarterly Check-in',
-    description: 'Regular quarterly touch-base call. Discussed current supplier performance and upcoming procurement needs for their new showroom.',
-    performedBy: 'John Martinez',
-    timestamp: '2025-09-15 15:30',
-    metadata: { duration: '20 mins', outcome: 'Positive' }
-  }
-];
 
 const activityIcons = {
   call: PhoneCall,
@@ -192,7 +118,8 @@ export default function ViewContactPage() {
   const contactId = params?.id as string;
   const { addToast } = useToast();
 
-  const [contact, setContact] = useState<Contact>(mockContact);
+  const [contact, setContact] = useState<Contact>(emptyContact);
+  const [activities, setActivities] = useState<ContactActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -596,11 +523,11 @@ export default function ViewContactPage() {
 
             {/* Activities List */}
             <div className="space-y-2">
-              {mockActivities
+              {activities
                 .filter(activity => activity.contactId === contactId)
                 .map((activity, index) => {
                   const ActivityIcon = activityIcons[activity.type];
-                  const isLast = index === mockActivities.filter(a => a.contactId === contactId).length - 1;
+                  const isLast = index === activities.filter(a => a.contactId === contactId).length - 1;
 
                   return (
                     <div key={activity.id} className="relative">

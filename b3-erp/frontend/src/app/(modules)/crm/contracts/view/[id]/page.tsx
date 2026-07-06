@@ -1,59 +1,102 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit, Download, FileText, DollarSign, Calendar, AlertCircle, CheckCircle, RefreshCw, User, Building2, Clock, TrendingUp, Package, Mail, Phone, MapPin, Trash2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 export default function ViewContractPage() {
   const router = useRouter();
   const params = useParams();
+  const contractId = params?.id as string;
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - in real app, fetch based on params.id
-  const contract = {
-    id: params.id,
-    contractNumber: 'CNT-2024-001',
-    title: 'Enterprise Software License Agreement',
-    customer: 'John Smith',
-    customerCompany: 'Acme Corporation',
-    customerEmail: 'john.smith@acme.com',
-    customerPhone: '+1 (555) 123-4567',
-    customerAddress: '123 Business St, San Francisco, CA 94105',
-    type: 'license' as const,
-    status: 'active' as const,
-    value: 450000,
-    recurringValue: 90000,
-    billingCycle: 'annually' as const,
-    startDate: '2024-01-01',
-    endDate: '2026-12-31',
-    signedDate: '2023-12-15',
-    autoRenew: true,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 30',
-    assignedTo: 'Sarah Johnson',
-    assignedEmail: 'sarah.j@company.com',
-    tags: ['Enterprise', 'Software', 'Multi-Year'],
-    attachments: [
-      { name: 'Signed_Contract.pdf', size: '2.4 MB', date: '2023-12-15' },
-      { name: 'SOW_Document.pdf', size: '1.8 MB', date: '2023-12-10' },
-      { name: 'Terms_And_Conditions.pdf', size: '890 KB', date: '2023-11-20' },
-    ],
-    lastInvoiceDate: '2024-01-01',
-    nextInvoiceDate: '2025-01-01',
-    totalInvoiced: 90000,
+  const [contract, setContract] = useState<any>({
+    id: contractId,
+    contractNumber: '',
+    title: '',
+    customer: '',
+    customerCompany: '',
+    customerEmail: '',
+    customerPhone: '',
+    customerAddress: '',
+    type: 'license',
+    status: 'active',
+    value: 0,
+    recurringValue: 0,
+    billingCycle: 'annually',
+    startDate: '',
+    endDate: '',
+    signedDate: '',
+    autoRenew: false,
+    renewalNoticeDays: 0,
+    paymentTerms: '',
+    assignedTo: '',
+    assignedEmail: '',
+    tags: [],
+    attachments: [],
+    lastInvoiceDate: '',
+    nextInvoiceDate: '',
+    totalInvoiced: 0,
     outstandingAmount: 0,
-    createdDate: '2023-11-20',
-    notes: 'Premium enterprise customer with 24/7 support included. Auto-renewal confirmed by client on 2023-12-10.',
-    termsAndConditions: 'Standard enterprise license terms apply. Includes unlimited user licenses for the duration of the contract. Support response time: 4 hours for critical issues, 24 hours for standard issues. Annual price increases capped at 5%.',
-    deliverables: [
-      'Enterprise software license for unlimited users',
-      '24/7 premium support',
-      'Quarterly business reviews',
-      'Priority feature requests',
-      'Dedicated account manager',
-    ],
-  };
+    createdDate: '',
+    notes: '',
+    termsAndConditions: '',
+    deliverables: [],
+  });
+
+  useEffect(() => {
+    if (!contractId) return;
+    let active = true;
+    (async () => {
+      try {
+        const c: any = await crmService.contracts.getById(contractId);
+        if (!active || !c) return;
+        setContract({
+          id: c.id ?? contractId,
+          contractNumber: c.contractNumber ?? '',
+          title: c.title ?? '',
+          customer: c.customer ?? c.contactPerson ?? '',
+          customerCompany: c.customerCompany ?? c.customerName ?? '',
+          customerEmail: c.customerEmail ?? '',
+          customerPhone: c.customerPhone ?? '',
+          customerAddress: c.customerAddress ?? '',
+          type: c.type ?? c.category ?? 'license',
+          status: c.status ?? 'active',
+          value: Number(c.value ?? 0),
+          recurringValue: Number(c.recurringValue ?? 0),
+          billingCycle: c.billingCycle ?? 'annually',
+          startDate: c.startDate ?? '',
+          endDate: c.endDate ?? '',
+          signedDate: c.signedDate ?? '',
+          autoRenew: Boolean(c.autoRenew),
+          renewalNoticeDays: Number(c.renewalNoticeDays ?? 0),
+          paymentTerms: c.paymentTerms ?? '',
+          assignedTo: c.assignedTo ?? '',
+          assignedEmail: c.assignedEmail ?? '',
+          tags: Array.isArray(c.tags) ? c.tags : [],
+          attachments: Array.isArray(c.attachments) ? c.attachments : [],
+          lastInvoiceDate: c.lastInvoiceDate ?? '',
+          nextInvoiceDate: c.nextInvoiceDate ?? '',
+          totalInvoiced: Number(c.totalInvoiced ?? 0),
+          outstandingAmount: Number(c.outstandingAmount ?? 0),
+          createdDate: c.createdDate ?? '',
+          notes: c.notes ?? '',
+          termsAndConditions: c.termsAndConditions ?? '',
+          deliverables: Array.isArray(c.deliverables) ? c.deliverables : [],
+        });
+      } catch (err) {
+        console.error('Failed to load contract', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [contractId]);
 
   const getDaysUntilEnd = () => {
     return Math.ceil((new Date(contract.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -100,7 +143,12 @@ export default function ViewContractPage() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
+    try {
+      await crmService.contracts.delete(contractId);
+    } catch (err) {
+      console.error('Failed to delete contract', err);
+    }
     router.push('/crm/contracts');
   };
 
@@ -227,7 +275,7 @@ export default function ViewContractPage() {
             <div className="bg-white rounded-lg border border-gray-200 p-3">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Deliverables & Services</h2>
               <ul className="space-y-3">
-                {contract.deliverables.map((deliverable, index) => (
+                {contract.deliverables.map((deliverable: any, index: number) => (
                   <li key={index} className="flex items-start gap-3">
                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     <span className="text-gray-700">{deliverable}</span>
@@ -252,7 +300,7 @@ export default function ViewContractPage() {
             <div className="bg-white rounded-lg border border-gray-200 p-3">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Attachments</h2>
               <div className="space-y-3">
-                {contract.attachments.map((file, index) => (
+                {contract.attachments.map((file: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
                     <div className="flex items-center gap-3">
                       <FileText className="w-5 h-5 text-blue-600" />
@@ -387,7 +435,7 @@ export default function ViewContractPage() {
             <div className="bg-white rounded-lg border border-gray-200 p-3">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Tags</h3>
               <div className="flex flex-wrap gap-2">
-                {contract.tags.map((tag, index) => (
+                {contract.tags.map((tag: any, index: number) => (
                   <span key={index} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
                     {tag}
                   </span>

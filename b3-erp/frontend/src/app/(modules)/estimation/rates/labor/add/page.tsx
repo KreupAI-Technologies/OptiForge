@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Users, DollarSign, Clock, AlertCircle, Award } from 'lucide-react'
+import { estimationResourceRateService } from '@/services/estimation-resource-rate.service'
+
+const companyId = 'default-company-id'
 
 export default function AddLaborRatePage() {
   const router = useRouter()
@@ -50,7 +53,7 @@ export default function AddLaborRatePage() {
     return (base * multiplier).toFixed(2)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!skillCode.trim()) {
       alert('Please enter skill code')
@@ -73,26 +76,34 @@ export default function AddLaborRatePage() {
       return
     }
 
-    const newRate = {
-      skillCode,
-      skillName,
-      department,
-      skillLevel,
-      standardRate: parseFloat(standardRate),
-      overtimeRate: parseFloat(calculateOvertimeRate()),
-      holidayRate: parseFloat(calculateHolidayRate()),
-      overtimeMultiplier: parseFloat(overtimeMultiplier),
-      holidayMultiplier: parseFloat(holidayMultiplier),
-      effectiveFrom,
-      status,
-      notes,
-      certifications,
-      createdAt: new Date().toISOString()
+    try {
+      await estimationResourceRateService.createResourceRate(companyId, {
+        rateType: 'Labor',
+        code: skillCode,
+        name: skillName,
+        category: department,
+        unit: 'Hour',
+        currency: 'INR',
+        standardRate: parseFloat(standardRate),
+        overtimeRate: parseFloat(calculateOvertimeRate()),
+        isActive: status === 'active',
+        effectiveFrom: effectiveFrom || undefined,
+        description: certifications || undefined,
+        // Labor-specific extras spread onto the payload
+        skillLevel,
+        holidayRate: parseFloat(calculateHolidayRate()),
+        overtimeMultiplier: parseFloat(overtimeMultiplier),
+        holidayMultiplier: parseFloat(holidayMultiplier),
+        department,
+        status,
+        notes,
+        certifications,
+      } as any)
+      router.push('/estimation/rates/labor')
+    } catch (error) {
+      console.error('Failed to create labor rate:', error)
+      alert('Failed to save labor rate. Please try again.')
     }
-
-    console.log('Creating new labor rate:', newRate)
-    // Would make API call here
-    router.push('/estimation/rates/labor')
   }
 
   return (

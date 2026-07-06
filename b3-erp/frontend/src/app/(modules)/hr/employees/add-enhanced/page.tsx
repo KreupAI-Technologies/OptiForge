@@ -27,6 +27,7 @@ import {
   HelpIcon,
 } from '@/components/ui/FormUX';
 import { StepIndicator, Step } from '@/components/ui/StepIndicator';
+import { EmployeeService } from '@/services/employee.service';
 
 interface EmployeeForm {
   employeeId: string;
@@ -298,19 +299,29 @@ export default function AddEmployeeEnhancedPage() {
 
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateStep(currentStep)) {
-      clearDraft();
-      console.log('Creating employee:', formData);
-      alert('Employee created successfully!');
-      router.push('/hr/employees');
+      try {
+        await EmployeeService.createEmployee({ companyId: 'default-company-id', ...formData } as any);
+        clearDraft();
+        alert('Employee created successfully!');
+        router.push('/hr/employees');
+      } catch (error) {
+        console.error('Failed to create employee:', error);
+        alert(error instanceof Error ? error.message : 'Failed to create employee');
+      }
     }
   };
 
-  const handleSaveDraft = () => {
-    console.log('Saving draft:', formData);
-    alert('Employee draft saved!');
-    router.push('/hr/employees');
+  const handleSaveDraft = async () => {
+    try {
+      await EmployeeService.createEmployee({ companyId: 'default-company-id', ...formData, status: 'draft' } as any);
+      alert('Employee draft saved!');
+      router.push('/hr/employees');
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save draft');
+    }
   };
 
   const handleCancel = () => {

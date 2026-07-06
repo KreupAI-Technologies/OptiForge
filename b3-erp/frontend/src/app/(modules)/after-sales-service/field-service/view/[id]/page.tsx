@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   MapPin,
   User,
@@ -17,8 +18,8 @@ import {
 export default function ViewFieldServicePage({ params }: { params: { id: string } }) {
   const router = useRouter();
 
-  // Mock field service data
-  const fieldJob = {
+  // Fallback field service data (defaults so every field the JSX reads is defined)
+  const FALLBACK = {
     id: params.id,
     jobNumber: 'FS-2025-0045',
     status: 'On Site',
@@ -72,6 +73,25 @@ export default function ViewFieldServicePage({ params }: { params: { id: string 
     relatedTicket: 'SR-2025-0045',
     relatedContract: 'AMC-2025-0001'
   };
+
+  const [fieldJob, setFieldJob] = useState(FALLBACK);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await AfterSalesPagesService.fieldJob(String(params.id));
+        if (!cancelled && data && typeof data === 'object') {
+          setFieldJob(prev => ({ ...prev, ...data }));
+        }
+      } catch {
+        // keep fallback on error
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

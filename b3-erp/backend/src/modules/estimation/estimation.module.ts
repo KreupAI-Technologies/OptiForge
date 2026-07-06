@@ -14,6 +14,8 @@ import {
   PricingController,
   ResourceRateController,
   WorkflowStageSettingController,
+  ReportScheduleController,
+  EstimateCommentController,
 } from './controllers';
 import {
   BOQ,
@@ -44,6 +46,8 @@ import {
   SubcontractorRate,
   WinLossRecord,
   WorkflowStageSetting,
+  ReportSchedule,
+  EstimateComment,
 } from './entities';
 import {
   BOQService,
@@ -59,6 +63,8 @@ import {
   PricingService,
   ResourceRateService,
   WorkflowStageSettingService,
+  ReportScheduleService,
+  EstimateCommentService,
 } from './services';
 
 @Module({
@@ -100,6 +106,9 @@ import {
       LaborCostRate,
       MaterialCostRate,
       OverheadCost,
+      // Report schedules & comments (orphan pages)
+      ReportSchedule,
+      EstimateComment,
     ]),
   ],
   controllers: [
@@ -116,6 +125,8 @@ import {
     PricingController,
     ResourceRateController,
     WorkflowStageSettingController,
+    ReportScheduleController,
+    EstimateCommentController,
   ],
   providers: [
     BOQService,
@@ -131,6 +142,8 @@ import {
     PricingService,
     ResourceRateService,
     WorkflowStageSettingService,
+    ReportScheduleService,
+    EstimateCommentService,
   ],
   exports: [
     BOQService,
@@ -146,6 +159,8 @@ import {
     PricingService,
     ResourceRateService,
     WorkflowStageSettingService,
+    ReportScheduleService,
+    EstimateCommentService,
   ],
 })
 export class EstimationModule {}

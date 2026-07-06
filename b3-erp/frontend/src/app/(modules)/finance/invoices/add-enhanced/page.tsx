@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { InvoiceService } from '@/services/invoice.service';
 import {
   ArrowLeft,
   Save,
@@ -234,17 +235,59 @@ export default function AddInvoiceEnhancedPage() {
   const nextStep = () => { if (validateStep(currentStep)) setCurrentStep((prev) => Math.min(prev + 1, 3)); };
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const buildPayload = (status: 'draft' | 'sent') => ({
+    companyId: 'default-company-id',
+    invoiceNumber: formData.invoiceNumber,
+    status,
+    type: 'SALES',
+    customerName: formData.customer,
+    customerGST: formData.customerGST,
+    invoiceDate: formData.invoiceDate,
+    dueDate: formData.dueDate,
+    poNumber: formData.poReference,
+    paymentTerms: formData.paymentTerms,
+    billingAddress: formData.billingAddress,
+    shippingAddress: formData.shippingAddress,
+    notes: formData.notes,
+    terms: formData.termsConditions,
+    discountType: formData.discountType,
+    discountValue: formData.discountValue,
+    lineItems: formData.lineItems.map((li) => ({
+      productName: li.item,
+      description: li.description,
+      hsn: li.hsn,
+      quantity: li.quantity,
+      unitPrice: li.unitPrice,
+      taxRate: li.taxRate,
+      taxType: li.taxType,
+      discount: 0,
+    })),
+  });
+
+  const submitInvoice = async (status: 'draft' | 'sent') => {
+    setIsSubmitting(true);
+    try {
+      const created = await InvoiceService.createInvoice(buildPayload(status) as any);
+      clearDraft();
+      const newId = (created as any)?.id;
+      router.push(newId ? `/finance/invoices/view/${newId}` : '/finance/invoices');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create invoice');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (validateStep(currentStep)) {
-      clearDraft();
-      alert('Invoice created successfully!');
-      router.push('/finance/invoices');
+      void submitInvoice('sent');
     }
   };
 
   const handleSaveDraft = () => {
-    alert('Invoice saved as draft!');
-    router.push('/finance/invoices');
+    void submitInvoice('draft');
   };
 
   const handleCancel = () => {
@@ -708,14 +751,14 @@ export default function AddInvoiceEnhancedPage() {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button onClick={handleSaveDraft} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Save Draft</button>
+          <button onClick={handleSaveDraft} disabled={isSubmitting} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">Save Draft</button>
           {currentStep < 3 ? (
             <button onClick={nextStep} className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
               <span>Next</span>
               <ChevronRight className="h-5 w-5" />
             </button>
           ) : (
-            <button onClick={handleSubmit} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <button onClick={handleSubmit} disabled={isSubmitting} className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
               <Send className="h-5 w-5" />
               <span>Create Invoice</span>
             </button>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Save, Package, AlertCircle } from 'lucide-react'
+import { estimationMaterialCostService } from '@/services/estimation-material-cost.service'
 
 export default function AddMaterialRatePage() {
   const router = useRouter()
@@ -52,7 +53,7 @@ export default function AddMaterialRatePage() {
     router.push('/estimation/rates/materials')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!materialCode.trim()) {
       alert('Please enter material code')
@@ -79,24 +80,21 @@ export default function AddMaterialRatePage() {
       return
     }
 
-    const newRate = {
-      materialCode,
-      materialName,
-      category,
-      unit,
-      currentRate: parseFloat(currentRate),
-      effectiveFrom,
-      supplier,
-      leadTime: parseInt(leadTime) || 0,
-      minimumOrderQty: parseInt(minimumOrderQty) || 0,
-      status,
-      notes,
-      createdAt: new Date().toISOString()
+    try {
+      await estimationMaterialCostService.createRate({
+        materialCode,
+        materialName,
+        category,
+        unit,
+        currentPrice: parseFloat(currentRate),
+        supplier,
+        status,
+      })
+      router.push('/estimation/rates/materials')
+    } catch (error) {
+      console.error('Failed to create material rate:', error)
+      alert('Failed to save material rate. Please try again.')
     }
-
-    console.log('Creating new material rate:', newRate)
-    // Would make API call here
-    router.push('/estimation/rates/materials')
   }
 
   return (

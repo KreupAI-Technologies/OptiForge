@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BarChart3, TrendingUp, Target, Filter, DollarSign, Download, RefreshCw, Settings, Eye, Plus, Users } from 'lucide-react'
+import { salesAnalyticsService } from '@/services/sales-analytics.service'
 
 export interface PipelineStage {
   stage: string;
@@ -11,14 +12,45 @@ export interface PipelineStage {
   avgDealSize: number;
 }
 
+const FALLBACK_STAGES: PipelineStage[] = [
+  { stage: 'Prospecting', opportunities: 45, value: 225000000, winRate: 15, avgDealSize: 5000000 },
+  { stage: 'Qualification', opportunities: 34, value: 187000000, winRate: 30, avgDealSize: 5500000 },
+  { stage: 'Proposal', opportunities: 22, value: 143000000, winRate: 50, avgDealSize: 6500000 },
+  { stage: 'Negotiation', opportunities: 12, value: 84000000, winRate: 70, avgDealSize: 7000000 },
+  { stage: 'Closed Won', opportunities: 8, value: 64000000, winRate: 100, avgDealSize: 8000000 },
+];
+
 export default function PipelineAnalytics() {
-  const [stages] = useState<PipelineStage[]>([
-    { stage: 'Prospecting', opportunities: 45, value: 225000000, winRate: 15, avgDealSize: 5000000 },
-    { stage: 'Qualification', opportunities: 34, value: 187000000, winRate: 30, avgDealSize: 5500000 },
-    { stage: 'Proposal', opportunities: 22, value: 143000000, winRate: 50, avgDealSize: 6500000 },
-    { stage: 'Negotiation', opportunities: 12, value: 84000000, winRate: 70, avgDealSize: 7000000 },
-    { stage: 'Closed Won', opportunities: 8, value: 64000000, winRate: 100, avgDealSize: 8000000 }
-  ]);
+  const [stages, setStages] = useState<PipelineStage[]>(FALLBACK_STAGES);
+  const [loading, setLoading] = useState(true);
+
+  const loadPipeline = async () => {
+    try {
+      setLoading(true);
+      const dashboard = await salesAnalyticsService.getDashboard();
+      const categories = dashboard?.categoryData ?? [];
+      if (Array.isArray(categories) && categories.length > 0) {
+        // Map real category revenue rows into pipeline-stage cards.
+        setStages(
+          categories.map((c) => ({
+            stage: c.category,
+            opportunities: c.orders ?? 0,
+            value: c.revenue ?? 0,
+            winRate: Math.max(0, Math.min(100, Math.round(c.growth ?? 0))),
+            avgDealSize: c.orders ? Math.round((c.revenue ?? 0) / c.orders) : 0,
+          })),
+        );
+      }
+    } catch {
+      // Preserve fallback stages on error so the view stays usable.
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPipeline();
+  }, []);
 
   const totalPipelineValue = stages.reduce((sum, s) => sum + s.value, 0);
   const weightedValue = stages.reduce((sum, s) => sum + (s.value * s.winRate / 100), 0);
@@ -27,8 +59,7 @@ export default function PipelineAnalytics() {
 
   // Handler functions
   const handleRefresh = () => {
-    console.log('Refreshing pipeline data...');
-    alert('Refreshing Pipeline Analytics...\n\nUpdating:\n- Opportunity counts and values\n- Win rate calculations\n- Stage conversion metrics\n- Weighted pipeline value\n- Sales velocity trends\n\nSyncing with CRM system.\nEstimated time: 10 seconds');
+    void loadPipeline();
   };
 
   const handleSettings = () => {
@@ -80,7 +111,7 @@ export default function PipelineAnalytics() {
               <BarChart3 className="h-8 w-8 text-indigo-600" />
               Pipeline Analytics
             </h2>
-            <p className="text-gray-600 mt-1">Visualize sales pipeline and conversion funnel</p>
+            <p className="text-gray-600 mt-1">{loading ? 'Loading pipeline data…' : 'Visualize sales pipeline and conversion funnel'}</p>
           </div>
           <div className="flex space-x-2">
             <button
@@ -189,7 +220,7 @@ export default function PipelineAnalytics() {
                   <div className="w-full bg-gray-200 rounded-full h-4">
                     <div
                       className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full flex items-center justify-end pr-2"
-                      style={{ width: `${(stage.opportunities / stages[0].opportunities) * 100}%` }}
+                      style={{ width: `${stages[0]?.opportunities ? Math.min(100, (stage.opportunities / stages[0].opportunities) * 100) : 0}%` }}
                     >
                       <span className="text-xs text-white font-bold">{stage.opportunities}</span>
                     </div>

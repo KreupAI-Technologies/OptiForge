@@ -1,27 +1,66 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, Users } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface ResourceAllocationData {
+    totalResources: number;
+    allocated: number;
+    available: number;
+    utilizationRate: number;
+    byProject: { id: string; project: string; resources: number; hours: number; utilization: number }[];
+}
+
+const DEFAULT_DATA: ResourceAllocationData = {
+    totalResources: 85,
+    allocated: 72,
+    available: 13,
+    utilizationRate: 84.7,
+    byProject: [
+        { id: 'PRJ-001', project: 'Factory Automation Phase 2', resources: 28, hours: 4480, utilization: 92 },
+        { id: 'PRJ-002', project: 'ERP System Upgrade', resources: 18, hours: 2880, utilization: 85 },
+        { id: 'PRJ-003', project: 'Warehouse Expansion', resources: 16, hours: 2560, utilization: 82 },
+        { id: 'PRJ-004', project: 'Quality System ISO Cert', resources: 10, hours: 1600, utilization: 78 },
+    ],
+};
 
 export default function ResourceAllocationReport() {
     const router = useRouter();
-    const data = {
-        totalResources: 85,
-        allocated: 72,
-        available: 13,
-        utilizationRate: 84.7,
-        byProject: [
-            { id: 'PRJ-001', project: 'Factory Automation Phase 2', resources: 28, hours: 4480, utilization: 92 },
-            { id: 'PRJ-002', project: 'ERP System Upgrade', resources: 18, hours: 2880, utilization: 85 },
-            { id: 'PRJ-003', project: 'Warehouse Expansion', resources: 16, hours: 2560, utilization: 82 },
-            { id: 'PRJ-004', project: 'Quality System ISO Cert', resources: 10, hours: 1600, utilization: 78 },
-        ],
-    };
+    const [data, setData] = useState<ResourceAllocationData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<ResourceAllocationData>>('project-management.resources');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalResources: Number(payload.totalResources ?? DEFAULT_DATA.totalResources),
+                        allocated: Number(payload.allocated ?? DEFAULT_DATA.allocated),
+                        available: Number(payload.available ?? DEFAULT_DATA.available),
+                        utilizationRate: Number(payload.utilizationRate ?? DEFAULT_DATA.utilizationRate),
+                        byProject: Array.isArray(payload.byProject) ? payload.byProject : DEFAULT_DATA.byProject,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -32,6 +71,9 @@ export default function ResourceAllocationReport() {
                 </div>
                 <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, Clock, Users, Search, Filter, Calendar, TrendingUp, Eye, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { ITILService } from '@/services/support.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1';
 
 interface Incident {
   id: string;
@@ -35,222 +38,64 @@ const IncidentTrackingPage = () => {
   const [filterCategory, setFilterCategory] = useState('all');
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
-  const [incidents] = useState<Incident[]>([
-    {
-      id: '1',
-      incidentNumber: 'INC-2025-0089',
-      title: 'ERP Application Slow Performance',
-      description: 'Users reporting extremely slow response times across all modules, particularly in inventory and sales sections',
-      priority: 'P1',
-      severity: 'High',
-      status: 'In Progress',
-      category: 'Performance Issue',
-      affectedServices: ['ERP Application', 'Database Server', 'API Gateway'],
-      reportedBy: 'Rajesh Kumar',
-      reportedAt: '2025-10-21 14:30:00',
-      assignedTo: 'Priya Sharma',
-      assignedTeam: 'Infrastructure Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 18:00:00',
-      lastUpdate: '2025-10-21 16:45:00',
-      updateMessage: 'Database optimization in progress. Performance improved by 40%',
-      businessImpact: 'All users affected, operations significantly slowed',
-      workaround: 'Use mobile app for critical transactions',
-      resolutionSteps: [
-        'Identified database query bottleneck',
-        'Applied index optimization',
-        'Cleared application cache',
-        'Monitoring performance metrics',
-      ],
-      escalationLevel: 1,
-    },
-    {
-      id: '2',
-      incidentNumber: 'INC-2025-0088',
-      title: 'Email Service Outage',
-      description: 'Complete email service outage affecting all automated notifications and user communications',
-      priority: 'P0',
-      severity: 'Critical',
-      status: 'Critical',
-      category: 'Application Error',
-      affectedServices: ['Email Service', 'SMTP Server', 'Notification System'],
-      reportedBy: 'Amit Patel',
-      reportedAt: '2025-10-21 13:15:00',
-      assignedTo: 'Vikram Singh',
-      assignedTeam: 'DevOps Team',
-      impactedUsers: 187,
-      estimatedResolution: '2025-10-21 14:30:00',
-      lastUpdate: '2025-10-21 14:00:00',
-      updateMessage: 'Email server restarted, testing connectivity',
-      businessImpact: 'Critical: No automated notifications, order confirmations failing',
-      resolutionSteps: [
-        'Identified SMTP server failure',
-        'Restarted email service',
-        'Verified configuration',
-        'Testing email delivery',
-      ],
-      escalationLevel: 2,
-    },
-    {
-      id: '3',
-      incidentNumber: 'INC-2025-0087',
-      title: 'Payment Gateway Integration Failure',
-      description: 'Payment processing failures for online orders, gateway returning timeout errors',
-      priority: 'P1',
-      severity: 'High',
-      status: 'In Progress',
-      category: 'Integration Failure',
-      affectedServices: ['Payment Gateway', 'Order Management', 'Finance Module'],
-      reportedBy: 'Sneha Reddy',
-      reportedAt: '2025-10-21 11:00:00',
-      assignedTo: 'Rahul Mehta',
-      assignedTeam: 'Integration Team',
-      impactedUsers: 45,
-      estimatedResolution: '2025-10-21 16:00:00',
-      lastUpdate: '2025-10-21 15:30:00',
-      updateMessage: 'Coordinating with payment gateway provider, API credentials updated',
-      businessImpact: 'Online sales halted, revenue loss estimated at ₹2L/hour',
-      workaround: 'Manual payment processing via bank transfer',
-      resolutionSteps: [
-        'Contacted payment gateway support',
-        'Updated API credentials',
-        'Testing payment flow',
-      ],
-      escalationLevel: 1,
-    },
-    {
-      id: '4',
-      incidentNumber: 'INC-2025-0086',
-      title: 'VPN Connection Issues for Remote Users',
-      description: 'Multiple remote users unable to connect to VPN, authentication failures reported',
-      priority: 'P2',
-      severity: 'Medium',
-      status: 'Investigating',
-      category: 'Network Problem',
-      affectedServices: ['VPN Service', 'Authentication Service', 'Network Infrastructure'],
-      reportedBy: 'Deepak Joshi',
-      reportedAt: '2025-10-21 10:30:00',
-      assignedTo: 'Anita Desai',
-      assignedTeam: 'Network Team',
-      impactedUsers: 23,
-      estimatedResolution: '2025-10-21 17:00:00',
-      lastUpdate: '2025-10-21 12:00:00',
-      updateMessage: 'Investigating VPN server logs, certificate validity confirmed',
-      businessImpact: 'Remote workers unable to access internal systems',
-      workaround: 'Use web-based applications for non-critical work',
-      resolutionSteps: [
-        'Verified VPN server status',
-        'Checked SSL certificates',
-        'Reviewing authentication logs',
-      ],
-      escalationLevel: 0,
-    },
-    {
-      id: '5',
-      incidentNumber: 'INC-2025-0085',
-      title: 'Database Backup Failure',
-      description: 'Automated daily backup failed, backup files not created for last 2 days',
-      priority: 'P1',
-      severity: 'High',
-      status: 'Resolved',
-      category: 'Data Issue',
-      affectedServices: ['Backup Service', 'Database Server', 'Cloud Storage'],
-      reportedBy: 'System Monitor',
-      reportedAt: '2025-10-20 02:15:00',
-      assignedTo: 'Suresh Kumar',
-      assignedTeam: 'Database Team',
-      impactedUsers: 0,
-      estimatedResolution: '2025-10-20 10:00:00',
-      actualResolution: '2025-10-20 09:30:00',
-      lastUpdate: '2025-10-20 09:30:00',
-      updateMessage: 'Backup service restored, manual backups completed for missed days',
-      businessImpact: 'Data recovery risk in case of system failure',
-      resolutionSteps: [
-        'Identified disk space issue on backup server',
-        'Cleared old backup files',
-        'Reconfigured backup retention policy',
-        'Completed manual backups',
-        'Verified automated backup working',
-      ],
-      escalationLevel: 0,
-    },
-    {
-      id: '6',
-      incidentNumber: 'INC-2025-0084',
-      title: 'Production Module Data Sync Error',
-      description: 'Work order data not syncing with inventory module, causing stock discrepancies',
-      priority: 'P2',
-      severity: 'Medium',
-      status: 'In Progress',
-      category: 'Data Issue',
-      affectedServices: ['Production Module', 'Inventory Module', 'Data Sync Service'],
-      reportedBy: 'Meera Nair',
-      reportedAt: '2025-10-21 09:00:00',
-      assignedTo: 'Karthik Iyer',
-      assignedTeam: 'Application Team',
-      impactedUsers: 34,
-      estimatedResolution: '2025-10-21 17:00:00',
-      lastUpdate: '2025-10-21 14:30:00',
-      updateMessage: 'Data sync queue cleared, running reconciliation scripts',
-      businessImpact: 'Inaccurate inventory counts, production planning affected',
-      workaround: 'Manual inventory updates until sync restored',
-      resolutionSteps: [
-        'Identified message queue overflow',
-        'Cleared stuck messages',
-        'Running data reconciliation',
-      ],
-      escalationLevel: 0,
-    },
-    {
-      id: '7',
-      incidentNumber: 'INC-2025-0083',
-      title: 'User Authentication Service Degradation',
-      description: 'Login attempts taking 30+ seconds, timeout errors for some users',
-      priority: 'P2',
-      severity: 'Medium',
-      status: 'Monitoring',
-      category: 'Performance Issue',
-      affectedServices: ['Authentication Service', 'LDAP Server', 'Session Management'],
-      reportedBy: 'Pooja Gupta',
-      reportedAt: '2025-10-21 08:00:00',
-      assignedTo: 'Naveen Kumar',
-      assignedTeam: 'Security Team',
-      impactedUsers: 67,
-      estimatedResolution: '2025-10-21 16:00:00',
-      lastUpdate: '2025-10-21 13:00:00',
-      updateMessage: 'LDAP cache refreshed, monitoring login performance',
-      businessImpact: 'User frustration, delayed work start times',
-      workaround: 'Use "Remember Me" option to reduce authentication frequency',
-      resolutionSteps: [
-        'Refreshed LDAP cache',
-        'Optimized session queries',
-        'Monitoring performance metrics',
-      ],
-      escalationLevel: 0,
-    },
-    {
-      id: '8',
-      incidentNumber: 'INC-2025-0082',
-      title: 'Report Generation Service Timeout',
-      description: 'Large reports failing to generate, service timing out after 5 minutes',
-      priority: 'P3',
-      severity: 'Low',
-      status: 'Open',
-      category: 'Application Error',
-      affectedServices: ['Reports Module', 'Database Server'],
-      reportedBy: 'Arjun Verma',
-      reportedAt: '2025-10-21 07:30:00',
-      assignedTo: 'Unassigned',
-      assignedTeam: 'Application Team',
-      impactedUsers: 12,
-      estimatedResolution: '2025-10-22 12:00:00',
-      lastUpdate: '2025-10-21 07:30:00',
-      updateMessage: 'Incident logged, awaiting assignment',
-      businessImpact: 'Management reports delayed, workaround available',
-      workaround: 'Generate reports in smaller date ranges',
-      escalationLevel: 0,
-    },
-  ]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const priorityMap: Record<string, string> = {
+      critical: 'P0',
+      high: 'P1',
+      medium: 'P2',
+      low: 'P3',
+    };
+    const statusMap: Record<string, string> = {
+      open: 'Open',
+      in_progress: 'In Progress',
+      pending: 'Monitoring',
+      resolved: 'Resolved',
+      closed: 'Resolved',
+    };
+
+    const loadIncidents = async () => {
+      try {
+        const res = await ITILService.getIncidents(COMPANY_ID);
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const mapped: Incident[] = rows.map((r: any) => ({
+          id: r?.id ?? '',
+          incidentNumber: r?.incidentNumber ?? '',
+          title: r?.title ?? '',
+          description: r?.description ?? '',
+          priority: priorityMap[r?.priority] ?? (r?.priority ?? ''),
+          severity: r?.impact ? String(r.impact).charAt(0).toUpperCase() + String(r.impact).slice(1) : '',
+          status: statusMap[r?.status] ?? (r?.status ?? ''),
+          category: r?.category ?? '',
+          affectedServices: Array.isArray(r?.affectedServices) ? r.affectedServices : [],
+          reportedBy: r?.reportedBy ?? '',
+          reportedAt: r?.createdAt ? String(r.createdAt) : '',
+          assignedTo: r?.assignedTo ?? 'Unassigned',
+          assignedTeam: r?.assignedTeam ?? '',
+          impactedUsers: typeof r?.impactedUsers === 'number' ? r.impactedUsers : 0,
+          estimatedResolution: r?.resolvedAt ? String(r.resolvedAt) : '',
+          actualResolution: r?.resolvedAt ? String(r.resolvedAt) : undefined,
+          lastUpdate: r?.updatedAt ? String(r.updatedAt) : '',
+          updateMessage: r?.resolutionNotes ?? '',
+          businessImpact: r?.impact ? `Impact: ${r.impact}` : '',
+          workaround: undefined,
+          resolutionSteps: undefined,
+          escalationLevel: typeof r?.reopenedCount === 'number' ? r.reopenedCount : 0,
+        }));
+        if (!cancelled) setIncidents(mapped);
+      } catch {
+        if (!cancelled) setIncidents([]);
+      }
+    };
+
+    loadIncidents();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const stats = {
     totalIncidents: incidents.length,

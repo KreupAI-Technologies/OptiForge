@@ -49,12 +49,10 @@ export default function MRPPlannedOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
+  const loadPlannedOrders = React.useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
         // Backend returns raw ORM shape (orderNumber/itemCode/itemName/quantity/
         // uom/orderType/status/priority/estimatedCost/leadTimeDays/dueDate...).
         const raw = (await ProductionOrphanService.getPlannedOrders()) as any[];
@@ -99,21 +97,18 @@ export default function MRPPlannedOrdersPage() {
             notes: o?.notes ?? '',
           };
         });
-        if (!cancelled) setPlannedOrders(mapped);
+        setPlannedOrders(mapped);
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load planned orders');
-          setPlannedOrders([]);
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load planned orders');
+        setPlannedOrders([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadPlannedOrders();
+  }, [loadPlannedOrders]);
 
   const filteredOrders = plannedOrders.filter(order => {
     const typeMatch = filterOrderType === 'all' || order.orderType === filterOrderType;
@@ -185,10 +180,15 @@ export default function MRPPlannedOrdersPage() {
     setIsConvertOpen(true);
   };
 
-  const handleCreateSubmit = (data: any) => {
-    // TODO: Implement API call to create planned order
-    console.log('Creating planned order:', data);
-    setIsCreateOpen(false);
+  const handleCreateSubmit = async (data: any) => {
+    try {
+      await ProductionOrphanService.createPlannedOrder(data ?? {});
+      await loadPlannedOrders();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create planned order');
+    } finally {
+      setIsCreateOpen(false);
+    }
   };
 
   const handleApproveSubmit = async (data: any) => {
@@ -213,11 +213,22 @@ export default function MRPPlannedOrdersPage() {
     }
   };
 
-  const handleConvertSubmit = (data: any) => {
-    // TODO: Implement API call to convert order to PO
-    console.log('Converting order to PO:', selectedOrder?.plannedOrderNumber, data);
-    setIsConvertOpen(false);
-    setSelectedOrder(null);
+  const handleConvertSubmit = async (data: any) => {
+    const order = selectedOrder;
+    if (!order) {
+      setIsConvertOpen(false);
+      return;
+    }
+    try {
+      // Releasing a planned order is the convert-to-PO action.
+      await ProductionOrphanService.releasePlannedOrder(order.id);
+      await loadPlannedOrders();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to convert order to PO');
+    } finally {
+      setIsConvertOpen(false);
+      setSelectedOrder(null);
+    }
   };
 
   return (

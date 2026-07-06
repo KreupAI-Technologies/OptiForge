@@ -788,6 +788,36 @@ export class InvoiceService {
     });
   }
 
+  /**
+   * Create a sales invoice directly against the Prisma-backed NestJS endpoint.
+   * Sends the backend-native payload shape (`items`, camelCase line fields)
+   * plus the required x-company-id header. Used by /sales/invoices/create.
+   */
+  static async createSalesInvoice(payload: {
+    companyId: string;
+    customerName: string;
+    customerEmail?: string;
+    customerAddress?: string;
+    invoiceDate: string;
+    dueDate: string;
+    paymentTerms: string;
+    notes?: string;
+    items: {
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+      discountPercent?: number;
+      taxRate?: number;
+    }[];
+  }): Promise<Invoice> {
+    const { companyId, ...body } = payload;
+    return this.request<Invoice>('/sales-masters/invoices', {
+      method: 'POST',
+      headers: { 'x-company-id': companyId },
+      body: JSON.stringify({ ...body, companyId }),
+    });
+  }
+
   // Update Invoice
   static async updateInvoice(id: string, data: UpdateInvoiceDto): Promise<Invoice> {
     if (USE_MOCK_DATA) {

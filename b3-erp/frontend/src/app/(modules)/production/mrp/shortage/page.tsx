@@ -46,12 +46,10 @@ export default function MRPShortagePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
+  const loadShortages = React.useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
         // Backend returns raw ORM shape (shortageNumber/itemCode/itemName/
         // severity/status/shortageQuantity/affectedOrders...); map to page model.
         const raw = (await ProductionOrphanService.getShortageRecords()) as any[];
@@ -98,21 +96,18 @@ export default function MRPShortagePage() {
             status: statusMap[s?.status] ?? 'pending-resolution',
           };
         });
-        if (!cancelled) setShortages(mapped);
+        setShortages(mapped);
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load material shortages');
-          setShortages([]);
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load material shortages');
+        setShortages([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadShortages();
+  }, [loadShortages]);
 
   const filteredShortages = shortages.filter(shortage => {
     const criticalityMatch = filterCriticality === 'all' || shortage.criticalityLevel === filterCriticality;
@@ -161,18 +156,39 @@ export default function MRPShortagePage() {
     setIsImpactOpen(true);
   };
 
-  const handleResolveSubmit = (resolution: any) => {
-    // TODO: Integrate with API to save resolution plan
-    console.log('Resolution submitted:', resolution);
-    console.log('For shortage:', selectedShortage);
-    setIsResolveOpen(false);
+  const handleResolveSubmit = async (resolution: any) => {
+    const shortage = selectedShortage;
+    if (!shortage) {
+      setIsResolveOpen(false);
+      return;
+    }
+    try {
+      await ProductionOrphanService.resolveShortageRecord(shortage.id, resolution ?? {});
+      await loadShortages();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save resolution plan');
+    } finally {
+      setIsResolveOpen(false);
+      setSelectedShortage(null);
+    }
   };
 
-  const handleEmergencyPOSubmit = (po: any) => {
-    // TODO: Integrate with API to create emergency purchase order
-    console.log('Emergency PO created:', po);
-    console.log('For shortage:', selectedShortage);
-    setIsEmergencyPOOpen(false);
+  const handleEmergencyPOSubmit = async (po: any) => {
+    const shortage = selectedShortage;
+    if (!shortage) {
+      setIsEmergencyPOOpen(false);
+      return;
+    }
+    try {
+      // Emergency PO for a critical shortage escalates the shortage record.
+      await ProductionOrphanService.escalateShortageRecord(shortage.id, po ?? {});
+      await loadShortages();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create emergency purchase order');
+    } finally {
+      setIsEmergencyPOOpen(false);
+      setSelectedShortage(null);
+    }
   };
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   BarChart3,
   TrendingUp,
@@ -30,53 +31,64 @@ export default function MovementReportsPage() {
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [selectedMovementType, setSelectedMovementType] = useState('all');
 
-  const [warehouseData, setWarehouseData] = useState<MovementReport[]>([
-    {
-      warehouse: 'Main Warehouse',
-      receipts: 245,
-      issues: 198,
-      transfers: 65,
-      netMovement: 47,
-      openingStock: 12580,
-      closingStock: 12627
-    },
-    {
-      warehouse: 'RM Store',
-      receipts: 185,
-      issues: 220,
-      transfers: 42,
-      netMovement: -35,
-      openingStock: 8450,
-      closingStock: 8415
-    },
-    {
-      warehouse: 'FG Store',
-      receipts: 312,
-      issues: 285,
-      transfers: 58,
-      netMovement: 27,
-      openingStock: 5240,
-      closingStock: 5267
-    },
-    {
-      warehouse: 'Assembly Plant',
-      receipts: 156,
-      issues: 142,
-      transfers: 78,
-      netMovement: 14,
-      openingStock: 3680,
-      closingStock: 3694
-    },
-    {
-      warehouse: 'Spares Store',
-      receipts: 89,
-      issues: 76,
-      transfers: 28,
-      netMovement: 13,
-      openingStock: 2145,
-      closingStock: 2158
-    }
-  ]);
+  const [warehouseData, setWarehouseData] = useState<MovementReport[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await inventoryService.getStockLedger();
+        const entries = Array.isArray(res) ? res : [];
+
+        // Aggregate flat ledger entries into per-warehouse movement summary
+        const byWarehouse = new Map<string, MovementReport>();
+        for (const e of entries) {
+          const warehouse = e?.warehouseName ?? e?.warehouse ?? 'Unknown';
+          const type = String(e?.entryType ?? e?.movementType ?? '').toLowerCase();
+          const qty = Math.abs(Number(e?.quantity ?? 0));
+
+          const bucket = byWarehouse.get(warehouse) ?? {
+            warehouse,
+            receipts: 0,
+            issues: 0,
+            transfers: 0,
+            netMovement: 0,
+            openingStock: 0,
+            closingStock: 0,
+          };
+
+          if (type.includes('receipt') || type.includes('in') || type.includes('purchase')) {
+            bucket.receipts += qty;
+            bucket.netMovement += qty;
+            bucket.closingStock += qty;
+          } else if (type.includes('issue') || type.includes('out') || type.includes('consumption')) {
+            bucket.issues += qty;
+            bucket.netMovement -= qty;
+            bucket.closingStock -= qty;
+          } else if (type.includes('transfer')) {
+            bucket.transfers += qty;
+          } else {
+            // Fallback: use sign of raw quantity to classify
+            const raw = Number(e?.quantity ?? 0);
+            if (raw >= 0) {
+              bucket.receipts += qty;
+              bucket.netMovement += qty;
+              bucket.closingStock += qty;
+            } else {
+              bucket.issues += qty;
+              bucket.netMovement -= qty;
+              bucket.closingStock -= qty;
+            }
+          }
+
+          byWarehouse.set(warehouse, bucket);
+        }
+
+        setWarehouseData(Array.from(byWarehouse.values()));
+      } catch (err) {
+        console.error('Failed to load stock ledger', err);
+      }
+    })();
+  }, []);
 
   const totalReceipts = warehouseData.reduce((sum, w) => sum + w.receipts, 0);
   const totalIssues = warehouseData.reduce((sum, w) => sum + w.issues, 0);

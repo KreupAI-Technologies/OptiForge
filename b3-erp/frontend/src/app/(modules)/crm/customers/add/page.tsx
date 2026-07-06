@@ -26,6 +26,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 // Comprehensive TypeScript Interface matching Enterprise ERP Systems
 interface Address {
@@ -550,15 +551,27 @@ export default function AddCustomerPage() {
     }
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Customer Created',
-      message: `${formData.customerName} (${formData.customerNumber}) has been added successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/customers');
+  const handleSubmit = async () => {
+    try {
+      const payload: any = {
+        ...formData,
+        name: formData.customerName,
+        companyId: 'default-company-id',
+      };
+      await crmService.customers.create(payload);
+      addToast({
+        title: 'Customer Created',
+        message: `${formData.customerName} (${formData.customerNumber}) has been added successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/customers');
+    } catch (err) {
+      addToast({
+        title: 'Error',
+        message: 'Failed to create customer. Please try again.',
+        variant: 'error'
+      });
+    }
   };
 
   const steps = [

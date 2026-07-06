@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,21 @@ export default function UploadBOQPage() {
   const [project, setProject] = useState('');
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [phase, setPhase] = useState('');
+  const [version, setVersion] = useState('1.0');
+  const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    projectManagementService.getPmProjectPlansRaw()
+      .then((rows) => {
+        setProjects((Array.isArray(rows) ? rows : []).map((p: any) => ({
+          id: String(p.id ?? p.projectCode ?? ''),
+          name: p.projectName ?? p.name ?? p.projectCode ?? 'Project',
+        })));
+      })
+      .catch(() => setProjects([]));
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -37,13 +53,27 @@ export default function UploadBOQPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsUploading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsUploading(false);
+    try {
+      const proj = projects.find((p) => p.id === project);
+      await projectManagementService.createPmDocument({
+        companyId: 'default-company-id',
+        projectId: project,
+        projectName: proj?.name ?? '',
+        documentName: file?.name ?? 'BOQ Document',
+        documentType: 'BOQ',
+        category: 'BOQ',
+        version,
+        fileFormat: file ? (file.name.split('.').pop() ?? '') : '',
+        fileSize: file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : '',
+        status: 'Pending Approval',
+        description,
+      } as any);
       router.push('/project-management/documents');
-    }, 1500);
+    } catch {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -74,16 +104,16 @@ export default function UploadBOQPage() {
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PRJ-2025-001">Taj Hotels - Commercial Kitchen</SelectItem>
-                    <SelectItem value="PRJ-2025-002">BigBasket - Cold Room</SelectItem>
-                    <SelectItem value="PRJ-2025-003">L&T Campus - Industrial Kitchen</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phase">Project Phase</Label>
-                <Select>
+                <Select value={phase} onValueChange={setPhase}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select phase" />
                   </SelectTrigger>
@@ -97,12 +127,12 @@ export default function UploadBOQPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="version">Version</Label>
-                <Input id="version" placeholder="e.g., 1.0" defaultValue="1.0" />
+                <Input id="version" placeholder="e.g., 1.0" value={version} onChange={(e) => setVersion(e.target.value)} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Enter brief description..." />
+                <Textarea id="description" placeholder="Enter brief description..." value={description} onChange={(e) => setDescription(e.target.value)} />
               </div>
             </CardContent>
           </Card>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PerformanceManagementService } from '@/services/performance-management.service';
 import {
   ArrowLeft,
   Save,
@@ -108,6 +109,51 @@ export default function EditPerformancePage({ params }: { params: { id: string }
   const [newGoal, setNewGoal] = useState('');
   const [newTraining, setNewTraining] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  // Load the real performance review on mount and populate form defensively.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data: any = await PerformanceManagementService.getHrPerformanceReviewById(params.id);
+        if (cancelled || !data) return;
+        const toNum = (v: any, fallback: number): number =>
+          v === null || v === undefined || Number.isNaN(Number(v)) ? fallback : Number(v);
+        const toStr = (v: any, fallback: string): string =>
+          v === null || v === undefined ? fallback : String(v);
+        const toArr = (v: any): string[] => (Array.isArray(v) ? v.map((x) => String(x)) : []);
+
+        setFormData((prev) => ({
+          reviewDate: toStr(data.reviewDate, prev.reviewDate),
+          technicalSkills: toNum(data.technicalSkills, prev.technicalSkills),
+          communication: toNum(data.communication, prev.communication),
+          teamwork: toNum(data.teamwork, prev.teamwork),
+          leadership: toNum(data.leadership, prev.leadership),
+          problemSolving: toNum(data.problemSolving, prev.problemSolving),
+          productivity: toNum(data.productivity, prev.productivity),
+          attendance: toNum(data.attendance, prev.attendance),
+          punctuality: toNum(data.punctuality, prev.punctuality),
+          strengths: toStr(data.strengths, prev.strengths),
+          areasForImprovement: toStr(
+            data.areasForImprovement ?? data.areasOfImprovement,
+            prev.areasForImprovement,
+          ),
+          comments: toStr(data.comments ?? data.finalComments, prev.comments),
+          nextReviewDate: toStr(data.nextReviewDate, prev.nextReviewDate),
+        }));
+        if (Array.isArray(data.achievements)) setAchievements(toArr(data.achievements));
+        if (Array.isArray(data.goals)) setGoals(toArr(data.goals));
+        if (Array.isArray(data.trainingNeeds)) setTrainingNeeds(toArr(data.trainingNeeds));
+      } catch (err) {
+        // Keep the existing form defaults if the record can't be loaded.
+        console.error('Failed to load performance review', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -224,7 +270,7 @@ export default function EditPerformancePage({ params }: { params: { id: string }
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -233,7 +279,7 @@ export default function EditPerformancePage({ params }: { params: { id: string }
     }
 
     const reviewData = {
-      id: params.id,
+      companyId: 'default-company-id',
       ...formData,
       overallRating: calculateOverallRating(),
       achievements,
@@ -241,9 +287,17 @@ export default function EditPerformancePage({ params }: { params: { id: string }
       trainingNeeds,
     };
 
-    console.log('Updating performance review:', reviewData);
-    alert('Performance review updated successfully!');
-    router.push(`/hr/performance/view/${params.id}`);
+    setSaving(true);
+    try {
+      await PerformanceManagementService.updateHrPerformanceReview(params.id, reviewData);
+      alert('Performance review updated successfully!');
+      router.push(`/hr/performance/view/${params.id}`);
+    } catch (err) {
+      console.error('Failed to update performance review', err);
+      alert('Failed to update performance review. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const overallRating = calculateOverallRating();
@@ -591,10 +645,11 @@ export default function EditPerformancePage({ params }: { params: { id: string }
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+              disabled={saving}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Update Review
+              {saving ? 'Updating...' : 'Update Review'}
             </button>
           </div>
         </form>

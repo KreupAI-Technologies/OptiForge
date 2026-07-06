@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,18 +16,58 @@ import {
     Filter,
     Calendar
 } from 'lucide-react';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface LeadAnalysisData {
+    totalLeads: number;
+    newLeads: number;
+    qualifiedCount: number;
+    conversionRate: number;
+    activeCampaigns: number;
+    costPerLead: number;
+}
+
+const DEFAULT_DATA: LeadAnalysisData = {
+    totalLeads: 450,
+    newLeads: 45,
+    qualifiedCount: 120,
+    conversionRate: 15,
+    activeCampaigns: 12,
+    costPerLead: 24.50
+};
 
 export default function LeadAnalysisReport() {
     const router = useRouter();
+    const [data, setData] = useState<LeadAnalysisData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalLeads: 450,
-        newLeads: 45,
-        qualifiedCount: 120,
-        conversionRate: 15,
-        activeCampaigns: 12,
-        costPerLead: 24.50
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<LeadAnalysisData>>('crm.leads');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalLeads: Number(payload.totalLeads ?? DEFAULT_DATA.totalLeads),
+                        newLeads: Number(payload.newLeads ?? DEFAULT_DATA.newLeads),
+                        qualifiedCount: Number(payload.qualifiedCount ?? DEFAULT_DATA.qualifiedCount),
+                        conversionRate: Number(payload.conversionRate ?? DEFAULT_DATA.conversionRate),
+                        activeCampaigns: Number(payload.activeCampaigns ?? DEFAULT_DATA.activeCampaigns),
+                        costPerLead: Number(payload.costPerLead ?? DEFAULT_DATA.costPerLead),
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden bg-gray-50">
@@ -58,6 +98,8 @@ export default function LeadAnalysisReport() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+                {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
                 {/* KPI Cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <Card

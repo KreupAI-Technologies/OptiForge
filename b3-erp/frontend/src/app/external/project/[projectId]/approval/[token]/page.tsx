@@ -11,12 +11,66 @@ import {
     Eye,
     PenTool,
     MessageCircle,
-    Lock
+    Lock,
+    Loader2
 } from 'lucide-react';
+import { designVerificationService } from '@/services/DesignVerificationService';
 
 export default function ClientApprovalPortal() {
     const { projectId, token } = useParams() as { projectId: string, token: string };
     const [status, setStatus] = useState<'review' | 'success' | 'reject'>('review');
+    const [approval, setApproval] = useState<any | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [rejectComments, setRejectComments] = useState('');
+
+    useEffect(() => {
+        if (!token) return;
+        let cancelled = false;
+        designVerificationService
+            .getApprovalByToken(token)
+            .then((data) => {
+                if (cancelled) return;
+                setApproval(data);
+                if (data?.status === 'APPROVED') setStatus('success');
+                else if (data?.status === 'REJECTED') setStatus('reject');
+            })
+            .catch(() => { /* keep review view; token may be invalid */ })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [token]);
+
+    const handleApprove = async () => {
+        setSubmitting(true);
+        try {
+            await designVerificationService.submitApproval({ token, status: 'APPROVED' });
+            setStatus('success');
+        } catch {
+            alert('Failed to submit approval. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleReject = async () => {
+        setSubmitting(true);
+        try {
+            await designVerificationService.submitApproval({ token, status: 'REJECTED', comments: rejectComments });
+            setStatus('reject');
+        } catch {
+            alert('Failed to submit request. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -92,16 +146,18 @@ export default function ClientApprovalPortal() {
                             <div className="flex flex-col md:flex-row gap-4">
                                 <button
                                     onClick={() => setStatus('reject')}
-                                    className="flex-1 flex items-center justify-center gap-2 border-2 border-rose-200 text-rose-600 py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-rose-50 transition-all"
+                                    disabled={submitting}
+                                    className="flex-1 flex items-center justify-center gap-2 border-2 border-rose-200 text-rose-600 py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-rose-50 transition-all disabled:opacity-50"
                                 >
                                     <XCircle className="w-5 h-5" />
                                     Request Changes
                                 </button>
                                 <button
-                                    onClick={() => setStatus('success')}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] transition-all"
+                                    onClick={handleApprove}
+                                    disabled={submitting}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-200 hover:bg-emerald-700 hover:scale-[1.02] transition-all disabled:opacity-50"
                                 >
-                                    <CheckCircle className="w-5 h-5" />
+                                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                                     Sign & Approve
                                 </button>
                             </div>
@@ -136,11 +192,19 @@ export default function ClientApprovalPortal() {
                         <div className="pt-4 max-w-md mx-auto">
                             <textarea
                                 placeholder="Tell us what needs to be changed..."
-                                className="w-full h-32 p-4 bg-slate-50 border border-gray-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={rejectComments}
+                                onChange={(e) => setRejectComments(e.target.value)}
+                                disabled={approval?.status === 'REJECTED'}
+                                className="w-full h-32 p-4 bg-slate-50 border border-gray-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-60"
                             />
                         </div>
-                        <button className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-black transition-all">
-                            Submit Revision Request
+                        <button
+                            onClick={handleReject}
+                            disabled={submitting || approval?.status === 'REJECTED'}
+                            className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl hover:bg-black transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                        >
+                            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {approval?.status === 'REJECTED' ? 'Revision Request Submitted' : 'Submit Revision Request'}
                         </button>
                     </div>
                 )}

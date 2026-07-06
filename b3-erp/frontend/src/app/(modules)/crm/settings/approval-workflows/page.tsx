@@ -91,30 +91,40 @@ export default function ApprovalWorkflowsPage() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
-  const toggleWorkflowStatus = (workflowId: string) => {
-    setWorkflows(workflows.map(wf => {
-      if (wf.id === workflowId) {
-        const newStatus = !wf.active
-        addToast({
-          title: newStatus ? 'Workflow Activated' : 'Workflow Deactivated',
-          message: `${wf.name} has been ${newStatus ? 'activated' : 'deactivated'}`,
-          variant: newStatus ? 'success' : 'warning'
-        })
-        return { ...wf, active: newStatus }
-      }
-      return wf
-    }))
+  const toggleWorkflowStatus = async (workflowId: string) => {
+    const workflow = workflows.find(wf => wf.id === workflowId)
+    if (!workflow) return
+    const newStatus = !workflow.active
+    // Optimistic update
+    setWorkflows(workflows.map(wf => (wf.id === workflowId ? { ...wf, active: newStatus } : wf)))
+    try {
+      await crmService.approvalWorkflows.update(workflowId, { active: newStatus })
+      addToast({
+        title: newStatus ? 'Workflow Activated' : 'Workflow Deactivated',
+        message: `${workflow.name} has been ${newStatus ? 'activated' : 'deactivated'}`,
+        variant: newStatus ? 'success' : 'warning'
+      })
+    } catch {
+      // Revert on failure
+      setWorkflows(prev => prev.map(wf => (wf.id === workflowId ? { ...wf, active: workflow.active } : wf)))
+      addToast({ title: 'Update Failed', message: `Could not update ${workflow.name}`, variant: 'error' })
+    }
   }
 
-  const deleteWorkflow = (workflowId: string) => {
+  const deleteWorkflow = async (workflowId: string) => {
     const workflow = workflows.find(wf => wf.id === workflowId)
     if (workflow && confirm(`Delete workflow "${workflow.name}"?`)) {
-      setWorkflows(workflows.filter(wf => wf.id !== workflowId))
-      addToast({
-        title: 'Workflow Deleted',
-        message: `${workflow.name} has been deleted`,
-        variant: 'success'
-      })
+      try {
+        await crmService.approvalWorkflows.delete(workflowId)
+        setWorkflows(prev => prev.filter(wf => wf.id !== workflowId))
+        addToast({
+          title: 'Workflow Deleted',
+          message: `${workflow.name} has been deleted`,
+          variant: 'success'
+        })
+      } catch {
+        addToast({ title: 'Delete Failed', message: `Could not delete ${workflow.name}`, variant: 'error' })
+      }
     }
   }
 

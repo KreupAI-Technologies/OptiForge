@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, AlertTriangle, Shield, Lock, Users, Activity, XCircle, CheckCircle2, Clock, Settings, Mail, Smartphone, Download, Eye, Trash2 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface SecurityAlert {
   id: string;
@@ -40,113 +41,38 @@ const SecurityAlertsPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [alerts] = useState<SecurityAlert[]>([
-    {
-      id: '1',
-      type: 'Failed Login',
-      severity: 'High',
-      title: 'Multiple Failed Login Attempts',
-      description: '5 consecutive failed login attempts detected from IP 88.99.111.222',
-      timestamp: '2025-10-21 11:30:15',
-      source: 'Authentication System',
-      ipAddress: '88.99.111.222',
-      status: 'Open',
-    },
-    {
-      id: '2',
-      type: 'Suspicious Activity',
-      severity: 'Critical',
-      title: 'Unusual Access Pattern Detected',
-      description: 'User accessing system from multiple countries within 1 hour',
-      timestamp: '2025-10-21 10:45:30',
-      source: 'Behavior Analytics',
-      ipAddress: '45.123.67.89',
-      userId: 'USR015',
-      userName: 'Unknown User',
-      status: 'Investigating',
-      assignedTo: 'IT Security Team',
-    },
-    {
-      id: '3',
-      type: 'Unauthorized Access',
-      severity: 'Critical',
-      title: 'Access from Blacklisted IP',
-      description: 'Login attempt from known malicious IP address blocked',
-      timestamp: '2025-10-21 09:20:45',
-      source: 'Firewall',
-      ipAddress: '192.168.100.50',
-      status: 'Resolved',
-      actionTaken: 'IP blocked at firewall level',
-    },
-    {
-      id: '4',
-      type: 'Password Policy',
-      severity: 'Medium',
-      title: 'Weak Password Detected',
-      description: 'User changed password to a weak password that doesn\'t meet policy requirements',
-      timestamp: '2025-10-21 08:15:22',
-      source: 'Password Manager',
-      ipAddress: '103.21.244.45',
-      userId: 'USR008',
-      userName: 'Deepika Rao',
-      status: 'Open',
-    },
-    {
-      id: '5',
-      type: 'Privilege Escalation',
-      severity: 'High',
-      title: 'Unauthorized Privilege Escalation Attempt',
-      description: 'User attempted to access admin panel without proper permissions',
-      timestamp: '2025-10-21 07:50:10',
-      source: 'Access Control',
-      ipAddress: '117.198.144.73',
-      userId: 'USR012',
-      userName: 'Rahul Verma',
-      status: 'Resolved',
-      actionTaken: 'User account suspended pending review',
-      assignedTo: 'Security Admin',
-    },
-    {
-      id: '6',
-      type: 'Data Access',
-      severity: 'Medium',
-      title: 'Unusual Data Download Volume',
-      description: 'User downloaded 500+ records in short time period',
-      timestamp: '2025-10-21 14:30:45',
-      source: 'Data Loss Prevention',
-      ipAddress: '103.50.161.89',
-      userId: 'USR003',
-      userName: 'Amit Patel',
-      status: 'Reviewing',
-    },
-    {
-      id: '7',
-      type: '2FA',
-      severity: 'Low',
-      title: '2FA Backup Code Used',
-      description: 'User used backup code for authentication instead of primary method',
-      timestamp: '2025-10-21 13:15:30',
-      source: '2FA System',
-      ipAddress: '157.48.123.45',
-      userId: 'USR006',
-      userName: 'Anjali Desai',
-      status: 'Noted',
-    },
-    {
-      id: '8',
-      type: 'Session',
-      severity: 'High',
-      title: 'Session Hijacking Attempt',
-      description: 'Same session ID used from different IP addresses simultaneously',
-      timestamp: '2025-10-20 18:45:00',
-      source: 'Session Manager',
-      ipAddress: '182.68.205.12',
-      userId: 'USR005',
-      userName: 'Vikram Singh',
-      status: 'Resolved',
-      actionTaken: 'All user sessions terminated, password reset enforced',
-    },
-  ]);
+  const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await ItAdminService.getSecurityAlerts();
+        if (!mounted) return;
+        const mapped: SecurityAlert[] = (data ?? []).map((a) => ({
+          id: a.id,
+          type: a.type,
+          severity: a.severity,
+          title: a.title,
+          description: a.description ?? '',
+          timestamp: a.timestamp ?? a.createdAt ?? '',
+          source: a.source ?? '',
+          ipAddress: a.ipAddress ?? '',
+          userId: a.userId,
+          userName: a.userName,
+          status: a.status,
+          actionTaken: a.actionTaken,
+          assignedTo: a.assignedTo,
+        }));
+        setAlerts(mapped);
+      } catch {
+        if (mounted) setAlerts([]);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [alertRules] = useState<AlertRule[]>([
     {
@@ -303,13 +229,17 @@ const SecurityAlertsPage = () => {
 
   const handleResolveAlert = (alertId: string) => {
     if (confirm('Mark this alert as resolved?')) {
-      alert(`Alert ${alertId} marked as resolved`);
+      setAlerts((prev) =>
+        prev.map((a) =>
+          a.id === alertId ? { ...a, status: 'Resolved' } : a,
+        ),
+      );
     }
   };
 
   const handleDeleteAlert = (alertId: string) => {
     if (confirm('Delete this alert permanently?')) {
-      alert(`Alert ${alertId} deleted`);
+      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
     }
   };
 

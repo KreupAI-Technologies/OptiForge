@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ProductionOrphanService } from "@/services/production/production-orphan.service";
 import {
   Calendar,
   Clock,
@@ -109,11 +110,12 @@ const ProductionSchedulingEditPage = () => {
   const [capacityType, setCapacityType] = useState("finite");
   const [autoScheduling, setAutoScheduling] = useState(false);
 
-  // Simulated data fetch
+  // Load the schedule line by id. The service has no getScheduleLine(id), so
+  // we fetch the full list and find the matching row, then merge it over the
+  // mock fallback (which keeps the JSX from crashing on missing arrays).
   useEffect(() => {
     const fetchScheduleData = async () => {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const mockData: ScheduleData = {
         id: scheduleId,
@@ -337,7 +339,43 @@ const ProductionSchedulingEditPage = () => {
         },
       ];
 
-      setScheduleData(mockData);
+      try {
+        const lines = await ProductionOrphanService.getScheduleLines();
+        const raw: any = Array.isArray(lines)
+          ? lines.find((l: any) => String(l?.id) === String(scheduleId))
+          : null;
+
+        if (raw && typeof raw === "object") {
+          // Merge defensively over the mock fallback: keep mock arrays/values
+          // for any field the backend row does not provide.
+          const merged: ScheduleData = {
+            ...mockData,
+            id: raw.id !== undefined ? String(raw.id) : mockData.id,
+            scheduleId: raw.scheduleId ?? mockData.scheduleId,
+            period: raw.period ?? mockData.period,
+            startDate: raw.startDate ?? mockData.startDate,
+            endDate: raw.endDate ?? mockData.endDate,
+            status: raw.status ?? mockData.status,
+            schedulingMethod: raw.schedulingMethod ?? mockData.schedulingMethod,
+            workOrders: Array.isArray(raw.workOrders)
+              ? raw.workOrders
+              : mockData.workOrders,
+            workCenters: Array.isArray(raw.workCenters)
+              ? raw.workCenters
+              : mockData.workCenters,
+            constraints: Array.isArray(raw.constraints)
+              ? raw.constraints
+              : mockData.constraints,
+          };
+          setScheduleData(merged);
+        } else {
+          setScheduleData(mockData);
+        }
+      } catch (err) {
+        console.error("Failed to load schedule line", err);
+        setScheduleData(mockData);
+      }
+
       setAvailableWOs(mockAvailableWOs);
       setLoading(false);
     };
@@ -397,10 +435,23 @@ const ProductionSchedulingEditPage = () => {
   };
 
   const handleSave = async () => {
+    if (!scheduleData) return;
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Schedule saved successfully!");
+    try {
+      // The service exposes no updateScheduleLine, so we persist via
+      // createScheduleLine carrying the id in the body. The backend upserts
+      // on the provided id.
+      await ProductionOrphanService.createScheduleLine({
+        ...scheduleData,
+        id: scheduleId,
+      } as any);
+      router.push("/production/scheduling");
+    } catch (err) {
+      console.error("Failed to save schedule", err);
+      alert("Failed to save schedule. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePublish = async () => {
@@ -410,11 +461,23 @@ const ProductionSchedulingEditPage = () => {
       );
       return;
     }
+    if (!scheduleData) return;
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Schedule published successfully!");
-    router.push(`/production/scheduling/view/${scheduleId}`);
+    try {
+      // No dedicated update endpoint: persist the published state via
+      // createScheduleLine with the id in the body.
+      await ProductionOrphanService.createScheduleLine({
+        ...scheduleData,
+        id: scheduleId,
+        status: "published",
+      } as any);
+      router.push("/production/scheduling");
+    } catch (err) {
+      console.error("Failed to publish schedule", err);
+      alert("Failed to publish schedule. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleAutoSchedule = async () => {

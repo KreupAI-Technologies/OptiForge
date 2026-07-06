@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
     ArrowLeft,
     Search,
@@ -40,54 +41,44 @@ const MinMaxPlanningPage = () => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValues, setEditValues] = useState<Partial<MinMaxSetting>>({});
 
-    // Mock data
-    const [items, setItems] = useState<MinMaxSetting[]>([
-        {
-            id: '1',
-            itemCode: 'RM-STEEL-001',
-            itemName: 'Steel Sheet 2mm',
-            category: 'Raw Materials',
-            currentStock: 150,
-            minLevel: 200,
-            maxLevel: 1000,
-            reorderPoint: 300,
-            uom: 'Sheets',
-            location: 'WH-01-A-01',
-            leadTimeDays: 5,
-            avgDailyUsage: 25,
-            safetyStock: 50
-        },
-        {
-            id: '2',
-            itemCode: 'COMP-ELEC-042',
-            itemName: 'Circuit Breaker 16A',
-            category: 'Components',
-            currentStock: 45,
-            minLevel: 50,
-            maxLevel: 200,
-            reorderPoint: 60,
-            uom: 'Units',
-            location: 'WH-02-B-12',
-            leadTimeDays: 3,
-            avgDailyUsage: 8,
-            safetyStock: 15
-        },
-        {
-            id: '3',
-            itemCode: 'PKG-BOX-L',
-            itemName: 'Large Cardboard Box',
-            category: 'Packaging',
-            currentStock: 450,
-            minLevel: 500,
-            maxLevel: 2000,
-            reorderPoint: 600,
-            uom: 'Pcs',
-            location: 'WH-03-P-05',
-            leadTimeDays: 2,
-            avgDailyUsage: 120,
-            safetyStock: 100
+    // Data loaded from backend
+    const [items, setItems] = useState<MinMaxSetting[]>([]);
+
+    const loadItems = async () => {
+        try {
+            const res = await inventoryService.getOptimization();
+            const list = Array.isArray(res?.items) ? res.items : [];
+            const mapped: MinMaxSetting[] = list.map((row: any, idx: number) => {
+                const annualDemand = Number(row?.annualDemand) || 0;
+                const avgDailyUsage = annualDemand > 0 ? Math.round(annualDemand / 365) : 0;
+                return {
+                    id: String(row?.id ?? idx),
+                    itemCode: row?.itemCode ?? '',
+                    itemName: row?.itemName ?? '',
+                    category: row?.category ?? '',
+                    currentStock: Number(row?.currentQty) || 0,
+                    minLevel: Number(row?.minLevel) || 0,
+                    maxLevel: Number(row?.maxLevel) || 0,
+                    reorderPoint: Number(row?.suggestedReorderLevel) ||
+                        Number(row?.currentReorderLevel) || 0,
+                    uom: row?.uom ?? 'Units',
+                    location: row?.warehouse ?? '',
+                    leadTimeDays: Number(row?.leadTimeDays) || 7,
+                    avgDailyUsage,
+                    safetyStock: Number(row?.suggestedSafetyStock) ||
+                        Number(row?.currentSafetyStock) || 0,
+                };
+            });
+            setItems(mapped);
+        } catch (err) {
+            console.error('Failed to load min/max optimization data', err);
+            setItems([]);
         }
-    ]);
+    };
+
+    useEffect(() => {
+        loadItems();
+    }, []);
 
     const handleEdit = (item: MinMaxSetting) => {
         setEditingId(item.id);
@@ -157,9 +148,12 @@ const MinMaxPlanningPage = () => {
                         <Upload className="w-4 h-4" />
                         Import
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-blue-200 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 shadow-sm transition-all">
-                        <Calculator className="w-4 h-4" />
-                        Auto-Calculate All
+                    <button
+                        onClick={loadItems}
+                        className="flex items-center gap-2 px-4 py-2 border border-blue-200 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 shadow-sm transition-all"
+                    >
+                        <RefreshCcw className="w-4 h-4" />
+                        Refresh
                     </button>
                 </div>
             </div>

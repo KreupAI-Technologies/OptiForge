@@ -11,6 +11,7 @@ import {
   Search,
   Calculator
 } from 'lucide-react'
+import { cpqQuoteService } from '@/services/cpq/cpq-quote.service'
 
 interface QuoteLineItem {
   id: string
@@ -89,6 +90,26 @@ export default function CPQQuotesCreatePage() {
     setLineItems(lineItems.filter(item => item.id !== id))
   }
 
+  const handleSaveDraft = async () => {
+    await cpqQuoteService.create({
+      quote: {
+        customerName: quoteData.customerName ?? '',
+        title: quoteData.projectName || 'New Quote',
+        validityDays: Number(quoteData.validityDays) || 30,
+        notes: quoteData.notes ?? ''
+      } as any,
+      items: (Array.isArray(lineItems) ? lineItems : []).map(li => ({
+        productName: li.productName,
+        description: li.description,
+        quantity: li.quantity,
+        unitPrice: li.unitPrice,
+        discountPercentage: li.discount,
+        taxPercentage: li.tax
+      } as any))
+    })
+    router.push('/cpq/quotes')
+  }
+
   return (
     <div className="w-full h-full px-4 py-2">
       {/* Action Buttons */}
@@ -101,7 +122,7 @@ export default function CPQQuotesCreatePage() {
           Back to Quotes
         </button>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
+          <button onClick={handleSaveDraft} className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
             <Save className="h-4 w-4" />
             Save Draft
           </button>
@@ -414,7 +435,7 @@ export default function CPQQuotesCreatePage() {
                 <Send className="h-4 w-4" />
                 Generate & Send Quote
               </button>
-              <button className="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+              <button onClick={handleSaveDraft} className="w-full px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
                 <Save className="h-4 w-4" />
                 Save as Draft
               </button>

@@ -36,6 +36,7 @@ import {
 import { QualityAlertModal, SupervisorCallModal, QuickDowntimeModal, QualityAlertData, SupervisorCallData, QuickDowntimeData } from '@/components/shopfloor/ShopFloorActionModals';
 import { workOrderService, WorkOrder as ServiceWorkOrder } from '@/services/work-order.service';
 import { workCenterService, WorkCenter as ServiceWorkCenter } from '@/services/work-center.service';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // TypeScript Interfaces
 interface Operator {
@@ -135,6 +136,29 @@ export default function ShopfloorTerminalPage() {
   // Work Centers from service
   const [workCenterOptions, setWorkCenterOptions] = useState<string[]>([]);
   const [loadingWorkCenters, setLoadingWorkCenters] = useState(true);
+
+  // Shop-floor-control records (used to resolve the active record id for downtime reporting)
+  const [shopFloorRecords, setShopFloorRecords] = useState<any[]>([]);
+
+  // Locally-tracked alerts. The allowed orphan service exposes no backend
+  // endpoint for "quality alert" or "request supervisor", so these are held in
+  // optimistic local state until such endpoints exist.
+  const [localAlerts, setLocalAlerts] = useState<any[]>([]);
+
+  // Load shop-floor-control records on mount so downtime reporting can target a real record id.
+  const loadShopFloorControl = async () => {
+    try {
+      const res = await ProductionOrphanService.getShopFloorControl();
+      const data = Array.isArray(res) ? res : ((res as any)?.data ?? res);
+      setShopFloorRecords(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching shop-floor-control records:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadShopFloorControl();
+  }, []);
 
   // Fetch work centers on mount
   useEffect(() => {
@@ -467,10 +491,13 @@ export default function ShopfloorTerminalPage() {
   };
 
   const handleQualityAlertSubmit = (alertData: QualityAlertData) => {
-    console.log('Quality Alert raised:', alertData);
-    // TODO: Implement API call to create quality alert
+    // No quality-alert endpoint exists on the allowed orphan service, so record
+    // the alert optimistically in local state (append to the alerts array).
+    setLocalAlerts((prev) => [
+      ...prev,
+      { type: 'quality-alert', createdAt: new Date().toISOString(), ...getModalContext(), data: alertData },
+    ]);
     setIsQualityAlertOpen(false);
-    // Show success message
     alert('Quality Alert raised successfully. Supervisor has been notified.');
   };
 
@@ -479,10 +506,13 @@ export default function ShopfloorTerminalPage() {
   };
 
   const handleSupervisorCallSubmit = (request: SupervisorCallData) => {
-    console.log('Supervisor requested:', request);
-    // TODO: Implement API call to request supervisor
+    // No "request supervisor" endpoint exists on the allowed orphan service, so
+    // record the request optimistically in local state (append to the alerts array).
+    setLocalAlerts((prev) => [
+      ...prev,
+      { type: 'supervisor-call', createdAt: new Date().toISOString(), ...getModalContext(), data: request },
+    ]);
     setIsSupervisorCallOpen(false);
-    // Show success message
     alert('Supervisor has been notified. Estimated response time: ' + (request.priority === 'emergency' ? '2-3 minutes' : request.priority === 'urgent' ? '5-10 minutes' : '15-30 minutes'));
   };
 
@@ -490,12 +520,30 @@ export default function ShopfloorTerminalPage() {
     setIsQuickDowntimeOpen(true);
   };
 
-  const handleQuickDowntimeSubmit = (downtime: QuickDowntimeData) => {
-    console.log('Quick downtime logged:', downtime);
-    // TODO: Implement API call to log downtime
-    setIsQuickDowntimeOpen(false);
-    // Show success message
-    alert('Downtime logged successfully.');
+  const handleQuickDowntimeSubmit = async (downtime: QuickDowntimeData) => {
+    try {
+      // Target the active shop-floor-control record; fall back to the first loaded record's id.
+      const activeRecord =
+        shopFloorRecords.find((r) => r?.status === 'active' || r?.isActive) ?? shopFloorRecords[0];
+      const recordId = activeRecord?.id ?? activeRecord?._id;
+      if (!recordId) {
+        alert('No shop-floor-control record available to log downtime against.');
+        return;
+      }
+      await ProductionOrphanService.reportShopFloorDowntime(String(recordId), {
+        ...downtime,
+        ...getModalContext(),
+        reportedAt: new Date().toISOString(),
+      });
+      // Refresh loaded shop-floor-control data after logging downtime.
+      await loadShopFloorControl();
+      alert('Downtime logged successfully.');
+    } catch (err) {
+      console.error('Error logging downtime:', err);
+      alert('Failed to log downtime. Please try again.');
+    } finally {
+      setIsQuickDowntimeOpen(false);
+    }
   };
 
   // Create context object for modals

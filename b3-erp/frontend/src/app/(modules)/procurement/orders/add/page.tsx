@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { procurementPagesService } from '@/services/procurement-pages.service';
+import { purchaseOrderService } from '@/services/purchase-order.service';
 import {
   ArrowLeft,
   Save,
@@ -110,6 +111,7 @@ interface POFormData {
 
 // Vendor record shape used by the PO form (populated from the live vendors endpoint).
 interface VendorOption {
+  id: string;
   name: string;
   gst: string;
   pan: string;
@@ -166,6 +168,7 @@ export default function AddPurchaseOrderPage() {
   const [createFromRFQ, setCreateFromRFQ] = useState(false);
   const [companyState] = useState('Maharashtra'); // Our company state
   const [indianVendors, setIndianVendors] = useState<VendorOption[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -178,6 +181,7 @@ export default function AddPurchaseOrderPage() {
       .then((rows) => {
         if (cancelled) return;
         const mapped: VendorOption[] = (rows ?? []).map((r: any) => ({
+          id: r.id ?? r.vendorId ?? r.vendorCode ?? '',
           name: r.name ?? r.vendorName ?? r.legalName ?? '',
           gst: r.gst ?? r.gstNumber ?? r.gstin ?? '',
           pan: r.pan ?? r.panNumber ?? '',
@@ -300,6 +304,7 @@ export default function AddPurchaseOrderPage() {
   const handleVendorChange = (vendorName: string) => {
     const vendor = indianVendors.find(v => v.name === vendorName);
     if (vendor) {
+      setSelectedVendorId(vendor.id);
       const addressParts = vendor.address.split(', ');
       updateFormData('vendorName', vendor.name);
       updateFormData('vendorGST', vendor.gst);
@@ -505,27 +510,69 @@ export default function AddPurchaseOrderPage() {
     };
   };
 
-  const handleSaveDraft = () => {
-    console.log('Save as Draft:', { poNumber, ...formData, status: 'draft' });
-    router.push('/procurement/purchase-orders');
+  const buildPODto = () => ({
+    vendorId: selectedVendorId || formData.vendorName,
+    deliveryDate: formData.expectedDelivery || new Date().toISOString().split('T')[0],
+    paymentTerms: formData.paymentTerms || 'Net 30',
+    currency: 'INR',
+    notes: formData.requisitionRef ? `Requisition: ${formData.requisitionRef}` : undefined,
+    items: formData.lineItems.map((it) => ({
+      itemId: it.itemCode || it.description,
+      quantity: Number(it.quantity || 0),
+      unitPrice: Number(it.unitPrice || 0),
+      discount: Number(it.discountPercent || 0),
+      taxRate: Number(it.taxRate || 0),
+      deliveryDate: formData.expectedDelivery || new Date().toISOString().split('T')[0],
+    })),
+  });
+
+  const persistPO = async (): Promise<string | null> => {
+    const created = (await purchaseOrderService.createPurchaseOrder(buildPODto())) as any;
+    return created?.id ?? null;
   };
 
-  const handleSubmitForApproval = () => {
-    if (!formData.approver) {
-      alert('Please select an approver');
-      return;
-    }
-    console.log('Submit for Approval:', { poNumber, ...formData, status: 'pending_approval' });
-    router.push('/procurement/purchase-orders');
-  };
-
-  const handleSendToVendor = () => {
+  const handleSaveDraft = async () => {
     if (!formData.vendorName) {
       alert('Please select a vendor');
       return;
     }
-    console.log('Send to Vendor:', { poNumber, ...formData, status: 'sent' });
-    router.push('/procurement/purchase-orders');
+    try {
+      await persistPO();
+      alert('Purchase order saved as draft.');
+      router.push('/procurement/purchase-orders');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save purchase order');
+    }
+  };
+
+  const handleSubmitForApproval = async () => {
+    if (!formData.approver) {
+      alert('Please select an approver');
+      return;
+    }
+    try {
+      const id = await persistPO();
+      if (id) await purchaseOrderService.submitPurchaseOrder(id);
+      alert('Purchase order submitted for approval.');
+      router.push('/procurement/purchase-orders');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit purchase order');
+    }
+  };
+
+  const handleSendToVendor = async () => {
+    if (!formData.vendorName) {
+      alert('Please select a vendor');
+      return;
+    }
+    try {
+      const id = await persistPO();
+      if (id) await purchaseOrderService.submitPurchaseOrder(id);
+      alert('Purchase order sent to vendor.');
+      router.push('/procurement/purchase-orders');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to send purchase order');
+    }
   };
 
   const handleCancel = () => {

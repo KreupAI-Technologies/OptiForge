@@ -1,19 +1,20 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Printer, Calendar, DollarSign } from 'lucide-react';
+import { procurementPurchaseInvoiceService } from '@/services/procurement-purchase-invoice.service';
 
 export default function PurchaseBillDetailPage() {
     const params = useParams();
     const router = useRouter();
     const billId = params.id as string;
 
-    // Mock bill data
-    const bill = {
+    // Sample bill data — used until the backend returns the invoice.
+    const mockBill = {
         id: billId,
         number: billId,
         vendor: {
@@ -33,6 +34,48 @@ export default function PurchaseBillDetailPage() {
         total: 300900,
         balanceDue: 300900,
     };
+
+    const [bill, setBill] = useState(mockBill);
+
+    useEffect(() => {
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const raw = await procurementPurchaseInvoiceService.getInvoiceById(billId);
+                if (cancelled || !raw || !(raw.id || raw.invoiceNumber)) return;
+                const items = Array.isArray(raw.items) && raw.items.length
+                    ? raw.items.map((it: any) => ({
+                        description: it.itemName ?? it.description ?? '',
+                        quantity: Number(it.quantity ?? 0),
+                        rate: Number(it.unitPrice ?? it.rate ?? 0),
+                        amount: Number(it.totalAmount ?? it.amount ?? 0),
+                    }))
+                    : mockBill.items;
+                const total = Number(raw.totalAmount ?? raw.total ?? mockBill.total);
+                setBill({
+                    id: raw.id ?? billId,
+                    number: raw.invoiceNumber ?? billId,
+                    vendor: {
+                        name: raw.vendorName ?? mockBill.vendor.name,
+                        id: raw.vendorId ?? mockBill.vendor.id,
+                        address: raw.vendorAddress ?? mockBill.vendor.address,
+                    },
+                    date: (raw.invoiceDate ?? raw.date ?? mockBill.date)?.toString().slice(0, 10),
+                    dueDate: (raw.dueDate ?? mockBill.dueDate)?.toString().slice(0, 10),
+                    status: raw.status ?? mockBill.status,
+                    items,
+                    subtotal: Number(raw.subtotal ?? mockBill.subtotal),
+                    tax: Number(raw.taxAmount ?? raw.tax ?? mockBill.tax),
+                    total,
+                    balanceDue: Number(raw.balanceDue ?? raw.amountDue ?? total),
+                });
+            } catch {
+                // keep sample data on error
+            }
+        };
+        load();
+        return () => { cancelled = true; };
+    }, [billId]);
 
     return (
         <div className="w-full p-3">

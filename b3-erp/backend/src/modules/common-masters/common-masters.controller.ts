@@ -801,4 +801,106 @@ export class CommonMastersController {
         return this.commonMastersService.deleteHrGrade(id);
     }
 
+    // ===========================
+    // BRANCH CRUD
+    // ===========================
+    @Get('branches')
+    findAllBranches(@Query('companyId') companyId: string) {
+        return this.commonMastersService.findAllBranches(companyId);
+    }
+
+    @Get('branches/:id')
+    findBranchById(@Param('id') id: string) {
+        return this.commonMastersService.findBranchById(id);
+    }
+
+    @Post('branches')
+    createBranch(@Body() data: any) {
+        return this.commonMastersService.createBranch(data);
+    }
+
+    @Put('branches/:id')
+    updateBranch(@Param('id') id: string, @Body() data: any) {
+        return this.commonMastersService.updateBranch(id, data);
+    }
+
+    @Delete('branches/:id')
+    deleteBranch(@Param('id') id: string) {
+        return this.commonMastersService.deleteBranch(id);
+    }
+
+    // ===========================
+    // BARCODE CRUD
+    // ===========================
+    @Get('barcodes')
+    findAllBarcodes(@Query('companyId') companyId: string) {
+        return this.commonMastersService.findAllBarcodes(companyId);
+    }
+
+    @Post('barcodes')
+    createBarcode(@Body() data: any) {
+        return this.commonMastersService.createBarcode(data);
+    }
+
+    @Put('barcodes/:id')
+    updateBarcode(@Param('id') id: string, @Body() data: any) {
+        return this.commonMastersService.updateBarcode(id, data);
+    }
+
+    @Delete('barcodes/:id')
+    deleteBarcode(@Param('id') id: string) {
+        return this.commonMastersService.deleteBarcode(id);
+    }
+
+    // ===========================
+    // COUNTER MATERIAL CRUD
+    // ===========================
+    @Get('counter-materials')
+    findAllCounterMaterials(@Query('companyId') companyId: string) {
+        return this.commonMastersService.findAllCounterMaterials(companyId);
+    }
+
+    @Post('counter-materials')
+    createCounterMaterial(@Body() data: any) {
+        return this.commonMastersService.createCounterMaterial(data);
+    }
+
+    @Put('counter-materials/:id')
+    updateCounterMaterial(@Param('id') id: string, @Body() data: any) {
+        return this.commonMastersService.updateCounterMaterial(id, data);
+    }
+
+    @Delete('counter-materials/:id')
+    deleteCounterMaterial(@Param('id') id: string) {
+        return this.commonMastersService.deleteCounterMaterial(id);
+    }
+
+    // ===========================
+    // LOCATION CRUD
+    // ===========================
+    @Get('locations')
+    findAllLocations(@Query('companyId') companyId: string) {
+        return this.commonMastersService.findAllLocations(companyId);
+    }
+
+    @Get('locations/:id')
+    findLocationById(@Param('id') id: string) {
+        return this.commonMastersService.findLocationById(id);
+    }
+
+    @Post('locations')
+    createLocation(@Body() data: any) {
+        return this.commonMastersService.createLocation(data);
+    }
+
+    @Put('locations/:id')
+    updateLocation(@Param('id') id: string, @Body() data: any) {
+        return this.commonMastersService.updateLocation(id, data);
+    }
+
+    @Delete('locations/:id')
+    deleteLocation(@Param('id') id: string) {
+        return this.commonMastersService.deleteLocation(id);
+    }
+
 }

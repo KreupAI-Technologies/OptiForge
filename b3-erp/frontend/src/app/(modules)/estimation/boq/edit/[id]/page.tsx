@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { estimationBOQService } from '@/services/estimation-boq.service';
 import {
   ArrowLeft,
   Save,
@@ -53,56 +54,63 @@ export default function EditBOQPage() {
   const params = useParams();
   const boqId = params.id as string;
 
-  // Mock data - in real app, fetch by boqId
   const [formData, setFormData] = useState<BOQFormData>({
-    boqNumber: 'BOQ-2025-001',
-    projectName: 'Manufacturing Plant Expansion - Phase 2',
-    clientName: 'Tata Steel Ltd.',
-    projectLocation: 'Jamshedpur, Jharkhand',
-    projectDuration: '18 months',
-    revisionNumber: 2,
-    status: 'under_review',
+    boqNumber: '',
+    projectName: '',
+    clientName: '',
+    projectLocation: '',
+    projectDuration: '',
+    revisionNumber: 1,
+    status: 'draft',
     currency: 'INR',
     estimatedValue: 0,
-    notes: 'All materials should meet IS standards. Quality certificates required.',
-    items: [
-      {
-        id: '1',
-        itemNo: 'A.1.1',
-        description: 'Structural Steel Beams - Grade IS 2062',
-        unit: 'MT',
-        quantity: 450,
-        unitRate: 65000,
-        totalAmount: 29250000,
-        specifications: 'IS 2062 E250 grade, hot rolled',
-        category: 'Structural'
-      },
-      {
-        id: '2',
-        itemNo: 'A.1.2',
-        description: 'Reinforcement Steel Bars - Grade Fe 500',
-        unit: 'MT',
-        quantity: 280,
-        unitRate: 52000,
-        totalAmount: 14560000,
-        specifications: 'Fe 500D grade, TMT bars',
-        category: 'Structural'
-      },
-      {
-        id: '3',
-        itemNo: 'A.2.1',
-        description: 'Concrete M25 Grade',
-        unit: 'Cum',
-        quantity: 1200,
-        unitRate: 6500,
-        totalAmount: 7800000,
-        specifications: 'Ready mix concrete, M25 grade',
-        category: 'Civil Works'
-      },
-    ]
+    notes: '',
+    items: []
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load BOQ + items by id
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = (await estimationBOQService.findOne(boqId)) as any;
+        const items = (await estimationBOQService.findItems(boqId)) as any[];
+        if (cancelled) return;
+        const loadedItems: BOQItem[] = (Array.isArray(items) ? items : []).map((it: any, idx: number) => ({
+          id: it?.id ?? String(idx + 1),
+          itemNo: it?.itemNo ?? '',
+          description: it?.description ?? '',
+          unit: it?.unit ?? 'No',
+          quantity: Number(it?.quantity ?? 0),
+          unitRate: Number(it?.unitRate ?? 0),
+          totalAmount: Number(it?.totalAmount ?? 0),
+          specifications: it?.specifications ?? '',
+          category: it?.category ?? 'Other',
+        }));
+        setFormData((prev) => ({
+          ...prev,
+          boqNumber: raw?.boqNumber ?? prev.boqNumber,
+          projectName: raw?.projectName ?? prev.projectName,
+          clientName: raw?.clientName ?? prev.clientName,
+          projectLocation: raw?.projectLocation ?? prev.projectLocation,
+          projectDuration: raw?.projectDuration ?? prev.projectDuration,
+          revisionNumber: raw?.revisionNumber != null ? Number(raw.revisionNumber) : prev.revisionNumber,
+          status: (String(raw?.status ?? '').toLowerCase().replace(/\s+/g, '_') as BOQFormData['status']) || prev.status,
+          currency: raw?.currency ?? prev.currency,
+          estimatedValue: raw?.estimatedValue != null ? Number(raw.estimatedValue) : prev.estimatedValue,
+          notes: raw?.notes ?? prev.notes,
+          items: loadedItems,
+        }));
+      } catch {
+        /* leave empty form */
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [boqId]);
 
   const updateFormData = (field: keyof BOQFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -194,15 +202,33 @@ export default function EditBOQPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       alert('Please fix the errors before saving');
       return;
     }
 
-    console.log('Updated BOQ Data:', formData);
-    console.log('BOQ ID:', boqId);
-    router.push('/estimation/boq');
+    setIsSaving(true);
+    try {
+      await estimationBOQService.update(boqId, {
+        boqNumber: formData.boqNumber,
+        projectName: formData.projectName,
+        clientName: formData.clientName,
+        projectLocation: formData.projectLocation,
+        projectDuration: formData.projectDuration,
+        currency: formData.currency,
+        estimatedValue: formData.estimatedValue,
+        notes: formData.notes,
+        status: (formData.status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())) as any,
+        items: formData.items,
+      } as any);
+      router.push(`/estimation/boq/view/${boqId}`);
+    } catch (error) {
+      console.error('Error updating BOQ:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -535,10 +561,11 @@ export default function EditBOQPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isSaving}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
           >
             <Save className="h-5 w-5" />
-            <span>Save Changes</span>
+            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
       </div>

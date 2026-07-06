@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, Download, Trash2, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { userManagementService } from '@/services/user-management.service';
 
 interface BulkUserData {
   firstName: string;
@@ -94,9 +95,37 @@ export default function BulkUsersPage() {
   const handleImport = async () => {
     if (uploadData.length === 0) return;
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    const rows = selectedRows.size > 0
+      ? uploadData.filter((_, i) => selectedRows.has(i))
+      : uploadData;
+    let successCount = 0;
+    let failureCount = 0;
+    for (const row of rows) {
+      try {
+        await userManagementService.createUser({
+          employeeId: row.email.split('@')[0],
+          email: row.email,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          phone: row.phone,
+          department: row.department,
+          jobTitle: row.role,
+          roleId: row.role,
+          password: (row as { password?: string }).password || 'ChangeMe@123',
+        });
+        successCount += 1;
+      } catch {
+        failureCount += 1;
+      }
+    }
     setIsProcessing(false);
     // Success - would redirect or show toast
+    if (failureCount === 0) {
+      setUploadData([]);
+      setUploadedFile(null);
+      setSelectedRows(new Set());
+    }
+    void successCount;
   };
 
   const handleExport = async () => {

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Truck, Plus, Search, Edit2, Trash2, CheckCircle2,
   XCircle, MapPin, Phone, Mail, Star, DollarSign,
   Award, FileText, Calendar, TrendingUp
 } from 'lucide-react';
+import { logisticsService } from '@/services/logistics.service';
 
 interface Transporter {
   id: string;
@@ -46,101 +47,82 @@ interface Transporter {
   };
 }
 
-const mockTransporters: Transporter[] = [
-  {
-    id: '1',
-    code: 'TRNS-001',
-    name: 'Swift Logistics Pvt Ltd',
-    type: 'Road',
-    contactPerson: 'John Kumar',
-    phone: '+91-9876543210',
-    email: 'contact@swiftlogistics.com',
-    address: '123 Transport Hub, Industrial Area',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    country: 'India',
-    pincode: '400001',
-    gstNumber: '27AAAAA0000A1Z5',
-    panNumber: 'AAAAA0000A',
-    rating: 4.5,
-    services: ['Express Delivery', 'Cold Chain', 'Hazmat', 'ODC'],
-    vehicles: 45,
-    coverage: ['Maharashtra', 'Gujarat', 'Rajasthan', 'Delhi'],
-    rates: {
-      baseRate: 500,
-      perKmRate: 15,
-      perKgRate: 2,
-      currency: 'INR'
-    },
-    performance: {
-      onTimeDelivery: 94,
-      damageRate: 0.5,
-      totalShipments: 2450
-    },
-    certifications: ['ISO 9001', 'ISO 14001', 'Hazmat Certified'],
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-06-15'),
-      updatedAt: new Date('2024-03-10'),
-      createdBy: 'Admin'
-    }
-  },
-  {
-    id: '2',
-    code: 'TRNS-002',
-    name: 'Global Freight Solutions',
-    type: 'Multimodal',
-    contactPerson: 'Sarah Johnson',
-    phone: '+91-9123456789',
-    email: 'info@globalfreight.com',
-    address: '456 Logistics Park, Port Area',
-    city: 'Chennai',
-    state: 'Tamil Nadu',
-    country: 'India',
-    pincode: '600001',
-    gstNumber: '33BBBBB0000B1Z5',
-    panNumber: 'BBBBB0000B',
-    rating: 4.8,
-    services: ['Air Freight', 'Sea Freight', 'Road Transport', 'Warehousing', 'Customs Clearance'],
-    vehicles: 120,
-    coverage: ['Pan India', 'International'],
-    rates: {
-      baseRate: 1000,
-      perKmRate: 20,
-      perKgRate: 3,
-      currency: 'INR'
-    },
-    performance: {
-      onTimeDelivery: 96,
-      damageRate: 0.3,
-      totalShipments: 5680
-    },
-    certifications: ['ISO 9001', 'AEO Certified', 'IATA Certified'],
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-03-20'),
-      updatedAt: new Date('2024-02-28'),
-      createdBy: 'Admin'
-    }
-  }
-];
-
 export default function TransporterMaster() {
-  const [transporters, setTransporters] = useState<Transporter[]>(mockTransporters);
+  const [transporters, setTransporters] = useState<Transporter[]>([]);
   const [selectedTransporter, setSelectedTransporter] = useState<Transporter | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('All');
   const [filterStatus, setFilterStatus] = useState<string>('All');
 
+  const loadTransporters = useCallback(async () => {
+    try {
+      const rows = await logisticsService.getTransportCompanies();
+      if (!Array.isArray(rows)) {
+        setTransporters([]);
+        return;
+      }
+      const mapped: Transporter[] = rows.map((r: any) => ({
+        id: String(r.id ?? r._id ?? ''),
+        code: r.companyCode || r.code || '',
+        name: r.companyName || r.name || '',
+        type: (r.transportMode || r.type || 'Road') as Transporter['type'],
+        contactPerson: r.contactPerson || '',
+        phone: r.phone || r.contactPhone || '',
+        email: r.email || r.contactEmail || '',
+        address: r.address || '',
+        city: r.city || '',
+        state: r.state || '',
+        country: r.country || '',
+        pincode: r.pincode || r.zipCode || '',
+        gstNumber: r.gstNumber || '',
+        panNumber: r.panNumber || '',
+        rating: Number(r.rating) || 0,
+        services: Array.isArray(r.services) ? r.services : [],
+        vehicles: Number(r.vehicles) || 0,
+        coverage: Array.isArray(r.coverage) ? r.coverage : [],
+        rates: {
+          baseRate: Number(r.rates?.baseRate ?? r.baseRate) || 0,
+          perKmRate: Number(r.rates?.perKmRate ?? r.perKmRate) || 0,
+          perKgRate: Number(r.rates?.perKgRate ?? r.perKgRate) || 0,
+          currency: r.rates?.currency || r.currency || 'INR',
+        },
+        performance: {
+          onTimeDelivery: Number(r.performance?.onTimeDelivery ?? r.onTimeDelivery) || 0,
+          damageRate: Number(r.performance?.damageRate ?? r.damageRate) || 0,
+          totalShipments: Number(r.performance?.totalShipments ?? r.totalShipments) || 0,
+        },
+        certifications: Array.isArray(r.certifications) ? r.certifications : [],
+        status: (r.status || 'Active') as Transporter['status'],
+        metadata: {
+          createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+          updatedAt: r.updatedAt ? new Date(r.updatedAt) : new Date(),
+          createdBy: r.createdBy || '',
+        },
+      }));
+      setTransporters(mapped);
+    } catch {
+      setTransporters([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTransporters();
+  }, [loadTransporters]);
+
   const handleEdit = (transporter: Transporter) => {
     setSelectedTransporter(transporter);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this transporter?')) {
-      setTransporters(transporters.filter(t => t.id !== id));
+      try {
+        await logisticsService.deleteTransportCompany(id);
+        await loadTransporters();
+      } catch {
+        setTransporters(transporters.filter(t => t.id !== id));
+      }
     }
   };
 

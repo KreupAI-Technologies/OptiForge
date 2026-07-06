@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
+import { estimationPricingService } from '@/services/estimation-pricing.service'
 import { ArrowLeft, Send, Mail, Phone, FileText, CheckCircle, AlertCircle } from 'lucide-react'
+
+const companyId = 'default-company-id'
 
 export default function SendEstimatePage() {
   const router = useRouter()
@@ -26,34 +30,56 @@ Estimation Team`)
   const [includeTerms, setIncludeTerms] = useState(true)
   const [includePaymentSchedule, setIncludePaymentSchedule] = useState(true)
   const [validityDays, setValidityDays] = useState('30')
+  const [sending, setSending] = useState(false)
 
-  // Mock draft data
-  const draftData = {
-    estimateNumber: 'EST-2025-0145',
-    projectName: 'Luxury Villa - Complete Kitchen Setup',
-    customerName: 'Prestige Constructions Pvt Ltd',
-    contactPerson: 'Mr. Rajesh Kumar',
-    estimatedValue: 3850000,
-    items: 45,
-    completionPercent: 85
-  }
+  const [draftData, setDraftData] = useState({
+    estimateNumber: '',
+    projectName: '',
+    customerName: '',
+    contactPerson: '',
+    estimatedValue: 0,
+    items: 0,
+    completionPercent: 0
+  })
 
-  const handleSend = () => {
-    const sendData = {
-      draftId,
-      method: sendMethod,
-      recipient: sendMethod === 'email' ? recipientEmail : recipientPhone,
-      subject,
-      message,
-      includeTerms,
-      includePaymentSchedule,
-      validityDays,
-      sentAt: new Date().toISOString()
+  useEffect(() => {
+    if (!draftId) return
+    let mounted = true
+    const load = async () => {
+      try {
+        const est = await costEstimateService.findOne(companyId, draftId)
+        if (!mounted || !est) return
+        setDraftData({
+          estimateNumber: est.estimateNumber || '',
+          projectName: est.title || '',
+          customerName: est.customerName || '',
+          contactPerson: est.customerName || '',
+          estimatedValue: est.totalCost || 0,
+          items: 0,
+          completionPercent: 100,
+        })
+      } catch (err) {
+        console.error('Failed to load estimate:', err)
+      }
     }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [draftId])
 
-    console.log('Sending estimate:', sendData)
-    // Would make API call here
-    router.push('/estimation/workflow/drafts')
+  const handleSend = async () => {
+    if (sending) return
+    setSending(true)
+    try {
+      await estimationPricingService.sendToCustomer(companyId, draftId)
+      router.push('/estimation/workflow/drafts')
+    } catch (err) {
+      console.error('Failed to send estimate:', err)
+      alert('Failed to send estimate. Please try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   const handleCancel = () => {
@@ -79,10 +105,11 @@ Estimation Team`)
           </div>
           <button
             onClick={handleSend}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            disabled={sending}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
-            Send Estimate
+            {sending ? 'Sending...' : 'Send Estimate'}
           </button>
         </div>
       </div>
@@ -344,10 +371,11 @@ Estimation Team`)
           </button>
           <button
             onClick={handleSend}
-            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+            disabled={sending}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 disabled:opacity-50"
           >
             <Send className="w-4 h-4" />
-            Send Estimate
+            {sending ? 'Sending...' : 'Send Estimate'}
           </button>
         </div>
       </div>

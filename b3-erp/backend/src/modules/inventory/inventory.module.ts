@@ -60,6 +60,11 @@ import { AdjustmentReasonService } from './services/adjustment-reason.service';
 import { StorageLocationService as StorageLocationClassificationService } from './services/storage-location.service';
 import { PutawayStrategyService } from './services/putaway-strategy.service';
 import { VEDAnalysisService } from './services/ved-analysis.service';
+import { InventoryAnalyticsController } from './controllers/inventory-analytics.controller';
+import { InventoryPolicyController } from './controllers/inventory-policy.controller';
+import { InventoryPolicyService } from './services/inventory-policy.service';
+import { KittingController } from './controllers/kitting.controller';
+import { KittingService } from './services/kitting.service';
 
 @Module({
   imports: [
@@ -95,8 +100,13 @@ import { VEDAnalysisService } from './services/ved-analysis.service';
     BatchNumberController,
     ReorderManagementController,
     CycleCountController,
+    InventoryAnalyticsController,
+    InventoryPolicyController,
+    KittingController,
   ],
   providers: [
+    InventoryPolicyService,
+    KittingService,
     WarehouseService,
     StockLocationService,
     StockEntryService,

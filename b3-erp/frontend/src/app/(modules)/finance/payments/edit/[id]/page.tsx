@@ -305,15 +305,10 @@ export default function PaymentEditPage() {
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      console.log('Payment updated:', formData);
-      console.log('Attachments:', attachments);
-
-      router.push(`/finance/payments/view/${params.id}`);
-    } catch (error) {
-      console.error('Error updating payment:', error);
+      await FinanceService.updatePayment(paymentId, formData);
+      router.push(`/finance/payments/view/${paymentId}`);
+    } catch (error: any) {
+      setLoadError(error?.message || 'Failed to update payment');
     } finally {
       setLoading(false);
     }

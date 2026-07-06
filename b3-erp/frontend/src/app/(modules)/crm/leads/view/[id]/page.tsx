@@ -46,93 +46,19 @@ interface LeadStage {
   color: string;
 }
 
-// Mock lead data
-const mockLead: Lead = {
-  id: '1',
-  name: 'John Smith',
-  company: 'Tech Solutions Inc',
-  email: 'john.smith@techsolutions.com',
-  phone: '+1 234-567-8900',
-  status: 'qualified',
-  source: 'Website',
-  value: 45000,
-  assignedTo: 'Sarah Johnson',
-  createdAt: '2025-10-01',
-  lastContact: '2025-10-08',
+const emptyLead: Lead = {
+  id: '',
+  name: '',
+  company: '',
+  email: '',
+  phone: '',
+  status: 'new',
+  source: '',
+  value: 0,
+  assignedTo: '',
+  createdAt: '',
+  lastContact: '',
 };
-
-// Mock activities
-const mockActivities: LeadActivity[] = [
-  {
-    id: 'a1',
-    leadId: '1',
-    type: 'status_change',
-    title: 'Status Changed',
-    description: 'Lead status updated from "Contacted" to "Qualified"',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-08 14:30',
-    metadata: { previousStatus: 'contacted', newStatus: 'qualified' }
-  },
-  {
-    id: 'a2',
-    leadId: '1',
-    type: 'call',
-    title: 'Phone Call',
-    description: 'Discussed product requirements and pricing options. Client is interested in modular kitchen solutions.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-08 10:15',
-    metadata: { duration: '45 mins', outcome: 'Positive' }
-  },
-  {
-    id: 'a3',
-    leadId: '1',
-    type: 'email',
-    title: 'Email Sent',
-    description: 'Sent product catalog and pricing information',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-07 16:20',
-    metadata: { attachments: 3 }
-  },
-  {
-    id: 'a4',
-    leadId: '1',
-    type: 'meeting',
-    title: 'Site Visit Scheduled',
-    description: 'Arranged site visit for kitchen measurement and design consultation on Oct 15, 2025',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-06 11:00',
-    metadata: { duration: '2 hours' }
-  },
-  {
-    id: 'a5',
-    leadId: '1',
-    type: 'note',
-    title: 'Added Note',
-    description: 'Client has a budget of $45K-50K. Looking for premium finish with granite countertops.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-05 09:30'
-  },
-  {
-    id: 'a6',
-    leadId: '1',
-    type: 'call',
-    title: 'Initial Contact',
-    description: 'First contact call. Introduced our kitchen solutions and gathered basic requirements.',
-    performedBy: 'Sarah Johnson',
-    timestamp: '2025-10-02 14:45',
-    metadata: { duration: '20 mins', outcome: 'Interested' }
-  },
-  {
-    id: 'a7',
-    leadId: '1',
-    type: 'status_change',
-    title: 'Lead Created',
-    description: 'New lead created from website inquiry',
-    performedBy: 'System',
-    timestamp: '2025-10-01 09:00',
-    metadata: { newStatus: 'new' }
-  }
-];
 
 const getLeadStages = (lead: Lead): LeadStage[] => {
   const stages: LeadStage[] = [
@@ -187,7 +113,8 @@ export default function ViewLeadPage() {
   const leadId = params?.id as string;
   const { addToast } = useToast();
 
-  const [lead, setLead] = useState<Lead>(mockLead);
+  const [lead, setLead] = useState<Lead>(emptyLead);
+  const [activities] = useState<LeadActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -369,7 +296,7 @@ export default function ViewLeadPage() {
             </div>
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
               <p className="text-xs font-medium text-orange-600 uppercase mb-1">Activities</p>
-              <p className="text-lg font-semibold text-orange-900">{mockActivities.filter(a => a.leadId === leadId).length} Total</p>
+              <p className="text-lg font-semibold text-orange-900">{activities.filter(a => a.leadId === leadId).length} Total</p>
             </div>
           </div>
 
@@ -576,12 +503,18 @@ export default function ViewLeadPage() {
             </div>
 
             {/* Activities List */}
+            {activities.filter(a => a.leadId === leadId).length === 0 && (
+              <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                <Activity className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No activity recorded for this lead yet.</p>
+              </div>
+            )}
             <div className="space-y-2">
-              {mockActivities
+              {activities
                 .filter(activity => activity.leadId === leadId)
                 .map((activity, index) => {
                   const ActivityIcon = activityIcons[activity.type];
-                  const isLast = index === mockActivities.filter(a => a.leadId === leadId).length - 1;
+                  const isLast = index === activities.filter(a => a.leadId === leadId).length - 1;
 
                   return (
                     <div key={activity.id} className="relative">

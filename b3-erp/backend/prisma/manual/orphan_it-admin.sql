@@ -358,3 +358,27 @@ CREATE TABLE IF NOT EXISTS "it_export_datasets" (
   CONSTRAINT "PK_it_export_datasets" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_it_export_datasets_companyId" ON "it_export_datasets" ("companyId");
+
+-- System monitoring (monitoring/health, monitoring/errors, monitoring/performance)
+CREATE TABLE IF NOT EXISTS "it_system_monitor" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "companyId" varchar,
+  "kind" varchar(50) NOT NULL DEFAULT 'health',
+  "name" varchar(200) NOT NULL,
+  "category" varchar(100),
+  "status" varchar(50) NOT NULL DEFAULT 'healthy',
+  "severity" varchar(50),
+  "message" text,
+  "source" varchar(100),
+  "value" double precision,
+  "unit" varchar(50),
+  "threshold" double precision,
+  "occurrences" integer NOT NULL DEFAULT 0,
+  "lastOccurred" varchar(100),
+  "metadata" jsonb,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_it_system_monitor" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_it_system_monitor_companyId" ON "it_system_monitor" ("companyId");
+CREATE INDEX IF NOT EXISTS "IDX_it_system_monitor_kind" ON "it_system_monitor" ("kind");

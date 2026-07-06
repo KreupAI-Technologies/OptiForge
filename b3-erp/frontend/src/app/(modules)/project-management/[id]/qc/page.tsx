@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useParams } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import {
     ClipboardCheck,
     ShieldCheck,
@@ -13,7 +15,28 @@ import {
 } from 'lucide-react';
 
 export default function FinalQCPage() {
+    const { id: projectId } = useParams() as { id: string };
     const [status, setStatus] = useState<'IDLE' | 'FAIL' | 'PASS'>('IDLE');
+    const [reworkTarget, setReworkTarget] = useState('Back to Bending (Op 5.7)');
+    const [saving, setSaving] = useState(false);
+
+    const recordVerdict = async (verdict: 'Passed' | 'Failed') => {
+        setSaving(true);
+        try {
+            await projectManagementService.createQualityInspection({
+                companyId: 'default-company-id',
+                projectId,
+                inspectionType: 'Final Inspection',
+                overallStatus: verdict,
+                remarks: verdict === 'Failed' ? `Rework: ${reworkTarget}` : 'Final QC passed',
+            } as any);
+        } catch {
+            /* keep UI state even if persistence fails */
+        } finally {
+            setSaving(false);
+            setStatus(verdict === 'Passed' ? 'PASS' : 'FAIL');
+        }
+    };
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-4 px-3 py-4">
@@ -79,14 +102,16 @@ export default function FinalQCPage() {
                         {status === 'IDLE' && (
                             <div className="space-y-4">
                                 <button
-                                    onClick={() => setStatus('PASS')}
-                                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[1.02] transition-all"
+                                    onClick={() => recordVerdict('Passed')}
+                                    disabled={saving}
+                                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:scale-[1.02] transition-all disabled:opacity-50"
                                 >
                                     Approve & Pass
                                 </button>
                                 <button
-                                    onClick={() => setStatus('FAIL')}
-                                    className="w-full py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-100 hover:scale-[1.02] transition-all"
+                                    onClick={() => recordVerdict('Failed')}
+                                    disabled={saving}
+                                    className="w-full py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-rose-100 hover:scale-[1.02] transition-all disabled:opacity-50"
                                 >
                                     Reject for Rework
                                 </button>
@@ -108,7 +133,7 @@ export default function FinalQCPage() {
                             <div className="space-y-4 animate-in zoom-in-95 duration-300 text-left">
                                 <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl space-y-2">
                                     <div className="text-[10px] font-black text-rose-600 uppercase tracking-widest">Rework Target</div>
-                                    <select className="w-full bg-white border border-rose-100 rounded-lg p-2 text-[10px] font-bold outline-none">
+                                    <select value={reworkTarget} onChange={(e) => setReworkTarget(e.target.value)} className="w-full bg-white border border-rose-100 rounded-lg p-2 text-[10px] font-bold outline-none">
                                         <option>Back to Bending (Op 5.7)</option>
                                         <option>Back to Laser (Op 5.3)</option>
                                         <option>Back to Etching (Op 5.6)</option>

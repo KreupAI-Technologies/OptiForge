@@ -28,85 +28,6 @@ interface Campaign {
   channels?: string[];
 }
 
-const mockCampaigns: Campaign[] = [
-  {
-    id: '1',
-    name: 'Summer Product Launch',
-    type: 'email',
-    status: 'active',
-    startDate: '2024-10-01',
-    endDate: '2024-10-31',
-    budget: 50000,
-    spent: 32500,
-    audience: 15000,
-    sent: 12000,
-    delivered: 11880,
-    opened: 4752,
-    clicked: 1426,
-    converted: 85,
-    revenue: 170000,
-    owner: 'Sarah Johnson',
-    description: 'Launch campaign for our new summer product line featuring email campaigns, social media promotion, and influencer partnerships.',
-    goals: [
-      'Generate 100+ qualified leads',
-      'Achieve 40% email open rate',
-      'Drive $150k in revenue',
-      'Build brand awareness'
-    ],
-    channels: ['Email', 'Social Media', 'Blog', 'Paid Ads']
-  },
-  {
-    id: '2',
-    name: 'Customer Retention Program',
-    type: 'email',
-    status: 'active',
-    startDate: '2024-09-15',
-    budget: 30000,
-    spent: 18750,
-    audience: 8500,
-    sent: 6800,
-    delivered: 6732,
-    opened: 2693,
-    clicked: 943,
-    converted: 47,
-    revenue: 94000,
-    owner: 'Michael Chen',
-    description: 'Multi-touch email campaign targeting existing customers to increase retention and upsell premium features.',
-    goals: [
-      'Reduce churn by 15%',
-      'Increase customer lifetime value',
-      'Drive upgrade conversions',
-      'Improve customer satisfaction'
-    ],
-    channels: ['Email', 'In-App Messages', 'Push Notifications']
-  },
-  {
-    id: '3',
-    name: 'Q4 Webinar Series',
-    type: 'webinar',
-    status: 'paused',
-    startDate: '2024-10-10',
-    budget: 15000,
-    spent: 4500,
-    audience: 5600,
-    sent: 2800,
-    delivered: 2758,
-    opened: 828,
-    clicked: 248,
-    converted: 12,
-    revenue: 24000,
-    owner: 'Emily Rodriguez',
-    description: 'Educational webinar series showcasing industry best practices and our platform capabilities.',
-    goals: [
-      'Host 4 webinars',
-      'Achieve 200+ attendees per session',
-      'Generate 50 SQLs',
-      'Position as thought leader'
-    ],
-    channels: ['Email', 'LinkedIn', 'Website']
-  }
-];
-
 export default function CampaignEditPage() {
   const router = useRouter();
   const params = useParams();
@@ -115,6 +36,8 @@ export default function CampaignEditPage() {
   const [existingCampaign, setExistingCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -250,12 +173,35 @@ export default function CampaignEditPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (validateForm()) {
-      // In a real app, this would update the campaign via API
+    if (!validateForm()) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const cleanedGoals = formData.goals.map((g) => g.trim()).filter((g) => g !== '');
+      const cleanedChannels = formData.channels.map((c) => c.trim()).filter((c) => c !== '');
+      const payload: any = {
+        name: formData.name,
+        type: formData.type,
+        status: formData.status,
+        description: formData.description || undefined,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        budget: Number(formData.budget) || 0,
+        totalLeads: Number(formData.audience) || 0,
+        assignedToName: formData.owner || undefined,
+        objective: cleanedGoals.length > 0 ? cleanedGoals[0] : undefined,
+        tags: cleanedChannels,
+      };
+      await crmService.campaigns.update(campaignId, payload);
       router.push(`/crm/campaigns/view/${campaignId}`);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -355,6 +301,11 @@ export default function CampaignEditPage() {
       {loadError && !isLoading && (
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {loadError}
+        </div>
+      )}
+      {saveError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {saveError}
         </div>
       )}
 
@@ -681,10 +632,11 @@ export default function CampaignEditPage() {
               <div className="space-y-3">
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={isSaving}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
                   <Save className="w-5 h-5" />
-                  <span>Save Changes</span>
+                  <span>{isSaving ? 'Saving…' : 'Save Changes'}</span>
                 </button>
 
                 <button

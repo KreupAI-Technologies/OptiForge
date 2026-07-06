@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Save, Send, Calculator, FileText } from 'lucide-react';
 import { MasterDataService, mdLabel, MDCustomer } from '@/services/master-data.service';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 
 interface LineItem {
   id: string;
@@ -150,26 +151,39 @@ export default function CreateInvoicePage() {
     }
   };
 
-  const handleSave = (status: 'draft' | 'sent') => {
+  const handleSave = async (status: 'draft' | 'sent') => {
     const invoice = {
-      invoiceType,
-      customerId,
-      customerName,
-      serviceJobId,
-      contractId,
-      lineItems,
-      subtotal,
-      totalDiscount,
-      taxableAmount,
-      totalTax,
-      totalAmount,
-      paymentTerms,
-      notes,
+      invoiceType: (invoiceType || 'service').toLowerCase(),
+      customerId: customerId || '',
+      customerName: customerName || '',
+      serviceJobId: serviceJobId || undefined,
+      contractId: contractId || undefined,
+      lineItems: (lineItems || []).map((li) => ({
+        itemType: li.itemType,
+        description: li.description,
+        quantity: Number(li.quantity) || 0,
+        unitPrice: Number(li.unitPrice) || 0,
+        discount: Number((li as any).discount) || 0,
+        taxRate: Number((li as any).taxRate) || 0,
+      })),
+      subtotal: Number(subtotal) || 0,
+      discountAmount: Number(totalDiscount) || 0,
+      taxableAmount: Number(taxableAmount) || 0,
+      totalTax: Number(totalTax) || 0,
+      totalAmount: Number(totalAmount) || 0,
+      currency: 'INR',
+      paymentTerms: paymentTerms || 'Net 30',
+      dueDate: new Date().toISOString(),
+      notes: notes || undefined,
       status,
+      createdBy: 'system',
     };
-    console.log('Saving invoice:', invoice);
-    // Here you would call the API to save the invoice
-    router.push('/after-sales-service/billing');
+    try {
+      await AfterSalesPagesService.createInvoice(invoice);
+      router.push('/after-sales-service/billing');
+    } catch (err) {
+      console.error('Failed to save invoice', err);
+    }
   };
 
   return (

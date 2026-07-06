@@ -22,6 +22,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { PackagingService, PackagingShippingBillDto } from '@/services/packaging.service';
 
 interface ProjectInfo {
     id: string;
@@ -78,6 +79,27 @@ const mockBills: ShippingBill[] = [
     }
 ];
 
+function mapBill(b: PackagingShippingBillDto): ShippingBill {
+    const items = Array.isArray(b.items) ? b.items : [];
+    return {
+        billNumber: b.billNumber || '',
+        orderNumber: b.orderNumber || '',
+        customerName: b.customerName || '',
+        destination: b.destination || '',
+        items: items.map((it: any, idx: number): ShippingBillItem => ({
+            id: it?.id || String(idx + 1),
+            itemDescription: it?.itemDescription || '',
+            quantity: Number(it?.quantity) || 0,
+            packageType: it?.packageType || '',
+            weight: it?.weight || '',
+            dimensions: it?.dimensions || '',
+        })),
+        totalPackages: Number(b.totalPackages) || 0,
+        totalWeight: b.totalWeight || '',
+        status: (b.status || 'Draft') as ShippingBill['status'],
+    };
+}
+
 export default function ShippingBillPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -126,14 +148,23 @@ export default function ShippingBillPage() {
 
     // Load bills when project is selected
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        const loadBills = async () => {
             setLoading(true);
-            setTimeout(() => {
-                setBills(mockBills);
-                setSelectedBill(mockBills[0]);
+            try {
+                const data = await PackagingService.getShippingBills(selectedProject.id);
+                const mapped = Array.isArray(data) ? data.map(mapBill) : [];
+                setBills(mapped);
+                setSelectedBill(mapped.length ? mapped[0] : null);
+            } catch (error) {
+                console.error('Failed to load shipping bills:', error);
+                setBills([]);
+                setSelectedBill(null);
+            } finally {
                 setLoading(false);
-            }, 300);
-        }
+            }
+        };
+        loadBills();
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {

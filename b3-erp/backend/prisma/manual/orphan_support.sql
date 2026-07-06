@@ -433,3 +433,138 @@ CREATE TABLE IF NOT EXISTS support_report_templates (
 
 CREATE INDEX IF NOT EXISTS idx_support_report_templates_company
     ON support_report_templates ("companyId");
+
+
+-- ============================================================
+-- ITIL: incidents / problems / changes (appended)
+-- ============================================================
+-- Backs the ITILController (support/itil/*) exposing the existing
+-- ITILService. Column names mirror the Prisma models ITILIncident /
+-- ITILProblem / ITILChange / ITILChangeApproval. ADDITIVE ONLY.
+
+-- Backs /support/incidents/* (create, tracking, critical, major)
+CREATE TABLE IF NOT EXISTS "itil_incidents" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "incidentNumber" varchar NOT NULL,
+  "title" varchar NOT NULL,
+  "description" text NOT NULL,
+  "impact" varchar NOT NULL DEFAULT 'medium',
+  "urgency" varchar NOT NULL DEFAULT 'medium',
+  "priority" varchar NOT NULL DEFAULT 'P3',
+  "category" varchar,
+  "subcategory" varchar,
+  "affectedService" varchar,
+  "affectedCI" varchar,
+  "status" varchar NOT NULL DEFAULT 'new',
+  "assignedGroup" varchar,
+  "assignedTo" varchar,
+  "reportedAt" timestamp NOT NULL DEFAULT now(),
+  "reportedBy" varchar,
+  "acknowledgedAt" timestamp,
+  "resolvedAt" timestamp,
+  "closedAt" timestamp,
+  "resolutionCode" varchar,
+  "resolutionNotes" text,
+  "rootCause" text,
+  "relatedProblemId" varchar,
+  "relatedChangeId" varchar,
+  "relatedTicketId" varchar,
+  "isMajorIncident" boolean NOT NULL DEFAULT false,
+  "majorIncidentManager" varchar,
+  "companyId" varchar NOT NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_itil_incidents" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_itil_incidents_number_company" UNIQUE ("incidentNumber", "companyId")
+);
+CREATE INDEX IF NOT EXISTS "IDX_itil_incidents_company" ON "itil_incidents" ("companyId");
+
+-- Backs /support/problems/* (list, create, rca)
+CREATE TABLE IF NOT EXISTS "itil_problems" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "problemNumber" varchar NOT NULL,
+  "title" varchar NOT NULL,
+  "description" text NOT NULL,
+  "impact" varchar NOT NULL DEFAULT 'medium',
+  "urgency" varchar NOT NULL DEFAULT 'medium',
+  "priority" varchar NOT NULL DEFAULT 'P3',
+  "category" varchar,
+  "affectedService" varchar,
+  "affectedCIs" text[] NOT NULL DEFAULT '{}',
+  "status" varchar NOT NULL DEFAULT 'logged',
+  "assignedGroup" varchar,
+  "assignedTo" varchar,
+  "rootCause" text,
+  "workaround" text,
+  "knownErrorId" varchar,
+  "loggedAt" timestamp NOT NULL DEFAULT now(),
+  "loggedBy" varchar,
+  "investigationStarted" timestamp,
+  "resolvedAt" timestamp,
+  "closedAt" timestamp,
+  "relatedIncidents" text[] NOT NULL DEFAULT '{}',
+  "incidentCount" integer NOT NULL DEFAULT 0,
+  "companyId" varchar NOT NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_itil_problems" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_itil_problems_number_company" UNIQUE ("problemNumber", "companyId")
+);
+CREATE INDEX IF NOT EXISTS "IDX_itil_problems_company" ON "itil_problems" ("companyId");
+
+-- Backs /support/changes/* (create + change management)
+CREATE TABLE IF NOT EXISTS "itil_changes" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "changeNumber" varchar NOT NULL,
+  "title" varchar NOT NULL,
+  "description" text NOT NULL,
+  "justification" text,
+  "changeType" varchar NOT NULL DEFAULT 'normal',
+  "category" varchar,
+  "riskLevel" varchar NOT NULL DEFAULT 'medium',
+  "impact" varchar NOT NULL DEFAULT 'medium',
+  "status" varchar NOT NULL DEFAULT 'draft',
+  "plannedStartDate" timestamp,
+  "plannedEndDate" timestamp,
+  "actualStartDate" timestamp,
+  "actualEndDate" timestamp,
+  "requestedBy" varchar,
+  "assignedGroup" varchar,
+  "assignedTo" varchar,
+  "changeManager" varchar,
+  "implementationPlan" text,
+  "backoutPlan" text,
+  "testPlan" text,
+  "reviewNotes" text,
+  "reviewedBy" varchar,
+  "reviewedAt" timestamp,
+  "relatedProblemId" varchar,
+  "relatedIncidents" text[] NOT NULL DEFAULT '{}',
+  "affectedCIs" text[] NOT NULL DEFAULT '{}',
+  "companyId" varchar NOT NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_itil_changes" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_itil_changes_number_company" UNIQUE ("changeNumber", "companyId")
+);
+CREATE INDEX IF NOT EXISTS "IDX_itil_changes_company" ON "itil_changes" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "itil_change_approvals" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "changeId" uuid NOT NULL,
+  "approverId" varchar NOT NULL,
+  "approverName" varchar,
+  "approverRole" varchar,
+  "decision" varchar NOT NULL DEFAULT 'pending',
+  "comments" text,
+  "requestedAt" timestamp NOT NULL DEFAULT now(),
+  "decidedAt" timestamp,
+  "companyId" varchar NOT NULL,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_itil_change_approvals" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_itil_change_approvals_change" ON "itil_change_approvals" ("changeId");

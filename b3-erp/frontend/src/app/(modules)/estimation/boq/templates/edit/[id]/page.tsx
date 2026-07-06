@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, X, Save, AlertTriangle } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
+import { estimationTemplateService } from '@/services/estimation-template.service';
 
 interface BOQItem {
   id: string;
@@ -43,51 +44,6 @@ const unitOptions = [
   'lit',
 ];
 
-// Mock data - would come from API
-const mockTemplateData = {
-  id: '1',
-  name: 'Standard Commercial Building',
-  templateCode: 'BOQ-TEMP-001',
-  category: 'Construction',
-  description: 'Comprehensive BOQ template for standard commercial building projects including civil, electrical, and plumbing works.',
-  usageCount: 24,
-  items: [
-    {
-      id: '1',
-      itemCode: 'CIVIL-001',
-      description: 'Excavation for foundation',
-      category: 'Civil Works',
-      unit: 'cu.m',
-      quantity: 150,
-      rate: 450,
-      amount: 67500,
-      specifications: 'As per IS 1200 standards',
-    },
-    {
-      id: '2',
-      itemCode: 'CIVIL-002',
-      description: 'RCC M25 grade concrete for foundation',
-      category: 'Civil Works',
-      unit: 'cu.m',
-      quantity: 120,
-      rate: 6500,
-      amount: 780000,
-      specifications: 'As per IS 456:2000',
-    },
-    {
-      id: '3',
-      itemCode: 'ELEC-001',
-      description: 'Main electrical panel 400A',
-      category: 'Electrical Works',
-      unit: 'nos',
-      quantity: 1,
-      rate: 85000,
-      amount: 85000,
-      specifications: 'As per IE rules',
-    },
-  ],
-};
-
 export default function EditBOQTemplate() {
   const router = useRouter();
   const params = useParams();
@@ -102,13 +58,36 @@ export default function EditBOQTemplate() {
 
   // Load template data
   useEffect(() => {
-    // Would fetch from API using templateId
-    setTemplateName(mockTemplateData.name);
-    setTemplateCode(mockTemplateData.templateCode);
-    setCategory(mockTemplateData.category);
-    setDescription(mockTemplateData.description);
-    setUsageCount(mockTemplateData.usageCount);
-    setItems(mockTemplateData.items);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = (await estimationTemplateService.findTemplateById(templateId)) as any;
+        if (cancelled || !raw) return;
+        setTemplateName(raw.name ?? '');
+        setTemplateCode(raw.templateCode ?? raw.code ?? '');
+        setCategory(raw.category ?? raw.templateType ?? '');
+        setDescription(raw.description ?? '');
+        setUsageCount(Number(raw.usageCount ?? 0));
+        const loadedItems: BOQItem[] = Array.isArray(raw.items)
+          ? raw.items.map((it: any, idx: number) => ({
+              id: it?.id ?? String(idx + 1),
+              itemCode: it?.itemCode ?? it?.itemNo ?? '',
+              description: it?.description ?? '',
+              category: it?.category ?? '',
+              unit: it?.unit ?? 'nos',
+              quantity: Number(it?.quantity ?? 0),
+              rate: Number(it?.rate ?? it?.unitRate ?? 0),
+              amount: Number(it?.amount ?? it?.totalAmount ?? 0),
+              specifications: it?.specifications ?? '',
+            }))
+          : [];
+        setItems(loadedItems);
+      } catch (error) {
+        console.error('Error loading template:', error);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
   }, [templateId]);
 
   const handleBack = () => {
@@ -158,7 +137,7 @@ export default function EditBOQTemplate() {
     return items.reduce((sum, item) => sum + item.amount, 0);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Validation
     if (!templateName.trim()) {
       alert('Please enter template name');
@@ -188,18 +167,20 @@ export default function EditBOQTemplate() {
       return;
     }
 
-    console.log('Updating template:', {
-      id: templateId,
-      templateName,
-      templateCode,
-      category,
-      description,
-      items,
-      totalValue: calculateTotal(),
-    });
-
-    // Would make API call here
-    router.push('/estimation/boq/templates');
+    try {
+      await estimationTemplateService.updateBoqTemplate(templateId, {
+        name: templateName,
+        templateCode,
+        category,
+        description,
+        items,
+        estimatedValue: calculateTotal(),
+      });
+      router.push('/estimation/boq/templates');
+    } catch (error) {
+      console.error('Error updating template:', error);
+      alert('Failed to update template. Please try again.');
+    }
   };
 
   return (

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, TrendingUp, TrendingDown, Calendar, User, DollarSign, Package, Clock } from 'lucide-react'
+import { estimationMaterialCostService } from '@/services/estimation-material-cost.service'
 
 interface RateHistory {
   id: string
@@ -23,109 +24,46 @@ export default function MaterialRateHistoryPage() {
   const params = useParams()
   const materialId = params?.id as string
 
-  // Mock data - would come from API
-  const materialInfo = {
-    materialCode: 'SS304-18G',
-    materialName: 'Stainless Steel 304 - 18 Gauge Sheet',
-    category: 'Raw Material - Sinks',
-    unit: 'KG',
-    currentRate: 285.00,
+  const [materialInfo, setMaterialInfo] = useState({
+    materialCode: '',
+    materialName: '',
+    category: '',
+    unit: '',
+    currentRate: 0,
     status: 'active'
-  }
+  })
 
-  const [history] = useState<RateHistory[]>([
-    {
-      id: 'HIST-001',
-      rate: 285.00,
-      effectiveFrom: '2025-10-15',
-      effectiveTo: null,
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 500,
-      changePercentage: 5.56,
-      updatedBy: 'Rajesh Kumar',
-      updatedAt: '2025-10-15 09:30',
-      notes: 'Increased due to raw material cost hike'
-    },
-    {
-      id: 'HIST-002',
-      rate: 270.00,
-      effectiveFrom: '2025-09-01',
-      effectiveTo: '2025-10-14',
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 500,
-      changePercentage: -3.57,
-      updatedBy: 'Amit Sharma',
-      updatedAt: '2025-09-01 14:20',
-      notes: 'Negotiated better rate with supplier'
-    },
-    {
-      id: 'HIST-003',
-      rate: 280.00,
-      effectiveFrom: '2025-07-01',
-      effectiveTo: '2025-08-31',
-      supplier: 'Metal Works Pvt Ltd',
-      leadTime: 10,
-      minimumOrderQty: 1000,
-      changePercentage: 7.69,
-      updatedBy: 'Neha Patel',
-      updatedAt: '2025-07-01 11:15',
-      notes: 'Switched to new supplier, higher MOQ but better quality'
-    },
-    {
-      id: 'HIST-004',
-      rate: 260.00,
-      effectiveFrom: '2025-04-01',
-      effectiveTo: '2025-06-30',
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 500,
-      changePercentage: 0,
-      updatedBy: 'Vikram Singh',
-      updatedAt: '2025-04-01 10:00',
-      notes: 'Rate remained stable this quarter'
-    },
-    {
-      id: 'HIST-005',
-      rate: 260.00,
-      effectiveFrom: '2025-01-15',
-      effectiveTo: '2025-03-31',
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 500,
-      changePercentage: 4.00,
-      updatedBy: 'Rajesh Kumar',
-      updatedAt: '2025-01-15 15:45',
-      notes: 'Annual rate revision'
-    },
-    {
-      id: 'HIST-006',
-      rate: 250.00,
-      effectiveFrom: '2024-10-01',
-      effectiveTo: '2025-01-14',
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 500,
-      changePercentage: -3.85,
-      updatedBy: 'Amit Sharma',
-      updatedAt: '2024-10-01 09:00',
-      notes: 'Market correction, prices decreased'
-    },
-    {
-      id: 'HIST-007',
-      rate: 260.00,
-      effectiveFrom: '2024-07-01',
-      effectiveTo: '2024-09-30',
-      supplier: 'Steel India Ltd',
-      leadTime: 7,
-      minimumOrderQty: 500,
-      changePercentage: null,
-      updatedBy: 'Neha Patel',
-      updatedAt: '2024-07-01 10:30',
-      notes: 'Initial rate setup'
+  const [history, setHistory] = useState<RateHistory[]>([])
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const rates = await estimationMaterialCostService.getRates()
+        const list = Array.isArray(rates) ? rates : []
+        const material = list.find((r) => r?.id === materialId) || list[0]
+        if (active && material) {
+          setMaterialInfo({
+            materialCode: material.materialCode || '',
+            materialName: material.materialName || '',
+            category: material.category || '',
+            unit: material.unit || '',
+            currentRate: material.currentPrice || 0,
+            status: material.status || 'active'
+          })
+        }
+        // The material-cost service exposes no price-history endpoint,
+        // so the history timeline stays empty until one exists.
+        if (active) setHistory([])
+      } catch (error) {
+        console.error('Failed to load material rate history:', error)
+      }
     }
-  ])
+    if (materialId) load()
+    return () => {
+      active = false
+    }
+  }, [materialId])
 
   const handleBack = () => {
     router.push('/estimation/rates/materials')
@@ -152,10 +90,12 @@ export default function MaterialRateHistoryPage() {
     return 'bg-gray-50'
   }
 
-  // Calculate statistics
-  const avgRate = history.reduce((sum, h) => sum + h.rate, 0) / history.length
-  const maxRate = Math.max(...history.map(h => h.rate))
-  const minRate = Math.min(...history.map(h => h.rate))
+  // Calculate statistics (guarded against empty history)
+  const avgRate = history.length > 0
+    ? history.reduce((sum, h) => sum + h.rate, 0) / history.length
+    : 0
+  const maxRate = history.length > 0 ? Math.max(...history.map(h => h.rate)) : 0
+  const minRate = history.length > 0 ? Math.min(...history.map(h => h.rate)) : 0
   const totalChanges = history.length
 
   return (
@@ -268,6 +208,12 @@ export default function MaterialRateHistoryPage() {
             </h2>
 
             <div className="space-y-2">
+              {history.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <Clock className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm">No rate change history available for this material.</p>
+                </div>
+              )}
               {history.map((record, index) => (
                 <div
                   key={record.id}

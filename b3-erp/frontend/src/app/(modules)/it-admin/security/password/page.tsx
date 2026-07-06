@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, Lock, Clock, AlertTriangle, CheckCircle2, Settings, Save, RotateCcw, Eye, EyeOff, Info } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface PasswordPolicy {
   id: string;
@@ -100,6 +101,46 @@ const PasswordPolicyPage = () => {
       score: 4,
     },
   });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const dto = await ItAdminService.getPasswordPolicy();
+        if (!mounted || !dto) return;
+        setPolicy((prev) => ({
+          ...prev,
+          rules: {
+            ...prev.rules,
+            minLength: dto.minLength ?? prev.rules.minLength,
+            maxLength: dto.maxLength ?? prev.rules.maxLength,
+            requireUppercase: dto.requireUppercase ?? prev.rules.requireUppercase,
+            requireLowercase: dto.requireLowercase ?? prev.rules.requireLowercase,
+            requireNumbers: dto.requireNumbers ?? prev.rules.requireNumbers,
+            requireSpecialChars: dto.requireSpecialChars ?? prev.rules.requireSpecialChars,
+          },
+          expiry: {
+            ...prev.expiry,
+            days: dto.expiryDays ?? prev.expiry.days,
+          },
+          history: {
+            ...prev.history,
+            remember: dto.historyCount ?? prev.history.remember,
+          },
+          lockout: {
+            ...prev.lockout,
+            attempts: dto.lockoutThreshold ?? prev.lockout.attempts,
+            duration: dto.lockoutDurationMinutes ?? prev.lockout.duration,
+          },
+        }));
+      } catch {
+        // keep defaults if policy not found
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const [userStatuses] = useState<UserPasswordStatus[]>([
     {
@@ -303,8 +344,24 @@ const PasswordPolicyPage = () => {
 
   const passwordStrength = calculatePasswordStrength(testPassword);
 
-  const handleSavePolicy = () => {
-    alert('Password policy saved successfully!');
+  const handleSavePolicy = async () => {
+    try {
+      await ItAdminService.savePasswordPolicy({
+        minLength: policy.rules.minLength,
+        maxLength: policy.rules.maxLength,
+        requireUppercase: policy.rules.requireUppercase,
+        requireLowercase: policy.rules.requireLowercase,
+        requireNumbers: policy.rules.requireNumbers,
+        requireSpecialChars: policy.rules.requireSpecialChars,
+        expiryDays: policy.expiry.days,
+        historyCount: policy.history.remember,
+        lockoutThreshold: policy.lockout.attempts,
+        lockoutDurationMinutes: policy.lockout.duration,
+      });
+      alert('Password policy saved successfully!');
+    } catch {
+      alert('Failed to save password policy. Please try again.');
+    }
   };
 
   const handleResetPolicy = () => {

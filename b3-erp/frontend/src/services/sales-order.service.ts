@@ -592,6 +592,48 @@ class SalesOrderService {
     return response.data;
   }
 
+  /**
+   * Create a sales order against the Prisma-backed NestJS endpoint using the
+   * backend-native payload shape (`items` with camelCase line fields) plus the
+   * required x-company-id header. Returns the created order (raw backend shape).
+   * Used by /sales/orders/create-enhanced.
+   */
+  async createOrderEnhanced(payload: {
+    companyId: string;
+    customerId?: string;
+    customerName: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    requestedDeliveryDate?: string;
+    paymentTerms?: string;
+    deliveryTerms?: string;
+    shippingMethod?: string;
+    priority?: string;
+    notes?: string;
+    termsAndConditions?: string;
+    status?: string;
+    items: {
+      itemName: string;
+      itemCode?: string;
+      quantity: number;
+      uom?: string;
+      unitPrice: number;
+      discountPercent?: number;
+      taxRate?: number;
+    }[];
+  }): Promise<Record<string, unknown>> {
+    const { companyId, ...body } = payload;
+    const response = await apiClient.request<Record<string, unknown>>({
+      url: '/sales-masters/orders-v2',
+      method: 'POST',
+      data: { ...body, companyId },
+      headers: { 'x-company-id': companyId },
+    });
+    // NestJS returns the created entity directly (not wrapped); fall back safely.
+    const wrapped = response as unknown as { data?: Record<string, unknown> } & Record<string, unknown>;
+    return wrapped?.data ?? wrapped;
+  }
+
   async updateOrder(id: string, data: UpdateSalesOrderDto): Promise<SalesOrder> {
     if (USE_MOCK_DATA) {
       await new Promise((resolve) => setTimeout(resolve, 500));

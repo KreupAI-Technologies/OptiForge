@@ -1,15 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Database, Layers, ArrowRight, Plus, Settings, Activity, AlertCircle } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
+
+interface Shard {
+    id: string | number;
+    name: string;
+    region: string;
+    range: string;
+    size: string;
+    status: string;
+    latency: string;
+}
 
 export default function ShardingPage() {
-    const [shards, setShards] = useState([
-        { id: 1, name: 'Shard-EU-01', region: 'Europe (Frankfurt)', range: 'A-M', size: '450 GB', status: 'healthy', latency: '24ms' },
-        { id: 2, name: 'Shard-EU-02', region: 'Europe (London)', range: 'N-Z', size: '420 GB', status: 'healthy', latency: '28ms' },
-        { id: 3, name: 'Shard-US-01', region: 'US East (N. Virginia)', range: 'A-Z (US)', size: '850 GB', status: 'warning', latency: '145ms' },
-        { id: 4, name: 'Shard-APAC-01', region: 'Asia Pacific (Singapore)', range: 'A-Z (APAC)', size: '320 GB', status: 'healthy', latency: '85ms' },
-    ]);
+    const [shards, setShards] = useState<Shard[]>([]);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const rows = await ItAdminService.getMonitoring({ kind: 'health', category: 'shard' });
+                if (!active) return;
+                setShards(
+                    (rows ?? []).map((r) => ({
+                        id: r.id,
+                        name: r.name,
+                        region: (r.metadata?.region as string) || r.source || '—',
+                        range: (r.metadata?.range as string) || '—',
+                        size: (r.metadata?.size as string) || '—',
+                        status: r.status || 'healthy',
+                        latency: (r.metadata?.latency as string) || (r.value != null ? `${r.value}ms` : '—'),
+                    })),
+                );
+            } catch {
+                if (active) setShards([]);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 px-3 py-2">

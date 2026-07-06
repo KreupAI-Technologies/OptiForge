@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   PackagePlus,
   Calendar,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 
 interface AssemblyOrder {
-  id: number;
+  id: string;
   assemblyNumber: string;
   assemblyDate: string;
   kitNumber: string;
@@ -40,102 +41,42 @@ export default function AssemblyPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedPriority, setSelectedPriority] = useState('all');
 
-  const [assemblies, setAssemblies] = useState<AssemblyOrder[]>([
-    {
-      id: 1,
-      assemblyNumber: 'ASM-2025-001',
-      assemblyDate: '2025-01-22',
-      kitNumber: 'KIT-001',
-      kitName: 'Hydraulic System Assembly Kit',
-      quantityOrdered: 5,
-      quantityAssembled: 5,
-      assembledBy: 'John Smith',
-      warehouse: 'Assembly Plant',
-      status: 'completed',
-      priority: 'normal',
-      startDate: '2025-01-22',
-      completionDate: '2025-01-22',
-      expectedDate: '2025-01-22',
-      componentsPicked: true
-    },
-    {
-      id: 2,
-      assemblyNumber: 'ASM-2025-002',
-      assemblyDate: '2025-01-22',
-      kitNumber: 'KIT-002',
-      kitName: 'Control Panel Electronics Kit',
-      quantityOrdered: 10,
-      quantityAssembled: 6,
-      assembledBy: 'Sarah Johnson',
-      warehouse: 'Main Warehouse',
-      status: 'in-progress',
-      priority: 'high',
-      startDate: '2025-01-22',
-      expectedDate: '2025-01-23',
-      componentsPicked: true
-    },
-    {
-      id: 3,
-      assemblyNumber: 'ASM-2025-003',
-      assemblyDate: '2025-01-21',
-      kitNumber: 'KIT-004',
-      kitName: 'Welding Consumables Pack',
-      quantityOrdered: 20,
-      quantityAssembled: 20,
-      assembledBy: 'Mike Davis',
-      warehouse: 'FG Store',
-      status: 'completed',
-      priority: 'normal',
-      startDate: '2025-01-21',
-      completionDate: '2025-01-21',
-      expectedDate: '2025-01-21',
-      componentsPicked: true
-    },
-    {
-      id: 4,
-      assemblyNumber: 'ASM-2025-004',
-      assemblyDate: '2025-01-22',
-      kitNumber: 'KIT-003',
-      kitName: 'Excavator Maintenance Kit',
-      quantityOrdered: 8,
-      quantityAssembled: 0,
-      warehouse: 'Spares Store',
-      status: 'pending',
-      priority: 'urgent',
-      expectedDate: '2025-01-23',
-      componentsPicked: true
-    },
-    {
-      id: 5,
-      assemblyNumber: 'ASM-2025-005',
-      assemblyDate: '2025-01-22',
-      kitNumber: 'KIT-005',
-      kitName: 'Bearing & Seal Replacement Kit',
-      quantityOrdered: 12,
-      quantityAssembled: 0,
-      warehouse: 'Assembly Plant',
-      status: 'pending',
-      priority: 'normal',
-      expectedDate: '2025-01-24',
-      componentsPicked: false
-    },
-    {
-      id: 6,
-      assemblyNumber: 'ASM-2025-006',
-      assemblyDate: '2025-01-20',
-      kitNumber: 'KIT-006',
-      kitName: 'Safety Equipment Bundle',
-      quantityOrdered: 15,
-      quantityAssembled: 10,
-      assembledBy: 'Emily Chen',
-      warehouse: 'Main Warehouse',
-      status: 'on-hold',
-      priority: 'normal',
-      startDate: '2025-01-20',
-      expectedDate: '2025-01-22',
-      componentsPicked: true
+  const [assemblies, setAssemblies] = useState<AssemblyOrder[]>([]);
+
+  const loadAssemblies = async () => {
+    try {
+      const rows = await inventoryService.getAssemblyOrders();
+      if (!Array.isArray(rows)) {
+        setAssemblies([]);
+        return;
+      }
+      const mapped: AssemblyOrder[] = rows.map((row: any) => ({
+        id: String(row?.id ?? ''),
+        assemblyNumber: row?.orderNumber ?? row?.assemblyNumber ?? '',
+        assemblyDate: row?.orderDate ?? row?.assemblyDate ?? '',
+        kitNumber: row?.kitNumber ?? '',
+        kitName: row?.kitName ?? '',
+        quantityOrdered: row?.quantityOrdered ?? 0,
+        quantityAssembled: row?.quantityDone ?? row?.quantityAssembled ?? 0,
+        assembledBy: row?.handledBy ?? row?.assembledBy ?? undefined,
+        warehouse: row?.warehouse ?? '',
+        status: (row?.status ?? 'pending') as AssemblyOrder['status'],
+        priority: (row?.priority ?? 'normal') as AssemblyOrder['priority'],
+        startDate: row?.startDate ?? undefined,
+        completionDate: row?.completionDate ?? undefined,
+        expectedDate: row?.expectedDate ?? '',
+        componentsPicked: row?.componentsPicked ?? false
+      }));
+      setAssemblies(mapped);
+    } catch (err) {
+      console.error('Failed to load assembly orders', err);
+      setAssemblies([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadAssemblies();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {

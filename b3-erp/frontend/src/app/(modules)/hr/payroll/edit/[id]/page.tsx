@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { PayrollService } from '@/services/payroll.service';
 import {
   ArrowLeft,
   Save,
@@ -100,6 +101,52 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  // Load the real payroll record on mount and populate the form defensively.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data: any = await PayrollService.getPayrollRecordById(params.id);
+        if (cancelled || !data) return;
+        const toNum = (v: any, fallback: number): number =>
+          v === null || v === undefined || Number.isNaN(Number(v)) ? fallback : Number(v);
+        const toStr = (v: any, fallback: string): string =>
+          v === null || v === undefined ? fallback : String(v);
+
+        setFormData((prev) => ({
+          payDate: toStr(data.payDate ?? data.paidAt, prev.payDate),
+          basicSalary: toNum(data.basicSalary, prev.basicSalary),
+          hra: toNum(data.hra ?? data.houseRentAllowance, prev.hra),
+          transportAllowance: toNum(
+            data.transportAllowance ?? data.conveyanceAllowance,
+            prev.transportAllowance,
+          ),
+          medicalAllowance: toNum(data.medicalAllowance, prev.medicalAllowance),
+          specialAllowance: toNum(data.specialAllowance, prev.specialAllowance),
+          otherAllowances: toNum(data.otherAllowances ?? data.otherEarnings, prev.otherAllowances),
+          providentFund: toNum(data.providentFund, prev.providentFund),
+          professionalTax: toNum(data.professionalTax, prev.professionalTax),
+          incomeTax: toNum(data.incomeTax, prev.incomeTax),
+          esi: toNum(data.esi ?? data.esiContribution, prev.esi),
+          loans: toNum(data.loans ?? data.loanDeduction, prev.loans),
+          otherDeductions: toNum(data.otherDeductions, prev.otherDeductions),
+          workingDays: toNum(data.workingDays, prev.workingDays),
+          presentDays: toNum(data.presentDays, prev.presentDays),
+          leaveDays: toNum(data.leaveDays, prev.leaveDays),
+          overtimeHours: toNum(data.overtimeHours, prev.overtimeHours),
+          remarks: toStr(data.remarks, prev.remarks),
+        }));
+      } catch (err) {
+        // Keep existing form defaults if the record can't be loaded.
+        console.error('Failed to load payroll record', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -181,7 +228,7 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -190,7 +237,7 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
     }
 
     const payrollData = {
-      id: params.id,
+      companyId: 'default-company-id',
       ...formData,
       overtimePay: calculateOvertimePay(),
       grossSalary: calculateGrossSalary(),
@@ -198,9 +245,17 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
       netSalary: calculateNetSalary(),
     };
 
-    console.log('Updating payroll:', payrollData);
-    alert('Payroll updated successfully!');
-    router.push(`/hr/payroll/view/${params.id}`);
+    setSaving(true);
+    try {
+      await PayrollService.updatePayrollRecord(params.id, payrollData);
+      alert('Payroll updated successfully!');
+      router.push(`/hr/payroll/view/${params.id}`);
+    } catch (err) {
+      console.error('Failed to update payroll', err);
+      alert('Failed to update payroll. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const grossSalary = calculateGrossSalary();
@@ -649,10 +704,11 @@ export default function EditPayrollPage({ params }: { params: { id: string } }) 
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+              disabled={saving}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Update Payroll
+              {saving ? 'Updating...' : 'Update Payroll'}
             </button>
           </div>
         </form>

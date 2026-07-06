@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Plus, Send, Eye, Users, TrendingUp, Target, Calendar, Search, Filter, Edit, Copy, Trash2, Play, Pause } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
-import { crmService } from '@/services/crm.service';
+import { crmService, asArray } from '@/services/crm.service';
 
 interface EmailCampaign {
   id: string;
@@ -24,104 +24,6 @@ interface EmailCampaign {
   from: string;
 }
 
-const mockEmailCampaigns: EmailCampaign[] = [
-  {
-    id: '1',
-    name: 'Q4 Product Launch Announcement',
-    subject: 'Introducing Our Revolutionary New Features',
-    status: 'sent',
-    audience: 12500,
-    sent: 9800,
-    delivered: 9650,
-    opened: 4825,
-    clicked: 1930,
-    bounced: 150,
-    unsubscribed: 28,
-    sentDate: '2024-10-15T09:00:00',
-    template: 'Product Launch Template',
-    from: 'marketing@company.com',
-  },
-  {
-    id: '2',
-    name: 'Customer Success Stories Newsletter',
-    subject: 'How Our Customers Are Achieving 10X ROI',
-    status: 'sent',
-    audience: 18900,
-    sent: 15600,
-    delivered: 15450,
-    opened: 8505,
-    clicked: 3401,
-    bounced: 150,
-    unsubscribed: 45,
-    sentDate: '2024-10-10T10:00:00',
-    template: 'Newsletter Template',
-    from: 'success@company.com',
-  },
-  {
-    id: '3',
-    name: 'Holiday Promotion - Early Access',
-    subject: '🎄 Exclusive Holiday Offer - 30% Off for You',
-    status: 'scheduled',
-    audience: 25600,
-    sent: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    bounced: 0,
-    unsubscribed: 0,
-    scheduledDate: '2024-11-15T08:00:00',
-    template: 'Promotional Template',
-    from: 'sales@company.com',
-  },
-  {
-    id: '4',
-    name: 'Webinar Invitation - AI Innovation',
-    subject: 'Join Us: The Future of AI in Enterprise',
-    status: 'sent',
-    audience: 8700,
-    sent: 7800,
-    delivered: 7720,
-    opened: 4632,
-    clicked: 1853,
-    bounced: 80,
-    unsubscribed: 12,
-    sentDate: '2024-10-05T14:00:00',
-    template: 'Event Invitation Template',
-    from: 'events@company.com',
-  },
-  {
-    id: '5',
-    name: 'Re-engagement Campaign - Dormant Users',
-    subject: 'We Miss You! Here\'s What You\'ve Been Missing',
-    status: 'paused',
-    audience: 5600,
-    sent: 2800,
-    delivered: 2758,
-    opened: 828,
-    clicked: 248,
-    bounced: 42,
-    unsubscribed: 35,
-    sentDate: '2024-10-12T11:00:00',
-    template: 'Re-engagement Template',
-    from: 'support@company.com',
-  },
-  {
-    id: '6',
-    name: 'Weekly Product Updates',
-    subject: 'This Week\'s New Features & Improvements',
-    status: 'draft',
-    audience: 22000,
-    sent: 0,
-    delivered: 0,
-    opened: 0,
-    clicked: 0,
-    bounced: 0,
-    unsubscribed: 0,
-    template: 'Update Newsletter Template',
-    from: 'product@company.com',
-  },
-];
-
 export default function EmailCampaignsPage() {
   const router = useRouter();
 
@@ -133,7 +35,7 @@ export default function EmailCampaignsPage() {
       try {
         const data = await crmService.emailCampaigns.getAll();
         if (!active) return;
-        const rows = Array.isArray(data) ? data : [];
+        const rows = asArray(data);
         setCampaigns(
           rows.map((c: any) => ({
             id: String(c?.id ?? ''),
@@ -154,7 +56,7 @@ export default function EmailCampaignsPage() {
           })),
         );
       } catch {
-        if (active) setCampaigns(mockEmailCampaigns);
+        if (active) setCampaigns([]);
       }
     })();
     return () => {
@@ -203,9 +105,15 @@ export default function EmailCampaignsPage() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
-    if (campaignToDelete) {
-      setCampaigns(campaigns.filter(c => c.id !== campaignToDelete.id));
+  const confirmDelete = async () => {
+    if (!campaignToDelete) return;
+    const id = campaignToDelete.id;
+    try {
+      await crmService.emailCampaigns.delete(id);
+    } catch {
+      // Ignore server error; remove from local list regardless
+    } finally {
+      setCampaigns((prev) => prev.filter((c) => c.id !== id));
       setShowDeleteDialog(false);
       setCampaignToDelete(null);
     }

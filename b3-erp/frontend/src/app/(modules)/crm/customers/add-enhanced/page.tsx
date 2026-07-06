@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import { ArrowLeft, Building2, User, MapPin, CreditCard, Tag } from 'lucide-react';
 import {
   MultiStepForm,
@@ -448,8 +449,17 @@ export default function AddCustomerEnhancedPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
           <MultiStepForm
             steps={steps}
-            onComplete={(data) => {
-              console.log('Customer created:', data);
+            onComplete={async (data) => {
+              try {
+                await crmService.customers.create({
+                  ...data,
+                  name: data.companyName ?? data.name,
+                  companyId: 'default-company-id',
+                });
+              } catch (err) {
+                // keep draft on failure so the user doesn't lose data
+                return;
+              }
               clearDraft();
               localStorage.setItem('lastCurrency', String(data.currency || 'USD'));
               localStorage.setItem('lastPaymentTerms', String(data.paymentTerms || 'net30'));

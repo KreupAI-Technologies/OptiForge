@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   Save,
@@ -294,119 +295,67 @@ const indianBanks = [
 
 const gstTypes = ['Regular', 'Composition', 'Unregistered'];
 
-// Mock customer data - pre-populate based on customerId
-const mockCustomerData: CustomerFormData = {
-  customerNumber: 'CUST-2023-5421',
-  customerName: 'Sharma Modular Kitchens Pvt Ltd',
-  legalName: 'Sharma Modular Kitchens Private Limited',
-  tradeName: 'Sharma Kitchens',
+// Empty form shape used to initialise controlled inputs before the real
+// customer is loaded from the API on mount.
+const emptyCustomerData: CustomerFormData = {
+  customerNumber: '',
+  customerName: '',
+  legalName: '',
+  tradeName: '',
   customerGroup: 'wholesale',
   customerClassification: 'A',
-  industrySector: 'Modular Kitchen Dealers',
-  companySize: '51-200',
-  annualRevenue: '₹12.5 Crores',
-  udyamNumber: 'UDYAM-MH-12-1234567',
-  gstNumber: '27AAAAA0000A1Z5',
-  panNumber: 'AAAPL1234C',
-  tanNumber: 'MUMM12345A',
+  industrySector: '',
+  companySize: '',
+  annualRevenue: '',
+  udyamNumber: '',
+  gstNumber: '',
+  panNumber: '',
+  tanNumber: '',
   gstRegistrationType: 'regular',
-  website: 'https://www.sharmakitchens.co.in',
-  generalEmail: 'contact@sharmakitchens.co.in',
-  generalPhone: '+91-22-4567-8900',
+  website: '',
+  generalEmail: '',
+  generalPhone: '',
 
-  addresses: [
-    {
-      id: '1',
-      addressType: 'billing',
-      buildingFlat: 'Building 456, 3rd Floor',
-      localityArea: 'Andheri Industrial Estate',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pinCode: '400053',
-      country: 'India',
-      isDefaultBilling: true,
-      isDefaultShipping: false,
-    },
-  ],
+  addresses: [],
 
-  contacts: [
-    {
-      id: '1',
-      role: 'primary',
-      firstName: 'Robert',
-      lastName: 'Johnson',
-      title: 'CEO',
-      department: 'Executive',
-      email: 'robert.j@modernkitchendesigns.com',
-      phone: '+1 (555) 789-1240',
-      mobile: '+1 (555) 789-1250',
-      preferredContactMethod: 'email',
-      isPrimary: true,
-    },
-    {
-      id: '2',
-      role: 'billing',
-      firstName: 'Lisa',
-      lastName: 'Martinez',
-      title: 'CFO',
-      department: 'Finance',
-      email: 'lisa.m@modernkitchendesigns.com',
-      phone: '+1 (555) 789-1241',
-      mobile: '+1 (555) 789-1251',
-      preferredContactMethod: 'email',
-      isPrimary: false,
-    },
-    {
-      id: '3',
-      role: 'technical',
-      firstName: 'David',
-      lastName: 'Chen',
-      title: 'Technical Director',
-      department: 'Operations',
-      email: 'david.c@modernkitchendesigns.com',
-      phone: '+1 (555) 789-1242',
-      mobile: '+1 (555) 789-1252',
-      preferredContactMethod: 'phone',
-      isPrimary: false,
-    },
-  ],
+  contacts: [],
 
-  creditLimit: '50000',
-  creditUsed: '15000',
-  availableCredit: '35000',
+  creditLimit: '',
+  creditUsed: '',
+  availableCredit: '',
   creditStatus: 'approved',
-  creditCheckRequired: true,
-  paymentTerms: 'Net 30 days',
-  paymentMethod: 'NEFT/RTGS',
-  dunningProcedure: 'Standard',
+  creditCheckRequired: false,
+  paymentTerms: '',
+  paymentMethod: '',
+  dunningProcedure: '',
   interestCalculation: false,
   bankDetails: {
-    bankName: 'HDFC Bank',
-    accountNumber: '****5678',
-    ifscCode: 'HDFC0001234',
-    branchName: 'Andheri West, Mumbai',
-    upiId: 'sharmakitchens@hdfcbank',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    branchName: '',
+    upiId: '',
   },
   preferredCurrency: 'INR',
-  exchangeRateType: 'Standard',
-  priceListAssignment: 'Wholesale Price List',
-  discountGroup: 'Tier 1',
-  taxClassification: 'Taxable',
+  exchangeRateType: '',
+  priceListAssignment: '',
+  discountGroup: '',
+  taxClassification: '',
   taxExempt: false,
   taxExemptReason: '',
-  taxIdEin: '12-3456789',
+  taxIdEin: '',
 
-  salesOrganization: 'US East',
-  distributionChannel: 'Direct Sales',
-  division: 'Kitchen & Bath',
-  salesOffice: 'New York',
-  salesGroup: 'Commercial Sales',
-  accountManager: 'sarah-johnson',
-  salesRepresentative: 'michael-chen',
-  territoryAssignment: 'Northeast',
-  customerHierarchy: 'National Account',
-  marketSegment: 'Mid-Market',
-  preferredVendorStatus: true,
+  salesOrganization: '',
+  distributionChannel: '',
+  division: '',
+  salesOffice: '',
+  salesGroup: '',
+  accountManager: '',
+  salesRepresentative: '',
+  territoryAssignment: '',
+  customerHierarchy: '',
+  marketSegment: '',
+  preferredVendorStatus: false,
   abcClassificationSales: 'A',
   salesBlock: false,
   salesBlockReason: '',
@@ -414,48 +363,45 @@ const mockCustomerData: CustomerFormData = {
   deliveryBlockReason: '',
   billingBlock: false,
   billingBlockReason: '',
-  incoterms: 'FOB (Free on Board)',
-  shippingConditions: 'Standard',
+  incoterms: '',
+  shippingConditions: '',
   deliveryPriority: 'high',
-  partialDeliveryAllowed: true,
-  maxPartialDeliveries: '3',
+  partialDeliveryAllowed: false,
+  maxPartialDeliveries: '',
 
-  shippingMethod: 'Ground',
-  preferredCarrier: 'FedEx',
-  freightTerms: 'Prepaid',
-  shippingInstructions: 'Call 24 hours before delivery',
-  loadingUnloadingTimes: '30 minutes',
-  dockHours: '8:00 AM - 5:00 PM',
-  specialHandlingRequirements: 'Fragile items - Handle with care',
-  insuranceRequired: true,
-  warehouseAssignment: 'Warehouse A',
-  deliveryTolerance: '5',
-  pickingLocation: 'Zone B-12',
-  packingRequirements: 'Shrink wrap pallets',
-  labelingRequirements: 'Barcode labels on all packages',
-  routeSchedule: 'Tuesday/Thursday',
-  deliveryDayPreferences: ['Tuesday', 'Thursday'],
-  deliveryTimeWindow: '8:00 AM - 11:00 AM',
+  shippingMethod: '',
+  preferredCarrier: '',
+  freightTerms: '',
+  shippingInstructions: '',
+  loadingUnloadingTimes: '',
+  dockHours: '',
+  specialHandlingRequirements: '',
+  insuranceRequired: false,
+  warehouseAssignment: '',
+  deliveryTolerance: '',
+  pickingLocation: '',
+  packingRequirements: '',
+  labelingRequirements: '',
+  routeSchedule: '',
+  deliveryDayPreferences: [],
+  deliveryTimeWindow: '',
 
-  customerSince: '2023-06-15',
+  customerSince: '',
   accountStatus: 'active',
   businessRelationshipType: 'b2b',
   customerLifecycleStage: 'mature',
   riskRating: 'low',
-  complianceStatus: 'Compliant',
-  certificationsRequired: ['ISO 9001', 'OSHA Compliant'],
-  contractNumber: 'CNT-2023-1245',
-  contractStartDate: '2023-06-15',
-  contractEndDate: '2025-06-15',
-  serviceLevelAgreement: 'Standard SLA - 48 hour response',
-  specialInstructions: 'Prefers morning deliveries between 8AM-11AM. Contact warehouse manager 24 hours before delivery.',
-  internalNotes: 'VIP customer - high volume orders. Excellent payment history.',
-  tags: ['VIP Customer', 'High Volume', 'Premium Tier'],
+  complianceStatus: '',
+  certificationsRequired: [],
+  contractNumber: '',
+  contractStartDate: '',
+  contractEndDate: '',
+  serviceLevelAgreement: '',
+  specialInstructions: '',
+  internalNotes: '',
+  tags: [],
   attachments: [],
-  customFields: [
-    { key: 'Preferred Delivery Day', value: 'Tuesday' },
-    { key: 'Warehouse Contact', value: 'Mike Wilson' },
-  ],
+  customFields: [],
   dataPrivacyConsent: true,
   marketingConsent: true,
 };
@@ -467,7 +413,29 @@ export default function EditCustomerPage() {
   const customerId = params.id as string;
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<CustomerFormData>(mockCustomerData);
+  const [formData, setFormData] = useState<CustomerFormData>(emptyCustomerData);
+
+  useEffect(() => {
+    let active = true;
+    if (!customerId) return;
+    (async () => {
+      try {
+        const raw: any = await crmService.customers.getById(customerId);
+        if (active && raw) {
+          setFormData((prev) => ({
+            ...prev,
+            ...raw,
+            customerName: raw.customerName ?? raw.name ?? prev.customerName,
+          }));
+        }
+      } catch (err) {
+        // keep empty defaults on failure
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [customerId]);
 
   const [newTag, setNewTag] = useState('');
   const [newAddress, setNewAddress] = useState<Partial<Address>>({
@@ -616,15 +584,27 @@ export default function EditCustomerPage() {
     }
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Customer Updated',
-      message: `${formData.customerName} (${formData.customerNumber}) has been updated successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/customers');
+  const handleSubmit = async () => {
+    try {
+      const payload: any = {
+        ...formData,
+        name: formData.customerName,
+        companyId: 'default-company-id',
+      };
+      await crmService.customers.update(customerId, payload);
+      addToast({
+        title: 'Customer Updated',
+        message: `${formData.customerName} (${formData.customerNumber}) has been updated successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/customers');
+    } catch (err) {
+      addToast({
+        title: 'Error',
+        message: 'Failed to update customer. Please try again.',
+        variant: 'error'
+      });
+    }
   };
 
   const steps = [

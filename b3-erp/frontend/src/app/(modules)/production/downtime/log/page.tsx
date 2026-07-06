@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, X, Clock, AlertTriangle, Info } from 'lucide-react';
 import { LogDowntimeModal, LogDowntimeData } from '@/components/production/downtime/DowntimeEventModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 export default function DowntimeLogPage() {
   const router = useRouter();
@@ -35,12 +36,15 @@ export default function DowntimeLogPage() {
     'FORK-LIFT-03 - Forklift #3',
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real application, this would submit to an API
-    console.log('Downtime logged:', formData);
-    alert('Downtime event logged successfully!');
-    router.push('/production/downtime');
+    try {
+      await ProductionOrphanService.createDowntimeRecord(formData);
+      router.push('/production/downtime');
+    } catch (error) {
+      console.error('Failed to log downtime event:', error);
+      alert('Failed to log downtime event. Please try again.');
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -50,12 +54,15 @@ export default function DowntimeLogPage() {
     });
   };
 
-  const handleModalSubmit = (data: LogDowntimeData) => {
-    console.log('Logging downtime via modal:', data);
-    // TODO: Implement same API call as form submit
-    alert('Downtime event logged successfully via modal!');
-    setIsModalOpen(false);
-    router.push('/production/downtime');
+  const handleModalSubmit = async (data: LogDowntimeData) => {
+    try {
+      await ProductionOrphanService.createDowntimeRecord(data);
+      setIsModalOpen(false);
+      router.push('/production/downtime');
+    } catch (error) {
+      console.error('Failed to log downtime event:', error);
+      alert('Failed to log downtime event. Please try again.');
+    }
   };
 
   return (

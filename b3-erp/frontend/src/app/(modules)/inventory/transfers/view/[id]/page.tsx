@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,24 +11,47 @@ import { ArrowLeft, Printer, Truck, CheckCircle, ArrowRight } from 'lucide-react
 export default function StockTransferDetailPage() {
     const params = useParams();
     const router = useRouter();
-    const transferId = params.id as string;
+    const id = params.id as string;
 
-    // Mock transfer data
-    const transfer = {
-        id: transferId,
-        number: transferId,
-        date: '2025-01-22',
-        fromLocation: 'Warehouse A - Main',
-        toLocation: 'Warehouse B - Distribution',
-        requestedBy: 'John Doe',
-        approvedBy: 'Jane Smith',
-        status: 'Completed',
-        items: [
-            { code: 'PLY-18MM-BWP', name: 'BWP Plywood 18mm', quantity: 50, uom: 'Sheets' },
-            { code: 'HNG-BLM-165', name: 'Blum Soft-close Hinges', quantity: 200, uom: 'Pcs' },
-        ],
-        notes: 'Urgent transfer for Project X',
-    };
+    const [transfer, setTransfer] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            setLoading(true);
+            try {
+                const data = await inventoryService.getStockTransfer(id);
+                if (active) setTransfer(data);
+            } catch (err) {
+                console.error('Failed to load stock transfer', err);
+                if (active) setTransfer(null);
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, [id]);
+
+    if (loading || !transfer) {
+        return (
+            <div className="w-full p-3">
+                <Button variant="ghost" onClick={() => router.back()} className="mb-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                </Button>
+                <Card>
+                    <CardContent className="py-12 text-center text-gray-500">
+                        {loading ? 'Loading transfer...' : 'Transfer not found.'}
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    const lines: any[] = transfer?.lines ?? transfer?.items ?? [];
 
     return (
         <div className="w-full p-3">
@@ -43,11 +67,11 @@ export default function StockTransferDetailPage() {
                         Back
                     </Button>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold">Transfer {transfer.number}</h1>
-                        <Badge className="bg-green-600">{transfer.status}</Badge>
+                        <h1 className="text-3xl font-bold">Transfer {transfer?.transferNumber ?? transfer?.number ?? id}</h1>
+                        <Badge className="bg-green-600">{transfer?.status ?? 'Unknown'}</Badge>
                     </div>
                     <p className="text-gray-600 mt-1">
-                        Date: {transfer.date} | Ref: ST-2025-001
+                        Date: {transfer?.transferDate ?? transfer?.date ?? '-'} | Ref: {transfer?.transferNumber ?? transfer?.reference ?? id}
                     </p>
                 </div>
 
@@ -76,12 +100,12 @@ export default function StockTransferDetailPage() {
                             <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg mb-3">
                                 <div>
                                     <p className="text-sm text-gray-500">From Location</p>
-                                    <p className="font-semibold text-lg">{transfer.fromLocation}</p>
+                                    <p className="font-semibold text-lg">{transfer?.fromWarehouseName ?? transfer?.fromLocation ?? '-'}</p>
                                 </div>
                                 <ArrowRight className="text-gray-400 w-6 h-6" />
                                 <div className="text-right">
                                     <p className="text-sm text-gray-500">To Location</p>
-                                    <p className="font-semibold text-lg">{transfer.toLocation}</p>
+                                    <p className="font-semibold text-lg">{transfer?.toWarehouseName ?? transfer?.toLocation ?? '-'}</p>
                                 </div>
                             </div>
 
@@ -96,19 +120,19 @@ export default function StockTransferDetailPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y">
-                                    {transfer.items.map((item, idx) => (
+                                    {lines.map((item: any, idx: number) => (
                                         <tr key={idx}>
-                                            <td className="px-4 py-3 text-sm font-medium text-blue-600">{item.code}</td>
-                                            <td className="px-4 py-3 text-sm">{item.name}</td>
-                                            <td className="px-4 py-3 text-right text-sm font-bold">{item.quantity}</td>
-                                            <td className="px-4 py-3 text-sm text-gray-600 pl-2">{item.uom}</td>
+                                            <td className="px-4 py-3 text-sm font-medium text-blue-600">{item?.itemCode ?? item?.code ?? '-'}</td>
+                                            <td className="px-4 py-3 text-sm">{item?.itemName ?? item?.name ?? '-'}</td>
+                                            <td className="px-4 py-3 text-right text-sm font-bold">{item?.requestedQuantity ?? item?.quantity ?? 0}</td>
+                                            <td className="px-4 py-3 text-sm text-gray-600 pl-2">{item?.uom ?? '-'}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
 
                             <div className="border-t pt-4">
-                                <p className="text-sm text-gray-600"><span className="font-medium">Notes:</span> {transfer.notes}</p>
+                                <p className="text-sm text-gray-600"><span className="font-medium">Notes:</span> {transfer?.remarks ?? transfer?.notes ?? '-'}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -128,7 +152,7 @@ export default function StockTransferDetailPage() {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">Requested</p>
-                                        <p className="text-xs text-gray-500">by {transfer.requestedBy}</p>
+                                        <p className="text-xs text-gray-500">by {transfer?.requestedBy ?? '-'}</p>
                                     </div>
                                 </div>
                                 <div className="w-0.5 h-4 bg-gray-200 ml-4"></div>
@@ -138,7 +162,7 @@ export default function StockTransferDetailPage() {
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium">Approved</p>
-                                        <p className="text-xs text-gray-500">by {transfer.approvedBy}</p>
+                                        <p className="text-xs text-gray-500">by {transfer?.approvedBy ?? '-'}</p>
                                     </div>
                                 </div>
                                 <div className="w-0.5 h-4 bg-gray-200 ml-4"></div>

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Building2, DollarSign, TrendingUp, Activity, Award, AlertCircle, Calendar, Phone, Mail, MapPin, CreditCard, ShoppingCart, FileText, MessageSquare, Star } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface Customer360Data {
   id: string;
@@ -51,50 +52,30 @@ export interface Customer360Data {
   }>;
 }
 
-const mockCustomer: Customer360Data = {
-  id: '1',
-  name: 'Sarah Johnson',
-  company: 'TechCorp Industries',
-  email: 'sarah.j@techcorp.com',
-  phone: '+1 234-567-8901',
-  address: '123 Tech Street, San Francisco, CA 94105',
-  customerSince: '2023-03-15',
-  lifetimeValue: 485000,
-  currentMRR: 12500,
-  healthScore: 88,
-  sentiment: 'positive',
+const emptyCustomer: Customer360Data = {
+  id: '',
+  name: '',
+  company: '',
+  email: '',
+  phone: '',
+  address: '',
+  customerSince: '',
+  lifetimeValue: 0,
+  currentMRR: 0,
+  healthScore: 0,
+  sentiment: 'neutral',
   segment: 'enterprise',
-  interactionHistory: [
-    { id: '1', type: 'call', subject: 'Product Demo - Advanced Analytics', date: '2025-10-25', outcome: 'Positive - Interested in upgrade' },
-    { id: '2', type: 'email', subject: 'Q4 Business Review', date: '2025-10-20', outcome: 'Opened 3 times' },
-    { id: '3', type: 'meeting', subject: 'Contract Renewal Discussion', date: '2025-10-15' },
-    { id: '4', type: 'support', subject: 'Integration Issue - SAP Connector', date: '2025-10-10', outcome: 'Resolved' },
-    { id: '5', type: 'purchase', subject: 'Additional 50 User Licenses', date: '2025-09-30', outcome: 'Completed' }
-  ],
-  linkedTickets: [
-    { id: 'T-1245', subject: 'Mobile app login issue', status: 'in-progress', priority: 'high', createdAt: '2025-10-24' },
-    { id: 'T-1189', subject: 'Report export not working', status: 'resolved', priority: 'medium', createdAt: '2025-10-18' },
-    { id: 'T-1067', subject: 'API rate limit increase request', status: 'resolved', priority: 'low', createdAt: '2025-09-25' }
-  ],
-  purchaseHistory: [
-    { id: 'P-2341', product: 'Enterprise ERP - 200 Users', amount: 125000, date: '2025-09-30', status: 'completed' },
-    { id: 'P-2156', product: 'Advanced Analytics Module', amount: 45000, date: '2025-06-15', status: 'completed' },
-    { id: 'P-1893', product: 'Mobile App Add-on', amount: 25000, date: '2025-03-20', status: 'completed' },
-    { id: 'P-1567', product: 'Initial Enterprise License', amount: 290000, date: '2023-03-15', status: 'completed' }
-  ],
+  interactionHistory: [],
+  linkedTickets: [],
+  purchaseHistory: [],
   contractDetails: {
     type: 'subscription',
-    startDate: '2023-03-15',
-    endDate: '2026-03-15',
-    value: 150000,
-    renewalStatus: 'auto-renew'
+    startDate: '',
+    endDate: '',
+    value: 0,
+    renewalStatus: 'manual-renew'
   },
-  csatScores: [
-    { score: 9, date: '2025-10-01', feedback: 'Excellent support team and product features' },
-    { score: 8, date: '2025-07-01', feedback: 'Good overall, would like more customization options' },
-    { score: 9, date: '2025-04-01', feedback: 'Great onboarding experience' },
-    { score: 10, date: '2024-12-01', feedback: 'Best ERP system we\'ve used' }
-  ]
+  csatScores: []
 };
 
 const sentimentColors = {
@@ -103,7 +84,7 @@ const sentimentColors = {
   negative: 'bg-red-100 text-red-700 border-red-300'
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   open: 'bg-blue-100 text-blue-700',
   'in-progress': 'bg-yellow-100 text-yellow-700',
   resolved: 'bg-green-100 text-green-700',
@@ -111,17 +92,84 @@ const statusColors = {
   pending: 'bg-yellow-100 text-yellow-700'
 };
 
-const priorityColors = {
+const priorityColors: Record<string, string> = {
   high: 'bg-red-100 text-red-700',
   medium: 'bg-yellow-100 text-yellow-700',
   low: 'bg-gray-100 text-gray-700'
 };
 
 export default function Customer360View() {
-  const [customer] = useState<Customer360Data>(mockCustomer);
+  const [customer, setCustomer] = useState<Customer360Data>(emptyCustomer);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'interactions' | 'tickets' | 'purchases' | 'csat'>('overview');
 
-  const avgCSAT = customer.csatScores.reduce((sum, s) => sum + s.score, 0) / customer.csatScores.length;
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const listRes = await crmService.customers.getAll();
+        const list = asArray<any>(listRes);
+        if (!list.length) { if (mounted) setLoading(false); return; }
+        const first = list[0];
+        const cid = String(first.id ?? '');
+        const [detail, opps, contacts, activities] = await Promise.all([
+          crmService.customers.getById(cid).catch(() => first),
+          crmService.customers.getOpportunities(cid).catch(() => []),
+          crmService.customers.getContacts(cid).catch(() => []),
+          crmService.customers.getActivities(cid).catch(() => []),
+        ]);
+        const c: any = detail ?? first;
+        const primaryContact: any = asArray<any>(contacts)[0] ?? {};
+        const mapped: Customer360Data = {
+          id: cid,
+          name: c.name ?? c.customerName ?? `${primaryContact.firstName ?? ''} ${primaryContact.lastName ?? ''}`.trim(),
+          company: c.name ?? c.customerName ?? c.companyName ?? '',
+          email: c.email ?? primaryContact.email ?? '',
+          phone: c.phone ?? primaryContact.phone ?? '',
+          address: c.address ?? c.billingAddress ?? '',
+          customerSince: c.customerSince ?? c.createdAt ?? '',
+          lifetimeValue: Number(c.lifetimeValue ?? 0),
+          currentMRR: Number(c.currentMRR ?? c.mrr ?? 0),
+          healthScore: Number(c.healthScore ?? 0),
+          sentiment: (c.sentiment ?? 'neutral') as Customer360Data['sentiment'],
+          segment: (c.segment ?? 'enterprise') as Customer360Data['segment'],
+          interactionHistory: asArray<any>(activities).map((a: any) => ({
+            id: String(a.id ?? ''),
+            type: (a.type ?? 'call') as any,
+            subject: a.subject ?? '',
+            date: a.startDate ?? a.dueDate ?? a.createdAt ?? '',
+            outcome: a.outcome ?? undefined,
+          })),
+          linkedTickets: [],
+          purchaseHistory: asArray<any>(opps).map((o: any) => ({
+            id: String(o.opportunityNumber ?? o.id ?? ''),
+            product: o.name ?? '',
+            amount: Number(o.amount ?? 0),
+            date: o.actualCloseDate ?? o.expectedCloseDate ?? o.createdAt ?? '',
+            status: (o.stage === 'closed_won' || o.actualCloseDate ? 'completed' : 'pending') as any,
+          })),
+          contractDetails: {
+            type: (c.contractType ?? 'subscription') as any,
+            startDate: c.contractStartDate ?? '',
+            endDate: c.contractEndDate ?? '',
+            value: Number(c.contractValue ?? 0),
+            renewalStatus: (c.renewalStatus ?? 'manual-renew') as any,
+          },
+          csatScores: [],
+        };
+        if (mounted) setCustomer(mapped);
+      } catch (e) {
+        if (mounted) setCustomer(emptyCustomer);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const avgCSAT = customer.csatScores.length
+    ? customer.csatScores.reduce((sum, s) => sum + s.score, 0) / customer.csatScores.length
+    : 0;
 
   return (
     <div className="space-y-3">
@@ -318,7 +366,7 @@ export default function Customer360View() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Last Contact:</span>
-                <span className="text-sm font-semibold text-gray-900">{customer.interactionHistory[0].date}</span>
+                <span className="text-sm font-semibold text-gray-900">{customer.interactionHistory[0]?.date ?? '—'}</span>
               </div>
             </div>
           </div>

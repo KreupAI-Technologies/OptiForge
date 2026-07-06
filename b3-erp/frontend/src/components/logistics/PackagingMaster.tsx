@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package, Plus, Search, Edit2, Trash2, Box, Ruler, Eye, X,
   Download, Filter, CheckCircle2, AlertTriangle, DollarSign
 } from 'lucide-react';
+import { logisticsService, PackagingTypeDto } from '@/services/logistics.service';
 
 interface PackagingType {
   id: string;
@@ -142,6 +143,35 @@ export default function PackagingMaster() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPackaging, setSelectedPackaging] = useState<PackagingType | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [packaging, setPackaging] = useState<PackagingType[]>([]);
+
+  const loadPackaging = React.useCallback(async () => {
+    try {
+      const data = await logisticsService.getPackagingTypes();
+      const rows = Array.isArray(data) ? data : [];
+      setPackaging(
+        rows.map((p: PackagingTypeDto) => ({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          type: (p.type as PackagingType['type']) || 'Box',
+          material: p.material || '',
+          dimensions: p.dimensions || '',
+          maxWeight: Number(p.maxWeight) || 0,
+          cost: Number(p.cost) || 0,
+          reusable: !!p.reusable,
+          recyclable: !!p.recyclable,
+          status: (p.status as PackagingType['status']) || 'Active',
+        })),
+      );
+    } catch {
+      setPackaging([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPackaging();
+  }, [loadPackaging]);
 
   React.useEffect(() => {
     if (toast) {
@@ -150,7 +180,17 @@ export default function PackagingMaster() {
     }
   }, [toast]);
 
-  const filteredPackaging = mockPackaging.filter((pkg) => {
+  const handleDeletePackaging = async (pkg: PackagingType) => {
+    try {
+      await logisticsService.deletePackagingType(pkg.id);
+      setToast({ message: `${pkg.name} deleted`, type: 'success' });
+      loadPackaging();
+    } catch {
+      setToast({ message: 'Failed to delete packaging type', type: 'error' });
+    }
+  };
+
+  const filteredPackaging = packaging.filter((pkg) => {
     const matchesSearch =
       pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pkg.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,12 +202,12 @@ export default function PackagingMaster() {
   });
 
   const stats = {
-    total: mockPackaging.length,
-    active: mockPackaging.filter(p => p.status === 'Active').length,
-    reusable: mockPackaging.filter(p => p.reusable).length,
-    recyclable: mockPackaging.filter(p => p.recyclable).length,
-    avgCost: Math.round(mockPackaging.reduce((sum, p) => sum + p.cost, 0) / mockPackaging.length),
-    totalTypes: new Set(mockPackaging.map(p => p.type)).size
+    total: packaging.length,
+    active: packaging.filter(p => p.status === 'Active').length,
+    reusable: packaging.filter(p => p.reusable).length,
+    recyclable: packaging.filter(p => p.recyclable).length,
+    avgCost: packaging.length ? Math.round(packaging.reduce((sum, p) => sum + p.cost, 0) / packaging.length) : 0,
+    totalTypes: new Set(packaging.map(p => p.type)).size
   };
 
   const formatCurrency = (amount: number) => {
@@ -401,7 +441,7 @@ export default function PackagingMaster() {
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => setToast({ message: `${pkg.name} deleted`, type: 'success' })}
+                        onClick={() => handleDeletePackaging(pkg)}
                         className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                         title="Delete"
                       >

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Target, Palette, AlertCircle, Percent, Clock } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 interface StageFormData {
   name: string;
@@ -25,17 +26,6 @@ const colors = [
   { name: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
 ];
 
-// Mock data - in real app, fetch from API
-const mockStages: { [key: string]: StageFormData } = {
-  '1': { name: 'Lead', description: 'Initial contact or inquiry from potential customer', probability: 10, color: 'blue', rottenDays: 30, isActive: true },
-  '2': { name: 'Qualified', description: 'Lead has been qualified and shows genuine interest', probability: 25, color: 'purple', rottenDays: 21, isActive: true },
-  '3': { name: 'Meeting Scheduled', description: 'Discovery or demo meeting has been scheduled', probability: 40, color: 'yellow', rottenDays: 14, isActive: true },
-  '4': { name: 'Proposal Sent', description: 'Formal proposal or quote has been sent to customer', probability: 60, color: 'orange', rottenDays: 10, isActive: true },
-  '5': { name: 'Negotiation', description: 'Actively negotiating terms, pricing, or contract details', probability: 80, color: 'teal', rottenDays: 7, isActive: true },
-  '6': { name: 'Closed Won', description: 'Deal successfully closed and contract signed', probability: 100, color: 'green', rottenDays: 0, isActive: true },
-  '7': { name: 'Closed Lost', description: 'Deal was lost to competitor or customer decided not to proceed', probability: 0, color: 'red', rottenDays: 0, isActive: true },
-};
-
 export default function EditStagePage() {
   const router = useRouter();
   const params = useParams();
@@ -51,12 +41,41 @@ export default function EditStagePage() {
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    // In real app, fetch stage data from API
-    if (mockStages[stageId]) {
-      setFormData(mockStages[stageId]);
-    }
+    if (!stageId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // pipelineStages has no getById; fetch all and find by id.
+        const rows = asArray<any>(await crmService.pipelineStages.getAll());
+        const s = rows.find((r) => String(r?.id) === String(stageId));
+        if (!cancelled && s) {
+          setFormData({
+            name: s.name ?? '',
+            description: s.description ?? '',
+            probability: Number(s.probability ?? 0),
+            color: s.color ?? 'blue',
+            rottenDays: Number(s.rottenDays ?? 0),
+            isActive: s.isActive ?? true,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load stage.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [stageId]);
 
   const handleChange = (field: keyof StageFormData, value: any) => {
@@ -90,18 +109,30 @@ export default function EditStagePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    // In real app, make API call to update stage
-    console.log('Updating stage:', stageId, formData);
-
-    // Navigate back to stages list
-    router.push('/crm/settings/stages');
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const payload: any = {
+        name: formData.name,
+        description: formData.description,
+        probability: formData.probability,
+        color: formData.color,
+        rottenDays: formData.rottenDays,
+        isActive: formData.isActive,
+      };
+      await crmService.pipelineStages.update(stageId, payload);
+      router.push('/crm/settings/stages');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update stage. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -122,6 +153,25 @@ export default function EditStagePage() {
         <h1 className="text-3xl font-bold text-gray-900">Edit Deal Stage</h1>
         <p className="text-gray-600 mt-2">Update the stage configuration and settings</p>
       </div>
+
+      {isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Loading stage…
+        </div>
+      )}
+      {loadError && !isLoading && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {loadError}
+        </div>
+      )}
+      {submitError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4" />
+          {submitError}
+        </div>
+      )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="">
@@ -311,10 +361,11 @@ export default function EditStagePage() {
           </button>
           <button
             type="submit"
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            Update Stage
+            {isSubmitting ? 'Updating…' : 'Update Stage'}
           </button>
         </div>
       </form>

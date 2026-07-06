@@ -1448,7 +1448,7 @@ export const ITILService = {
     const params = new URLSearchParams({ companyId });
     if (options?.status) params.append('status', options.status);
     if (options?.priority) params.append('priority', options.priority);
-    return apiRequest(`/api/support/itil/incidents?${params}`);
+    return apiRequest(`/support/itil/incidents?${params}`);
   },
 
   async createIncident(data: Partial<ITILIncident> & { companyId: string }): Promise<ITILIncident> {
@@ -1471,7 +1471,7 @@ export const ITILService = {
         updatedAt: new Date(),
       });
     }
-    return apiRequest<ITILIncident>('/api/support/itil/incidents', {
+    return apiRequest<ITILIncident>('/support/itil/incidents', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1505,7 +1505,7 @@ export const ITILService = {
     }
     const params = new URLSearchParams({ companyId });
     if (options?.status) params.append('status', options.status);
-    return apiRequest(`/api/support/itil/problems?${params}`);
+    return apiRequest(`/support/itil/problems?${params}`);
   },
 
   async createProblem(data: Partial<ITILProblem> & { companyId: string }): Promise<ITILProblem> {
@@ -1525,7 +1525,7 @@ export const ITILService = {
         updatedAt: new Date(),
       });
     }
-    return apiRequest<ITILProblem>('/api/support/itil/problems', {
+    return apiRequest<ITILProblem>('/support/itil/problems', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1566,7 +1566,7 @@ export const ITILService = {
     const params = new URLSearchParams({ companyId });
     if (options?.status) params.append('status', options.status);
     if (options?.type) params.append('type', options.type);
-    return apiRequest(`/api/support/itil/changes?${params}`);
+    return apiRequest(`/support/itil/changes?${params}`);
   },
 
   async createChange(data: Partial<ITILChange> & { companyId: string }): Promise<ITILChange> {
@@ -1595,7 +1595,7 @@ export const ITILService = {
         updatedAt: new Date(),
       });
     }
-    return apiRequest<ITILChange>('/api/support/itil/changes', {
+    return apiRequest<ITILChange>('/support/itil/changes', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1618,7 +1618,7 @@ export const ITILService = {
         updatedAt: new Date(),
       });
     }
-    return apiRequest<ITILChange>(`/api/support/itil/changes/${id}/approve`, {
+    return apiRequest<ITILChange>(`/support/itil/changes/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify({ approver, notes }),
     });

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Truck, Plus, Search, Edit2, Trash2, CheckCircle2, XCircle, Calendar, Wrench, Gauge, Eye, Download, Filter, AlertTriangle, X } from 'lucide-react';
+import { fleetService, Vehicle as ServiceVehicle } from '@/services/fleet.service';
 
 interface Vehicle {
   id: string;
@@ -33,169 +34,49 @@ export default function VehicleMaster() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
-  const mockVehicles: Vehicle[] = [
-    {
-      id: '1',
-      code: 'VEH-001',
-      registrationNumber: 'MH-01-AB-1234',
-      type: 'Truck',
-      make: 'Tata',
-      model: 'LPT 1613',
-      year: 2022,
-      capacity: '16 tons',
-      fuelType: 'Diesel',
-      status: 'Active',
-      lastService: new Date('2024-02-15'),
-      nextService: new Date('2024-05-15'),
-      mileage: 45000,
-      driverAssigned: 'Rajesh Kumar',
-      insuranceExpiry: new Date('2025-06-30'),
-      permitExpiry: new Date('2025-12-31'),
-      averageSpeed: 55,
-      totalTrips: 145
-    },
-    {
-      id: '2',
-      code: 'VEH-002',
-      registrationNumber: 'KA-03-CD-5678',
-      type: 'Van',
-      make: 'Mahindra',
-      model: 'Supro',
-      year: 2023,
-      capacity: '1.2 tons',
-      fuelType: 'Diesel',
-      status: 'Active',
-      lastService: new Date('2024-03-10'),
-      nextService: new Date('2024-06-10'),
-      mileage: 28000,
-      driverAssigned: 'Suresh Patel',
-      insuranceExpiry: new Date('2025-08-15'),
-      permitExpiry: new Date('2025-10-20'),
-      averageSpeed: 60,
-      totalTrips: 89
-    },
-    {
-      id: '3',
-      code: 'VEH-003',
-      registrationNumber: 'DL-1C-EF-9012',
-      type: 'Trailer',
-      make: 'Ashok Leyland',
-      model: 'U-Truck 2518',
-      year: 2021,
-      capacity: '25 tons',
-      fuelType: 'Diesel',
-      status: 'Maintenance',
-      lastService: new Date('2024-03-20'),
-      nextService: new Date('2024-04-05'),
-      mileage: 78000,
-      insuranceExpiry: new Date('2025-04-10'),
-      permitExpiry: new Date('2025-09-15'),
-      averageSpeed: 50,
-      totalTrips: 234
-    },
-    {
-      id: '4',
-      code: 'VEH-004',
-      registrationNumber: 'GJ-01-GH-3456',
-      type: 'Container',
-      make: 'BharatBenz',
-      model: '4228R',
-      year: 2022,
-      capacity: '40 ft',
-      fuelType: 'Diesel',
-      status: 'Active',
-      lastService: new Date('2024-01-25'),
-      nextService: new Date('2024-04-25'),
-      mileage: 62000,
-      driverAssigned: 'Anil Sharma',
-      insuranceExpiry: new Date('2025-07-22'),
-      permitExpiry: new Date('2025-11-30'),
-      averageSpeed: 48,
-      totalTrips: 178
-    },
-    {
-      id: '5',
-      code: 'VEH-005',
-      registrationNumber: 'TN-09-IJ-7890',
-      type: 'Tanker',
-      make: 'Volvo',
-      model: 'FM 440',
-      year: 2020,
-      capacity: '18000 liters',
-      fuelType: 'Diesel',
-      status: 'Active',
-      lastService: new Date('2024-02-28'),
-      nextService: new Date('2024-05-28'),
-      mileage: 95000,
-      driverAssigned: 'Mohammed Ali',
-      insuranceExpiry: new Date('2025-03-15'),
-      permitExpiry: new Date('2025-05-20'),
-      averageSpeed: 52,
-      totalTrips: 312
-    },
-    {
-      id: '6',
-      code: 'VEH-006',
-      registrationNumber: 'RJ-14-KL-2345',
-      type: 'Pickup',
-      make: 'Isuzu',
-      model: 'D-Max V-Cross',
-      year: 2023,
-      capacity: '1 ton',
-      fuelType: 'Diesel',
-      status: 'Active',
-      lastService: new Date('2024-03-05'),
-      nextService: new Date('2024-06-05'),
-      mileage: 18000,
-      driverAssigned: 'Vikram Singh',
-      insuranceExpiry: new Date('2025-09-10'),
-      permitExpiry: new Date('2025-12-15'),
-      averageSpeed: 65,
-      totalTrips: 56
-    },
-    {
-      id: '7',
-      code: 'VEH-007',
-      registrationNumber: 'WB-06-MN-6789',
-      type: 'Truck',
-      make: 'Eicher',
-      model: 'Pro 6019',
-      year: 2019,
-      capacity: '6 tons',
-      fuelType: 'Diesel',
-      status: 'Inactive',
-      lastService: new Date('2023-11-15'),
-      nextService: new Date('2024-02-15'),
-      mileage: 125000,
-      insuranceExpiry: new Date('2024-12-20'),
-      permitExpiry: new Date('2024-08-30'),
-      averageSpeed: 45,
-      totalTrips: 456
-    },
-    {
-      id: '8',
-      code: 'VEH-008',
-      registrationNumber: 'HR-26-OP-0123',
-      type: 'Van',
-      make: 'Force',
-      model: 'Traveller',
-      year: 2022,
-      capacity: '2 tons',
-      fuelType: 'CNG',
-      status: 'Active',
-      lastService: new Date('2024-03-12'),
-      nextService: new Date('2024-06-12'),
-      mileage: 32000,
-      driverAssigned: 'Ravi Verma',
-      insuranceExpiry: new Date('2025-05-18'),
-      permitExpiry: new Date('2025-11-25'),
-      averageSpeed: 58,
-      totalTrips: 102
-    }
-  ];
+  useEffect(() => {
+    const loadVehicles = async () => {
+      try {
+        const data = await fleetService.getAllVehicles();
+        const list = Array.isArray(data) ? data : [];
+        const statusMap: Record<string, Vehicle['status']> = {
+          'Available': 'Active',
+          'In Transit': 'Active',
+          'Under Maintenance': 'Maintenance',
+          'Out of Service': 'Out of Service',
+        };
+        const mapped: Vehicle[] = list.map((v: ServiceVehicle) => ({
+          id: v.id || '',
+          code: v.id || '',
+          registrationNumber: v.vehicleNumber || '',
+          type: (v.vehicleType as Vehicle['type']) || 'Truck',
+          make: v.make || '',
+          model: v.model || '',
+          year: v.year || 0,
+          capacity: v.capacity ? `${v.capacity} ${v.capacityUnit || ''}`.trim() : '',
+          fuelType: (v.fuelType as Vehicle['fuelType']) || 'Diesel',
+          status: statusMap[v.status] || 'Inactive',
+          lastService: new Date(v.lastServiceDate || v.createdAt || Date.now()),
+          nextService: new Date(v.nextServiceDue || Date.now()),
+          mileage: v.currentMileage || 0,
+          driverAssigned: v.assignedDriverName || '',
+          insuranceExpiry: new Date(v.insuranceExpiry || Date.now()),
+          permitExpiry: new Date(v.permitExpiry || Date.now()),
+          averageSpeed: 0,
+          totalTrips: 0,
+        }));
+        setVehicles(mapped);
+      } catch (error) {
+        console.error('Failed to load vehicles:', error);
+        setVehicles([]);
+      }
+    };
+    loadVehicles();
+  }, []);
 
-  const filteredVehicles = mockVehicles.filter(vehicle => {
+  const filteredVehicles = vehicles.filter(vehicle => {
     const matchesSearch =
       vehicle.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -209,12 +90,12 @@ export default function VehicleMaster() {
   });
 
   const stats = {
-    total: mockVehicles.length,
-    active: mockVehicles.filter(v => v.status === 'Active').length,
-    maintenance: mockVehicles.filter(v => v.status === 'Maintenance').length,
-    totalMileage: mockVehicles.reduce((sum, v) => sum + v.mileage, 0),
-    avgMileage: Math.round(mockVehicles.reduce((sum, v) => sum + v.mileage, 0) / mockVehicles.length),
-    serviceDue: mockVehicles.filter(v => {
+    total: vehicles.length,
+    active: vehicles.filter(v => v.status === 'Active').length,
+    maintenance: vehicles.filter(v => v.status === 'Maintenance').length,
+    totalMileage: vehicles.reduce((sum, v) => sum + v.mileage, 0),
+    avgMileage: vehicles.length ? Math.round(vehicles.reduce((sum, v) => sum + v.mileage, 0) / vehicles.length) : 0,
+    serviceDue: vehicles.filter(v => {
       const daysToService = Math.floor((v.nextService.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
       return daysToService <= 30 && daysToService > 0;
     }).length

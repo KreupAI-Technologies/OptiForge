@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { crmService } from '@/services/crm.service';
+import { useState, useEffect, useCallback } from 'react';
+import { crmService, asArray } from '@/services/crm.service';
 import {
   Mail, Search, Plus, Eye, Edit, Copy, Trash2, Play, Pause,
   BarChart3, TrendingUp, Users, Target, Calendar, Clock,
@@ -55,324 +55,58 @@ interface CampaignStage {
   completionDate?: string;
 }
 
-const mockCampaigns: Campaign[] = [
-  {
-    id: 'CAM-001',
-    name: 'Q4 Product Launch - Multi-Touch Campaign',
-    type: 'multi-channel',
-    status: 'running',
-    description: 'Comprehensive product launch campaign across email, social, and events',
-    startDate: '2025-10-01',
-    endDate: '2025-12-31',
+
+function mapCampaign(c: any): Campaign {
+  return {
+    id: String(c?.id ?? ''),
+    name: c?.name ?? '',
+    type: (c?.type ?? 'email') as Campaign['type'],
+    status: (c?.status ?? 'draft') as Campaign['status'],
+    description: c?.description ?? '',
+    startDate: c?.startDate ?? '',
+    endDate: c?.endDate ?? '',
     targetAudience: {
-      segments: ['Enterprise Clients', 'Mid-Market', 'Trial Users'],
-      lists: ['Master Contact List', 'Product Interest - Manufacturing'],
-      totalContacts: 12500
+      segments: Array.isArray(c?.targetAudience?.segments) ? c.targetAudience.segments : [],
+      lists: Array.isArray(c?.targetAudience?.lists) ? c.targetAudience.lists : [],
+      totalContacts: Number(c?.targetAudience?.totalContacts ?? 0),
     },
-    budget: 150000,
-    spent: 87500,
-    stages: [
-      { id: 'STG-1', name: 'Awareness', order: 1, status: 'completed', completionDate: '2025-10-15' },
-      { id: 'STG-2', name: 'Engagement', order: 2, status: 'in-progress' },
-      { id: 'STG-3', name: 'Consideration', order: 3, status: 'pending' },
-      { id: 'STG-4', name: 'Conversion', order: 4, status: 'pending' },
-      { id: 'STG-5', name: 'Retention', order: 5, status: 'pending' }
-    ],
+    budget: Number(c?.budget ?? 0),
+    spent: Number(c?.spent ?? 0),
+    stages: Array.isArray(c?.stages) ? c.stages : [],
     metrics: {
-      reach: 12500,
-      delivered: 11875,
-      opened: 5938,
-      clicked: 1781,
-      conversions: 356,
-      revenue: 1245000,
-      engagement: 47.5
+      reach: Number(c?.metrics?.reach ?? 0),
+      delivered: Number(c?.metrics?.delivered ?? 0),
+      opened: Number(c?.metrics?.opened ?? 0),
+      clicked: Number(c?.metrics?.clicked ?? 0),
+      conversions: Number(c?.metrics?.conversions ?? 0),
+      revenue: Number(c?.metrics?.revenue ?? 0),
+      engagement: Number(c?.metrics?.engagement ?? 0),
     },
-    goals: [
-      { type: 'Leads Generated', target: 500, current: 356 },
-      { type: 'Revenue', target: 2000000, current: 1245000 },
-      { type: 'Engagement Rate', target: 50, current: 47.5 }
-    ],
-    owner: 'Sarah Johnson',
-    createdAt: '2025-09-15',
-    tags: ['product-launch', 'q4', 'enterprise']
-  },
-  {
-    id: 'CAM-002',
-    name: 'Lead Nurture Drip - Manufacturing Solutions',
-    type: 'drip',
-    status: 'running',
-    description: 'Automated 7-day nurture sequence for new manufacturing leads',
-    startDate: '2025-09-01',
-    endDate: '2025-12-31',
-    targetAudience: {
-      segments: ['New Leads', 'Manufacturing Industry'],
-      lists: ['Lead Capture Form - Website'],
-      totalContacts: 3450
-    },
-    budget: 45000,
-    spent: 28900,
-    stages: [
-      { id: 'STG-1', name: 'Welcome Email', order: 1, status: 'completed', completionDate: '2025-09-01' },
-      { id: 'STG-2', name: 'Educational Content', order: 2, status: 'completed', completionDate: '2025-09-05' },
-      { id: 'STG-3', name: 'Case Study', order: 3, status: 'in-progress' },
-      { id: 'STG-4', name: 'Demo Offer', order: 4, status: 'pending' }
-    ],
-    metrics: {
-      reach: 3450,
-      delivered: 3312,
-      opened: 1987,
-      clicked: 794,
-      conversions: 156,
-      revenue: 624000,
-      engagement: 60.0
-    },
-    goals: [
-      { type: 'Qualified Leads', target: 200, current: 156 },
-      { type: 'Demo Requests', target: 100, current: 78 },
-      { type: 'Open Rate', target: 55, current: 60 }
-    ],
-    owner: 'Michael Chen',
-    createdAt: '2025-08-20',
-    tags: ['nurture', 'drip', 'manufacturing']
-  },
-  {
-    id: 'CAM-003',
-    name: 'Holiday Promotion 2025 - Email Blast',
-    type: 'email',
-    status: 'scheduled',
-    description: 'Special holiday pricing and offers for existing customers',
-    startDate: '2025-11-15',
-    endDate: '2025-12-25',
-    targetAudience: {
-      segments: ['Active Customers', 'High Value Prospects'],
-      lists: ['Customer Database', 'VIP List'],
-      totalContacts: 25600
-    },
-    budget: 85000,
-    spent: 12000,
-    stages: [
-      { id: 'STG-1', name: 'Pre-Launch Teaser', order: 1, status: 'pending' },
-      { id: 'STG-2', name: 'Launch Day', order: 2, status: 'pending' },
-      { id: 'STG-3', name: 'Mid-Campaign Push', order: 3, status: 'pending' },
-      { id: 'STG-4', name: 'Last Chance', order: 4, status: 'pending' }
-    ],
-    metrics: {
-      reach: 0,
-      delivered: 0,
-      opened: 0,
-      clicked: 0,
-      conversions: 0,
-      revenue: 0,
-      engagement: 0
-    },
-    goals: [
-      { type: 'Revenue', target: 1500000, current: 0 },
-      { type: 'Conversion Rate', target: 8, current: 0 },
-      { type: 'Order Volume', target: 500, current: 0 }
-    ],
-    owner: 'Emily Rodriguez',
-    createdAt: '2025-10-01',
-    tags: ['holiday', 'promotion', 'seasonal']
-  },
-  {
-    id: 'CAM-004',
-    name: 'Webinar Series - Industry Best Practices',
-    type: 'event-based',
-    status: 'running',
-    description: 'Monthly webinar series with follow-up campaigns',
-    startDate: '2025-08-01',
-    endDate: '2025-12-31',
-    targetAudience: {
-      segments: ['Prospects', 'Customers', 'Industry Contacts'],
-      lists: ['Webinar Interest List'],
-      totalContacts: 8700
-    },
-    budget: 65000,
-    spent: 48200,
-    stages: [
-      { id: 'STG-1', name: 'Registration', order: 1, status: 'completed', completionDate: '2025-08-15' },
-      { id: 'STG-2', name: 'Reminder Campaign', order: 2, status: 'completed', completionDate: '2025-09-01' },
-      { id: 'STG-3', name: 'Post-Webinar Follow-up', order: 3, status: 'in-progress' },
-      { id: 'STG-4', name: 'Nurture Sequence', order: 4, status: 'pending' }
-    ],
-    metrics: {
-      reach: 8700,
-      delivered: 8526,
-      opened: 5116,
-      clicked: 2558,
-      conversions: 234,
-      revenue: 936000,
-      engagement: 60.0
-    },
-    goals: [
-      { type: 'Registrations', target: 1000, current: 892 },
-      { type: 'Attendees', target: 600, current: 534 },
-      { type: 'Follow-up Meetings', target: 100, current: 78 }
-    ],
-    owner: 'David Martinez',
-    createdAt: '2025-07-15',
-    tags: ['webinar', 'education', 'thought-leadership']
-  },
-  {
-    id: 'CAM-005',
-    name: 'Customer Reactivation - Win Back',
-    type: 'email',
-    status: 'running',
-    description: 'Targeted campaign to re-engage dormant customers',
-    startDate: '2025-10-10',
-    endDate: '2025-11-30',
-    targetAudience: {
-      segments: ['Inactive Customers (90+ days)'],
-      lists: ['Dormant Customer List'],
-      totalContacts: 4200
-    },
-    budget: 35000,
-    spent: 18500,
-    stages: [
-      { id: 'STG-1', name: 'We Miss You', order: 1, status: 'completed', completionDate: '2025-10-10' },
-      { id: 'STG-2', name: 'Special Offer', order: 2, status: 'in-progress' },
-      { id: 'STG-3', name: 'Last Chance', order: 3, status: 'pending' }
-    ],
-    metrics: {
-      reach: 4200,
-      delivered: 4074,
-      opened: 1630,
-      clicked: 489,
-      conversions: 73,
-      revenue: 292000,
-      engagement: 40.0
-    },
-    goals: [
-      { type: 'Reactivated Customers', target: 150, current: 73 },
-      { type: 'Revenue', target: 500000, current: 292000 },
-      { type: 'Response Rate', target: 15, current: 12 }
-    ],
-    owner: 'Sarah Johnson',
-    createdAt: '2025-10-01',
-    tags: ['reactivation', 'win-back', 'retention']
-  },
-  {
-    id: 'CAM-006',
-    name: 'Trade Show Follow-up Campaign',
-    type: 'event-based',
-    status: 'completed',
-    description: 'Follow-up nurture for trade show leads',
-    startDate: '2025-07-01',
-    endDate: '2025-09-30',
-    targetAudience: {
-      segments: ['Trade Show Attendees - Q3'],
-      lists: ['Booth Scan List'],
-      totalContacts: 1850
-    },
-    budget: 28000,
-    spent: 26500,
-    stages: [
-      { id: 'STG-1', name: 'Thank You', order: 1, status: 'completed', completionDate: '2025-07-05' },
-      { id: 'STG-2', name: 'Product Info', order: 2, status: 'completed', completionDate: '2025-07-15' },
-      { id: 'STG-3', name: 'Demo Offer', order: 3, status: 'completed', completionDate: '2025-08-01' },
-      { id: 'STG-4', name: 'Final Follow-up', order: 4, status: 'completed', completionDate: '2025-09-15' }
-    ],
-    metrics: {
-      reach: 1850,
-      delivered: 1813,
-      opened: 1088,
-      clicked: 435,
-      conversions: 89,
-      revenue: 445000,
-      engagement: 60.0
-    },
-    goals: [
-      { type: 'Demo Bookings', target: 75, current: 89 },
-      { type: 'Qualified Leads', target: 150, current: 167 },
-      { type: 'Pipeline Generated', target: 500000, current: 445000 }
-    ],
-    owner: 'Michael Chen',
-    createdAt: '2025-06-20',
-    tags: ['trade-show', 'follow-up', 'events']
-  },
-  {
-    id: 'CAM-007',
-    name: 'Customer Success Stories - Content Series',
-    type: 'multi-channel',
-    status: 'running',
-    description: 'Monthly customer success story campaign with social amplification',
-    startDate: '2025-08-01',
-    endDate: '2025-12-31',
-    targetAudience: {
-      segments: ['All Prospects', 'Evaluation Stage'],
-      lists: ['Master Prospect List'],
-      totalContacts: 18900
-    },
-    budget: 52000,
-    spent: 36400,
-    stages: [
-      { id: 'STG-1', name: 'Email Campaign', order: 1, status: 'completed', completionDate: '2025-08-15' },
-      { id: 'STG-2', name: 'Social Media', order: 2, status: 'in-progress' },
-      { id: 'STG-3', name: 'Blog Promotion', order: 3, status: 'in-progress' },
-      { id: 'STG-4', name: 'Follow-up Nurture', order: 4, status: 'pending' }
-    ],
-    metrics: {
-      reach: 18900,
-      delivered: 18144,
-      opened: 9072,
-      clicked: 3175,
-      conversions: 245,
-      revenue: 980000,
-      engagement: 50.0
-    },
-    goals: [
-      { type: 'Engagement Rate', target: 45, current: 50 },
-      { type: 'Content Downloads', target: 500, current: 423 },
-      { type: 'Sales Qualified Leads', target: 200, current: 245 }
-    ],
-    owner: 'Emily Rodriguez',
-    createdAt: '2025-07-20',
-    tags: ['content', 'case-study', 'social-proof']
-  },
-  {
-    id: 'CAM-008',
-    name: 'Partner Co-Marketing Initiative',
-    type: 'multi-channel',
-    status: 'paused',
-    description: 'Joint marketing campaign with strategic partners',
-    startDate: '2025-09-01',
-    endDate: '2025-11-30',
-    targetAudience: {
-      segments: ['Partner Database', 'Joint Opportunities'],
-      lists: ['Partner Contact List'],
-      totalContacts: 6500
-    },
-    budget: 95000,
-    spent: 45000,
-    stages: [
-      { id: 'STG-1', name: 'Planning & Alignment', order: 1, status: 'completed', completionDate: '2025-09-15' },
-      { id: 'STG-2', name: 'Launch Phase', order: 2, status: 'in-progress' },
-      { id: 'STG-3', name: 'Joint Webinar', order: 3, status: 'pending' },
-      { id: 'STG-4', name: 'Follow-up Campaign', order: 4, status: 'pending' }
-    ],
-    metrics: {
-      reach: 6500,
-      delivered: 6175,
-      opened: 2470,
-      clicked: 741,
-      conversions: 52,
-      revenue: 312000,
-      engagement: 40.0
-    },
-    goals: [
-      { type: 'Joint Pipeline', target: 1000000, current: 450000 },
-      { type: 'Partner Referrals', target: 100, current: 52 },
-      { type: 'Co-branded Leads', target: 200, current: 89 }
-    ],
-    owner: 'David Martinez',
-    createdAt: '2025-08-15',
-    tags: ['partner', 'co-marketing', 'strategic']
-  }
-];
+    goals: Array.isArray(c?.goals)
+      ? c.goals.map((g: any) => ({
+          type: g?.type ?? '',
+          target: Number(g?.target ?? 0),
+          current: Number(g?.current ?? 0),
+        }))
+      : [],
+    owner: c?.owner ?? '',
+    createdAt: c?.createdAt ?? '',
+    tags: Array.isArray(c?.tags) ? c.tags : [],
+  };
+}
 
 export default function MarketingCampaignsPage() {
   const { addToast } = useToast();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  const loadCampaigns = useCallback(async () => {
+    try {
+      const data = await crmService.marketingCampaigns.getAll();
+      setCampaigns(asArray(data).map(mapCampaign));
+    } catch {
+      setCampaigns([]);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -380,47 +114,9 @@ export default function MarketingCampaignsPage() {
       try {
         const data = await crmService.marketingCampaigns.getAll();
         if (!active) return;
-        const rows = Array.isArray(data) ? data : [];
-        setCampaigns(
-          rows.map((c: any) => ({
-            id: String(c?.id ?? ''),
-            name: c?.name ?? '',
-            type: (c?.type ?? 'email') as Campaign['type'],
-            status: (c?.status ?? 'draft') as Campaign['status'],
-            description: c?.description ?? '',
-            startDate: c?.startDate ?? '',
-            endDate: c?.endDate ?? '',
-            targetAudience: {
-              segments: Array.isArray(c?.targetAudience?.segments) ? c.targetAudience.segments : [],
-              lists: Array.isArray(c?.targetAudience?.lists) ? c.targetAudience.lists : [],
-              totalContacts: Number(c?.targetAudience?.totalContacts ?? 0),
-            },
-            budget: Number(c?.budget ?? 0),
-            spent: Number(c?.spent ?? 0),
-            stages: Array.isArray(c?.stages) ? c.stages : [],
-            metrics: {
-              reach: Number(c?.metrics?.reach ?? 0),
-              delivered: Number(c?.metrics?.delivered ?? 0),
-              opened: Number(c?.metrics?.opened ?? 0),
-              clicked: Number(c?.metrics?.clicked ?? 0),
-              conversions: Number(c?.metrics?.conversions ?? 0),
-              revenue: Number(c?.metrics?.revenue ?? 0),
-              engagement: Number(c?.metrics?.engagement ?? 0),
-            },
-            goals: Array.isArray(c?.goals)
-              ? c.goals.map((g: any) => ({
-                  type: g?.type ?? '',
-                  target: Number(g?.target ?? 0),
-                  current: Number(g?.current ?? 0),
-                }))
-              : [],
-            owner: c?.owner ?? '',
-            createdAt: c?.createdAt ?? '',
-            tags: Array.isArray(c?.tags) ? c.tags : [],
-          })),
-        );
+        setCampaigns(asArray(data).map(mapCampaign));
       } catch {
-        if (active) setCampaigns(mockCampaigns);
+        if (active) setCampaigns([]);
       }
     })();
     return () => {
@@ -448,7 +144,9 @@ export default function MarketingCampaignsPage() {
     totalReach: campaigns.reduce((sum, c) => sum + c.metrics.reach, 0),
     totalConversions: campaigns.reduce((sum, c) => sum + c.metrics.conversions, 0),
     totalRevenue: campaigns.reduce((sum, c) => sum + c.metrics.revenue, 0),
-    avgEngagement: campaigns.reduce((sum, c) => sum + c.metrics.engagement, 0) / campaigns.length
+    avgEngagement: campaigns.length > 0
+      ? campaigns.reduce((sum, c) => sum + c.metrics.engagement, 0) / campaigns.length
+      : 0
   };
 
   const getTypeColor = (type: string) => {
@@ -486,52 +184,104 @@ export default function MarketingCampaignsPage() {
     return ((revenue - spent) / spent) * 100;
   };
 
-  const handleCreateCampaign = () => {
-    addToast({
-      title: 'Campaign Created',
-      message: 'New marketing campaign created successfully',
-      variant: 'success'
-    });
+  const handleCreateCampaign = async () => {
+    try {
+      await crmService.marketingCampaigns.create({
+        name: 'New Campaign',
+        type: 'email',
+        status: 'draft',
+      } as any);
+      await loadCampaigns();
+      addToast({
+        title: 'Campaign Created',
+        message: 'New marketing campaign created successfully',
+        variant: 'success'
+      });
+    } catch {
+      addToast({
+        title: 'Create Failed',
+        message: 'Could not create campaign',
+        variant: 'error'
+      });
+    }
   };
 
-  const handleCloneCampaign = (campaign: Campaign) => {
-    addToast({
-      title: 'Campaign Cloned',
-      message: `"${campaign.name}" has been cloned successfully`,
-      variant: 'success'
-    });
+  const handleCloneCampaign = async (campaign: Campaign) => {
+    try {
+      await crmService.marketingCampaigns.create({
+        name: `${campaign.name} (Copy)`,
+        type: campaign.type,
+        status: 'draft',
+        description: campaign.description,
+        budget: campaign.budget,
+        tags: campaign.tags,
+      } as any);
+      await loadCampaigns();
+      addToast({
+        title: 'Campaign Cloned',
+        message: `"${campaign.name}" has been cloned successfully`,
+        variant: 'success'
+      });
+    } catch {
+      addToast({
+        title: 'Clone Failed',
+        message: 'Could not clone campaign',
+        variant: 'error'
+      });
+    }
   };
 
-  const handlePauseCampaign = (campaign: Campaign) => {
-    addToast({
+  const updateCampaignStatus = async (
+    campaign: Campaign,
+    status: Campaign['status'],
+    toast: { title: string; message: string; variant: any }
+  ) => {
+    try {
+      await crmService.marketingCampaigns.update(campaign.id, { status } as any);
+      await loadCampaigns();
+      addToast(toast);
+    } catch {
+      addToast({ title: 'Update Failed', message: `Could not update "${campaign.name}"`, variant: 'error' });
+    }
+  };
+
+  const handlePauseCampaign = (campaign: Campaign) =>
+    updateCampaignStatus(campaign, 'paused', {
       title: 'Campaign Paused',
       message: `"${campaign.name}" has been paused`,
       variant: 'warning'
     });
-  };
 
-  const handleResumeCampaign = (campaign: Campaign) => {
-    addToast({
+  const handleResumeCampaign = (campaign: Campaign) =>
+    updateCampaignStatus(campaign, 'running', {
       title: 'Campaign Resumed',
       message: `"${campaign.name}" is now running`,
       variant: 'success'
     });
-  };
 
-  const handleStopCampaign = (campaign: Campaign) => {
-    addToast({
+  const handleStopCampaign = (campaign: Campaign) =>
+    updateCampaignStatus(campaign, 'completed', {
       title: 'Campaign Stopped',
       message: `"${campaign.name}" has been stopped`,
       variant: 'info'
     });
-  };
 
-  const handleDeleteCampaign = (campaign: Campaign) => {
-    addToast({
-      title: 'Campaign Deleted',
-      message: `"${campaign.name}" has been deleted`,
-      variant: 'success'
-    });
+  const handleDeleteCampaign = async (campaign: Campaign) => {
+    try {
+      await crmService.marketingCampaigns.delete(campaign.id);
+      await loadCampaigns();
+      addToast({
+        title: 'Campaign Deleted',
+        message: `"${campaign.name}" has been deleted`,
+        variant: 'success'
+      });
+    } catch {
+      addToast({
+        title: 'Delete Failed',
+        message: `Could not delete "${campaign.name}"`,
+        variant: 'error'
+      });
+    }
   };
 
   return (

@@ -45,6 +45,7 @@ export default function WarehouseZonesPage() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +110,7 @@ export default function WarehouseZonesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const filteredZones = zones.filter(zone => {
     const matchesSearch = zone.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -176,31 +177,24 @@ export default function WarehouseZonesPage() {
   };
 
   // Handle zone creation
-  const handleCreateZone = (data: ZoneData) => {
-    // TODO: Integrate with API to create zone
-    console.log('Creating zone:', data);
-
-    // Update local state
-    const newZone: Zone = {
-      id: data.zoneId,
-      code: data.zoneCode,
-      name: data.zoneName,
-      warehouse: 'Mumbai Central Warehouse', // Default warehouse
-      zoneType: data.zoneType,
-      area: data.capacity / 2, // Estimate area
-      capacity: data.capacity,
-      currentOccupancy: 0,
-      utilizationPercent: 0,
-      totalLocations: 0,
-      availableLocations: 0,
-      temperature: data.temperature ? `Controlled (${data.temperature.min}-${data.temperature.max}°C)` : 'Ambient (15-25°C)',
-      status: 'active',
-      manager: 'Warehouse Manager',
-      specialRequirements: data.restrictions || []
-    };
-
-    setZoneList([...zoneList, newZone]);
-    setIsCreateZoneOpen(false);
+  const handleCreateZone = async (data: ZoneData) => {
+    const code = data?.zoneCode;
+    const name = data?.zoneName;
+    if (!code && !name) return;
+    try {
+      await inventoryService.createStockLocation({
+        locationCode: code ?? name,
+        locationName: name ?? code,
+        warehouseId: data?.warehouseId,
+        zone: name ?? code,
+        locationType: data?.zoneType ?? 'storage',
+        status: 'Active',
+      });
+      setIsCreateZoneOpen(false);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Failed to create zone:', err);
+    }
   };
 
   // Handle zone card click to view details
@@ -217,25 +211,26 @@ export default function WarehouseZonesPage() {
   };
 
   // Handle bin creation
-  const handleCreateBin = (data: BinData) => {
-    // TODO: Integrate with API to create bin
-    console.log('Creating bin:', data);
-
-    // Update zone locations count
-    const updatedZones = zoneList.map(zone => {
-      if (zone.id === data.zoneId) {
-        return {
-          ...zone,
-          totalLocations: zone.totalLocations + 1,
-          availableLocations: zone.availableLocations + 1
-        };
-      }
-      return zone;
-    });
-
-    setZoneList(updatedZones);
-    setIsCreateBinOpen(false);
-    setSelectedZoneIdForBin('');
+  const handleCreateBin = async (data: BinData) => {
+    const binCode = data?.binCode;
+    if (!binCode) return;
+    try {
+      await inventoryService.createStockLocation({
+        locationCode: binCode,
+        locationName: binCode,
+        zone: data?.zoneId,
+        aisle: data?.row,
+        rack: data?.rack,
+        bin: binCode,
+        locationType: 'storage',
+        status: 'Active',
+      });
+      setIsCreateBinOpen(false);
+      setSelectedZoneIdForBin('');
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      console.error('Failed to create bin:', err);
+    }
   };
 
   return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Save, Send, Eye, Plus, X, Search, Calculator, Percent, DollarSign, Calendar, User, Building2, Mail, Phone, FileText, Package, Trash2 } from 'lucide-react';
 import { crmService } from '@/services/crm.service';
 
@@ -30,22 +31,8 @@ interface ProductOption {
   description: string;
 }
 
-const mockCustomersSeed: Customer[] = [
-  { id: '1', name: 'John Smith', company: 'Acme Corp', email: 'john@acme.com', phone: '+1 555-0101' },
-  { id: '2', name: 'Sarah Johnson', company: 'TechStart Inc', email: 'sarah@techstart.com', phone: '+1 555-0102' },
-  { id: '3', name: 'Michael Chen', company: 'Global Industries', email: 'michael@global.com', phone: '+1 555-0103' },
-  { id: '4', name: 'Emily Davis', company: 'Innovate Solutions', email: 'emily@innovate.com', phone: '+1 555-0104' },
-];
-
-const mockProductsSeed: ProductOption[] = [
-  { id: '1', name: 'Enterprise Software License', price: 5000, description: 'Annual license for up to 100 users' },
-  { id: '2', name: 'Professional Services', price: 150, description: 'Per hour consulting and implementation' },
-  { id: '3', name: 'Training Package', price: 2500, description: 'Comprehensive team training (5 sessions)' },
-  { id: '4', name: 'Premium Support', price: 1200, description: 'Monthly premium support package' },
-  { id: '5', name: 'Custom Integration', price: 8000, description: 'Custom API integration and setup' },
-];
-
 export default function CreateQuotePage() {
+  const router = useRouter();
   const [quoteNumber] = useState(`Q-${Date.now().toString().slice(-6)}`);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showCustomerSearch, setShowCustomerSearch] = useState(false);
@@ -66,6 +53,9 @@ export default function CreateQuotePage() {
   // Live-loaded picker lists (customer + product catalogue).
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
+
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,22 +167,75 @@ export default function CreateQuotePage() {
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + validityDays);
 
+  const handleSave = async (status: 'draft' | 'sent') => {
+    if (saving) return;
+    setSaving(true);
+    setSubmitError(null);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        quoteNumber,
+        title: quoteName,
+        status,
+        customerId: selectedCustomer?.id ?? undefined,
+        customerName: selectedCustomer?.company ?? '',
+        contactName: selectedCustomer?.name ?? '',
+        validUntil: validUntil.toISOString().slice(0, 10),
+        notes,
+        termsAndConditions,
+        subtotal,
+        discountAmount: itemDiscounts + globalDiscountAmount,
+        taxAmount: totalTax,
+        totalAmount: grandTotal,
+        items: items.map((it) => ({
+          productName: it.productName,
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          discount: it.discount,
+          tax: it.tax,
+          total: it.total,
+        })),
+      };
+      await crmService.quotes.create(payload);
+      router.push('/crm/quotes');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save quote');
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="w-full h-full px-3 py-2 ">
       <div className="mb-8">
-        <div className="flex gap-3 mb-3 justify-end">
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <Eye className="w-4 h-4" />
-            Preview
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <Save className="w-4 h-4" />
-            Save Draft
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            <Send className="w-4 h-4" />
-            Send Quote
-          </button>
+        <div className="flex flex-col items-end gap-2 mb-3">
+          {submitError && (
+            <p className="text-sm text-red-600">{submitError}</p>
+          )}
+          <div className="flex gap-3 justify-end">
+            <button type="button" className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+              <Eye className="w-4 h-4" />
+              Preview
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave('draft')}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Saving…' : 'Save Draft'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSave('sent')}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+            >
+              <Send className="w-4 h-4" />
+              Send Quote
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

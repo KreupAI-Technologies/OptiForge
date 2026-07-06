@@ -1,7 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { FileText, Calendar, Clock, AlertCircle, Users, CheckCircle, Plus, X, Upload } from 'lucide-react'
+import { ITILService } from '@/services/support.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 
 interface ChangeRequest {
   title: string
@@ -31,6 +35,7 @@ interface SystemOption {
 }
 
 export default function CreateChange() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<ChangeRequest>({
     title: '',
@@ -106,9 +111,31 @@ export default function CreateChange() {
     }))
   }
 
-  const handleSubmit = () => {
-    console.log('Submitting change request:', formData)
-    alert('Change request submitted successfully! Ticket #CHG-2024-1247 has been created.')
+  const handleSubmit = async () => {
+    try {
+      const scheduledStart = formData.implementationDate
+        ? (formData.implementationTime
+            ? `${formData.implementationDate}T${formData.implementationTime}`
+            : formData.implementationDate)
+        : undefined
+      await ITILService.createChange({
+        companyId: COMPANY_ID,
+        title: formData.title,
+        description: formData.description,
+        type: formData.type.toLowerCase() as 'standard' | 'normal' | 'emergency',
+        category: formData.category,
+        priority: formData.priority,
+        impact: formData.impact,
+        affectedServices: formData.affectedSystems,
+        implementationPlan: formData.businessJustification || formData.reason,
+        backoutPlan: formData.rollbackPlan,
+        scheduledStart,
+      } as any)
+      router.push('/support/changes/scheduled')
+    } catch (err) {
+      console.error('Failed to submit change request:', err)
+      alert('Failed to submit change request. Please try again.')
+    }
   }
 
   const isStepValid = (step: number) => {

@@ -1,38 +1,75 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Package, BarChart3, History, Layers } from 'lucide-react';
 
 export default function ItemDetailPage() {
-    const params = useParams();
     const router = useRouter();
-    const itemId = params.id as string;
+    const id = useParams().id as string;
 
-    // Mock item data
-    const item = {
-        id: itemId,
-        code: 'PLY-18MM-BWP',
-        name: 'BWP Plywood 18mm',
-        description: 'Boiling Water Proof Plywood - 8ft x 4ft Sheet',
-        category: 'Raw Material',
-        uom: 'Sheets',
-        currentStock: 150,
-        reorderLevel: 50,
-        unitCost: 2500,
-        totalValue: 375000,
-        location: 'Warehouse A - Rack 4',
-        status: 'Active',
-        specifications: [
-            { label: 'Thickness', value: '18mm' },
-            { label: 'Grade', value: 'BWP (IS 710)' },
-            { label: 'Dimensions', value: '8ft x 4ft' },
-            { label: 'Brand', value: 'Century Ply' },
-        ],
-    };
+    const [item, setItem] = useState<any | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            setLoading(true);
+            try {
+                const data = await inventoryService.getStockBalance(id);
+                if (active) setItem(data ?? null);
+            } catch (err) {
+                console.error('Failed to load stock balance', err);
+                if (active) setItem(null);
+            } finally {
+                if (active) setLoading(false);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="w-full p-3">
+                <div className="text-center py-16 text-gray-500">Loading item…</div>
+            </div>
+        );
+    }
+
+    if (!item) {
+        return (
+            <div className="w-full p-3">
+                <Button variant="ghost" onClick={() => router.back()} className="mb-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                </Button>
+                <div className="text-center py-16">
+                    <Package className="w-12 h-12 text-gray-400 mb-2 mx-auto" />
+                    <p className="text-gray-500">Item not found</p>
+                </div>
+            </div>
+        );
+    }
+
+    const availableQuantity = item?.availableQuantity ?? 0;
+    const reservedQuantity = item?.reservedQuantity ?? 0;
+    const freeQuantity = item?.freeQuantity ?? availableQuantity;
+    const valuationRate = item?.valuationRate ?? 0;
+    const stockValue = item?.stockValue ?? 0;
+    const uom = item?.uom ?? '';
+
+    const specifications: { label: string; value: string }[] = [
+        { label: 'Available', value: `${availableQuantity} ${uom}`.trim() },
+        { label: 'Reserved', value: `${reservedQuantity} ${uom}`.trim() },
+        { label: 'Free', value: `${freeQuantity} ${uom}`.trim() },
+        { label: 'Safety Stock', value: `${item?.safetyStock ?? '—'}` },
+    ];
 
     return (
         <div className="w-full p-3">
@@ -48,11 +85,11 @@ export default function ItemDetailPage() {
                         Back
                     </Button>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold">{item.name}</h1>
-                        <Badge className="bg-green-600">{item.status}</Badge>
+                        <h1 className="text-3xl font-bold">{item?.itemName ?? 'Item'}</h1>
+                        <Badge className="bg-green-600">{item?.belowReorderLevel ? 'Low Stock' : 'Active'}</Badge>
                     </div>
                     <p className="text-gray-600 mt-1">
-                        Code: {item.code} | Category: {item.category}
+                        Code: {item?.itemCode ?? '—'} | Category: {item?.itemCategory ?? '—'}
                     </p>
                 </div>
 
@@ -79,27 +116,27 @@ export default function ItemDetailPage() {
                         <CardContent>
                             <div className="grid grid-cols-2 gap-3 mb-3">
                                 <div>
-                                    <p className="text-sm text-gray-500">Description</p>
-                                    <p className="font-medium">{item.description}</p>
+                                    <p className="text-sm text-gray-500">Warehouse</p>
+                                    <p className="font-medium">{item?.warehouseName ?? '—'}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Unit of Measure</p>
-                                    <p className="font-medium">{item.uom}</p>
+                                    <p className="font-medium">{uom || '—'}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Default Location</p>
-                                    <p className="font-medium">{item.location}</p>
+                                    <p className="font-medium">{item?.locationName ?? '—'}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Reorder Level</p>
-                                    <p className="font-medium text-orange-600">{item.reorderLevel} {item.uom}</p>
+                                    <p className="font-medium text-orange-600">{item?.reorderLevel ?? 0} {uom}</p>
                                 </div>
                             </div>
 
                             <h3 className="font-semibold mb-3">Specifications</h3>
                             <div className="bg-gray-50 rounded-lg p-3">
                                 <div className="grid grid-cols-2 gap-2">
-                                    {item.specifications.map((spec, idx) => (
+                                    {specifications.map((spec, idx) => (
                                         <div key={idx}>
                                             <p className="text-sm text-gray-500">{spec.label}</p>
                                             <p className="font-medium">{spec.value}</p>
@@ -152,17 +189,17 @@ export default function ItemDetailPage() {
                         <CardContent>
                             <div className="text-center py-4">
                                 <Package className="w-12 h-12 text-blue-600 mb-2" />
-                                <p className="text-3xl font-bold text-gray-900">{item.currentStock}</p>
-                                <p className="text-sm text-gray-500">{item.uom} Available</p>
+                                <p className="text-3xl font-bold text-gray-900">{availableQuantity}</p>
+                                <p className="text-sm text-gray-500">{uom} Available</p>
                             </div>
                             <div className="border-t pt-4 mt-4">
                                 <div className="flex justify-between mb-2">
-                                    <span className="text-gray-600">Unit Cost</span>
-                                    <span className="font-medium">₹{item.unitCost.toLocaleString()}</span>
+                                    <span className="text-gray-600">Valuation Rate</span>
+                                    <span className="font-medium">₹{Number(valuationRate).toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">Total Value</span>
-                                    <span className="font-bold text-green-600">₹{item.totalValue.toLocaleString()}</span>
+                                    <span className="font-bold text-green-600">₹{Number(stockValue).toLocaleString()}</span>
                                 </div>
                             </div>
                         </CardContent>

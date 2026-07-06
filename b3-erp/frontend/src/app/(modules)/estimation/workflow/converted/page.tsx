@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import {
   CheckCircle2,
   Eye,
@@ -41,187 +42,59 @@ interface ConvertedEstimate {
   status: 'order-confirmed' | 'in-production' | 'partial-delivered' | 'completed'
 }
 
+const companyId = 'default-company-id'
+
 export default function EstimateWorkflowConvertedPage() {
   const router = useRouter()
 
-  const [convertedEstimates] = useState<ConvertedEstimate[]>([
-    {
-      id: 'CONV-001',
-      estimateNumber: 'EST-2025-0105',
-      orderNumber: 'SO-2025-0824',
-      projectName: 'Luxury Penthouse - Ultra Premium Kitchen',
-      customerName: 'DLF Luxury Homes',
-      contactPerson: 'Mr. Arun Mehta',
-      category: 'Premium Modular Kitchen',
-      estimatedValue: 7500000,
-      finalOrderValue: 7850000,
-      variance: 350000,
-      variancePercent: 4.7,
-      items: 58,
-      createdBy: 'Amit Sharma',
-      estimateDate: '2025-09-28',
-      approvedDate: '2025-10-01',
-      convertedDate: '2025-10-15',
-      conversionTime: 17,
-      paymentTerms: '30% Advance, 40% on delivery, 30% after installation',
-      deliveryTimeline: '45 days',
-      status: 'in-production'
-    },
-    {
-      id: 'CONV-002',
-      estimateNumber: 'EST-2025-0108',
-      orderNumber: 'SO-2025-0831',
-      projectName: 'Fine Dining Restaurant - Complete Kitchen',
-      customerName: 'Gourmet Restaurants Pvt Ltd',
-      contactPerson: 'Chef Vikram Singh',
-      category: 'Commercial Kitchen',
-      estimatedValue: 12500000,
-      finalOrderValue: 12200000,
-      variance: -300000,
-      variancePercent: -2.4,
-      items: 72,
-      createdBy: 'Neha Patel',
-      estimateDate: '2025-09-30',
-      approvedDate: '2025-10-03',
-      convertedDate: '2025-10-17',
-      conversionTime: 17,
-      paymentTerms: '40% Advance, 40% on delivery, 20% post-installation',
-      deliveryTimeline: '60 days',
-      status: 'order-confirmed'
-    },
-    {
-      id: 'CONV-003',
-      estimateNumber: 'EST-2025-0110',
-      orderNumber: 'SO-2025-0837',
-      projectName: 'Island Kitchen with Breakfast Counter',
-      customerName: 'Mrs. Priya Desai',
-      contactPerson: 'Mrs. Priya Desai',
-      category: 'Island Kitchen',
-      estimatedValue: 4850000,
-      finalOrderValue: 4850000,
-      variance: 0,
-      variancePercent: 0,
-      items: 46,
-      createdBy: 'Vikram Singh',
-      estimateDate: '2025-10-02',
-      approvedDate: '2025-10-05',
-      convertedDate: '2025-10-18',
-      conversionTime: 16,
-      paymentTerms: 'Net 30',
-      deliveryTimeline: '40 days',
-      status: 'in-production'
-    },
-    {
-      id: 'CONV-004',
-      estimateNumber: 'EST-2025-0095',
-      orderNumber: 'SO-2025-0802',
-      projectName: 'Builder Package - 60 Standard Kitchens',
-      customerName: 'Godrej Properties',
-      contactPerson: 'Mr. Rajesh Agarwal',
-      category: 'Builder Package',
-      estimatedValue: 18000000,
-      finalOrderValue: 19500000,
-      variance: 1500000,
-      variancePercent: 8.3,
-      items: 20,
-      createdBy: 'Ravi Kumar',
-      estimateDate: '2025-09-20',
-      approvedDate: '2025-09-25',
-      convertedDate: '2025-10-08',
-      conversionTime: 18,
-      paymentTerms: '25% Advance, 50% on delivery, 25% post-installation',
-      deliveryTimeline: '90 days (phased)',
-      status: 'partial-delivered'
-    },
-    {
-      id: 'CONV-005',
-      estimateNumber: 'EST-2025-0112',
-      orderNumber: 'SO-2025-0842',
-      projectName: 'L-Shaped Kitchen - Contemporary Design',
-      customerName: 'Dr. Suresh Krishnan',
-      contactPerson: 'Dr. Suresh Krishnan',
-      category: 'L-Shaped Kitchen',
-      estimatedValue: 3250000,
-      finalOrderValue: 3400000,
-      variance: 150000,
-      variancePercent: 4.6,
-      items: 38,
-      createdBy: 'Amit Sharma',
-      estimateDate: '2025-10-04',
-      approvedDate: '2025-10-07',
-      convertedDate: '2025-10-19',
-      conversionTime: 15,
-      paymentTerms: '40% Advance, 60% on completion',
-      deliveryTimeline: '35 days',
-      status: 'order-confirmed'
-    },
-    {
-      id: 'CONV-006',
-      estimateNumber: 'EST-2025-0100',
-      orderNumber: 'SO-2025-0815',
-      projectName: 'Corporate Cafeteria Kitchen',
-      customerName: 'TCS Limited',
-      contactPerson: 'Ms. Anjali Nair',
-      category: 'Institutional Kitchen',
-      estimatedValue: 9800000,
-      finalOrderValue: 9600000,
-      variance: -200000,
-      variancePercent: -2.0,
-      items: 52,
-      createdBy: 'Neha Patel',
-      estimateDate: '2025-09-25',
-      approvedDate: '2025-09-28',
-      convertedDate: '2025-10-12',
-      conversionTime: 17,
-      paymentTerms: 'Net 45',
-      deliveryTimeline: '55 days',
-      status: 'completed'
-    },
-    {
-      id: 'CONV-007',
-      estimateNumber: 'EST-2025-0106',
-      orderNumber: 'SO-2025-0826',
-      projectName: 'Parallel Kitchen with Utility',
-      customerName: 'Mr. Karan Malhotra',
-      contactPerson: 'Mr. Karan Malhotra',
-      category: 'Parallel Kitchen',
-      estimatedValue: 2650000,
-      finalOrderValue: 2750000,
-      variance: 100000,
-      variancePercent: 3.8,
-      items: 32,
-      createdBy: 'Vikram Singh',
-      estimateDate: '2025-09-28',
-      approvedDate: '2025-10-02',
-      convertedDate: '2025-10-16',
-      conversionTime: 18,
-      paymentTerms: '50% Advance, 50% on delivery',
-      deliveryTimeline: '30 days',
-      status: 'in-production'
-    },
-    {
-      id: 'CONV-008',
-      estimateNumber: 'EST-2025-0114',
-      orderNumber: 'SO-2025-0845',
-      projectName: 'U-Shaped Kitchen with Breakfast Bar',
-      customerName: 'Mrs. Meera Reddy',
-      contactPerson: 'Mrs. Meera Reddy',
-      category: 'U-Shaped Kitchen',
-      estimatedValue: 3850000,
-      finalOrderValue: 3850000,
-      variance: 0,
-      variancePercent: 0,
-      items: 42,
-      createdBy: 'Ravi Kumar',
-      estimateDate: '2025-10-06',
-      approvedDate: '2025-10-09',
-      convertedDate: '2025-10-20',
-      conversionTime: 14,
-      paymentTerms: '30% Advance, 40% on delivery, 30% post-installation',
-      deliveryTimeline: '42 days',
-      status: 'order-confirmed'
+  const [convertedEstimates, setConvertedEstimates] = useState<ConvertedEstimate[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        setLoading(true)
+        const data = await costEstimateService.findAll(companyId, { status: 'Converted to Order' })
+        const list = Array.isArray(data) ? data : []
+        const mapped: ConvertedEstimate[] = list.map((e) => {
+          const orderValue = e.totalCost || 0
+          return {
+            id: e.id,
+            estimateNumber: e.estimateNumber,
+            orderNumber: '',
+            projectName: e.title,
+            customerName: e.customerName || '',
+            contactPerson: e.customerName || '',
+            category: e.estimateType || '',
+            estimatedValue: orderValue,
+            finalOrderValue: orderValue,
+            variance: 0,
+            variancePercent: 0,
+            items: 0,
+            createdBy: e.submittedBy || '',
+            estimateDate: e.estimateDate ? e.estimateDate.slice(0, 10) : '',
+            approvedDate: e.approvedAt ? e.approvedAt.slice(0, 10) : '',
+            convertedDate: e.updatedAt ? e.updatedAt.slice(0, 10) : '',
+            conversionTime: 0,
+            paymentTerms: '',
+            deliveryTimeline: '',
+            status: 'order-confirmed',
+          }
+        })
+        if (mounted) setConvertedEstimates(mapped)
+      } catch (err) {
+        console.error('Failed to load converted estimates:', err)
+        if (mounted) setConvertedEstimates([])
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -247,8 +120,8 @@ export default function EstimateWorkflowConvertedPage() {
   const totalConverted = convertedEstimates.length
   const totalEstimatedValue = convertedEstimates.reduce((sum, e) => sum + e.estimatedValue, 0)
   const totalOrderValue = convertedEstimates.reduce((sum, e) => sum + e.finalOrderValue, 0)
-  const avgConversionTime = convertedEstimates.reduce((sum, e) => sum + e.conversionTime, 0) / totalConverted
-  const conversionRate = ((totalOrderValue - totalEstimatedValue) / totalEstimatedValue) * 100
+  const avgConversionTime = totalConverted > 0 ? convertedEstimates.reduce((sum, e) => sum + e.conversionTime, 0) / totalConverted : 0
+  const conversionRate = totalEstimatedValue > 0 ? ((totalOrderValue - totalEstimatedValue) / totalEstimatedValue) * 100 : 0
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -345,7 +218,20 @@ export default function EstimateWorkflowConvertedPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {convertedEstimates.map((estimate) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
+                    Loading converted estimates...
+                  </td>
+                </tr>
+              ) : convertedEstimates.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-gray-500">
+                    No converted estimates found.
+                  </td>
+                </tr>
+              ) : (
+                convertedEstimates.map((estimate) => (
                 <tr key={estimate.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div>
@@ -406,7 +292,8 @@ export default function EstimateWorkflowConvertedPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

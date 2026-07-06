@@ -29,7 +29,8 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
-import { leadsApi, type LeadFormData as ApiLeadFormData } from '@/lib/api/leads';
+import { type LeadFormData as ApiLeadFormData } from '@/lib/api/leads';
+import { crmService } from '@/services/crm.service';
 
 interface LeadFormData {
   // Basic Information
@@ -362,8 +363,8 @@ export default function AddLeadPage() {
         leadScore: score,
       };
 
-      // Call API to create lead
-      const createdLead = await leadsApi.create(leadData);
+      // Call API to create lead (crmService injects companyId + correct base URL)
+      await crmService.leads.create({ companyId: 'default-company-id', ...leadData });
 
       setSuccessMessage('Lead created successfully!');
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { goodsReceiptService } from '@/services/goods-receipt.service';
 import {
   Package,
   FileText,
@@ -196,10 +197,10 @@ const GRNEditPage = () => {
 
   // Load existing GRN data
   useEffect(() => {
+    let cancelled = false;
     const fetchGRNData = async () => {
       setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
+      const applyMock = () => {
         const mockData: GRNFormData = {
           grn_number: 'GRN-2025-00123',
           grn_date: '2025-01-15',
@@ -270,11 +271,53 @@ const GRNEditPage = () => {
         };
 
         setFormData(mockData);
-        setLoading(false);
-      }, 1000);
+      };
+
+      try {
+        const raw = (await goodsReceiptService.getGoodsReceiptById(grnId)) as any;
+        if (cancelled) return;
+        if (raw && (raw.id || raw.grnNumber)) {
+          setFormData((prev) => ({
+            ...prev,
+            grn_number: raw.grnNumber ?? prev.grn_number,
+            grn_date: (raw.receiptDate ?? raw.grnDate ?? prev.grn_date)?.toString().slice(0, 10),
+            po_id: raw.poId ?? raw.poNumber ?? prev.po_id,
+            po_number: raw.poNumber ?? prev.po_number,
+            vendor_id: raw.vendorId ?? prev.vendor_id,
+            vendor_name: raw.vendorName ?? prev.vendor_name,
+            receipt_date: (raw.deliveryDate ?? raw.receiptDate ?? prev.receipt_date)?.toString().slice(0, 10),
+            invoice_number: raw.deliveryNoteNumber ?? prev.invoice_number,
+            status: ((): GRNFormData['status'] => {
+              const s = String(raw.status ?? '').toLowerCase();
+              const allowed: GRNFormData['status'][] = ['draft', 'under_inspection', 'partially_accepted', 'accepted', 'rejected'];
+              return (allowed as string[]).includes(s) ? (s as GRNFormData['status']) : prev.status;
+            })(),
+            notes: raw.notes ?? prev.notes,
+            line_items: Array.isArray(raw.items) && raw.items.length
+              ? raw.items.map((it: any, idx: number) => ({
+                  ...(prev.line_items[idx] ?? prev.line_items[0]),
+                  id: it.id ?? String(idx),
+                  item_code: it.itemCode ?? prev.line_items[idx]?.item_code ?? '',
+                  item_name: it.itemName ?? prev.line_items[idx]?.item_name ?? '',
+                  received_quantity: Number(it.receivedQuantity ?? 0),
+                  accepted_quantity: Number(it.acceptedQuantity ?? 0),
+                  rejected_quantity: Number(it.rejectedQuantity ?? 0),
+                  batch_number: it.batchNumber ?? '',
+                }))
+              : prev.line_items,
+          }));
+        } else {
+          applyMock();
+        }
+      } catch {
+        if (!cancelled) applyMock();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
 
     fetchGRNData();
+    return () => { cancelled = true; };
   }, [grnId]);
 
   const handleInputChange = (field: keyof GRNFormData, value: any) => {
@@ -414,14 +457,24 @@ const GRNEditPage = () => {
     }
 
     setSaving(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Saving GRN:', { ...formData, status: saveType === 'draft' ? 'draft' : 'under_inspection' });
-      setSaving(false);
+    try {
+      await goodsReceiptService.updateGoodsReceipt(grnId, {
+        deliveryNoteNumber: formData.invoice_number || undefined,
+        notes: formData.notes || undefined,
+        items: formData.line_items.map((li) => ({
+          id: li.id,
+          receivedQuantity: Number(li.received_quantity ?? 0),
+          batchNumber: li.batch_number || undefined,
+          locationId: li.storage_location || undefined,
+        })),
+      });
       alert(`GRN ${saveType === 'draft' ? 'saved as draft' : 'submitted for inspection'} successfully!`);
       router.push(`/procurement/grn/view/${grnId}`);
-    }, 2000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save GRN');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {

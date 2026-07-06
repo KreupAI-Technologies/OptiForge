@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MasterDataService, mdLabel, MDVendor } from '@/services/master-data.service';
+import { procurementRFQService, type CreateRFQDto } from '@/services/procurement-rfq.service';
 import {
   ArrowLeft,
   Save,
@@ -428,18 +429,46 @@ export default function AddRFQPage() {
     }).format(amount);
   };
 
-  const handleSaveDraft = () => {
-    console.log('Saving as draft:', formData);
+  const buildPayload = (): CreateRFQDto => ({
+    title: formData.title,
+    prReference: formData.linkedPR || undefined,
+    department: formData.category || 'General',
+    responseDeadline: formData.closingDate,
+    requiredDeliveryDate: formData.closingDate,
+    currency: 'INR',
+    notes: formData.notesToVendors || undefined,
+    terms: formData.termsAndConditions || undefined,
+    items: formData.items.map((it) => ({
+      itemId: it.itemCode || it.id,
+      quantity: it.quantity,
+      specifications: it.specifications || undefined,
+      targetPrice: it.targetPrice || undefined,
+      requiredDate: formData.closingDate,
+    })),
+    vendorIds: formData.selectedVendors,
+  });
+
+  const handleSaveDraft = async () => {
+    try {
+      await procurementRFQService.createRFQ(buildPayload());
+    } catch (err) {
+      console.error('Error saving RFQ draft:', err);
+    }
     router.push('/rfq');
   };
 
-  const handleIssueRFQ = (e: React.FormEvent) => {
+  const handleIssueRFQ = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      console.log('Issuing RFQ:', formData);
-      router.push('/rfq');
-    } else {
+    if (!validateForm()) {
       alert('Please fix all errors before issuing RFQ');
+      return;
+    }
+    try {
+      await procurementRFQService.createRFQ(buildPayload());
+      router.push('/rfq');
+    } catch (err) {
+      console.error('Error issuing RFQ:', err);
+      alert('Failed to issue RFQ');
     }
   };
 

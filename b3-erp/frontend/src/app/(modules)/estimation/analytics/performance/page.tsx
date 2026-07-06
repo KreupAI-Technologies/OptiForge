@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Activity,
@@ -18,6 +18,10 @@ import {
   BarChart3
 } from 'lucide-react'
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow'
+import {
+  estimationAnalyticsService,
+  EstimatorPerformance as EstimatorPerformanceApi
+} from '@/services/estimation-analytics.service'
 
 interface EstimatorPerformance {
   name: string
@@ -40,130 +44,59 @@ interface CategoryMetrics {
   winRate: number
 }
 
+const companyId = 'default-company-id'
+
 export default function EstimationAnalyticsPerformancePage() {
   const router = useRouter()
 
-  const [estimatorPerformance] = useState<EstimatorPerformance[]>([
-    {
-      name: 'Amit Sharma',
-      totalEstimates: 68,
-      won: 48,
-      pending: 5,
-      winRate: 76.2,
-      avgTurnaround: 3.2,
-      totalValue: 385000000,
-      avgValue: 5661765,
-      accuracy: 94.5,
-      productivity: 92
-    },
-    {
-      name: 'Neha Patel',
-      totalEstimates: 62,
-      won: 42,
-      pending: 6,
-      winRate: 75.0,
-      avgTurnaround: 3.5,
-      totalValue: 425000000,
-      avgValue: 6854839,
-      accuracy: 91.2,
-      productivity: 88
-    },
-    {
-      name: 'Vikram Singh',
-      totalEstimates: 58,
-      won: 44,
-      pending: 3,
-      winRate: 80.0,
-      avgTurnaround: 2.8,
-      totalValue: 168000000,
-      avgValue: 2896552,
-      accuracy: 96.8,
-      productivity: 95
-    },
-    {
-      name: 'Ravi Kumar',
-      totalEstimates: 52,
-      won: 38,
-      pending: 4,
-      winRate: 79.2,
-      avgTurnaround: 3.0,
-      totalValue: 425000000,
-      avgValue: 8173077,
-      accuracy: 93.5,
-      productivity: 90
-    },
-    {
-      name: 'Priya Menon',
-      totalEstimates: 45,
-      won: 30,
-      pending: 8,
-      winRate: 81.1,
-      avgTurnaround: 4.2,
-      totalValue: 215000000,
-      avgValue: 4777778,
-      accuracy: 89.5,
-      productivity: 82
-    }
-  ])
+  const [loading, setLoading] = useState(true)
+  const [apiPerformance, setApiPerformance] = useState<EstimatorPerformanceApi[]>([])
 
-  const [categoryMetrics] = useState<CategoryMetrics[]>([
-    {
-      category: 'Premium Modular Kitchen',
-      count: 45,
-      value: 290000000,
-      avgTime: 4.5,
-      winRate: 70.0
-    },
-    {
-      category: 'Island Kitchen',
-      count: 38,
-      value: 185000000,
-      avgTime: 4.0,
-      winRate: 68.8
-    },
-    {
-      category: 'L-Shaped Kitchen',
-      count: 62,
-      value: 175000000,
-      avgTime: 3.2,
-      winRate: 76.3
-    },
-    {
-      category: 'Parallel Kitchen',
-      count: 34,
-      value: 105000000,
-      avgTime: 3.0,
-      winRate: 75.0
-    },
-    {
-      category: 'Compact Kitchen',
-      count: 28,
-      value: 25000000,
-      avgTime: 2.5,
-      winRate: 81.5
-    },
-    {
-      category: 'Commercial Kitchen',
-      count: 24,
-      value: 300000000,
-      avgTime: 5.5,
-      winRate: 63.6
-    },
-    {
-      category: 'Institutional Kitchen',
-      count: 18,
-      value: 270000000,
-      avgTime: 6.0,
-      winRate: 62.5
-    },
-    {
-      category: 'Builder Package',
-      count: 12,
-      value: 230000000,
-      avgTime: 5.0,
-      winRate: 72.7
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      try {
+        const now = new Date()
+        const data = await estimationAnalyticsService.getAllEstimatorsPerformance(
+          companyId,
+          now.getFullYear(),
+          now.getMonth() + 1
+        )
+        if (mounted) setApiPerformance(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.error('Failed to load estimator performance', e)
+        if (mounted) setApiPerformance([])
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const estimatorPerformance: EstimatorPerformance[] = apiPerformance.map((p) => {
+    const won = p.wonEstimates ?? 0
+    const lost = p.lostEstimates ?? 0
+    const total = p.totalEstimates ?? 0
+    return {
+      name: p.estimatorName,
+      totalEstimates: total,
+      won,
+      pending: Math.max(total - won - lost, 0),
+      winRate: p.winRate ?? 0,
+      avgTurnaround: p.averageTurnaroundDays ?? 0,
+      totalValue: p.totalEstimatedValue ?? 0,
+      avgValue: total > 0 ? (p.totalEstimatedValue ?? 0) / total : 0,
+      accuracy: p.averageAccuracy ?? 0,
+      productivity: Math.round(p.averageAccuracy ?? 0)
+    }
+  })
+
+  // No category breakdown from this endpoint; render empty-state.
+  const categoryMetrics: CategoryMetrics[] = []
 
   const getPerformanceColor = (value: number, type: 'winRate' | 'accuracy' | 'productivity') => {
     if (type === 'winRate') {
@@ -181,14 +114,27 @@ export default function EstimationAnalyticsPerformancePage() {
     return 'text-gray-600'
   }
 
+  const estimatorCount = estimatorPerformance.length
   const totalEstimates = estimatorPerformance.reduce((sum, e) => sum + e.totalEstimates, 0)
   const totalValue = estimatorPerformance.reduce((sum, e) => sum + e.totalValue, 0)
   const avgWinRate = (
-    estimatorPerformance.reduce((sum, e) => sum + e.winRate, 0) / estimatorPerformance.length
+    estimatorCount > 0
+      ? estimatorPerformance.reduce((sum, e) => sum + e.winRate, 0) / estimatorCount
+      : 0
   ).toFixed(1)
   const avgAccuracy = (
-    estimatorPerformance.reduce((sum, e) => sum + e.accuracy, 0) / estimatorPerformance.length
+    estimatorCount > 0
+      ? estimatorPerformance.reduce((sum, e) => sum + e.accuracy, 0) / estimatorCount
+      : 0
   ).toFixed(1)
+
+  if (loading) {
+    return (
+      <div className="w-full h-full px-4 py-2 flex items-center justify-center">
+        <p className="text-sm text-gray-500">Loading estimator performance...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -297,6 +243,13 @@ export default function EstimationAnalyticsPerformancePage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {estimatorPerformance.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-6 text-center text-sm text-gray-500">
+                    No estimator performance data available
+                  </td>
+                </tr>
+              )}
               {estimatorPerformance.map((estimator) => (
                 <ClickableTableRow
                   key={estimator.name}
@@ -405,6 +358,13 @@ export default function EstimationAnalyticsPerformancePage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {categoryMetrics.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                    No category performance data available
+                  </td>
+                </tr>
+              )}
               {categoryMetrics.map((category) => (
                 <ClickableTableRow
                   key={category.category}

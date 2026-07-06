@@ -54,87 +54,19 @@ interface SegmentDetails {
 }
 
 // Mock data
-const mockSegment: SegmentDetails = {
-  id: '1',
-  name: 'Enterprise Customers',
-  description: 'Large organizations with over 500 employees and annual revenue exceeding $50M',
-  customerCount: 156,
-  totalRevenue: 2450000,
-  avgOrderValue: 15705,
-  growthRate: 12.5,
-  createdDate: '2024-01-15',
-  lastUpdated: '2024-10-20',
-  criteria: [
-    'Company size > 500 employees',
-    'Annual revenue > $50M',
-    'Contract value > $10K',
-    'Active for > 6 months',
-  ],
+const emptySegment: SegmentDetails = {
+  id: '',
+  name: '',
+  description: '',
+  customerCount: 0,
+  totalRevenue: 0,
+  avgOrderValue: 0,
+  growthRate: 0,
+  createdDate: '',
+  lastUpdated: '',
+  criteria: [],
   status: 'active',
 };
-
-const mockCustomers: Customer[] = [
-  {
-    id: '1',
-    name: 'John Smith',
-    company: 'Tech Corp International',
-    email: 'john.smith@techcorp.com',
-    phone: '+1 234-567-8900',
-    location: 'New York, NY',
-    totalSpent: 125000,
-    lastPurchase: '2024-10-15',
-    status: 'active',
-    segment: 'Enterprise Customers',
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    company: 'Global Manufacturing Ltd',
-    email: 'sarah.j@globalmanuf.com',
-    phone: '+1 234-567-8901',
-    location: 'Chicago, IL',
-    totalSpent: 98000,
-    lastPurchase: '2024-10-12',
-    status: 'active',
-    segment: 'Enterprise Customers',
-  },
-  {
-    id: '3',
-    name: 'Michael Chen',
-    company: 'Enterprise Solutions Inc',
-    email: 'mchen@entsolutions.com',
-    phone: '+1 234-567-8902',
-    location: 'San Francisco, CA',
-    totalSpent: 156000,
-    lastPurchase: '2024-10-18',
-    status: 'active',
-    segment: 'Enterprise Customers',
-  },
-  {
-    id: '4',
-    name: 'Emily Davis',
-    company: 'Mega Industries Corp',
-    email: 'emily.davis@megaindustries.com',
-    phone: '+1 234-567-8903',
-    location: 'Boston, MA',
-    totalSpent: 87000,
-    lastPurchase: '2024-10-10',
-    status: 'active',
-    segment: 'Enterprise Customers',
-  },
-  {
-    id: '5',
-    name: 'David Wilson',
-    company: 'Prime Logistics Group',
-    email: 'dwilson@primelogistics.com',
-    phone: '+1 234-567-8904',
-    location: 'Atlanta, GA',
-    totalSpent: 112000,
-    lastPurchase: '2024-10-14',
-    status: 'active',
-    segment: 'Enterprise Customers',
-  },
-];
 
 export default function SegmentDetailPage() {
   const router = useRouter();
@@ -142,8 +74,8 @@ export default function SegmentDetailPage() {
   const { addToast } = useToast();
   const segmentId = params.id as string;
 
-  const [segment, setSegment] = useState<SegmentDetails>(mockSegment);
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [segment, setSegment] = useState<SegmentDetails>(emptySegment);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [isLoading, setIsLoading] = useState(true);

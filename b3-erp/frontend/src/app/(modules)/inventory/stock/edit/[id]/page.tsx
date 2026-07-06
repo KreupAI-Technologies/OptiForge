@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft, Save, Package, DollarSign, MapPin,
   AlertTriangle, CheckCircle, Info, Warehouse, BarChart3
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface StockItemForm {
   itemCode: string;
@@ -31,8 +32,10 @@ interface StockItemForm {
   notes: string;
 }
 
-export default function StockEditPage({ params }: { params: { id: string } }) {
+export default function StockEditPage({ params: _params }: { params: { id: string } }) {
   const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -60,6 +63,29 @@ export default function StockEditPage({ params }: { params: { id: string } }) {
     status: 'active',
     notes: 'High-demand item. Maintain adequate stock levels at all times.'
   });
+
+  useEffect(() => {
+    const loadStock = async () => {
+      try {
+        const data = await inventoryService.getStockBalance(id);
+        if (data) {
+          setFormData(prev => ({
+            ...prev,
+            itemCode: data.itemCode ?? prev.itemCode,
+            itemName: data.itemName ?? prev.itemName,
+            uom: data.uom ?? prev.uom,
+            reorderLevel: data.reorderLevel ?? prev.reorderLevel,
+            safetyStock: data.safetyStock ?? prev.safetyStock,
+            unitCost: data.valuationRate ?? prev.unitCost,
+            warehouse: data.warehouseName ?? prev.warehouse,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load stock balance', error);
+      }
+    };
+    if (id) loadStock();
+  }, [id]);
 
   const categories = [
     'Raw Materials',
@@ -134,11 +160,19 @@ export default function StockEditPage({ params }: { params: { id: string } }) {
 
     setIsSaving(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const payload = {
+        reorderLevel: formData.reorderLevel,
+        safetyStock: formData.safetyStock,
+        reorderQuantity: formData.maxLevel,
+        valuationRate: formData.unitCost,
+      };
+      await inventoryService.updateStockBalance(id, payload);
+      router.push('/inventory/stock');
+    } catch (error) {
       setIsSaving(false);
-      router.push(`/inventory/stock/view/${params.id}`);
-    }, 1500);
+      setErrors(prev => ({ ...prev, general: 'Failed to update stock item. Please try again.' }));
+    }
   };
 
   const handleCancel = () => {

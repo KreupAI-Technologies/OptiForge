@@ -1,14 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle, User, Clock, Star } from 'lucide-react'
+import { getTickets } from '@/services/support-management.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
+
+interface ResolvedRow {
+  id: string
+  ticketId: string
+  subject: string
+  resolvedBy: string
+  resolutionTime: string
+  satisfaction: number
+}
 
 export default function ResolvedTickets() {
-  const [tickets] = useState([
-    { id: '1', ticketId: 'TKT-2024-1040', subject: 'Database backup not running', requester: 'David Brown', category: 'System', priority: 'high', resolvedBy: 'Vikram Singh', resolvedAt: '2024-10-21 11:30', resolutionTime: '4h 15m', satisfaction: 5 },
-    { id: '2', ticketId: 'TKT-2024-1039', subject: 'Password reset not working', requester: 'Lisa Anderson', category: 'Access', priority: 'medium', resolvedBy: 'Rajesh Kumar', resolvedAt: '2024-10-21 10:45', resolutionTime: '2h 30m', satisfaction: 4 },
-    { id: '3', ticketId: 'TKT-2024-1038', subject: 'Slow report generation', requester: 'Tom Martinez', category: 'Performance', priority: 'medium', resolvedBy: 'Amit Patel', resolvedAt: '2024-10-21 09:20', resolutionTime: '6h 45m', satisfaction: 5 }
-  ])
+  const [tickets, setTickets] = useState<ResolvedRow[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = (await getTickets({ companyId: COMPANY_ID, status: 'resolved', limit: 500 })) as any
+        const raw: any[] = Array.isArray(res) ? res : (res?.tickets ?? [])
+        const mapped: ResolvedRow[] = raw.map((t) => ({
+          id: String(t?.id ?? ''),
+          ticketId: t?.ticketNumber ?? '',
+          subject: t?.subject ?? '',
+          resolvedBy: t?.assignee?.name ?? '',
+          resolutionTime: '',
+          satisfaction: Math.max(0, Math.round(Number(t?.csatScore ?? 0) || 0)),
+        }))
+        if (!cancelled) setTickets(mapped)
+      } catch {
+        if (!cancelled) setTickets([])
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="p-6 space-y-3">

@@ -55,7 +55,7 @@ const SessionManagementPage = () => {
     warningTime: 5,
   });
 
-  const [sessions] = useState<ActiveSession[]>([
+  const [sessions, setSessions] = useState<ActiveSession[]>([
     {
       id: '1',
       userId: 'USR001',
@@ -257,7 +257,8 @@ const SessionManagementPage = () => {
 
   const handleTerminateSession = (sessionId: string) => {
     if (confirm('Are you sure you want to terminate this session?')) {
-      alert(`Session ${sessionId} terminated successfully!`);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setSelectedSessions((prev) => prev.filter((id) => id !== sessionId));
     }
   };
 
@@ -267,14 +268,15 @@ const SessionManagementPage = () => {
       return;
     }
     if (confirm(`Are you sure you want to terminate ${selectedSessions.length} session(s)?`)) {
-      alert(`${selectedSessions.length} session(s) terminated successfully!`);
+      setSessions((prev) => prev.filter((s) => !selectedSessions.includes(s.id)));
       setSelectedSessions([]);
     }
   };
 
   const handleTerminateAllUserSessions = (userId: string, userName: string) => {
     if (confirm(`Are you sure you want to terminate all sessions for ${userName}?`)) {
-      alert(`All sessions for ${userName} terminated successfully!`);
+      setSessions((prev) => prev.filter((s) => s.userId !== userId));
+      setSelectedSessions([]);
     }
   };
 

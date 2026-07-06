@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, Plus, Calendar, Users, Package, TrendingUp, Factory, Clock, AlertTriangle, BarChart3 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { NewPlanModal, ExportPlanModal, ScenarioComparisonModal } from '@/components/production/AggregatePlanningModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 interface AggregatePlan {
   id: string;
@@ -53,205 +54,132 @@ export default function AggregatePlanningPage() {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
   const [selectedPlanForEdit, setSelectedPlanForEdit] = useState<AggregatePlan | null>(null);
 
-  // Mock data for aggregate plans
-  const [plans, setPlans] = useState<AggregatePlan[]>([
-    {
-      id: '1',
-      planNumber: 'AP-2025-Q4',
-      planName: 'Q4 2025 Aggregate Production Plan - Kitchen Products',
-      planningPeriod: 'Q4 2025',
-      startDate: '2025-10-01',
-      endDate: '2025-12-31',
-      status: 'active',
-      createdBy: 'Priya Sharma',
-      createdDate: '2025-09-15',
-      months: [
-        {
-          month: 'Oct 2025',
-          forecastedDemand: 8500,
-          productionPlan: 8800,
-          beginningInventory: 1200,
-          endingInventory: 1500,
-          regularTimeCapacity: 9000,
-          regularTimeProduction: 8800,
-          overtimeCapacity: 1500,
-          overtimeProduction: 0,
-          subcontractingProduction: 0,
-          requiredWorkers: 145,
-          hiredWorkers: 5,
-          laidOffWorkers: 0,
-          totalCost: 12850000,
-          inventoryCost: 450000,
-          productionCost: 11800000,
-          hiringCost: 250000,
-          layoffCost: 0,
-          overtimeCost: 0,
-          subcontractingCost: 350000
-        },
-        {
-          month: 'Nov 2025',
-          forecastedDemand: 9200,
-          productionPlan: 9500,
-          beginningInventory: 1500,
-          endingInventory: 1800,
-          regularTimeCapacity: 9000,
-          regularTimeProduction: 9000,
-          overtimeCapacity: 1500,
-          overtimeProduction: 500,
-          subcontractingProduction: 0,
-          requiredWorkers: 150,
-          hiredWorkers: 5,
-          laidOffWorkers: 0,
-          totalCost: 14280000,
-          inventoryCost: 540000,
-          productionCost: 12600000,
-          hiringCost: 250000,
-          layoffCost: 0,
-          overtimeCost: 890000,
-          subcontractingCost: 0
-        },
-        {
-          month: 'Dec 2025',
-          forecastedDemand: 10500,
-          productionPlan: 10800,
-          beginningInventory: 1800,
-          endingInventory: 2100,
-          regularTimeCapacity: 9000,
-          regularTimeProduction: 9000,
-          overtimeCapacity: 1500,
-          overtimeProduction: 1200,
-          subcontractingProduction: 600,
-          requiredWorkers: 155,
-          hiredWorkers: 5,
-          laidOffWorkers: 0,
-          totalCost: 16950000,
-          inventoryCost: 630000,
-          productionCost: 13200000,
-          hiringCost: 250000,
-          layoffCost: 0,
-          overtimeCost: 2140000,
-          subcontractingCost: 730000
-        }
-      ]
-    },
-    {
-      id: '2',
-      planNumber: 'AP-2025-Q3',
-      planName: 'Q3 2025 Aggregate Production Plan - Kitchen Products',
-      planningPeriod: 'Q3 2025',
-      startDate: '2025-07-01',
-      endDate: '2025-09-30',
-      status: 'completed',
-      createdBy: 'Priya Sharma',
-      createdDate: '2025-06-15',
-      months: [
-        {
-          month: 'Jul 2025',
-          forecastedDemand: 7800,
-          productionPlan: 8000,
-          beginningInventory: 1100,
-          endingInventory: 1300,
-          regularTimeCapacity: 8500,
-          regularTimeProduction: 8000,
-          overtimeCapacity: 1500,
-          overtimeProduction: 0,
-          subcontractingProduction: 0,
-          requiredWorkers: 135,
-          hiredWorkers: 0,
-          laidOffWorkers: 5,
-          totalCost: 11650000,
-          inventoryCost: 390000,
-          productionCost: 10800000,
-          hiringCost: 0,
-          layoffCost: 350000,
-          overtimeCost: 0,
-          subcontractingCost: 110000
-        },
-        {
-          month: 'Aug 2025',
-          forecastedDemand: 8100,
-          productionPlan: 8200,
-          beginningInventory: 1300,
-          endingInventory: 1400,
-          regularTimeCapacity: 8500,
-          regularTimeProduction: 8200,
-          overtimeCapacity: 1500,
-          overtimeProduction: 0,
-          subcontractingProduction: 0,
-          requiredWorkers: 138,
-          hiredWorkers: 3,
-          laidOffWorkers: 0,
-          totalCost: 11980000,
-          inventoryCost: 420000,
-          productionCost: 11100000,
-          hiringCost: 150000,
-          layoffCost: 0,
-          overtimeCost: 0,
-          subcontractingCost: 310000
-        },
-        {
-          month: 'Sep 2025',
-          forecastedDemand: 8400,
-          productionPlan: 8600,
-          beginningInventory: 1400,
-          endingInventory: 1600,
-          regularTimeCapacity: 8500,
-          regularTimeProduction: 8500,
-          overtimeCapacity: 1500,
-          overtimeProduction: 100,
-          subcontractingProduction: 0,
-          requiredWorkers: 140,
-          hiredWorkers: 2,
-          laidOffWorkers: 0,
-          totalCost: 12450000,
-          inventoryCost: 480000,
-          productionCost: 11550000,
-          hiringCost: 100000,
-          layoffCost: 0,
-          overtimeCost: 180000,
-          subcontractingCost: 140000
-        }
-      ]
+  // Aggregate plans — loaded from API (starts empty; see loadPlans below).
+  const [plans, setPlans] = useState<AggregatePlan[]>([]);
+
+  // Defensive mapper: raw ORM record -> local AggregatePlan shape (mock-shape defaults per field).
+  const mapPlan = (r: any): AggregatePlan => ({
+    id: String(r?.id ?? r?._id ?? ''),
+    planNumber: r?.planNumber ?? r?.plan_number ?? '',
+    planName: r?.planName ?? r?.plan_name ?? '',
+    planningPeriod: r?.planningPeriod ?? r?.planning_period ?? '',
+    startDate: r?.startDate ?? r?.start_date ?? '',
+    endDate: r?.endDate ?? r?.end_date ?? '',
+    status: (r?.status as AggregatePlan['status']) ?? 'draft',
+    createdBy: r?.createdBy ?? r?.created_by ?? '',
+    createdDate: r?.createdDate ?? r?.created_date ?? (r?.createdAt ? String(r.createdAt).split('T')[0] : ''),
+    months: Array.isArray(r?.months)
+      ? r.months.map((m: any) => ({
+          month: m?.month ?? '',
+          forecastedDemand: m?.forecastedDemand ?? 0,
+          productionPlan: m?.productionPlan ?? 0,
+          beginningInventory: m?.beginningInventory ?? 0,
+          endingInventory: m?.endingInventory ?? 0,
+          regularTimeCapacity: m?.regularTimeCapacity ?? 0,
+          regularTimeProduction: m?.regularTimeProduction ?? 0,
+          overtimeCapacity: m?.overtimeCapacity ?? 0,
+          overtimeProduction: m?.overtimeProduction ?? 0,
+          subcontractingProduction: m?.subcontractingProduction ?? 0,
+          requiredWorkers: m?.requiredWorkers ?? 0,
+          hiredWorkers: m?.hiredWorkers ?? 0,
+          laidOffWorkers: m?.laidOffWorkers ?? 0,
+          totalCost: m?.totalCost ?? 0,
+          inventoryCost: m?.inventoryCost ?? 0,
+          productionCost: m?.productionCost ?? 0,
+          hiringCost: m?.hiringCost ?? 0,
+          layoffCost: m?.layoffCost ?? 0,
+          overtimeCost: m?.overtimeCost ?? 0,
+          subcontractingCost: m?.subcontractingCost ?? 0,
+        }))
+      : [],
+  });
+
+  const loadPlans = useCallback(async () => {
+    try {
+      const res = await ProductionOrphanService.getAggregatePlans();
+      const data = Array.isArray(res) ? res : ((res as any)?.data ?? res);
+      const mapped = Array.isArray(data) ? data.map(mapPlan) : [];
+      setPlans(mapped);
+    } catch (err) {
+      console.error('Failed to load aggregate plans:', err);
+      setPlans([]);
     }
-  ]);
+  }, []);
+
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
 
   // Handler functions
-  const handleCreatePlan = (planData: Partial<AggregatePlan>) => {
-    const newPlan: AggregatePlan = {
-      id: `${plans.length + 1}`,
-      planNumber: planData.planNumber || '',
-      planName: planData.planName || '',
-      planningPeriod: planData.planningPeriod || '',
-      startDate: planData.startDate || '',
-      endDate: planData.endDate || '',
-      status: planData.status || 'draft',
-      createdBy: 'Current User',
-      createdDate: new Date().toISOString().split('T')[0],
-      months: [],
-    };
-    setPlans([...plans, newPlan]);
-    alert('Plan created successfully!');
+  const handleCreatePlan = async (planData: Partial<AggregatePlan>) => {
+    try {
+      const payload = {
+        planNumber: planData.planNumber || '',
+        planName: planData.planName || '',
+        planningPeriod: planData.planningPeriod || '',
+        startDate: planData.startDate || '',
+        endDate: planData.endDate || '',
+        status: planData.status || 'draft',
+        months: planData.months || [],
+      };
+      await ProductionOrphanService.createAggregatePlan(payload);
+      await loadPlans();
+      setIsCreateModalOpen(false);
+    } catch (err) {
+      console.error('Failed to create aggregate plan:', err);
+    }
   };
 
-  const handleEditPlan = (planData: Partial<AggregatePlan>) => {
+  const handleEditPlan = async (planData: Partial<AggregatePlan>) => {
     if (!selectedPlanForEdit) return;
-    setPlans(plans.map((p) =>
-      p.id === selectedPlanForEdit.id ? { ...p, ...planData } : p
-    ));
-    alert('Plan updated successfully!');
+    try {
+      // No dedicated update endpoint — upsert by including the id in the body so the
+      // backend can update-in-place; falls back to create if id is unknown.
+      const payload = {
+        id: selectedPlanForEdit.id,
+        planNumber: planData.planNumber ?? selectedPlanForEdit.planNumber,
+        planName: planData.planName ?? selectedPlanForEdit.planName,
+        planningPeriod: planData.planningPeriod ?? selectedPlanForEdit.planningPeriod,
+        startDate: planData.startDate ?? selectedPlanForEdit.startDate,
+        endDate: planData.endDate ?? selectedPlanForEdit.endDate,
+        status: planData.status ?? selectedPlanForEdit.status,
+        months: planData.months ?? selectedPlanForEdit.months,
+      };
+      await ProductionOrphanService.createAggregatePlan(payload);
+      await loadPlans();
+      setIsEditModalOpen(false);
+      setSelectedPlanForEdit(null);
+    } catch (err) {
+      console.error('Failed to update aggregate plan:', err);
+    }
   };
 
   const handleExport = (format: string, options: any) => {
     exportToCsv('aggregate-plan', plans as unknown as Record<string, unknown>[]);
   };
 
-  const currentPlan = plans.find(plan => plan.planNumber === selectedPlan) || plans[0];
+  // Guard: plans may be empty while the API loads or when the DB has no records.
+  const emptyPlan: AggregatePlan = {
+    id: '',
+    planNumber: '',
+    planName: '',
+    planningPeriod: '',
+    startDate: '',
+    endDate: '',
+    status: 'draft',
+    createdBy: '',
+    createdDate: '',
+    months: [],
+  };
+  const currentPlan = plans.find(plan => plan.planNumber === selectedPlan) || plans[0] || emptyPlan;
 
   const totalDemand = currentPlan.months.reduce((sum, m) => sum + m.forecastedDemand, 0);
   const totalProduction = currentPlan.months.reduce((sum, m) => sum + m.productionPlan, 0);
   const totalCost = currentPlan.months.reduce((sum, m) => sum + m.totalCost, 0);
-  const avgCapacityUtilization = currentPlan.months.reduce((sum, m) =>
-    sum + (m.regularTimeProduction / m.regularTimeCapacity * 100), 0) / currentPlan.months.length;
+  const avgCapacityUtilization = currentPlan.months.length > 0
+    ? currentPlan.months.reduce((sum, m) =>
+        sum + (m.regularTimeCapacity > 0 ? (m.regularTimeProduction / m.regularTimeCapacity * 100) : 0), 0) / currentPlan.months.length
+    : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Package,
   AlertTriangle,
@@ -30,6 +30,7 @@ import {
   ViewItemDetailsModal,
   type MRPSettings,
 } from '@/components/production/MRPRunModals';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 
 // TypeScript Interfaces
 interface MRPRequirement {
@@ -135,6 +136,15 @@ const MRPPage: React.FC = () => {
   const [isConfigureOpen, setIsConfigureOpen] = useState(false);
   const [isViewItemOpen, setIsViewItemOpen] = useState(false);
   const [selectedItemForModal, setSelectedItemForModal] = useState<MRPRequirement | null>(null);
+
+  // Live data loaded from the NestJS backend (production/mrp-runs,
+  // production/planned-orders, production/shortage-records). Used to drive the
+  // dashboard summary stats and last-run info; the tabbed detail views below
+  // still render their reference/mock rows until per-tab endpoints exist.
+  const [mrpRuns, setMrpRuns] = useState<any[]>([]);
+  const [livePlannedOrders, setLivePlannedOrders] = useState<any[]>([]);
+  const [liveShortages, setLiveShortages] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // MRP Configuration State
   const [mrpConfig, setMrpConfig] = useState({
@@ -613,10 +623,14 @@ const MRPPage: React.FC = () => {
     },
   ]);
 
-  // Calculate Statistics
+  // Calculate Statistics — prefer live backend counts, fall back to reference rows.
   const totalRequirements = mrpRequirements.reduce((sum, item) => sum + item.netRequirement, 0);
-  const shortageCount = mrpRequirements.filter((item) => item.netRequirement > 0).length;
-  const purchaseSuggestionsCount = purchaseSuggestions.length;
+  const shortageCount =
+    (liveShortages?.length ?? 0) > 0
+      ? liveShortages.length
+      : mrpRequirements.filter((item) => item.netRequirement > 0).length;
+  const purchaseSuggestionsCount =
+    (livePlannedOrders?.length ?? 0) > 0 ? livePlannedOrders.length : purchaseSuggestions.length;
   const excessStockCount = excessStock.length;
   const totalPurchaseValue = purchaseSuggestions.reduce((sum, item) => sum + item.totalCost, 0);
 
@@ -629,6 +643,34 @@ const MRPPage: React.FC = () => {
       item.itemName.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  // Load live MRP dashboard data from the backend.
+  const loadMrpData = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const [runs, orders, shortageRecords] = await Promise.all([
+        ProductionOrphanService.getMrpRuns(),
+        ProductionOrphanService.getPlannedOrders(),
+        ProductionOrphanService.getShortageRecords(),
+      ]);
+      const runsArr = Array.isArray(runs) ? runs : [];
+      setMrpRuns(runsArr);
+      setLivePlannedOrders(Array.isArray(orders) ? orders : []);
+      setLiveShortages(Array.isArray(shortageRecords) ? shortageRecords : []);
+      const latestRun = runsArr[0];
+      const runAt = latestRun?.runDate ?? latestRun?.completedAt ?? latestRun?.createdAt;
+      if (runAt) setLastRunDate(String(runAt));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load MRP data');
+      setMrpRuns([]);
+      setLivePlannedOrders([]);
+      setLiveShortages([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMrpData();
+  }, [loadMrpData]);
 
   // Run MRP
   const handleRunMRP = () => {
@@ -697,18 +739,21 @@ const MRPPage: React.FC = () => {
     setIsViewItemOpen(true);
   };
 
-  const handleRunMRPSubmit = (config: any) => {
-    // TODO: Integrate with API to run MRP with configuration
-    console.log('Running MRP with config:', config);
+  const handleRunMRPSubmit = async (config: any) => {
     setIsRunMRPOpen(false);
-
-    // Call existing handleRunMRP to trigger the running state
+    // Trigger the running state, then refresh live dashboard data (runs,
+    // planned orders, shortages) once the run window elapses.
     handleRunMRP();
+    try {
+      await loadMrpData();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to refresh MRP data');
+    }
   };
 
   const handleSaveConfig = (settings: MRPSettings) => {
-    // TODO: Integrate with API to save MRP configuration
-    console.log('Saving MRP configuration:', settings);
+    // Configuration is applied to local run parameters; there is no dedicated
+    // MRP-config persistence endpoint on the shared production service yet.
     setMrpConfig({
       planningHorizon: settings.planningHorizon,
       leadTimeConsideration: settings.leadTimeConsideration,
@@ -766,6 +811,12 @@ const MRPPage: React.FC = () => {
         <div className="mt-2 text-sm text-gray-500">
           Last run: {lastRunDate}
         </div>
+        {loadError && (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
       </div>
 
       {/* Quick Stats */}

@@ -23,6 +23,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { PackagingService, PackagingJobDto } from '@/services/packaging.service';
 
 interface ProjectInfo {
     id: string;
@@ -82,6 +83,26 @@ const mockPackingJobs: PackingJob[] = [
     },
 ];
 
+function mapJob(m: PackagingJobDto): PackingJob {
+    const mu = m.materialsUsed || {};
+    return {
+        id: m.id || '',
+        woNumber: m.woNumber || '',
+        productName: m.productName || '',
+        quantity: Number(m.quantity) || 0,
+        status: (m.status || 'In Queue') as PackingJob['status'],
+        packingTeam: m.packingTeam || '',
+        startDate: m.startDate || '',
+        completionDate: m.completionDate || '',
+        materialsUsed: {
+            crates: Number(mu.crates) || 0,
+            wrapping: String(mu.wrapping || ''),
+            thermocol: Number(mu.thermocol) || 0,
+            stickers: Number(mu.stickers) || 0,
+        },
+    };
+}
+
 export default function PackagingOperationsPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -130,13 +151,20 @@ export default function PackagingOperationsPage() {
 
     // Load jobs when project is selected
     useEffect(() => {
-        if (selectedProject) {
+        if (!selectedProject) return;
+        const loadJobs = async () => {
             setLoading(true);
-            setTimeout(() => {
-                setJobs(mockPackingJobs);
+            try {
+                const data = await PackagingService.getJobs(selectedProject.id);
+                setJobs(Array.isArray(data) ? data.map(mapJob) : []);
+            } catch (error) {
+                console.error('Failed to load jobs:', error);
+                setJobs([]);
+            } finally {
                 setLoading(false);
-            }, 300);
-        }
+            }
+        };
+        loadJobs();
     }, [selectedProject]);
 
     const handleProjectSelect = (project: ProjectInfo) => {

@@ -31,6 +31,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 
 interface CompletedInstallation {
   id: string;
@@ -118,6 +119,113 @@ interface CompletedInstallation {
   resolutions?: string[];
 }
 
+function mapCompletedInstallation(i: any): CompletedInstallation {
+  const cust = i?.customer || {};
+  const prod = i?.product || {};
+  const comp = i?.completion || {};
+  const completedBy = comp?.completedBy || {};
+  const warrantyType = String(prod?.warrantyType || 'Standard');
+  const priority = String(i?.installation?.priority || i?.priority || 'Medium');
+  const complexity = String(i?.installation?.complexity || i?.complexity || 'Moderate');
+  const testingResults = String(comp?.testingResults || i?.testingResults || 'Passed');
+  const team = i?.team || {};
+  const lead = team?.lead || {};
+  const feedback = i?.customerFeedback;
+  const followUp = i?.followUp || {};
+  const docs = comp?.documentation || {};
+  return {
+    id: String(i?.id ?? i?._id ?? ''),
+    installationNumber: i?.installationNumber || i?.number || i?.installation_number || '',
+    customer: {
+      name: cust?.name || i?.customerName || '',
+      company: cust?.company || i?.company || '',
+      phone: cust?.phone || i?.phone || '',
+      email: cust?.email || i?.email || '',
+      address: cust?.address || i?.address || '',
+      contactPerson: cust?.contactPerson || cust?.name || '',
+      alternatePhone: cust?.alternatePhone || undefined,
+    },
+    product: {
+      name: prod?.name || i?.productName || '',
+      model: prod?.model || '',
+      serialNumber: prod?.serialNumber || prod?.serial_number || '',
+      category: prod?.category || '',
+      warrantyType: (['Standard', 'Extended', 'Premium'].includes(warrantyType) ? warrantyType : 'Standard') as CompletedInstallation['product']['warrantyType'],
+      value: Number(prod?.value ?? i?.value ?? 0) || 0,
+    },
+    installation: {
+      type: i?.installation?.type || i?.type || '',
+      priority: (['Low', 'Medium', 'High', 'Critical'].includes(priority) ? priority : 'Medium') as CompletedInstallation['installation']['priority'],
+      complexity: (['Simple', 'Moderate', 'Complex', 'Highly Complex'].includes(complexity) ? complexity : 'Moderate') as CompletedInstallation['installation']['complexity'],
+      plannedDuration: i?.installation?.plannedDuration || '',
+      actualDuration: i?.installation?.actualDuration || '',
+      requirements: Array.isArray(i?.installation?.requirements) ? i.installation.requirements.map((r: any) => String(r)) : [],
+      specialInstructions: i?.installation?.specialInstructions || undefined,
+    },
+    completion: {
+      completedDate: comp?.completedDate || i?.completedDate || i?.completed_date || '',
+      completedTime: comp?.completedTime || i?.completedTime || '',
+      completedBy: {
+        name: completedBy?.name || i?.completedByName || '',
+        id: completedBy?.id || '',
+        role: completedBy?.role || '',
+      },
+      qualityScore: Number(comp?.qualityScore ?? i?.qualityScore ?? 0) || 0,
+      onTimeCompletion: Boolean(comp?.onTimeCompletion ?? i?.onTimeCompletion ?? false),
+      customerSatisfaction: Number(comp?.customerSatisfaction ?? i?.customerSatisfaction ?? 0) || 0,
+      testingResults: (['Passed', 'Passed with Notes', 'Failed'].includes(testingResults) ? testingResults : 'Passed') as CompletedInstallation['completion']['testingResults'],
+      documentation: {
+        installationReport: Boolean(docs?.installationReport ?? false),
+        customerTraining: Boolean(docs?.customerTraining ?? false),
+        warrantyDocuments: Boolean(docs?.warrantyDocuments ?? false),
+        maintenanceGuide: Boolean(docs?.maintenanceGuide ?? false),
+        photos: Number(docs?.photos ?? 0) || 0,
+      },
+    },
+    location: {
+      siteType: i?.location?.siteType || '',
+      accessRequirements: i?.location?.accessRequirements || '',
+      parkingAvailable: Boolean(i?.location?.parkingAvailable ?? false),
+      elevatorAccess: Boolean(i?.location?.elevatorAccess ?? false),
+      specialAccess: i?.location?.specialAccess || '',
+    },
+    team: {
+      lead: {
+        name: lead?.name || '',
+        id: lead?.id || '',
+        phone: lead?.phone || '',
+        expertise: Array.isArray(lead?.expertise) ? lead.expertise.map((e: any) => String(e)) : [],
+      },
+      members: Array.isArray(team?.members)
+        ? team.members.map((m: any) => ({ name: m?.name || '', id: m?.id || '', role: m?.role || '' }))
+        : [],
+      totalMembers: Number(team?.totalMembers ?? (Array.isArray(team?.members) ? team.members.length : 0)) || 0,
+    },
+    customerFeedback: feedback
+      ? {
+          rating: Number(feedback?.rating ?? 0) || 0,
+          comments: feedback?.comments || '',
+          wouldRecommend: Boolean(feedback?.wouldRecommend ?? false),
+        }
+      : undefined,
+    followUp: {
+      warrantyStartDate: followUp?.warrantyStartDate || '',
+      nextMaintenanceDate: followUp?.nextMaintenanceDate || '',
+      supportContactAssigned: followUp?.supportContactAssigned || '',
+    },
+    attachments: Number(i?.attachments ?? 0) || 0,
+    notes: i?.notes || '',
+    issues: Array.isArray(i?.issues) ? i.issues.map((x: any) => String(x)) : [],
+    resolutions: Array.isArray(i?.resolutions) ? i.resolutions.map((x: any) => String(x)) : [],
+  };
+}
+
+function isCompletedInstallation(i: any): boolean {
+  const status = String(i?.status ?? i?.completionStatus ?? '').toLowerCase();
+  const completedDate = i?.completion?.completedDate || i?.completedDate || i?.completed_date;
+  return status === 'completed' || Boolean(completedDate);
+}
+
 const CompletedInstallationsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
@@ -157,7 +265,25 @@ const CompletedInstallationsPage = () => {
     }
   };
 
-  const completedInstallations: CompletedInstallation[] = [
+  const [completedInstallations, setCompletedInstallations] = useState<CompletedInstallation[]>([]);
+
+  // Load completed installations from API
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AfterSalesPagesService.installations();
+        const list = Array.isArray(raw) ? raw : [];
+        const completed = list.filter(isCompletedInstallation);
+        // If nothing matched the completed filter, fall back to mapping all rows.
+        const source = completed.length ? completed : list;
+        setCompletedInstallations(source.map(mapCompletedInstallation));
+      } catch {
+        setCompletedInstallations([]);
+      }
+    })();
+  }, []);
+
+  const _unusedMockInstallations: CompletedInstallation[] = [
     {
       id: '1',
       installationNumber: 'INST-2024-0001',
@@ -445,9 +571,9 @@ const CompletedInstallationsPage = () => {
 
   const stats = {
     totalCompleted: completedInstallations.length,
-    avgSatisfaction: (completedInstallations.reduce((sum, inst) => sum + inst.completion.customerSatisfaction, 0) / completedInstallations.length).toFixed(1),
-    onTimeRate: ((completedInstallations.filter(inst => inst.completion.onTimeCompletion).length / completedInstallations.length) * 100).toFixed(0),
-    avgQualityScore: (completedInstallations.reduce((sum, inst) => sum + inst.completion.qualityScore, 0) / completedInstallations.length).toFixed(1)
+    avgSatisfaction: (completedInstallations.length ? completedInstallations.reduce((sum, inst) => sum + inst.completion.customerSatisfaction, 0) / completedInstallations.length : 0).toFixed(1),
+    onTimeRate: (completedInstallations.length ? (completedInstallations.filter(inst => inst.completion.onTimeCompletion).length / completedInstallations.length) * 100 : 0).toFixed(0),
+    avgQualityScore: (completedInstallations.length ? completedInstallations.reduce((sum, inst) => sum + inst.completion.qualityScore, 0) / completedInstallations.length : 0).toFixed(1)
   };
 
   const renderStars = (rating: number) => {

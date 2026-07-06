@@ -57,6 +57,7 @@ export default function BOMVersionsPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'current' | 'previous' | 'draft' | 'obsolete'>('all');
 
   const [versions, setVersions] = useState<BOMVersion[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -94,7 +95,7 @@ export default function BOMVersionsPage() {
       } finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshKey]);
 
   const products = ['all', ...Array.from(new Set(versions.map(v => v.productCode)))];
 
@@ -188,16 +189,28 @@ export default function BOMVersionsPage() {
     setIsViewOpen(false);
   };
 
-  const handleEditSubmit = (data: Partial<ModalBOMVersion>) => {
-    // TODO: Implement API call to update version
-    console.log('Edit version data:', data);
-    setIsEditOpen(false);
+  const handleEditSubmit = async (data: Partial<ModalBOMVersion>) => {
+    try {
+      if (selectedVersion?.id) {
+        await ProductionOrphanService.updateBom(selectedVersion.id, data as any);
+      }
+    } catch (err) {
+      console.error('Error updating version:', err);
+    } finally {
+      setIsEditOpen(false);
+      setRefreshKey((k) => k + 1);
+    }
   };
 
-  const handleCreateVersionSubmit = (data: Partial<ModalBOMVersion>) => {
-    // TODO: Implement API call to create new version
-    console.log('Create version data:', data);
-    setIsCreateOpen(false);
+  const handleCreateVersionSubmit = async (data: Partial<ModalBOMVersion>) => {
+    try {
+      await ProductionOrphanService.createBom({ ...(data as any), parentBomId: selectedVersion?.id });
+    } catch (err) {
+      console.error('Error creating version:', err);
+    } finally {
+      setIsCreateOpen(false);
+      setRefreshKey((k) => k + 1);
+    }
   };
 
   return (

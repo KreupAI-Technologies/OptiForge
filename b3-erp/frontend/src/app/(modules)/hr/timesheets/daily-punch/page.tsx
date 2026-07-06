@@ -14,8 +14,7 @@ import {
     CheckCircle,
     Edit
 } from 'lucide-react';
-
-const TS_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+import { TimesheetService } from '@/services/timesheet.service';
 
 interface DailyPunch {
     id: string;
@@ -47,9 +46,7 @@ export default function DailyPunchPage() {
         (async () => {
             setIsLoading(true); setLoadError(null);
             try {
-                const res = await fetch(`${TS_API_BASE}/hr/timesheets`, { headers: { 'x-company-id': 'test' }, cache: 'no-store' });
-                if (!res.ok) throw new Error('Failed to load timesheets');
-                const raw = await res.json();
+                const raw = await TimesheetService.getTimesheets();
                 const mapped: DailyPunch[] = (Array.isArray(raw) ? raw : []).map((r: any, i: number) => ({
                     id: String(r?.id ?? i),
                     employeeId: r?.employeeCode ?? r?.employeeId ?? '',

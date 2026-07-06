@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   PenTool,
@@ -27,6 +27,7 @@ import {
   SignatureRecord
 } from '@/components/cpq/ProposalSignatureModals'
 import { exportToCsv } from '@/lib/export'
+import { cpqProposalService } from '@/services/cpq/cpq-proposal.service'
 
 interface ProposalSignature {
   id: string
@@ -51,124 +52,57 @@ interface ProposalSignature {
 export default function CPQProposalsSignaturesPage() {
   const router = useRouter()
 
-  const [signatures] = useState<ProposalSignature[]>([
-    {
-      id: 'SIG-001',
-      proposalNumber: 'PROP-2024-1234',
-      customerName: 'Prestige Properties Ltd',
-      contactPerson: 'Mr. Arun Sharma',
-      email: 'arun.sharma@prestigeprops.com',
-      phone: '+91 98765 43210',
-      proposalValue: 2850000,
-      sentDate: '2024-10-15',
-      viewedDate: '2024-10-16',
-      signedDate: '2024-10-17',
-      expiryDate: '2024-11-15',
-      status: 'signed',
-      signatureMethod: 'digital',
-      remindersSent: 1,
-      lastActivity: '2024-10-17',
-      ipAddress: '103.25.168.45',
-      deviceInfo: 'Windows 11 - Chrome 118'
-    },
-    {
-      id: 'SIG-002',
-      proposalNumber: 'PROP-2024-1235',
-      customerName: 'Urban Homes Pvt Ltd',
-      contactPerson: 'Ms. Priya Menon',
-      email: 'priya.menon@urbanhomes.in',
-      phone: '+91 98765 43211',
-      proposalValue: 1750000,
-      sentDate: '2024-10-16',
-      viewedDate: '2024-10-17',
-      expiryDate: '2024-11-16',
-      status: 'viewed',
-      signatureMethod: 'email',
-      remindersSent: 2,
-      lastActivity: '2024-10-18'
-    },
-    {
-      id: 'SIG-003',
-      proposalNumber: 'PROP-2024-1236',
-      customerName: 'Elite Builders & Developers',
-      contactPerson: 'Mr. Vikram Reddy',
-      email: 'vikram@elitebuilders.com',
-      phone: '+91 98765 43212',
-      proposalValue: 4200000,
-      sentDate: '2024-10-17',
-      expiryDate: '2024-11-17',
-      status: 'pending',
-      signatureMethod: 'digital',
-      remindersSent: 0,
-      lastActivity: '2024-10-17'
-    },
-    {
-      id: 'SIG-004',
-      proposalNumber: 'PROP-2024-1237',
-      customerName: 'Sunshine Apartments',
-      contactPerson: 'Mr. Raj Kumar',
-      email: 'raj.kumar@sunshineapts.com',
-      phone: '+91 98765 43213',
-      proposalValue: 950000,
-      sentDate: '2024-10-14',
-      viewedDate: '2024-10-15',
-      expiryDate: '2024-11-14',
-      status: 'declined',
-      signatureMethod: 'email',
-      remindersSent: 3,
-      lastActivity: '2024-10-16'
-    },
-    {
-      id: 'SIG-005',
-      proposalNumber: 'PROP-2024-1238',
-      customerName: 'Metro Residency',
-      contactPerson: 'Ms. Anjali Desai',
-      email: 'anjali@metroresidency.in',
-      phone: '+91 98765 43214',
-      proposalValue: 3200000,
-      sentDate: '2024-10-13',
-      viewedDate: '2024-10-14',
-      signedDate: '2024-10-15',
-      expiryDate: '2024-11-13',
-      status: 'signed',
-      signatureMethod: 'digital',
-      remindersSent: 2,
-      lastActivity: '2024-10-15',
-      ipAddress: '103.25.168.46',
-      deviceInfo: 'macOS - Safari 17'
-    },
-    {
-      id: 'SIG-006',
-      proposalNumber: 'PROP-2024-1239',
-      customerName: 'Green Valley Estates',
-      contactPerson: 'Mr. Suresh Nair',
-      email: 'suresh@greenvalley.com',
-      phone: '+91 98765 43215',
-      proposalValue: 2100000,
-      sentDate: '2024-10-18',
-      viewedDate: '2024-10-18',
-      expiryDate: '2024-11-18',
-      status: 'viewed',
-      signatureMethod: 'digital',
-      remindersSent: 0,
-      lastActivity: '2024-10-18'
-    },
-    {
-      id: 'SIG-007',
-      proposalNumber: 'PROP-2024-1240',
-      customerName: 'Skyline Towers',
-      contactPerson: 'Ms. Lakshmi Iyer',
-      email: 'lakshmi@skylinetowers.in',
-      phone: '+91 98765 43216',
-      proposalValue: 5800000,
-      sentDate: '2024-09-20',
-      expiryDate: '2024-10-20',
-      status: 'expired',
-      signatureMethod: 'email',
-      remindersSent: 5,
-      lastActivity: '2024-10-10'
+  const [signatures, setSignatures] = useState<ProposalSignature[]>([])
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const proposals = await cpqProposalService.findAllProposals()
+        const list = Array.isArray(proposals) ? proposals : []
+        const mapped: ProposalSignature[] = list.map((p: any) => {
+          const sentDate = p?.sentAt || p?.createdAt || ''
+          const signedDate = p?.respondedAt || p?.signedAt || p?.acceptedAt || undefined
+          const rawStatus = p?.signatureStatus || p?.status || 'pending'
+          const status: ProposalSignature['status'] =
+            ['pending', 'viewed', 'signed', 'declined', 'expired'].includes(rawStatus)
+              ? (rawStatus as ProposalSignature['status'])
+              : rawStatus === 'accepted'
+                ? 'signed'
+                : rawStatus === 'rejected'
+                  ? 'declined'
+                  : rawStatus === 'sent'
+                    ? 'pending'
+                    : 'pending'
+          return {
+            id: p?.id ?? '',
+            proposalNumber: p?.proposalNumber ?? '',
+            customerName: p?.customerName ?? '',
+            contactPerson: p?.contactPerson ?? '',
+            email: p?.contactEmail ?? p?.email ?? '',
+            phone: p?.contactPhone ?? p?.phone ?? '',
+            proposalValue: Number(p?.totalValue) || 0,
+            sentDate: typeof sentDate === 'string' ? sentDate.split('T')[0] : '',
+            viewedDate: p?.lastViewedAt ? String(p.lastViewedAt).split('T')[0] : undefined,
+            signedDate: signedDate ? String(signedDate).split('T')[0] : undefined,
+            expiryDate: p?.validUntil ? String(p.validUntil).split('T')[0] : '',
+            status,
+            signatureMethod: (p?.signatureMethod as ProposalSignature['signatureMethod']) || 'digital',
+            remindersSent: Number(p?.remindersSent) || 0,
+            lastActivity: typeof (p?.updatedAt || sentDate) === 'string' ? String(p?.updatedAt || sentDate).split('T')[0] : '',
+            ipAddress: p?.ipAddress,
+            deviceInfo: p?.deviceInfo,
+          }
+        })
+        if (active) setSignatures(mapped)
+      } catch (e) {
+        if (active) setSignatures([])
+      }
+    })()
+    return () => {
+      active = false
     }
-  ])
+  }, [])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -204,7 +138,7 @@ export default function CPQProposalsSignaturesPage() {
   const pending = signatures.filter(s => s.status === 'pending').length
   const signed = signatures.filter(s => s.status === 'signed').length
   const viewed = signatures.filter(s => s.status === 'viewed').length
-  const signatureRate = ((signed / totalSignatures) * 100).toFixed(1)
+  const signatureRate = (totalSignatures > 0 ? (signed / totalSignatures) * 100 : 0).toFixed(1)
   const totalValue = signatures.filter(s => s.status === 'signed').reduce((sum, s) => sum + s.proposalValue, 0)
 
   // Modal states

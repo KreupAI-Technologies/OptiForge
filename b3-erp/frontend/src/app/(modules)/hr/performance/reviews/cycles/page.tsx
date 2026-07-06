@@ -14,6 +14,7 @@ import {
     MoreHorizontal,
     ArrowRight
 } from 'lucide-react';
+import { HrMovementsService } from '@/services/hr-movements.service';
 
 interface ReviewCycle {
     id: string;
@@ -40,14 +41,8 @@ export default function ReviewCyclesPage() {
             setIsLoading(true);
             setLoadError(null);
             try {
-                const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-                const res = await fetch(`${base}/hr/transfers-promotions`, {
-                    headers: { 'x-company-id': 'test' },
-                    cache: 'no-store',
-                });
-                if (!res.ok) throw new Error('Failed to load review cycles');
-                const raw = await res.json();
-                const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
+                const raw = await HrMovementsService.getTransfersPromotions();
+                const rows: any[] = Array.isArray(raw) ? raw : [];
                 const mapped: ReviewCycle[] = rows.map((r) => ({
                     id: r?.id ?? '',
                     name: r?.name ?? r?.title ?? 'Review Cycle',

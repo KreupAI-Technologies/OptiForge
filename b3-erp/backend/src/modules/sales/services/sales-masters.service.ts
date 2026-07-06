@@ -899,6 +899,41 @@ export class SalesMastersService {
         });
     }
 
+    async findOrderByIdPrisma(id: string) {
+        const order = await this.prisma.salesOrder.findUnique({
+            where: { id },
+            include: {
+                items: { orderBy: { lineNumber: 'asc' } },
+                invoices: true,
+                deliveryNotes: true,
+                shipments: true,
+            },
+        });
+        if (!order) throw new NotFoundException(`Sales order ${id} not found`);
+        return order;
+    }
+
+    async getOrderStatsPrisma(companyId: string) {
+        const orders = await this.prisma.salesOrder.findMany({ where: { companyId } });
+        const byStatus = (status: string) => orders.filter((o) => o.status === status).length;
+        const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+        const paidAmount = orders.reduce((sum, o) => sum + (o.paidAmount || 0), 0);
+        return {
+            totalOrders: orders.length,
+            draftOrders: byStatus('draft'),
+            pendingOrders: byStatus('pending'),
+            confirmedOrders: byStatus('confirmed'),
+            inProductionOrders: byStatus('in_production'),
+            shippedOrders: byStatus('shipped'),
+            deliveredOrders: byStatus('delivered'),
+            cancelledOrders: byStatus('cancelled'),
+            totalRevenue,
+            averageOrderValue: orders.length ? totalRevenue / orders.length : 0,
+            paidAmount,
+            unpaidAmount: totalRevenue - paidAmount,
+        };
+    }
+
     async createOrderPrisma(data: any) {
         const count = await this.prisma.salesOrder.count({ where: { companyId: data.companyId } });
         const orderNumber = this.generateNumber('SO', count + 1);

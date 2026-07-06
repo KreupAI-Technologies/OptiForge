@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -178,8 +179,8 @@ export default function QualityControlViewPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('inspection');
 
-  // Mock data - Replace with API call
-  const inspection: QualityInspection = {
+  // Mock data - used as fallback default until/if the API returns a record
+  const mockInspection: QualityInspection = {
     id: params.id as string,
     qcNumber: 'QC-2025-00147',
     workOrderNumber: 'WO-2025-00523',
@@ -417,6 +418,50 @@ export default function QualityControlViewPage() {
     createdAt: '2025-10-15T14:30:00Z',
     updatedAt: '2025-10-15T16:15:00Z',
   };
+
+  const [inspection, setInspection] = useState<QualityInspection>(mockInspection);
+
+  useEffect(() => {
+    const id = params?.id as string;
+    if (!id) return;
+    const load = async () => {
+      try {
+        const res = await ProductionOrphanService.getNcr(id);
+        const rec = Array.isArray(res) ? res[0] : (res?.data ?? res);
+        if (rec && typeof rec === 'object') {
+          setInspection({
+            ...mockInspection,
+            ...rec,
+            testParameters: Array.isArray(rec.testParameters)
+              ? rec.testParameters
+              : mockInspection.testParameters,
+            defects: Array.isArray(rec.defects)
+              ? rec.defects
+              : mockInspection.defects,
+            equipmentUsed: Array.isArray(rec.equipmentUsed)
+              ? rec.equipmentUsed
+              : mockInspection.equipmentUsed,
+            activityLog: Array.isArray(rec.activityLog)
+              ? rec.activityLog
+              : mockInspection.activityLog,
+            attachments: Array.isArray(rec.attachments)
+              ? rec.attachments
+              : mockInspection.attachments,
+            referenceStandards:
+              rec.referenceStandards ?? mockInspection.referenceStandards,
+            environmentalConditions:
+              rec.environmentalConditions ??
+              mockInspection.environmentalConditions,
+            qualityCost: rec.qualityCost ?? mockInspection.qualityCost,
+          });
+        }
+      } catch {
+        // keep mock fallback on error
+      }
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params?.id]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

@@ -161,3 +161,46 @@ CREATE TABLE IF NOT EXISTS "estimation_overhead_costs" (
 
 CREATE INDEX IF NOT EXISTS "IDX_estimation_overhead_costs_company_cat"
   ON "estimation_overhead_costs" ("companyId", "category");
+
+-- ============================================================
+-- Report schedules (estimation/analytics/reports/schedule pages)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "estimation_report_schedules" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar(100) NOT NULL,
+  "reportType" varchar(255) NOT NULL,
+  "frequency" varchar(20) NOT NULL DEFAULT 'weekly',
+  "dayOfWeek" varchar(20) NULL,
+  "dayOfMonth" varchar(20) NULL,
+  "time" varchar(10) NOT NULL DEFAULT '09:00',
+  "format" varchar(20) NOT NULL DEFAULT 'pdf',
+  "recipients" jsonb NOT NULL DEFAULT '[]',
+  "isActive" boolean NOT NULL DEFAULT true,
+  "lastRunAt" timestamp NULL,
+  "nextRunAt" timestamp NULL,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_estimation_report_schedules" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_estimation_report_schedules_company"
+  ON "estimation_report_schedules" ("companyId", "isActive");
+
+-- ============================================================
+-- Estimate comments (estimation/workflow/pending/comments pages)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "estimation_comments" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "companyId" varchar(100) NOT NULL,
+  "estimateId" varchar(100) NOT NULL,
+  "authorId" varchar(100) NULL,
+  "authorName" varchar(255) NULL,
+  "message" text NOT NULL,
+  "commentType" varchar(30) NOT NULL DEFAULT 'comment',
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_estimation_comments" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_estimation_comments_estimate"
+  ON "estimation_comments" ("companyId", "estimateId");

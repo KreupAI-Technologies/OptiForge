@@ -292,13 +292,14 @@ export default function GLEntryEditPage() {
 
     setSaving(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Saving entry:', { ...entry, journalLines });
-      setSaving(false);
-      alert('Entry saved successfully!');
+    try {
+      await FinanceService.updateJournalEntry(entryId, { ...entry, journalLines });
       router.push('/finance/accounting');
-    }, 1500);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save entry');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {

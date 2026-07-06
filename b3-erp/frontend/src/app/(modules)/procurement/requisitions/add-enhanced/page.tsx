@@ -3,6 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  purchaseRequisitionService,
+  type CreatePurchaseRequisitionDto,
+  type PRPriority,
+} from '@/services/purchase-requisition.service';
+import {
   ArrowLeft,
   ArrowRight,
   Check,
@@ -337,19 +342,53 @@ export default function AddRequisitionEnhancedPage() {
     });
   };
 
-  const handleSubmit = () => {
-    if (validateStep(currentStep)) {
+  const buildRequisitionDto = (): CreatePurchaseRequisitionDto => {
+    const priorityMap: Record<string, PRPriority> = {
+      low: 'Low', medium: 'Medium', high: 'High', urgent: 'Urgent',
+    };
+    return {
+      title: form.purpose || form.prNumber,
+      description: form.notes || undefined,
+      department: form.department,
+      priority: priorityMap[form.priority] ?? 'Medium',
+      requiredDate: form.deliveryDate || new Date().toISOString().split('T')[0],
+      currency: form.currencyCode || 'INR',
+      justification: form.justification || undefined,
+      projectId: form.projectCode || undefined,
+      budgetCode: form.budgetCode || undefined,
+      items: form.items.map((it) => ({
+        itemId: it.itemCode,
+        quantity: Number(it.quantity ?? 0),
+        estimatedUnitPrice: Number(it.estimatedPrice ?? 0),
+        requiredDate: form.deliveryDate || new Date().toISOString().split('T')[0],
+        suggestedVendorId: it.vendor || undefined,
+        notes: it.notes || undefined,
+      })),
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep(currentStep)) return;
+    try {
+      const created = await purchaseRequisitionService.createRequisition(buildRequisitionDto());
+      await purchaseRequisitionService.submitRequisition((created as any).id);
       clearDraft();
-      console.log('Submitting requisition:', form);
       alert('Requisition submitted successfully!');
       router.push('/procurement/requisitions');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit requisition');
     }
   };
 
-  const handleSaveDraft = () => {
-    console.log('Saving draft:', form);
-    alert('Requisition saved as draft!');
-    router.push('/procurement/requisitions');
+  const handleSaveDraft = async () => {
+    try {
+      await purchaseRequisitionService.createRequisition(buildRequisitionDto());
+      clearDraft();
+      alert('Requisition saved as draft!');
+      router.push('/procurement/requisitions');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save requisition');
+    }
   };
 
   const handleCancel = () => {

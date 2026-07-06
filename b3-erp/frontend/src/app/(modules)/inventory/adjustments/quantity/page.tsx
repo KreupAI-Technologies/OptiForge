@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { inventoryService, AdjustmentReason } from '@/services/InventoryService';
 import {
   TrendingUp,
   TrendingDown,
@@ -37,10 +39,69 @@ interface QuantityAdjustment {
 }
 
 export default function QuantityAdjustmentsPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [reasons, setReasons] = useState<AdjustmentReason[]>([]);
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await inventoryService.getAdjustmentReasons({ status: 'Active' });
+        setReasons(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error('Failed to load adjustment reasons', e);
+        setReasons([]);
+      }
+    })();
+  }, []);
+
+  // Resolve a fetched reason code by (case-insensitive) name; fall back to the raw name.
+  const resolveReasonCode = (name: string): string => {
+    if (!reasons || reasons.length === 0) return name;
+    const match = reasons.find(
+      (r) => r.name?.toLowerCase() === name?.toLowerCase() || r.code?.toLowerCase() === name?.toLowerCase()
+    );
+    return match?.code ?? name;
+  };
+
+  // Create a real stock adjustment for a single quantity-adjustment row.
+  const handleCreateAdjustment = async (adj: QuantityAdjustment) => {
+    if (submittingId !== null) return;
+    setSubmittingId(adj.id);
+    try {
+      const payload = {
+        adjustmentType: 'Physical Inventory' as const,
+        adjustmentDate: adj.date || new Date().toISOString().split('T')[0],
+        warehouseId: adj.warehouse,
+        reason: resolveReasonCode(adj.reason),
+        remarks: adj.batchNumber ? `Batch: ${adj.batchNumber}` : '',
+        lines: [
+          {
+            lineNumber: 1,
+            itemId: adj.itemCode,
+            itemCode: adj.itemCode,
+            itemName: adj.itemName,
+            systemQuantity: adj.currentQty,
+            physicalQuantity: adj.adjustedQty,
+            uom: '',
+            adjustmentReason: resolveReasonCode(adj.reason),
+            remarks: adj.batchNumber ? `Batch: ${adj.batchNumber}` : '',
+          },
+        ],
+      };
+      await inventoryService.createStockAdjustment(payload);
+      router.push('/inventory/adjustments');
+    } catch (e) {
+      console.error('Failed to create stock adjustment', e);
+      alert('Failed to create stock adjustment. Please try again.');
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   const [adjustments, setAdjustments] = useState<QuantityAdjustment[]>([
     {
@@ -352,7 +413,11 @@ export default function QuantityAdjustmentsPage() {
                     </span>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm">
-                    <button className="text-blue-600 hover:text-blue-800 flex items-center space-x-1">
+                    <button
+                      onClick={() => handleCreateAdjustment(adj)}
+                      disabled={submittingId === adj.id}
+                      className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 disabled:opacity-50"
+                    >
                       <Eye className="w-4 h-4" />
                       <span>View</span>
                     </button>

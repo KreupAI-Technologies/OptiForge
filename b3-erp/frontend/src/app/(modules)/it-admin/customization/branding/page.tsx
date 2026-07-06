@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Upload, Palette, Type, Eye, RotateCcw } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface BrandingSettings {
   logo: {
@@ -65,6 +66,24 @@ export default function BrandingPage() {
     customCSS: '/* Custom CSS */\n.custom-class {\n  /* Your styles here */\n}'
   });
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const config = await ItAdminService.getConfigValue('it.branding');
+        const value = config?.value;
+        if (!cancelled && value && typeof value === 'object') {
+          setSettings(prev => ({ ...prev, ...(value as Partial<BrandingSettings>) }));
+        }
+      } catch {
+        // ignore; keep defaults
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleColorChange = (colorKey: keyof BrandingSettings['colors'], value: string) => {
     setSettings(prev => ({
       ...prev,
@@ -98,8 +117,12 @@ export default function BrandingPage() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    console.log('Saving branding settings:', settings);
+  const handleSave = async () => {
+    try {
+      await ItAdminService.setConfigValue('it.branding', settings);
+    } catch {
+      // best-effort persistence
+    }
     setHasChanges(false);
   };
 

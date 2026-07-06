@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Warehouse, MapPin, Phone, Mail, Package, Truck, Grid, List, Download, Upload, BarChart3, ThermometerSun } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface WarehouseLocation {
   id: string;
@@ -86,173 +87,13 @@ interface WarehouseLocation {
   updatedAt: string;
 }
 
-const mockWarehouses: WarehouseLocation[] = [
-  {
-    id: '1',
-    warehouseCode: 'WH-001',
-    warehouseName: 'Central Distribution Center',
-    warehouseType: 'main',
-    status: 'active',
-    address: {
-      line1: '100 Logistics Parkway',
-      line2: 'Building A',
-      city: 'Atlanta',
-      state: 'GA',
-      country: 'USA',
-      postalCode: '30301',
-      latitude: 33.7490,
-      longitude: -84.3880
-    },
-    contact: {
-      manager: 'Robert Chen',
-      phone: '+1-404-555-0100',
-      email: 'robert.chen@warehouse.com',
-      alternatePhone: '+1-404-555-0101'
-    },
-    capacity: {
-      totalArea: 50000,
-      areaUnit: 'sqft',
-      storageCapacity: 10000,
-      capacityUnit: 'pallets',
-      currentUtilization: 75,
-      rackingSystem: true,
-      numberOfBays: 12,
-      numberOfDocks: 8
-    },
-    operations: {
-      operatingHours: '6:00 AM - 10:00 PM',
-      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      shiftPattern: '2 Shifts',
-      staffCount: 45,
-      pickingMethod: 'fifo',
-      allowNegativeStock: false
-    },
-    zones: {
-      receivingArea: true,
-      quarantineArea: true,
-      qualityCheckArea: true,
-      packingArea: true,
-      shippingArea: true,
-      returnArea: true
-    },
-    facilities: {
-      temperatureControlled: false,
-      humidityControlled: false,
-      securitySystem: true,
-      fireProtection: true,
-      hasLoadingDock: true,
-      forkliftsAvailable: 8
-    },
-    inventory: {
-      totalItems: 15000,
-      totalValue: 2500000,
-      lastStockCount: '2024-01-10',
-      cycleCountFrequency: 'weekly'
-    },
-    costCenter: {
-      code: 'CC-WH001',
-      budgetAllocated: 500000,
-      operatingCost: 425000,
-      costPerSqft: 8.5
-    },
-    integration: {
-      wmsIntegrated: true,
-      barcodeEnabled: true,
-      rfidEnabled: false,
-      automationLevel: 'semi_automated'
-    },
-    createdAt: '2023-01-15',
-    updatedAt: '2024-01-15'
-  },
-  {
-    id: '2',
-    warehouseCode: 'WH-002',
-    warehouseName: 'Cold Storage Facility',
-    warehouseType: 'cold_storage',
-    status: 'active',
-    address: {
-      line1: '250 Freezer Lane',
-      city: 'Chicago',
-      state: 'IL',
-      country: 'USA',
-      postalCode: '60601',
-      latitude: 41.8781,
-      longitude: -87.6298
-    },
-    contact: {
-      manager: 'Sarah Miller',
-      phone: '+1-312-555-0200',
-      email: 'sarah.miller@warehouse.com'
-    },
-    capacity: {
-      totalArea: 25000,
-      areaUnit: 'sqft',
-      storageCapacity: 5000,
-      capacityUnit: 'pallets',
-      currentUtilization: 65,
-      rackingSystem: true,
-      numberOfBays: 6,
-      numberOfDocks: 4
-    },
-    operations: {
-      operatingHours: '24/7',
-      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-      shiftPattern: '3 Shifts',
-      staffCount: 30,
-      pickingMethod: 'fefo',
-      allowNegativeStock: false
-    },
-    zones: {
-      receivingArea: true,
-      quarantineArea: true,
-      qualityCheckArea: true,
-      packingArea: true,
-      shippingArea: true,
-      returnArea: false
-    },
-    facilities: {
-      temperatureControlled: true,
-      temperatureRange: {
-        min: -20,
-        max: 5,
-        unit: 'C'
-      },
-      humidityControlled: true,
-      securitySystem: true,
-      fireProtection: true,
-      hasLoadingDock: true,
-      forkliftsAvailable: 4
-    },
-    inventory: {
-      totalItems: 8000,
-      totalValue: 1800000,
-      lastStockCount: '2024-01-08',
-      cycleCountFrequency: 'monthly'
-    },
-    costCenter: {
-      code: 'CC-WH002',
-      budgetAllocated: 400000,
-      operatingCost: 380000,
-      costPerSqft: 15.2
-    },
-    integration: {
-      wmsIntegrated: true,
-      barcodeEnabled: true,
-      rfidEnabled: true,
-      automationLevel: 'semi_automated'
-    },
-    createdAt: '2023-03-20',
-    updatedAt: '2024-01-10'
-  }
-];
-
 const warehouseTypes = ['main', 'distribution', 'transit', 'cold_storage', 'bonded'];
 const pickingMethods = ['fifo', 'lifo', 'fefo', 'manual'];
 const cycleCountFrequencies = ['daily', 'weekly', 'monthly', 'quarterly'];
 const automationLevels = ['manual', 'semi_automated', 'fully_automated'];
 
 export default function WarehouseMaster() {
-  const [warehouses, setWarehouses] = useState<WarehouseLocation[]>(mockWarehouses);
+  const [warehouses, setWarehouses] = useState<WarehouseLocation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -260,6 +101,93 @@ export default function WarehouseMaster() {
   const [editingWarehouse, setEditingWarehouse] = useState<WarehouseLocation | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [activeTab, setActiveTab] = useState('basic');
+
+  const loadWarehouses = async () => {
+    try {
+      const data = await commonMastersService.getAllWarehouses();
+      const mapped: WarehouseLocation[] = data.map((w) => ({
+        id: w.id,
+        warehouseCode: w.warehouseCode,
+        warehouseName: w.warehouseName,
+        warehouseType: (w.warehouseType as WarehouseLocation['warehouseType']) || 'main',
+        status: (w.isActive === false ? 'inactive' : (w.status as WarehouseLocation['status']) || 'active'),
+        address: {
+          line1: w.addressLine1 || w.address || '',
+          line2: w.addressLine2 || '',
+          city: w.city || '',
+          state: w.state || '',
+          country: w.country || '',
+          postalCode: w.postalCode || ''
+        },
+        contact: {
+          manager: w.managerName || w.contactPerson || '',
+          phone: w.phone || '',
+          email: w.email || ''
+        },
+        capacity: {
+          totalArea: w.totalArea || 0,
+          areaUnit: (w.areaUnit as WarehouseLocation['capacity']['areaUnit']) || 'sqft',
+          storageCapacity: w.storageCapacity || 0,
+          capacityUnit: (w.capacityUnit as WarehouseLocation['capacity']['capacityUnit']) || 'pallets',
+          currentUtilization: w.currentUtilization || 0,
+          rackingSystem: false,
+          numberOfBays: 0,
+          numberOfDocks: 0
+        },
+        operations: {
+          operatingHours: '',
+          workingDays: [],
+          shiftPattern: '',
+          staffCount: 0,
+          pickingMethod: 'fifo',
+          allowNegativeStock: false
+        },
+        zones: {
+          receivingArea: false,
+          quarantineArea: false,
+          qualityCheckArea: false,
+          packingArea: false,
+          shippingArea: false,
+          returnArea: false
+        },
+        facilities: {
+          temperatureControlled: false,
+          humidityControlled: false,
+          securitySystem: false,
+          fireProtection: false,
+          hasLoadingDock: false,
+          forkliftsAvailable: 0
+        },
+        inventory: {
+          totalItems: 0,
+          totalValue: 0,
+          lastStockCount: '',
+          cycleCountFrequency: 'monthly'
+        },
+        costCenter: {
+          code: '',
+          budgetAllocated: 0,
+          operatingCost: 0,
+          costPerSqft: 0
+        },
+        integration: {
+          wmsIntegrated: false,
+          barcodeEnabled: false,
+          rfidEnabled: false,
+          automationLevel: 'manual'
+        },
+        createdAt: w.createdAt || '',
+        updatedAt: w.updatedAt || ''
+      }));
+      setWarehouses(mapped);
+    } catch (error) {
+      console.error('Failed to load warehouses:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadWarehouses();
+  }, []);
 
   const filteredWarehouses = warehouses.filter(warehouse => {
     const matchesSearch = warehouse.warehouseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -283,27 +211,47 @@ export default function WarehouseMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteWarehouse = (id: string) => {
+  const handleDeleteWarehouse = async (id: string) => {
     if (confirm('Are you sure you want to delete this warehouse?')) {
-      setWarehouses(warehouses.filter(warehouse => warehouse.id !== id));
+      try {
+        await commonMastersService.deleteWarehouse(id);
+        await loadWarehouses();
+      } catch (error) {
+        console.error('Failed to delete warehouse:', error);
+      }
     }
   };
 
-  const handleSaveWarehouse = (warehouseData: any) => {
-    if (editingWarehouse) {
-      setWarehouses(warehouses.map(warehouse =>
-        warehouse.id === editingWarehouse.id
-          ? { ...warehouse, ...warehouseData, updatedAt: new Date().toISOString().split('T')[0] }
-          : warehouse
-      ));
-    } else {
-      const newWarehouse: WarehouseLocation = {
-        id: Date.now().toString(),
-        ...warehouseData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setWarehouses([...warehouses, newWarehouse]);
+  const handleSaveWarehouse = async (warehouseData: any) => {
+    const addressParts = [
+      warehouseData.address?.line1,
+      warehouseData.address?.line2,
+      warehouseData.address?.city,
+      warehouseData.address?.state,
+      warehouseData.address?.postalCode,
+      warehouseData.address?.country
+    ].filter(Boolean);
+    const address = addressParts.join(', ');
+
+    try {
+      if (editingWarehouse) {
+        await commonMastersService.updateWarehouse(editingWarehouse.id, {
+          code: warehouseData.warehouseCode,
+          name: warehouseData.warehouseName,
+          address,
+          isActive: warehouseData.status !== 'inactive'
+        } as any);
+      } else {
+        await commonMastersService.createWarehouse({
+          code: warehouseData.warehouseCode,
+          name: warehouseData.warehouseName,
+          companyId: 'default-company-id',
+          address
+        });
+      }
+      await loadWarehouses();
+    } catch (error) {
+      console.error('Failed to save warehouse:', error);
     }
     setShowModal(false);
   };

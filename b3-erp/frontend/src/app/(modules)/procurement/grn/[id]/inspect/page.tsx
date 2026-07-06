@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { goodsReceiptService } from '@/services/goods-receipt.service'
 import {
   ArrowLeft,
   Save,
@@ -293,11 +294,30 @@ export default function GRNInspectionPage() {
     }
   }
 
-  const handleSaveDraft = () => {
-    console.log('Saving inspection draft...')
+  const buildQualityCheckPayload = () => ({
+    items: items.map((it) => ({
+      itemId: it.id,
+      result: (it.rejectedQty >= it.receivedQty
+        ? 'Failed'
+        : it.rejectedQty > 0
+          ? 'Conditional Pass'
+          : 'Passed') as 'Passed' | 'Failed' | 'Conditional Pass',
+      acceptedQuantity: Number(it.acceptedQty ?? 0),
+      rejectedQuantity: Number(it.rejectedQty ?? 0),
+      notes: it.remarks || undefined,
+    })),
+  })
+
+  const handleSaveDraft = async () => {
+    try {
+      await goodsReceiptService.qualityCheck(grnId, buildQualityCheckPayload())
+      alert('Inspection draft saved.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save inspection')
+    }
   }
 
-  const handleSubmitInspection = () => {
+  const handleSubmitInspection = async () => {
     const totals = calculateTotals()
     let status: 'approved' | 'rejected' | 'partial' = 'approved'
 
@@ -308,8 +328,16 @@ export default function GRNInspectionPage() {
     }
 
     setOverallStatus(status)
-    console.log('Submitting inspection with status:', status)
-    // router.push('/procurement/grn')
+    try {
+      await goodsReceiptService.qualityCheck(grnId, buildQualityCheckPayload())
+      if (status === 'approved') {
+        await goodsReceiptService.postToInventory(grnId)
+      }
+      alert('Inspection submitted successfully.')
+      router.push('/procurement/grn')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit inspection')
+    }
   }
 
   const totals = calculateTotals()

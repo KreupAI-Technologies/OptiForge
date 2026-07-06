@@ -53,36 +53,11 @@ const OPERATOR_OPTIONS = [
 ];
 
 // Mock existing segment data
-const mockSegmentData: SegmentFormData = {
-  name: 'Enterprise Customers',
-  description: 'Large organizations with over 500 employees and annual revenue exceeding $50M',
+const emptySegmentData: SegmentFormData = {
+  name: '',
+  description: '',
   status: 'active',
-  criteria: [
-    {
-      id: '1',
-      field: 'company_size',
-      operator: 'greater_than',
-      value: '500',
-    },
-    {
-      id: '2',
-      field: 'annual_revenue',
-      operator: 'greater_than',
-      value: '50000000',
-    },
-    {
-      id: '3',
-      field: 'contract_value',
-      operator: 'greater_than',
-      value: '10000',
-    },
-    {
-      id: '4',
-      field: 'active_duration',
-      operator: 'greater_than',
-      value: '6',
-    },
-  ],
+  criteria: [],
 };
 
 export default function EditSegmentPage() {
@@ -91,8 +66,8 @@ export default function EditSegmentPage() {
   const { addToast } = useToast();
   const segmentId = params.id as string;
 
-  const [formData, setFormData] = useState<SegmentFormData>(mockSegmentData);
-  const [estimatedCount, setEstimatedCount] = useState(156);
+  const [formData, setFormData] = useState<SegmentFormData>(emptySegmentData);
+  const [estimatedCount, setEstimatedCount] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -191,15 +166,26 @@ export default function EditSegmentPage() {
     setHasUnsavedChanges(true);
   };
 
-  const handleSave = () => {
-    // In a real application, this would send data to the backend API
-    addToast({
-      title: 'Segment Updated',
-      message: `"${formData.name}" has been updated successfully`,
-      variant: 'success'
-    });
-    setHasUnsavedChanges(false);
-    router.push(`/crm/customers/segments/${segmentId}`);
+  const handleSave = async () => {
+    try {
+      await crmService.customerSegments.update(segmentId, {
+        ...formData,
+        companyId: 'default-company-id',
+      } as any);
+      addToast({
+        title: 'Segment Updated',
+        message: `"${formData.name}" has been updated successfully`,
+        variant: 'success'
+      });
+      setHasUnsavedChanges(false);
+      router.push(`/crm/customers/segments/${segmentId}`);
+    } catch (err) {
+      addToast({
+        title: 'Error',
+        message: 'Failed to update segment. Please try again.',
+        variant: 'error'
+      });
+    }
   };
 
   const handleCancel = () => {

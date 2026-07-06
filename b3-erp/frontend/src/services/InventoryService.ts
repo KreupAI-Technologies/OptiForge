@@ -292,6 +292,191 @@ class InventoryService {
         const response = await apiClient.get<CycleCountSummary[]>(`/inventory/cycle-counts?${params.toString()}`);
         return this.unwrapArray(response) as CycleCountSummary[];
     }
+
+    async getCycleCount(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/cycle-counts/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Derived analytics (GET /inventory/analytics/*) ----
+    async getAgingItems(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/aging?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getDeadStock(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/dead-stock?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getVelocity(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/velocity?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getTurnover(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/turnover?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getCarryingCost(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/carrying-cost?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async getOptimization(warehouseId?: string): Promise<any> {
+        const params = new URLSearchParams();
+        if (warehouseId) params.append('warehouseId', warehouseId);
+        const response = await apiClient.get<any>(`/inventory/analytics/optimization?${params.toString()}`);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock entries create/update (Material Receipt/Issue), used by stock add/edit ----
+    async createStockEntry(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-entries', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateStockEntry(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/stock-entries/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateStockBalance(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/stock-balances/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock transfers ----
+    async getStockTransfer(id: string): Promise<any> {
+        const response = await apiClient.get<any>(`/inventory/stock-transfers/${id}`);
+        return (response as any)?.data ?? response;
+    }
+
+    async createStockTransfer(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-transfers', data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Stock adjustments ----
+    async createStockAdjustment(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-adjustments', data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Kitting (kits / assembly / disassembly) ----
+    async getKits(filters?: { status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/kitting/kits?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createKit(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/kitting/kits', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateKit(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/kitting/kits/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteKit(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/kitting/kits/${id}`);
+    }
+
+    async getAssemblyOrders(filters?: { status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/kitting/assembly?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createAssemblyOrder(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/kitting/assembly', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async getDisassemblyOrders(filters?: { status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/kitting/disassembly?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createDisassemblyOrder(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/kitting/disassembly', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateKittingOrder(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/kitting/orders/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    // ---- Inventory policies (settings/policies) ----
+    async getPolicies(filters?: { policyType?: string; status?: string; search?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.policyType) params.append('policyType', filters.policyType);
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.search) params.append('search', filters.search);
+        const response = await apiClient.get<any[]>(`/inventory/policies?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
+
+    async createPolicy(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/policies', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updatePolicy(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/policies/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deletePolicy(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/policies/${id}`);
+    }
+
+    // ---- Stock locations (settings/storage) ----
+    async createStockLocation(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/inventory/stock-locations', data);
+        return (response as any)?.data ?? response;
+    }
+
+    async updateStockLocation(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/inventory/stock-locations/${id}`, data);
+        return (response as any)?.data ?? response;
+    }
+
+    async deleteStockLocation(id: string): Promise<void> {
+        await apiClient.delete(`/inventory/stock-locations/${id}`);
+    }
+
+    // ---- Stock ledger (movements) ----
+    async getStockLedger(filters?: { itemId?: string; warehouseId?: string; fromDate?: string; toDate?: string }): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (filters?.itemId) params.append('itemId', filters.itemId);
+        if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
+        if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+        if (filters?.toDate) params.append('toDate', filters.toDate);
+        const response = await apiClient.get<any[]>(`/inventory/stock-entries/stock-ledger?${params.toString()}`);
+        return this.unwrapArray(response);
+    }
 }
 
 export const inventoryService = new InventoryService();

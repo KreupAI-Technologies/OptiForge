@@ -27,6 +27,7 @@ import {
   StockAgingData,
   ReorderAnalysisData
 } from '@/components/inventory/InventoryAnalyticsModals';
+import { inventoryService } from '@/services/InventoryService';
 
 interface Report {
   id: number;
@@ -213,123 +214,127 @@ export default function AnalyticsReportsPage() {
   });
 
   // Handler functions for modal generate actions
-  const handleTurnoverGenerate = (config: any) => {
-    console.log('Generating turnover analysis with config:', config);
-    // TODO: API call to generate turnover analysis
-    // const response = await fetch('/api/inventory/analytics/turnover', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setTurnoverResult(data);
-
-    // Mock result for demo
-    setTurnoverResult({
-      period: config.period,
-      startDate: config.startDate,
-      endDate: config.endDate,
-      warehouse: config.warehouse,
-      category: config.category,
-      items: [],
-      summary: {
-        avgTurnoverRatio: 5.8,
-        fastMovingCount: 12,
-        slowMovingCount: 8,
-        nonMovingCount: 3
-      }
-    });
-    setIsTurnoverModalOpen(false);
-    alert('Turnover analysis generated successfully!');
+  const handleTurnoverGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getTurnover(config?.warehouse);
+      const items = Array.isArray(res?.items) ? res.items : [];
+      setTurnoverResult({
+        period: config.period,
+        startDate: config.startDate,
+        endDate: config.endDate,
+        warehouse: config.warehouse,
+        category: config.category,
+        items: [],
+        summary: {
+          avgTurnoverRatio: res?.avgTurnoverRatio ?? 0,
+          fastMovingCount: items.filter((i: any) => i.classification === 'high').length,
+          slowMovingCount: items.filter((i: any) => i.classification === 'medium').length,
+          nonMovingCount: items.filter((i: any) => i.classification === 'low').length,
+        },
+      });
+    } catch {
+      /* leave prior result */
+    } finally {
+      setIsTurnoverModalOpen(false);
+    }
   };
 
-  const handleABCGenerate = (config: any) => {
-    console.log('Generating ABC analysis with config:', config);
-    // TODO: API call to generate ABC analysis
-    // const response = await fetch('/api/inventory/analytics/abc', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setABCResult(data);
-
-    setABCResult({
-      analysisDate: config.analysisDate,
-      warehouse: config.warehouse,
-      criteria: config.criteria,
-      items: [],
-      summary: {
-        aClassCount: 15,
-        bClassCount: 35,
-        cClassCount: 78,
-        aClassValue: 5600000,
-        bClassValue: 1800000,
-        cClassValue: 625000
-      }
-    });
-    setIsABCModalOpen(false);
-    alert('ABC analysis generated successfully!');
+  const handleABCGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getABCAnalysis(config?.warehouse);
+      setABCResult({
+        analysisDate: config.analysisDate,
+        warehouse: config.warehouse,
+        criteria: config.criteria,
+        items: [],
+        summary: {
+          aClassCount: res?.aClass?.count ?? 0,
+          bClassCount: res?.bClass?.count ?? 0,
+          cClassCount: res?.cClass?.count ?? 0,
+          aClassValue: res?.aClass?.value ?? 0,
+          bClassValue: res?.bClass?.value ?? 0,
+          cClassValue: res?.cClass?.value ?? 0,
+        },
+      });
+    } catch {
+      /* leave prior result */
+    } finally {
+      setIsABCModalOpen(false);
+    }
   };
 
-  const handleValuationGenerate = (config: any) => {
-    console.log('Generating valuation report with config:', config);
-    // TODO: API call to generate valuation report
-    // const response = await fetch('/api/inventory/analytics/valuation', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setValuationResult(data);
-
-    setValuationResult({
-      reportDate: config.reportDate,
-      warehouse: config.warehouse,
-      valuationMethod: config.valuationMethod,
-      items: [],
-      summary: {
-        totalItems: 378,
-        totalQuantity: 18450,
-        totalValue: 8025000,
-        byCategory: []
-      }
-    });
-    setIsValuationModalOpen(false);
-    alert('Valuation report generated successfully!');
+  const handleValuationGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getValuationReport(config?.warehouse, config?.reportDate);
+      setValuationResult({
+        reportDate: config.reportDate,
+        warehouse: config.warehouse,
+        valuationMethod: config.valuationMethod,
+        items: [],
+        summary: {
+          totalItems: res?.itemCount ?? 0,
+          totalQuantity: 0,
+          totalValue: res?.totalValue ?? 0,
+          byCategory: Array.isArray(res?.byCategory) ? res.byCategory : [],
+        },
+      });
+    } catch {
+      /* leave prior result */
+    } finally {
+      setIsValuationModalOpen(false);
+    }
   };
 
-  const handleAgingGenerate = (config: any) => {
-    console.log('Generating aging analysis with config:', config);
-    // TODO: API call to generate aging analysis
-    // const response = await fetch('/api/inventory/analytics/aging', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setAgingResult(data);
-
-    setAgingResult({
-      reportDate: config.reportDate,
-      warehouse: config.warehouse,
-      items: [],
-      summary: {
-        totalValue: 681300,
-        bucket_0_30: { quantity: 0, value: 0, percentage: 0 },
-        bucket_31_60: { quantity: 195, value: 66600, percentage: 9.8 },
-        bucket_61_90: { quantity: 67, value: 214400, percentage: 31.5 },
-        bucket_91_180: { quantity: 363, value: 194500, percentage: 28.5 },
-        bucket_180_plus: { quantity: 45, value: 202500, percentage: 29.7 }
-      }
-    });
-    setIsAgingModalOpen(false);
-    alert('Stock aging analysis generated successfully!');
+  const handleAgingGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getAgingItems(config?.warehouse);
+      const b = res?.summary?.buckets ?? {};
+      const total = res?.summary?.totalValue ?? 0;
+      const pct = (v: number) => (total > 0 ? Number(((v / total) * 100).toFixed(1)) : 0);
+      const mk = (bk: any) => ({ quantity: bk?.count ?? 0, value: bk?.value ?? 0, percentage: pct(bk?.value ?? 0) });
+      setAgingResult({
+        reportDate: config.reportDate,
+        warehouse: config.warehouse,
+        items: [],
+        summary: {
+          totalValue: total,
+          bucket_0_30: mk(b['0-30']),
+          bucket_31_60: mk(b['31-60']),
+          bucket_61_90: mk(b['61-90']),
+          bucket_91_180: mk(b['91-180']),
+          bucket_180_plus: mk(b['180+']),
+        },
+      });
+    } catch {
+      /* leave prior result */
+    } finally {
+      setIsAgingModalOpen(false);
+    }
   };
 
-  const handleReorderGenerate = (config: any) => {
-    console.log('Generating reorder analysis with config:', config);
-    // TODO: API call to generate reorder analysis
-    // const response = await fetch('/api/inventory/analytics/reorder', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setReorderResult(data);
-
-    setReorderResult({
-      analysisDate: config.analysisDate,
-      warehouse: config.warehouse,
-      items: [],
-      summary: {
-        criticalItems: 5,
-        highPriorityItems: 12,
-        totalReorderValue: 1250000
-      }
-    });
-    setIsReorderModalOpen(false);
-    alert('Reorder analysis generated successfully!');
+  const handleReorderGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getReorderAnalysis(config?.warehouse);
+      const items = Array.isArray(res?.itemsBelowReorder) ? res.itemsBelowReorder : [];
+      const totalReorderValue = items.reduce(
+        (s: number, i: any) => s + (i.shortage ?? 0) * (i.unitCost ?? 0),
+        0,
+      );
+      setReorderResult({
+        analysisDate: config.analysisDate,
+        warehouse: config.warehouse,
+        items: [],
+        summary: {
+          criticalItems: items.filter((i: any) => (i.currentQuantity ?? 0) <= 0).length,
+          highPriorityItems: items.length,
+          totalReorderValue,
+        },
+      });
+    } catch {
+      /* leave prior result */
+    } finally {
+      setIsReorderModalOpen(false);
+    }
   };
 
   return (

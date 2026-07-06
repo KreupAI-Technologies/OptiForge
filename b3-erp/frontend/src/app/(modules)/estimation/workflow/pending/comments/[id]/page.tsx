@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
+import { estimationCommentService } from '@/services/estimation-comment.service'
 import { ArrowLeft, Send, User, Calendar, MessageSquare } from 'lucide-react'
+
+const companyId = 'default-company-id'
 
 interface Comment {
   id: string
@@ -19,60 +23,93 @@ export default function EstimateCommentsPage() {
   const estimateId = params?.id as string
 
   const [newComment, setNewComment] = useState('')
-  const [comments] = useState<Comment[]>([
-    {
-      id: '1',
-      author: 'Amit Sharma',
-      role: 'Sales Executive',
-      message: 'Initial estimate submitted. Customer has requested premium Italian marble for countertops.',
-      timestamp: '2025-10-18 14:35',
-      type: 'comment'
-    },
-    {
-      id: '2',
-      author: 'Priya Kapoor',
-      role: 'Manager',
-      message: 'The pricing looks competitive. However, please verify the availability of Bosch appliances before approval.',
-      timestamp: '2025-10-18 16:20',
-      type: 'query'
-    },
-    {
-      id: '3',
-      author: 'Amit Sharma',
-      role: 'Sales Executive',
-      message: 'Confirmed with supplier - Bosch appliances are in stock. Delivery time: 2 weeks.',
-      timestamp: '2025-10-19 09:15',
-      type: 'comment'
-    }
-  ])
+  const [comments, setComments] = useState<Comment[]>([])
+  const [posting, setPosting] = useState(false)
 
-  // Mock estimate data
-  const estimateData = {
-    estimateNumber: 'EST-2025-0142',
-    projectName: 'Luxury Penthouse - Ultra Premium Kitchen',
-    customerName: 'DLF Limited',
-    estimatedValue: 8500000,
-    status: 'Pending Approval'
-  }
+  const [estimateData, setEstimateData] = useState({
+    estimateNumber: '',
+    projectName: '',
+    customerName: '',
+    estimatedValue: 0,
+    status: ''
+  })
+
+  const loadComments = useCallback(async () => {
+    if (!estimateId) return
+    try {
+      const data = await estimationCommentService.getComments(estimateId)
+      const list = Array.isArray(data) ? data : []
+      const allowed = ['comment', 'approval', 'rejection', 'query']
+      const mapped: Comment[] = list.map((c) => {
+        const rawType = (c.commentType || 'comment').toLowerCase()
+        const type = (allowed.includes(rawType) ? rawType : 'comment') as Comment['type']
+        return {
+          id: c.id,
+          author: c.authorName || 'Unknown',
+          role: '',
+          message: c.message,
+          timestamp: c.createdAt ? new Date(c.createdAt).toLocaleString() : '',
+          type,
+        }
+      })
+      setComments(mapped)
+    } catch (err) {
+      console.error('Failed to load comments:', err)
+      setComments([])
+    }
+  }, [estimateId])
+
+  useEffect(() => {
+    if (!estimateId) return
+    let mounted = true
+    const loadEstimate = async () => {
+      try {
+        const est = await costEstimateService.findOne(companyId, estimateId)
+        if (!mounted || !est) return
+        setEstimateData({
+          estimateNumber: est.estimateNumber || '',
+          projectName: est.title || '',
+          customerName: est.customerName || '',
+          estimatedValue: est.totalCost || 0,
+          status: est.status || '',
+        })
+      } catch (err) {
+        console.error('Failed to load estimate:', err)
+      }
+    }
+    loadEstimate()
+    loadComments()
+    return () => {
+      mounted = false
+    }
+  }, [estimateId, loadComments])
 
   const handleBack = () => {
     router.push(`/estimation/workflow/pending/view/${estimateId}`)
   }
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim()) {
       alert('Please enter a comment')
       return
     }
-
-    console.log('Adding comment:', {
-      estimateId,
-      message: newComment,
-      timestamp: new Date().toISOString()
-    })
-
-    setNewComment('')
-    // Would make API call here
+    if (posting) return
+    setPosting(true)
+    try {
+      await estimationCommentService.createComment({
+        estimateId,
+        message: newComment,
+        authorName: 'Current User',
+        commentType: 'comment',
+      })
+      setNewComment('')
+      await loadComments()
+    } catch (err) {
+      console.error('Failed to add comment:', err)
+      alert('Failed to post comment. Please try again.')
+    } finally {
+      setPosting(false)
+    }
   }
 
   const getCommentTypeColor = (type: string) => {
@@ -151,6 +188,12 @@ export default function EstimateCommentsPage() {
                   Discussion Thread ({comments.length})
                 </h2>
 
+                {comments.length === 0 && (
+                  <div className="rounded-lg border border-gray-200 bg-white p-6 text-center text-sm text-gray-500">
+                    No comments yet. Be the first to add one.
+                  </div>
+                )}
+
                 {comments.map((comment) => (
                   <div
                     key={comment.id}
@@ -202,10 +245,11 @@ export default function EstimateCommentsPage() {
                   <div className="flex justify-end">
                     <button
                       onClick={handleAddComment}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                      disabled={posting}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
                     >
                       <Send className="w-4 h-4" />
-                      Post Comment
+                      {posting ? 'Posting...' : 'Post Comment'}
                     </button>
                   </div>
                 </div>

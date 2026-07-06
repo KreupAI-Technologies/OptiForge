@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import {
   TrendingUp, TrendingDown, Calendar, DollarSign, Activity, AlertCircle,
   Download, Filter, RefreshCw, Plus, Minus, Eye, Settings, Bell,
@@ -41,7 +42,8 @@ export default function CashFlowManagement() {
   const [selectedPeriod, setSelectedPeriod] = useState('3-months');
   const [selectedView, setSelectedView] = useState('forecast');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [showNewEntry, setShowNewEntry] = useState(false);
 
@@ -60,122 +62,71 @@ export default function CashFlowManagement() {
     creditLineUsed: 1200000
   };
 
-  const cashFlowForecast: CashFlowForecast[] = [
-    {
-      period: 'Week 1',
-      beginningBalance: 12500000,
-      totalInflows: 3200000,
-      totalOutflows: 2800000,
-      netCashFlow: 400000,
-      endingBalance: 12900000,
-      confidence: 95
-    },
-    {
-      period: 'Week 2',
-      beginningBalance: 12900000,
-      totalInflows: 2800000,
-      totalOutflows: 3200000,
-      netCashFlow: -400000,
-      endingBalance: 12500000,
-      confidence: 92
-    },
-    {
-      period: 'Week 3',
-      beginningBalance: 12500000,
-      totalInflows: 4100000,
-      totalOutflows: 2900000,
-      netCashFlow: 1200000,
-      endingBalance: 13700000,
-      confidence: 88
-    },
-    {
-      period: 'Week 4',
-      beginningBalance: 13700000,
-      totalInflows: 3500000,
-      totalOutflows: 3800000,
-      netCashFlow: -300000,
-      endingBalance: 13400000,
-      confidence: 85
-    },
-    {
-      period: 'Month 2',
-      beginningBalance: 13400000,
-      totalInflows: 15200000,
-      totalOutflows: 14800000,
-      netCashFlow: 400000,
-      endingBalance: 13800000,
-      confidence: 78
-    },
-    {
-      period: 'Month 3',
-      beginningBalance: 13800000,
-      totalInflows: 16800000,
-      totalOutflows: 15600000,
-      netCashFlow: 1200000,
-      endingBalance: 15000000,
-      confidence: 72
-    }
-  ];
+  const [cashFlowForecast, setCashFlowForecast] = useState<CashFlowForecast[]>([]);
+  const [cashFlowEntries, setCashFlowEntries] = useState<CashFlowEntry[]>([]);
 
-  const cashFlowEntries: CashFlowEntry[] = [
-    {
-      id: '1',
-      date: '2024-10-21',
-      description: 'Customer Payment - TechCorp Industries',
-      category: 'Customer Payments',
-      type: 'inflow',
-      amount: 2500000,
-      status: 'projected',
-      probability: 95,
-      source: 'AR-2024-001',
-      reference: 'INV-2024-0234'
-    },
-    {
-      id: '2',
-      date: '2024-10-22',
-      description: 'Payroll - October 2024',
-      category: 'Payroll',
-      type: 'outflow',
-      amount: 1850000,
-      status: 'actual',
-      probability: 100,
-      source: 'Payroll System'
-    },
-    {
-      id: '3',
-      date: '2024-10-23',
-      description: 'Supplier Payment - Manufacturing Supplies',
-      category: 'Vendor Payments',
-      type: 'outflow',
-      amount: 680000,
-      status: 'pending',
-      probability: 100,
-      source: 'AP-2024-156',
-      reference: 'PO-2024-0445'
-    },
-    {
-      id: '4',
-      date: '2024-10-24',
-      description: 'Investment Income - Government Bonds',
-      category: 'Investment Income',
-      type: 'inflow',
-      amount: 125000,
-      status: 'projected',
-      probability: 98,
-      source: 'Investment Portfolio'
-    },
-    {
-      id: '5',
-      date: '2024-10-25',
-      description: 'Rent Payment - Head Office',
-      category: 'Operating Expenses',
-      type: 'outflow',
-      amount: 85000,
-      status: 'actual',
-      probability: 100,
-      source: 'Facilities Management'
+  const loadCashFlow = async (signal?: { cancelled: boolean }) => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await FinanceService.getCashFlowReport({})) as any;
+      const rows: any[] = Array.isArray(raw?.data)
+        ? raw.data
+        : Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.forecast)
+        ? raw.forecast
+        : [];
+
+      const forecast: CashFlowForecast[] = rows.map((r: any) => ({
+        period: r?.period ?? r?.month ?? r?.label ?? '',
+        beginningBalance: r?.beginningBalance ?? r?.openingBalance ?? 0,
+        totalInflows: r?.totalInflows ?? r?.inflows ?? r?.inflow ?? 0,
+        totalOutflows: r?.totalOutflows ?? r?.outflows ?? r?.outflow ?? 0,
+        netCashFlow: r?.netCashFlow ?? r?.net ?? 0,
+        endingBalance: r?.endingBalance ?? r?.closingBalance ?? 0,
+        confidence: r?.confidence ?? 0,
+      }));
+
+      const entrySource: any[] = Array.isArray(raw?.entries)
+        ? raw.entries
+        : Array.isArray(raw?.transactions)
+        ? raw.transactions
+        : [];
+      const entries: CashFlowEntry[] = entrySource.map((e: any, idx: number) => ({
+        id: String(e?.id ?? idx),
+        date: e?.date ?? '',
+        description: e?.description ?? '',
+        category: e?.category ?? '',
+        type: (e?.type === 'outflow' ? 'outflow' : 'inflow') as CashFlowEntry['type'],
+        amount: e?.amount ?? 0,
+        status: (e?.status ?? 'projected') as CashFlowEntry['status'],
+        probability: e?.probability ?? 0,
+        source: e?.source ?? '',
+        reference: e?.reference ?? '',
+      }));
+
+      if (!signal?.cancelled) {
+        setCashFlowForecast(forecast);
+        setCashFlowEntries(entries);
+        setLastUpdated(new Date());
+      }
+    } catch (err) {
+      if (!signal?.cancelled) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load');
+      }
+    } finally {
+      if (!signal?.cancelled) setIsLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    loadCashFlow(signal);
+    return () => {
+      signal.cancelled = true;
+    };
+  }, []);
 
   const cashFlowByCategory = [
     { name: 'Customer Payments', inflow: 18500000, outflow: 0, net: 18500000, color: '#10B981' },
@@ -249,10 +200,7 @@ export default function CashFlowManagement() {
   };
 
   const refreshData = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLastUpdated(new Date());
-    setIsLoading(false);
+    await loadCashFlow();
   };
 
   return (

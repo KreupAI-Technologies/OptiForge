@@ -248,4 +248,59 @@ export const ProductionOrphanService = {
 
   // GET production/resilience/supply-chain-risks (backs supply-chain vendor-risk view)
   getSupplyChainRisks: () => request<any[]>('/production/resilience/supply-chain-risks'),
+
+  // ---- Write methods (added for orphan-page TODO wiring) ----
+
+  // BOM (backs /production/bom, /production/bom/add|edit)
+  createBom: (body: any) => post<any>('/production/bom', body),
+  updateBom: (id: string, body: any) => put<any>(`/production/bom/${id}`, body),
+  deleteBom: (id: string) => del(`/production/bom/${id}`),
+
+  // Planned orders (backs /production/mrp/planned-orders)
+  createPlannedOrder: (body: any) => post<any>('/production/planned-orders', body),
+  releasePlannedOrder: (id: string) => post<any>(`/production/planned-orders/${id}/release`, {}),
+  firmPlannedOrder: (id: string) => post<any>(`/production/planned-orders/${id}/firm`, {}),
+
+  // Shortage records (backs /production/mrp/shortage)
+  createShortageRecord: (body: any) => post<any>('/production/shortage-records', body),
+  updateShortageRecord: (id: string, body: any) => put<any>(`/production/shortage-records/${id}`, body),
+  resolveShortageRecord: (id: string, body: any) => post<any>(`/production/shortage-records/${id}/resolve`, body),
+  escalateShortageRecord: (id: string, body: any) => post<any>(`/production/shortage-records/${id}/escalate`, body),
+
+  // Downtime records (backs /production/downtime, /production/downtime/log)
+  createDowntimeRecord: (body: any) => post<any>('/production/downtime-records', body),
+  updateDowntimeRecord: (id: string, body: any) => put<any>(`/production/downtime-records/${id}`, body),
+  endDowntimeRecord: (id: string, body: any) => post<any>(`/production/downtime-records/${id}/end`, body),
+
+  // Root cause analyses (backs /production/downtime/rca)
+  createRootCauseAnalysis: (body: any) => post<any>('/production/root-cause-analyses', body),
+  updateRootCauseAnalysis: (id: string, body: any) => put<any>(`/production/root-cause-analyses/${id}`, body),
+  deleteRootCauseAnalysis: (id: string) => del(`/production/root-cause-analyses/${id}`),
+  completeRootCauseAnalysis: (id: string, body: any) => post<any>(`/production/root-cause-analyses/${id}/complete`, body),
+  addRcaCorrectiveAction: (id: string, body: any) => post<any>(`/production/root-cause-analyses/${id}/corrective-action`, body),
+  verifyRootCauseAnalysis: (id: string, body: any) => post<any>(`/production/root-cause-analyses/${id}/verify`, body),
+
+  // NCR (backs /production/quality/ncr, /production/quality/add|edit)
+  updateNcr: (id: string, body: any) => put<any>(`/production/ncrs/${id}`, body),
+  deleteNcr: (id: string) => del(`/production/ncrs/${id}`),
+  getNcr: (id: string) => request<any>(`/production/ncrs/${id}`),
+
+  // Quality plans (backs /production/quality/plans)
+  updateQualityPlan: (id: string, body: any) => put<any>(`/production/quality-plans/${id}`, body),
+  deleteQualityPlan: (id: string) => del(`/production/quality-plans/${id}`),
+
+  // Shop floor control (backs /production/shopfloor)
+  reportShopFloorDowntime: (id: string, body: any) => post<any>(`/production/shop-floor-control/${id}/report-downtime`, body),
+
+  // Floor activities (backs /production/floor/view|edit)
+  updateFloorActivity: (id: string, body: any) => put<any>(`/production/floor-activities/${id}`, body),
+  getFloorActivity: (id: string) => request<any>(`/production/floor-activities/${id}`),
+
+  // Aggregate plans (backs /production/planning/aggregate)
+  getAggregatePlans: () => request<any[]>('/production/aggregate-plans'),
+  createAggregatePlan: (body: any) => post<any>('/production/aggregate-plans', body),
+
+  // Capacity plans (backs /production/capacity-planning)
+  getCapacityPlans: () => request<any[]>('/production/capacity-plans'),
+  createCapacityPlan: (body: any) => post<any>('/production/capacity-plans', body),
 };

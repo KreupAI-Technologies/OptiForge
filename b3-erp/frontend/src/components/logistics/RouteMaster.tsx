@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Plus, Search, Edit2, Trash2, Navigation, Clock, Eye, Download, Filter, Truck, Train, Plane, Ship, X } from 'lucide-react';
+import { routeService } from '@/services/route.service';
 
 interface RouteData {
   id: string;
@@ -27,123 +28,46 @@ export default function RouteMaster() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [routes, setRoutes] = useState<RouteData[]>([]);
 
-  const mockRoutes: RouteData[] = [
-    {
-      id: '1',
-      code: 'RTE-001',
-      name: 'Mumbai to Delhi Express',
-      origin: 'Mumbai',
-      destination: 'Delhi',
-      distance: 1400,
-      estimatedTime: '24 hours',
-      stops: ['Surat', 'Vadodara', 'Ahmedabad', 'Udaipur', 'Jaipur', 'Gurugram'],
-      mode: 'Road',
-      tollCharges: 1500,
-      fuelCost: 5600,
-      status: 'Active'
-    },
-    {
-      id: '2',
-      code: 'RTE-002',
-      name: 'Bangalore to Chennai Direct',
-      origin: 'Bangalore',
-      destination: 'Chennai',
-      distance: 350,
-      estimatedTime: '7 hours',
-      stops: ['Hosur', 'Krishnagiri', 'Vellore'],
-      mode: 'Road',
-      tollCharges: 250,
-      fuelCost: 1400,
-      status: 'Active'
-    },
-    {
-      id: '3',
-      code: 'RTE-003',
-      name: 'Delhi to Kolkata Rail Freight',
-      origin: 'Delhi',
-      destination: 'Kolkata',
-      distance: 1500,
-      estimatedTime: '36 hours',
-      stops: ['Kanpur', 'Allahabad', 'Varanasi', 'Patna', 'Asansol'],
-      mode: 'Rail',
-      tollCharges: 0,
-      fuelCost: 0,
-      status: 'Active'
-    },
-    {
-      id: '4',
-      code: 'RTE-004',
-      name: 'Mumbai to Bangalore Air Cargo',
-      origin: 'Mumbai',
-      destination: 'Bangalore',
-      distance: 840,
-      estimatedTime: '2 hours',
-      stops: [],
-      mode: 'Air',
-      tollCharges: 0,
-      fuelCost: 12000,
-      status: 'Active'
-    },
-    {
-      id: '5',
-      code: 'RTE-005',
-      name: 'Chennai to Port Blair Sea Route',
-      origin: 'Chennai',
-      destination: 'Port Blair',
-      distance: 1200,
-      estimatedTime: '72 hours',
-      stops: ['Visakhapatnam'],
-      mode: 'Sea',
-      tollCharges: 0,
-      fuelCost: 8500,
-      status: 'Active'
-    },
-    {
-      id: '6',
-      code: 'RTE-006',
-      name: 'Pune to Hyderabad Highway',
-      origin: 'Pune',
-      destination: 'Hyderabad',
-      distance: 565,
-      estimatedTime: '10 hours',
-      stops: ['Solapur', 'Vikarabad'],
-      mode: 'Road',
-      tollCharges: 450,
-      fuelCost: 2250,
-      status: 'Active'
-    },
-    {
-      id: '7',
-      code: 'RTE-007',
-      name: 'Ahmedabad to Jaipur Express',
-      origin: 'Ahmedabad',
-      destination: 'Jaipur',
-      distance: 650,
-      estimatedTime: '12 hours',
-      stops: ['Udaipur', 'Chittorgarh'],
-      mode: 'Road',
-      tollCharges: 550,
-      fuelCost: 2600,
-      status: 'Inactive'
-    },
-    {
-      id: '8',
-      code: 'RTE-008',
-      name: 'Kolkata to Guwahati Rail',
-      origin: 'Kolkata',
-      destination: 'Guwahati',
-      distance: 980,
-      estimatedTime: '28 hours',
-      stops: ['Malda', 'New Jalpaiguri', 'New Cooch Behar', 'New Alipurduar'],
-      mode: 'Rail',
-      tollCharges: 0,
-      fuelCost: 0,
-      status: 'Under Review'
-    }
-  ];
+  useEffect(() => {
+    const loadRoutes = async () => {
+      try {
+        const data = await routeService.getAllRoutes();
+        const list = Array.isArray(data) ? data : [];
+        const mapped: RouteData[] = list.map((r) => {
+          const durationMinutes = r.estimatedDuration || 0;
+          const estimatedTime = durationMinutes
+            ? `${Math.round(durationMinutes / 60)} hours`
+            : '';
+          const status = (r.status || 'Active') as RouteData['status'];
+          return {
+            id: r.id || '',
+            code: r.routeCode || '',
+            name: r.routeName || '',
+            origin: r.origin || '',
+            destination: r.destination || '',
+            distance: r.totalDistance || 0,
+            estimatedTime,
+            stops: Array.isArray(r.stops)
+              ? r.stops.map((s) => s.locationName || '')
+              : [],
+            mode: 'Road',
+            tollCharges: r.tollCost || 0,
+            fuelCost: r.fuelCostEstimate || 0,
+            status,
+          };
+        });
+        setRoutes(mapped);
+      } catch (error) {
+        console.error('Error loading routes:', error);
+        setRoutes([]);
+      }
+    };
+    loadRoutes();
+  }, []);
 
-  const filteredRoutes = mockRoutes.filter(route => {
+  const filteredRoutes = routes.filter(route => {
     const matchesSearch =
       route.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       route.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,12 +81,12 @@ export default function RouteMaster() {
   });
 
   const stats = {
-    total: mockRoutes.length,
-    active: mockRoutes.filter(r => r.status === 'Active').length,
-    totalDistance: mockRoutes.reduce((sum, r) => sum + r.distance, 0),
-    avgDistance: Math.round(mockRoutes.reduce((sum, r) => sum + r.distance, 0) / mockRoutes.length),
-    totalToll: mockRoutes.reduce((sum, r) => sum + r.tollCharges, 0),
-    totalFuelCost: mockRoutes.reduce((sum, r) => sum + r.fuelCost, 0)
+    total: routes.length,
+    active: routes.filter(r => r.status === 'Active').length,
+    totalDistance: routes.reduce((sum, r) => sum + r.distance, 0),
+    avgDistance: routes.length ? Math.round(routes.reduce((sum, r) => sum + r.distance, 0) / routes.length) : 0,
+    totalToll: routes.reduce((sum, r) => sum + r.tollCharges, 0),
+    totalFuelCost: routes.reduce((sum, r) => sum + r.fuelCost, 0)
   };
 
   const modeIcons = {

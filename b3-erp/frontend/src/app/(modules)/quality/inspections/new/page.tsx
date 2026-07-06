@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ClipboardCheck, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { inspectionService, type CreateInspectionDto } from '@/services/inspection.service';
 
 export default function CreateInspectionPage() {
     const router = useRouter();
@@ -43,21 +44,21 @@ export default function CreateInspectionPage() {
         e.preventDefault();
         setLoading(true);
 
-        const payload = {
-            ...formData,
-            lotQuantity: Number(formData.lotQuantity),
-            sampleSize: Number(formData.sampleSize),
-            itemId: formData.itemId || `ITEM-${Math.floor(Math.random() * 1000)}` // Mock ID if not provided
+        const payload: CreateInspectionDto = {
+            type: formData.inspectionType as CreateInspectionDto['type'],
+            productName: formData.itemName,
+            productCode: formData.itemCode,
+            productId: formData.itemId || undefined,
+            totalQuantity: Number(formData.lotQuantity),
+            sampledQuantity: Number(formData.sampleSize),
+            scheduledDate: new Date(formData.scheduledDate),
+            inspectorId: 'default-user-id',
+            inspectorName: formData.assignedToName || 'Unassigned',
+            notes: formData.description || undefined,
         };
 
         try {
-            const response = await fetch('/api/quality/inspection', { // Note: Controller path is 'quality/inspection' (singular)
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error('Failed to schedule inspection');
+            await inspectionService.createInspection(payload);
 
             addToast({
                 title: 'Success',

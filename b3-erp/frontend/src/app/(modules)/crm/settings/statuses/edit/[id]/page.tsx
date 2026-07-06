@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Circle, CheckCircle, XCircle, Clock, AlertCircle, Pause } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 interface StatusFormData {
   name: string;
@@ -53,20 +54,43 @@ export default function EditStatusPage() {
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    // In a real app, fetch the status data by ID
-    // For now, using mock data
-    setFormData({
-      name: 'Proposal Sent',
-      description: 'Proposal has been sent to customer',
-      category: 'opportunity',
-      color: '#8B5CF6',
-      type: 'in_progress',
-      icon: 'clock',
-      isActive: true,
-      isDefault: false,
-    });
+    if (!statusId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        // leadStatuses has no getById; fetch all and find by id.
+        const rows = asArray<any>(await crmService.leadStatuses.getAll());
+        const s = rows.find((r) => String(r?.id) === String(statusId));
+        if (!cancelled && s) {
+          setFormData({
+            name: s.name ?? '',
+            description: s.description ?? '',
+            category: (s.category ?? 'lead') as StatusFormData['category'],
+            color: s.color ?? '#3B82F6',
+            type: (s.type ?? 'open') as StatusFormData['type'],
+            icon: (s.icon ?? 'circle') as StatusFormData['icon'],
+            isActive: s.isActive ?? true,
+            isDefault: s.isDefault ?? false,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load status.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [statusId]);
 
   const handleChange = (field: keyof StatusFormData, value: any) => {
@@ -91,16 +115,32 @@ export default function EditStatusPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    // In a real app, send update request to API
-    console.log('Updating status:', statusId, formData);
-    router.push('/crm/settings/statuses');
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const payload: any = {
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+        color: formData.color,
+        type: formData.type,
+        icon: formData.icon,
+        isActive: formData.isActive,
+        isDefault: formData.isDefault,
+      };
+      await crmService.leadStatuses.update(statusId, payload);
+      router.push('/crm/settings/statuses');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update status. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -124,6 +164,25 @@ export default function EditStatusPage() {
           <h1 className="text-3xl font-bold text-gray-900">Edit Status</h1>
           <p className="text-gray-600 mt-2">Update the status configuration and settings</p>
         </div>
+
+        {isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading status…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
+        {submitError && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -327,10 +386,11 @@ export default function EditStatusPage() {
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              Update Status
+              {isSubmitting ? 'Updating…' : 'Update Status'}
             </button>
           </div>
         </form>

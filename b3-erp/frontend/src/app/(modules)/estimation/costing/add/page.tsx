@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { costEstimateService } from '@/services/estimation-cost-estimate.service';
 import {
   ArrowLeft,
   Save,
@@ -96,6 +97,8 @@ export default function AddCostingPage() {
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [savedProgress, setSavedProgress] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     calculateAllCosts();
@@ -224,22 +227,75 @@ export default function AddCostingPage() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSaveProgress = () => {
-    console.log('Saving progress:', formData);
-    setSavedProgress(true);
-    setTimeout(() => setSavedProgress(false), 2000);
+  const buildEstimatePayload = () => ({
+    title: formData.projectName,
+    description: formData.notes,
+    estimateType: 'Preliminary' as const,
+    currency: formData.currency,
+    customerName: formData.clientName,
+    boqId: formData.boqNumber,
+    materialCost: formData.totalMaterialCost ?? 0,
+    laborCost: formData.totalLaborCost ?? 0,
+    equipmentCost: formData.totalEquipmentCost ?? 0,
+    overheadCost: formData.totalOverheadCost ?? 0,
+    directCost: formData.subtotalCost ?? 0,
+    contingencyPercentage: formData.profitMarginPercent ?? 0,
+    totalCost: formData.totalCost ?? 0,
+  });
+
+  const buildItemsPayload = () =>
+    (Array.isArray(formData.items) ? formData.items : []).map((item, index) => ({
+      itemNumber: String(index + 1),
+      description: item.description,
+      category: item.category,
+      costType: (item.category === 'materials'
+        ? 'Material'
+        : item.category === 'labor'
+        ? 'Labor'
+        : item.category === 'equipment'
+        ? 'Equipment'
+        : 'Overhead') as 'Material' | 'Labor' | 'Equipment' | 'Overhead' | 'Subcontractor',
+      unit: item.unit,
+      quantity: item.quantity ?? 0,
+      unitCost: item.unitCost ?? 0,
+      totalCost: item.totalCost ?? 0,
+    }));
+
+  const handleSaveProgress = async () => {
+    setSubmitError(null);
+    try {
+      await costEstimateService.create(
+        'default-company-id',
+        buildEstimatePayload(),
+        buildItemsPayload()
+      );
+      setSavedProgress(true);
+      setTimeout(() => setSavedProgress(false), 2000);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to save progress');
+    }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(1) || !validateStep(2)) {
-      alert('Please complete all required fields');
+      setSubmitError('Please complete all required fields');
       setCurrentStep(1);
       return;
     }
 
-    console.log('Submitting Costing:', formData);
-    alert('Cost estimation created successfully!');
-    router.push('/estimation/costing');
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await costEstimateService.create(
+        'default-company-id',
+        buildEstimatePayload(),
+        buildItemsPayload()
+      );
+      router.push('/estimation/costing');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create cost estimation');
+      setIsSubmitting(false);
+    }
   };
 
   const steps = [
@@ -253,6 +309,11 @@ export default function AddCostingPage() {
     <div className="w-full h-screen flex flex-col bg-gray-50">
       <div className="flex-1 overflow-y-auto">
         <div className="px-3 py-2">
+          {submitError && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
           {/* Header */}
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -755,10 +816,11 @@ export default function AddCostingPage() {
             {currentStep === 4 && (
               <button
                 onClick={handleSubmit}
-                className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={isSubmitting}
+                className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
               >
                 <Send className="h-5 w-5" />
-                <span>Submit Costing</span>
+                <span>{isSubmitting ? 'Submitting...' : 'Submit Costing'}</span>
               </button>
             )}
           </div>

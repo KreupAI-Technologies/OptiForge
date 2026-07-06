@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -14,6 +14,7 @@ import {
   Filter,
   Calendar
 } from 'lucide-react';
+import { FinancialReportsService } from '@/services/financial-reports.service';
 
 interface CashFlowItem {
   current: number;
@@ -33,8 +34,8 @@ export default function CashFlowStatementPage() {
     financing: true
   });
 
-  // Sample cash flow data
-  const cashFlowData = {
+  // Sample cash flow data (seed; live data overlays top-level opening cash where available)
+  const INITIAL_CASH_FLOW_DATA = {
     operating: {
       netProfit: { current: 8500000, previous: 7200000 },
       adjustments: {
@@ -72,7 +73,43 @@ export default function CashFlowStatementPage() {
     }
   };
 
-  const openingCash = { current: 5200000, previous: 4100000 };
+  const [cashFlowData, setCashFlowData] = useState(INITIAL_CASH_FLOW_DATA);
+  const [openingCash, setOpeningCash] = useState({ current: 5200000, previous: 4100000 });
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), 0, 1);
+        const live = await FinancialReportsService.getCashFlow({ startDate: start, endDate: end });
+        if (!cancelled && live) {
+          // Live CashFlow shape differs from the nested seed used by the table.
+          // Overlay the beginning/opening cash total, which maps cleanly.
+          if (typeof live.beginningCash === 'number') {
+            setOpeningCash({
+              current: live.beginningCash,
+              previous:
+                typeof live.previousBeginningCash === 'number'
+                  ? live.previousBeginningCash
+                  : live.beginningCash,
+            });
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load report');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({

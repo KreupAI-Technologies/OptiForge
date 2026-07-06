@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   RefreshCw,
   CheckCircle,
@@ -31,78 +32,58 @@ interface ReconciliationAction {
 }
 
 export default function ReconciliationPage() {
-  const [reconciliationActions, setReconciliationActions] = useState<ReconciliationAction[]>([
-    {
-      id: 1,
-      itemCode: 'CP-089',
-      itemName: 'Gearbox Assembly 3:1',
-      variance: -8,
-      varianceValue: -68000,
-      uom: 'Nos',
-      action: 'investigate',
-      assignedTo: 'John Smith',
-      priority: 'high',
-      status: 'in-progress',
-      notes: 'Check production records for unreported issues',
-      dueDate: '2025-01-22'
-    },
-    {
-      id: 2,
-      itemCode: 'FG-201',
-      itemName: 'Motor Housing Complete',
-      variance: 7,
-      varianceValue: 24500,
-      uom: 'Nos',
-      action: 'adjust-inventory',
-      assignedTo: 'Sarah Johnson',
-      priority: 'medium',
-      status: 'pending',
-      notes: 'Verify GRN entries from last week',
-      dueDate: '2025-01-23'
-    },
-    {
-      id: 3,
-      itemCode: 'RM-045',
-      itemName: 'Copper Sheet 2mm',
-      variance: 18,
-      varianceValue: 16020,
-      uom: 'Kg',
-      action: 'adjust-inventory',
-      assignedTo: 'Mike Davis',
-      priority: 'high',
-      status: 'completed',
-      notes: 'Missing GRN entry found and corrected',
-      dueDate: '2025-01-21'
-    },
-    {
-      id: 4,
-      itemCode: 'RM-001',
-      itemName: 'Mild Steel Plate 10mm',
-      variance: -2,
-      varianceValue: -130,
-      uom: 'Kg',
-      action: 'adjust-inventory',
-      assignedTo: 'Emily Chen',
-      priority: 'low',
-      status: 'completed',
-      notes: 'Minor variance - system updated',
-      dueDate: '2025-01-21'
-    },
-    {
-      id: 5,
-      itemCode: 'CS-025',
-      itemName: 'Welding Rods 3mm',
-      variance: -5,
-      varianceValue: -225,
-      uom: 'Kg',
-      action: 'adjust-inventory',
-      assignedTo: 'Robert Lee',
-      priority: 'medium',
-      status: 'completed',
-      notes: 'Shop floor consumption recorded',
-      dueDate: '2025-01-21'
+  const [reconciliationActions, setReconciliationActions] = useState<ReconciliationAction[]>([]);
+
+  const loadReconciliation = async () => {
+    try {
+      const rows = await inventoryService.getCycleCounts();
+      if (!Array.isArray(rows)) {
+        setReconciliationActions([]);
+        return;
+      }
+      // Reconciliation is relevant for completed/reconciled counts or any with variances found.
+      const relevant = rows.filter(r =>
+        r?.status === 'completed' ||
+        r?.status === 'reconciled' ||
+        (Number(r?.variancesFound) || 0) > 0
+      );
+      const source = relevant.length > 0 ? relevant : rows;
+
+      const mapped: ReconciliationAction[] = source.map((r, idx) => {
+        const variance = Number(r?.variancesFound) || 0;
+        const status: ReconciliationAction['status'] =
+          r?.status === 'reconciled' || r?.status === 'completed'
+            ? 'completed'
+            : r?.status === 'in-progress'
+              ? 'in-progress'
+              : 'pending';
+        const priority: ReconciliationAction['priority'] =
+          variance > 10 ? 'high' : variance > 0 ? 'medium' : 'low';
+        return {
+          id: idx + 1,
+          itemCode: r?.countNumber ?? `CC-${idx + 1}`,
+          itemName: r?.title ?? [r?.warehouse, r?.zone].filter(Boolean).join(' / ') ?? 'Cycle Count',
+          variance,
+          varianceValue: 0,
+          uom: 'Items',
+          action: 'adjust-inventory',
+          assignedTo: r?.assignedTo ?? '-',
+          priority,
+          status,
+          notes: `${r?.itemsCounted ?? 0}/${r?.itemsToCount ?? 0} counted, ${variance} variance(s)`,
+          dueDate: r?.scheduledDate ?? '-',
+        };
+      });
+      setReconciliationActions(mapped);
+    } catch (err) {
+      console.error('Failed to load reconciliation data', err);
+      setReconciliationActions([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadReconciliation();
+  }, []);
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -149,7 +130,7 @@ export default function ReconciliationPage() {
   const completedActions = reconciliationActions.filter(a => a.status === 'completed').length;
   const pendingActions = reconciliationActions.filter(a => a.status === 'pending').length;
   const inProgressActions = reconciliationActions.filter(a => a.status === 'in-progress').length;
-  const completionRate = (completedActions / totalActions) * 100;
+  const completionRate = totalActions > 0 ? (completedActions / totalActions) * 100 : 0;
   const totalVarianceValue = reconciliationActions.reduce((sum, a) => sum + a.varianceValue, 0);
 
   return (
@@ -164,7 +145,7 @@ export default function ReconciliationPage() {
           <p className="text-gray-600 mt-1">Resolve variances and update inventory records</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
+          <button onClick={() => loadReconciliation()} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
             <Download className="w-4 h-4" />
             <span>Export Report</span>
           </button>

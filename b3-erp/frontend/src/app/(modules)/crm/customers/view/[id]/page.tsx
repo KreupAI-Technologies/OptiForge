@@ -213,161 +213,68 @@ interface Interaction {
 }
 
 // Mock customer data with comprehensive enterprise fields - ManufacturingOS India
-const mockCustomerSeed: Customer = {
-  id: '1',
-  // General Information
-  customerNumber: 'CUST-2023-0142',
-  customerName: 'Sharma Modular Kitchens Pvt Ltd',
-  legalName: 'Sharma Modular Kitchens Private Limited',
-  tradeName: 'Sharma Kitchens & Interiors',
+// Empty shape template used to guarantee a fully-populated Customer object
+// before the real record is loaded from the API on mount.
+const emptyCustomerSeed: Customer = {
+  id: '',
+  customerNumber: '',
+  customerName: '',
+  legalName: '',
+  tradeName: '',
   customerGroup: 'wholesale',
   customerClassification: 'A',
-  industrySector: 'Modular Kitchen Dealers',
-  companySize: '201-500',
-  annualRevenue: '₹25 Cr - ₹50 Cr',
-  udyamNumber: 'UDYAM-MH-12-1234567',
-  gstNumber: '27AAAAA0000A1Z5',
-  panNumber: 'AAAPL1234C',
-  tanNumber: 'MUMM12345A',
+  industrySector: '',
+  companySize: '',
+  annualRevenue: '',
+  udyamNumber: '',
+  gstNumber: '',
+  panNumber: '',
+  tanNumber: '',
   gstRegistrationType: 'regular',
-  website: 'https://www.sharmakitchens.co.in',
-  generalEmail: 'contact@sharmakitchens.co.in',
-  generalPhone: '+91-22-4567-8900',
+  website: '',
+  generalEmail: '',
+  generalPhone: '',
 
-  // Addresses
-  addresses: [
-    {
-      id: '1',
-      addressType: 'billing',
-      buildingFlat: 'Building 456, 3rd Floor',
-      localityArea: 'Andheri Industrial Estate',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pinCode: '400053',
-      country: 'India',
-      isDefaultBilling: true,
-      isDefaultShipping: false,
-    },
-    {
-      id: '2',
-      addressType: 'shipping',
-      buildingFlat: 'Godown No. 789',
-      localityArea: 'MIDC Bhiwandi',
-      city: 'Bhiwandi',
-      state: 'Maharashtra',
-      pinCode: '421302',
-      country: 'India',
-      isDefaultBilling: false,
-      isDefaultShipping: true,
-    },
-    {
-      id: '3',
-      addressType: 'warehouse',
-      buildingFlat: 'Warehouse 12',
-      localityArea: 'Turbhe MIDC',
-      city: 'Navi Mumbai',
-      state: 'Maharashtra',
-      pinCode: '400705',
-      country: 'India',
-      isDefaultBilling: false,
-      isDefaultShipping: false,
-    },
-  ],
+  addresses: [],
 
-  // Contacts
-  contacts: [
-    {
-      id: '1',
-      role: 'primary',
-      firstName: 'Rajesh',
-      lastName: 'Sharma',
-      title: 'Managing Director',
-      department: 'Executive',
-      email: 'rajesh@sharmakitchens.co.in',
-      phone: '+91-22-4567-8900',
-      mobile: '+91-98765-43210',
-      preferredContactMethod: 'email',
-      isPrimary: true,
-    },
-    {
-      id: '2',
-      role: 'billing',
-      firstName: 'Priya',
-      lastName: 'Sharma',
-      title: 'Finance Director',
-      department: 'Finance & Accounts',
-      email: 'priya.sharma@sharmakitchens.co.in',
-      phone: '+91-22-4567-8901',
-      mobile: '+91-98765-43211',
-      preferredContactMethod: 'email',
-      isPrimary: false,
-    },
-    {
-      id: '3',
-      role: 'technical',
-      firstName: 'Anil',
-      lastName: 'Patel',
-      title: 'Operations Head',
-      department: 'Operations',
-      email: 'anil.p@sharmakitchens.co.in',
-      phone: '+91-22-4567-8902',
-      mobile: '+91-98765-43212',
-      preferredContactMethod: 'phone',
-      isPrimary: false,
-    },
-    {
-      id: '4',
-      role: 'purchasing',
-      firstName: 'Sneha',
-      lastName: 'Deshmukh',
-      title: 'Purchase Manager',
-      department: 'Procurement',
-      email: 'sneha.d@sharmakitchens.co.in',
-      phone: '+91-22-4567-8903',
-      mobile: '+91-98765-43213',
-      preferredContactMethod: 'email',
-      isPrimary: false,
-    },
-  ],
+  contacts: [],
 
-  // Financial & Credit
-  creditLimit: 15000000,
-  creditUsed: 5500000,
-  availableCredit: 9500000,
+  creditLimit: 0,
+  creditUsed: 0,
+  availableCredit: 0,
   creditStatus: 'approved',
-  creditCheckRequired: true,
-  paymentTerms: 'Net 30 days',
-  paymentMethod: 'NEFT/RTGS',
-  dunningProcedure: 'Standard 30-60-90',
-  interestCalculation: true,
+  creditCheckRequired: false,
+  paymentTerms: '',
+  paymentMethod: '',
+  dunningProcedure: '',
+  interestCalculation: false,
   bankDetails: {
-    bankName: 'HDFC Bank',
-    accountNumber: '****6789',
-    ifscCode: 'HDFC0001234',
-    branchName: 'Andheri West, Mumbai',
-    upiId: 'sharmakitchens@hdfcbank',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    branchName: '',
+    upiId: '',
   },
   preferredCurrency: 'INR',
-  exchangeRateType: 'Standard',
-  priceListAssignment: 'B2B Dealers - Tier A',
-  discountGroup: 'High Volume - 15%',
-  taxClassification: 'GST Registered',
+  exchangeRateType: '',
+  priceListAssignment: '',
+  discountGroup: '',
+  taxClassification: '',
   taxExempt: false,
   taxExemptReason: '',
-  taxIdEin: '27AAAAA0000A1Z5',
+  taxIdEin: '',
 
-  // Sales & Marketing
-  salesOrganization: 'West Region - Mumbai',
-  distributionChannel: 'B2B Dealers',
-  division: 'Modular Kitchens',
-  salesOffice: 'Mumbai Head Office',
-  salesGroup: 'Maharashtra Region',
-  accountManager: 'Priya Patel',
-  salesRepresentative: 'Amit Desai',
-  territoryAssignment: 'Mumbai, Pune, Nashik',
-  customerHierarchy: 'Major Account - Tier 1',
-  marketSegment: 'Modular Kitchen Dealers',
-  preferredVendorStatus: true,
+  salesOrganization: '',
+  distributionChannel: '',
+  division: '',
+  salesOffice: '',
+  salesGroup: '',
+  accountManager: '',
+  salesRepresentative: '',
+  territoryAssignment: '',
+  customerHierarchy: '',
+  marketSegment: '',
+  preferredVendorStatus: false,
   abcClassificationSales: 'A',
   salesBlock: false,
   salesBlockReason: '',
@@ -375,126 +282,52 @@ const mockCustomerSeed: Customer = {
   deliveryBlockReason: '',
   billingBlock: false,
   billingBlockReason: '',
-  incoterms: 'Ex-Works (Factory)',
-  shippingConditions: 'Standard',
+  incoterms: '',
+  shippingConditions: '',
   deliveryPriority: 'high',
-  partialDeliveryAllowed: true,
-  maxPartialDeliveries: '3',
+  partialDeliveryAllowed: false,
+  maxPartialDeliveries: '',
 
-  // Logistics & Shipping
-  shippingMethod: 'Road Transport',
-  preferredCarrier: 'VRL Logistics',
-  freightTerms: 'Freight Paid',
-  shippingInstructions: 'Prefers morning deliveries between 9AM-12PM. Contact Mr. Anil at warehouse 24 hours before delivery.',
-  loadingUnloadingTimes: '9AM - 5PM',
-  dockHours: 'Monday-Saturday 9AM-6PM',
-  specialHandlingRequirements: 'Handle with care - Fragile kitchen components. Covered truck required.',
-  insuranceRequired: true,
-  warehouseAssignment: 'Bhiwandi Distribution Center',
-  deliveryTolerance: '5%',
-  pickingLocation: 'Zone B',
-  packingRequirements: 'Bubble wrap and wooden crating for glass items',
-  labelingRequirements: 'Customer PO# and GST details required on all labels',
-  routeSchedule: 'Monday/Wednesday delivery schedule',
-  deliveryDayPreferences: ['Monday', 'Wednesday'],
-  deliveryTimeWindow: '9AM - 12PM',
+  shippingMethod: '',
+  preferredCarrier: '',
+  freightTerms: '',
+  shippingInstructions: '',
+  loadingUnloadingTimes: '',
+  dockHours: '',
+  specialHandlingRequirements: '',
+  insuranceRequired: false,
+  warehouseAssignment: '',
+  deliveryTolerance: '',
+  pickingLocation: '',
+  packingRequirements: '',
+  labelingRequirements: '',
+  routeSchedule: '',
+  deliveryDayPreferences: [],
+  deliveryTimeWindow: '',
 
-  // Additional Information
-  customerSince: '2023-06-15',
+  customerSince: '',
   accountStatus: 'active',
   businessRelationshipType: 'b2b',
   customerLifecycleStage: 'mature',
   riskRating: 'low',
-  complianceStatus: 'Compliant',
-  certificationsRequired: ['ISO 9001:2015', 'BIS Certification', 'FSC Certified'],
-  contractNumber: 'CONTRACT-2023-0142',
-  contractStartDate: '2023-06-15',
-  contractEndDate: '2026-06-14',
-  serviceLevelAgreement: '24-hour order processing, 3-day delivery within Maharashtra',
-  specialInstructions: 'Prefers morning deliveries between 9AM-12PM. Contact Mr. Anil at warehouse 24 hours before delivery. Ensure GST invoice accompanies shipment.',
-  internalNotes: 'High-value B2B dealer with excellent payment history. Approved for expedited processing. Key customer in Maharashtra region.',
-  tags: ['VIP Customer', 'High Volume', 'Premium Tier', 'Maharashtra Dealer'],
-  attachments: ['contract_2023_0142.pdf', 'gst_certificate.pdf', 'udyam_registration.pdf', 'pan_card.pdf'],
-  customFields: [
-    { key: 'Previous Supplier', value: 'Local Kitchen Manufacturers' },
-    { key: 'Referral Source', value: 'Acetech Mumbai 2023' },
-    { key: 'Annual Volume Commitment', value: '₹1.5 Cr' },
-  ],
-  dataPrivacyConsent: true,
-  marketingConsent: true,
+  complianceStatus: '',
+  certificationsRequired: [],
+  contractNumber: '',
+  contractStartDate: '',
+  contractEndDate: '',
+  serviceLevelAgreement: '',
+  specialInstructions: '',
+  internalNotes: '',
+  tags: [],
+  attachments: [],
+  customFields: [],
+  dataPrivacyConsent: false,
+  marketingConsent: false,
 
-  // Legacy fields
-  lifetimeValue: 8500000,
-  totalOrders: 15,
-  lastOrderDate: '2025-10-05',
+  lifetimeValue: 0,
+  totalOrders: 0,
+  lastOrderDate: '',
 };
-
-// Mock orders data - ManufacturingOS India
-const mockOrdersSeed: Order[] = [
-  { id: '1', orderNumber: 'ORD-2025-1234', date: '2025-10-05', amount: 785000, status: 'paid', items: 45 },
-  { id: '2', orderNumber: 'ORD-2025-1189', date: '2025-09-28', amount: 625000, status: 'paid', items: 32 },
-  { id: '3', orderNumber: 'ORD-2025-1145', date: '2025-09-15', amount: 945000, status: 'pending', items: 58 },
-  { id: '4', orderNumber: 'ORD-2025-1098', date: '2025-08-22', amount: 485000, status: 'paid', items: 28 },
-  { id: '5', orderNumber: 'ORD-2025-1056', date: '2025-08-10', amount: 850000, status: 'overdue', items: 41 },
-  { id: '6', orderNumber: 'ORD-2025-1023', date: '2025-07-18', amount: 725000, status: 'paid', items: 37 },
-  { id: '7', orderNumber: 'ORD-2025-0987', date: '2025-07-05', amount: 595000, status: 'paid', items: 33 },
-];
-
-// Mock interactions - ManufacturingOS India
-const mockInteractionsSeed: Interaction[] = [
-  {
-    id: '1',
-    type: 'call',
-    title: 'Diwali Season Order Planning Discussion',
-    description: 'Discussed upcoming festive season bulk order requirements. Customer planning to increase order volume by 30% for Diwali season. Requested custom modular kitchen designs for luxury segment.',
-    performedBy: 'Priya Patel',
-    date: '2025-10-10 14:30',
-    outcome: 'Positive',
-  },
-  {
-    id: '2',
-    type: 'site_visit',
-    title: 'Factory Visit and Quality Inspection',
-    description: 'Customer representatives Mr. Rajesh and team visited our manufacturing facility in Bhiwandi. Toured production floor, quality control, and finishing department. Very impressed with new CNC machines and finish quality.',
-    performedBy: 'Amit Desai',
-    date: '2025-10-08 10:00',
-    outcome: 'Very Positive',
-  },
-  {
-    id: '3',
-    type: 'email',
-    title: 'GST Invoice and Payment Confirmation',
-    description: 'Sent payment confirmation for invoice INV-2025-1234. Payment of ₹7,85,000 received via NEFT. GST invoice shared. Updated account status.',
-    performedBy: 'Accounts Team',
-    date: '2025-10-06 09:15',
-  },
-  {
-    id: '4',
-    type: 'meeting',
-    title: 'New Product Range Review Meeting',
-    description: 'Meeting at customer showroom to review new 2025 modular kitchen range. Customer interested in premium German hardware collection and customized finishes. Discussed volume pricing for bulk orders.',
-    performedBy: 'Priya Patel',
-    date: '2025-09-25 15:00',
-    outcome: 'Interested',
-  },
-  {
-    id: '5',
-    type: 'call',
-    title: 'Delivery Schedule for Maharashtra',
-    description: 'Coordinated delivery schedule for September orders to Mumbai and Pune locations. Customer requested morning slots (9AM-12PM) for next three shipments. Confirmed with VRL Logistics.',
-    performedBy: 'Logistics Team',
-    date: '2025-09-20 11:30',
-    outcome: 'Resolved',
-  },
-  {
-    id: '6',
-    type: 'email',
-    title: 'Credit Limit Enhancement Approved',
-    description: 'Approved credit limit increase from ₹1 Cr to ₹1.5 Cr based on excellent payment history and growing business. Customer notified via email with updated credit terms.',
-    performedBy: 'Finance Team',
-    date: '2025-09-15 08:45',
-  },
-];
 
 const statusColors = {
   active: 'bg-green-100 text-green-700 border-green-200',
@@ -528,7 +361,7 @@ export default function ViewCustomerPage() {
   const { addToast } = useToast();
   const customerId = params.id as string;
 
-  const [customer, setCustomer] = useState<Customer>(mockCustomerSeed);
+  const [customer, setCustomer] = useState<Customer>(emptyCustomerSeed);
   const [orders, setOrders] = useState<Order[]>([]);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -544,18 +377,39 @@ export default function ViewCustomerPage() {
         // (a) primary entity
         const raw = await crmService.customers.getById(customerId);
         if (!cancelled && raw && typeof raw === 'object') {
-          setCustomer({ ...mockCustomerSeed, ...(raw as any), id: (raw as any).id ?? customerId });
+          setCustomer({ ...emptyCustomerSeed, ...(raw as any), id: (raw as any).id ?? customerId });
         }
 
         // (b) related lists — no dedicated orders/invoices endpoint exists,
         // so "orders" is fed from the customer's quotes; the activity
-        // timeline from the customer's CRM activities.
-        const [quotesRaw, activitiesRaw] = await Promise.all([
+        // timeline from the customer's CRM activities. Contacts are pulled
+        // from the CRM contacts endpoint scoped to this customer.
+        const [quotesRaw, activitiesRaw, contactsRaw] = await Promise.all([
           crmService.customers.getQuotes(customerId).catch(() => []),
           crmService.customers.getActivities(customerId).catch(() => []),
+          crmService.customers.getContacts(customerId).catch(() => []),
         ]);
 
         if (!cancelled) {
+          const contacts = Array.isArray(contactsRaw) ? contactsRaw : [];
+          if (contacts.length) {
+            setCustomer((prev) => ({
+              ...prev,
+              contacts: contacts.map((c: any, i: number) => ({
+                id: c.id ?? String(i),
+                role: c.role ?? 'primary',
+                firstName: c.firstName ?? '',
+                lastName: c.lastName ?? '',
+                title: c.title ?? c.jobTitle ?? '',
+                department: c.department ?? '',
+                email: c.email ?? '',
+                phone: c.phone ?? '',
+                mobile: c.mobile ?? '',
+                preferredContactMethod: c.preferredContactMethod ?? 'email',
+                isPrimary: Boolean(c.isPrimary),
+              })),
+            }));
+          }
           setOrders(
             (quotesRaw as any[]).map((q, i) => ({
               id: q.id ?? String(i),

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,18 +17,58 @@ import {
     AlertTriangle,
     DollarSign
 } from 'lucide-react';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface CustomerGrowthData {
+    totalCustomers: number;
+    newCustomers: number;
+    churnRate: number;
+    ltv: number;
+    retentionRate: number;
+    growthRate: number;
+}
+
+const DEFAULT_DATA: CustomerGrowthData = {
+    totalCustomers: 1250,
+    newCustomers: 45,
+    churnRate: 2.5,
+    ltv: 15000,
+    retentionRate: 97.5,
+    growthRate: 12.4
+};
 
 export default function CustomerGrowthReport() {
     const router = useRouter();
+    const [data, setData] = useState<CustomerGrowthData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalCustomers: 1250,
-        newCustomers: 45,
-        churnRate: 2.5,
-        ltv: 15000,
-        retentionRate: 97.5,
-        growthRate: 12.4
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<CustomerGrowthData>>('crm.customers');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalCustomers: Number(payload.totalCustomers ?? DEFAULT_DATA.totalCustomers),
+                        newCustomers: Number(payload.newCustomers ?? DEFAULT_DATA.newCustomers),
+                        churnRate: Number(payload.churnRate ?? DEFAULT_DATA.churnRate),
+                        ltv: Number(payload.ltv ?? DEFAULT_DATA.ltv),
+                        retentionRate: Number(payload.retentionRate ?? DEFAULT_DATA.retentionRate),
+                        growthRate: Number(payload.growthRate ?? DEFAULT_DATA.growthRate),
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden bg-gray-50">
@@ -59,6 +99,8 @@ export default function CustomerGrowthReport() {
 
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+                {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <Card

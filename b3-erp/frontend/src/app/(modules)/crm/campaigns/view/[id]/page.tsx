@@ -29,85 +29,6 @@ interface Campaign {
   channels?: string[];
 }
 
-const mockCampaigns: Campaign[] = [
-  {
-    id: '1',
-    name: 'Summer Product Launch',
-    type: 'email',
-    status: 'active',
-    startDate: '2024-10-01',
-    endDate: '2024-10-31',
-    budget: 50000,
-    spent: 32500,
-    audience: 15000,
-    sent: 12000,
-    delivered: 11880,
-    opened: 4752,
-    clicked: 1426,
-    converted: 85,
-    revenue: 170000,
-    owner: 'Sarah Johnson',
-    description: 'Launch campaign for our new summer product line featuring email campaigns, social media promotion, and influencer partnerships.',
-    goals: [
-      'Generate 100+ qualified leads',
-      'Achieve 40% email open rate',
-      'Drive $150k in revenue',
-      'Build brand awareness'
-    ],
-    channels: ['Email', 'Social Media', 'Blog', 'Paid Ads']
-  },
-  {
-    id: '2',
-    name: 'Customer Retention Program',
-    type: 'email',
-    status: 'active',
-    startDate: '2024-09-15',
-    budget: 30000,
-    spent: 18750,
-    audience: 8500,
-    sent: 6800,
-    delivered: 6732,
-    opened: 2693,
-    clicked: 943,
-    converted: 47,
-    revenue: 94000,
-    owner: 'Michael Chen',
-    description: 'Multi-touch email campaign targeting existing customers to increase retention and upsell premium features.',
-    goals: [
-      'Reduce churn by 15%',
-      'Increase customer lifetime value',
-      'Drive upgrade conversions',
-      'Improve customer satisfaction'
-    ],
-    channels: ['Email', 'In-App Messages', 'Push Notifications']
-  },
-  {
-    id: '3',
-    name: 'Q4 Webinar Series',
-    type: 'webinar',
-    status: 'paused',
-    startDate: '2024-10-10',
-    budget: 15000,
-    spent: 4500,
-    audience: 5600,
-    sent: 2800,
-    delivered: 2758,
-    opened: 828,
-    clicked: 248,
-    converted: 12,
-    revenue: 24000,
-    owner: 'Emily Rodriguez',
-    description: 'Educational webinar series showcasing industry best practices and our platform capabilities.',
-    goals: [
-      'Host 4 webinars',
-      'Achieve 200+ attendees per session',
-      'Generate 50 SQLs',
-      'Position as thought leader'
-    ],
-    channels: ['Email', 'LinkedIn', 'Website']
-  }
-];
-
 export default function CampaignViewPage() {
   const router = useRouter();
   const params = useParams();
@@ -270,18 +191,30 @@ export default function CampaignViewPage() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
-    router.push('/crm/campaigns');
+  const confirmDelete = async () => {
+    try {
+      await crmService.campaigns.delete(campaignId);
+    } catch {
+      // Navigate back regardless; server-side deletion failure is surfaced elsewhere
+    } finally {
+      setShowDeleteDialog(false);
+      router.push('/crm/campaigns');
+    }
   };
 
-  const handleStatusToggle = () => {
-    // This would update the status in a real application
-    setCampaign((prev) => {
-      if (!prev) return prev;
-      if (prev.status === 'active') return { ...prev, status: 'paused' };
-      if (prev.status === 'paused') return { ...prev, status: 'active' };
-      return prev;
-    });
+  const handleStatusToggle = async () => {
+    if (!campaign) return;
+    const nextStatus: Campaign['status'] =
+      campaign.status === 'active' ? 'paused' : campaign.status === 'paused' ? 'active' : campaign.status;
+    if (nextStatus === campaign.status) return;
+    // Optimistic update
+    setCampaign((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+    try {
+      await crmService.campaigns.update(campaignId, { status: nextStatus } as any);
+    } catch {
+      // Revert on failure
+      setCampaign((prev) => (prev ? { ...prev, status: campaign.status } : prev));
+    }
   };
 
   const roi = calculateROI(campaign.revenue, campaign.spent);

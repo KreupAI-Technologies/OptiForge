@@ -776,7 +776,7 @@ export default function ViewRequisitionPage() {
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Linked RFQ</p>
                     {requisition.linkedRFQ ? (
                       <button
-                        onClick={() => alert(`View linked RFQ ${requisition.linkedRFQ} - Feature coming soon`)}
+                        onClick={() => router.push('/procurement/rfq-rfp')}
                         className="text-sm text-blue-600 hover:underline font-semibold"
                       >
                         {requisition.linkedRFQ}
@@ -789,7 +789,7 @@ export default function ViewRequisitionPage() {
                     <p className="text-xs font-medium text-gray-500 uppercase mb-1">Linked PO</p>
                     {requisition.linkedPO ? (
                       <button
-                        onClick={() => alert(`View linked PO ${requisition.linkedPO} - Feature coming soon`)}
+                        onClick={() => router.push('/procurement/purchase-orders')}
                         className="text-sm text-blue-600 hover:underline font-semibold"
                       >
                         {requisition.linkedPO}

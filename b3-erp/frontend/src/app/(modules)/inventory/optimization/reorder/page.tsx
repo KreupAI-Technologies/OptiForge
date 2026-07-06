@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, TrendingUp, Calculator, Save, RefreshCw, Download, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
 import {
   ReorderAnalysisModal,
   ReorderAnalysisData
 } from '@/components/inventory/InventoryAnalyticsModals';
+import { inventoryService } from '@/services/InventoryService';
 
 interface ReorderPointData {
   id: string;
@@ -36,144 +37,48 @@ export default function ReorderOptimizationPage() {
   const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
   const [reorderResult, setReorderResult] = useState<ReorderAnalysisData | null>(null);
 
-  const reorderData: ReorderPointData[] = [
-    {
-      id: '1',
-      itemCode: 'RM-001',
-      itemName: 'Steel Sheet 1mm',
-      category: 'Raw Material',
-      currentROP: 120,
-      suggestedROP: 145,
-      variance: 25,
-      avgDailyDemand: 15,
-      leadTimeDays: 7,
-      demandStdDev: 4.2,
-      serviceLevel: 95,
-      safetyStock: 40,
-      uom: 'Sheets',
-      currentStock: 450,
-      status: 'too-low'
-    },
-    {
-      id: '2',
-      itemCode: 'CP-045',
-      itemName: 'Hydraulic Cylinder',
-      category: 'Component',
-      currentROP: 15,
-      suggestedROP: 18,
-      variance: 3,
-      avgDailyDemand: 1,
-      leadTimeDays: 14,
-      demandStdDev: 0.5,
-      serviceLevel: 95,
-      safetyStock: 4,
-      uom: 'Nos',
-      currentStock: 12,
-      status: 'too-low'
-    },
-    {
-      id: '3',
-      itemCode: 'RM-089',
-      itemName: 'Aluminum Rod 20mm',
-      category: 'Raw Material',
-      currentROP: 75,
-      suggestedROP: 72,
-      variance: -3,
-      avgDailyDemand: 12,
-      leadTimeDays: 5,
-      demandStdDev: 2.8,
-      serviceLevel: 95,
-      safetyStock: 12,
-      uom: 'Pcs',
-      currentStock: 78,
-      status: 'optimal'
-    },
-    {
-      id: '4',
-      itemCode: 'CS-023',
-      itemName: 'Cutting Oil Premium',
-      category: 'Consumable',
-      currentROP: 40,
-      suggestedROP: 32,
-      variance: -8,
-      avgDailyDemand: 5,
-      leadTimeDays: 3,
-      demandStdDev: 1.2,
-      serviceLevel: 95,
-      safetyStock: 7,
-      uom: 'Liters',
-      currentStock: 35,
-      status: 'too-high'
-    },
-    {
-      id: '5',
-      itemCode: 'CP-078',
-      itemName: 'Ball Bearing 6208',
-      category: 'Component',
-      currentROP: 120,
-      suggestedROP: 118,
-      variance: -2,
-      avgDailyDemand: 7,
-      leadTimeDays: 10,
-      demandStdDev: 1.8,
-      serviceLevel: 95,
-      safetyStock: 48,
-      uom: 'Nos',
-      currentStock: 145,
-      status: 'optimal'
-    },
-    {
-      id: '6',
-      itemCode: 'RM-034',
-      itemName: 'Copper Wire 4mm',
-      category: 'Raw Material',
-      currentROP: 30,
-      suggestedROP: 22,
-      variance: -8,
-      avgDailyDemand: 2,
-      leadTimeDays: 6,
-      demandStdDev: 0.6,
-      serviceLevel: 95,
-      safetyStock: 10,
-      uom: 'Kg',
-      currentStock: 8,
-      status: 'too-high'
-    },
-    {
-      id: '7',
-      itemCode: 'CS-056',
-      itemName: 'Grinding Wheel 180mm',
-      category: 'Consumable',
-      currentROP: 50,
-      suggestedROP: 48,
-      variance: -2,
-      avgDailyDemand: 4,
-      leadTimeDays: 4,
-      demandStdDev: 1.0,
-      serviceLevel: 95,
-      safetyStock: 32,
-      uom: 'Nos',
-      currentStock: 56,
-      status: 'optimal'
-    },
-    {
-      id: '8',
-      itemCode: 'RM-112',
-      itemName: 'Brass Sheet 2mm',
-      category: 'Raw Material',
-      currentROP: 35,
-      suggestedROP: 42,
-      variance: 7,
-      avgDailyDemand: 3,
-      leadTimeDays: 8,
-      demandStdDev: 1.5,
-      serviceLevel: 95,
-      safetyStock: 18,
-      uom: 'Sheets',
-      currentStock: 22,
-      status: 'too-low'
-    }
-  ];
+  const [reorderData, setReorderData] = useState<ReorderPointData[]>([]);
+
+  // Map a raw "item below reorder" record from the API into the page's shape.
+  const mapReorderItem = (raw: any): ReorderPointData => {
+    const currentQuantity = Number(raw?.currentQuantity) || 0;
+    const reorderLevel = Number(raw?.reorderLevel) || 0;
+    const shortage = Number(raw?.shortage) || 0;
+    // Items returned are below reorder level, so they are "too-low" by definition.
+    const status: ReorderPointData['status'] =
+      currentQuantity < reorderLevel ? 'too-low' : 'optimal';
+    return {
+      id: raw?.itemId ?? raw?.itemCode ?? '',
+      itemCode: raw?.itemCode ?? '',
+      itemName: raw?.itemName ?? '',
+      category: raw?.category ?? '',
+      currentROP: reorderLevel,
+      suggestedROP: reorderLevel + shortage,
+      variance: shortage,
+      avgDailyDemand: Number(raw?.avgDailyDemand) || 0,
+      leadTimeDays: Number(raw?.leadTimeDays) || 0,
+      demandStdDev: Number(raw?.demandStdDev) || 0,
+      serviceLevel: Number(raw?.serviceLevel) || serviceLevel,
+      safetyStock: Number(raw?.safetyStock) || 0,
+      uom: raw?.uom ?? '',
+      currentStock: currentQuantity,
+      status
+    };
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await inventoryService.getReorderAnalysis();
+        const items = Array.isArray(res?.itemsBelowReorder) ? res.itemsBelowReorder : [];
+        setReorderData(items.map(mapReorderItem));
+      } catch (err) {
+        console.error('Failed to load reorder analysis', err);
+        setReorderData([]);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filteredData = reorderData.filter(item => {
     const matchesSearch = item.itemCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -208,28 +113,41 @@ export default function ReorderOptimizationPage() {
     alert('Recalculating reorder points based on latest data...');
   };
 
-  const handleReorderGenerate = (config: any) => {
-    console.log('Generating reorder analysis with config:', config);
-    // TODO: API call to generate reorder analysis
-    // const response = await fetch('/api/inventory/analytics/reorder', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setReorderResult(data);
+  const handleReorderGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getReorderAnalysis(config?.warehouse);
+      const rawItems = Array.isArray(res?.itemsBelowReorder) ? res.itemsBelowReorder : [];
+      const mapped = rawItems.map(mapReorderItem);
+      setReorderData(mapped);
 
-    const criticalItems = reorderData.filter(d => d.status === 'too-low').length;
-    const highPriorityItems = reorderData.filter(d => d.status === 'optimal').length;
+      const criticalItems = mapped.filter(d => d.status === 'too-low').length;
+      const highPriorityItems = mapped.filter(d => d.status !== 'too-low').length;
 
-    setReorderResult({
-      analysisDate: config.analysisDate,
-      warehouse: config.warehouse,
-      items: [],
-      summary: {
-        criticalItems: criticalItems,
-        highPriorityItems: highPriorityItems,
-        totalReorderValue: 1250000
-      }
-    });
-    setIsReorderModalOpen(false);
-    alert('Reorder analysis generated successfully!');
+      setReorderResult({
+        analysisDate: config?.analysisDate,
+        warehouse: config?.warehouse,
+        items: mapped.map((i) => ({
+          itemCode: i.itemCode,
+          itemName: i.itemName,
+          currentStock: i.currentStock,
+          reorderLevel: i.currentROP,
+          safetyStock: i.safetyStock,
+          avgDailyConsumption: i.avgDailyDemand,
+          leadTimeDays: i.leadTimeDays,
+          daysUntilStockout: i.avgDailyDemand > 0 ? Math.round(i.currentStock / i.avgDailyDemand) : 0,
+          recommendedOrderQty: i.variance,
+          urgency: i.status === 'too-low' ? 'critical' : 'low'
+        })),
+        summary: {
+          criticalItems,
+          highPriorityItems,
+          totalReorderValue: mapped.reduce((sum, i) => sum + (i.variance > 0 ? i.variance : 0), 0)
+        }
+      });
+      setIsReorderModalOpen(false);
+    } catch (err) {
+      console.error('Failed to generate reorder analysis', err);
+    }
   };
 
   return (
@@ -318,7 +236,7 @@ export default function ReorderOptimizationPage() {
             <div>
               <p className="text-sm font-medium text-blue-600">Avg Service Level</p>
               <p className="text-3xl font-bold text-blue-900 mt-1">
-                {(reorderData.reduce((sum, d) => sum + d.serviceLevel, 0) / reorderData.length).toFixed(0)}%
+                {(reorderData.length ? reorderData.reduce((sum, d) => sum + d.serviceLevel, 0) / reorderData.length : 0).toFixed(0)}%
               </p>
             </div>
             <Calculator className="w-6 h-6 text-blue-700" />

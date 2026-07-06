@@ -1,21 +1,57 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, PieChart, DollarSign } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface SpendAnalysisData {
+    totalSpend: number;
+    budgetUtilization: number;
+    topCategory: string;
+    savings: number;
+}
+
+const DEFAULT_DATA: SpendAnalysisData = {
+    totalSpend: 3200000,
+    budgetUtilization: 85,
+    topCategory: 'Raw Materials',
+    savings: 150000,
+};
 
 export default function SpendAnalysisReport() {
     const router = useRouter();
+    const [data, setData] = useState<SpendAnalysisData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
-    const data = {
-        totalSpend: 3200000,
-        budgetUtilization: 85,
-        topCategory: 'Raw Materials',
-        savings: 150000,
-    };
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<SpendAnalysisData>>('procurement.spend-analysis');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalSpend: Number(payload.totalSpend ?? DEFAULT_DATA.totalSpend),
+                        budgetUtilization: Number(payload.budgetUtilization ?? DEFAULT_DATA.budgetUtilization),
+                        topCategory: String(payload.topCategory ?? DEFAULT_DATA.topCategory),
+                        savings: Number(payload.savings ?? DEFAULT_DATA.savings),
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -26,6 +62,9 @@ export default function SpendAnalysisReport() {
                 </div>
                 <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard
@@ -41,7 +80,7 @@ export default function SpendAnalysisReport() {
                 />
                 <ClickableKPICard
                     title="Top Category"
-                    value="Raw Materials"
+                    value={data.topCategory}
                     color="purple"
                     onClick={() => router.push('/reports/procurement/spend-analysis/category')}
                 />

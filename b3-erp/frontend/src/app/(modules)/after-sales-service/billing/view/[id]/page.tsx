@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import { ArrowLeft, Download, Send, Printer, CreditCard, CheckCircle, AlertCircle, FileText, Calendar, DollarSign, Building2 } from 'lucide-react';
 
 export default function ViewInvoicePage({ params }: { params: { id: string } }) {
@@ -11,8 +12,8 @@ export default function ViewInvoicePage({ params }: { params: { id: string } }) 
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
 
-  // Mock invoice data
-  const invoice = {
+  // Fallback invoice data (defaults so every field the JSX reads is defined)
+  const FALLBACK = {
     id: params.id,
     invoiceNumber: 'SI-2025-00145',
     invoiceType: 'Installation',
@@ -100,6 +101,25 @@ export default function ViewInvoicePage({ params }: { params: { id: string } }) 
     createdBy: 'Priya Patel',
     sentDate: '2025-10-05',
   };
+
+  const [invoice, setInvoice] = useState(FALLBACK);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await AfterSalesPagesService.invoice(String(params.id));
+        if (!cancelled && data && typeof data === 'object') {
+          setInvoice(prev => ({ ...prev, ...data }));
+        }
+      } catch {
+        // keep fallback on error
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { InvoiceService } from '@/services/invoice.service';
 import {
   ArrowLeft,
   Save,
@@ -256,14 +257,64 @@ export default function AddInvoicePage() {
     };
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const buildPayload = (status: 'draft' | 'sent') => ({
+    companyId: 'default-company-id',
+    invoiceNumber,
+    status,
+    type: 'SALES',
+    customerName: formData.customer,
+    customerGST: formData.customerGST,
+    invoiceDate: formData.invoiceDate,
+    dueDate: formData.dueDate,
+    poNumber: formData.poReference,
+    paymentTerms: formData.paymentTerms,
+    billingAddress: formData.billingAddress,
+    shippingAddress: formData.shippingAddress,
+    notes: formData.notes,
+    terms: formData.termsConditions,
+    discountType: formData.discountType,
+    discountValue: parseFloat(formData.discountValue) || 0,
+    lineItems: formData.lineItems.map((li) => ({
+      productName: li.item,
+      description: li.description,
+      hsn: li.hsn,
+      quantity: parseFloat(li.quantity) || 0,
+      unitPrice: parseFloat(li.unitPrice) || 0,
+      taxRate: parseFloat(li.taxRate) || 0,
+      taxType: li.taxType,
+      discount: 0,
+    })),
+  });
+
+  const submitInvoice = async (status: 'draft' | 'sent') => {
+    if (!formData.customer) {
+      alert('Please select a customer before saving the invoice.');
+      return;
+    }
+    if (!formData.invoiceDate || !formData.dueDate) {
+      alert('Please provide both an invoice date and a due date.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const created = await InvoiceService.createInvoice(buildPayload(status) as any);
+      const newId = (created as any)?.id;
+      router.push(newId ? `/finance/invoices/view/${newId}` : '/finance/invoices');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create invoice');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSaveDraft = () => {
-    console.log('Save as Draft:', { invoiceNumber, ...formData, status: 'draft' });
-    router.push('/finance/invoices');
+    void submitInvoice('draft');
   };
 
   const handleSendInvoice = () => {
-    console.log('Send Invoice:', { invoiceNumber, ...formData, status: 'sent' });
-    router.push('/finance/invoices');
+    void submitInvoice('sent');
   };
 
   const totals = calculateTotals();
@@ -886,14 +937,16 @@ export default function AddInvoicePage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={handleSaveDraft}
-              className="flex items-center space-x-2 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center space-x-2 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
             >
               <Save className="h-5 w-5" />
               <span>Save as Draft</span>
             </button>
             <button
               onClick={handleSendInvoice}
-              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={isSubmitting}
+              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <Send className="h-5 w-5" />
               <span>Send Invoice</span>

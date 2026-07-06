@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Edit, Trash2, Eye, Folder, FolderTree, Package, DollarSign, TrendingUp, Download, Upload, Grid, List, ChevronRight, ChevronDown } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
 
 interface Category {
   id: string;
@@ -39,188 +40,12 @@ interface Category {
   updatedAt: string;
 }
 
-const mockCategories: Category[] = [
-  {
-    id: '1',
-    categoryCode: 'CAT001',
-    categoryName: 'Kitchen Cabinetry',
-    level: 1,
-    status: 'active',
-    description: 'All types of kitchen cabinets and related components',
-    categoryType: 'product',
-    attributes: {
-      hasSubcategories: true,
-      allowItems: false,
-      requiresApproval: false
-    },
-    businessRules: {
-      minMargin: 25,
-      maxDiscount: 15,
-      taxCategory: 'Standard',
-      accountingCode: 'REV-CAB'
-    },
-    statistics: {
-      itemCount: 245,
-      totalValue: 1850000,
-      averagePrice: 425,
-      lastModified: '2024-01-15'
-    },
-    displaySettings: {
-      icon: 'cabinet',
-      color: '#3B82F6',
-      sortOrder: 1,
-      showInCatalog: true
-    },
-    createdAt: '2023-01-15',
-    updatedAt: '2024-01-15'
-  },
-  {
-    id: '2',
-    categoryCode: 'CAT002',
-    categoryName: 'Base Cabinets',
-    parentId: '1',
-    level: 2,
-    status: 'active',
-    description: 'Kitchen base cabinets and vanities',
-    categoryType: 'product',
-    attributes: {
-      hasSubcategories: true,
-      allowItems: true,
-      requiresApproval: false
-    },
-    businessRules: {
-      minMargin: 30,
-      maxDiscount: 12,
-      taxCategory: 'Standard',
-      accountingCode: 'REV-CAB-BASE'
-    },
-    statistics: {
-      itemCount: 89,
-      totalValue: 675000,
-      averagePrice: 485,
-      lastModified: '2024-01-12'
-    },
-    displaySettings: {
-      icon: 'base-cabinet',
-      color: '#10B981',
-      sortOrder: 1,
-      showInCatalog: true
-    },
-    createdAt: '2023-01-20',
-    updatedAt: '2024-01-12'
-  },
-  {
-    id: '3',
-    categoryCode: 'CAT003',
-    categoryName: 'Wall Cabinets',
-    parentId: '1',
-    level: 2,
-    status: 'active',
-    description: 'Kitchen wall-mounted cabinets',
-    categoryType: 'product',
-    attributes: {
-      hasSubcategories: true,
-      allowItems: true,
-      requiresApproval: false
-    },
-    businessRules: {
-      minMargin: 28,
-      maxDiscount: 10,
-      taxCategory: 'Standard',
-      accountingCode: 'REV-CAB-WALL'
-    },
-    statistics: {
-      itemCount: 67,
-      totalValue: 385000,
-      averagePrice: 365,
-      lastModified: '2024-01-10'
-    },
-    displaySettings: {
-      icon: 'wall-cabinet',
-      color: '#F59E0B',
-      sortOrder: 2,
-      showInCatalog: true
-    },
-    createdAt: '2023-01-25',
-    updatedAt: '2024-01-10'
-  },
-  {
-    id: '4',
-    categoryCode: 'CAT004',
-    categoryName: 'Hardware',
-    level: 1,
-    status: 'active',
-    description: 'Cabinet hardware including hinges, handles, and slides',
-    categoryType: 'product',
-    attributes: {
-      hasSubcategories: true,
-      allowItems: false,
-      requiresApproval: false
-    },
-    businessRules: {
-      minMargin: 40,
-      maxDiscount: 20,
-      taxCategory: 'Standard',
-      accountingCode: 'REV-HW'
-    },
-    statistics: {
-      itemCount: 156,
-      totalValue: 285000,
-      averagePrice: 35,
-      lastModified: '2024-01-08'
-    },
-    displaySettings: {
-      icon: 'hardware',
-      color: '#8B5CF6',
-      sortOrder: 2,
-      showInCatalog: true
-    },
-    createdAt: '2023-02-01',
-    updatedAt: '2024-01-08'
-  },
-  {
-    id: '5',
-    categoryCode: 'CAT005',
-    categoryName: 'Hinges',
-    parentId: '4',
-    level: 2,
-    status: 'active',
-    description: 'Cabinet door hinges and mounting hardware',
-    categoryType: 'product',
-    attributes: {
-      hasSubcategories: false,
-      allowItems: true,
-      requiresApproval: false
-    },
-    businessRules: {
-      minMargin: 45,
-      maxDiscount: 15,
-      taxCategory: 'Standard',
-      accountingCode: 'REV-HW-HINGE'
-    },
-    statistics: {
-      itemCount: 43,
-      totalValue: 85000,
-      averagePrice: 25,
-      lastModified: '2024-01-05'
-    },
-    displaySettings: {
-      icon: 'hinge',
-      color: '#EF4444',
-      sortOrder: 1,
-      showInCatalog: true
-    },
-    createdAt: '2023-02-05',
-    updatedAt: '2024-01-05'
-  }
-];
-
 const categoryTypes = ['product', 'item', 'service', 'general'];
 const taxCategories = ['Standard', 'Exempt', 'Reduced', 'Zero-rated'];
 const icons = ['cabinet', 'base-cabinet', 'wall-cabinet', 'hardware', 'hinge', 'handle', 'slide'];
 
 export default function CategoryMaster() {
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -230,6 +55,53 @@ export default function CategoryMaster() {
   const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['1', '4']));
   const [activeTab, setActiveTab] = useState('basic');
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const data = await commonMastersService.getAllItemCategories();
+      const mapped: Category[] = data.map((c) => ({
+        id: c.id,
+        categoryCode: '',
+        categoryName: c.name,
+        level: 1,
+        status: c.isActive ? 'active' : 'inactive',
+        description: '',
+        categoryType: 'product',
+        attributes: {
+          hasSubcategories: false,
+          allowItems: true,
+          requiresApproval: false,
+        },
+        businessRules: {
+          minMargin: 0,
+          maxDiscount: 0,
+          taxCategory: 'Standard',
+          accountingCode: '',
+        },
+        statistics: {
+          itemCount: 0,
+          totalValue: 0,
+          averagePrice: 0,
+          lastModified: '',
+        },
+        displaySettings: {
+          icon: 'cabinet',
+          color: '#3B82F6',
+          sortOrder: 1,
+          showInCatalog: true,
+        },
+        createdAt: '',
+        updatedAt: '',
+      }));
+      setCategories(mapped);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
 
   const filteredCategories = categories.filter(category => {
     const matchesSearch = category.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -323,32 +195,38 @@ export default function CategoryMaster() {
     setActiveTab('basic');
   };
 
-  const handleDeleteCategory = (id: string) => {
+  const handleDeleteCategory = async (id: string) => {
     const hasChildren = categories.some(cat => cat.parentId === id);
     if (hasChildren) {
       alert('Cannot delete category with subcategories. Please delete subcategories first.');
       return;
     }
     if (confirm('Are you sure you want to delete this category?')) {
-      setCategories(categories.filter(category => category.id !== id));
+      try {
+        await commonMastersService.deleteItemCategory(id);
+        await loadCategories();
+      } catch (error) {
+        console.error('Failed to delete category:', error);
+      }
     }
   };
 
-  const handleSaveCategory = (categoryData: any) => {
-    if (editingCategory?.id) {
-      setCategories(categories.map(category =>
-        category.id === editingCategory.id
-          ? { ...category, ...categoryData, updatedAt: new Date().toISOString().split('T')[0] }
-          : category
-      ));
-    } else {
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        ...categoryData,
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0]
-      };
-      setCategories([...categories, newCategory]);
+  const handleSaveCategory = async (categoryData: any) => {
+    try {
+      if (editingCategory?.id) {
+        await commonMastersService.updateItemCategory(editingCategory.id, {
+          name: categoryData.categoryName,
+          isActive: categoryData.status !== 'inactive',
+        });
+      } else {
+        await commonMastersService.createItemCategory({
+          name: categoryData.categoryName,
+          companyId: 'default-company-id',
+        });
+      }
+      await loadCategories();
+    } catch (error) {
+      console.error('Failed to save category:', error);
     }
     setShowModal(false);
   };

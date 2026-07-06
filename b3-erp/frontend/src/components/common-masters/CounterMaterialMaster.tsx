@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Layers, Plus, Search, Edit2, Trash2, CheckCircle2,
   XCircle, Ruler, DollarSign, Droplet, Shield, Star
 } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
+import type { CounterMaterial as ApiCounterMaterial } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = 'default-company-id';
 
 interface CounterMaterial {
   id: string;
@@ -47,144 +51,142 @@ interface CounterMaterial {
   };
 }
 
-const mockCounterMaterials: CounterMaterial[] = [
-  {
-    id: '1',
-    code: 'CTR-GRN-001',
-    name: 'Black Galaxy Granite',
-    category: 'Granite',
-    origin: 'India (Andhra Pradesh)',
+// Map a backend CounterMaterial record onto the richer local UI shape,
+// defaulting any UI-only fields the API does not provide.
+const mapApiToLocal = (api: ApiCounterMaterial): CounterMaterial => {
+  const validCategories = [
+    'Granite', 'Quartz', 'Marble', 'Solid Surface', 'Laminate', 'Wood', 'Stainless Steel'
+  ];
+  const category = validCategories.includes(api.category || '')
+    ? (api.category as CounterMaterial['category'])
+    : 'Granite';
+
+  const validStatuses = ['Active', 'Inactive', 'Discontinued'];
+  const status = validStatuses.includes(api.status || '')
+    ? (api.status as CounterMaterial['status'])
+    : (api.isActive === false ? 'Inactive' : 'Active');
+
+  const thickness = (api.thickness ?? [])
+    .map((t) => parseFloat(t))
+    .filter((n) => !Number.isNaN(n));
+
+  return {
+    id: api.id,
+    code: api.code,
+    name: api.name,
+    category,
+    origin: api.origin ?? '',
     properties: {
-      thickness: [15, 18, 20, 30],
-      hardness: 'Very High',
+      thickness,
+      hardness: (api.durability as CounterMaterial['properties']['hardness']) || 'Medium',
       porosity: 'Low',
-      heatResistance: 'Excellent',
-      stainResistance: 'Good',
-      scratchResistance: 'Excellent'
+      heatResistance: (api.heatResistance as CounterMaterial['properties']['heatResistance']) || 'Good',
+      stainResistance: (api.stainResistance as CounterMaterial['properties']['stainResistance']) || 'Good',
+      scratchResistance: (api.scratchResistance as CounterMaterial['properties']['scratchResistance']) || 'Good'
     },
-    colors: ['Black with Gold Flecks'],
-    patterns: ['Speckled', 'Uniform'],
-    edgeProfiles: ['Straight', 'Beveled', 'Ogee', 'Bullnose', 'Waterfall'],
-    finishes: ['Polished', 'Honed', 'Leathered'],
-    pricePerSqFt: 350,
+    colors: api.colors ?? [],
+    patterns: [],
+    edgeProfiles: [],
+    finishes: api.finishes ?? [],
+    pricePerSqFt: api.pricePerSqFt ?? 0,
     installation: {
       complexity: 'Moderate',
-      costPerSqFt: 80
-    },
-    maintenance: {
-      sealing: true,
-      frequency: 'Annually',
-      difficulty: 'Easy'
-    },
-    applications: ['Kitchen Countertop', 'Island Top', 'Bathroom Vanity'],
-    warranty: '10 Years against manufacturing defects',
-    leadTime: '7-10 days',
-    ecoFriendly: true,
-    rating: 4.7,
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2024-01-10'),
-      updatedAt: new Date('2024-03-15'),
-      createdBy: 'Product Manager'
-    }
-  },
-  {
-    id: '2',
-    code: 'CTR-QTZ-001',
-    name: 'Caesarstone Quartz - Pure White',
-    category: 'Quartz',
-    origin: 'Israel',
-    properties: {
-      thickness: [15, 20, 30],
-      hardness: 'Very High',
-      porosity: 'Non-porous',
-      heatResistance: 'Good',
-      stainResistance: 'Excellent',
-      scratchResistance: 'Excellent'
-    },
-    colors: ['Pure White', 'Warm White', 'Cool White'],
-    patterns: ['Solid', 'Veined'],
-    edgeProfiles: ['Straight', 'Beveled', 'Mitered', 'Bullnose'],
-    finishes: ['Polished', 'Matt', 'Textured'],
-    pricePerSqFt: 450,
-    installation: {
-      complexity: 'Moderate',
-      costPerSqFt: 100
+      costPerSqFt: 0
     },
     maintenance: {
       sealing: false,
       frequency: 'N/A',
       difficulty: 'Easy'
     },
-    applications: ['Kitchen Countertop', 'Island Top', 'Backsplash', 'Tabletop'],
-    warranty: '15 Years limited warranty',
-    leadTime: '10-14 days',
-    ecoFriendly: true,
-    rating: 4.9,
-    status: 'Active',
+    applications: [],
+    warranty: api.warranty ?? '',
+    leadTime: api.leadTimeDays != null ? `${api.leadTimeDays} days` : '',
+    ecoFriendly: false,
+    rating: 0,
+    status,
     metadata: {
-      createdAt: new Date('2024-01-12'),
-      updatedAt: new Date('2024-03-10'),
-      createdBy: 'Product Manager'
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: api.supplier ?? ''
     }
-  },
-  {
-    id: '3',
-    code: 'CTR-MAR-001',
-    name: 'Italian Carrara Marble',
-    category: 'Marble',
-    origin: 'Italy',
-    properties: {
-      thickness: [18, 20, 30],
-      hardness: 'Medium',
-      porosity: 'Medium',
-      heatResistance: 'Good',
-      stainResistance: 'Fair',
-      scratchResistance: 'Fair'
-    },
-    colors: ['White with Grey Veining'],
-    patterns: ['Veined', 'Cloudy'],
-    edgeProfiles: ['Straight', 'Beveled', 'Ogee', 'Bullnose'],
-    finishes: ['Polished', 'Honed'],
-    pricePerSqFt: 500,
-    installation: {
-      complexity: 'Complex',
-      costPerSqFt: 120
-    },
-    maintenance: {
-      sealing: true,
-      frequency: 'Every 6 months',
-      difficulty: 'Moderate'
-    },
-    applications: ['Premium Kitchen', 'Bathroom Vanity', 'Feature Wall'],
-    warranty: '5 Years with proper maintenance',
-    leadTime: '14-21 days',
-    ecoFriendly: true,
-    rating: 4.6,
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-03-20'),
-      createdBy: 'Product Manager'
-    }
-  }
-];
+  };
+};
 
 export default function CounterMaterialMaster() {
-  const [materials, setMaterials] = useState<CounterMaterial[]>(mockCounterMaterials);
+  const [materials, setMaterials] = useState<CounterMaterial[]>([]);
   const [selectedMaterial, setSelectedMaterial] = useState<CounterMaterial | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
+
+  const loadMaterials = async () => {
+    try {
+      const data = await commonMastersService.getAllCounterMaterials();
+      setMaterials((data ?? []).map(mapApiToLocal));
+    } catch (error) {
+      console.error('Failed to load counter materials:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadMaterials();
+  }, []);
 
   const handleEdit = (material: CounterMaterial) => {
     setSelectedMaterial(material);
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this counter material?')) {
-      setMaterials(materials.filter(m => m.id !== id));
+      try {
+        await commonMastersService.deleteCounterMaterial(id);
+        await loadMaterials();
+      } catch (error) {
+        console.error('Failed to delete counter material:', error);
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    const code = (document.getElementById('cm-code') as HTMLInputElement)?.value?.trim();
+    const name = (document.getElementById('cm-name') as HTMLInputElement)?.value?.trim();
+    const category = (document.getElementById('cm-category') as HTMLSelectElement)?.value;
+    const origin = (document.getElementById('cm-origin') as HTMLInputElement)?.value?.trim();
+    const durability = (document.getElementById('cm-hardness') as HTMLSelectElement)?.value;
+    const heatResistance = (document.getElementById('cm-heat') as HTMLSelectElement)?.value;
+    const scratchResistance = (document.getElementById('cm-scratch') as HTMLSelectElement)?.value;
+    const priceRaw = (document.getElementById('cm-price') as HTMLInputElement)?.value;
+    const status = (document.getElementById('cm-status') as HTMLSelectElement)?.value;
+
+    const pricePerSqFt = priceRaw ? parseFloat(priceRaw) : undefined;
+
+    const payload = {
+      name: name || '',
+      materialType: category || 'Granite',
+      category: category || undefined,
+      origin: origin || undefined,
+      durability: durability || undefined,
+      heatResistance: heatResistance || undefined,
+      scratchResistance: scratchResistance || undefined,
+      pricePerSqFt: pricePerSqFt != null && !Number.isNaN(pricePerSqFt) ? pricePerSqFt : undefined,
+      status: status || undefined
+    };
+
+    try {
+      if (selectedMaterial) {
+        await commonMastersService.updateCounterMaterial(selectedMaterial.id, payload);
+      } else {
+        await commonMastersService.createCounterMaterial({
+          code: code || '',
+          companyId: DEFAULT_COMPANY_ID,
+          ...payload
+        });
+      }
+      setIsModalOpen(false);
+      await loadMaterials();
+    } catch (error) {
+      console.error('Failed to save counter material:', error);
     }
   };
 
@@ -413,6 +415,7 @@ export default function CounterMaterialMaster() {
                       Code *
                     </label>
                     <input
+                      id="cm-code"
                       type="text"
                       defaultValue={selectedMaterial?.code}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -424,6 +427,7 @@ export default function CounterMaterialMaster() {
                       Name *
                     </label>
                     <input
+                      id="cm-name"
                       type="text"
                       defaultValue={selectedMaterial?.name}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -437,7 +441,8 @@ export default function CounterMaterialMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Category *
                     </label>
-                    <select 
+                    <select
+                      id="cm-category"
                       defaultValue={selectedMaterial?.category || 'Granite'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -455,6 +460,7 @@ export default function CounterMaterialMaster() {
                       Origin
                     </label>
                     <input
+                      id="cm-origin"
                       type="text"
                       defaultValue={selectedMaterial?.origin}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -468,7 +474,8 @@ export default function CounterMaterialMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Hardness
                     </label>
-                    <select 
+                    <select
+                      id="cm-hardness"
                       defaultValue={selectedMaterial?.properties.hardness || 'High'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -482,7 +489,8 @@ export default function CounterMaterialMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Heat Resistance
                     </label>
-                    <select 
+                    <select
+                      id="cm-heat"
                       defaultValue={selectedMaterial?.properties.heatResistance || 'Good'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -496,7 +504,8 @@ export default function CounterMaterialMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Scratch Resistance
                     </label>
-                    <select 
+                    <select
+                      id="cm-scratch"
                       defaultValue={selectedMaterial?.properties.scratchResistance || 'Good'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
@@ -514,6 +523,7 @@ export default function CounterMaterialMaster() {
                       Price per Sq.Ft (₹) *
                     </label>
                     <input
+                      id="cm-price"
                       type="number"
                       defaultValue={selectedMaterial?.pricePerSqFt}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -535,7 +545,8 @@ export default function CounterMaterialMaster() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
-                  <select 
+                  <select
+                    id="cm-status"
                     defaultValue={selectedMaterial?.status || 'Active'}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
@@ -554,7 +565,10 @@ export default function CounterMaterialMaster() {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
                 Save Counter Material
               </button>
             </div>

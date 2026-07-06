@@ -246,6 +246,37 @@ export interface AuditLogPageDto {
   pages: number;
 }
 
+export interface SystemMonitorDto {
+  id: string;
+  companyId?: string;
+  kind: string; // health | error | performance
+  name: string;
+  category?: string;
+  status: string;
+  severity?: string;
+  message?: string;
+  source?: string;
+  value?: number;
+  unit?: string;
+  threshold?: number;
+  occurrences: number;
+  lastOccurred?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SystemMonitorSummaryDto {
+  total: number;
+  byStatus: Record<string, number>;
+  bySeverity: Record<string, number>;
+}
+
+export interface SystemConfigValueDto {
+  key: string;
+  value: any;
+}
+
 export interface RoleDto {
   id: string;
   code?: string;
@@ -567,12 +598,82 @@ class ItAdminServiceClass {
     return request<AuditLogPageDto>(`/it-admin/audit-logs${qs(params)}`);
   }
 
+  async createExportDataset(
+    data: Partial<ExportDatasetDto>,
+  ): Promise<ExportDatasetDto> {
+    return request<ExportDatasetDto>('/it-admin/export-datasets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- System Monitoring (health / errors / performance) ---
+  async getMonitoring(params?: {
+    companyId?: string;
+    kind?: string;
+    status?: string;
+    severity?: string;
+    category?: string;
+  }): Promise<SystemMonitorDto[]> {
+    return request<SystemMonitorDto[]>(`/it-admin/monitoring${qs(params)}`);
+  }
+
+  async getMonitoringSummary(
+    kind: string,
+    companyId?: string,
+  ): Promise<SystemMonitorSummaryDto> {
+    return request<SystemMonitorSummaryDto>(
+      `/it-admin/monitoring/summary${qs({ kind, companyId })}`,
+    );
+  }
+
+  async updateMonitoring(
+    id: string,
+    data: Partial<SystemMonitorDto>,
+  ): Promise<SystemMonitorDto> {
+    return request<SystemMonitorDto>(`/it-admin/monitoring/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // --- System Config key/value (SSO, scalability, misc settings) ---
+  async getConfigValue(key: string): Promise<SystemConfigValueDto> {
+    return request<SystemConfigValueDto>(
+      `/it-admin/system-config/value/${encodeURIComponent(key)}`,
+    );
+  }
+
+  async setConfigValue(
+    key: string,
+    value: any,
+  ): Promise<SystemConfigValueDto> {
+    return request<SystemConfigValueDto>(
+      `/it-admin/system-config/value/${encodeURIComponent(key)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ value }),
+      },
+    );
+  }
+
   // --- Roles ---
   async getRoles(params?: {
     status?: string;
     roleType?: string;
   }): Promise<RoleDto[]> {
     return request<RoleDto[]>(`/it-admin/roles${qs(params)}`);
+  }
+
+  async getRoleHierarchy(): Promise<RoleDto[]> {
+    return request<RoleDto[]>('/it-admin/roles/hierarchy');
+  }
+
+  async createRole(data: Partial<RoleDto>): Promise<RoleDto> {
+    return request<RoleDto>('/it-admin/roles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

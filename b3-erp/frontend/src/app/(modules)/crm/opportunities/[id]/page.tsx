@@ -1,67 +1,123 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Edit, Trash2, Phone, Mail, Calendar, User, Building2, DollarSign, Target, TrendingUp, Clock } from 'lucide-react'
 import { CRMToSalesConnections, type CRMToSalesConnection } from '@/components/inter-module/ModuleConnections'
 import { useToast } from '@/components/ui'
+import { crmService, asArray } from '@/services/crm.service'
+
+interface OpportunityDetail {
+  id: string
+  name: string
+  account: string
+  stage: string
+  amount: number
+  probability: number
+  expectedCloseDate: string
+  owner: string
+  createdAt: string
+  description: string
+  contactPerson: string
+  contactEmail: string
+  contactPhone: string
+  nextStep: string
+  competitorInfo: string
+}
+
+interface TimelineActivity {
+  date: string
+  type: string
+  description: string
+  user: string
+}
+
+const emptyOpportunity: OpportunityDetail = {
+  id: '',
+  name: '',
+  account: '',
+  stage: 'prospecting',
+  amount: 0,
+  probability: 0,
+  expectedCloseDate: '',
+  owner: '',
+  createdAt: '',
+  description: '',
+  contactPerson: '',
+  contactEmail: '',
+  contactPhone: '',
+  nextStep: '',
+  competitorInfo: '',
+}
 
 export default function OpportunityDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { addToast } = useToast()
+  const opportunityId = params.id as string
 
-  // Mock opportunity data
-  const [opportunity] = useState({
-    id: params.id as string,
-    name: 'Premium Kitchen Installation - Luxury Apartments',
-    account: 'Skyline Properties Inc',
-    stage: 'proposal',
-    amount: 3500000,
-    probability: 70,
-    expectedCloseDate: '2025-11-15',
-    owner: 'Sarah Johnson',
-    createdAt: '2025-09-15',
-    description: 'Large-scale premium kitchen installation project for 50 luxury apartments in the new Skyline Towers development. Custom cabinetry, high-end appliances, and modern finishes.',
-    contactPerson: 'Mr. Rajesh Kumar',
-    contactEmail: 'rajesh.kumar@skylineproperties.com',
-    contactPhone: '+91 98765 43210',
-    nextStep: 'Schedule final presentation with decision makers',
-    competitorInfo: 'Competing with ModularKitchens Inc and Premium Cabinets Ltd'
-  })
+  const [opportunity, setOpportunity] = useState<OpportunityDetail>(emptyOpportunity)
+  const [timeline, setTimeline] = useState<TimelineActivity[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Mock CRM to Sales connections
+  useEffect(() => {
+    if (!opportunityId) return
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const raw: any = await crmService.opportunities.getById(opportunityId)
+        if (!cancelled && raw && typeof raw === 'object') {
+          setOpportunity({
+            id: raw.id ?? opportunityId,
+            name: raw.name ?? '',
+            account: raw.customerName ?? raw.account ?? '',
+            stage: raw.stage ?? 'prospecting',
+            amount: Number(raw.amount ?? 0),
+            probability: Number(raw.probability ?? 0),
+            expectedCloseDate: (raw.expectedCloseDate ?? '')?.toString().slice(0, 10),
+            owner: raw.ownerName ?? '',
+            createdAt: (raw.createdAt ?? '')?.toString().slice(0, 10),
+            description: raw.description ?? '',
+            contactPerson: raw.contactName ?? '',
+            contactEmail: raw.contactEmail ?? '',
+            contactPhone: raw.contactPhone ?? '',
+            nextStep: raw.nextStep ?? '',
+            competitorInfo: raw.competitorInfo ?? raw.competitors ?? '',
+          })
+        }
+
+        const activitiesRaw = await crmService.opportunities
+          .getActivities(opportunityId)
+          .catch(() => [])
+        if (!cancelled) {
+          setTimeline(
+            asArray(activitiesRaw).map((a: any) => ({
+              date: (a.startDate ?? a.createdAt ?? '').toString().slice(0, 10),
+              type: a.type ?? a.activityType ?? 'Activity',
+              description: a.description ?? a.subject ?? a.title ?? '',
+              user: a.performedByName ?? a.assignedToName ?? 'System',
+            })),
+          )
+        }
+      } catch {
+        // keep empty state on error
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [opportunityId])
+
+  // CRM to Sales connections (relationship data not yet served by API)
   const [salesConnections] = useState<CRMToSalesConnection>({
-    opportunityId: params.id as string,
-    opportunityName: opportunity.name,
-    quotes: [
-      {
-        id: 'Q-2025-001',
-        name: 'Quote for Premium Kitchen - Phase 1',
-        amount: 3500000,
-        status: 'sent',
-        validUntil: '2025-11-01',
-        url: '/sales/quotes/Q-2025-001'
-      },
-      {
-        id: 'Q-2025-002',
-        name: 'Revised Quote - Value Engineering',
-        amount: 3200000,
-        status: 'draft',
-        validUntil: '2025-11-10',
-        url: '/sales/quotes/Q-2025-002'
-      }
-    ],
-    orders: [
-      {
-        id: 'SO-2025-045',
-        orderNumber: 'SO-2025-045',
-        amount: 1200000,
-        status: 'confirmed',
-        orderDate: '2025-10-15',
-        url: '/sales/orders/SO-2025-045'
-      }
-    ]
+    opportunityId,
+    opportunityName: '',
+    quotes: [],
+    orders: [],
   })
 
   const handleCreateQuote = () => {
@@ -112,14 +168,22 @@ export default function OpportunityDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => addToast({ title: 'Edit Opportunity', message: 'Edit functionality will be implemented', variant: 'info' })}
+                onClick={() => router.push(`/crm/opportunities/edit/${opportunityId}`)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
                 Edit
               </button>
               <button
-                onClick={() => addToast({ title: 'Delete Opportunity', message: 'Delete confirmation will be shown', variant: 'warning' })}
+                onClick={async () => {
+                  try {
+                    await crmService.opportunities.delete(opportunityId)
+                    addToast({ title: 'Opportunity Deleted', message: 'The opportunity has been removed.', variant: 'success' })
+                    router.push('/crm/opportunities')
+                  } catch {
+                    addToast({ title: 'Delete Failed', message: 'Could not delete the opportunity.', variant: 'error' })
+                  }
+                }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
               >
                 <Trash2 className="w-4 h-4" />
@@ -250,12 +314,10 @@ export default function OpportunityDetailPage() {
           <div className="bg-white rounded-lg border border-gray-200 p-3">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Activity Timeline</h2>
             <div className="space-y-3">
-              {[
-                { date: '2025-10-28', type: 'Meeting', description: 'Product demo with decision makers', user: 'Sarah Johnson' },
-                { date: '2025-10-25', type: 'Email', description: 'Sent revised proposal', user: 'Sarah Johnson' },
-                { date: '2025-10-20', type: 'Call', description: 'Follow-up call regarding requirements', user: 'Sarah Johnson' },
-                { date: '2025-10-15', type: 'Meeting', description: 'Initial discovery meeting', user: 'Sarah Johnson' }
-              ].map((activity, idx) => (
+              {timeline.length === 0 && !loading && (
+                <p className="text-sm text-gray-500">No activity recorded yet.</p>
+              )}
+              {timeline.map((activity, idx) => (
                 <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                   <div className="flex-1">

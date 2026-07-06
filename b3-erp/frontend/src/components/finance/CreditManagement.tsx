@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { FinanceService } from '@/services/finance.service';
 import { CreditCard, AlertTriangle, TrendingUp, Shield, Users, DollarSign, FileText, Clock, CheckCircle, XCircle, AlertCircle, Plus, X, Filter, Download, ChevronUp, ChevronDown, BarChart3, Activity, Calendar, Target, Eye, Lock, Unlock, RefreshCw } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar, Funnel, FunnelChart, ScatterChart, Scatter } from 'recharts';
 
@@ -87,23 +88,72 @@ const CreditManagement = () => {
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [selectedTimeframe, setSelectedTimeframe] = useState('30d');
   const [riskFilter, setRiskFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Mock data
-  const customers: Customer[] = [
-    { id: 'C001', companyName: 'Tech Solutions Inc', contactName: 'John Smith', email: 'john@techsolutions.com', phone: '+1-234-567-8900', address: '123 Tech Street, Silicon Valley, CA', registrationDate: '2022-01-15', status: 'active', industry: 'Technology', annualRevenue: 5000000, employeeCount: 50 },
-    { id: 'C002', companyName: 'Global Manufacturing Ltd', contactName: 'Sarah Johnson', email: 'sarah@globalmanuf.com', phone: '+1-234-567-8901', address: '456 Industrial Ave, Detroit, MI', registrationDate: '2021-06-20', status: 'active', industry: 'Manufacturing', annualRevenue: 15000000, employeeCount: 200 },
-    { id: 'C003', companyName: 'Retail Express Co', contactName: 'Mike Davis', email: 'mike@retailexpress.com', phone: '+1-234-567-8902', address: '789 Commerce Blvd, New York, NY', registrationDate: '2022-03-10', status: 'under-review', industry: 'Retail', annualRevenue: 3000000, employeeCount: 30 },
-    { id: 'C004', companyName: 'Healthcare Plus', contactName: 'Emily Wilson', email: 'emily@healthcareplus.com', phone: '+1-234-567-8903', address: '321 Medical Center Dr, Boston, MA', registrationDate: '2021-11-05', status: 'active', industry: 'Healthcare', annualRevenue: 8000000, employeeCount: 75 },
-    { id: 'C005', companyName: 'Construction Pro', contactName: 'Robert Brown', email: 'robert@constructionpro.com', phone: '+1-234-567-8904', address: '654 Builder Way, Houston, TX', registrationDate: '2022-07-18', status: 'blocked', industry: 'Construction', annualRevenue: 2000000, employeeCount: 25 }
-  ];
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [creditProfiles, setCreditProfiles] = useState<CreditProfile[]>([]);
 
-  const creditProfiles: CreditProfile[] = [
-    { customerId: 'C001', creditLimit: 500000, currentExposure: 250000, availableCredit: 250000, creditScore: 750, riskRating: 'low', paymentTerms: 'Net 30', creditStatus: 'approved', lastReviewDate: '2024-01-15', nextReviewDate: '2024-07-15', collateralRequired: false, guarantorRequired: false, creditInsurance: true },
-    { customerId: 'C002', creditLimit: 1000000, currentExposure: 750000, availableCredit: 250000, creditScore: 680, riskRating: 'medium', paymentTerms: 'Net 45', creditStatus: 'approved', lastReviewDate: '2024-02-01', nextReviewDate: '2024-08-01', collateralRequired: true, collateralAmount: 200000, creditInsurance: true, guarantorRequired: false },
-    { customerId: 'C003', creditLimit: 200000, currentExposure: 180000, availableCredit: 20000, creditScore: 620, riskRating: 'high', paymentTerms: 'Net 15', creditStatus: 'suspended', lastReviewDate: '2024-03-01', nextReviewDate: '2024-04-01', collateralRequired: true, collateralAmount: 100000, guarantorRequired: true, creditInsurance: false },
-    { customerId: 'C004', creditLimit: 750000, currentExposure: 400000, availableCredit: 350000, creditScore: 720, riskRating: 'low', paymentTerms: 'Net 30', creditStatus: 'approved', lastReviewDate: '2024-01-20', nextReviewDate: '2024-07-20', collateralRequired: false, guarantorRequired: false, creditInsurance: true },
-    { customerId: 'C005', creditLimit: 0, currentExposure: 50000, availableCredit: 0, creditScore: 450, riskRating: 'very-high', paymentTerms: 'COD', creditStatus: 'rejected', lastReviewDate: '2024-03-15', nextReviewDate: '2024-04-15', collateralRequired: true, guarantorRequired: true, creditInsurance: false }
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getReceivables()) as any[];
+        const rows: any[] = Array.isArray(raw) ? raw : [];
+
+        const mappedCustomers: Customer[] = rows.map((r: any, idx: number) => ({
+          id: String(r?.id ?? r?.customerId ?? idx),
+          companyName: r?.companyName ?? r?.customerName ?? r?.name ?? '',
+          contactName: r?.contactName ?? '',
+          email: r?.email ?? '',
+          phone: r?.phone ?? '',
+          address: r?.address ?? '',
+          registrationDate: r?.registrationDate ?? '',
+          status: (r?.status ?? 'active') as Customer['status'],
+          industry: r?.industry ?? '',
+          annualRevenue: r?.annualRevenue ?? 0,
+          employeeCount: r?.employeeCount ?? 0,
+        }));
+
+        const mappedProfiles: CreditProfile[] = rows.map((r: any, idx: number) => {
+          const creditLimit = r?.creditLimit ?? 0;
+          const currentExposure = r?.currentExposure ?? r?.exposure ?? r?.outstandingBalance ?? r?.balance ?? 0;
+          return {
+            customerId: String(r?.id ?? r?.customerId ?? idx),
+            creditLimit,
+            currentExposure,
+            availableCredit: r?.availableCredit ?? Math.max(creditLimit - currentExposure, 0),
+            creditScore: r?.creditScore ?? 0,
+            riskRating: (r?.riskRating ?? 'low') as CreditProfile['riskRating'],
+            paymentTerms: r?.paymentTerms ?? '',
+            creditStatus: (r?.creditStatus ?? 'approved') as CreditProfile['creditStatus'],
+            lastReviewDate: r?.lastReviewDate ?? '',
+            nextReviewDate: r?.nextReviewDate ?? '',
+            collateralRequired: r?.collateralRequired ?? false,
+            collateralAmount: r?.collateralAmount ?? undefined,
+            guarantorRequired: r?.guarantorRequired ?? false,
+            creditInsurance: r?.creditInsurance ?? false,
+          };
+        });
+
+        if (!cancelled) {
+          setCustomers(mappedCustomers);
+          setCreditProfiles(mappedProfiles);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const creditApplications: CreditApplication[] = [
     { id: 'APP001', customerId: 'C003', requestedAmount: 300000, purpose: 'Inventory Purchase', applicationDate: '2024-03-25', status: 'under-review', approvalLevel: 'level-2', documents: ['financial_statements.pdf', 'bank_guarantee.pdf'], notes: 'Customer requesting credit limit increase' },

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { MasterDataService, MDCustomer, MDEmployee, mdLabel, fetchRecordById } from '@/services/master-data.service';
+import { MasterDataService, MDCustomer, MDEmployee, mdLabel } from '@/services/master-data.service';
+import { crmService } from '@/services/crm.service';
 
 interface Quote {
   id: string;
@@ -25,77 +26,6 @@ interface Quote {
   probability: number;
 }
 
-const mockQuotesSeed: Quote[] = [
-  {
-    id: '1',
-    quoteNumber: 'QT-2024-001',
-    title: 'Enterprise Software License - Annual',
-    customer: 'TechCorp Global Inc.',
-    contact: 'Sarah Johnson (CTO)',
-    status: 'sent',
-    amount: 850000,
-    discount: 212500,
-    finalAmount: 637500,
-    validUntil: '2024-11-30',
-    createdDate: '2024-10-15',
-    sentDate: '2024-10-16',
-    owner: 'Michael Chen',
-    products: 5,
-    probability: 75,
-  },
-  {
-    id: '2',
-    quoteNumber: 'QT-2024-002',
-    title: 'Professional Services Package',
-    customer: 'FinanceHub International',
-    contact: 'Elizabeth Wilson (CFO)',
-    status: 'accepted',
-    amount: 520000,
-    discount: 52000,
-    finalAmount: 468000,
-    validUntil: '2024-10-31',
-    createdDate: '2024-10-10',
-    sentDate: '2024-10-11',
-    acceptedDate: '2024-10-18',
-    owner: 'Emily Rodriguez',
-    products: 3,
-    probability: 100,
-  },
-  {
-    id: '3',
-    quoteNumber: 'QT-2024-003',
-    title: 'Cloud Infrastructure Setup',
-    customer: 'StartupTech Inc.',
-    contact: 'Michael Chen (CEO)',
-    status: 'viewed',
-    amount: 125000,
-    discount: 12500,
-    finalAmount: 112500,
-    validUntil: '2024-11-15',
-    createdDate: '2024-10-18',
-    sentDate: '2024-10-19',
-    owner: 'David Martinez',
-    products: 4,
-    probability: 60,
-  },
-  {
-    id: '4',
-    quoteNumber: 'QT-2024-004',
-    title: 'Manufacturing ERP Implementation',
-    customer: 'GlobalManufacturing Corp',
-    contact: 'Robert Davis (VP Operations)',
-    status: 'draft',
-    amount: 950000,
-    discount: 95000,
-    finalAmount: 855000,
-    validUntil: '2024-12-15',
-    createdDate: '2024-10-20',
-    owner: 'Sarah Johnson',
-    products: 8,
-    probability: 50,
-  },
-];
-
 interface QuoteItem {
   id: string;
   product: string;
@@ -110,7 +40,12 @@ export default function QuoteEditPage() {
   const params = useParams();
   const quoteId = params?.id as string;
 
-  const existingQuote = mockQuotesSeed.find(q => q.id === quoteId);
+  // The live quote record (loaded from the API), used for read-only summary fields.
+  const [existingQuote, setExistingQuote] = useState<Partial<Quote> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Live customer picker — initialized empty, filled on mount
   const [customers, setCustomers] = useState<MDCustomer[]>([]);
@@ -119,6 +54,10 @@ export default function QuoteEditPage() {
   // Live employee picker for "Quote Owner" — initialized empty, filled on mount
   const [employees, setEmployees] = useState<MDEmployee[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
+
+  // Live product catalogue for the "Add from catalogue" picker.
+  const [products, setProducts] = useState<{ id: string; name: string; price: number; description: string }[]>([]);
+  const [showProductPicker, setShowProductPicker] = useState(false);
 
   useEffect(() => {
     setCustomersLoading(true);
@@ -130,63 +69,100 @@ export default function QuoteEditPage() {
     MasterDataService.getEmployees().then(live => {
       if (live.length > 0) setEmployees(live);
     }).finally(() => setEmployeesLoading(false));
+
+    crmService.products.getAll()
+      .then((r: any) => {
+        const rows = Array.isArray(r) ? r : r?.data ?? [];
+        setProducts(
+          rows.map((p: any, i: number) => ({
+            id: p.id ?? String(i),
+            name: p.name ?? p.productName ?? 'Product',
+            price: Number(p.basePrice ?? p.price ?? p.unitPrice ?? 0),
+            description: p.description ?? '',
+          })),
+        );
+      })
+      .catch(() => setProducts([]));
   }, []);
 
   const [formData, setFormData] = useState({
-    title: existingQuote?.title || '',
-    customer: existingQuote?.customer || '',
-    contact: existingQuote?.contact || '',
-    status: existingQuote?.status || 'draft',
-    validUntil: existingQuote?.validUntil || '',
-    owner: existingQuote?.owner || '',
-    probability: existingQuote?.probability || 50,
+    title: '',
+    customer: '',
+    contact: '',
+    status: 'draft' as Quote['status'],
+    validUntil: '',
+    owner: '',
+    probability: 50,
   });
 
-  // Fetch the real quote record and prefill form if found
+  const [items, setItems] = useState<QuoteItem[]>([]);
+
+  // Fetch the real quote record and prefill form + items.
   useEffect(() => {
     if (!quoteId) return;
-    fetchRecordById<Partial<Quote>>('/crm/quotes', quoteId).then(record => {
-      if (!record) return;
-      setFormData(prev => ({
-        ...prev,
-        title: record.title ?? prev.title,
-        customer: record.customer ?? prev.customer,
-        contact: record.contact ?? prev.contact,
-        status: record.status ?? prev.status,
-        validUntil: record.validUntil ?? prev.validUntil,
-        owner: record.owner ?? prev.owner,
-        probability: record.probability ?? prev.probability,
-      }));
-    });
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
+    crmService.quotes
+      .getById(quoteId)
+      .then((record: any) => {
+        if (cancelled || !record || typeof record !== 'object') return;
+        setExistingQuote({
+          id: record.id ?? quoteId,
+          quoteNumber: record.quoteNumber ?? record.number ?? quoteId,
+          createdDate: (record.createdAt ?? record.createdDate ?? '').toString().slice(0, 10),
+        });
+        setFormData(prev => ({
+          ...prev,
+          title: record.title ?? prev.title,
+          customer: record.customerName ?? record.customer ?? prev.customer,
+          contact: record.contactName ?? record.contact ?? prev.contact,
+          status: (record.status ?? prev.status) as Quote['status'],
+          validUntil: (record.validUntil ?? prev.validUntil ?? '').toString().slice(0, 10),
+          owner: record.preparedByName ?? record.owner ?? prev.owner,
+          probability: Number(record.probability ?? prev.probability),
+        }));
+        const rawItems = Array.isArray(record.items) ? record.items : [];
+        if (rawItems.length > 0) {
+          setItems(
+            rawItems.map((it: any, i: number) => ({
+              id: it.id ?? String(i),
+              product: it.product ?? it.productName ?? it.name ?? '',
+              description: it.description ?? '',
+              quantity: Number(it.quantity ?? 1),
+              unitPrice: Number(it.unitPrice ?? it.price ?? 0),
+              discount: Number(it.discount ?? it.discountAmount ?? 0),
+            })),
+          );
+        }
+      })
+      .catch((err: any) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load quote');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [quoteId]);
 
-  const [items, setItems] = useState<QuoteItem[]>([
-    {
-      id: '1',
-      product: 'Enterprise Software License',
-      description: 'Annual subscription for up to 500 users',
-      quantity: 1,
-      unitPrice: 500000,
-      discount: 100000,
-    },
-    {
-      id: '2',
-      product: 'Implementation Services',
-      description: 'Professional setup and configuration',
-      quantity: 1,
-      unitPrice: 150000,
-      discount: 50000,
-    },
-  ]);
-
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-sm text-blue-700">Loading quote…</div>
+    );
+  }
 
   if (!existingQuote) {
     return (
       <div className="p-8">
         <div className="text-center">
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">Quote Not Found</h2>
-          <p className="text-gray-600 mb-2">The quote you're trying to edit doesn't exist.</p>
+          <p className="text-gray-600 mb-2">
+            {loadError ? loadError : "The quote you're trying to edit doesn't exist."}
+          </p>
           <Link href="/crm/quotes" className="text-blue-600 hover:underline">
             Return to Quotes
           </Link>
@@ -194,6 +170,21 @@ export default function QuoteEditPage() {
       </div>
     );
   }
+
+  const addProductFromCatalogue = (p: { name: string; price: number; description: string }) => {
+    setItems(prev => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        product: p.name,
+        description: p.description,
+        quantity: 1,
+        unitPrice: p.price,
+        discount: 0,
+      },
+    ]);
+    setShowProductPicker(false);
+  };
 
   const calculateItemTotal = (item: QuoteItem) => {
     return (item.quantity * item.unitPrice) - item.discount;
@@ -251,11 +242,40 @@ export default function QuoteEditPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (validateForm()) {
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setSubmitError(null);
+    try {
+      const t = calculateTotals();
+      const payload: any = {
+        title: formData.title,
+        customerName: formData.customer,
+        contactName: formData.contact,
+        status: formData.status,
+        validUntil: formData.validUntil,
+        preparedByName: formData.owner,
+        probability: formData.probability,
+        subtotal: t.subtotal,
+        discountAmount: t.totalDiscount,
+        totalAmount: t.total,
+        items: items.map((it) => ({
+          product: it.product,
+          productName: it.product,
+          description: it.description,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          discount: it.discount,
+        })),
+      };
+      await crmService.quotes.update(quoteId, payload);
       router.push(`/crm/quotes/view/${quoteId}`);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update quote');
+      setSaving(false);
     }
   };
 
@@ -304,7 +324,7 @@ export default function QuoteEditPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Edit Quote</h1>
-            <p className="text-gray-600 mt-1">{existingQuote.quoteNumber}</p>
+            <p className="text-gray-600 mt-1">{existingQuote.quoteNumber ?? quoteId}</p>
           </div>
         </div>
       </div>
@@ -479,15 +499,48 @@ export default function QuoteEditPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-3">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-lg font-semibold text-gray-900">Quote Items</h2>
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
+                <div className="flex items-center gap-2">
+                  {products.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowProductPicker(v => !v)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                      From Catalogue
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Item
+                  </button>
+                </div>
               </div>
+
+              {showProductPicker && products.length > 0 && (
+                <div className="mb-3 border border-gray-200 rounded-lg p-2 max-h-56 overflow-y-auto space-y-1">
+                  {products.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => addProductFromCatalogue(p)}
+                      className="w-full text-left p-2 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">{p.name}</div>
+                          <div className="text-xs text-gray-600">{p.description}</div>
+                        </div>
+                        <div className="text-sm font-semibold text-blue-600">${p.price.toLocaleString()}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {errors.items && (
                 <p className="text-sm text-red-600 mb-2">{errors.items}</p>
@@ -644,13 +697,13 @@ export default function QuoteEditPage() {
               <div className="space-y-2">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Quote Number</p>
-                  <p className="text-sm font-medium text-gray-900">{existingQuote.quoteNumber}</p>
+                  <p className="text-sm font-medium text-gray-900">{existingQuote.quoteNumber ?? quoteId}</p>
                 </div>
 
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Created Date</p>
                   <p className="text-sm font-medium text-gray-900">
-                    {new Date(existingQuote.createdDate).toLocaleDateString()}
+                    {existingQuote.createdDate ? new Date(existingQuote.createdDate).toLocaleDateString() : '—'}
                   </p>
                 </div>
 
@@ -669,12 +722,16 @@ export default function QuoteEditPage() {
             {/* Action Buttons */}
             <div className="bg-white rounded-xl border border-gray-200 p-3">
               <div className="space-y-3">
+                {submitError && (
+                  <p className="text-sm text-red-600">{submitError}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
                   <Save className="w-5 h-5" />
-                  <span>Save Changes</span>
+                  <span>{saving ? 'Saving…' : 'Save Changes'}</span>
                 </button>
 
                 <button

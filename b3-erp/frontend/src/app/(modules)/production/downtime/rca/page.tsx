@@ -86,6 +86,8 @@ export default function DowntimeRCAPage() {
   const [rcaInvestigations, setRcaInvestigations] = useState<RCAInvestigation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refreshRcas = () => setRefreshKey((k) => k + 1);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -166,7 +168,7 @@ export default function DowntimeRCAPage() {
       } finally { if (!cancelled) setIsLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshKey]);
 
   const filteredInvestigations = rcaInvestigations.filter(rca => {
     return filterStatus === 'all' || rca.status === filterStatus;
@@ -222,10 +224,15 @@ export default function DowntimeRCAPage() {
     setIsCreateRCAOpen(true);
   };
 
-  const handleCreateRCASubmit = (data: CreateRCAData) => {
-    console.log('Creating RCA:', data);
-    // TODO: Implement API call
-    setIsCreateRCAOpen(false);
+  const handleCreateRCASubmit = async (data: CreateRCAData) => {
+    try {
+      await ProductionOrphanService.createRootCauseAnalysis(data);
+      refreshRcas();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create RCA');
+    } finally {
+      setIsCreateRCAOpen(false);
+    }
   };
 
   const handleViewRCA = (rca: any) => {
@@ -288,11 +295,19 @@ export default function DowntimeRCAPage() {
     setIsAddRootCauseOpen(true);
   };
 
-  const handleAddRootCauseSubmit = (data: AddRootCauseData) => {
-    console.log('Adding root cause:', data);
-    // TODO: Implement API call
-    setIsAddRootCauseOpen(false);
-    setIsViewRCAOpen(true);
+  const handleAddRootCauseSubmit = async (data: AddRootCauseData) => {
+    const rcaId = selectedRCA?.id;
+    try {
+      if (rcaId) {
+        await ProductionOrphanService.updateRootCauseAnalysis(rcaId, { rootCause: data });
+        refreshRcas();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add root cause');
+    } finally {
+      setIsAddRootCauseOpen(false);
+      setIsViewRCAOpen(true);
+    }
   };
 
   const handleAddCorrectiveAction = () => {
@@ -300,9 +315,16 @@ export default function DowntimeRCAPage() {
     setIsAddCorrectiveActionOpen(true);
   };
 
-  const handleAddCorrectiveActionSubmit = (data: Partial<CorrectiveAction>) => {
-    console.log('Adding corrective action:', data);
-    // TODO: Implement API call
+  const handleAddCorrectiveActionSubmit = async (data: Partial<CorrectiveAction>) => {
+    const rcaId = selectedRCA?.id;
+    try {
+      if (rcaId) {
+        await ProductionOrphanService.addRcaCorrectiveAction(rcaId, data);
+        refreshRcas();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add corrective action');
+    }
   };
 
   const handleAddPreventiveAction = () => {
@@ -310,9 +332,16 @@ export default function DowntimeRCAPage() {
     setIsAddPreventiveActionOpen(true);
   };
 
-  const handleAddPreventiveActionSubmit = (data: Partial<PreventiveAction>) => {
-    console.log('Adding preventive action:', data);
-    // TODO: Implement API call
+  const handleAddPreventiveActionSubmit = async (data: Partial<PreventiveAction>) => {
+    const rcaId = selectedRCA?.id;
+    try {
+      if (rcaId) {
+        await ProductionOrphanService.updateRootCauseAnalysis(rcaId, { preventiveAction: data });
+        refreshRcas();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to add preventive action');
+    }
   };
 
   const handleUpdateActionStatus = (action: any, actionType: 'corrective' | 'preventive') => {
@@ -322,11 +351,23 @@ export default function DowntimeRCAPage() {
     setIsUpdateActionOpen(true);
   };
 
-  const handleUpdateActionStatusSubmit = (data: UpdateActionStatusData) => {
-    console.log('Updating action status:', data);
-    // TODO: Implement API call
-    setIsUpdateActionOpen(false);
-    setIsViewRCAOpen(true);
+  const handleUpdateActionStatusSubmit = async (data: UpdateActionStatusData) => {
+    const rcaId = selectedRCA?.id;
+    try {
+      if (rcaId) {
+        await ProductionOrphanService.updateRootCauseAnalysis(rcaId, {
+          actionType: selectedActionType,
+          actionId: selectedAction?.id,
+          actionStatus: data,
+        });
+        refreshRcas();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update action status');
+    } finally {
+      setIsUpdateActionOpen(false);
+      setIsViewRCAOpen(true);
+    }
   };
 
   const handleVerifyRCA = () => {
@@ -334,10 +375,18 @@ export default function DowntimeRCAPage() {
     setIsVerifyRCAOpen(true);
   };
 
-  const handleVerifyRCASubmit = (data: VerifyRCAData) => {
-    console.log('Verifying RCA:', data);
-    // TODO: Implement API call
-    setIsVerifyRCAOpen(false);
+  const handleVerifyRCASubmit = async (data: VerifyRCAData) => {
+    const rcaId = selectedRCA?.id;
+    try {
+      if (rcaId) {
+        await ProductionOrphanService.verifyRootCauseAnalysis(rcaId, data);
+        refreshRcas();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to verify RCA');
+    } finally {
+      setIsVerifyRCAOpen(false);
+    }
   };
 
   const handleExport = () => {

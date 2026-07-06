@@ -300,13 +300,14 @@ export default function EditPayablePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    console.log('Updated Payable:', formData);
-    alert('Payable updated successfully!');
-    router.push(`/finance/payables/view/${payableId}`);
+    try {
+      await FinanceService.updatePayable(payableId, formData);
+      router.push(`/finance/payables/view/${payableId}`);
+    } catch (err: any) {
+      setLoadError(err?.message || 'Failed to update payable');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {

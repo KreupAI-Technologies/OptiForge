@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { LeaveService } from '@/services/leave.service';
 import {
   ArrowLeft,
   Save,
@@ -45,43 +46,106 @@ interface LeaveRequest {
 export default function EditLeavePage({ params }: { params: { id: string } }) {
   const router = useRouter();
 
-  // Mock data - replace with API call
-  const [leaveRequest] = useState<LeaveRequest>({
+  const emptyLeaveRequest: LeaveRequest = {
     id: params.id,
-    employeeId: 'B3-0001',
-    employeeName: 'Rajesh Kumar',
-    department: 'Production',
-    position: 'Production Supervisor',
-    email: 'rajesh.kumar@b3erp.com',
-    phone: '+91 98765 43210',
-    leaveType: 'Casual Leave',
-    startDate: '2025-11-01',
-    endDate: '2025-11-05',
-    totalDays: 5,
-    reason: 'Family function',
+    employeeId: '',
+    employeeName: '',
+    department: '',
+    position: '',
+    email: '',
+    phone: '',
+    leaveType: '',
+    startDate: '',
+    endDate: '',
+    totalDays: 0,
+    reason: '',
     status: 'pending',
-    contactDuringLeave: '+91 98765 43210',
-    emergencyContact: 'Priya Kumar',
-    emergencyPhone: '+91 98765 43211',
-    handoverTo: 'Amit Sharma',
-    handoverNotes: 'Complete pending work orders WO-2025-001 and WO-2025-002. Review daily production reports.',
-    attachments: ['invitation.pdf', 'travel-booking.pdf'],
-  });
+    contactDuringLeave: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    handoverTo: '',
+    handoverNotes: '',
+    attachments: [],
+  };
+
+  const [leaveRequest, setLeaveRequest] = useState<LeaveRequest>(emptyLeaveRequest);
 
   const [formData, setFormData] = useState({
-    leaveType: leaveRequest.leaveType,
-    startDate: leaveRequest.startDate,
-    endDate: leaveRequest.endDate,
-    reason: leaveRequest.reason,
-    contactDuringLeave: leaveRequest.contactDuringLeave,
-    emergencyContact: leaveRequest.emergencyContact,
-    emergencyPhone: leaveRequest.emergencyPhone,
-    handoverTo: leaveRequest.handoverTo,
-    handoverNotes: leaveRequest.handoverNotes,
+    leaveType: '',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    contactDuringLeave: '',
+    emergencyContact: '',
+    emergencyPhone: '',
+    handoverTo: '',
+    handoverNotes: '',
   });
 
-  const [attachments, setAttachments] = useState<string[]>(leaveRequest.attachments);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const app: any = await LeaveService.getLeaveApplicationById(params.id);
+        if (cancelled || !app) return;
+
+        const toDateInput = (d: any): string => {
+          if (!d) return '';
+          const dt = new Date(d);
+          return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+        };
+
+        const mapped: LeaveRequest = {
+          id: app.id ?? params.id,
+          employeeId: app.employeeCode ?? app.employeeId ?? '',
+          employeeName: app.employeeName ?? '',
+          department: app.departmentName ?? '',
+          position: app.position ?? '',
+          email: app.email ?? '',
+          phone: app.phone ?? '',
+          leaveType: app.leaveTypeName ?? app.leaveType ?? '',
+          startDate: toDateInput(app.startDate),
+          endDate: toDateInput(app.endDate),
+          totalDays: app.totalDays ?? 0,
+          reason: app.reason ?? '',
+          status: (app.status ? String(app.status).toLowerCase() : 'pending') as LeaveRequest['status'],
+          contactDuringLeave: app.contactDuringLeave ?? '',
+          emergencyContact: app.emergencyContact ?? '',
+          emergencyPhone: app.emergencyPhone ?? '',
+          handoverTo: app.handoverTo ?? '',
+          handoverNotes: app.handoverNotes ?? '',
+          attachments: Array.isArray(app.attachments)
+            ? app.attachments
+            : app.attachmentUrl
+              ? [app.attachmentUrl]
+              : [],
+        };
+
+        setLeaveRequest(mapped);
+        setFormData({
+          leaveType: mapped.leaveType,
+          startDate: mapped.startDate,
+          endDate: mapped.endDate,
+          reason: mapped.reason,
+          contactDuringLeave: mapped.contactDuringLeave,
+          emergencyContact: mapped.emergencyContact,
+          emergencyPhone: mapped.emergencyPhone,
+          handoverTo: mapped.handoverTo,
+          handoverNotes: mapped.handoverNotes,
+        });
+        setAttachments(mapped.attachments);
+      } catch (err) {
+        console.error('Failed to load leave application:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const leaveTypes = [
     'Casual Leave',
@@ -181,7 +245,7 @@ export default function EditLeavePage({ params }: { params: { id: string } }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -189,16 +253,29 @@ export default function EditLeavePage({ params }: { params: { id: string } }) {
       return;
     }
 
-    // API call would go here
-    console.log('Updating leave request:', {
-      id: params.id,
-      ...formData,
-      totalDays: calculateTotalDays(),
-      attachments,
-    });
-
-    alert('Leave request updated successfully!');
-    router.push(`/hr/leave/view/${params.id}`);
+    setIsSubmitting(true);
+    try {
+      await LeaveService.updateLeaveApplication(params.id, {
+        companyId: 'default-company-id',
+        leaveType: formData.leaveType,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        reason: formData.reason,
+        totalDays: calculateTotalDays(),
+        contactDuringLeave: formData.contactDuringLeave,
+        emergencyContact: formData.emergencyContact,
+        emergencyPhone: formData.emergencyPhone,
+        handoverTo: formData.handoverTo,
+        handoverNotes: formData.handoverNotes,
+        attachments,
+      });
+      router.push(`/hr/leave/view/${params.id}`);
+    } catch (err) {
+      console.error('Failed to update leave application:', err);
+      alert('Failed to update leave request. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const totalDays = calculateTotalDays();
@@ -555,10 +632,11 @@ export default function EditLeavePage({ params }: { params: { id: string } }) {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Update Leave Request
+              {isSubmitting ? 'Updating...' : 'Update Leave Request'}
             </button>
           </div>
         </form>

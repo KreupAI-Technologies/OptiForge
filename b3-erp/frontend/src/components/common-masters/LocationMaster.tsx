@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   MapPin, Plus, Search, Filter, Edit2, Trash2, MoreVertical,
   Building2, Globe, Phone, Mail, Navigation, Clock, Shield,
   Map, Thermometer, Users, Truck, Package, AlertTriangle,
   FileText, CheckCircle2, XCircle, AlertCircle, ChevronRight
 } from 'lucide-react';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const DEFAULT_COMPANY_ID = 'default-company-id';
 
 interface Location {
   id: string;
@@ -69,123 +72,8 @@ interface Location {
   };
 }
 
-const mockLocations: Location[] = [
-  {
-    id: '1',
-    code: 'LOC-US-CA-001',
-    name: 'California Headquarters',
-    type: 'Site',
-    parentId: '10',
-    parentName: 'California',
-    address: {
-      line1: '123 Tech Boulevard',
-      line2: 'Suite 500',
-      city: 'San Francisco',
-      state: 'California',
-      country: 'United States',
-      pincode: '94105',
-      landmark: 'Near Golden Gate Park'
-    },
-    coordinates: {
-      latitude: 37.7749,
-      longitude: -122.4194,
-      altitude: 52
-    },
-    contact: {
-      phone: '+1-415-555-0100',
-      altPhone: '+1-415-555-0101',
-      email: 'ca-hq@company.com',
-      website: 'www.company.com/ca'
-    },
-    operational: {
-      timeZone: 'America/Los_Angeles',
-      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-      workingHours: '08:00 - 18:00',
-      holidays: ['2024-01-01', '2024-07-04', '2024-12-25'],
-      climate: 'Mediterranean',
-      accessibility: '24/7 with badge access'
-    },
-    logistics: {
-      nearestAirport: 'SFO - 15 miles',
-      nearestSeaport: 'Port of Oakland - 12 miles',
-      nearestRailway: 'Caltrain Station - 2 miles',
-      transportModes: ['Road', 'Rail', 'Air', 'Sea'],
-      deliveryTime: 'Same day for local, 2-3 days national',
-      shippingZones: ['Zone A', 'Zone B', 'International']
-    },
-    compliance: {
-      taxJurisdiction: 'California State',
-      regulatoryZone: 'US West Coast',
-      customsCode: 'US-CA-SF',
-      freeTradeZone: false,
-      environmentalZone: 'Green Zone'
-    },
-    facilities: ['Warehouse', 'Office', 'R&D Lab', 'Cafeteria', 'Parking'],
-    restrictions: ['No hazardous materials', 'Earthquake zone'],
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-01-15'),
-      updatedAt: new Date('2024-03-20'),
-      createdBy: 'Admin',
-      updatedBy: 'Admin'
-    }
-  },
-  {
-    id: '2',
-    code: 'LOC-US-NY-001',
-    name: 'New York Distribution Center',
-    type: 'Site',
-    parentId: '11',
-    parentName: 'New York',
-    address: {
-      line1: '456 Commerce Way',
-      city: 'Brooklyn',
-      state: 'New York',
-      country: 'United States',
-      pincode: '11201'
-    },
-    coordinates: {
-      latitude: 40.7128,
-      longitude: -74.0060
-    },
-    contact: {
-      phone: '+1-212-555-0200',
-      email: 'ny-dc@company.com'
-    },
-    operational: {
-      timeZone: 'America/New_York',
-      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      workingHours: '06:00 - 22:00',
-      holidays: ['2024-01-01', '2024-07-04', '2024-12-25'],
-      climate: 'Continental',
-      accessibility: 'Restricted access, appointment required'
-    },
-    logistics: {
-      nearestAirport: 'JFK - 20 miles',
-      nearestSeaport: 'Port of New York - 5 miles',
-      transportModes: ['Road', 'Rail', 'Air', 'Sea'],
-      deliveryTime: 'Next day for East Coast',
-      shippingZones: ['Zone B', 'Zone C', 'Express']
-    },
-    compliance: {
-      taxJurisdiction: 'New York State',
-      regulatoryZone: 'US East Coast',
-      freeTradeZone: false
-    },
-    facilities: ['Warehouse', 'Loading Docks', 'Cold Storage'],
-    restrictions: ['Weight limit: 50 tons', 'Height restriction: 14 ft'],
-    status: 'Active',
-    metadata: {
-      createdAt: new Date('2023-03-10'),
-      updatedAt: new Date('2024-02-15'),
-      createdBy: 'Admin',
-      updatedBy: 'Manager'
-    }
-  }
-];
-
 export default function LocationMaster() {
-  const [locations, setLocations] = useState<Location[]>(mockLocations);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -193,6 +81,52 @@ export default function LocationMaster() {
   const [filterStatus, setFilterStatus] = useState<string>('All');
   const [currentTab, setCurrentTab] = useState('basic');
   const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
+  const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadLocations();
+  }, []);
+
+  const loadLocations = async () => {
+    try {
+      const data = await commonMastersService.getAllLocations(DEFAULT_COMPANY_ID);
+      const mapped: Location[] = (data || []).map((r: any) => ({
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        type: (r.type ?? 'Site') as Location['type'],
+        parentId: r.parentId,
+        parentName: r.parent?.name,
+        address: r.address ?? {
+          line1: '', city: '', state: '', country: '', pincode: ''
+        },
+        coordinates: r.coordinates ?? undefined,
+        contact: r.contact ?? {},
+        operational: r.operational ?? {
+          timeZone: '', workingDays: [], workingHours: '',
+          holidays: [], climate: '', accessibility: ''
+        },
+        logistics: r.logistics ?? {
+          transportModes: [], deliveryTime: '', shippingZones: []
+        },
+        compliance: r.compliance ?? {
+          taxJurisdiction: '', regulatoryZone: '', freeTradeZone: false
+        },
+        facilities: r.facilities ?? [],
+        restrictions: r.restrictions ?? [],
+        status: (r.status ?? (r.isActive === false ? 'Inactive' : 'Active')) as Location['status'],
+        metadata: {
+          createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+          updatedAt: r.updatedAt ? new Date(r.updatedAt) : new Date(),
+          createdBy: '',
+          updatedBy: ''
+        }
+      }));
+      setLocations(mapped);
+    } catch (error) {
+      console.error('Failed to load locations:', error);
+    }
+  };
 
   const handleEdit = (location: Location) => {
     setSelectedLocation(location);
@@ -200,9 +134,99 @@ export default function LocationMaster() {
     setCurrentTab('basic');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this location?')) {
-      setLocations(locations.filter(l => l.id !== id));
+      try {
+        await commonMastersService.deleteLocation(id);
+        await loadLocations();
+      } catch (error) {
+        console.error('Failed to delete location:', error);
+      }
+    }
+  };
+
+  const collectFormValue = (name: string): string => {
+    const el = formRef.current?.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+      `[data-field="${name}"]`
+    );
+    return el ? el.value : '';
+  };
+
+  const collectCheckedValues = (name: string): string[] => {
+    const els = formRef.current?.querySelectorAll<HTMLInputElement>(`[data-group="${name}"]`);
+    if (!els) return [];
+    return Array.from(els).filter(el => el.checked).map(el => el.value);
+  };
+
+  const collectChecked = (name: string): boolean => {
+    const el = formRef.current?.querySelector<HTMLInputElement>(`[data-field="${name}"]`);
+    return el ? el.checked : false;
+  };
+
+  const handleSave = async () => {
+    try {
+      const lat = collectFormValue('latitude');
+      const lng = collectFormValue('longitude');
+      const payload: any = {
+        code: collectFormValue('code'),
+        name: collectFormValue('name'),
+        type: collectFormValue('type'),
+        parentId: collectFormValue('parentId') || undefined,
+        companyId: DEFAULT_COMPANY_ID,
+        status: collectFormValue('status'),
+        address: {
+          line1: collectFormValue('line1'),
+          line2: collectFormValue('line2'),
+          city: collectFormValue('city'),
+          state: collectFormValue('state'),
+          country: collectFormValue('country'),
+          pincode: collectFormValue('pincode')
+        },
+        coordinates: (lat || lng) ? {
+          latitude: parseFloat(lat) || 0,
+          longitude: parseFloat(lng) || 0
+        } : undefined,
+        contact: {
+          phone: collectFormValue('phone'),
+          email: collectFormValue('email')
+        },
+        operational: {
+          timeZone: collectFormValue('timeZone'),
+          workingDays: collectCheckedValues('workingDays'),
+          workingHours: collectFormValue('workingHours'),
+          holidays: [],
+          climate: collectFormValue('climate'),
+          accessibility: collectFormValue('accessibility')
+        },
+        logistics: {
+          nearestAirport: collectFormValue('nearestAirport'),
+          nearestSeaport: collectFormValue('nearestSeaport'),
+          transportModes: collectCheckedValues('transportModes'),
+          deliveryTime: collectFormValue('deliveryTime'),
+          shippingZones: collectCheckedValues('shippingZones')
+        },
+        compliance: {
+          taxJurisdiction: collectFormValue('taxJurisdiction'),
+          regulatoryZone: collectFormValue('regulatoryZone'),
+          customsCode: collectFormValue('customsCode'),
+          environmentalZone: collectFormValue('environmentalZone'),
+          freeTradeZone: collectChecked('freeTradeZone')
+        },
+        facilities: collectCheckedValues('facilities'),
+        restrictions: collectFormValue('restrictions')
+          ? collectFormValue('restrictions').split(',').map(s => s.trim()).filter(Boolean)
+          : []
+      };
+
+      if (selectedLocation) {
+        await commonMastersService.updateLocation(selectedLocation.id, payload);
+      } else {
+        await commonMastersService.createLocation(payload);
+      }
+      setIsModalOpen(false);
+      await loadLocations();
+    } catch (error) {
+      console.error('Failed to save location:', error);
     }
   };
 
@@ -482,7 +506,7 @@ export default function LocationMaster() {
               ))}
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+            <div ref={formRef} className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
               {currentTab === 'basic' && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
@@ -492,6 +516,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="code"
                         defaultValue={selectedLocation?.code}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="LOC-XXX-XXX"
@@ -503,6 +528,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="name"
                         defaultValue={selectedLocation?.name}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter location name"
@@ -515,7 +541,7 @@ export default function LocationMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Type *
                       </label>
-                      <select defaultValue={selectedLocation?.type || 'Site'}
+                      <select data-field="type" defaultValue={selectedLocation?.type || 'Site'}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="Country">Country</option>
                         <option value="State">State</option>
@@ -529,7 +555,7 @@ export default function LocationMaster() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Parent Location
                       </label>
-                      <select defaultValue={selectedLocation?.parentId}
+                      <select data-field="parentId" defaultValue={selectedLocation?.parentId}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                         <option value="">None</option>
                         {locations.map(loc => (
@@ -546,6 +572,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="phone"
                         defaultValue={selectedLocation?.contact.phone}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="+1-xxx-xxx-xxxx"
@@ -557,6 +584,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="email"
+                        data-field="email"
                         defaultValue={selectedLocation?.contact.email}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="location@company.com"
@@ -568,7 +596,7 @@ export default function LocationMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Status
                     </label>
-                    <select defaultValue={selectedLocation?.status || 'Active'}
+                    <select data-field="status" defaultValue={selectedLocation?.status || 'Active'}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
@@ -586,6 +614,7 @@ export default function LocationMaster() {
                     </label>
                     <input
                       type="text"
+                      data-field="line1"
                       defaultValue={selectedLocation?.address.line1}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Street address"
@@ -598,6 +627,7 @@ export default function LocationMaster() {
                     </label>
                     <input
                       type="text"
+                      data-field="line2"
                       defaultValue={selectedLocation?.address.line2}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Suite, floor, etc."
@@ -611,6 +641,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="city"
                         defaultValue={selectedLocation?.address.city}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -621,6 +652,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="state"
                         defaultValue={selectedLocation?.address.state}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -634,6 +666,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="country"
                         defaultValue={selectedLocation?.address.country}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -644,6 +677,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="pincode"
                         defaultValue={selectedLocation?.address.pincode}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -658,6 +692,7 @@ export default function LocationMaster() {
                       <input
                         type="number"
                         step="0.000001"
+                        data-field="latitude"
                         defaultValue={selectedLocation?.coordinates?.latitude}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -669,6 +704,7 @@ export default function LocationMaster() {
                       <input
                         type="number"
                         step="0.000001"
+                        data-field="longitude"
                         defaultValue={selectedLocation?.coordinates?.longitude}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -683,7 +719,7 @@ export default function LocationMaster() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Time Zone *
                     </label>
-                    <select defaultValue={selectedLocation?.operational.timeZone || 'America/New_York'}
+                    <select data-field="timeZone" defaultValue={selectedLocation?.operational.timeZone || 'America/New_York'}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="America/New_York">America/New_York</option>
                       <option value="America/Los_Angeles">America/Los_Angeles</option>
@@ -703,7 +739,13 @@ export default function LocationMaster() {
                         <label key={day} className="flex items-center">
                           <input
                             type="checkbox"
-                            defaultChecked={day !== 'Sun'}
+                            data-group="workingDays"
+                            value={day}
+                            defaultChecked={
+                              selectedLocation
+                                ? selectedLocation.operational.workingDays?.includes(day)
+                                : day !== 'Sun'
+                            }
                             className="mr-1"
                           />
                           <span className="text-sm">{day}</span>
@@ -718,6 +760,7 @@ export default function LocationMaster() {
                     </label>
                     <input
                       type="text"
+                      data-field="workingHours"
                       defaultValue={selectedLocation?.operational.workingHours || '09:00 - 17:00'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="09:00 - 17:00"
@@ -730,6 +773,7 @@ export default function LocationMaster() {
                     </label>
                     <input
                       type="text"
+                      data-field="climate"
                       defaultValue={selectedLocation?.operational.climate}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Temperate, Tropical, etc."
@@ -741,6 +785,7 @@ export default function LocationMaster() {
                       Accessibility
                     </label>
                     <textarea
+                      data-field="accessibility"
                       defaultValue={selectedLocation?.operational.accessibility}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       rows={2}
@@ -757,6 +802,8 @@ export default function LocationMaster() {
                         <label key={facility} className="flex items-center">
                           <input
                             type="checkbox"
+                            data-group="facilities"
+                            value={facility}
                             defaultChecked={selectedLocation?.facilities?.includes(facility)}
                             className="mr-2"
                           />
@@ -777,6 +824,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="nearestAirport"
                         defaultValue={selectedLocation?.logistics.nearestAirport}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Airport code - distance"
@@ -788,6 +836,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="nearestSeaport"
                         defaultValue={selectedLocation?.logistics.nearestSeaport}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Port name - distance"
@@ -804,6 +853,8 @@ export default function LocationMaster() {
                         <label key={mode} className="flex items-center">
                           <input
                             type="checkbox"
+                            data-group="transportModes"
+                            value={mode}
                             defaultChecked={selectedLocation?.logistics.transportModes?.includes(mode)}
                             className="mr-2"
                           />
@@ -819,6 +870,7 @@ export default function LocationMaster() {
                     </label>
                     <input
                       type="text"
+                      data-field="deliveryTime"
                       defaultValue={selectedLocation?.logistics.deliveryTime}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Same day for local, 2-3 days national"
@@ -834,6 +886,8 @@ export default function LocationMaster() {
                         <label key={zone} className="flex items-center">
                           <input
                             type="checkbox"
+                            data-group="shippingZones"
+                            value={zone}
                             defaultChecked={selectedLocation?.logistics.shippingZones?.includes(zone)}
                             className="mr-2"
                           />
@@ -848,6 +902,7 @@ export default function LocationMaster() {
                       Restrictions
                     </label>
                     <textarea
+                      data-field="restrictions"
                       defaultValue={selectedLocation?.restrictions?.join(', ')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       rows={2}
@@ -866,6 +921,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="taxJurisdiction"
                         defaultValue={selectedLocation?.compliance.taxJurisdiction}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., California State"
@@ -877,6 +933,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="regulatoryZone"
                         defaultValue={selectedLocation?.compliance.regulatoryZone}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., US West Coast"
@@ -891,6 +948,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="customsCode"
                         defaultValue={selectedLocation?.compliance.customsCode}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="Customs territory code"
@@ -902,6 +960,7 @@ export default function LocationMaster() {
                       </label>
                       <input
                         type="text"
+                        data-field="environmentalZone"
                         defaultValue={selectedLocation?.compliance.environmentalZone}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                         placeholder="e.g., Green Zone"
@@ -913,6 +972,7 @@ export default function LocationMaster() {
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
+                        data-field="freeTradeZone"
                         defaultChecked={selectedLocation?.compliance.freeTradeZone}
                         className="rounded"
                       />
@@ -931,10 +991,7 @@ export default function LocationMaster() {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  alert('Location saved successfully!');
-                }}
+                onClick={handleSave}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {selectedLocation ? 'Update' : 'Create'} Location

@@ -28,6 +28,7 @@ import {
   WarehouseType,
   CapacityUtilization
 } from '@/services/warehouse.service'
+import { inventoryService } from '@/services/InventoryService'
 import { exportToCsv } from '@/lib/export'
 
 interface Warehouse {
@@ -304,11 +305,39 @@ const InventoryWarehousePage = () => {
   }
 
   // Handle warehouse edit
-  const handleEditWarehouse = () => {
-    // TODO: Implement edit functionality - reuse CreateWarehouseModal with edit mode
-    console.log('Edit warehouse:', selectedWarehouse)
-    setIsViewWarehouseOpen(false)
-    // Could open CreateWarehouseModal with pre-filled data
+  const handleEditWarehouse = async () => {
+    if (!selectedWarehouse) return
+    const matched = warehouses.find(w => w.warehouseId === selectedWarehouse.warehouseCode)
+    if (!matched?.id) return
+    try {
+      const typeMapping: Record<string, WarehouseType> = {
+        'main': WarehouseType.FINISHED_GOODS,
+        'production': WarehouseType.WIP,
+        'distribution': WarehouseType.SPARE_PARTS,
+        'regional': WarehouseType.GENERAL,
+      }
+      await warehouseService.updateWarehouse(matched.id, {
+        code: selectedWarehouse.warehouseCode,
+        name: selectedWarehouse.warehouseName,
+        type: typeMapping[selectedWarehouse.warehouseType] || WarehouseType.GENERAL,
+        address: {
+          street: selectedWarehouse.location?.address,
+          city: selectedWarehouse.location?.city,
+          state: selectedWarehouse.location?.state,
+          country: selectedWarehouse.location?.country,
+          postalCode: selectedWarehouse.location?.zipCode,
+        } as ServiceWarehouse['address'],
+        contactPerson: selectedWarehouse.contact?.managerName,
+        contactPhone: selectedWarehouse.contact?.phone,
+        contactEmail: selectedWarehouse.contact?.email,
+        totalCapacity: selectedWarehouse.capacity?.totalArea,
+        capacityUom: selectedWarehouse.capacity?.unit,
+      })
+      await fetchWarehouses()
+      setIsViewWarehouseOpen(false)
+    } catch (err) {
+      console.error('Failed to update warehouse:', err)
+    }
   }
 
   // Handle add zone from warehouse details
@@ -321,21 +350,35 @@ const InventoryWarehousePage = () => {
   }
 
   // Handle zone creation
-  const handleCreateZone = (data: ZoneData) => {
-    // TODO: Integrate with API to create zone
-    console.log('Creating zone:', data)
+  const handleCreateZone = async (data: ZoneData) => {
+    const zoneCode = data?.zoneCode
+    const zoneName = data?.zoneName
+    if (!zoneCode && !zoneName) return
+    try {
+      await inventoryService.createStockLocation({
+        locationCode: zoneCode ?? zoneName,
+        locationName: zoneName ?? zoneCode,
+        warehouseId: data?.warehouseId ?? selectedWarehouse?.warehouseId,
+        locationType: 'storage',
+        zone: zoneName ?? zoneCode,
+        status: 'Active',
+      })
 
-    // Update local warehouse zones
-    if (selectedWarehouse) {
-      const updatedWarehouse = {
-        ...selectedWarehouse,
-        zones: [...selectedWarehouse.zones, data.zoneName]
+      // Update local warehouse zones
+      if (selectedWarehouse) {
+        const updatedWarehouse = {
+          ...selectedWarehouse,
+          zones: [...selectedWarehouse.zones, data.zoneName]
+        }
+        setSelectedWarehouse(updatedWarehouse)
       }
-      setSelectedWarehouse(updatedWarehouse)
-    }
 
-    setIsCreateZoneOpen(false)
-    setSelectedWarehouseIdForZone('')
+      setIsCreateZoneOpen(false)
+      setSelectedWarehouseIdForZone('')
+      await fetchWarehouses()
+    } catch (err) {
+      console.error('Failed to create zone:', err)
+    }
   }
 
   if (loading) {

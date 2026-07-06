@@ -1,39 +1,76 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, X, Percent, DollarSign, TrendingUp, Users, Package, Calendar, AlertCircle } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 export default function EditPricingRulePage() {
   const router = useRouter();
   const params = useParams();
+  const ruleId = params?.id as string;
 
-  // Mock data - in real app, fetch based on params.id
   const [formData, setFormData] = useState({
-    name: 'Enterprise Volume Discount',
-    description: 'Automatic discount for orders over 100 licenses',
+    name: '',
+    description: '',
     ruleType: 'volume' as 'volume' | 'customer' | 'product' | 'seasonal' | 'bundle' | 'time-limited',
-    discountType: 'tiered' as 'percentage' | 'fixed' | 'tiered',
-    discountValue: '15',
-    priority: '1',
+    discountType: 'percentage' as 'percentage' | 'fixed' | 'tiered',
+    discountValue: '',
+    priority: '',
     isActive: true,
-    validFrom: '2024-01-01',
+    validFrom: '',
     validUntil: '',
   });
 
-  const [conditions, setConditions] = useState<string[]>(['Order quantity > 100', 'Product category: Software']);
-  const [applicableProducts, setApplicableProducts] = useState<string[]>(['All Software Products']);
-  const [applicableCustomers, setApplicableCustomers] = useState<string[]>(['All Customers']);
+  const [conditions, setConditions] = useState<string[]>(['']);
+  const [applicableProducts, setApplicableProducts] = useState<string[]>(['']);
+  const [applicableCustomers, setApplicableCustomers] = useState<string[]>(['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Mock stats
-  const stats = {
-    usageCount: 45,
-    totalSavings: 156000,
-    createdDate: '2024-01-01'
-  };
+  const [stats, setStats] = useState<{ usageCount: number; totalSavings: number; createdDate: string }>({
+    usageCount: 0,
+    totalSavings: 0,
+    createdDate: '',
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch the real pricing rule record and prefill the form.
+  useEffect(() => {
+    if (!ruleId) return;
+    let cancelled = false;
+    crmService.pricingRules
+      .getById(ruleId)
+      .then((r: any) => {
+        if (cancelled || !r || typeof r !== 'object') return;
+        setFormData(prev => ({
+          ...prev,
+          name: r.name ?? r.ruleName ?? prev.name,
+          description: r.description ?? prev.description,
+          ruleType: (r.ruleType ?? prev.ruleType),
+          discountType: (r.discountType ?? prev.discountType),
+          discountValue: r.discountValue != null ? String(r.discountValue) : prev.discountValue,
+          priority: r.priority != null ? String(r.priority) : prev.priority,
+          isActive: r.isActive ?? prev.isActive,
+          validFrom: (r.validFrom ?? prev.validFrom ?? '').toString().slice(0, 10),
+          validUntil: r.validUntil ? r.validUntil.toString().slice(0, 10) : prev.validUntil,
+        }));
+        if (Array.isArray(r.conditions) && r.conditions.length > 0) setConditions(r.conditions);
+        if (Array.isArray(r.applicableProducts) && r.applicableProducts.length > 0) setApplicableProducts(r.applicableProducts);
+        if (Array.isArray(r.applicableCustomers) && r.applicableCustomers.length > 0) setApplicableCustomers(r.applicableCustomers);
+        setStats({
+          usageCount: Number(r.usageCount ?? 0),
+          totalSavings: Number(r.totalSavings ?? 0),
+          createdDate: (r.createdDate ?? r.createdAt ?? '').toString().slice(0, 10),
+        });
+      })
+      .catch(() => { /* leave defaults on failure */ });
+    return () => {
+      cancelled = true;
+    };
+  }, [ruleId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -51,7 +88,29 @@ export default function EditPricingRulePage() {
       return;
     }
 
-    router.push('/crm/quotes/pricing');
+    setSaving(true);
+    setSubmitError(null);
+    try {
+      const payload: any = {
+        name: formData.name,
+        description: formData.description,
+        ruleType: formData.ruleType,
+        discountType: formData.discountType,
+        discountValue: Number(formData.discountValue),
+        priority: Number(formData.priority),
+        isActive: formData.isActive,
+        validFrom: formData.validFrom,
+        validUntil: formData.validUntil || undefined,
+        conditions: conditions.filter(c => c.trim()),
+        applicableProducts: applicableProducts.filter(p => p.trim()),
+        applicableCustomers: applicableCustomers.filter(c => c.trim()),
+      };
+      await crmService.pricingRules.update(ruleId, payload);
+      router.push('/crm/quotes/pricing');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to update pricing rule');
+      setSaving(false);
+    }
   };
 
   const addCondition = () => {
@@ -406,6 +465,9 @@ export default function EditPricingRulePage() {
               </div>
 
               {/* Action Buttons */}
+              {submitError && (
+                <p className="text-sm text-red-600">{submitError}</p>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -416,9 +478,10 @@ export default function EditPricingRulePage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
-                  Save Changes
+                  {saving ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </div>

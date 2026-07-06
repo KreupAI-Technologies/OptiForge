@@ -249,24 +249,19 @@ export default function ApprovalsPage() {
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with actual API call when backend is connected
-      // const response = await fetch(`/api/approvals/${selectedApproval.id}/${modalAction}`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     userId: 'current-user-id', // TODO: Get from auth context
-      //     [modalAction === 'approve' ? 'comment' : 'reason']: actionComment
-      //   })
-      // });
+      await approvalService.processAction(
+        selectedApproval.id,
+        'current-user-id',
+        modalAction,
+        actionComment || undefined
+      );
 
-      // For now, update local state (mock behavior)
       setApprovals(approvals.map(a =>
         a.id === selectedApproval.id
           ? { ...a, status: modalAction === 'approve' ? 'approved' : 'rejected' }
           : a
       ));
 
-      // Show success message
       alert(`Request ${modalAction === 'approve' ? 'approved' : 'rejected'} successfully!`);
       closeModal();
     } catch (error) {

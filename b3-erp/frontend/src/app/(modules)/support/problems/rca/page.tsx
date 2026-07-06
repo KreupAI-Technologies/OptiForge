@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search, Plus, FileText, TrendingUp, CheckCircle, AlertTriangle,
   Calendar, User, GitBranch, Target, Lightbulb, Shield, ArrowRight,
   Clock, Award, BookOpen, ChevronDown, ChevronRight
 } from 'lucide-react'
+import { ITILService } from '@/services/support.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 
 interface RCARecord {
   id: string
@@ -39,122 +42,40 @@ export default function RootCauseAnalysis() {
     successRate: '94%'
   })
 
-  const [rcaRecords] = useState<RCARecord[]>([
-    {
-      id: '1',
-      rcaId: 'RCA-2024-015',
-      problemId: 'PRB-2024-012',
-      problemTitle: 'Database Connection Pool Exhaustion',
-      status: 'Completed',
-      method: '5 Whys',
-      analyst: 'Rajesh Kumar',
-      startDate: '2024-10-15',
-      completionDate: '2024-10-20',
-      rootCause: 'Connection pool size was insufficient for peak load traffic, and connections were not being properly released after transaction completion due to missing finally blocks in legacy code.',
-      contributingFactors: [
-        'Connection pool max size set to default (20) despite high concurrent user count',
-        'Legacy code missing proper connection cleanup in exception handlers',
-        'No connection pool monitoring or alerting configured',
-        'Gradual increase in user base without infrastructure scaling review'
-      ],
-      preventiveActions: [
-        'Implement connection pool monitoring with alerts at 80% utilization',
-        'Establish quarterly capacity planning review process',
-        'Create automated code scanning rules for connection leak patterns',
-        'Document connection pool best practices in developer guidelines'
-      ],
-      correctiveActions: [
-        'Increased connection pool size to 100 based on load testing',
-        'Refactored all database access code to use try-with-resources pattern',
-        'Implemented connection leak detection and automatic cleanup',
-        'Added comprehensive logging for connection pool metrics'
-      ],
-      priority: 'critical'
-    },
-    {
-      id: '2',
-      rcaId: 'RCA-2024-014',
-      problemId: 'PRB-2024-009',
-      problemTitle: 'Email Service SMTP Authentication Failures',
-      status: 'In Progress',
-      method: 'Fishbone Diagram',
-      analyst: 'Priya Sharma',
-      startDate: '2024-10-18',
-      completionDate: null,
-      rootCause: 'Investigation ongoing - preliminary findings suggest network routing issues combined with SMTP server load balancing configuration mismatch.',
-      contributingFactors: [
-        'SMTP server pool has uneven load distribution',
-        'Network path to certain SMTP servers intermittently high latency',
-        'Authentication token expiry not properly handled in retry logic'
-      ],
-      preventiveActions: [
-        'Implement health checks for all SMTP servers in pool',
-        'Add circuit breaker pattern for failed SMTP connections'
-      ],
-      correctiveActions: [
-        'Working with network team to identify routing issues',
-        'Implementing retry logic with exponential backoff'
-      ],
-      priority: 'high'
-    },
-    {
-      id: '3',
-      rcaId: 'RCA-2024-013',
-      problemId: 'PRB-2024-007',
-      problemTitle: 'API Rate Limiting During Batch Operations',
-      status: 'Completed',
-      method: 'Pareto Analysis',
-      analyst: 'Amit Patel',
-      startDate: '2024-10-10',
-      completionDate: '2024-10-16',
-      rootCause: 'Batch import process was not respecting third-party API rate limits (100 requests/minute). The implementation used parallel processing without rate limiting controls.',
-      contributingFactors: [
-        'No rate limiting implementation in batch processing module',
-        'API documentation not reviewed during initial integration',
-        'Lack of testing with production-scale data volumes',
-        'Missing error handling for 429 (Too Many Requests) responses'
-      ],
-      preventiveActions: [
-        'Establish API integration checklist including rate limit review',
-        'Implement centralized rate limiting library for all API integrations',
-        'Add load testing to CI/CD pipeline for batch operations',
-        'Create API integration best practices documentation'
-      ],
-      correctiveActions: [
-        'Implemented token bucket rate limiting algorithm',
-        'Added configurable batch size and delay parameters',
-        'Implemented proper 429 error handling with retry-after header support',
-        'Added monitoring dashboard for API consumption metrics'
-      ],
-      priority: 'medium'
-    },
-    {
-      id: '4',
-      rcaId: 'RCA-2024-012',
-      problemId: 'PRB-2024-005',
-      problemTitle: 'Mobile App Session Timeout Not Respected',
-      status: 'Under Review',
-      method: 'Fault Tree Analysis',
-      analyst: 'Sneha Reddy',
-      startDate: '2024-10-12',
-      completionDate: null,
-      rootCause: 'Mobile app caches authentication token in secure storage but does not validate server-side session expiry. Background app refresh extends local token without server validation.',
-      contributingFactors: [
-        'Client-side session management independent of server-side',
-        'Background sync process refreshes local token timestamp',
-        'No real-time session validation mechanism'
-      ],
-      preventiveActions: [
-        'Implement session validation on app foreground event',
-        'Add server-side session status endpoint for validation'
-      ],
-      correctiveActions: [
-        'Under security review for appropriate solution',
-        'Evaluating token refresh mechanism redesign'
-      ],
-      priority: 'high'
+  const [rcaRecords, setRcaRecords] = useState<RCARecord[]>([])
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      try {
+        const res = await ITILService.getProblems(COMPANY_ID)
+        const rows = Array.isArray((res as any)?.data) ? (res as any).data : []
+        const mapped: RCARecord[] = rows.map((p: any) => ({
+          id: p?.id ?? '',
+          rcaId: p?.problemNumber ?? '',
+          problemId: p?.problemNumber ?? '',
+          problemTitle: p?.title ?? '',
+          status: p?.status === 'resolved' || p?.status === 'closed'
+            ? 'Completed'
+            : p?.status === 'known_error' ? 'Under Review' : 'In Progress',
+          method: '5 Whys',
+          analyst: p?.assignedTo ?? '',
+          startDate: p?.createdAt ? String(p.createdAt).slice(0, 10) : '',
+          completionDate: p?.resolvedAt ? String(p.resolvedAt).slice(0, 10) : null,
+          rootCause: p?.rootCause ?? '',
+          contributingFactors: Array.isArray(p?.contributingFactors) ? p.contributingFactors : [],
+          preventiveActions: Array.isArray(p?.preventiveActions) ? p.preventiveActions : [],
+          correctiveActions: p?.workaround ? [p.workaround] : [],
+          priority: (p?.priority ?? 'medium') as RCARecord['priority']
+        }))
+        if (mounted) setRcaRecords(mapped)
+      } catch (e) {
+        if (mounted) setRcaRecords([])
+      }
     }
-  ])
+    load()
+    return () => { mounted = false }
+  }, [])
 
   const filteredRCAs = rcaRecords.filter(rca => {
     const matchesSearch = rca.problemTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||

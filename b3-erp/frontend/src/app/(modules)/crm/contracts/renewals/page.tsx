@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Calendar, DollarSign, AlertCircle, CheckCircle, Clock, RefreshCw, TrendingUp, User, Building2, Send, Phone, Mail, FileText } from 'lucide-react';
-import { crmService } from '@/services/crm.service';
+import { crmService, asArray } from '@/services/crm.service';
 
 interface ContractRenewal {
   id: string;
@@ -33,231 +33,6 @@ interface ContractRenewal {
   customerResponse?: string;
 }
 
-const mockRenewals: ContractRenewal[] = [
-  {
-    id: '1',
-    contractNumber: 'CNT-2024-003',
-    contractTitle: 'Premium Support Package',
-    customer: 'Robert Johnson',
-    customerCompany: 'Global Industries Ltd',
-    contactPerson: 'Robert Johnson - CTO',
-    contactEmail: 'rjohnson@globalind.com',
-    contactPhone: '+1 555-0123',
-    currentValue: 85000,
-    proposedValue: 95000,
-    valueChange: 10000,
-    changePercent: 11.76,
-    currentEndDate: '2024-10-31',
-    proposedStartDate: '2024-11-01',
-    proposedDuration: 12,
-    daysUntilExpiry: 11,
-    renewalProbability: 85,
-    status: 'in_progress',
-    lastContactDate: '2024-10-15',
-    nextFollowUpDate: '2024-10-22',
-    assignedTo: 'Sarah Johnson',
-    tags: ['Support', 'Premium', 'High Priority'],
-    notes: 'Customer very satisfied with current service. Discussed upgraded tier with additional features.',
-    autoRenew: false,
-    renewalNoticeSent: true,
-    customerResponse: 'Positive - reviewing proposal',
-  },
-  {
-    id: '2',
-    contractNumber: 'CNT-2024-012',
-    contractTitle: 'Enterprise Software License',
-    customer: 'Lisa Chen',
-    customerCompany: 'TechVision Corp',
-    contactPerson: 'Lisa Chen - VP Operations',
-    contactEmail: 'lchen@techvision.com',
-    contactPhone: '+1 555-0145',
-    currentValue: 250000,
-    proposedValue: 280000,
-    valueChange: 30000,
-    changePercent: 12,
-    currentEndDate: '2024-11-15',
-    proposedStartDate: '2024-11-16',
-    proposedDuration: 24,
-    daysUntilExpiry: 26,
-    renewalProbability: 90,
-    status: 'negotiation',
-    lastContactDate: '2024-10-18',
-    nextFollowUpDate: '2024-10-25',
-    assignedTo: 'Michael Chen',
-    tags: ['Enterprise', 'Software', 'Multi-Year'],
-    notes: 'Negotiating multi-year discount. Customer interested in adding 50 more licenses.',
-    autoRenew: false,
-    renewalNoticeSent: true,
-    customerResponse: 'Negotiating terms',
-  },
-  {
-    id: '3',
-    contractNumber: 'CNT-2024-008',
-    contractTitle: 'Cloud Infrastructure Services',
-    customer: 'David Martinez',
-    customerCompany: 'StartupHub Inc',
-    contactPerson: 'David Martinez - CTO',
-    contactEmail: 'dmartinez@startuphub.com',
-    contactPhone: '+1 555-0167',
-    currentValue: 48000,
-    proposedValue: 48000,
-    valueChange: 0,
-    changePercent: 0,
-    currentEndDate: '2024-11-30',
-    proposedStartDate: '2024-12-01',
-    proposedDuration: 12,
-    daysUntilExpiry: 41,
-    renewalProbability: 95,
-    status: 'committed',
-    lastContactDate: '2024-10-10',
-    nextFollowUpDate: '2024-11-05',
-    assignedTo: 'Sarah Johnson',
-    tags: ['Cloud', 'Infrastructure', 'Committed'],
-    notes: 'Verbal commitment received. Preparing renewal paperwork.',
-    autoRenew: true,
-    renewalNoticeSent: true,
-    customerResponse: 'Committed to renew',
-  },
-  {
-    id: '4',
-    contractNumber: 'CNT-2024-015',
-    contractTitle: 'Managed Services Agreement',
-    customer: 'Patricia Wilson',
-    customerCompany: 'Financial Services Group',
-    contactPerson: 'Patricia Wilson - IT Director',
-    contactEmail: 'pwilson@finservices.com',
-    contactPhone: '+1 555-0189',
-    currentValue: 120000,
-    proposedValue: 110000,
-    valueChange: -10000,
-    changePercent: -8.33,
-    currentEndDate: '2024-12-15',
-    proposedStartDate: '2024-12-16',
-    proposedDuration: 12,
-    daysUntilExpiry: 56,
-    renewalProbability: 45,
-    status: 'at_risk',
-    lastContactDate: '2024-10-12',
-    nextFollowUpDate: '2024-10-21',
-    assignedTo: 'David Park',
-    tags: ['Managed Services', 'At Risk', 'Price Sensitive'],
-    notes: 'Customer concerned about pricing. Competitor offering lower rate. Proposed discount to retain.',
-    autoRenew: false,
-    renewalNoticeSent: true,
-    customerResponse: 'Evaluating competitors',
-  },
-  {
-    id: '5',
-    contractNumber: 'CNT-2025-002',
-    contractTitle: 'SaaS Subscription - Business Plan',
-    customer: 'James Anderson',
-    customerCompany: 'Retail Innovations',
-    contactPerson: 'James Anderson - CEO',
-    contactEmail: 'janderson@retailinno.com',
-    contactPhone: '+1 555-0201',
-    currentValue: 36000,
-    proposedValue: 42000,
-    valueChange: 6000,
-    changePercent: 16.67,
-    currentEndDate: '2025-01-10',
-    proposedStartDate: '2025-01-11',
-    proposedDuration: 12,
-    daysUntilExpiry: 82,
-    renewalProbability: 70,
-    status: 'upcoming',
-    lastContactDate: '2024-10-05',
-    nextFollowUpDate: '2024-10-28',
-    assignedTo: 'Sarah Johnson',
-    tags: ['SaaS', 'Subscription', 'Upgrade'],
-    notes: 'Planning to propose upgrade to Enterprise tier. Customer growth aligns with higher tier.',
-    autoRenew: true,
-    renewalNoticeSent: false,
-  },
-  {
-    id: '6',
-    contractNumber: 'CNT-2023-045',
-    contractTitle: 'Professional Services Retainer',
-    customer: 'Maria Garcia',
-    customerCompany: 'Healthcare Systems Inc',
-    contactPerson: 'Maria Garcia - VP Technology',
-    contactEmail: 'mgarcia@healthsys.com',
-    contactPhone: '+1 555-0223',
-    currentValue: 96000,
-    proposedValue: 0,
-    valueChange: -96000,
-    changePercent: -100,
-    currentEndDate: '2024-09-30',
-    proposedStartDate: '2024-10-01',
-    proposedDuration: 12,
-    daysUntilExpiry: -20,
-    renewalProbability: 0,
-    status: 'lost',
-    lastContactDate: '2024-09-15',
-    nextFollowUpDate: '2025-04-01',
-    assignedTo: 'Michael Chen',
-    tags: ['Services', 'Lost', 'Budget Cuts'],
-    notes: 'Customer decided not to renew due to budget constraints. Follow up in 6 months for potential re-engagement.',
-    autoRenew: false,
-    renewalNoticeSent: true,
-    customerResponse: 'Not renewing',
-  },
-  {
-    id: '7',
-    contractNumber: 'CNT-2024-021',
-    contractTitle: 'Annual Maintenance Contract',
-    customer: 'Thomas Brown',
-    customerCompany: 'Manufacturing Solutions Co',
-    contactPerson: 'Thomas Brown - Operations Manager',
-    contactEmail: 'tbrown@mfgsolutions.com',
-    contactPhone: '+1 555-0245',
-    currentValue: 65000,
-    proposedValue: 72000,
-    valueChange: 7000,
-    changePercent: 10.77,
-    currentEndDate: '2025-02-28',
-    proposedStartDate: '2025-03-01',
-    proposedDuration: 12,
-    daysUntilExpiry: 131,
-    renewalProbability: 75,
-    status: 'upcoming',
-    lastContactDate: '2024-09-30',
-    nextFollowUpDate: '2024-11-15',
-    assignedTo: 'David Park',
-    tags: ['Maintenance', 'Manufacturing', 'Standard'],
-    notes: 'Early renewal opportunity. Customer expanding operations and may need additional coverage.',
-    autoRenew: true,
-    renewalNoticeSent: false,
-  },
-  {
-    id: '8',
-    contractNumber: 'CNT-2023-052',
-    contractTitle: 'Software License & Support',
-    customer: 'Emily White',
-    customerCompany: 'E-Commerce Ventures',
-    contactPerson: 'Emily White - Product Director',
-    contactEmail: 'ewhite@ecomventures.com',
-    contactPhone: '+1 555-0267',
-    currentValue: 150000,
-    proposedValue: 150000,
-    valueChange: 0,
-    changePercent: 0,
-    currentEndDate: '2024-10-15',
-    proposedStartDate: '2024-10-16',
-    proposedDuration: 12,
-    daysUntilExpiry: -5,
-    renewalProbability: 100,
-    status: 'renewed',
-    lastContactDate: '2024-10-08',
-    nextFollowUpDate: '2025-07-15',
-    assignedTo: 'Sarah Johnson',
-    tags: ['License', 'Support', 'Renewed'],
-    notes: 'Successfully renewed! Contract executed on time. Customer very satisfied.',
-    autoRenew: false,
-    renewalNoticeSent: true,
-    customerResponse: 'Renewed',
-  },
-];
-
 export default function ContractRenewalsPage() {
   const [renewals, setRenewals] = useState<ContractRenewal[]>([]);
 
@@ -267,7 +42,7 @@ export default function ContractRenewalsPage() {
       try {
         const data = await crmService.contractRenewals.getAll();
         if (!active) return;
-        const rows = Array.isArray(data) ? data : [];
+        const rows = asArray<any>(data);
         setRenewals(
           rows.map((r: any) => ({
             id: String(r?.id ?? ''),
@@ -298,8 +73,9 @@ export default function ContractRenewalsPage() {
             customerResponse: r?.customerResponse ?? undefined,
           })),
         );
-      } catch {
-        if (active) setRenewals(mockRenewals);
+      } catch (err) {
+        console.error('Failed to load renewals', err);
+        if (active) setRenewals([]);
       }
     })();
     return () => {
@@ -332,11 +108,11 @@ export default function ContractRenewalsPage() {
     atRisk: renewals.filter(r => r.status === 'at_risk').length,
     committed: renewals.filter(r => r.status === 'committed').length,
     totalValue: renewals.filter(r => r.daysUntilExpiry >= 0 && r.status !== 'lost').reduce((sum, r) => sum + r.proposedValue, 0),
-    avgProbability: Math.round(
-      renewals.filter(r => r.daysUntilExpiry >= 0 && r.status !== 'renewed' && r.status !== 'lost')
-        .reduce((sum, r) => sum + r.renewalProbability, 0) /
-      renewals.filter(r => r.daysUntilExpiry >= 0 && r.status !== 'renewed' && r.status !== 'lost').length
-    ),
+    avgProbability: (() => {
+      const active = renewals.filter(r => r.daysUntilExpiry >= 0 && r.status !== 'renewed' && r.status !== 'lost');
+      if (active.length === 0) return 0;
+      return Math.round(active.reduce((sum, r) => sum + r.renewalProbability, 0) / active.length);
+    })(),
     expiring30Days: renewals.filter(r => r.daysUntilExpiry <= 30 && r.daysUntilExpiry >= 0 && r.status !== 'renewed').length,
   };
 

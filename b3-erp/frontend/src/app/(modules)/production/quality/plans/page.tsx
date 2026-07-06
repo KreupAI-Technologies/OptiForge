@@ -57,26 +57,28 @@ export default function QualityPlansPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const loadPlans = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = (await ProductionOrphanService.getQualityPlans()) as any;
+      const raw = Array.isArray(res) ? res : (res?.data ?? []);
+      const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
+        ...d,
+        id: String(d?.id ?? d?.planNumber ?? i),
+        inspectionPoints: Array.isArray(d?.inspectionPoints) ? d.inspectionPoints : [],
+        acceptanceCriteria: Array.isArray(d?.acceptanceCriteria) ? d.acceptanceCriteria : [],
+      })) as unknown as QualityPlan[];
+      setQualityPlans(mapped);
+    } catch (err: any) {
+      setLoadError(err?.message ?? 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await ProductionOrphanService.getQualityPlans()) as any[];
-        const mapped = (Array.isArray(raw) ? raw : []).map((d: any, i: number) => ({
-          ...d,
-          id: String(d?.id ?? i),
-        })) as unknown as QualityPlan[];
-        if (!cancelled) setQualityPlans(mapped);
-      } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message ?? 'Failed to load data');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
+    loadPlans();
   }, []);
 
   const filteredPlans = qualityPlans.filter(plan => {
@@ -119,28 +121,44 @@ export default function QualityPlansPage() {
     setIsExportOpen(true);
   };
 
-  const handleCreateSubmit = (data: any, saveType: 'draft' | 'review') => {
-    // TODO: Implement API call to create quality plan
-    console.log('Creating quality plan:', data, saveType);
-    // API Call example:
-    // await createQualityPlan(data, saveType);
-    // Refresh data after successful creation
+  const handleCreateSubmit = async (data: any, saveType: 'draft' | 'review') => {
+    try {
+      const status = saveType === 'review' ? 'under-review' : 'draft';
+      await ProductionOrphanService.createQualityPlan({ ...data, status });
+      await loadPlans();
+    } catch (err) {
+      console.error('Failed to create quality plan:', err);
+    } finally {
+      setIsCreateOpen(false);
+    }
   };
 
-  const handleEditSubmit = (data: any, saveType: 'draft' | 'review' | 'activate') => {
-    // TODO: Implement API call to update quality plan
-    console.log('Updating quality plan:', data, saveType);
-    // API Call example:
-    // await updateQualityPlan(selectedPlanForModal?.id, data, saveType);
-    // Refresh data after successful update
+  const handleEditSubmit = async (data: any, saveType: 'draft' | 'review' | 'activate') => {
+    const id = selectedPlanForModal?.id ?? data?.id;
+    try {
+      const status = saveType === 'activate' ? 'active' : saveType === 'review' ? 'under-review' : 'draft';
+      if (id) await ProductionOrphanService.updateQualityPlan(String(id), { ...data, status });
+      await loadPlans();
+    } catch (err) {
+      console.error('Failed to update quality plan:', err);
+    } finally {
+      setIsEditOpen(false);
+      setSelectedPlanForModal(null);
+    }
   };
 
-  const handleApproveSubmit = (decision: 'approve' | 'reject' | 'request_changes', comments: string, effectiveDate?: string, signature?: string) => {
-    // TODO: Implement API call to approve/reject quality plan
-    console.log('Quality plan decision:', { decision, comments, effectiveDate, signature });
-    // API Call example:
-    // await approveQualityPlan(selectedPlanForModal?.id, { decision, comments, effectiveDate, signature });
-    // Refresh data after successful approval/rejection
+  const handleApproveSubmit = async (decision: 'approve' | 'reject' | 'request_changes', comments: string, effectiveDate?: string, signature?: string) => {
+    const id = selectedPlanForModal?.id;
+    try {
+      const status = decision === 'approve' ? 'approved' : decision === 'reject' ? 'rejected' : 'under-review';
+      if (id) await ProductionOrphanService.updateQualityPlan(String(id), { status, comments, effectiveDate, signature });
+      await loadPlans();
+    } catch (err) {
+      console.error('Failed to submit quality plan decision:', err);
+    } finally {
+      setIsApproveOpen(false);
+      setSelectedPlanForModal(null);
+    }
   };
 
   const handleExportSubmit = (_data: any) => {

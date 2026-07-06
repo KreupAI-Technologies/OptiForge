@@ -84,3 +84,76 @@ CREATE TABLE IF NOT EXISTS "cycle_count_items" (
 
 CREATE INDEX IF NOT EXISTS "IDX_cycle_count_items_plan_id"
   ON "cycle_count_items" ("planId");
+
+-- ---------------------------------------------------------------------------
+-- Inventory policy master (settings/policies page). Additive-only.
+-- Column names quoted to match the Prisma @map model (camelCase).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "inv_inventory_policies" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "policyCode" character varying(100) NOT NULL,
+  "policyName" character varying(255) NOT NULL,
+  "policyType" character varying(50) NOT NULL,
+  "category" character varying(255),
+  "description" text,
+  "parameters" jsonb,
+  "appliesTo" character varying(255),
+  "status" character varying(30) NOT NULL DEFAULT 'active',
+  "companyId" character varying NOT NULL DEFAULT 'default-company-id',
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_inv_inventory_policies" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_inv_inventory_policies_company"
+  ON "inv_inventory_policies" ("companyId");
+
+-- ---------------------------------------------------------------------------
+-- Kitting: kit master + kitting orders (assembly/disassembly). Additive-only.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "inv_kits" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "kitNumber" character varying(100) NOT NULL,
+  "kitName" character varying(255) NOT NULL,
+  "category" character varying(255),
+  "components" jsonb,
+  "componentCount" integer NOT NULL DEFAULT 0,
+  "outputQuantity" double precision NOT NULL DEFAULT 1,
+  "outputUOM" character varying(50),
+  "status" character varying(30) NOT NULL DEFAULT 'active',
+  "assemblyCount" integer NOT NULL DEFAULT 0,
+  "lastAssembled" timestamp without time zone,
+  "createdBy" character varying(255),
+  "companyId" character varying NOT NULL DEFAULT 'default-company-id',
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_inv_kits" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_inv_kits_company" ON "inv_kits" ("companyId");
+
+CREATE TABLE IF NOT EXISTS "inv_kitting_orders" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "orderNumber" character varying(100) NOT NULL,
+  "orderType" character varying(30) NOT NULL DEFAULT 'assembly',
+  "orderDate" timestamp without time zone NOT NULL DEFAULT now(),
+  "kitNumber" character varying(100),
+  "kitName" character varying(255),
+  "quantityOrdered" double precision NOT NULL DEFAULT 0,
+  "quantityDone" double precision NOT NULL DEFAULT 0,
+  "handledBy" character varying(255),
+  "warehouse" character varying(255),
+  "reason" text,
+  "status" character varying(30) NOT NULL DEFAULT 'pending',
+  "priority" character varying(30) NOT NULL DEFAULT 'normal',
+  "startDate" timestamp without time zone,
+  "completionDate" timestamp without time zone,
+  "expectedDate" timestamp without time zone,
+  "companyId" character varying NOT NULL DEFAULT 'default-company-id',
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_inv_kitting_orders" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_inv_kitting_orders_type"
+  ON "inv_kitting_orders" ("orderType");

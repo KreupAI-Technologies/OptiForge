@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, FileText, Calendar, DollarSign, User, Building2, Clock, AlertCircle } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface ContractFormData {
   title: string;
@@ -46,6 +47,7 @@ export default function CreateContractPage() {
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     // If templateId is provided, load template data
@@ -136,16 +138,38 @@ export default function CreateContractPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    // In a real app, send to API
-    console.log('Creating contract:', formData);
-    router.push('/crm/contracts');
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        title: formData.title,
+        customerId: formData.customerId || undefined,
+        customerName: formData.customerName,
+        templateId: formData.templateId || undefined,
+        category: formData.category,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        value: formData.value,
+        billingCycle: formData.billingCycle,
+        paymentTerms: formData.paymentTerms,
+        autoRenew: formData.autoRenew,
+        renewalNoticeDays: formData.renewalNoticeDays,
+        description: formData.description,
+        notes: formData.notes,
+      };
+      await crmService.contracts.create(payload);
+      router.push('/crm/contracts');
+    } catch (err) {
+      console.error('Failed to create contract', err);
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -439,10 +463,11 @@ export default function CreateContractPage() {
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={submitting}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Create Contract
+              {submitting ? 'Creating...' : 'Create Contract'}
             </button>
           </div>
         </form>

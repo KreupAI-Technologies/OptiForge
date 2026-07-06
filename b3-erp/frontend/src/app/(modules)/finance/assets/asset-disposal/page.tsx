@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Trash2,
   Package,
@@ -17,6 +17,7 @@ import {
   Eye,
   Edit
 } from 'lucide-react'
+import { FinanceService } from '@/services/finance.service'
 
 interface AssetDisposal {
   id: string
@@ -45,106 +46,67 @@ export default function AssetDisposalPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [methodFilter, setMethodFilter] = useState('all')
 
-  const [disposals] = useState<AssetDisposal[]>([
-    {
-      id: 'DISP-001',
-      disposalNumber: 'AD-2025-001',
-      assetCode: 'FA-2018-045',
-      assetName: 'CNC Machine - Model X200',
-      assetCategory: 'Plant & Machinery',
-      disposalDate: '2025-10-15',
-      disposalMethod: 'sale',
-      originalCost: 5000000,
-      accumulatedDepreciation: 3500000,
-      bookValue: 1500000,
-      saleProceeds: 1800000,
-      disposalCost: 50000,
-      gainLoss: 250000,
-      status: 'completed',
-      approvedBy: 'John Doe',
-      approvalDate: '2025-10-10',
-      buyer: 'ABC Manufacturing Ltd',
-      reason: 'Replaced with newer model',
-      location: 'Plant A - Workshop 2'
-    },
-    {
-      id: 'DISP-002',
-      disposalNumber: 'AD-2025-002',
-      assetCode: 'FA-2015-023',
-      assetName: 'Delivery Van - TN 01 AB 1234',
-      assetCategory: 'Vehicles',
-      disposalDate: '2025-10-20',
-      disposalMethod: 'trade_in',
-      originalCost: 1200000,
-      accumulatedDepreciation: 1000000,
-      bookValue: 200000,
-      saleProceeds: 250000,
-      disposalCost: 20000,
-      gainLoss: 30000,
-      status: 'approved',
-      approvedBy: 'Jane Smith',
-      approvalDate: '2025-10-18',
-      buyer: 'XYZ Motors',
-      reason: 'High maintenance cost',
-      location: 'Head Office'
-    },
-    {
-      id: 'DISP-003',
-      disposalNumber: 'AD-2025-003',
-      assetCode: 'FA-2010-112',
-      assetName: 'Old Server Equipment',
-      assetCategory: 'IT Equipment',
-      disposalDate: '2025-10-25',
-      disposalMethod: 'scrap',
-      originalCost: 800000,
-      accumulatedDepreciation: 800000,
-      bookValue: 0,
-      saleProceeds: 15000,
-      disposalCost: 5000,
-      gainLoss: 10000,
-      status: 'pending',
-      reason: 'Obsolete technology',
-      location: 'IT Department'
-    },
-    {
-      id: 'DISP-004',
-      disposalNumber: 'AD-2025-004',
-      assetCode: 'FA-2019-087',
-      assetName: 'Office Furniture Set',
-      assetCategory: 'Furniture & Fixtures',
-      disposalDate: '2025-11-01',
-      disposalMethod: 'donation',
-      originalCost: 250000,
-      accumulatedDepreciation: 150000,
-      bookValue: 100000,
-      saleProceeds: 0,
-      disposalCost: 10000,
-      gainLoss: -110000,
-      status: 'pending',
-      reason: 'Office renovation',
-      location: 'Admin Block'
-    },
-    {
-      id: 'DISP-005',
-      disposalNumber: 'AD-2025-005',
-      assetCode: 'FA-2012-034',
-      assetName: 'Hydraulic Press - HP500',
-      assetCategory: 'Plant & Machinery',
-      disposalDate: '2025-09-30',
-      disposalMethod: 'write_off',
-      originalCost: 3500000,
-      accumulatedDepreciation: 2800000,
-      bookValue: 700000,
-      saleProceeds: 0,
-      disposalCost: 50000,
-      gainLoss: -750000,
-      status: 'completed',
-      approvedBy: 'Robert Brown',
-      approvalDate: '2025-09-25',
-      reason: 'Major breakdown - beyond repair',
-      location: 'Plant B - Production Floor'
+  const [disposals, setDisposals] = useState<AssetDisposal[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const raw = (await FinanceService.getFixedAssets()) as any[]
+        if (cancelled) return
+        const validMethods = ['sale', 'scrap', 'donation', 'write_off', 'trade_in']
+        const validStatuses = ['pending', 'approved', 'completed', 'cancelled']
+        const mapped: AssetDisposal[] = (raw || []).map((a: any, i: number) => {
+          const originalCost = Number(a.originalCost ?? a.acquisitionCost ?? a.purchaseCost ?? a.cost ?? 0)
+          const accumulatedDepreciation = Number(a.accumulatedDepreciation ?? a.totalDepreciation ?? 0)
+          const bookValue = Number(a.bookValue ?? a.netBookValue ?? a.currentValue ?? (originalCost - accumulatedDepreciation))
+          const saleProceeds = Number(a.saleProceeds ?? a.disposalProceeds ?? a.salvageValue ?? 0)
+          const disposalCost = Number(a.disposalCost ?? 0)
+          const rawMethod = String(a.disposalMethod ?? 'sale').toLowerCase()
+          const disposalMethod = (validMethods.includes(rawMethod) ? rawMethod : 'sale') as AssetDisposal['disposalMethod']
+          const rawStatus = String(a.disposalStatus ?? a.status ?? 'pending').toLowerCase()
+          const status = (validStatuses.includes(rawStatus) ? rawStatus : 'pending') as AssetDisposal['status']
+          const gainLoss = Number(a.gainLoss ?? (saleProceeds - disposalCost - bookValue))
+          return {
+            id: String(a.id ?? a.assetId ?? `DISP-${i}`),
+            disposalNumber: String(a.disposalNumber ?? a.assetCode ?? a.code ?? a.id ?? `AD-${i}`),
+            assetCode: String(a.assetCode ?? a.code ?? '-'),
+            assetName: String(a.assetName ?? a.name ?? 'Asset'),
+            assetCategory: String(a.assetCategory ?? a.category ?? '-'),
+            disposalDate: String(a.disposalDate ?? a.updatedAt ?? a.createdAt ?? ''),
+            disposalMethod,
+            originalCost,
+            accumulatedDepreciation,
+            bookValue,
+            saleProceeds,
+            disposalCost,
+            gainLoss,
+            status,
+            approvedBy: a.approvedBy ?? undefined,
+            approvalDate: a.approvalDate ?? undefined,
+            buyer: a.buyer ?? undefined,
+            reason: String(a.reason ?? a.disposalReason ?? '-'),
+            location: String(a.location ?? '-'),
+          }
+        })
+        setDisposals(mapped)
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load')
+          setDisposals([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const filteredDisposals = disposals.filter(disposal => {
     const matchesSearch =
@@ -213,6 +175,18 @@ export default function AssetDisposalPage() {
                 Initiate Disposal
               </button>
             </div>
+
+            {isLoading && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                Loading asset disposals…
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {loadError}
+              </div>
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">

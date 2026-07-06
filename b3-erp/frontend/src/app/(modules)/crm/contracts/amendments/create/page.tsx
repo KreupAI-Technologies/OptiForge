@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, X, FileText, AlertCircle, DollarSign, Calendar, Users, Building2, Scale } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 export default function CreateContractAmendmentPage() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function CreateContractAmendmentPage() {
 
   // Form validation
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const addClause = () => {
     setImpactedClauses([...impactedClauses, '']);
@@ -101,12 +103,41 @@ export default function CreateContractAmendmentPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (validateForm()) {
-      console.log('Creating amendment...');
+    if (!validateForm()) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        contractNumber,
+        amendmentType,
+        description,
+        reason,
+        priority,
+        effectiveDate,
+        assignedTo,
+        requestedBy,
+        requiresLegalReview,
+        requiresCustomerApproval,
+        impactedClauses: impactedClauses.filter((c) => c.trim()),
+        tags: tags.filter((t) => t.trim()),
+        notes,
+        ...(originalValue ? { originalValue: parseFloat(originalValue) } : {}),
+        ...(newValue ? { newValue: parseFloat(newValue) } : {}),
+        ...(originalValue && newValue ? { valueImpact } : {}),
+        ...(originalEndDate ? { originalEndDate } : {}),
+        ...(newEndDate ? { newEndDate } : {}),
+      };
+      await crmService.contractAmendments.create(payload);
       router.push('/crm/contracts/amendments');
+    } catch (err) {
+      console.error('Failed to create amendment', err);
+      setSubmitting(false);
     }
   };
 
@@ -584,9 +615,10 @@ export default function CreateContractAmendmentPage() {
                 <div className="space-y-3">
                   <button
                     type="submit"
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    disabled={submitting}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                   >
-                    Create Amendment
+                    {submitting ? 'Creating...' : 'Create Amendment'}
                   </button>
                   <button
                     type="button"

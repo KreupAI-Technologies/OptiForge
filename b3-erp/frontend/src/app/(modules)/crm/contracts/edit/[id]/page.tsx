@@ -1,56 +1,102 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Plus, X, DollarSign, TrendingUp, CheckCircle } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
+
+const toDateInput = (v: any): string => (v ? String(v).split('T')[0] : '');
 
 export default function EditContractPage() {
   const router = useRouter();
   const params = useParams();
+  const contractId = params?.id as string;
 
-  // Mock data - in real app, fetch based on params.id
   const [formData, setFormData] = useState({
-    title: 'Enterprise Software License Agreement',
-    contractNumber: 'CNT-2024-001',
-    customerCompany: 'Acme Corporation',
-    customer: 'John Smith',
-    customerEmail: 'john.smith@acme.com',
-    customerPhone: '+1 (555) 123-4567',
-    customerAddress: '123 Business St, San Francisco, CA 94105',
+    title: '',
+    contractNumber: '',
+    customerCompany: '',
+    customer: '',
+    customerEmail: '',
+    customerPhone: '',
+    customerAddress: '',
     type: 'license' as 'service' | 'subscription' | 'license' | 'support' | 'maintenance' | 'custom',
     status: 'active' as 'draft' | 'active' | 'pending_renewal' | 'expired' | 'terminated' | 'suspended',
-    value: '450000',
-    recurringValue: '90000',
+    value: '',
+    recurringValue: '',
     billingCycle: 'annually' as 'monthly' | 'quarterly' | 'annually' | 'one-time',
-    startDate: '2024-01-01',
-    endDate: '2026-12-31',
-    signedDate: '2023-12-15',
+    startDate: '',
+    endDate: '',
+    signedDate: '',
     autoRenew: true,
-    renewalNoticeDays: '90',
-    paymentTerms: 'Net 30',
-    assignedTo: 'Sarah Johnson',
-    notes: 'Premium enterprise customer with 24/7 support included. Auto-renewal confirmed by client on 2023-12-10.',
-    termsAndConditions: 'Standard enterprise license terms apply. Includes unlimited user licenses for the duration of the contract. Support response time: 4 hours for critical issues, 24 hours for standard issues. Annual price increases capped at 5%.',
+    renewalNoticeDays: '',
+    paymentTerms: '',
+    assignedTo: '',
+    notes: '',
+    termsAndConditions: '',
   });
 
-  const [tags, setTags] = useState<string[]>(['Enterprise', 'Software', 'Multi-Year']);
-  const [deliverables, setDeliverables] = useState<string[]>([
-    'Enterprise software license for unlimited users',
-    '24/7 premium support',
-    'Quarterly business reviews',
-    'Priority feature requests',
-    'Dedicated account manager',
-  ]);
+  const [tags, setTags] = useState<string[]>(['']);
+  const [deliverables, setDeliverables] = useState<string[]>(['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Mock stats
-  const stats = {
-    totalInvoiced: 90000,
+  const [stats, setStats] = useState({
+    totalInvoiced: 0,
     outstandingAmount: 0,
-    createdDate: '2023-11-20',
-  };
+    createdDate: '',
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!contractId) return;
+    let active = true;
+    (async () => {
+      try {
+        const c: any = await crmService.contracts.getById(contractId);
+        if (!active || !c) return;
+        setFormData({
+          title: c.title ?? '',
+          contractNumber: c.contractNumber ?? '',
+          customerCompany: c.customerCompany ?? c.customerName ?? '',
+          customer: c.customer ?? c.contactPerson ?? '',
+          customerEmail: c.customerEmail ?? '',
+          customerPhone: c.customerPhone ?? '',
+          customerAddress: c.customerAddress ?? '',
+          type: (c.type ?? c.category ?? 'license'),
+          status: (c.status ?? 'active'),
+          value: c.value != null ? String(c.value) : '',
+          recurringValue: c.recurringValue != null ? String(c.recurringValue) : '',
+          billingCycle: (c.billingCycle ?? 'annually'),
+          startDate: toDateInput(c.startDate),
+          endDate: toDateInput(c.endDate),
+          signedDate: toDateInput(c.signedDate),
+          autoRenew: Boolean(c.autoRenew),
+          renewalNoticeDays: c.renewalNoticeDays != null ? String(c.renewalNoticeDays) : '',
+          paymentTerms: c.paymentTerms ?? '',
+          assignedTo: c.assignedTo ?? '',
+          notes: c.notes ?? '',
+          termsAndConditions: c.termsAndConditions ?? '',
+        });
+        setTags(Array.isArray(c.tags) && c.tags.length ? c.tags : ['']);
+        setDeliverables(Array.isArray(c.deliverables) && c.deliverables.length ? c.deliverables : ['']);
+        setStats({
+          totalInvoiced: Number(c.totalInvoiced ?? 0),
+          outstandingAmount: Number(c.outstandingAmount ?? 0),
+          createdDate: toDateInput(c.createdDate) || c.createdDate || '',
+        });
+      } catch (err) {
+        console.error('Failed to load contract', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [contractId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -69,7 +115,40 @@ export default function EditContractPage() {
       return;
     }
 
-    router.push('/crm/contracts');
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        title: formData.title,
+        contractNumber: formData.contractNumber,
+        customerCompany: formData.customerCompany,
+        customer: formData.customer,
+        customerEmail: formData.customerEmail,
+        customerPhone: formData.customerPhone,
+        customerAddress: formData.customerAddress,
+        type: formData.type,
+        category: formData.type,
+        status: formData.status,
+        value: formData.value ? parseFloat(formData.value) : 0,
+        recurringValue: formData.recurringValue ? parseFloat(formData.recurringValue) : 0,
+        billingCycle: formData.billingCycle,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        signedDate: formData.signedDate || undefined,
+        autoRenew: formData.autoRenew,
+        renewalNoticeDays: formData.renewalNoticeDays ? parseInt(formData.renewalNoticeDays) : 0,
+        paymentTerms: formData.paymentTerms,
+        assignedTo: formData.assignedTo,
+        notes: formData.notes,
+        termsAndConditions: formData.termsAndConditions,
+        tags: tags.filter((t) => t.trim()),
+        deliverables: deliverables.filter((d) => d.trim()),
+      };
+      await crmService.contracts.update(contractId, payload);
+      router.push('/crm/contracts');
+    } catch (err) {
+      console.error('Failed to update contract', err);
+      setSubmitting(false);
+    }
   };
 
   const addTag = () => {
@@ -563,9 +642,10 @@ export default function EditContractPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={submitting || loading}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
-                  Save Changes
+                  {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>

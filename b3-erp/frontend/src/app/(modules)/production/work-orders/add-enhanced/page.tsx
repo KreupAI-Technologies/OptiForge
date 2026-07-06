@@ -30,6 +30,7 @@ import {
   FormProgressIndicator,
 } from '@/components/ui/FormUX';
 import { StepIndicator, Step } from '@/components/ui/StepIndicator';
+import { workOrderService } from '@/services/work-order.service';
 
 interface MaterialRequirement {
   id: string;
@@ -254,12 +255,16 @@ export default function AddWorkOrderEnhancedPage() {
 
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  const handleSubmit = () => {
-    if (validateStep(currentStep)) {
+  const handleSubmit = async () => {
+    if (!validateStep(currentStep)) {
+      return;
+    }
+    try {
+      await workOrderService.createWorkOrder(formData as any);
       clearDraft();
-      console.log('Creating work order:', formData);
-      alert('Work order created successfully!');
       router.push('/production/work-orders');
+    } catch (error) {
+      console.error('Failed to create work order:', error);
     }
   };
 

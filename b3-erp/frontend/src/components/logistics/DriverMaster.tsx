@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User, Plus, Search, Edit2, Trash2, CheckCircle2, Phone, CreditCard, Award,
   Eye, X, Calendar, Mail, MapPin, FileText, Download, Filter, TrendingUp,
   Users, AlertTriangle, Clock, Star
 } from 'lucide-react';
+import { fleetService, Driver as ApiDriver } from '@/services/fleet.service';
 
 interface Driver {
   id: string;
@@ -224,6 +225,45 @@ export default function DriverMaster() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+
+  // Map backend Driver shape into the component's local Driver interface (best-effort, guarded)
+  const mapApiDriver = (d: ApiDriver): Driver => ({
+    id: d?.id || '',
+    code: d?.employeeId || d?.id || '',
+    name: d?.fullName || `${d?.firstName || ''} ${d?.lastName || ''}`.trim() || '',
+    phone: d?.phone || '',
+    email: d?.email || '',
+    address: d?.address || '',
+    city: d?.city || '',
+    state: d?.state || '',
+    licenseNumber: d?.licenseNumber || '',
+    licenseType: d?.licenseType || '',
+    licenseExpiry: d?.licenseExpiry ? new Date(d.licenseExpiry) : new Date(),
+    experience: d?.experience || 0,
+    dateOfJoining: d?.dateOfJoining ? new Date(d.dateOfJoining) : new Date(),
+    dateOfBirth: d?.dateOfBirth ? new Date(d.dateOfBirth) : new Date(),
+    emergencyContact: d?.emergencyContactPhone || '',
+    bloodGroup: d?.bloodGroup || '',
+    vehicleAssigned: d?.assignedVehicleNumber || undefined,
+    rating: d?.rating || 0,
+    totalTrips: d?.totalTrips || 0,
+    status: (d?.status as Driver['status']) || 'Inactive',
+  });
+
+  const loadDrivers = async () => {
+    try {
+      const data = await fleetService.getAllDrivers();
+      setDrivers(Array.isArray(data) ? data.map(mapApiDriver) : []);
+    } catch (error) {
+      console.error('Failed to load drivers:', error);
+      setDrivers([]);
+    }
+  };
+
+  useEffect(() => {
+    loadDrivers();
+  }, []);
 
   // Toast auto-dismiss
   React.useEffect(() => {
@@ -234,7 +274,7 @@ export default function DriverMaster() {
   }, [toast]);
 
   // Filter drivers
-  const filteredDrivers = mockDrivers.filter((driver) => {
+  const filteredDrivers = drivers.filter((driver) => {
     const matchesSearch =
       driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -248,13 +288,13 @@ export default function DriverMaster() {
 
   // Calculate statistics
   const stats = {
-    total: mockDrivers.length,
-    active: mockDrivers.filter(d => d.status === 'Active').length,
-    onLeave: mockDrivers.filter(d => d.status === 'On Leave').length,
-    inactive: mockDrivers.filter(d => d.status === 'Inactive').length,
-    avgRating: (mockDrivers.reduce((sum, d) => sum + d.rating, 0) / mockDrivers.length).toFixed(1),
-    totalTrips: mockDrivers.reduce((sum, d) => sum + d.totalTrips, 0),
-    expiringSoon: mockDrivers.filter(d => {
+    total: drivers.length,
+    active: drivers.filter(d => d.status === 'Active').length,
+    onLeave: drivers.filter(d => d.status === 'On Leave').length,
+    inactive: drivers.filter(d => d.status === 'Inactive').length,
+    avgRating: drivers.length ? (drivers.reduce((sum, d) => sum + d.rating, 0) / drivers.length).toFixed(1) : '0',
+    totalTrips: drivers.reduce((sum, d) => sum + d.totalTrips, 0),
+    expiringSoon: drivers.filter(d => {
       const daysToExpiry = Math.floor((d.licenseExpiry.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
       return daysToExpiry <= 90 && daysToExpiry > 0;
     }).length
@@ -270,9 +310,16 @@ export default function DriverMaster() {
     setShowEditModal(true);
   };
 
-  const handleDelete = (driver: Driver) => {
+  const handleDelete = async (driver: Driver) => {
     if (confirm(`Are you sure you want to delete ${driver.name}?`)) {
-      setToast({ message: `Driver ${driver.name} deleted successfully`, type: 'success' });
+      try {
+        await fleetService.deleteDriver(driver.id);
+        await loadDrivers();
+        setToast({ message: `Driver ${driver.name} deleted successfully`, type: 'success' });
+      } catch (error) {
+        console.error('Failed to delete driver:', error);
+        setToast({ message: `Failed to delete driver ${driver.name}`, type: 'error' });
+      }
     }
   };
 

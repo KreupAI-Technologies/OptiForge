@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { procurementOperationsService } from '@/services/procurement-operations.service';
 import {
   DollarSign, TrendingUp, AlertCircle, Target, BarChart3, Plus,
   Edit, Download, RefreshCw, Settings, Calendar, FileText, CheckCircle,
@@ -55,8 +56,8 @@ const ProcurementBudget: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mock data - Budget lines
-  const budgetLines: BudgetLine[] = [
+  // Sample data - fallback until backend returns budget lines
+  const MOCK_BUDGET_LINES: BudgetLine[] = [
     {
       id: 'BDG001',
       category: 'Raw Materials',
@@ -154,6 +155,47 @@ const ProcurementBudget: React.FC = () => {
       lastModified: '2025-10-26'
     }
   ];
+
+  const [budgetLines, setBudgetLines] = useState<BudgetLine[]>(MOCK_BUDGET_LINES);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const raw = await procurementOperationsService.getBudgets('default-company-id');
+        if (!cancelled && Array.isArray(raw) && raw.length) {
+          setBudgetLines(raw.map((b: any, idx: number): BudgetLine => {
+            const budgetAmount = Number(b.budgetAmount ?? b.totalBudget ?? b.allocated ?? 0);
+            const spentAmount = Number(b.spentAmount ?? b.spent ?? 0);
+            const committedAmount = Number(b.committedAmount ?? b.committed ?? 0);
+            const availableAmount = Number(b.availableAmount ?? (budgetAmount - spentAmount - committedAmount));
+            const utilizationPercent = budgetAmount ? Math.round(((spentAmount + committedAmount) / budgetAmount) * 100) : 0;
+            const variance = budgetAmount - spentAmount - committedAmount;
+            return {
+              id: b.id ?? `BDG${idx + 1}`,
+              category: b.category ?? b.budgetType ?? '—',
+              department: b.department ?? '—',
+              budgetAmount,
+              spentAmount,
+              committedAmount,
+              availableAmount,
+              utilizationPercent,
+              variance,
+              variancePercent: budgetAmount ? Math.round((variance / budgetAmount) * 100) : 0,
+              period: b.period ?? b.fiscalYear ?? '—',
+              owner: b.owner ?? '—',
+              status: utilizationPercent > 100 ? 'overspent' : utilizationPercent >= 90 ? 'critical' : utilizationPercent >= 75 ? 'warning' : 'healthy',
+              lastModified: (b.updatedAt ?? b.lastModified ?? '').toString().slice(0, 10),
+            };
+          }));
+        }
+      } catch {
+        // keep sample data on error
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock data - Monthly budget trend
   const monthlyTrend = [

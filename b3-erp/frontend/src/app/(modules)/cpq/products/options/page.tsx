@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Sliders,
@@ -19,6 +19,7 @@ import {
   ViewOptionModal,
   FilterModal
 } from '@/components/cpq/OptionModals'
+import { cpqProductService } from '@/services/cpq/cpq-product.service'
 
 interface ProductOption {
   id: string
@@ -104,6 +105,44 @@ export default function CPQProductsOptionsPage() {
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
+  const [productId, setProductId] = useState<string>('default')
+
+  const mapOption = (o: any): ProductOption => ({
+    id: (o.id ?? '') as string,
+    name: (o.optionName ?? o.name ?? '') as string,
+    category: (o.optionGroupName ?? o.category ?? '') as string,
+    type: (o.optionType === 'multi_select'
+      ? 'checkbox'
+      : o.optionType === 'single_select'
+      ? 'dropdown'
+      : o.type ?? 'dropdown') as any,
+    required: Boolean(o.isRequired ?? o.required ?? false),
+    priceImpact: Number(o.priceImpact ?? 0) || 0,
+    options: Array.isArray(o.values)
+      ? o.values.map((v: any) => (v.label ?? v.value ?? '') as string)
+      : Array.isArray(o.options)
+      ? o.options
+      : [],
+    status: ((o.isActive ?? true) ? 'active' : 'inactive') as any
+  })
+
+  useEffect(() => {
+    let mounted = true
+    cpqProductService.findAllProducts().then((products) => {
+      const list = Array.isArray(products) ? products : []
+      const first = list[0]
+      const pid = (first as any)?.id ?? 'default'
+      if (mounted) setProductId(pid)
+      return cpqProductService.findProductOptions(pid)
+    }).then((opts) => {
+      const list = Array.isArray(opts) ? opts : []
+      if (!mounted || list.length === 0) return
+      setProductOptions(list.map(mapOption))
+    }).catch(() => {})
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const getTypeColor = (type: string) => {
     const colors: any = {
@@ -151,6 +190,12 @@ export default function CPQProductsOptionsPage() {
         ...optionData as ProductOption,
         id: `OPT-${String(productOptions.length + 1).padStart(3, '0')}`
       }
+      cpqProductService.createOption(productId || 'default', {
+        optionName: (optionData as any).name ?? '',
+        optionGroupName: (optionData as any).category ?? '',
+        isRequired: Boolean((optionData as any).required ?? false),
+        priceImpact: Number((optionData as any).priceImpact ?? 0) || 0
+      } as any).catch(() => {})
       setProductOptions([...productOptions, newOption])
     }
   }

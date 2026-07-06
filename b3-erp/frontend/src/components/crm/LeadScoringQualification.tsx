@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Star, Award, Target, Users, Activity, Brain, Zap, Filter, ChevronRight, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface Lead {
   id: string;
@@ -21,102 +22,14 @@ export interface Lead {
   probability: number;
 }
 
-const mockLeads: Lead[] = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    company: 'TechCorp Industries',
-    email: 'sarah.j@techcorp.com',
-    phone: '+1 234-567-8901',
-    totalScore: 92,
-    grade: 'A',
-    status: 'hot',
-    behavioralScore: 95,
-    demographicScore: 88,
-    firmographicScore: 93,
-    engagementLevel: 'high',
-    lastActivity: '2 hours ago',
-    dealValue: 125000,
-    probability: 85
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    company: 'Global Manufacturing Ltd',
-    email: 'm.chen@globalmanuf.com',
-    phone: '+1 234-567-8902',
-    totalScore: 78,
-    grade: 'B',
-    status: 'warm',
-    behavioralScore: 82,
-    demographicScore: 75,
-    firmographicScore: 77,
-    engagementLevel: 'medium',
-    lastActivity: '1 day ago',
-    dealValue: 85000,
-    probability: 65
-  },
-  {
-    id: '3',
-    name: 'Emily Rodriguez',
-    company: 'Precision Parts Co',
-    email: 'e.rodriguez@precisionparts.com',
-    phone: '+1 234-567-8903',
-    totalScore: 56,
-    grade: 'C',
-    status: 'cold',
-    behavioralScore: 48,
-    demographicScore: 62,
-    firmographicScore: 58,
-    engagementLevel: 'low',
-    lastActivity: '5 days ago',
-    dealValue: 45000,
-    probability: 35
-  },
-  {
-    id: '4',
-    name: 'David Park',
-    company: 'Industrial Solutions Inc',
-    email: 'd.park@indsolutions.com',
-    phone: '+1 234-567-8904',
-    totalScore: 88,
-    grade: 'A',
-    status: 'qualified',
-    behavioralScore: 90,
-    demographicScore: 85,
-    firmographicScore: 89,
-    engagementLevel: 'high',
-    lastActivity: '30 minutes ago',
-    dealValue: 150000,
-    probability: 80
-  },
-  {
-    id: '5',
-    name: 'Lisa Anderson',
-    company: 'Smart Systems Corp',
-    email: 'l.anderson@smartsys.com',
-    phone: '+1 234-567-8905',
-    totalScore: 32,
-    grade: 'D',
-    status: 'disqualified',
-    behavioralScore: 28,
-    demographicScore: 35,
-    firmographicScore: 33,
-    engagementLevel: 'low',
-    lastActivity: '2 weeks ago',
-    dealValue: 20000,
-    probability: 15
-  }
-];
-
-const gradeColors = {
+const gradeColors: Record<string, string> = {
   A: 'bg-green-100 text-green-800 border-green-300',
   B: 'bg-blue-100 text-blue-800 border-blue-300',
   C: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   D: 'bg-red-100 text-red-800 border-red-300'
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   hot: 'bg-red-100 text-red-700 border-red-300',
   warm: 'bg-orange-100 text-orange-700 border-orange-300',
   cold: 'bg-blue-100 text-blue-700 border-blue-300',
@@ -124,23 +37,64 @@ const statusColors = {
   disqualified: 'bg-gray-100 text-gray-700 border-gray-300'
 };
 
+function gradeFromScore(score: number): Lead['grade'] {
+  if (score >= 80) return 'A';
+  if (score >= 60) return 'B';
+  if (score >= 40) return 'C';
+  return 'D';
+}
+
 export default function LeadScoringQualification() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterGrade, setFilterGrade] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [realTimeUpdate, setRealTimeUpdate] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRealTimeUpdate(prev => prev + 1);
-      // Simulate score changes
-      setLeads(prev => prev.map(lead => ({
-        ...lead,
-        totalScore: Math.max(0, Math.min(100, lead.totalScore + Math.floor(Math.random() * 5 - 2)))
-      })));
-    }, 5000);
-    return () => clearInterval(interval);
+    let mounted = true;
+    (async () => {
+      try {
+        // Prefer analytics-provided scoring; fall back to raw leads list.
+        let rows: any[] = [];
+        try {
+          const scoring = await crmService.crmAnalytics.getLeadScoring();
+          rows = asArray<any>(scoring?.leads ?? scoring);
+        } catch {
+          rows = [];
+        }
+        if (!rows.length) {
+          const leadsRes = await crmService.leads.getAll();
+          rows = asArray<any>(leadsRes);
+        }
+        const mapped: Lead[] = rows.map((l: any) => {
+          const totalScore = Number(l.totalScore ?? l.score ?? l.leadScore ?? 0);
+          return {
+            id: String(l.id ?? ''),
+            name: l.name ?? `${l.firstName ?? ''} ${l.lastName ?? ''}`.trim(),
+            company: l.company ?? l.companyName ?? l.customerName ?? '',
+            email: l.email ?? '',
+            phone: l.phone ?? l.mobile ?? '',
+            totalScore,
+            grade: (l.grade === 'A' || l.grade === 'B' || l.grade === 'C' || l.grade === 'D' ? l.grade : gradeFromScore(totalScore)) as Lead['grade'],
+            status: (l.status ?? 'cold') as Lead['status'],
+            behavioralScore: Number(l.behavioralScore ?? 0),
+            demographicScore: Number(l.demographicScore ?? 0),
+            firmographicScore: Number(l.firmographicScore ?? 0),
+            engagementLevel: (l.engagementLevel ?? 'low') as Lead['engagementLevel'],
+            lastActivity: l.lastActivity ?? l.updatedAt ?? '',
+            dealValue: Number(l.dealValue ?? l.estimatedValue ?? l.value ?? 0),
+            probability: Number(l.probability ?? 0),
+          };
+        });
+        if (mounted) setLeads(mapped);
+      } catch (e) {
+        if (mounted) setLeads([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const filteredLeads = leads.filter(lead => {
@@ -153,7 +107,7 @@ export default function LeadScoringQualification() {
     totalLeads: leads.length,
     hotLeads: leads.filter(l => l.status === 'hot').length,
     qualifiedLeads: leads.filter(l => l.status === 'qualified').length,
-    avgScore: Math.round(leads.reduce((sum, l) => sum + l.totalScore, 0) / leads.length),
+    avgScore: leads.length ? Math.round(leads.reduce((sum, l) => sum + l.totalScore, 0) / leads.length) : 0,
     gradeA: leads.filter(l => l.grade === 'A').length,
     gradeB: leads.filter(l => l.grade === 'B').length
   };
@@ -477,12 +431,15 @@ export default function LeadScoringQualification() {
                 <button
                   onClick={() => {
                     if (selectedLead) {
+                      const leadId = selectedLead.id;
                       // Update the lead status to qualified
                       setLeads(prev => prev.map(lead =>
-                        lead.id === selectedLead.id
+                        lead.id === leadId
                           ? { ...lead, status: 'qualified' as const }
                           : lead
                       ));
+                      // Persist the qualification
+                      crmService.leads.update(leadId, { status: 'qualified' }).catch(() => {});
                       // Close the modal
                       setSelectedLead(null);
                     }

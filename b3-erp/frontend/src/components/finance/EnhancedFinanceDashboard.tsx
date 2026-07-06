@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { FinanceService } from '@/services/finance.service';
 import {
   DollarSign, TrendingUp, TrendingDown, Wallet, FileText, Calendar,
   PieChart, BarChart3, ArrowUpRight, ArrowDownRight, Building, CreditCard,
@@ -73,8 +74,11 @@ export default function EnhancedFinanceDashboard() {
     });
   };
 
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // Enhanced mock data with time series and analytics
-  const dashboardData = {
+  const initialDashboardData = {
     overview: {
       totalRevenue: 45600000,
       totalExpenses: 31200000,
@@ -200,6 +204,64 @@ export default function EnhancedFinanceDashboard() {
       { month: 'Oct', revenue: 5100000, profit: 1632000, margin: 32.0, cashFlow: 2400000 }
     ]
   };
+
+  const [dashboardData, setDashboardData] = useState(initialDashboardData);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoadingStats(true);
+      setLoadError(null);
+      try {
+        const stats = (await FinanceService.getDashboardStats()) as any;
+        if (!cancelled && stats) {
+          const monthlyRevenue: any[] = Array.isArray(stats.monthlyRevenue) ? stats.monthlyRevenue : [];
+          const kpiTrends = monthlyRevenue.length > 0
+            ? monthlyRevenue.map((m: any) => ({
+                month: m?.month ?? '',
+                revenue: m?.amount ?? 0,
+                profit: 0,
+                margin: 0,
+                cashFlow: 0,
+              }))
+            : initialDashboardData.kpiTrends;
+
+          setDashboardData(prev => ({
+            ...prev,
+            overview: {
+              ...prev.overview,
+              totalRevenue: stats.totalRevenue ?? prev.overview.totalRevenue,
+              totalExpenses: stats.totalExpenses ?? prev.overview.totalExpenses,
+              netProfit: stats.netIncome ?? prev.overview.netProfit,
+            },
+            cashPosition: {
+              ...prev.cashPosition,
+              totalCash: stats.cashBalance ?? prev.cashPosition.totalCash,
+            },
+            accountsReceivable: {
+              ...prev.accountsReceivable,
+              total: stats.accountsReceivable ?? prev.accountsReceivable.total,
+            },
+            accountsPayable: {
+              ...prev.accountsPayable,
+              total: stats.accountsPayable ?? prev.accountsPayable.total,
+            },
+            kpiTrends,
+          }));
+          setLastUpdated(new Date());
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingStats(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const alerts = [
     {

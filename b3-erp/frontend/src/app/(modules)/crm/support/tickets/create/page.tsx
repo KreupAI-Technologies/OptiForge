@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle, Plus, X } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 export default function CreateTicketPage() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     subject: '',
@@ -24,7 +27,7 @@ export default function CreateTicketPage() {
   const [tags, setTags] = useState<string[]>(['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -40,7 +43,30 @@ export default function CreateTicketPage() {
       return;
     }
 
-    router.push('/crm/support/tickets');
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        subject: formData.subject,
+        description: formData.description,
+        customerCompany: formData.customerCompany,
+        customer: formData.customer,
+        contactEmail: formData.contactEmail,
+        contactPhone: formData.contactPhone || undefined,
+        status: formData.status,
+        priority: formData.priority,
+        category: formData.category,
+        assignedTo: formData.assignedTo,
+        relatedContract: formData.relatedContract || undefined,
+        tags: tags.map((t) => t.trim()).filter(Boolean),
+      };
+      await crmService.tickets.create(payload);
+      router.push('/crm/support/tickets');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create ticket. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const addTag = () => {
@@ -74,6 +100,13 @@ export default function CreateTicketPage() {
           <h1 className="text-3xl font-bold text-gray-900">Create Support Ticket</h1>
           <p className="text-gray-600 mt-2">Log a new customer support request</p>
         </div>
+
+        {submitError && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -328,9 +361,10 @@ export default function CreateTicketPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Create Ticket
+                  {isSubmitting ? 'Creating…' : 'Create Ticket'}
                 </button>
               </div>
             </div>

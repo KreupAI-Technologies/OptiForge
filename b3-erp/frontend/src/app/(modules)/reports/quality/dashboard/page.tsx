@@ -1,48 +1,97 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, ClipboardCheck, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react';
 import ClickableKPICard from '@/components/reports/ClickableKPICard';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface QualityDashboardData {
+    totalInspections: number;
+    passRate: number;
+    openNCRs: number;
+    activeCAPAs: number;
+    qualityCost: number;
+    defectRate: number;
+    byInspectionType: { type: string; count: number; passed: number; failed: number }[];
+    ncrBySeverity: { severity: string; count: number }[];
+    capas: { number: string; issue: string; status: string; progress: number }[];
+    defectTrend: { month: string; defects: number }[];
+}
+
+const DEFAULT_DATA: QualityDashboardData = {
+    totalInspections: 186,
+    passRate: 94.5,
+    openNCRs: 8,
+    activeCAPAs: 5,
+    qualityCost: 45000,
+    defectRate: 1.8,
+    byInspectionType: [
+        { type: 'Incoming', count: 54, passed: 51, failed: 3 },
+        { type: 'In-Process', count: 76, passed: 73, failed: 3 },
+        { type: 'Final', count: 42, passed: 39, failed: 3 },
+        { type: 'Audit', count: 14, passed: 13, failed: 1 },
+    ],
+    ncrBySeverity: [
+        { severity: 'Critical', count: 2 },
+        { severity: 'Major', count: 3 },
+        { severity: 'Minor', count: 3 },
+    ],
+    capas: [
+        { number: 'CAPA-2025-005', issue: 'Dimensional variance in frames', status: 'In Progress', progress: 75 },
+        { number: 'CAPA-2025-004', issue: 'Coating thickness issue', status: 'In Progress', progress: 60 },
+        { number: 'CAPA-2025-003', issue: 'Welding defects', status: 'Verification', progress: 90 },
+    ],
+    defectTrend: [
+        { month: 'Jan', defects: 12 },
+        { month: 'Feb', defects: 10 },
+        { month: 'Mar', defects: 8 },
+        { month: 'Apr', defects: 7 },
+        { month: 'May', defects: 6 },
+    ],
+};
 
 export default function QualityDashboardReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('this-month');
 
-    const data = {
-        totalInspections: 186,
-        passRate: 94.5,
-        openNCRs: 8,
-        activeCAPAs: 5,
-        qualityCost: 45000,
-        defectRate: 1.8,
-        byInspectionType: [
-            { type: 'Incoming', count: 54, passed: 51, failed: 3 },
-            { type: 'In-Process', count: 76, passed: 73, failed: 3 },
-            { type: 'Final', count: 42, passed: 39, failed: 3 },
-            { type: 'Audit', count: 14, passed: 13, failed: 1 },
-        ],
-        ncrBySeverity: [
-            { severity: 'Critical', count: 2 },
-            { severity: 'Major', count: 3 },
-            { severity: 'Minor', count: 3 },
-        ],
-        capas: [
-            { number: 'CAPA-2025-005', issue: 'Dimensional variance in frames', status: 'In Progress', progress: 75 },
-            { number: 'CAPA-2025-004', issue: 'Coating thickness issue', status: 'In Progress', progress: 60 },
-            { number: 'CAPA-2025-003', issue: 'Welding defects', status: 'Verification', progress: 90 },
-        ],
-        defectTrend: [
-            { month: 'Jan', defects: 12 },
-            { month: 'Feb', defects: 10 },
-            { month: 'Mar', defects: 8 },
-            { month: 'Apr', defects: 7 },
-            { month: 'May', defects: 6 },
-        ],
-    };
+    const [data, setData] = useState<QualityDashboardData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<QualityDashboardData>>('quality.dashboard');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalInspections: Number(payload.totalInspections ?? DEFAULT_DATA.totalInspections),
+                        passRate: Number(payload.passRate ?? DEFAULT_DATA.passRate),
+                        openNCRs: Number(payload.openNCRs ?? DEFAULT_DATA.openNCRs),
+                        activeCAPAs: Number(payload.activeCAPAs ?? DEFAULT_DATA.activeCAPAs),
+                        qualityCost: Number(payload.qualityCost ?? DEFAULT_DATA.qualityCost),
+                        defectRate: Number(payload.defectRate ?? DEFAULT_DATA.defectRate),
+                        byInspectionType: Array.isArray(payload.byInspectionType) ? payload.byInspectionType : DEFAULT_DATA.byInspectionType,
+                        ncrBySeverity: Array.isArray(payload.ncrBySeverity) ? payload.ncrBySeverity : DEFAULT_DATA.ncrBySeverity,
+                        capas: Array.isArray(payload.capas) ? payload.capas : DEFAULT_DATA.capas,
+                        defectTrend: Array.isArray(payload.defectTrend) ? payload.defectTrend : DEFAULT_DATA.defectTrend,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -60,6 +109,9 @@ export default function QualityDashboardReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

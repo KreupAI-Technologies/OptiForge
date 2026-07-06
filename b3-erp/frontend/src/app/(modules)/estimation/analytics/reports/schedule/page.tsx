@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Calendar, Save, Clock, Mail, Users, FileText } from 'lucide-react'
+import { estimationReportScheduleService } from '@/services/estimation-report-schedule.service'
 
 export default function ScheduleReportPage() {
   const router = useRouter()
@@ -33,7 +34,9 @@ export default function ScheduleReportPage() {
     router.push('/estimation/analytics/reports')
   }
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
     if (!reportType) {
       alert('Please select a report type')
       return
@@ -43,21 +46,25 @@ export default function ScheduleReportPage() {
       return
     }
 
-    const schedule = {
-      reportType,
-      frequency,
-      dayOfWeek,
-      dayOfMonth,
-      time,
-      recipients: recipients.split(',').map(e => e.trim()),
-      format,
-      isActive,
-      createdAt: new Date().toISOString()
+    setSaving(true)
+    try {
+      await estimationReportScheduleService.createSchedule({
+        reportType,
+        frequency,
+        dayOfWeek,
+        dayOfMonth,
+        time,
+        format,
+        recipients: recipients.split(',').map(e => e.trim()).filter(Boolean),
+        isActive
+      })
+      router.push('/estimation/analytics/reports')
+    } catch (error) {
+      console.error('Failed to create schedule:', error)
+      alert('Failed to save schedule. Please try again.')
+    } finally {
+      setSaving(false)
     }
-
-    console.log('Creating schedule:', schedule)
-    alert(`Report scheduled successfully!\n\nReport: ${reportType}\nFrequency: ${frequency}\nRecipients: ${recipients}`)
-    router.push('/estimation/analytics/reports')
   }
 
   return (
@@ -79,10 +86,11 @@ export default function ScheduleReportPage() {
           </div>
           <button
             onClick={handleSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            disabled={saving}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            Save Schedule
+            {saving ? 'Saving...' : 'Save Schedule'}
           </button>
         </div>
       </div>
@@ -287,10 +295,11 @@ export default function ScheduleReportPage() {
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Save Schedule
+              {saving ? 'Saving...' : 'Save Schedule'}
             </button>
           </div>
         </div>

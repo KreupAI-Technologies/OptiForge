@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { cpqSettingsService } from '@/services/cpq/cpq-settings.service'
 import {
   Settings,
   Building2,
@@ -108,14 +109,47 @@ export default function CPQSettingsGeneralPage() {
     disputeResolution: 'All disputes subject to Bangalore jurisdiction'
   })
 
-  const handleSave = () => {
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        const s: any = await cpqSettingsService.getSettings()
+        if (!active || !s) return
+        if (s.defaultCurrency) {
+          setCurrencySettings((prev) => ({ ...prev, baseCurrency: s.defaultCurrency }))
+        }
+        setQuoteSettings((prev) => ({
+          ...prev,
+          ...(s.defaultValidityDays != null ? { defaultValidity: Number(s.defaultValidityDays) } : {}),
+          ...(s.autoExpireQuotes != null ? { autoExpireQuotes: !!s.autoExpireQuotes } : {}),
+          ...(s.enableVersioning != null ? { enableVersioning: !!s.enableVersioning } : {}),
+          ...(s.enableESignature != null ? { requireDigitalSignature: !!s.enableESignature } : {}),
+        }))
+      } catch (e) {
+        // service handles fallback; ignore
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const handleSave = async () => {
     setSaveStatus('saving')
-    // Simulate save
-    setTimeout(() => {
+    try {
+      await cpqSettingsService.updateSettings({
+        defaultCurrency: currencySettings.baseCurrency,
+        defaultValidityDays: Number(quoteSettings.defaultValidity) || 30,
+        autoExpireQuotes: quoteSettings.autoExpireQuotes,
+        enableVersioning: quoteSettings.enableVersioning,
+        enableESignature: quoteSettings.requireDigitalSignature,
+      } as any)
       setSaveStatus('success')
       setHasChanges(false)
       setTimeout(() => setSaveStatus('idle'), 2000)
-    }, 1000)
+    } catch (e) {
+      setSaveStatus('error')
+    }
   }
 
   const handleReset = () => {

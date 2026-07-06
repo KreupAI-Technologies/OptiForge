@@ -350,7 +350,8 @@ export interface UomConversion {
 
 export interface Barcode {
     id: string;
-    barcode: string;
+    code: string;
+    barcode?: string;
     barcodeType?: string;
     description?: string;
     itemId: string;
@@ -475,6 +476,59 @@ export interface BulkImportResult {
     errors: { row: number; reason: string }[];
 }
 
+export interface Warehouse {
+    id: string;
+    warehouseCode: string;
+    warehouseName: string;
+    companyId: string;
+    branchId?: string;
+    branch?: { id: string; name: string };
+    address?: string;
+    warehouseType?: string;
+    status?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    contactPerson?: string;
+    phone?: string;
+    email?: string;
+    totalArea?: number;
+    areaUnit?: string;
+    storageCapacity?: number;
+    capacityUnit?: string;
+    currentUtilization?: number;
+    managerName?: string;
+    isActive: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface Location {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    parentId?: string;
+    parent?: { id: string; name: string };
+    parentName?: string;
+    address?: any;
+    coordinates?: any;
+    contact?: any;
+    operational?: any;
+    logistics?: any;
+    compliance?: any;
+    facilities?: string[];
+    restrictions?: string[];
+    status?: string;
+    companyId: string;
+    isActive: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 class CommonMastersService {
     // ===========================
     // GENERIC CRUD HELPER METHODS
@@ -543,6 +597,30 @@ class CommonMastersService {
         if (companyId) params.append('companyId', companyId);
         const response = await apiClient.get<ItemCategory[]>(`/api/v1/common-masters/item-categories?${params.toString()}`);
         return response.data || [];
+    }
+
+    /**
+     * Get all Units of Measure (UOM master)
+     */
+    async getAllUoms(companyId?: string): Promise<any[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<any[]>(`/api/v1/common-masters/uoms?${params.toString()}`);
+        return response.data || [];
+    }
+
+    async createUom(data: any): Promise<any> {
+        const response = await apiClient.post<any>('/api/v1/common-masters/uoms', data);
+        return response.data;
+    }
+
+    async updateUom(id: string, data: any): Promise<any> {
+        const response = await apiClient.put<any>(`/api/v1/common-masters/uoms/${id}`, data);
+        return response.data;
+    }
+
+    async deleteUom(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/uoms/${id}`);
     }
 
     /**
@@ -1116,7 +1194,7 @@ class CommonMastersService {
         return response.data || [];
     }
 
-    async createBarcode(data: { barcode: string; itemId: string; companyId: string; barcodeType?: string; description?: string }): Promise<Barcode> {
+    async createBarcode(data: { code: string; itemId: string; companyId: string; barcodeType?: string; description?: string }): Promise<Barcode> {
         const response = await apiClient.post<Barcode>('/api/v1/common-masters/barcodes', data);
         return response.data;
     }
@@ -1128,6 +1206,14 @@ class CommonMastersService {
 
     async deleteBarcode(id: string): Promise<void> {
         await apiClient.delete(`/api/v1/common-masters/barcodes/${id}`);
+    }
+
+    /** Lightweight item list (id/code/name) for selectors such as barcode linking. */
+    async getItems(companyId?: string): Promise<{ id: string; code: string; name: string }[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<{ id: string; code: string; name: string }[]>(`/api/v1/common-masters/items?${params.toString()}`);
+        return response.data || [];
     }
 
     // ===========================
@@ -1382,6 +1468,54 @@ class CommonMastersService {
 
     async deleteHrGrade(id: string): Promise<void> {
         await apiClient.delete(`/api/v1/common-masters/grades/${id}`);
+    }
+
+    // ===========================
+    // WAREHOUSE CRUD
+    // ===========================
+    async getAllWarehouses(companyId?: string): Promise<Warehouse[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<Warehouse[]>(`/api/v1/common-masters/warehouses?${params.toString()}`);
+        return response.data || [];
+    }
+
+    async createWarehouse(data: Partial<Warehouse> & { warehouseCode?: string; code?: string; name?: string; companyId: string }): Promise<Warehouse> {
+        const response = await apiClient.post<Warehouse>('/api/v1/common-masters/warehouses', data);
+        return response.data;
+    }
+
+    async updateWarehouse(id: string, data: Partial<Warehouse>): Promise<Warehouse> {
+        const response = await apiClient.put<Warehouse>(`/api/v1/common-masters/warehouses/${id}`, data);
+        return response.data;
+    }
+
+    async deleteWarehouse(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/warehouses/${id}`);
+    }
+
+    // ===========================
+    // LOCATION CRUD
+    // ===========================
+    async getAllLocations(companyId?: string): Promise<Location[]> {
+        const params = new URLSearchParams();
+        if (companyId) params.append('companyId', companyId);
+        const response = await apiClient.get<Location[]>(`/api/v1/common-masters/locations?${params.toString()}`);
+        return response.data || [];
+    }
+
+    async createLocation(data: Partial<Location> & { code: string; name: string; companyId: string }): Promise<Location> {
+        const response = await apiClient.post<Location>('/api/v1/common-masters/locations', data);
+        return response.data;
+    }
+
+    async updateLocation(id: string, data: Partial<Location>): Promise<Location> {
+        const response = await apiClient.put<Location>(`/api/v1/common-masters/locations/${id}`, data);
+        return response.data;
+    }
+
+    async deleteLocation(id: string): Promise<void> {
+        await apiClient.delete(`/api/v1/common-masters/locations/${id}`);
     }
 }
 

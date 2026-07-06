@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { costEstimateService } from '@/services/estimation-cost-estimate.service';
 import {
   ArrowLeft,
   Save,
@@ -110,6 +111,46 @@ export default function EditCostingPage() {
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await costEstimateService.findOne('default-company-id', costingId)) as any;
+        if (!cancelled && raw) {
+          setFormData((prev) => ({
+            ...prev,
+            costingNumber: raw.estimateNumber ?? prev.costingNumber,
+            boqNumber: raw.boqId ?? prev.boqNumber,
+            projectName: raw.title ?? prev.projectName,
+            clientName: raw.customerName ?? prev.clientName,
+            status:
+              (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as CostingFormData['status']) ||
+              prev.status,
+            currency: raw.currency ?? prev.currency,
+            notes: raw.description ?? prev.notes,
+            profitMarginPercent:
+              raw.contingencyPercentage != null ? Number(raw.contingencyPercentage) : prev.profitMarginPercent,
+            items: prev.items,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load costing');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [costingId]);
 
   useEffect(() => {
     calculateAllCosts();
@@ -228,15 +269,34 @@ export default function EditCostingPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
-      alert('Please fix the errors before saving');
+      setSaveError('Please fix the errors before saving');
       return;
     }
 
-    console.log('Updated Costing Data:', formData);
-    console.log('Costing ID:', costingId);
-    router.push('/estimation/costing');
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await costEstimateService.update('default-company-id', costingId, {
+        title: formData.projectName,
+        description: formData.notes,
+        currency: formData.currency,
+        customerName: formData.clientName,
+        boqId: formData.boqNumber,
+        materialCost: formData.totalMaterialCost ?? 0,
+        laborCost: formData.totalLaborCost ?? 0,
+        equipmentCost: formData.totalEquipmentCost ?? 0,
+        overheadCost: formData.totalOverheadCost ?? 0,
+        directCost: formData.subtotalCost ?? 0,
+        contingencyPercentage: formData.profitMarginPercent ?? 0,
+        totalCost: formData.totalCost ?? 0,
+      });
+      router.push('/estimation/costing/view/' + costingId);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes');
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -259,6 +319,21 @@ export default function EditCostingPage() {
     <div className="w-full h-screen flex flex-col bg-gray-50">
       <div className="flex-1 overflow-y-auto">
         <div className="px-3 py-2">
+          {isLoading && (
+            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+              Loading costing...
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
+          {saveError && (
+            <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {saveError}
+            </div>
+          )}
           {/* Header */}
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -619,10 +694,11 @@ export default function EditCostingPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isSaving}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
           >
             <Save className="h-5 w-5" />
-            <span>Save Changes</span>
+            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
       </div>

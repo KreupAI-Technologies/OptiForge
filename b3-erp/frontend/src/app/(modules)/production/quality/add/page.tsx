@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ProductionOrphanService } from "@/services/production/production-orphan.service";
 import {
   Save,
   X,
@@ -179,7 +180,28 @@ const QualityInspectionAddPage = () => {
       },
     ];
 
-    setAvailableWOs(mockWOs);
+    // Load real work orders for the dropdown; fall back to mock if empty/error
+    const loadWorkOrders = async () => {
+      try {
+        const res: any = await ProductionOrphanService.getWorkOrders();
+        const data = Array.isArray(res) ? res : (res?.data ?? res);
+        const mapped: WorkOrder[] = Array.isArray(data)
+          ? data.map((wo: any) => ({
+              id: wo?.id ?? "",
+              product: wo?.product ?? wo?.productName ?? "",
+              productCode:
+                wo?.productCode ?? wo?.workOrderNumber ?? wo?.woNumber ?? wo?.code ?? "",
+              quantity: wo?.quantity ?? 0,
+              qualitySpecs: Array.isArray(wo?.qualitySpecs) ? wo.qualitySpecs : [],
+            }))
+          : [];
+        setAvailableWOs(mapped.length > 0 ? mapped : mockWOs);
+      } catch {
+        setAvailableWOs(mockWOs);
+      }
+    };
+
+    loadWorkOrders();
   }, []);
 
   // Auto-suggest sample size based on lot size and AQL
@@ -295,12 +317,45 @@ const QualityInspectionAddPage = () => {
     );
   };
 
+  const buildPayload = () => ({
+    inspectionId,
+    inspectionType,
+    workOrderId,
+    product,
+    productCode,
+    inspector,
+    inspectionDate,
+    shift,
+    lotSize,
+    sampleSize,
+    samplingPlan,
+    aqlLevel,
+    lotNumber,
+    batchNumber,
+    equipmentUsed,
+    testParameters,
+    overallDisposition,
+    inspectorSignature,
+    defects,
+    rootCause,
+    correctiveAction,
+    preventiveAction,
+    disposition,
+  });
+
   const handleSaveDraft = async () => {
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Inspection saved as draft!");
-    router.push("/production/quality");
+    try {
+      await ProductionOrphanService.createNcr({
+        ...buildPayload(),
+        status: "draft",
+      });
+      router.push("/production/quality");
+    } catch (err) {
+      alert("Failed to save draft. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -310,10 +365,17 @@ const QualityInspectionAddPage = () => {
     }
 
     setSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSaving(false);
-    alert("Inspection submitted for approval!");
-    router.push("/production/quality");
+    try {
+      await ProductionOrphanService.createNcr({
+        ...buildPayload(),
+        status: "open",
+      });
+      router.push("/production/quality");
+    } catch (err) {
+      alert("Failed to submit. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCompleteInspection = async () => {

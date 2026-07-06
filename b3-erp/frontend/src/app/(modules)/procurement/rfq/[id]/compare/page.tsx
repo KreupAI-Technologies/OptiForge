@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { exportToCsv } from '@/lib/export'
+import { procurementRFQService } from '@/services/procurement-rfq.service'
 import {
   ArrowLeft,
   Download,
@@ -86,6 +87,7 @@ interface QuotationComparison {
 
 export default function QuotationComparisonPage() {
   const params = useParams()
+  const router = useRouter()
   const rfqId = params.id as string
 
   // Mock data
@@ -244,12 +246,19 @@ export default function QuotationComparisonPage() {
     exportToCsv('rfq-comparison', comparisonData.vendors as unknown as Record<string, unknown>[])
   }
 
-  const handleAwardContract = (vendorId: string) => {
-    console.log('Awarding contract to vendor:', vendorId)
+  const handleAwardContract = async (vendorId: string) => {
+    if (!confirm('Award this RFQ to the selected vendor?')) return
+    try {
+      await procurementRFQService.awardRFQ(rfqId, vendorId)
+      alert('RFQ awarded to vendor successfully.')
+      router.push('/procurement/rfq')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to award RFQ')
+    }
   }
 
   const handleNegotiate = (vendorId: string) => {
-    console.log('Starting negotiation with vendor:', vendorId)
+    router.push(`/procurement/vendor-management?vendorId=${encodeURIComponent(vendorId)}`)
   }
 
   return (

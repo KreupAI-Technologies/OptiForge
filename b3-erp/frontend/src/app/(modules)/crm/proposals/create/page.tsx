@@ -4,9 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { crmService } from '@/services/crm.service';
 
 export default function ProposalCreatePage() {
   const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -54,12 +57,32 @@ export default function ProposalCreatePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (validateForm()) {
-      // In a real app, this would create the proposal via API
+    if (!validateForm()) return;
+
+    setSaving(true);
+    setSubmitError(null);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        title: formData.title,
+        customerCompany: formData.customerCompany,
+        contactPerson: formData.contactPerson,
+        status: formData.status,
+        totalValue: formData.totalValue,
+        validUntil: formData.validUntil,
+        probability: formData.probability,
+        assignedTo: formData.assignedTo,
+        notes: formData.notes,
+        tags: tags.filter((t) => t.trim()),
+      };
+      await crmService.proposals.create(payload);
       router.push('/crm/proposals');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create proposal');
+      setSaving(false);
     }
   };
 
@@ -363,12 +386,16 @@ export default function ProposalCreatePage() {
             {/* Action Buttons */}
             <div className="bg-white rounded-xl border border-gray-200 p-3">
               <div className="space-y-3">
+                {submitError && (
+                  <p className="text-sm text-red-600">{submitError}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
                   <Save className="w-5 h-5" />
-                  <span>Create Proposal</span>
+                  <span>{saving ? 'Creating…' : 'Create Proposal'}</span>
                 </button>
 
                 <button

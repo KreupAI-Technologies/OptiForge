@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { estimationPricingService } from '@/services/estimation-pricing.service';
 import {
   ArrowLeft,
   Save,
@@ -102,6 +103,43 @@ export default function EditPricingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [bulkDiscount, setBulkDiscount] = useState<string>('');
   const [bulkMargin, setBulkMargin] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await estimationPricingService.findOne('default-company-id', priceListId)) as any;
+        if (!cancelled && raw) {
+          setFormData((prev) => ({
+            ...prev,
+            priceListName: raw.title ?? raw.priceListName ?? prev.priceListName,
+            description: raw.description ?? prev.description,
+            currency: raw.currency ?? prev.currency,
+            status:
+              (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as PriceListForm['status']) ||
+              prev.status,
+            effectiveFrom: (raw.quotationDate ?? prev.effectiveFrom)?.slice?.(0, 10) ?? prev.effectiveFrom,
+            effectiveTo: (raw.validUntil ?? prev.effectiveTo)?.slice?.(0, 10) ?? prev.effectiveTo,
+            priceItems: prev.priceItems,
+          }));
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load pricing');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [priceListId]);
 
   const categories = ['all', 'Base Cabinets', 'Wall Cabinets', 'Countertops', 'Hardware', 'Tall Units'];
 
@@ -209,10 +247,33 @@ export default function EditPricingPage() {
     setBulkMargin('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    router.push('/estimation/pricing');
+    const items = Array.isArray(formData.priceItems) ? formData.priceItems : [];
+    const avgDiscount =
+      items.length > 0 ? items.reduce((sum, i) => sum + (i.discountPercent ?? 0), 0) / items.length : 0;
+    const avgMargin =
+      items.length > 0 ? items.reduce((sum, i) => sum + (i.marginPercent ?? 0), 0) / items.length : 0;
+    const totalValue = items.reduce((sum, i) => sum + (i.finalPrice ?? 0), 0);
+
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await estimationPricingService.update('default-company-id', priceListId, {
+        title: formData.priceListName,
+        description: formData.description,
+        currency: formData.currency,
+        discountPercentage: avgDiscount ?? 0,
+        markupPercentage: avgMargin ?? 0,
+        totalPrice: totalValue ?? 0,
+        quotationDate: formData.effectiveFrom,
+        validUntil: formData.effectiveTo,
+      });
+      router.push('/estimation/pricing/view/' + priceListId);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save price list');
+      setIsSaving(false);
+    }
   };
 
   const filteredItems = selectedCategory === 'all'
@@ -222,6 +283,21 @@ export default function EditPricingPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
       <form onSubmit={handleSubmit}>
+        {isLoading && (
+          <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            Loading pricing...
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
+        {saveError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {saveError}
+          </div>
+        )}
         {/* Header */}
         <div className="mb-3">
           <button
@@ -256,10 +332,11 @@ export default function EditPricingPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={isSaving}
+                  className="flex items-center space-x-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
-                  <span>Save Changes</span>
+                  <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
                 </button>
               </div>
             </div>
@@ -647,10 +724,11 @@ export default function EditPricingPage() {
           </button>
           <button
             type="submit"
-            className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center space-x-2"
+            disabled={isSaving}
+            className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center space-x-2 disabled:opacity-60"
           >
             <Save className="h-5 w-5" />
-            <span>Save Price List</span>
+            <span>{isSaving ? 'Saving...' : 'Save Price List'}</span>
           </button>
         </div>
       </form>

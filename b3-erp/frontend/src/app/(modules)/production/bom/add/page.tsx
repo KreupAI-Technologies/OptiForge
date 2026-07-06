@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { bomService } from '@/services/bom.service';
 import {
   ArrowLeft,
   Save,
@@ -462,10 +463,26 @@ export default function BOMAddPage() {
     return errors.length === 0;
   };
 
-  const handleSave = (status: 'draft' | 'submit' | 'activate') => {
-    if (validateBOM()) {
-      console.log('Saving BOM with status:', status, { ...bom, components });
+  const handleSave = async (status: 'draft' | 'submit' | 'activate') => {
+    if (!validateBOM()) {
+      return;
+    }
+    try {
+      const payload = {
+        ...bom,
+        productId: bom.productCode,
+        bomType: bom.bomType,
+        baseQuantity: bom.batchSize,
+        effectiveDate: bom.effectiveDate,
+        expiryDate: bom.expiryDate || undefined,
+        description: bom.productDescription,
+        components,
+        status,
+      };
+      await bomService.createBOM(payload as any);
       router.push('/production/bom');
+    } catch (error) {
+      console.error('Failed to create BOM:', error);
     }
   };
 

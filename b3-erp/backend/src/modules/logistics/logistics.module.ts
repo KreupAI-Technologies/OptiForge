@@ -38,6 +38,9 @@ import { CarrierContractController } from './controllers/carrier-contract.contro
 import { CrossDockOperationController } from './controllers/cross-dock-operation.controller';
 import { DockDoorController } from './controllers/dock-door.controller';
 import { YardVehicleController } from './controllers/yard-vehicle.controller';
+import { PortMasterController } from './controllers/port-master.controller';
+import { PackagingTypeController } from './controllers/packaging-type.controller';
+import { ConsolidationController } from './controllers/consolidation.controller';
 
 // Services
 import {
@@ -98,6 +101,9 @@ import { LogisticsManagementService } from './services/logistics-management.serv
     CrossDockOperationController,
     DockDoorController,
     YardVehicleController,
+    PortMasterController,
+    PackagingTypeController,
+    ConsolidationController,
   ],
   providers: [
     ShipmentService,

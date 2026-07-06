@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Warehouse,
   Plus,
@@ -11,9 +11,10 @@ import {
   Package,
   Percent
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface StorageLocation {
-  id: number;
+  id: string;
   locationCode: string;
   locationName: string;
   warehouse: string;
@@ -33,146 +34,68 @@ export default function StorageLocationsPage() {
   const [selectedWarehouse, setSelectedWarehouse] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
 
-  const [locations, setLocations] = useState<StorageLocation[]>([
-    {
-      id: 1,
-      locationCode: 'MW-A1-R1-B1',
-      locationName: 'Main Warehouse - Aisle A1 - Rack 1 - Bin 1',
-      warehouse: 'Main Warehouse',
-      zone: 'Zone A',
-      aisle: 'A1',
-      rack: 'R1',
-      bin: 'B1',
-      locationType: 'storage',
-      capacity: 100,
-      currentOccupancy: 85,
-      status: 'active',
-      itemsStored: 12
-    },
-    {
-      id: 2,
-      locationCode: 'MW-A1-R1-B2',
-      locationName: 'Main Warehouse - Aisle A1 - Rack 1 - Bin 2',
-      warehouse: 'Main Warehouse',
-      zone: 'Zone A',
-      aisle: 'A1',
-      rack: 'R1',
-      bin: 'B2',
-      locationType: 'storage',
-      capacity: 100,
-      currentOccupancy: 45,
-      status: 'active',
-      itemsStored: 8
-    },
-    {
-      id: 3,
-      locationCode: 'MW-PICK-01',
-      locationName: 'Main Warehouse - Picking Area 1',
-      warehouse: 'Main Warehouse',
-      zone: 'Picking Zone',
-      locationType: 'picking',
-      capacity: 50,
-      currentOccupancy: 32,
-      status: 'active',
-      itemsStored: 15
-    },
-    {
-      id: 4,
-      locationCode: 'RM-B2-R3-B5',
-      locationName: 'RM Store - Aisle B2 - Rack 3 - Bin 5',
-      warehouse: 'RM Store',
-      zone: 'Zone B',
-      aisle: 'B2',
-      rack: 'R3',
-      bin: 'B5',
-      locationType: 'storage',
-      capacity: 120,
-      currentOccupancy: 98,
-      status: 'active',
-      itemsStored: 18
-    },
-    {
-      id: 5,
-      locationCode: 'FG-SHIP-02',
-      locationName: 'FG Store - Shipping Dock 2',
-      warehouse: 'FG Store',
-      zone: 'Shipping Area',
-      locationType: 'shipping',
-      capacity: 200,
-      currentOccupancy: 145,
-      status: 'active',
-      itemsStored: 25
-    },
-    {
-      id: 6,
-      locationCode: 'MW-QC-01',
-      locationName: 'Main Warehouse - QC Quarantine Area',
-      warehouse: 'Main Warehouse',
-      zone: 'Quality Zone',
-      locationType: 'quarantine',
-      capacity: 30,
-      currentOccupancy: 8,
-      status: 'active',
-      itemsStored: 4
-    },
-    {
-      id: 7,
-      locationCode: 'AP-C1-R2-B3',
-      locationName: 'Assembly Plant - Aisle C1 - Rack 2 - Bin 3',
-      warehouse: 'Assembly Plant',
-      zone: 'Zone C',
-      aisle: 'C1',
-      rack: 'R2',
-      bin: 'B3',
-      locationType: 'storage',
-      capacity: 80,
-      currentOccupancy: 65,
-      status: 'active',
-      itemsStored: 10
-    },
-    {
-      id: 8,
-      locationCode: 'SP-D3-R1-B8',
-      locationName: 'Spares Store - Aisle D3 - Rack 1 - Bin 8',
-      warehouse: 'Spares Store',
-      zone: 'Zone D',
-      aisle: 'D3',
-      rack: 'R1',
-      bin: 'B8',
-      locationType: 'storage',
-      capacity: 60,
-      currentOccupancy: 15,
-      status: 'active',
-      itemsStored: 6
-    },
-    {
-      id: 9,
-      locationCode: 'MW-RCV-01',
-      locationName: 'Main Warehouse - Receiving Dock 1',
-      warehouse: 'Main Warehouse',
-      zone: 'Receiving Area',
-      locationType: 'receiving',
-      capacity: 150,
-      currentOccupancy: 72,
-      status: 'active',
-      itemsStored: 20
-    },
-    {
-      id: 10,
-      locationCode: 'MW-A2-R5-B4',
-      locationName: 'Main Warehouse - Aisle A2 - Rack 5 - Bin 4',
-      warehouse: 'Main Warehouse',
-      zone: 'Zone A',
-      aisle: 'A2',
-      rack: 'R5',
-      bin: 'B4',
-      locationType: 'storage',
-      capacity: 100,
-      currentOccupancy: 0,
-      status: 'maintenance',
-      itemsStored: 0
+  const [locations, setLocations] = useState<StorageLocation[]>([]);
+
+  const mapLocation = (l: any): StorageLocation => ({
+    id: String(l?.id ?? ''),
+    locationCode: l?.locationCode ?? l?.code ?? '',
+    locationName: l?.locationName ?? l?.name ?? '',
+    warehouse: l?.warehouseName ?? l?.warehouse ?? l?.warehouse?.name ?? '',
+    zone: l?.zone ?? '',
+    aisle: l?.aisle ?? undefined,
+    rack: l?.rack ?? undefined,
+    bin: l?.bin ?? undefined,
+    locationType: (l?.locationType ?? 'storage') as StorageLocation['locationType'],
+    capacity: Number(l?.capacity ?? 0),
+    currentOccupancy: Number(l?.currentOccupancy ?? l?.occupancy ?? 0),
+    status: (l?.status ?? 'active') as StorageLocation['status'],
+    itemsStored: Number(l?.itemsStored ?? l?.itemsCount ?? 0),
+  });
+
+  const loadLocations = async () => {
+    try {
+      const rows = await inventoryService.getStockLocations();
+      setLocations(Array.isArray(rows) ? rows.map(mapLocation) : []);
+    } catch (err) {
+      console.error('Failed to load storage locations', err);
+      setLocations([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadLocations();
+  }, []);
+
+  const handleCreateLocation = async (payload: any) => {
+    try {
+      await inventoryService.createStockLocation(payload);
+      await loadLocations();
+    } catch (err) {
+      console.error('Failed to create storage location', err);
+    }
+  };
+
+  const handleUpdateLocation = async (id: string, payload: any) => {
+    try {
+      await inventoryService.updateStockLocation(id, payload);
+      await loadLocations();
+    } catch (err) {
+      console.error('Failed to update storage location', err);
+    }
+  };
+
+  const handleDeleteLocation = async (id: string) => {
+    try {
+      await inventoryService.deleteStockLocation(id);
+      await loadLocations();
+    } catch (err) {
+      console.error('Failed to delete storage location', err);
+    }
+  };
+
+  void handleCreateLocation;
+  void handleUpdateLocation;
+  void handleDeleteLocation;
 
   const getTypeColor = (type: string) => {
     const colors: { [key: string]: string } = {
@@ -207,7 +130,7 @@ export default function StorageLocationsPage() {
   const activeLocations = locations.filter(l => l.status === 'active').length;
   const totalCapacity = locations.reduce((sum, l) => sum + l.capacity, 0);
   const totalOccupancy = locations.reduce((sum, l) => sum + l.currentOccupancy, 0);
-  const avgUtilization = ((totalOccupancy / totalCapacity) * 100).toFixed(1);
+  const avgUtilization = totalCapacity > 0 ? ((totalOccupancy / totalCapacity) * 100).toFixed(1) : '0.0';
 
   const filteredLocations = locations.filter(location => {
     const matchesSearch = location.locationCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -337,7 +260,7 @@ export default function StorageLocationsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLocations.map((location) => {
-                const utilization = ((location.currentOccupancy / location.capacity) * 100).toFixed(1);
+                const utilization = location.capacity > 0 ? ((location.currentOccupancy / location.capacity) * 100).toFixed(1) : '0.0';
                 return (
                   <tr key={location.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 text-sm">

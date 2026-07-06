@@ -494,6 +494,16 @@ export class SalesMastersController {
         });
     }
 
+    @Get('orders-v2/statistics')
+    async getOrderStatsPrisma(@Headers('x-company-id') companyId: string) {
+        return this.salesMastersService.getOrderStatsPrisma(companyId);
+    }
+
+    @Get('orders-v2/:id')
+    async findOrderByIdPrisma(@Param('id') id: string) {
+        return this.salesMastersService.findOrderByIdPrisma(id);
+    }
+
     @Post('orders-v2')
     async createOrderPrisma(
         @Headers('x-company-id') companyId: string,

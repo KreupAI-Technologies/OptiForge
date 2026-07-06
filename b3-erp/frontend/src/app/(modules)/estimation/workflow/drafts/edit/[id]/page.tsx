@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { costEstimateService } from '@/services/estimation-cost-estimate.service'
 import { ArrowLeft, Save, FileText, Plus, Trash2, Calculator } from 'lucide-react'
+
+const companyId = 'default-company-id'
 
 interface EstimateItem {
   id: string
@@ -26,6 +29,7 @@ export default function EditDraftPage() {
   const [category, setCategory] = useState('Modular Kitchen')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<EstimateItem[]>([])
+  const [saving, setSaving] = useState(false)
 
   const categories = [
     'Modular Kitchen',
@@ -43,34 +47,26 @@ export default function EditDraftPage() {
 
   // Load draft data
   useEffect(() => {
-    // Mock data - would load from API
-    setProjectName('Luxury Villa - Complete Kitchen Setup')
-    setCustomerName('Prestige Constructions Pvt Ltd')
-    setContactPerson('Mr. Rajesh Kumar')
-    setCategory('Modular Kitchen')
-    setNotes('Pending cabinet hardware selection and countertop finalization')
-    setItems([
-      {
-        id: '1',
-        itemCode: 'BASE-001',
-        description: 'Standard Base Cabinet 600mm',
-        category: 'Base Cabinets',
-        quantity: 5,
-        unit: 'Unit',
-        rate: 12500,
-        amount: 62500
-      },
-      {
-        id: '2',
-        itemCode: 'WALL-002',
-        description: 'Wall Cabinet 800mm with Glass Door',
-        category: 'Wall Cabinets',
-        quantity: 3,
-        unit: 'Unit',
-        rate: 15800,
-        amount: 47400
+    if (!draftId) return
+    let mounted = true
+    const load = async () => {
+      try {
+        const est = await costEstimateService.findOne(companyId, draftId)
+        if (!mounted || !est) return
+        setProjectName(est.title || '')
+        setCustomerName(est.customerName || '')
+        setContactPerson(est.customerName || '')
+        if (est.estimateType) setCategory(est.estimateType)
+        setNotes(est.description || '')
+        setItems([])
+      } catch (err) {
+        console.error('Failed to load draft:', err)
       }
-    ])
+    }
+    load()
+    return () => {
+      mounted = false
+    }
   }, [draftId])
 
   const handleAddItem = () => {
@@ -133,23 +129,23 @@ export default function EditDraftPage() {
     return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0
   }
 
-  const handleSaveDraft = () => {
-    const draft = {
-      id: draftId,
-      projectName,
-      customerName,
-      contactPerson,
-      category,
-      notes,
-      items,
-      estimatedValue: calculateTotal(),
-      completionPercent: calculateCompletion(),
-      lastModified: new Date().toISOString()
+  const handleSaveDraft = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await costEstimateService.update(companyId, draftId, {
+        title: projectName,
+        customerName,
+        description: notes,
+        totalCost: calculateTotal(),
+      })
+      router.push('/estimation/workflow/drafts')
+    } catch (err) {
+      console.error('Failed to update draft:', err)
+      alert('Failed to save changes. Please try again.')
+    } finally {
+      setSaving(false)
     }
-
-    console.log('Updating draft:', draft)
-    // Would make API call here
-    router.push('/estimation/workflow/drafts')
   }
 
   const handleCancel = () => {
@@ -179,10 +175,11 @@ export default function EditDraftPage() {
             </div>
             <button
               onClick={handleSaveDraft}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Save Changes
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>
@@ -412,10 +409,11 @@ export default function EditDraftPage() {
             </button>
             <button
               onClick={handleSaveDraft}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              disabled={saving}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              Save Changes
+              {saving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>

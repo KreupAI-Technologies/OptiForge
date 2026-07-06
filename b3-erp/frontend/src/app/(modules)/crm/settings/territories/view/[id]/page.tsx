@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   MapPin,
@@ -75,48 +76,102 @@ export default function ViewTerritoryPage() {
   const params = useParams();
   const territoryId = params.id as string;
 
-  // Mock data - in a real app, fetch this based on territoryId
-  const [territory] = useState<Territory>({
+  const emptyTerritory: Territory = {
     id: territoryId,
-    name: 'North America East',
-    code: 'NAE',
+    name: '',
+    code: '',
     type: 'geographic',
     status: 'active',
-    region: 'Americas',
-    description: 'Eastern United States and Eastern Canada coverage',
-    assignedTo: {
-      name: 'Sarah Johnson',
-      avatar: 'SJ',
-      role: 'Regional Sales Director',
-      email: 'sarah.johnson@company.com',
-      phone: '+1 (555) 123-4567'
-    },
-    coverage: {
-      countries: ['United States', 'Canada'],
-      states: ['New York', 'Massachusetts', 'Pennsylvania', 'New Jersey', 'Connecticut', 'Vermont'],
-      cities: ['New York', 'Boston', 'Philadelphia', 'Toronto', 'Montreal']
-    },
+    region: '',
+    description: '',
+    assignedTo: { name: '', avatar: '', role: '', email: '', phone: '' },
+    coverage: {},
     performance: {
-      accounts: 156,
-      activeOpportunities: 42,
-      revenue: 8450000,
-      quota: 10000000,
-      quotaAttainment: 84.5,
-      avgDealSize: 125000,
-      winRate: 68
+      accounts: 0,
+      activeOpportunities: 0,
+      revenue: 0,
+      quota: 0,
+      quotaAttainment: 0,
+      avgDealSize: 0,
+      winRate: 0,
     },
-    growth: {
-      accountsChange: 12,
-      revenueChange: 15.3
-    },
-    metrics: {
-      totalLeads: 324,
-      convertedLeads: 156,
-      customerSatisfaction: 4.6
-    },
-    createdAt: '2024-01-15',
-    lastModified: '2025-10-15'
-  });
+    growth: { accountsChange: 0, revenueChange: 0 },
+    metrics: { totalLeads: 0, convertedLeads: 0, customerSatisfaction: 0 },
+    createdAt: '',
+    lastModified: '',
+  };
+
+  const [territory, setTerritory] = useState<Territory>(emptyTerritory);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!territoryId) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const t = (await crmService.territories.getById(territoryId)) as any;
+        if (cancelled || !t) return;
+        const assignedName: string = t.assignedTo?.name ?? t.assignedToName ?? t.ownerName ?? '';
+        const avatar = assignedName
+          ? assignedName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+          : '';
+        setTerritory({
+          id: String(t.id ?? territoryId),
+          name: t.name ?? '',
+          code: t.code ?? '',
+          type: (t.type ?? 'geographic') as Territory['type'],
+          status: (t.status ?? 'active') as Territory['status'],
+          region: t.region ?? '',
+          description: t.description ?? '',
+          assignedTo: {
+            name: assignedName,
+            avatar: t.assignedTo?.avatar ?? avatar,
+            role: t.assignedTo?.role ?? t.assignedToRole ?? '',
+            email: t.assignedTo?.email ?? t.assignedToEmail ?? '',
+            phone: t.assignedTo?.phone ?? t.assignedToPhone ?? '',
+          },
+          coverage: {
+            countries: t.coverage?.countries ?? t.countries ?? undefined,
+            states: t.coverage?.states ?? t.states ?? undefined,
+            cities: t.coverage?.cities ?? t.cities ?? undefined,
+            industries: t.coverage?.industries ?? t.industries ?? undefined,
+            accountSizes: t.coverage?.accountSizes ?? t.accountSizes ?? undefined,
+          },
+          performance: {
+            accounts: Number(t.performance?.accounts ?? t.accounts ?? 0),
+            activeOpportunities: Number(t.performance?.activeOpportunities ?? t.activeOpportunities ?? 0),
+            revenue: Number(t.performance?.revenue ?? t.revenue ?? 0),
+            quota: Number(t.performance?.quota ?? t.quota ?? 0),
+            quotaAttainment: Number(t.performance?.quotaAttainment ?? t.quotaAttainment ?? 0),
+            avgDealSize: Number(t.performance?.avgDealSize ?? t.avgDealSize ?? 0),
+            winRate: Number(t.performance?.winRate ?? t.winRate ?? 0),
+          },
+          growth: {
+            accountsChange: Number(t.growth?.accountsChange ?? t.accountsChange ?? 0),
+            revenueChange: Number(t.growth?.revenueChange ?? t.revenueChange ?? 0),
+          },
+          metrics: {
+            totalLeads: Number(t.metrics?.totalLeads ?? t.totalLeads ?? 0),
+            convertedLeads: Number(t.metrics?.convertedLeads ?? t.convertedLeads ?? 0),
+            customerSatisfaction: Number(t.metrics?.customerSatisfaction ?? t.customerSatisfaction ?? 0),
+          },
+          createdAt: t.createdAt ?? t.createdDate ?? '',
+          lastModified: t.updatedAt ?? t.lastModified ?? '',
+        });
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load territory.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [territoryId]);
 
   const handleBack = () => {
     router.push('/crm/settings/territories');
@@ -161,6 +216,18 @@ export default function ViewTerritoryPage() {
   return (
     <div className="w-full h-full px-3 py-2 ">
       <div className=" space-y-3">
+        {isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+            Loading territory…
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {loadError}
+          </div>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

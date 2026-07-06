@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   TrendingUp,
@@ -16,6 +16,7 @@ import {
   Percent,
   BarChart3
 } from 'lucide-react'
+import { estimationAnalyticsService, WinLossAnalysis } from '@/services/estimation-analytics.service'
 
 interface WinLossData {
   category: string
@@ -30,122 +31,79 @@ interface WinLossData {
   totalLostValue: number
 }
 
+interface LossReason {
+  reason: string
+  count: number
+  percentage: number
+  avgValue: number
+}
+
+const companyId = 'default-company-id'
+
 export default function EstimationAnalyticsWinLossPage() {
   const router = useRouter()
 
-  const [winLossData] = useState<WinLossData[]>([
-    {
-      category: 'Premium Modular Kitchen',
-      totalEstimates: 45,
-      won: 28,
-      lost: 12,
-      pending: 5,
-      winRate: 70.0,
-      avgWinValue: 6800000,
-      avgLossValue: 7200000,
-      totalWonValue: 190400000,
-      totalLostValue: 86400000
-    },
-    {
-      category: 'Island Kitchen',
-      totalEstimates: 38,
-      won: 22,
-      lost: 10,
-      pending: 6,
-      winRate: 68.8,
-      avgWinValue: 5200000,
-      avgLossValue: 5800000,
-      totalWonValue: 114400000,
-      totalLostValue: 58000000
-    },
-    {
-      category: 'L-Shaped Kitchen',
-      totalEstimates: 62,
-      won: 45,
-      lost: 14,
-      pending: 3,
-      winRate: 76.3,
-      avgWinValue: 2900000,
-      avgLossValue: 3100000,
-      totalWonValue: 130500000,
-      totalLostValue: 43400000
-    },
-    {
-      category: 'Parallel Kitchen',
-      totalEstimates: 34,
-      won: 24,
-      lost: 8,
-      pending: 2,
-      winRate: 75.0,
-      avgWinValue: 3100000,
-      avgLossValue: 3300000,
-      totalWonValue: 74400000,
-      totalLostValue: 26400000
-    },
-    {
-      category: 'Compact Kitchen',
-      totalEstimates: 28,
-      won: 22,
-      lost: 5,
-      pending: 1,
-      winRate: 81.5,
-      avgWinValue: 920000,
-      avgLossValue: 950000,
-      totalWonValue: 20240000,
-      totalLostValue: 4750000
-    },
-    {
-      category: 'Commercial Kitchen',
-      totalEstimates: 24,
-      won: 14,
-      lost: 8,
-      pending: 2,
-      winRate: 63.6,
-      avgWinValue: 12500000,
-      avgLossValue: 13800000,
-      totalWonValue: 175000000,
-      totalLostValue: 110400000
-    },
-    {
-      category: 'Institutional Kitchen',
-      totalEstimates: 18,
-      won: 10,
-      lost: 6,
-      pending: 2,
-      winRate: 62.5,
-      avgWinValue: 15200000,
-      avgLossValue: 16500000,
-      totalWonValue: 152000000,
-      totalLostValue: 99000000
-    },
-    {
-      category: 'Builder Package',
-      totalEstimates: 12,
-      won: 8,
-      lost: 3,
-      pending: 1,
-      winRate: 72.7,
-      avgWinValue: 22000000,
-      avgLossValue: 24000000,
-      totalWonValue: 176000000,
-      totalLostValue: 72000000
+  const [loading, setLoading] = useState(true)
+  const [analysis, setAnalysis] = useState<WinLossAnalysis | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      try {
+        const now = new Date()
+        const toDate = now.toISOString().split('T')[0]
+        const from = new Date(now)
+        from.setFullYear(from.getFullYear() - 1)
+        const fromDate = from.toISOString().split('T')[0]
+        const data = await estimationAnalyticsService.getWinLossAnalysis(companyId, fromDate, toDate)
+        if (mounted) setAnalysis(data ?? null)
+      } catch (e) {
+        console.error('Failed to load win/loss analysis', e)
+        if (mounted) setAnalysis(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
-  interface LossReason {
-    reason: string
-    count: number
-    percentage: number
-    avgValue: number
-  }
+  // Derive per-category rows from byCustomer (fallback byEstimator); guard empties.
+  const byCustomer = Array.isArray(analysis?.byCustomer) ? analysis!.byCustomer : []
+  const byEstimator = Array.isArray(analysis?.byEstimator) ? analysis!.byEstimator : []
+  const categorySource = byCustomer.length > 0 ? byCustomer : byEstimator
+  const winLossData: WinLossData[] = categorySource.map((c: any) => {
+    const won = c.won ?? 0
+    const lost = c.lost ?? 0
+    return {
+      category: c.customerName ?? c.estimatorName ?? 'Unknown',
+      totalEstimates: won + lost,
+      won,
+      lost,
+      pending: 0,
+      winRate: c.winRate ?? 0,
+      avgWinValue: 0,
+      avgLossValue: 0,
+      totalWonValue: 0,
+      totalLostValue: 0
+    }
+  })
 
-  const [lossReasons] = useState<LossReason[]>([
-    { reason: 'Price too high', count: 28, percentage: 42.4, avgValue: 8500000 },
-    { reason: 'Lost to competitor', count: 18, percentage: 27.3, avgValue: 6200000 },
-    { reason: 'Timeline not feasible', count: 10, percentage: 15.2, avgValue: 5800000 },
-    { reason: 'Customer budget changed', count: 6, percentage: 9.1, avgValue: 7100000 },
-    { reason: 'Project cancelled', count: 4, percentage: 6.1, avgValue: 4500000 }
-  ])
+  // Top loss reasons from analysis.byReason; compute percentage from counts.
+  const byReason = Array.isArray(analysis?.byReason) ? analysis!.byReason : []
+  const totalReasonCount = byReason.reduce((sum, r) => sum + (r.count ?? 0), 0)
+  const lossReasons: LossReason[] = byReason.map((r) => ({
+    reason: r.reason,
+    count: r.count ?? 0,
+    percentage: totalReasonCount > 0 ? ((r.count ?? 0) / totalReasonCount) * 100 : 0,
+    avgValue: 0
+  }))
+
+  // Win rate trends from analysis.trend.
+  const trend = Array.isArray(analysis?.trend) ? analysis!.trend : []
 
   const getWinRateColor = (rate: number) => {
     if (rate >= 75) return 'text-green-600'
@@ -161,13 +119,21 @@ export default function EstimationAnalyticsWinLossPage() {
     return 'bg-red-100 border-red-200'
   }
 
-  const totalEstimates = winLossData.reduce((sum, d) => sum + d.totalEstimates, 0)
-  const totalWon = winLossData.reduce((sum, d) => sum + d.won, 0)
-  const totalLost = winLossData.reduce((sum, d) => sum + d.lost, 0)
-  const totalPending = winLossData.reduce((sum, d) => sum + d.pending, 0)
-  const overallWinRate = ((totalWon / (totalWon + totalLost)) * 100).toFixed(1)
-  const totalWonValue = winLossData.reduce((sum, d) => sum + d.totalWonValue, 0)
-  const totalLostValue = winLossData.reduce((sum, d) => sum + d.totalLostValue, 0)
+  const totalEstimates = analysis?.totalEstimates ?? 0
+  const totalWon = analysis?.won ?? 0
+  const totalLost = analysis?.lost ?? 0
+  const totalPending = analysis?.pending ?? 0
+  const overallWinRate = (analysis?.winRate ?? 0).toFixed(1)
+  const totalWonValue = analysis?.totalWonValue ?? 0
+  const totalLostValue = Math.max((analysis?.totalEstimatedValue ?? 0) - (analysis?.totalWonValue ?? 0), 0)
+
+  if (loading) {
+    return (
+      <div className="w-full h-full px-4 py-2 flex items-center justify-center">
+        <p className="text-sm text-gray-500">Loading win/loss analysis...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full h-full px-4 py-2">
@@ -273,6 +239,13 @@ export default function EstimationAnalyticsWinLossPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {winLossData.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-500">
+                    No category data available
+                  </td>
+                </tr>
+              )}
               {winLossData.map((data) => (
                 <tr key={data.category} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-4 whitespace-nowrap">
@@ -336,6 +309,9 @@ export default function EstimationAnalyticsWinLossPage() {
           </div>
           <div className="p-6">
             <div className="space-y-2">
+              {lossReasons.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">No loss reasons recorded</p>
+              )}
               {lossReasons.map((reason, index) => (
                 <div key={reason.reason} className="flex items-center gap-2">
                   <div className="flex-shrink-0 w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -354,7 +330,9 @@ export default function EstimationAnalyticsWinLossPage() {
                     </div>
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-xs text-gray-500">{reason.percentage.toFixed(1)}% of losses</span>
-                      <span className="text-xs text-gray-500">Avg: ₹{(reason.avgValue / 100000).toFixed(1)}L</span>
+                      {reason.avgValue > 0 && (
+                        <span className="text-xs text-gray-500">Avg: ₹{(reason.avgValue / 100000).toFixed(1)}L</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -370,11 +348,14 @@ export default function EstimationAnalyticsWinLossPage() {
           </div>
           <div className="p-6">
             <div className="space-y-3">
-              {['October 2025', 'September 2025', 'August 2025', 'July 2025', 'June 2025', 'May 2025'].map((month, index) => {
-                const rate = 72 - index * 2 + Math.random() * 4
+              {trend.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">No trend data available</p>
+              )}
+              {trend.map((point) => {
+                const rate = point.winRate ?? 0
                 return (
-                  <div key={month} className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-700 w-32">{month}</span>
+                  <div key={point.month} className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 w-32">{point.month}</span>
                     <div className="flex-1">
                       <div className="w-full bg-gray-200 rounded-full h-3">
                         <div

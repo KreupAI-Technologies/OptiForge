@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3,
   Calendar,
@@ -15,18 +15,9 @@ import {
   CreditCard,
   PieChart,
 } from 'lucide-react';
+import { FinancialReportsService } from '@/services/financial-reports.service';
 
-export default function BalanceSheetPage() {
-  const [asOfDate, setAsOfDate] = useState('2025-10-31');
-  const [showComparison, setShowComparison] = useState(true);
-  const [expandedSections, setExpandedSections] = useState<string[]>([
-    'current-assets',
-    'fixed-assets',
-    'current-liabilities',
-    'equity',
-  ]);
-
-  const balanceSheetData = {
+const INITIAL_BALANCE_SHEET_DATA = {
     assets: {
       currentAssets: {
         cash: { current: 500000, previous: 450000 },
@@ -70,6 +61,76 @@ export default function BalanceSheetPage() {
       },
     },
   };
+
+export default function BalanceSheetPage() {
+  const [asOfDate, setAsOfDate] = useState('2025-10-31');
+  const [showComparison, setShowComparison] = useState(true);
+  const [expandedSections, setExpandedSections] = useState<string[]>([
+    'current-assets',
+    'fixed-assets',
+    'current-liabilities',
+    'equity',
+  ]);
+
+  // Live data overlays the hardcoded seed; seed remains the render/calculation source.
+  const [balanceSheetData, setBalanceSheetData] = useState(INITIAL_BALANCE_SHEET_DATA);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), 0, 1);
+        const live = await FinancialReportsService.getBalanceSheet({ startDate: start, endDate: end });
+        if (!cancelled && live) {
+          // Live shape (BalanceSheet) differs from the page's nested shape.
+          // Overlay cleanly-mapping leaf balances where a section item exists; keep seed otherwise.
+          setBalanceSheetData((prev) => {
+            const next = {
+              ...prev,
+              assets: { ...prev.assets, currentAssets: { ...prev.assets.currentAssets } },
+            };
+            const cashItem = live.assets?.currentAssets?.items?.find((i) =>
+              i.accountName?.toLowerCase().includes('cash')
+            );
+            if (cashItem && typeof cashItem.balance === 'number') {
+              next.assets.currentAssets.cash = {
+                current: cashItem.balance,
+                previous:
+                  typeof cashItem.previousBalance === 'number'
+                    ? cashItem.previousBalance
+                    : prev.assets.currentAssets.cash.previous,
+              };
+            }
+            const receivableItem = live.assets?.currentAssets?.items?.find((i) =>
+              i.accountName?.toLowerCase().includes('receivable')
+            );
+            if (receivableItem && typeof receivableItem.balance === 'number') {
+              next.assets.currentAssets.accountsReceivable = {
+                current: receivableItem.balance,
+                previous:
+                  typeof receivableItem.previousBalance === 'number'
+                    ? receivableItem.previousBalance
+                    : prev.assets.currentAssets.accountsReceivable.previous,
+              };
+            }
+            return next;
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load report');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const calculateTotal = (obj: any): { current: number; previous: number } => {
     let current = 0;

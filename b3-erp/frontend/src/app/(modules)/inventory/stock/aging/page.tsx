@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   Clock,
   Package,
@@ -47,104 +48,33 @@ export default function StockAgingPage() {
   const [isAgingModalOpen, setIsAgingModalOpen] = useState(false);
   const [agingResult, setAgingResult] = useState<StockAgingData | null>(null);
 
-  const [agingItems, setAgingItems] = useState<AgingItem[]>([
-    {
-      id: 1,
-      itemCode: 'FG-215',
-      itemName: 'Legacy Pump Model V2',
-      category: 'Finished Goods',
-      warehouse: 'FG Store',
-      quantity: 45,
-      uom: 'Nos',
-      unitValue: 4500,
-      totalValue: 202500,
-      lastMovementDate: '2024-07-15',
-      agingDays: 189,
-      agingBucket: '180+',
-      movementVelocity: 'dead',
-      recommendation: 'Consider liquidation or scrap'
-    },
-    {
-      id: 2,
-      itemCode: 'RM-025',
-      itemName: 'Aluminum Alloy Grade B',
-      category: 'Raw Material',
-      warehouse: 'Main Warehouse',
-      quantity: 320,
-      uom: 'Kg',
-      unitValue: 220,
-      totalValue: 70400,
-      lastMovementDate: '2024-10-10',
-      agingDays: 103,
-      agingBucket: '91-180',
-      movementVelocity: 'slow',
-      recommendation: 'Review usage forecast'
-    },
-    {
-      id: 3,
-      itemCode: 'CP-145',
-      itemName: 'Discontinued Bearing Set',
-      category: 'Components',
-      warehouse: 'Assembly Plant',
-      quantity: 28,
-      uom: 'Sets',
-      unitValue: 1200,
-      totalValue: 33600,
-      lastMovementDate: '2024-08-20',
-      agingDays: 154,
-      agingBucket: '91-180',
-      movementVelocity: 'dead',
-      recommendation: 'Return to supplier or sell'
-    },
-    {
-      id: 4,
-      itemCode: 'RM-032',
-      itemName: 'Brass Rod 12mm',
-      category: 'Raw Material',
-      warehouse: 'Main Warehouse',
-      quantity: 180,
-      uom: 'Pcs',
-      unitValue: 185,
-      totalValue: 33300,
-      lastMovementDate: '2024-11-25',
-      agingDays: 57,
-      agingBucket: '31-60',
-      movementVelocity: 'medium',
-      recommendation: 'Monitor for next 30 days'
-    },
-    {
-      id: 5,
-      itemCode: 'FG-202',
-      itemName: 'Motor Housing Old Design',
-      category: 'Finished Goods',
-      warehouse: 'FG Store',
-      quantity: 67,
-      uom: 'Nos',
-      unitValue: 3200,
-      totalValue: 214400,
-      lastMovementDate: '2024-11-05',
-      agingDays: 77,
-      agingBucket: '61-90',
-      movementVelocity: 'slow',
-      recommendation: 'Offer discount promotion'
-    },
-    {
-      id: 6,
-      itemCode: 'CP-089',
-      itemName: 'Gearbox Assembly 3:1',
-      category: 'Components',
-      warehouse: 'Assembly Plant',
-      quantity: 15,
-      uom: 'Nos',
-      unitValue: 8500,
-      totalValue: 127500,
-      lastMovementDate: '2024-12-20',
-      agingDays: 32,
-      agingBucket: '31-60',
-      movementVelocity: 'medium',
-      recommendation: 'Normal stock rotation'
-    }
-  ]);
+  const [agingItems, setAgingItems] = useState<AgingItem[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await inventoryService.getAgingItems();
+        if (res?.items) {
+          setAgingItems(res.items.map((it: any, idx: number) => ({
+            id: it.id ?? idx,
+            itemCode: it.itemCode,
+            itemName: it.itemName,
+            category: it.category,
+            warehouse: it.warehouse,
+            quantity: it.quantity ?? 0,
+            uom: it.uom ?? '',
+            unitValue: it.unitValue ?? 0,
+            totalValue: it.totalValue ?? 0,
+            lastMovementDate: it.lastMovementDate ?? '',
+            agingDays: it.agingDays ?? 0,
+            agingBucket: it.agingBucket,
+            movementVelocity: it.movementVelocity,
+            recommendation: it.recommendation ?? ''
+          })));
+        }
+      } catch { /* keep empty */ }
+    })();
+  }, []);
 
   const getVelocityColor = (velocity: string) => {
     switch (velocity) {
@@ -207,28 +137,35 @@ export default function StockAgingPage() {
   });
 
   // Handler function
-  const handleAgingGenerate = (config: any) => {
-    console.log('Generating aging analysis with config:', config);
-    // TODO: API call to generate aging analysis
-    // const response = await fetch('/api/inventory/analytics/aging', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setAgingResult(data);
-
-    setAgingResult({
-      reportDate: config.reportDate,
-      warehouse: config.warehouse,
-      items: [],
-      summary: {
-        totalValue: totalValue,
-        bucket_0_30: { quantity: 0, value: 0, percentage: 0 },
-        bucket_31_60: { quantity: 195, value: 66600, percentage: 9.8 },
-        bucket_61_90: { quantity: 67, value: 214400, percentage: 31.5 },
-        bucket_91_180: { quantity: 363, value: 194500, percentage: 28.5 },
-        bucket_180_plus: { quantity: 45, value: 202500, percentage: 29.7 }
+  const handleAgingGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getAgingItems(config?.warehouse);
+      if (res?.summary) {
+        setAgingResult({
+          reportDate: config?.reportDate,
+          warehouse: config?.warehouse,
+          items: res.items ?? [],
+          summary: res.summary
+        });
+      } else {
+        setAgingResult({
+          reportDate: config?.reportDate,
+          warehouse: config?.warehouse,
+          items: [],
+          summary: {
+            totalValue: totalValue,
+            bucket_0_30: { quantity: 0, value: 0, percentage: 0 },
+            bucket_31_60: { quantity: 0, value: 0, percentage: 0 },
+            bucket_61_90: { quantity: 0, value: 0, percentage: 0 },
+            bucket_91_180: { quantity: 0, value: 0, percentage: 0 },
+            bucket_180_plus: { quantity: 0, value: 0, percentage: 0 }
+          }
+        });
       }
-    });
+    } catch {
+      /* keep existing result */
+    }
     setIsAgingModalOpen(false);
-    alert('Stock aging analysis generated successfully!');
   };
 
   return (

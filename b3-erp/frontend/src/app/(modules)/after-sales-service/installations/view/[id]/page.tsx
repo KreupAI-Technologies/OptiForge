@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   Wrench,
   Edit,
@@ -22,8 +23,8 @@ export default function ViewInstallationPage({ params }: { params: { id: string 
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'details' | 'progress' | 'documents'>('details');
 
-  // Mock Installation Data
-  const installation = {
+  // Fallback Installation Data (defaults so every field the JSX reads is defined)
+  const FALLBACK = {
     id: params.id,
     jobNumber: 'INS-2025-0012',
     status: 'In Progress',
@@ -83,6 +84,25 @@ export default function ViewInstallationPage({ params }: { params: { id: string 
     createdBy: 'Sales Team',
     lastUpdated: '2025-02-18T13:30:00'
   };
+
+  const [installation, setInstallation] = useState(FALLBACK);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await AfterSalesPagesService.installation(String(params.id));
+        if (!cancelled && data && typeof data === 'object') {
+          setInstallation(prev => ({ ...prev, ...data }));
+        }
+      } catch {
+        // keep fallback on error
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-IN', {

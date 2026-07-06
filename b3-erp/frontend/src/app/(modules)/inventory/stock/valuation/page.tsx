@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   DollarSign,
   TrendingUp,
@@ -45,61 +46,31 @@ export default function StockValuationPage() {
   const [isValuationModalOpen, setIsValuationModalOpen] = useState(false);
   const [valuationResult, setValuationResult] = useState<ValuationReportData | null>(null);
 
-  const categoryData: CategoryValuation[] = [
-    {
-      category: 'Raw Materials',
-      items: 145,
-      quantity: 12450,
-      fifoValue: 2850000,
-      lifoValue: 2720000,
-      wavgValue: 2785000,
-      percentOfTotal: 35.5
-    },
-    {
-      category: 'Components',
-      items: 89,
-      quantity: 3420,
-      fifoValue: 1950000,
-      lifoValue: 1880000,
-      wavgValue: 1915000,
-      percentOfTotal: 24.3
-    },
-    {
-      category: 'Finished Goods',
-      items: 67,
-      quantity: 1280,
-      fifoValue: 2150000,
-      lifoValue: 2100000,
-      wavgValue: 2125000,
-      percentOfTotal: 26.8
-    },
-    {
-      category: 'Work In Progress',
-      items: 45,
-      quantity: 890,
-      fifoValue: 980000,
-      lifoValue: 945000,
-      wavgValue: 962500,
-      percentOfTotal: 12.2
-    },
-    {
-      category: 'Consumables',
-      items: 32,
-      quantity: 5600,
-      fifoValue: 95000,
-      lifoValue: 92000,
-      wavgValue: 93500,
-      percentOfTotal: 1.2
-    }
-  ];
+  const [categoryData, setCategoryData] = useState<CategoryValuation[]>([]);
+  const [valuationHistory, setValuationHistory] = useState<ValuationHistory[]>([]);
 
-  const valuationHistory: ValuationHistory[] = [
-    { date: '2025-01-01', fifo: 7500000, lifo: 7200000, wavg: 7350000 },
-    { date: '2025-01-05', fifo: 7650000, lifo: 7320000, wavg: 7485000 },
-    { date: '2025-01-10', fifo: 7800000, lifo: 7450000, wavg: 7625000 },
-    { date: '2025-01-15', fifo: 7950000, lifo: 7580000, wavg: 7765000 },
-    { date: '2025-01-20', fifo: 8025000, lifo: 7637000, wavg: 7831000 }
-  ];
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await inventoryService.getValuationReport();
+        const total = res?.totalValue ?? 0;
+        if (Array.isArray(res?.byCategory)) {
+          setCategoryData(res.byCategory.map((cat: any) => {
+            const value = cat.value ?? cat.totalValue ?? 0;
+            return {
+              category: cat.category ?? cat.name ?? '',
+              items: cat.items ?? cat.itemCount ?? 0,
+              quantity: cat.quantity ?? cat.totalQuantity ?? 0,
+              fifoValue: cat.fifoValue ?? value,
+              lifoValue: cat.lifoValue ?? value,
+              wavgValue: cat.wavgValue ?? value,
+              percentOfTotal: cat.percentage ?? cat.percentOfTotal ?? (total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0)
+            };
+          }));
+        }
+      } catch { /* keep empty */ }
+    })();
+  }, []);
 
   const getCurrentValue = (category: CategoryValuation) => {
     switch (valuationMethod) {
@@ -121,31 +92,40 @@ export default function StockValuationPage() {
   const varianceFromFIFO = ((totalValuation - categoryData.reduce((sum, cat) => sum + cat.fifoValue, 0)) / totalValuation * 100).toFixed(2);
 
   // Handler function
-  const handleValuationGenerate = (config: any) => {
-    console.log('Generating valuation report with config:', config);
-    // TODO: API call to generate valuation report
-    // const response = await fetch('/api/inventory/analytics/valuation', { method: 'POST', body: JSON.stringify(config) });
-    // const data = await response.json();
-    // setValuationResult(data);
-
-    setValuationResult({
-      reportDate: config.reportDate,
-      warehouse: config.warehouse,
-      valuationMethod: config.valuationMethod,
-      items: [],
-      summary: {
-        totalItems: totalItems,
-        totalQuantity: totalQuantity,
-        totalValue: totalValuation,
-        byCategory: categoryData.map(cat => ({
-          category: cat.category,
-          value: getCurrentValue(cat),
-          percentage: cat.percentOfTotal
-        }))
-      }
-    });
+  const handleValuationGenerate = async (config: any) => {
+    try {
+      const res = await inventoryService.getValuationReport(config?.warehouse, config?.reportDate);
+      const total = res?.totalValue ?? totalValuation;
+      const byCategory = Array.isArray(res?.byCategory)
+        ? res.byCategory.map((cat: any) => {
+            const value = cat.value ?? cat.totalValue ?? 0;
+            return {
+              category: cat.category ?? cat.name ?? '',
+              value,
+              percentage: cat.percentage ?? cat.percentOfTotal ?? (total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0)
+            };
+          })
+        : categoryData.map(cat => ({
+            category: cat.category,
+            value: getCurrentValue(cat),
+            percentage: cat.percentOfTotal
+          }));
+      setValuationResult({
+        reportDate: config?.reportDate,
+        warehouse: config?.warehouse,
+        valuationMethod: config?.valuationMethod,
+        items: [],
+        summary: {
+          totalItems: res?.itemCount ?? totalItems,
+          totalQuantity: totalQuantity,
+          totalValue: total,
+          byCategory
+        }
+      });
+    } catch {
+      /* keep existing result */
+    }
     setIsValuationModalOpen(false);
-    alert('Valuation report generated successfully! You can now export it.');
   };
 
   return (

@@ -689,6 +689,19 @@ export class LeaveService {
   }
 
   /**
+   * Update an existing leave application (PUT /hr/leave-applications/:id)
+   */
+  static async updateLeaveApplication(
+    id: string,
+    data: Partial<ApplyLeaveDto> & Record<string, any>
+  ): Promise<LeaveApplication> {
+    return this.request<LeaveApplication>(`/hr/leave-applications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
    * Apply for leave
    */
   static async applyLeave(data: ApplyLeaveDto): Promise<LeaveApplication> {
@@ -814,7 +827,7 @@ export class LeaveService {
     }
     return this.request<LeaveApplication>(`/hr/leave-applications/${id}/reject`, {
       method: 'POST',
-      body: JSON.stringify({ rejectionReason, approverId }),
+      body: JSON.stringify({ rejectedBy: approverId || 'emp-001', reason: rejectionReason }),
     });
   }
 

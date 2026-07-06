@@ -122,6 +122,17 @@ export default function ContactListsPage() {
     })();
     return () => { mounted = false; };
   }, []);
+  const handleDeleteList = async (id: string) => {
+    if (!id) return;
+    if (typeof window !== 'undefined' && !window.confirm('Delete this contact list?')) return;
+    try {
+      await crmService.contactLists.delete(id);
+      setLists(prev => prev.filter(l => l.id !== id));
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete list');
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'static' | 'dynamic' | 'smart'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -391,7 +402,10 @@ export default function ContactListsPage() {
                     <Copy className="w-4 h-4 text-gray-600" />
                     <span className="text-gray-700">Copy</span>
                   </button>
-                  <button className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm">
+                  <button
+                    onClick={() => handleDeleteList(list.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg hover:bg-red-50 text-sm"
+                  >
                     <Trash2 className="w-4 h-4 text-red-600" />
                     <span className="text-red-600">Delete</span>
                   </button>

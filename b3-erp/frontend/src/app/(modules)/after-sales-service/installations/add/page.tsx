@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service';
 import {
   Wrench,
   Save,
@@ -155,17 +156,44 @@ export default function AddInstallationPage() {
     setShowPreviewModal(true);
   };
 
-  const handleFinalSubmit = () => {
+  const buildPayload = () => ({
+    jobNumber,
+    status,
+    priority,
+    customerId,
+    customerName,
+    contactPerson,
+    contactPhone,
+    contactEmail,
+    installationType,
+    installationAddress,
+    scheduledDate,
+    scheduledTime,
+    estimatedDuration,
+    teamMembers,
+    equipment,
+    siteRequirements,
+    specialInstructions,
+    internalNotes,
+    requiresSiteSurvey,
+    siteSurveyCompleted,
+    siteSurveyDate,
+    createdBy: 'system',
+  });
+
+  const handleFinalSubmit = async () => {
     setIsSubmitting(true);
     setShowPreviewModal(false);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await AfterSalesPagesService.createInstallation(buildPayload());
       setToast({ message: 'Installation scheduled successfully!', type: 'success' });
-      setTimeout(() => {
-        router.push('/after-sales-service/installations');
-      }, 1000);
-    }, 1500);
+      router.push('/after-sales-service/installations');
+    } catch (err) {
+      console.error('Create failed', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const Tooltip = ({ content, id }: { content: string; id: string }) => (

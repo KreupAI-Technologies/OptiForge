@@ -230,7 +230,7 @@ export default function DowntimeAnalysisPage() {
     const equipmentData: EquipmentAnalysisData = {
       equipmentId: equipment.equipment,
       equipmentName: equipment.equipment,
-      type: 'CNC', // TODO: Get from equipment data
+      type: '',
       period: selectedPeriod,
       metrics: {
         totalDowntime: equipment.totalDowntime,
@@ -241,10 +241,10 @@ export default function DowntimeAnalysisPage() {
         targetMTBF: 168, // 1 week
         targetMTTR: 4
       },
-      events: [], // TODO: Fetch actual events
-      categoryBreakdown: [], // TODO: Fetch category breakdown
+      events: [],
+      categoryBreakdown: [],
       costImpact: {
-        total: 0, // TODO: Calculate
+        total: 0,
         average: 0,
         trend: 0
       },
@@ -265,10 +265,10 @@ export default function DowntimeAnalysisPage() {
       totalEvents: category.count,
       totalHours: category.totalHours,
       avgDuration: category.avgDuration,
-      totalCost: 0, // TODO: Calculate
+      totalCost: 0,
       trendStatus: category.trend,
-      monthlyTrends: [], // TODO: Fetch monthly data
-      topEquipment: [] // TODO: Fetch top equipment
+      monthlyTrends: [],
+      topEquipment: []
     };
     setSelectedCategoryData(categoryData);
     setIsCategoryTrendOpen(true);

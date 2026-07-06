@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { projectManagementService } from '@/services/ProjectManagementService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,18 @@ export default function UploadDrawingsPage() {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
 
   const [isMaximized, setIsMaximized] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    projectManagementService.getPmProjectPlansRaw()
+      .then((rows) => {
+        setProjects((Array.isArray(rows) ? rows : []).map((p: any) => ({
+          id: String(p.id ?? p.projectCode ?? ''),
+          name: p.projectName ?? p.name ?? p.projectCode ?? 'Project',
+        })));
+      })
+      .catch(() => setProjects([]));
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -49,13 +62,26 @@ export default function UploadDrawingsPage() {
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsUploading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsUploading(false);
+    try {
+      const proj = projects.find((p) => p.id === project);
+      await Promise.all(files.map((f) => projectManagementService.createPmDocument({
+        companyId: 'default-company-id',
+        projectId: project,
+        projectName: proj?.name ?? '',
+        documentName: f.name,
+        documentType: 'Drawing',
+        category: discipline || 'Drawings',
+        version: '1.0',
+        fileFormat: f.name.split('.').pop() ?? '',
+        fileSize: `${(f.size / 1024 / 1024).toFixed(2)} MB`,
+        status: 'Pending Approval',
+      } as any)));
       router.push('/project-management/documents');
-    }, 1500);
+    } catch {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -86,9 +112,9 @@ export default function UploadDrawingsPage() {
                     <SelectValue placeholder="Select a project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PRJ-2025-001">Taj Hotels - Commercial Kitchen</SelectItem>
-                    <SelectItem value="PRJ-2025-002">BigBasket - Cold Room</SelectItem>
-                    <SelectItem value="PRJ-2025-003">L&T Campus - Industrial Kitchen</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

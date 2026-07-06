@@ -6,6 +6,7 @@ import {
     ArrowLeft, Save, Zap, Clock, Target, Users, Bot,
     AlertCircle, CheckCircle, Plus, Trash2, GitBranch
 } from 'lucide-react';
+import { workflowAutomationService } from '@/services/workflow-automation.service';
 
 interface TriggerCondition {
     id: string;
@@ -80,11 +81,34 @@ export default function CreateAutomationPage() {
         setConditions(conditions.filter(c => c.id !== id));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [saving, setSaving] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Would save to API here
-        alert('Automation rule created successfully!');
-        router.push('/workflow/automation');
+        if (saving) return;
+        setSaving(true);
+        try {
+            await workflowAutomationService.create('default-company-id', {
+                name: formData.name,
+                description: formData.description,
+                trigger: formData.trigger,
+                triggerDetails: formData.triggerDetails,
+                action: formData.action,
+                category: formData.category,
+                priority: formData.priority,
+                status: formData.isActive ? 'active' : 'inactive',
+                conditions: conditions
+                    .filter((c) => c.field)
+                    .map((c) => ({ field: c.field, operator: c.operator, value: c.value })),
+            });
+            alert('Automation rule created successfully!');
+            router.push('/workflow/automation');
+        } catch (err) {
+            console.error('Error creating automation rule:', err);
+            alert('Failed to create automation rule');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (

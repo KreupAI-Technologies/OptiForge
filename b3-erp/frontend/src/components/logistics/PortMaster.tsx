@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Anchor, Plus, Search, Edit2, Trash2, MapPin, Globe, Eye, X, Download, Filter, CheckCircle2, Ship, Plane } from 'lucide-react';
+import { logisticsService, PortDto } from '@/services/logistics.service';
 
 interface Port {
   id: string;
@@ -139,6 +140,35 @@ export default function PortMaster() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPort, setSelectedPort] = useState<Port | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [ports, setPorts] = useState<Port[]>([]);
+
+  const loadPorts = React.useCallback(async () => {
+    try {
+      const data = await logisticsService.getPorts();
+      const rows = Array.isArray(data) ? data : [];
+      setPorts(
+        rows.map((p: PortDto) => ({
+          id: p.id,
+          code: p.code,
+          name: p.name,
+          portCode: p.portCode || '',
+          type: (p.type as Port['type']) || 'Seaport',
+          country: p.country || '',
+          state: p.state || '',
+          city: p.city || '',
+          facilities: Array.isArray(p.facilities) ? p.facilities : [],
+          customsAvailable: !!p.customsAvailable,
+          status: (p.status as Port['status']) || 'Active',
+        })),
+      );
+    } catch {
+      setPorts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPorts();
+  }, [loadPorts]);
 
   React.useEffect(() => {
     if (toast) {
@@ -147,7 +177,17 @@ export default function PortMaster() {
     }
   }, [toast]);
 
-  const filteredPorts = mockPorts.filter((port) => {
+  const handleDeletePort = async (port: Port) => {
+    try {
+      await logisticsService.deletePort(port.id);
+      setToast({ message: `${port.name} deleted`, type: 'success' });
+      loadPorts();
+    } catch {
+      setToast({ message: 'Failed to delete port', type: 'error' });
+    }
+  };
+
+  const filteredPorts = ports.filter((port) => {
     const matchesSearch =
       port.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       port.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -160,12 +200,12 @@ export default function PortMaster() {
   });
 
   const stats = {
-    total: mockPorts.length,
-    active: mockPorts.filter(p => p.status === 'Active').length,
-    seaports: mockPorts.filter(p => p.type === 'Seaport').length,
-    airports: mockPorts.filter(p => p.type === 'Airport').length,
-    dryPorts: mockPorts.filter(p => p.type === 'Dry Port').length,
-    withCustoms: mockPorts.filter(p => p.customsAvailable).length
+    total: ports.length,
+    active: ports.filter(p => p.status === 'Active').length,
+    seaports: ports.filter(p => p.type === 'Seaport').length,
+    airports: ports.filter(p => p.type === 'Airport').length,
+    dryPorts: ports.filter(p => p.type === 'Dry Port').length,
+    withCustoms: ports.filter(p => p.customsAvailable).length
   };
 
   return (
@@ -403,7 +443,7 @@ export default function PortMaster() {
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => setToast({ message: `${port.name} deleted`, type: 'success' })}
+                        onClick={() => handleDeletePort(port)}
                         className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                         title="Delete"
                       >

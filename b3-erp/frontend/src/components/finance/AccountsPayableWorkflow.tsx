@@ -14,6 +14,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Area, Bar, Line, Cell
 } from 'recharts';
+import { FinanceService } from '@/services/finance.service';
 
 interface Vendor {
   id: string;
@@ -102,6 +103,60 @@ export default function AccountsPayableWorkflow() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<PayableInvoice | null>(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingInvoices, setPendingInvoices] = useState<PayableInvoice[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const raw = (await FinanceService.getPayables()) as any[];
+        const mapped: PayableInvoice[] = (raw || []).map((row) => {
+          const amount = Number(row.amount ?? row.invoiceAmount ?? row.totalAmount ?? 0);
+          const taxAmount = Number(row.taxAmount ?? row.tax ?? 0);
+          const discountAmount = Number(row.discountAmount ?? row.discount ?? 0);
+          const netAmount = Number(
+            row.netAmount ?? row.balanceAmount ?? row.outstandingAmount ?? (amount + taxAmount - discountAmount),
+          );
+          return {
+            id: String(row.id ?? row.payableId ?? ''),
+            invoiceNumber: row.invoiceNumber ?? row.invoiceNo ?? row.number ?? '',
+            vendorId: String(row.vendorId ?? row.partyId ?? row.supplierId ?? ''),
+            vendorName: row.vendorName ?? row.partyName ?? row.supplierName ?? row.name ?? '',
+            purchaseOrder: row.purchaseOrder ?? row.poNumber ?? undefined,
+            invoiceDate: row.invoiceDate ?? row.date ?? '',
+            dueDate: row.dueDate ?? '',
+            amount,
+            taxAmount,
+            discountAmount,
+            netAmount,
+            status: (row.status ?? 'pending_approval') as PayableInvoice['status'],
+            priority: (row.priority ?? 'medium') as PayableInvoice['priority'],
+            description: row.description ?? '',
+            glAccount: row.glAccount ?? '',
+            costCenter: row.costCenter ?? '',
+            department: row.department ?? '',
+            attachments: Array.isArray(row.attachments) ? row.attachments : [],
+            approvalHistory: Array.isArray(row.approvalHistory) ? row.approvalHistory : [],
+            currentApprover: row.currentApprover ?? undefined,
+          };
+        });
+        if (!cancelled) setPendingInvoices(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load');
+          setPendingInvoices([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Advanced features state
   const [showRealTimeMonitoring, setShowRealTimeMonitoring] = useState(true);
@@ -133,82 +188,6 @@ export default function AccountsPayableWorkflow() {
     { period: '31-60 days', amount: 900000, percentage: 16.1, count: 34, color: '#F59E0B' },
     { period: '61-90 days', amount: 400000, percentage: 7.1, count: 18, color: '#EF4444' },
     { period: '91+ days', amount: 200000, percentage: 3.6, count: 8, color: '#7C2D12' }
-  ];
-
-  const pendingInvoices: PayableInvoice[] = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-SUP-2024-001',
-      vendorId: 'v1',
-      vendorName: 'Manufacturing Supplies Co.',
-      purchaseOrder: 'PO-2024-0445',
-      invoiceDate: '2024-10-15',
-      dueDate: '2024-11-14',
-      amount: 125000,
-      taxAmount: 12500,
-      discountAmount: 2500,
-      netAmount: 135000,
-      status: 'pending_approval',
-      priority: 'high',
-      description: 'Raw materials for production line',
-      glAccount: '5000-001',
-      costCenter: 'CC-PROD-01',
-      department: 'Production',
-      attachments: ['invoice.pdf', 'delivery_receipt.pdf'],
-      approvalHistory: [
-        {
-          id: 'a1',
-          stepNumber: 1,
-          approverName: 'Sarah Johnson',
-          approverRole: 'Department Manager',
-          approverEmail: 'sarah.johnson@company.com',
-          action: 'approved',
-          comments: 'Invoice matches PO and delivery receipt',
-          timestamp: '2024-10-16T10:30:00Z'
-        },
-        {
-          id: 'a2',
-          stepNumber: 2,
-          approverName: 'Michael Chen',
-          approverRole: 'Finance Manager',
-          approverEmail: 'michael.chen@company.com',
-          action: 'pending',
-          threshold: 100000
-        }
-      ],
-      currentApprover: 'Michael Chen'
-    },
-    {
-      id: '2',
-      invoiceNumber: 'INV-SUP-2024-002',
-      vendorId: 'v2',
-      vendorName: 'Office Equipment Plus',
-      invoiceDate: '2024-10-17',
-      dueDate: '2024-11-16',
-      amount: 45000,
-      taxAmount: 4500,
-      discountAmount: 900,
-      netAmount: 48600,
-      status: 'pending_approval',
-      priority: 'medium',
-      description: 'Office furniture and equipment',
-      glAccount: '1400-002',
-      costCenter: 'CC-ADMIN-01',
-      department: 'Administration',
-      attachments: ['invoice.pdf'],
-      approvalHistory: [
-        {
-          id: 'a3',
-          stepNumber: 1,
-          approverName: 'Jennifer Liu',
-          approverRole: 'Department Manager',
-          approverEmail: 'jennifer.liu@company.com',
-          action: 'pending',
-          threshold: 50000
-        }
-      ],
-      currentApprover: 'Jennifer Liu'
-    }
   ];
 
   const approvalRules: ApprovalRule[] = [

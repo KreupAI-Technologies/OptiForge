@@ -122,6 +122,17 @@ export default function ContactRolesPage() {
     })();
     return () => { mounted = false; };
   }, []);
+  const handleDeleteRole = async (id: string) => {
+    if (!id) return;
+    if (typeof window !== 'undefined' && !window.confirm('Delete this contact role?')) return;
+    try {
+      await crmService.contactRoles.delete(id);
+      setRoles(prev => prev.filter(r => r.id !== id));
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete role');
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState<'all' | 'executive' | 'director' | 'manager' | 'specialist' | 'coordinator'>('all');
   const [filterType, setFilterType] = useState<'all' | 'decision-maker' | 'budget-holder' | 'influencer'>('all');
@@ -429,7 +440,10 @@ export default function ContactRolesPage() {
                   <Edit className="w-4 h-4" />
                   <span>Edit</span>
                 </button>
-                <button className="flex items-center justify-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm">
+                <button
+                  onClick={() => handleDeleteRole(role.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm"
+                >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete</span>
                 </button>

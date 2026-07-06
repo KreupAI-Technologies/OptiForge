@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, XCircle, Bug, Code, Server, Database, Globe, Filter, Download, Eye, Search, Calendar, TrendingUp, CheckCircle2, CheckCircle, AlertCircle } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService } from '@/services/it-admin.service';
 
 interface ErrorLog {
   id: string;
@@ -67,166 +68,44 @@ const ErrorMonitoringPage = () => {
     showToast(`Marking error ${errorId} as resolved`, 'success');
   };
 
-  const [errors] = useState<ErrorLog[]>([
-    {
-      id: '1',
-      errorId: 'ERR-20251021-001',
-      timestamp: '2025-10-21 18:30:45',
-      severity: 'Critical',
-      errorType: 'NullPointerException',
-      source: 'OrderService',
-      message: 'Null reference when calculating order total',
-      stackTrace: 'java.lang.NullPointerException: Cannot invoke "Order.getTotal()" because "order" is null\n  at OrderService.calculateTotal(OrderService.java:145)\n  at OrderController.createOrder(OrderController.java:89)\n  at jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)',
-      affectedUsers: 5,
-      occurrences: 12,
-      firstSeen: '2025-10-21 15:20:00',
-      lastSeen: '2025-10-21 18:30:45',
-      status: 'Open',
-      assignedTo: 'Rajesh Kumar',
-      user: 'amit.patel@company.com',
-      ipAddress: '117.198.144.73',
-      url: '/api/orders/create',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/118.0',
-    },
-    {
-      id: '2',
-      errorId: 'ERR-20251021-002',
-      timestamp: '2025-10-21 18:25:32',
-      severity: 'High',
-      errorType: 'SQLException',
-      source: 'DatabaseService',
-      message: 'Database connection timeout',
-      stackTrace: 'java.sql.SQLException: Connection timed out after 30000ms\n  at DatabaseConnection.connect(DatabaseConnection.java:67)\n  at DataService.executeQuery(DataService.java:120)',
-      affectedUsers: 15,
-      occurrences: 23,
-      firstSeen: '2025-10-21 14:00:00',
-      lastSeen: '2025-10-21 18:25:32',
-      status: 'In Progress',
-      assignedTo: 'Sneha Reddy',
-      user: 'priya.sharma@company.com',
-      ipAddress: '103.50.161.89',
-      url: '/api/reports/sales',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/119.0',
-    },
-    {
-      id: '3',
-      errorId: 'ERR-20251021-003',
-      timestamp: '2025-10-21 18:20:15',
-      severity: 'Medium',
-      errorType: 'ValidationException',
-      source: 'UserService',
-      message: 'Invalid email format in user registration',
-      stackTrace: 'ValidationException: Email format is invalid\n  at EmailValidator.validate(EmailValidator.java:34)\n  at UserService.createUser(UserService.java:78)',
-      affectedUsers: 8,
-      occurrences: 8,
-      firstSeen: '2025-10-21 16:45:00',
-      lastSeen: '2025-10-21 18:20:15',
-      status: 'Open',
-      user: 'test.user@invalid',
-      ipAddress: '192.168.1.100',
-      url: '/api/users/register',
-      userAgent: 'PostmanRuntime/7.32.3',
-    },
-    {
-      id: '4',
-      errorId: 'ERR-20251021-004',
-      timestamp: '2025-10-21 18:15:08',
-      severity: 'Critical',
-      errorType: 'OutOfMemoryError',
-      source: 'ReportGenerator',
-      message: 'Java heap space exceeded while generating large report',
-      stackTrace: 'java.lang.OutOfMemoryError: Java heap space\n  at ReportGenerator.generatePDF(ReportGenerator.java:234)\n  at ReportController.downloadReport(ReportController.java:156)',
-      affectedUsers: 3,
-      occurrences: 3,
-      firstSeen: '2025-10-21 17:30:00',
-      lastSeen: '2025-10-21 18:15:08',
-      status: 'In Progress',
-      assignedTo: 'Vikram Singh',
-      user: 'vikram.singh@company.com',
-      ipAddress: '117.198.144.73',
-      url: '/api/reports/generate/annual',
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/17.0',
-    },
-    {
-      id: '5',
-      errorId: 'ERR-20251020-015',
-      timestamp: '2025-10-20 16:45:23',
-      severity: 'High',
-      errorType: 'FileNotFoundException',
-      source: 'FileService',
-      message: 'Requested file not found in storage',
-      stackTrace: 'java.io.FileNotFoundException: /uploads/documents/invoice-2025-001.pdf (No such file or directory)\n  at FileService.getFile(FileService.java:89)\n  at DocumentController.downloadFile(DocumentController.java:45)',
-      affectedUsers: 2,
-      occurrences: 2,
-      firstSeen: '2025-10-20 16:45:23',
-      lastSeen: '2025-10-20 16:50:12',
-      status: 'Resolved',
-      assignedTo: 'Anjali Desai',
-      resolution: 'File restored from backup',
-      user: 'deepika.rao@company.com',
-      ipAddress: '202.54.1.78',
-      url: '/api/documents/download/1234',
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Edge/118.0',
-    },
-    {
-      id: '6',
-      errorId: 'ERR-20251021-006',
-      timestamp: '2025-10-21 18:10:42',
-      severity: 'Low',
-      errorType: 'ResourceNotFoundException',
-      source: 'APIGateway',
-      message: '404 - Endpoint not found',
-      stackTrace: 'ResourceNotFoundException: The requested resource was not found\n  at APIGateway.routeRequest(APIGateway.java:123)',
-      affectedUsers: 1,
-      occurrences: 1,
-      firstSeen: '2025-10-21 18:10:42',
-      lastSeen: '2025-10-21 18:10:42',
-      status: 'Open',
-      user: 'test.developer@company.com',
-      ipAddress: '10.0.1.100',
-      url: '/api/v2/legacy/endpoint',
-      userAgent: 'curl/7.88.1',
-    },
-    {
-      id: '7',
-      errorId: 'ERR-20251021-007',
-      timestamp: '2025-10-21 18:05:33',
-      severity: 'Medium',
-      errorType: 'AuthenticationException',
-      source: 'AuthService',
-      message: 'Invalid JWT token signature',
-      stackTrace: 'AuthenticationException: JWT signature does not match\n  at JWTValidator.verify(JWTValidator.java:67)\n  at AuthService.validateToken(AuthService.java:234)',
-      affectedUsers: 4,
-      occurrences: 6,
-      firstSeen: '2025-10-21 17:00:00',
-      lastSeen: '2025-10-21 18:05:33',
-      status: 'Open',
-      user: 'unknown',
-      ipAddress: '88.99.111.222',
-      url: '/api/auth/validate',
-      userAgent: 'Python/3.9 requests/2.28.0',
-    },
-    {
-      id: '8',
-      errorId: 'ERR-20251021-008',
-      timestamp: '2025-10-21 18:00:18',
-      severity: 'High',
-      errorType: 'ConcurrentModificationException',
-      source: 'InventoryService',
-      message: 'Concurrent stock update conflict',
-      stackTrace: 'java.util.ConcurrentModificationException\n  at InventoryService.updateStock(InventoryService.java:178)\n  at OrderService.reserveStock(OrderService.java:234)',
-      affectedUsers: 10,
-      occurrences: 18,
-      firstSeen: '2025-10-21 12:00:00',
-      lastSeen: '2025-10-21 18:00:18',
-      status: 'In Progress',
-      assignedTo: 'Rahul Mehta',
-      user: 'system',
-      ipAddress: '10.0.2.50',
-      url: '/api/inventory/update',
-      userAgent: 'Internal Service',
-    },
-  ]);
+  const [errors, setErrors] = useState<ErrorLog[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await ItAdminService.getMonitoring({ kind: 'error' });
+        if (!active) return;
+        const mapped: ErrorLog[] = (data ?? []).map((dto) => ({
+          id: dto.id,
+          errorId: dto.id,
+          timestamp: dto.lastOccurred ?? dto.createdAt ?? '',
+          severity: dto.severity ?? 'Low',
+          errorType: (dto.metadata?.errorType as string) ?? dto.category ?? 'Error',
+          source: dto.source ?? '',
+          message: dto.message ?? dto.name,
+          stackTrace: (dto.metadata?.stackTrace as string) ?? '',
+          affectedUsers: (dto.metadata?.affectedUsers as number) ?? 0,
+          occurrences: dto.occurrences ?? 0,
+          firstSeen: (dto.metadata?.firstSeen as string) ?? dto.createdAt ?? '',
+          lastSeen: dto.lastOccurred ?? dto.updatedAt ?? '',
+          status: dto.status,
+          assignedTo: dto.metadata?.assignedTo as string | undefined,
+          resolution: dto.metadata?.resolution as string | undefined,
+          user: dto.metadata?.user as string | undefined,
+          ipAddress: dto.metadata?.ipAddress as string | undefined,
+          url: dto.metadata?.url as string | undefined,
+          userAgent: dto.metadata?.userAgent as string | undefined,
+        }));
+        setErrors(mapped);
+      } catch {
+        if (active) setErrors([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const stats: ErrorStats = {
     totalErrors: errors.length,

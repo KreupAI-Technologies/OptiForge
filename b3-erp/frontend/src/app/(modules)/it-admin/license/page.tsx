@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Award, Key, Users, Calendar, AlertCircle, CheckCircle,
   TrendingUp, Clock, RefreshCw, Download, Shield, Zap
 } from 'lucide-react'
+import { ItAdminService } from '@/services/it-admin.service'
 
 interface LicenseInfo {
   type: string
@@ -42,104 +43,30 @@ export default function LicenseManagement() {
     activationDate: '2024-01-05'
   })
 
-  const [modules] = useState<ModuleAccess[]>([
-    {
-      id: '1',
-      name: 'CRM Module',
-      category: 'Sales & Marketing',
-      licensed: true,
-      inUse: 45,
-      available: 500
-    },
-    {
-      id: '2',
-      name: 'Production Module',
-      category: 'Manufacturing',
-      licensed: true,
-      inUse: 78,
-      available: 500
-    },
-    {
-      id: '3',
-      name: 'Inventory Module',
-      category: 'Supply Chain',
-      licensed: true,
-      inUse: 62,
-      available: 500
-    },
-    {
-      id: '4',
-      name: 'Finance Module',
-      category: 'Accounting',
-      licensed: true,
-      inUse: 34,
-      available: 500
-    },
-    {
-      id: '5',
-      name: 'HR Module',
-      category: 'Human Resources',
-      licensed: true,
-      inUse: 28,
-      available: 500
-    },
-    {
-      id: '6',
-      name: 'Sales Module',
-      category: 'Sales & Marketing',
-      licensed: true,
-      inUse: 52,
-      available: 500
-    },
-    {
-      id: '7',
-      name: 'CPQ Module',
-      category: 'Sales & Marketing',
-      licensed: true,
-      inUse: 15,
-      available: 500
-    },
-    {
-      id: '8',
-      name: 'Estimation Module',
-      category: 'Project Management',
-      licensed: true,
-      inUse: 22,
-      available: 500
-    },
-    {
-      id: '9',
-      name: 'Logistics Module',
-      category: 'Supply Chain',
-      licensed: true,
-      inUse: 31,
-      available: 500
-    },
-    {
-      id: '10',
-      name: 'IT Admin Module',
-      category: 'Administration',
-      licensed: true,
-      inUse: 12,
-      available: 500
-    },
-    {
-      id: '11',
-      name: 'Advanced Analytics',
-      category: 'Business Intelligence',
-      licensed: true,
-      inUse: 8,
-      available: 50
-    },
-    {
-      id: '12',
-      name: 'Mobile Access',
-      category: 'Infrastructure',
-      licensed: true,
-      inUse: 143,
-      available: 200
+  const [modules, setModules] = useState<ModuleAccess[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ItAdminService.getLicenseFeatures()
+      .then((data) => {
+        if (cancelled) return
+        const mapped: ModuleAccess[] = (data ?? []).map((dto) => ({
+          id: dto.id,
+          name: dto.name,
+          category: dto.category,
+          licensed: dto.included,
+          inUse: dto.usageCount ?? 0,
+          available: dto.usageLimit ?? 0,
+        }))
+        setModules(mapped)
+      })
+      .catch(() => {
+        if (!cancelled) setModules([])
+      })
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const [features] = useState([
     { name: 'Multi-Company Support', enabled: true },

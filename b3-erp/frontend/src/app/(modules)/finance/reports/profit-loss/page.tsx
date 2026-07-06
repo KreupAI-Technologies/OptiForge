@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -16,6 +16,7 @@ import {
   ArrowDownRight,
   BarChart3,
 } from 'lucide-react';
+import { FinancialReportsService } from '@/services/financial-reports.service';
 
 export default function ProfitLossPage() {
   const [period, setPeriod] = useState('current-month');
@@ -31,7 +32,7 @@ export default function ProfitLossPage() {
   const [isSharing, setIsSharing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const plData = {
+  const INITIAL_PL_DATA = {
     revenue: {
       domesticSales: { current: 2400000, previous: 2200000 },
       exportSales: { current: 800000, previous: 750000 },
@@ -61,6 +62,53 @@ export default function ProfitLossPage() {
       depreciation: { current: 125000, previous: 125000 },
     },
   };
+
+  // Seed literal remains render/calculation source; live data overlays cleanly-mapping leaves.
+  const [plData, setPlData] = useState(INITIAL_PL_DATA);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const end = new Date();
+        const start = new Date(end.getFullYear(), 0, 1);
+        const live = await FinancialReportsService.getProfitLoss({ startDate: start, endDate: end });
+        if (!cancelled && live) {
+          // Live ProfitLoss shape differs from the nested seed used by the table.
+          // Overlay the total-revenue figure onto the seed's domesticSales leaf so
+          // recomputed totals reflect live data while preserving the object structure.
+          setPlData((prev) => {
+            if (live.revenue && typeof live.revenue.total === 'number') {
+              const otherRevenue =
+                prev.revenue.exportSales.current + prev.revenue.otherIncome.current;
+              return {
+                ...prev,
+                revenue: {
+                  ...prev.revenue,
+                  domesticSales: {
+                    current: Math.max(live.revenue.total - otherRevenue, 0),
+                    previous: prev.revenue.domesticSales.previous,
+                  },
+                },
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load report');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const calculateTotal = (obj: any): { current: number; previous: number } => {
     let current = 0;

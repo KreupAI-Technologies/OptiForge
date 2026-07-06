@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { cpqContractService } from '@/services/cpq/cpq-contract.service'
 import {
   Clock,
   Search,
@@ -54,7 +55,40 @@ interface Comment {
 export default function CPQContractsApprovalsPage() {
   const router = useRouter()
 
-  const [approvals] = useState<ApprovalRequest[]>([
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
+
+  const loadApprovals = async () => {
+    const data = await cpqContractService.findAllContracts({ status: 'pending_approval' as any })
+    const list = Array.isArray(data) ? data : []
+    const mapped: ApprovalRequest[] = list.map((c: any) => ({
+      id: c?.id ?? '',
+      contractNumber: c?.contractNumber ?? '',
+      contractType: c?.title ?? c?.contractType ?? '',
+      customerName: c?.customerName ?? '',
+      contractValue: c?.totalValue ?? c?.value ?? 0,
+      requestedBy: c?.createdBy ?? '',
+      requestDate: c?.createdAt ?? '',
+      currentApprover: '',
+      status: (c?.status === 'pending_approval' ? 'pending' : (c?.status ?? 'pending')) as any,
+      priority: 'medium' as any,
+      reason: c?.notes ?? '',
+      dueDate: c?.endDate ?? c?.createdAt ?? '',
+      approvalChain: Array.isArray(c?.approvalChain) ? c.approvalChain : [],
+      comments: Array.isArray(c?.comments) ? c.comments : [],
+    }))
+    setApprovals(mapped)
+  }
+
+  useEffect(() => {
+    loadApprovals()
+  }, [])
+
+  const handleApprove = async (id: string) => {
+    await cpqContractService.approveContract(id, 'current-user')
+    await loadApprovals()
+  }
+
+  const _mockApprovals: ApprovalRequest[] = [
     {
       id: 'APR-001',
       contractNumber: 'CONT-2024-1234',
@@ -271,7 +305,8 @@ export default function CPQContractsApprovalsPage() {
         }
       ]
     }
-  ])
+  ]
+  void _mockApprovals
 
   const getStatusColor = (status: string) => {
     const colors: any = {
@@ -525,7 +560,7 @@ export default function CPQContractsApprovalsPage() {
             <div className="flex items-center gap-2">
               {approval.status === 'pending' && (
                 <>
-                  <button className="px-3 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center gap-1">
+                  <button onClick={() => handleApprove(approval.id)} className="px-3 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center gap-1">
                     <CheckCircle className="h-4 w-4" />
                     Approve
                   </button>

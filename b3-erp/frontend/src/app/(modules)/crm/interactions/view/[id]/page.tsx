@@ -52,50 +52,21 @@ interface RelatedActivity {
   outcome: 'positive' | 'neutral' | 'negative' | 'follow_up_required';
 }
 
-const mockInteraction: Interaction = {
-  id: '1',
+const emptyInteraction: Interaction = {
+  id: '',
   type: 'call',
-  customer: 'Modern Kitchen Designs Ltd',
-  contactPerson: 'Sarah Johnson',
-  subject: 'Discussed new modular kitchen requirements',
-  description: 'Customer is interested in a complete modular kitchen setup for their new apartment. They are looking for premium materials with granite countertops. Budget discussed: $40K-50K. Next step: Send detailed proposal with 3D designs.',
-  performedBy: 'Michael Chen',
-  dateTime: '2025-10-11 10:30',
-  duration: '45 mins',
-  outcome: 'positive',
-  followUpRequired: true,
-  followUpDate: '2025-10-15',
-  assignedTo: 'Michael Chen',
-  tags: ['high-value', 'urgent', 'modular-kitchen'],
-  participants: ['Michael Chen', 'Sarah Johnson'],
+  customer: '',
+  contactPerson: '',
+  subject: '',
+  description: '',
+  performedBy: '',
+  dateTime: '',
+  duration: '',
+  outcome: 'neutral',
+  followUpRequired: false,
+  tags: [],
+  participants: [],
 };
-
-const relatedActivities: RelatedActivity[] = [
-  {
-    id: '2',
-    type: 'email',
-    subject: 'Sent initial product catalog and pricing',
-    performedBy: 'Michael Chen',
-    dateTime: '2025-10-05 14:20',
-    outcome: 'neutral',
-  },
-  {
-    id: '3',
-    type: 'call',
-    subject: 'Initial inquiry about modular kitchens',
-    performedBy: 'Sarah Johnson',
-    dateTime: '2025-10-03 11:00',
-    outcome: 'positive',
-  },
-  {
-    id: '4',
-    type: 'site_visit',
-    subject: 'Site measurement and consultation scheduled',
-    performedBy: 'David Park',
-    dateTime: '2025-09-28 09:30',
-    outcome: 'positive',
-  },
-];
 
 const typeIcons = {
   call: Phone,
@@ -133,7 +104,8 @@ export default function ViewInteractionPage() {
   const interactionId = params?.id as string;
   const { addToast } = useToast();
 
-  const [interaction, setInteraction] = useState<Interaction>(mockInteraction);
+  const [interaction, setInteraction] = useState<Interaction>(emptyInteraction);
+  const [relatedActivities, setRelatedActivities] = useState<RelatedActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 

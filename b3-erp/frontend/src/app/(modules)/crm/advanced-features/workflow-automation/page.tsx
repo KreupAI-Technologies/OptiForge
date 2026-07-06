@@ -1,18 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { WorkflowBuilder } from '@/components/crm';
 import { WorkflowTestModal, type WorkflowTest } from '@/components/modals';
 import { ArrowLeft } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export default function WorkflowAutomationPage() {
   const router = useRouter();
   const [showWorkflowTestModal, setShowWorkflowTestModal] = useState(false);
+  const [initialWorkflow, setInitialWorkflow] = useState<any>(undefined);
 
-  const handleSaveWorkflow = (workflow: { name: string }) => {
-    console.log('Workflow saved:', workflow);
+  // Load an existing saved workflow (if any) to prefill the builder.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await crmService.approvalWorkflows.getAll();
+        const rows = asArray<any>(res);
+        if (mounted && rows.length) {
+          const w = rows[0];
+          setInitialWorkflow({
+            id: String(w.id ?? ''),
+            name: w.name ?? 'New Workflow',
+            description: w.description ?? '',
+            trigger: w.trigger ?? { type: 'record_created' },
+            conditions: Array.isArray(w.conditions) ? w.conditions : [],
+            actions: Array.isArray(w.actions) ? w.actions : [],
+            status: w.status ?? 'draft',
+            createdAt: w.createdAt ?? new Date().toISOString(),
+            lastRun: w.lastRun,
+            runCount: w.runCount,
+          });
+        }
+      } catch {
+        // keep builder in blank-draft mode on error
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleSaveWorkflow = async (workflow: any) => {
+    try {
+      if (workflow?.id) {
+        await crmService.approvalWorkflows.update(workflow.id, workflow);
+      } else {
+        const created = await crmService.approvalWorkflows.create(workflow);
+        if (created?.id) setInitialWorkflow({ ...workflow, id: created.id });
+      }
+    } catch {
+      // swallow — surface via UI toast layer if present
+    }
   };
 
   const handleTestWorkflow = (workflow: { name: string }) => {
@@ -43,6 +83,8 @@ export default function WorkflowAutomationPage() {
             and ensure consistency.
           </p>
           <WorkflowBuilder
+            key={initialWorkflow?.id ?? 'new'}
+            workflow={initialWorkflow}
             availableFields={[
               { name: 'status', label: 'Lead Status', type: 'string' },
               { name: 'score', label: 'Lead Score', type: 'number' },

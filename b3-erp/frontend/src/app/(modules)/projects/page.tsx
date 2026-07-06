@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { projectManagementService } from '@/services/ProjectManagementService'
 import {
   Briefcase,
   TrendingUp,
@@ -53,116 +54,75 @@ interface Milestone {
 }
 
 export default function ProjectsDashboard() {
-  const [stats] = useState<ProjectStats>({
-    totalProjects: 45,
-    activeProjects: 28,
-    completedProjects: 15,
-    delayedProjects: 2,
-    totalBudget: 450000000,
-    totalSpent: 298000000,
-    resourcesAllocated: 156,
-    avgCompletionRate: 72.5,
-    onTimeDelivery: 85.3,
-    budgetUtilization: 66.2
-  })
+  const STATUS_MAP: Record<string, Project['status']> = {
+    completed: 'completed', done: 'completed', 'in_progress': 'in_progress', 'in-progress': 'in_progress',
+    active: 'in_progress', on_hold: 'on_hold', 'on-hold': 'on_hold', hold: 'on_hold',
+    delayed: 'delayed', overdue: 'delayed', planning: 'planning', planned: 'planning', pending: 'planning',
+  }
+  const MS_STATUS_MAP: Record<string, Milestone['status']> = {
+    completed: 'completed', done: 'completed', 'in_progress': 'in_progress', 'in-progress': 'in_progress',
+    delayed: 'delayed', overdue: 'delayed', pending: 'pending', planned: 'pending',
+  }
 
-  const [activeProjects] = useState<Project[]>([
-    {
-      id: 'PRJ-2025-001',
-      name: 'Hydraulic Press Installation - ABC Corp',
-      customer: 'ABC Manufacturing Ltd',
-      status: 'in_progress',
-      progress: 65,
-      budget: 45000000,
-      spent: 29250000,
-      startDate: '2025-08-01',
-      endDate: '2025-11-30',
-      manager: 'Project Manager A',
-      team: 12,
-      priority: 'high'
-    },
-    {
-      id: 'PRJ-2025-002',
-      name: 'CNC Machine Upgrade - XYZ Industries',
-      customer: 'XYZ Industries Inc',
-      status: 'in_progress',
-      progress: 45,
-      budget: 32000000,
-      spent: 14400000,
-      startDate: '2025-09-15',
-      endDate: '2025-12-15',
-      manager: 'Project Manager B',
-      team: 8,
-      priority: 'medium'
-    },
-    {
-      id: 'PRJ-2025-003',
-      name: 'Automation System - Tech Solutions',
-      customer: 'Tech Solutions Pvt Ltd',
-      status: 'delayed',
-      progress: 35,
-      budget: 28000000,
-      spent: 12600000,
-      startDate: '2025-07-01',
-      endDate: '2025-10-31',
-      manager: 'Project Manager A',
-      team: 10,
-      priority: 'high'
-    },
-    {
-      id: 'PRJ-2025-004',
-      name: 'Production Line Setup - Global Exports',
-      customer: 'Global Exports Corp',
-      status: 'planning',
-      progress: 15,
-      budget: 56000000,
-      spent: 5600000,
-      startDate: '2025-10-01',
-      endDate: '2026-03-31',
-      manager: 'Project Manager C',
-      team: 15,
-      priority: 'medium'
-    }
-  ])
+  const [activeProjects, setActiveProjects] = useState<Project[]>([])
+  const [upcomingMilestones, setUpcomingMilestones] = useState<Milestone[]>([])
 
-  const [upcomingMilestones] = useState<Milestone[]>([
-    {
-      id: 'MS-001',
-      project: 'PRJ-2025-001',
-      title: 'Site Preparation Complete',
-      status: 'completed',
-      dueDate: '2025-10-10',
-      completion: 100,
-      assignedTo: 'Installation Team A'
-    },
-    {
-      id: 'MS-002',
-      project: 'PRJ-2025-001',
-      title: 'Equipment Installation',
-      status: 'in_progress',
-      dueDate: '2025-10-25',
-      completion: 70,
-      assignedTo: 'Installation Team A'
-    },
-    {
-      id: 'MS-003',
-      project: 'PRJ-2025-002',
-      title: 'Hardware Procurement',
-      status: 'completed',
-      dueDate: '2025-10-05',
-      completion: 100,
-      assignedTo: 'Procurement Team'
-    },
-    {
-      id: 'MS-004',
-      project: 'PRJ-2025-003',
-      title: 'System Integration',
-      status: 'delayed',
-      dueDate: '2025-10-15',
-      completion: 40,
-      assignedTo: 'Integration Team'
+  useEffect(() => {
+    projectManagementService.getProjects()
+      .then((rows) => {
+        setActiveProjects((Array.isArray(rows) ? rows : []).map((p: any) => ({
+          id: String(p.id ?? p.projectCode ?? ''),
+          name: p.name ?? p.projectName ?? p.projectCode ?? 'Project',
+          customer: p.customer ?? p.client ?? p.customerName ?? '',
+          status: STATUS_MAP[String(p.status ?? '').toLowerCase()] ?? 'planning',
+          progress: Number(p.progress ?? p.progressPercentage ?? 0),
+          budget: Number(p.budget ?? p.estimatedBudget ?? 0),
+          spent: Number(p.spent ?? p.actualBudget ?? p.actualCost ?? 0),
+          startDate: p.startDate ?? '',
+          endDate: p.endDate ?? '',
+          manager: p.manager ?? p.projectManager ?? '',
+          team: Number(p.team ?? p.teamSize ?? 0),
+          priority: (String(p.priority ?? 'medium').toLowerCase() as Project['priority']),
+        })))
+      })
+      .catch(() => setActiveProjects([]))
+
+    projectManagementService.listAllMilestones()
+      .then((rows) => {
+        setUpcomingMilestones((Array.isArray(rows) ? rows : []).map((m: any, idx: number) => ({
+          id: String(m.id ?? m.milestoneId ?? idx),
+          project: String(m.projectId ?? m.project ?? ''),
+          title: m.title ?? m.name ?? m.milestoneName ?? 'Milestone',
+          status: MS_STATUS_MAP[String(m.status ?? '').toLowerCase()] ?? 'pending',
+          dueDate: m.dueDate ?? m.targetDate ?? '',
+          completion: Number(m.completion ?? m.percentComplete ?? m.progress ?? 0),
+          assignedTo: m.assignedTo ?? m.owner ?? '',
+        })))
+      })
+      .catch(() => setUpcomingMilestones([]))
+  }, [])
+
+  const stats: ProjectStats = (() => {
+    const total = activeProjects.length
+    const active = activeProjects.filter(p => p.status === 'in_progress').length
+    const completed = activeProjects.filter(p => p.status === 'completed').length
+    const delayed = activeProjects.filter(p => p.status === 'delayed').length
+    const totalBudget = activeProjects.reduce((s, p) => s + p.budget, 0)
+    const totalSpent = activeProjects.reduce((s, p) => s + p.spent, 0)
+    const avgCompletionRate = total ? Math.round((activeProjects.reduce((s, p) => s + p.progress, 0) / total) * 10) / 10 : 0
+    return {
+      totalProjects: total,
+      activeProjects: active,
+      completedProjects: completed,
+      delayedProjects: delayed,
+      totalBudget,
+      totalSpent,
+      resourcesAllocated: activeProjects.reduce((s, p) => s + p.team, 0),
+      avgCompletionRate,
+      onTimeDelivery: total ? Math.round(((total - delayed) / total) * 1000) / 10 : 0,
+      budgetUtilization: totalBudget ? Math.round((totalSpent / totalBudget) * 1000) / 10 : 0,
     }
-  ])
+  })()
 
   const getStatusColor = (status: string) => {
     switch (status) {

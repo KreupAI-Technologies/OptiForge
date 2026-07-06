@@ -444,6 +444,26 @@ export class PayrollService {
   }
 
   /**
+   * Get a payroll record by ID directly from the NestJS HR backend
+   * (GET /hr/payrolls/:id). Returns the raw ORM row; callers should
+   * defensively map to their view model.
+   */
+  static async getPayrollRecordById(id: string): Promise<any> {
+    return this.request<any>(`/hr/payrolls/${id}`);
+  }
+
+  /**
+   * Update a payroll record by ID (PUT /hr/payrolls/:id). Accepts a partial
+   * payload matching the backend UpdatePayrollDto.
+   */
+  static async updatePayrollRecord(id: string, data: Record<string, any>): Promise<any> {
+    return this.request<any>(`/hr/payrolls/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
    * Process payroll (generate salary slips)
    */
   static async processPayroll(

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,29 +8,70 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Briefcase, Target, Users, TrendingUp } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface ProjectPerformanceData {
+    totalProjects: number;
+    activeProjects: number;
+    onBudget: number;
+    onSchedule: number;
+    byStatus: { status: string; count: number }[];
+    projects: { id: string; name: string; budget: number; actual: number; progress: number; schedule: number; status: string }[];
+}
+
+const DEFAULT_DATA: ProjectPerformanceData = {
+    totalProjects: 18,
+    activeProjects: 12,
+    onBudget: 75,
+    onSchedule: 67,
+    byStatus: [
+        { status: 'Planning', count: 3 },
+        { status: 'In Progress', count: 12 },
+        { status: 'On Hold', count: 2 },
+        { status: 'Completed', count: 1 },
+    ],
+    projects: [
+        { id: 'PRJ-001', name: 'Factory Automation Phase 2', budget: 2500000, actual: 2100000, progress: 85, schedule: 92, status: 'On Track' },
+        { id: 'PRJ-002', name: 'ERP System Upgrade', budget: 850000, actual: 920000, progress: 95, schedule: 98, status: 'Over Budget' },
+        { id: 'PRJ-003', name: 'Warehouse Expansion', budget: 1200000, actual: 1050000, progress: 88, schedule: 85, status: 'Delayed' },
+        { id: 'PRJ-004', name: 'Quality System ISO Cert', budget: 320000, actual: 280000, progress: 75, schedule: 78, status: 'On Track' },
+    ],
+};
 
 export default function ProjectPerformanceReport() {
     const router = useRouter();
     const [period, setPeriod] = useState('all-active');
 
-    const data = {
-        totalProjects: 18,
-        activeProjects: 12,
-        onBudget: 75,
-        onSchedule: 67,
-        byStatus: [
-            { status: 'Planning', count: 3 },
-            { status: 'In Progress', count: 12 },
-            { status: 'On Hold', count: 2 },
-            { status: 'Completed', count: 1 },
-        ],
-        projects: [
-            { id: 'PRJ-001', name: 'Factory Automation Phase 2', budget: 2500000, actual: 2100000, progress: 85, schedule: 92, status: 'On Track' },
-            { id: 'PRJ-002', name: 'ERP System Upgrade', budget: 850000, actual: 920000, progress: 95, schedule: 98, status: 'Over Budget' },
-            { id: 'PRJ-003', name: 'Warehouse Expansion', budget: 1200000, actual: 1050000, progress: 88, schedule: 85, status: 'Delayed' },
-            { id: 'PRJ-004', name: 'Quality System ISO Cert', budget: 320000, actual: 280000, progress: 75, schedule: 78, status: 'On Track' },
-        ],
-    };
+    const [data, setData] = useState<ProjectPerformanceData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<ProjectPerformanceData>>('project-management.performance');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        totalProjects: Number(payload.totalProjects ?? DEFAULT_DATA.totalProjects),
+                        activeProjects: Number(payload.activeProjects ?? DEFAULT_DATA.activeProjects),
+                        onBudget: Number(payload.onBudget ?? DEFAULT_DATA.onBudget),
+                        onSchedule: Number(payload.onSchedule ?? DEFAULT_DATA.onSchedule),
+                        byStatus: Array.isArray(payload.byStatus) ? payload.byStatus : DEFAULT_DATA.byStatus,
+                        projects: Array.isArray(payload.projects) ? payload.projects : DEFAULT_DATA.projects,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -47,6 +88,9 @@ export default function ProjectPerformanceReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

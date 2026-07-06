@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Ticket, AlertCircle, CheckCircle, Clock, Users,
@@ -8,6 +8,9 @@ import {
   Zap, Shield, Inbox
 } from 'lucide-react'
 import { KPICard, CardSkeleton } from '@/components/ui'
+import { getTickets, getSupportDashboard } from '@/services/support-management.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 
 interface RecentTicket {
   id: string
@@ -21,59 +24,55 @@ interface RecentTicket {
 }
 
 export default function SupportDashboard() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [recentTickets] = useState<RecentTicket[]>([
-    {
-      id: '1',
-      ticketId: 'TKT-2024-1047',
-      subject: 'Production system slow response time',
-      priority: 'critical',
-      status: 'Open',
-      assignee: 'Rajesh Kumar',
-      createdAt: '15 mins ago',
-      category: 'Performance'
-    },
-    {
-      id: '2',
-      ticketId: 'TKT-2024-1046',
-      subject: 'Unable to access CRM module',
-      priority: 'high',
-      status: 'Assigned',
-      assignee: 'Priya Sharma',
-      createdAt: '32 mins ago',
-      category: 'Access Issue'
-    },
-    {
-      id: '3',
-      ticketId: 'TKT-2024-1045',
-      subject: 'Report generation failing',
-      priority: 'medium',
-      status: 'In Progress',
-      assignee: 'Amit Patel',
-      createdAt: '1 hour ago',
-      category: 'Bug'
-    },
-    {
-      id: '4',
-      ticketId: 'TKT-2024-1044',
-      subject: 'How to export inventory data?',
-      priority: 'low',
-      status: 'Open',
-      assignee: 'Sneha Reddy',
-      createdAt: '2 hours ago',
-      category: 'How-To'
-    },
-    {
-      id: '5',
-      ticketId: 'TKT-2024-1043',
-      subject: 'Database backup not running',
-      priority: 'high',
-      status: 'Resolved',
-      assignee: 'Vikram Singh',
-      createdAt: '3 hours ago',
-      category: 'System'
+  const [isLoading, setIsLoading] = useState(true)
+  const [recentTickets, setRecentTickets] = useState<RecentTicket[]>([])
+  const [dashboard, setDashboard] = useState<{
+    totalOpenTickets: number
+    unassignedTickets: number
+    overdueTickets: number
+    ticketsToday: number
+    resolvedToday: number
+    avgResponseTimeMinutes: number
+    csatScore: number
+    npsScore: number
+  } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setIsLoading(true)
+      try {
+        const [dash, ticketRes] = await Promise.all([
+          getSupportDashboard(COMPANY_ID).catch(() => null),
+          getTickets({ companyId: COMPANY_ID, limit: 5 }).catch(() => null),
+        ])
+        if (cancelled) return
+        if (dash) setDashboard(dash)
+        const raw: any[] = Array.isArray(ticketRes)
+          ? ticketRes
+          : ((ticketRes as any)?.tickets ?? [])
+        const mapped: RecentTicket[] = raw.map((t) => ({
+          id: String(t.id ?? ''),
+          ticketId: t.ticketNumber ?? t.ticketId ?? '',
+          subject: t.subject ?? '',
+          priority: (t.priority ?? 'medium') as RecentTicket['priority'],
+          status: t.status ?? 'open',
+          assignee: t.assignee?.name ?? t.assigneeName ?? t.assigneeId ?? 'Unassigned',
+          createdAt: t.createdAt ? new Date(t.createdAt).toLocaleString() : '',
+          category: t.category?.name ?? t.category ?? '',
+        }))
+        setRecentTickets(mapped)
+      } catch {
+        if (!cancelled) setRecentTickets([])
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  ])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [categoryStats] = useState([
     { category: 'Bug', count: 34, percentage: 39 },
@@ -167,36 +166,36 @@ export default function SupportDashboard() {
         ) : (
           <>
             <KPICard
-             
-              value={87}
+
+              value={dashboard?.totalOpenTickets ?? 87}
               icon={Ticket}
               color="blue"
               trend={{ value: 12.5, isPositive: false }}
             />
             <KPICard
-             
-              value={12}
+
+              value={dashboard?.unassignedTickets ?? 12}
               icon={AlertCircle}
               color="red"
               trend={{ value: 25.0, isPositive: false }}
             />
             <KPICard
-             
-              value={45}
+
+              value={dashboard?.resolvedToday ?? 45}
               icon={CheckCircle}
               color="green"
               trend={{ value: 18.4, isPositive: true }}
             />
             <KPICard
-             
-              value="23m"
+
+              value={dashboard ? `${dashboard.avgResponseTimeMinutes}m` : '23m'}
               icon={Clock}
               color="purple"
               trend={{ value: 15.2, isPositive: false, label: 'faster' }}
             />
             <KPICard
-             
-              value={8}
+
+              value={dashboard?.overdueTickets ?? 8}
               icon={AlertCircle}
               color="red"
               trend={{ value: 33.3, isPositive: false }}

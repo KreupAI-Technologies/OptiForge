@@ -705,7 +705,7 @@ export class FinancialReportsService {
     if (params.currency) queryParams.set('currency', params.currency);
     if (params.format) queryParams.set('format', params.format);
 
-    return this.request<BalanceSheet>(`/finance/balance-sheet?${queryParams.toString()}`);
+    return this.request<BalanceSheet>(`/finance/reports/balance-sheet?${queryParams.toString()}`);
   }
 
   // Get Profit & Loss Statement
@@ -730,7 +730,7 @@ export class FinancialReportsService {
     if (params.currency) queryParams.set('currency', params.currency);
     if (params.format) queryParams.set('format', params.format);
 
-    return this.request<ProfitLoss>(`/finance/profit-loss?${queryParams.toString()}`);
+    return this.request<ProfitLoss>(`/finance/reports/profit-loss?${queryParams.toString()}`);
   }
 
   // Get Cash Flow Statement
@@ -755,7 +755,7 @@ export class FinancialReportsService {
     if (params.currency) queryParams.set('currency', params.currency);
     if (params.format) queryParams.set('format', params.format);
 
-    return this.request<CashFlow>(`/finance/cash-flow?${queryParams.toString()}`);
+    return this.request<CashFlow>(`/finance/reports/cash-flow?${queryParams.toString()}`);
   }
 
   // Get Trial Balance
@@ -775,7 +775,7 @@ export class FinancialReportsService {
     if (params.currency) queryParams.set('currency', params.currency);
     if (params.format) queryParams.set('format', params.format);
 
-    return this.request<TrialBalance>(`/finance/trial-balance?${queryParams.toString()}`);
+    return this.request<TrialBalance>(`/finance/reports/trial-balance?${queryParams.toString()}`);
   }
 
   // Get Report Periods (for period selectors)
@@ -933,7 +933,7 @@ export class FinancialReportsService {
     queryParams.set('startDate', params.startDate.toISOString());
     queryParams.set('endDate', params.endDate.toISOString());
 
-    return this.request(`/finance/ratios?${queryParams.toString()}`);
+    return this.request(`/finance/reports/financial-ratios?${queryParams.toString()}`);
   }
 
   // Get Budget vs Actual Comparison
@@ -976,7 +976,7 @@ export class FinancialReportsService {
     queryParams.set('startDate', params.startDate.toISOString());
     queryParams.set('endDate', params.endDate.toISOString());
 
-    return this.request(`/finance/budget-vs-actual?${queryParams.toString()}`);
+    return this.request(`/finance/reports/budget-variance?${queryParams.toString()}`);
   }
 }
 

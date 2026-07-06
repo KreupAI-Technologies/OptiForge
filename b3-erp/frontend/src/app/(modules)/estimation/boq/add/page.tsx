@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { estimationBOQService } from '@/services/estimation-boq.service';
 import {
   ArrowLeft,
   Save,
@@ -162,10 +163,28 @@ export default function AddBOQPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSaveAsDraft = () => {
-    console.log('Saving BOQ as Draft:', formData);
-    alert('BOQ saved as draft successfully!');
-    router.push('/estimation/boq');
+  const buildPayload = () => ({
+    boq: {
+      boqNumber: formData.boqNumber,
+      projectName: formData.projectName,
+      clientName: formData.clientName,
+      projectLocation: formData.projectLocation,
+      projectDuration: formData.projectDuration,
+      currency: formData.currency,
+      estimatedValue: formData.estimatedValue,
+      notes: formData.notes,
+    },
+    items: formData.items,
+  });
+
+  const handleSaveAsDraft = async () => {
+    try {
+      await estimationBOQService.create(buildPayload() as any);
+      router.push('/estimation/boq');
+    } catch (error) {
+      console.error('Error saving BOQ draft:', error);
+      alert('Failed to save BOQ. Please try again.');
+    }
   };
 
   const handleSubmit = async () => {
@@ -175,29 +194,11 @@ export default function AddBOQPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/estimation/boq', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectName: formData.projectName,
-          clientName: formData.clientName,
-          projectLocation: formData.projectLocation,
-          projectDuration: formData.projectDuration,
-          currency: formData.currency,
-          notes: formData.notes,
-          items: formData.items,
-        }),
-      });
-
-      if (response.ok) {
-        alert('BOQ submitted for review successfully!');
-        router.push('/estimation/boq');
-      } else {
-        const error = await response.json();
-        alert(`Failed to submit BOQ: ${error.message || 'Unknown error'}`);
+      const created = (await estimationBOQService.create(buildPayload() as any)) as any;
+      if (created?.id) {
+        try { await estimationBOQService.submitForReview(created.id); } catch { /* ignore */ }
       }
+      router.push('/estimation/boq');
     } catch (error) {
       console.error('Error submitting BOQ:', error);
       alert('Failed to submit BOQ. Please try again.');

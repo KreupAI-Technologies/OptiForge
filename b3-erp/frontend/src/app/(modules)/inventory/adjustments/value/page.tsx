@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   DollarSign,
   TrendingUp,
@@ -43,103 +44,56 @@ export default function ValueAdjustmentsPage() {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [adjustments, setAdjustments] = useState<ValueAdjustment[]>([
-    {
-      id: 1,
-      adjustmentNumber: 'VAL-ADJ-001',
-      date: '2025-01-18',
-      warehouse: 'FG Store',
-      itemCode: 'FG-008',
-      itemName: 'Excavator Model EX200',
-      category: 'Finished Goods',
-      quantity: 8,
-      currentUnitValue: 450000,
-      adjustedUnitValue: 465000,
-      valueChange: 15000,
-      totalImpact: 120000,
-      adjustmentType: 'increase',
-      reason: 'Market Price Increase',
-      createdBy: 'Robert Lee',
-      status: 'approved',
-      priceReference: 'Market Survey Q1-2025'
-    },
-    {
-      id: 2,
-      adjustmentNumber: 'VAL-ADJ-002',
-      date: '2025-01-19',
-      warehouse: 'Main Warehouse',
-      itemCode: 'ITM-005',
-      itemName: 'Hydraulic Pump',
-      category: 'Component',
-      quantity: 45,
-      currentUnitValue: 8500,
-      adjustedUnitValue: 8200,
-      valueChange: -300,
-      totalImpact: -13500,
-      adjustmentType: 'decrease',
-      reason: 'Supplier Price Reduction',
-      createdBy: 'Emily Chen',
-      status: 'approved',
-      priceReference: 'PO-2025-045'
-    },
-    {
-      id: 3,
-      adjustmentNumber: 'VAL-ADJ-003',
-      date: '2025-01-20',
-      warehouse: 'Assembly Plant',
-      itemCode: 'ITM-012',
-      itemName: 'Bearing Assembly',
-      category: 'Component',
-      quantity: 218,
-      currentUnitValue: 1200,
-      adjustedUnitValue: 1350,
-      valueChange: 150,
-      totalImpact: 32700,
-      adjustmentType: 'increase',
-      reason: 'Import Duty Change',
-      createdBy: 'Mike Davis',
-      status: 'approved',
-      priceReference: 'Customs Notification 2025-03'
-    },
-    {
-      id: 4,
-      adjustmentNumber: 'VAL-ADJ-004',
-      date: '2025-01-21',
-      warehouse: 'FG Store',
-      itemCode: 'FG-012',
-      itemName: 'Bulldozer Model BD150',
-      category: 'Finished Goods',
-      quantity: 5,
-      currentUnitValue: 580000,
-      adjustedUnitValue: 562000,
-      valueChange: -18000,
-      totalImpact: -90000,
-      adjustmentType: 'decrease',
-      reason: 'Currency Fluctuation',
-      createdBy: 'Sarah Johnson',
-      status: 'draft',
-      priceReference: 'Exchange Rate 2025-01-21'
-    },
-    {
-      id: 5,
-      adjustmentNumber: 'VAL-ADJ-005',
-      date: '2025-01-21',
-      warehouse: 'Main Warehouse',
-      itemCode: 'ITM-001',
-      itemName: 'Steel Plate 10mm',
-      category: 'Raw Material',
-      quantity: 145,
-      currentUnitValue: 2500,
-      adjustedUnitValue: 2680,
-      valueChange: 180,
-      totalImpact: 26100,
-      adjustmentType: 'increase',
-      reason: 'Raw Material Cost Increase',
-      createdBy: 'John Smith',
-      status: 'approved',
-      priceReference: 'Commodity Index Jan 2025'
-    }
-  ]);
+  const [adjustments, setAdjustments] = useState<ValueAdjustment[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const records = await inventoryService.getStockAdjustments();
+        if (!Array.isArray(records)) {
+          setAdjustments([]);
+          return;
+        }
+        // Value/revaluation adjustments only
+        const mapped: ValueAdjustment[] = records
+          .filter((r: any) => r?.adjustmentType === 'Revaluation')
+          .map((r: any, idx: number) => {
+            const line = Array.isArray(r?.lines) && r.lines.length > 0 ? r.lines[0] : {};
+            const totalImpact = Number(r?.totalAdjustmentValue ?? 0);
+            const quantity = Number(line?.physicalQuantity ?? line?.systemQuantity ?? 0);
+            const currentUnitValue = Number(line?.systemValue ?? line?.unitCost ?? 0);
+            const adjustedUnitValue = Number(line?.physicalValue ?? line?.adjustedUnitCost ?? currentUnitValue);
+            const rawStatus = String(r?.status ?? '').toLowerCase();
+            const status: ValueAdjustment['status'] =
+              rawStatus === 'approved' ? 'approved' : rawStatus === 'rejected' ? 'rejected' : 'draft';
+            return {
+              id: r?.id ?? idx,
+              adjustmentNumber: r?.adjustmentNumber ?? '',
+              date: r?.adjustmentDate ? String(r.adjustmentDate).slice(0, 10) : '',
+              warehouse: r?.warehouseName ?? r?.warehouseId ?? '',
+              itemCode: line?.itemCode ?? '',
+              itemName: line?.itemName ?? '',
+              category: line?.category ?? '',
+              quantity,
+              currentUnitValue,
+              adjustedUnitValue,
+              valueChange: adjustedUnitValue - currentUnitValue,
+              totalImpact,
+              adjustmentType: totalImpact >= 0 ? 'increase' : 'decrease',
+              reason: r?.reason ?? line?.adjustmentReason ?? '',
+              createdBy: r?.approvedBy ?? '',
+              status,
+              priceReference: r?.remarks ?? undefined,
+            };
+          });
+        setAdjustments(mapped);
+      } catch (error) {
+        console.error('Failed to load value adjustments', error);
+        setAdjustments([]);
+      }
+    };
+    load();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -11,3 +11,5 @@ export * from './price-list.entity';
 export * from './pricing.entity';
 export * from './resource-rate.entity';
 export * from './workflow-stage-setting.entity';
+export * from './report-schedule.entity';
+export * from './estimate-comment.entity';

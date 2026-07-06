@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,25 +8,66 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Building, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { ClickableKPICard } from '@/components/reports/ClickableKPICard';
 import { ClickableTableRow } from '@/components/reports/ClickableTableRow';
+import { fetchReportDataset } from '@/services/reports-management.service';
+
+interface ReconciliationData {
+    accountBalance: number;
+    statementBalance: number;
+    difference: number;
+    reconciledCount: number;
+    unmatchedCount: number;
+    unmatched: { id: string; date: string; description: string; amount: number; type: string }[];
+}
+
+const DEFAULT_DATA: ReconciliationData = {
+    accountBalance: 1250000,
+    statementBalance: 1268500,
+    difference: 18500,
+    reconciledCount: 142,
+    unmatchedCount: 8,
+    unmatched: [
+        { id: 'TXN-001', date: '2025-01-20', description: 'Wire Transfer - Vendor Payment', amount: 12500, type: 'Debit' },
+        { id: 'TXN-002', date: '2025-01-18', description: 'Customer Deposit', amount: 8500, type: 'Credit' },
+        { id: 'TXN-003', date: '2025-01-15', description: 'Bank Charges', amount: -125, type: 'Debit' },
+        { id: 'TXN-004', date: '2025-01-12', description: 'Interest Income', amount: 450, type: 'Credit' },
+        { id: 'TXN-005', date: '2025-01-10', description: 'Check #1245', amount: -2850, type: 'Debit' },
+    ],
+};
 
 export default function BankReconciliationReport() {
     const router = useRouter();
     const [account, setAccount] = useState('main-account');
 
-    const data = {
-        accountBalance: 1250000,
-        statementBalance: 1268500,
-        difference: 18500,
-        reconciledCount: 142,
-        unmatchedCount: 8,
-        unmatched: [
-            { id: 'TXN-001', date: '2025-01-20', description: 'Wire Transfer - Vendor Payment', amount: 12500, type: 'Debit' },
-            { id: 'TXN-002', date: '2025-01-18', description: 'Customer Deposit', amount: 8500, type: 'Credit' },
-            { id: 'TXN-003', date: '2025-01-15', description: 'Bank Charges', amount: -125, type: 'Debit' },
-            { id: 'TXN-004', date: '2025-01-12', description: 'Interest Income', amount: 450, type: 'Credit' },
-            { id: 'TXN-005', date: '2025-01-10', description: 'Check #1245', amount: -2850, type: 'Debit' },
-        ],
-    };
+    const [data, setData] = useState<ReconciliationData>(DEFAULT_DATA);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const payload = await fetchReportDataset<Partial<ReconciliationData>>('accounts.reconciliation');
+                if (cancelled) return;
+                if (payload) {
+                    setData({
+                        accountBalance: Number(payload.accountBalance ?? DEFAULT_DATA.accountBalance),
+                        statementBalance: Number(payload.statementBalance ?? DEFAULT_DATA.statementBalance),
+                        difference: Number(payload.difference ?? DEFAULT_DATA.difference),
+                        reconciledCount: Number(payload.reconciledCount ?? DEFAULT_DATA.reconciledCount),
+                        unmatchedCount: Number(payload.unmatchedCount ?? DEFAULT_DATA.unmatchedCount),
+                        unmatched: Array.isArray(payload.unmatched) ? payload.unmatched : DEFAULT_DATA.unmatched,
+                    });
+                }
+            } catch (e) {
+                if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load report');
+            } finally {
+                if (!cancelled) setIsLoading(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     return (
         <div className="w-full p-3">
@@ -44,6 +85,9 @@ export default function BankReconciliationReport() {
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" />Export</Button>
                 </div>
             </div>
+
+            {isLoading && <p className="text-xs text-gray-400 mb-2">Loading latest figures…</p>}
+            {loadError && <p className="text-xs text-amber-600 mb-2">Showing sample data — {loadError}</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
                 <ClickableKPICard

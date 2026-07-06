@@ -1,15 +1,50 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Ticket, User, Clock, Search, CheckCircle, AlertCircle } from 'lucide-react'
+import { getTickets } from '@/services/support-management.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
+
+interface AssignedRow {
+  id: string
+  ticketId: string
+  subject: string
+  assignee: string
+  status: string
+  slaRemaining: string
+}
 
 export default function AssignedTickets() {
-  const [tickets] = useState([
-    { id: '1', ticketId: 'TKT-2024-1046', subject: 'Unable to access CRM module', requester: 'Sarah Johnson', category: 'Access Issue', priority: 'high', assignee: 'Priya Sharma', status: 'In Progress', createdAt: '2024-10-21 08:30', slaRemaining: '5h 12m' },
-    { id: '2', ticketId: 'TKT-2024-1045', subject: 'Report generation failing', requester: 'Mike Wilson', category: 'Bug', priority: 'medium', assignee: 'Amit Patel', status: 'Assigned', createdAt: '2024-10-21 07:45', slaRemaining: '18h 30m' },
-    { id: '3', ticketId: 'TKT-2024-1044', subject: 'How to export inventory data?', requester: 'Emily Davis', category: 'How-To', priority: 'low', assignee: 'Sneha Reddy', status: 'Assigned', createdAt: '2024-10-21 06:20', slaRemaining: '46h 15m' },
-    { id: '4', ticketId: 'TKT-2024-1043', subject: 'Email notifications not being sent', requester: 'David Brown', category: 'System Error', priority: 'high', assignee: 'Vikram Singh', status: 'In Progress', createdAt: '2024-10-20 16:30', slaRemaining: '1h 05m' }
-  ])
+  const [tickets, setTickets] = useState<AssignedRow[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = (await getTickets({ companyId: COMPANY_ID, limit: 500 })) as any
+        const raw: any[] = Array.isArray(res) ? res : (res?.tickets ?? [])
+        const filtered = raw.filter((t) =>
+          t?.assigneeId || ['assigned', 'in_progress'].includes(t?.status)
+        )
+        const mapped: AssignedRow[] = filtered.map((t) => ({
+          id: String(t?.id ?? ''),
+          ticketId: t?.ticketNumber ?? '',
+          subject: t?.subject ?? '',
+          assignee: t?.assignee?.name ?? t?.assigneeId ?? '',
+          status: t?.status ?? '',
+          slaRemaining: t?.slaRemaining ?? '',
+        }))
+        if (!cancelled) setTickets(mapped)
+      } catch {
+        if (!cancelled) setTickets([])
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="p-6 space-y-3">

@@ -1,11 +1,17 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Save, X, AlertTriangle, Users, Calendar, FileText, Plus, Tag, Link
 } from 'lucide-react'
+import { ITILService } from '@/services/support.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'company-1'
 
 export default function CreateProblem() {
+  const router = useRouter()
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -44,9 +50,27 @@ export default function CreateProblem() {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Creating problem:', formData)
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await ITILService.createProblem({
+        title: formData.title,
+        description: formData.description,
+        priority: formData.priority as any,
+        category: formData.category || undefined,
+        rootCause: formData.rootCause || undefined,
+        workaround: formData.workaround || undefined,
+        assignedTo: formData.assignedTo || undefined,
+        companyId: COMPANY_ID
+      })
+      router.push('/support/problems')
+    } catch (err) {
+      console.error('Failed to create problem:', err)
+      alert('Failed to create problem. Please try again.')
+      setSubmitting(false)
+    }
   }
 
   return (

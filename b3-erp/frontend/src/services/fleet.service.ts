@@ -756,6 +756,22 @@ class FleetService {
     }
 
     /**
+     * Delete a driver
+     */
+    async deleteDriver(id: string): Promise<void> {
+        try {
+            await apiClient.delete(`/logistics/drivers/${id}`);
+        } catch (error) {
+            console.error(`API Error deleting driver ${id}, using mock:`, error);
+
+            const index = this.mockDrivers.findIndex(d => d.id === id);
+            if (index === -1) throw new Error('Driver not found');
+
+            this.mockDrivers.splice(index, 1);
+        }
+    }
+
+    /**
      * Get available drivers
      */
     async getAvailableDrivers(): Promise<Driver[]> {

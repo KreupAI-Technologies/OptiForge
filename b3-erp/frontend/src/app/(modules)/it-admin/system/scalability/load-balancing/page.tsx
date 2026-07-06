@@ -1,14 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Network, Server, Activity, Settings, RefreshCw, Power, Plus, MoreVertical } from 'lucide-react';
+import { ItAdminService } from '@/services/it-admin.service';
+
+interface LoadBalancer {
+    id: string | number;
+    name: string;
+    region: string;
+    status: string;
+    algorithm: string;
+    connections: number;
+    health: number;
+}
 
 export default function LoadBalancingPage() {
-    const [balancers, setBalancers] = useState([
-        { id: 1, name: 'Web-LB-01', region: 'us-east-1', status: 'active', algorithm: 'Round Robin', connections: 12543, health: 100 },
-        { id: 2, name: 'API-LB-01', region: 'us-east-1', status: 'active', algorithm: 'Least Connections', connections: 8932, health: 98 },
-        { id: 3, name: 'DB-Read-LB', region: 'us-east-1', status: 'active', algorithm: 'Round Robin', connections: 4521, health: 100 },
-    ]);
+    const [balancers, setBalancers] = useState<LoadBalancer[]>([]);
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const rows = await ItAdminService.getMonitoring({ kind: 'health', category: 'load-balancer' });
+                if (!active) return;
+                setBalancers(
+                    (rows ?? []).map((r) => ({
+                        id: r.id,
+                        name: r.name,
+                        region: (r.metadata?.region as string) || r.source || '—',
+                        status: r.status || 'active',
+                        algorithm: (r.metadata?.algorithm as string) || 'Round Robin',
+                        connections: Number(r.value ?? 0),
+                        health: Number(r.metadata?.health ?? (r.status === 'healthy' ? 100 : 0)),
+                    })),
+                );
+            } catch {
+                if (active) setBalancers([]);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     return (
         <div className="w-full min-h-screen bg-gray-50 px-3 py-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Zap,
@@ -15,6 +15,7 @@ import {
   Plus
 } from 'lucide-react'
 import { DynamicFactorModal, FilterModal, DynamicPricingFactor } from '@/components/cpq/DynamicPricingModals'
+import { cpqPricingService } from '@/services/cpq/cpq-pricing.service'
 
 export default function CPQPricingDynamicPage() {
   const router = useRouter()
@@ -94,6 +95,30 @@ export default function CPQPricingDynamicPage() {
     }
   ])
 
+  useEffect(() => {
+    let mounted = true
+    cpqPricingService.findAllRules().then((rules) => {
+      const list = Array.isArray(rules) ? rules : []
+      if (!mounted || list.length === 0) return
+      const mapped: DynamicPricingFactor[] = list.map((r: any) => ({
+        id: (r.id ?? '') as string,
+        name: (r.ruleName ?? r.name ?? '') as string,
+        type: (r.ruleType ?? r.type ?? 'demand') as any,
+        currentValue: String(r.currentValue ?? r.adjustmentType ?? ''),
+        impact: (r.impact ?? ((Number(r.adjustmentValue) ?? 0) < 0 ? 'negative' : 'positive')) as any,
+        adjustment: String(
+          r.adjustment ??
+            `${(Number(r.adjustmentValue) ?? 0) >= 0 ? '+' : ''}${r.adjustmentValue ?? 0}%`
+        ),
+        lastUpdated: (r.updatedAt ?? r.lastUpdated ?? new Date().toISOString()) as string
+      }))
+      setPricingFactors(mapped)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
@@ -135,9 +160,18 @@ export default function CPQPricingDynamicPage() {
   }
 
   const handleSaveFactor = (factor: DynamicPricingFactor) => {
+    const mapped: any = {
+      ruleName: factor.name ?? '',
+      ruleType: (factor.type ?? 'discount') as any,
+      adjustmentType: 'percentage',
+      adjustmentValue: Number(String(factor.adjustment ?? '0').replace(/[+%]/g, '')) || 0,
+      isActive: true
+    }
     if (selectedFactor) {
+      cpqPricingService.updateRule(factor.id, mapped).catch(() => {})
       setPricingFactors(pricingFactors.map(f => f.id === factor.id ? factor : f))
     } else {
+      cpqPricingService.createRule(mapped).catch(() => {})
       setPricingFactors([factor, ...pricingFactors])
     }
   }
