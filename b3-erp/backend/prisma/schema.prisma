@@ -20040,3 +20040,40 @@ model FinanceReportTemplate {
 
   @@map("finance_report_templates")
 }
+
+// --- Compliance module (GDPR data-subject requests + regulatory reports) ---
+
+model ComplianceDataRequest {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  reference String
+  subject_name String
+  subject_email String?
+  request_type String @default("data_export")
+  status String @default("pending")
+  received_at DateTime? @db.Date
+  deadline_at DateTime? @db.Date
+  completed_at DateTime? @db.Date
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("compliance_data_requests")
+}
+
+model ComplianceRegReport {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  report_type String @default("Internal")
+  status String @default("Scheduled")
+  report_date DateTime? @db.Date
+  file_size String?
+  file_url String?
+  generated_by String?
+  notes String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("compliance_reg_reports")
+}
