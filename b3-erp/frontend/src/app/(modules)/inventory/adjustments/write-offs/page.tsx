@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   AlertTriangle,
   Trash2,
@@ -43,94 +44,69 @@ export default function WriteOffsPage() {
   const [selectedReason, setSelectedReason] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [writeOffs, setWriteOffs] = useState<WriteOff[]>([
-    {
-      id: 1,
-      writeOffNumber: 'WO-2025-001',
-      date: '2025-01-17',
-      warehouse: 'Assembly Plant',
-      itemCode: 'ITM-008',
-      itemName: 'Gear Box Assembly',
-      category: 'Component',
-      quantity: 3,
-      unitValue: 15000,
-      totalValue: 45000,
-      reason: 'damaged',
-      reasonDetails: 'Damaged during handling - beyond repair',
-      createdBy: 'Sarah Johnson',
-      status: 'approved',
-      approvedBy: 'Mike Davis',
-      approvedDate: '2025-01-18',
-      batchNumber: 'BATCH-2025-003'
-    },
-    {
-      id: 2,
-      writeOffNumber: 'WO-2025-002',
-      date: '2025-01-20',
-      warehouse: 'Main Warehouse',
-      itemCode: 'ITM-015',
-      itemName: 'Obsolete Motor V1',
-      category: 'Component',
-      quantity: 6,
-      unitValue: 5400,
-      totalValue: 32400,
-      reason: 'obsolete',
-      reasonDetails: 'Superseded by new model - no longer usable',
-      createdBy: 'Mike Davis',
-      status: 'pending-approval',
-      batchNumber: 'BATCH-2024-087'
-    },
-    {
-      id: 3,
-      writeOffNumber: 'WO-2025-003',
-      date: '2025-01-21',
-      warehouse: 'FG Store',
-      itemCode: 'FG-005',
-      itemName: 'Loader Model LD100',
-      category: 'Finished Goods',
-      quantity: 1,
-      unitValue: 280000,
-      totalValue: 280000,
-      reason: 'damaged',
-      reasonDetails: 'Fire damage during storage - total loss',
-      createdBy: 'Robert Lee',
-      status: 'pending-approval'
-    },
-    {
-      id: 4,
-      writeOffNumber: 'WO-2025-004',
-      date: '2025-01-21',
-      warehouse: 'RM Store',
-      itemCode: 'RM-012',
-      itemName: 'Rubber Seals Batch',
-      category: 'Raw Material',
-      quantity: 150,
-      unitValue: 45,
-      totalValue: 6750,
-      reason: 'expired',
-      reasonDetails: 'Shelf life exceeded - quality deteriorated',
-      createdBy: 'Emily Chen',
-      status: 'draft',
-      batchNumber: 'BATCH-2023-156'
-    },
-    {
-      id: 5,
-      writeOffNumber: 'WO-2025-005',
-      date: '2025-01-22',
-      warehouse: 'Assembly Plant',
-      itemCode: 'ITM-022',
-      itemName: 'Control Unit PCB',
-      category: 'Component',
-      quantity: 8,
-      unitValue: 3200,
-      totalValue: 25600,
-      reason: 'lost',
-      reasonDetails: 'Missing from inventory - suspected theft',
-      createdBy: 'John Smith',
-      status: 'pending-approval',
-      batchNumber: 'BATCH-2025-011'
-    }
-  ]);
+  const [writeOffs, setWriteOffs] = useState<WriteOff[]>([]);
+
+  useEffect(() => {
+    const mapReason = (raw: string): WriteOff['reason'] => {
+      const r = (raw || '').toLowerCase();
+      if (r.includes('damage')) return 'damaged';
+      if (r.includes('obsolete')) return 'obsolete';
+      if (r.includes('expire')) return 'expired';
+      if (r.includes('lost') || r.includes('theft')) return 'lost';
+      return 'other';
+    };
+    const mapStatus = (raw: string): WriteOff['status'] => {
+      const s = (raw || '').toLowerCase();
+      if (s === 'approved') return 'approved';
+      if (s === 'rejected') return 'rejected';
+      if (s === 'draft') return 'draft';
+      return 'pending-approval';
+    };
+    const load = async () => {
+      try {
+        const records = await inventoryService.getStockAdjustments();
+        if (!Array.isArray(records)) {
+          setWriteOffs([]);
+          return;
+        }
+        // Write-off adjustments only
+        const mapped: WriteOff[] = records
+          .filter((r: any) => r?.adjustmentType === 'Write Off')
+          .map((r: any, idx: number) => {
+            const line = Array.isArray(r?.lines) && r.lines.length > 0 ? r.lines[0] : {};
+            const systemQty = Number(line?.systemQuantity ?? 0);
+            const physicalQty = Number(line?.physicalQuantity ?? 0);
+            const quantity = Math.abs(systemQty - physicalQty) || systemQty;
+            const totalValue = Math.abs(Number(r?.totalAdjustmentValue ?? r?.negativeAdjustmentValue ?? 0));
+            const unitValue = quantity > 0 ? totalValue / quantity : Number(line?.unitCost ?? 0);
+            return {
+              id: r?.id ?? idx,
+              writeOffNumber: r?.adjustmentNumber ?? '',
+              date: r?.adjustmentDate ? String(r.adjustmentDate).slice(0, 10) : '',
+              warehouse: r?.warehouseName ?? r?.warehouseId ?? '',
+              itemCode: line?.itemCode ?? '',
+              itemName: line?.itemName ?? '',
+              category: line?.category ?? '',
+              quantity,
+              unitValue,
+              totalValue,
+              reason: mapReason(r?.reason ?? line?.adjustmentReason ?? ''),
+              reasonDetails: r?.remarks ?? line?.remarks ?? r?.reason ?? '',
+              createdBy: r?.approvedBy ?? '',
+              status: mapStatus(r?.status ?? ''),
+              approvedBy: r?.approvedBy ?? undefined,
+              approvedDate: r?.approvedAt ? String(r.approvedAt).slice(0, 10) : undefined,
+              batchNumber: line?.batchNumber ?? undefined,
+            };
+          });
+        setWriteOffs(mapped);
+      } catch (error) {
+        console.error('Failed to load write-offs', error);
+        setWriteOffs([]);
+      }
+    };
+    load();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {

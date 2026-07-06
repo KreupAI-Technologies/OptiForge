@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { inventoryService, AdjustmentReason } from '@/services/InventoryService';
 import {
   Plus,
   Package,
@@ -28,12 +30,85 @@ interface AdjustmentItem {
 }
 
 export default function CreateAdjustmentPage() {
+  const router = useRouter();
   const [adjustmentDate, setAdjustmentDate] = useState(new Date().toISOString().split('T')[0]);
   const [warehouse, setWarehouse] = useState('');
   const [adjustmentType, setAdjustmentType] = useState<'quantity' | 'value' | 'write-off'>('quantity');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
+  const [reasons, setReasons] = useState<AdjustmentReason[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await inventoryService.getAdjustmentReasons({ status: 'Active' });
+        setReasons(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error('Failed to load adjustment reasons', e);
+        setReasons([]);
+      }
+    })();
+  }, []);
+
+  // Map the form's adjustment-type selector to the backend enum
+  const mapAdjustmentType = (
+    t: 'quantity' | 'value' | 'write-off'
+  ): 'Cycle Count' | 'Physical Inventory' | 'Write Off' | 'Write On' | 'Revaluation' | 'Damage' => {
+    switch (t) {
+      case 'write-off':
+        return 'Write Off';
+      case 'value':
+        return 'Revaluation';
+      case 'quantity':
+      default:
+        return 'Physical Inventory';
+    }
+  };
+
+  const buildPayload = () => ({
+    adjustmentType: mapAdjustmentType(adjustmentType),
+    adjustmentDate: adjustmentDate || new Date().toISOString().split('T')[0],
+    warehouseId: warehouse,
+    reason,
+    remarks: notes,
+    referenceNumber,
+    lines: adjustmentItems.map((item, idx) => ({
+      lineNumber: idx + 1,
+      itemId: item.itemCode,
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      systemQuantity: item.currentQty,
+      physicalQuantity: item.adjustedQty,
+      uom: '',
+      unitValue: item.unitValue,
+      adjustmentReason: item.reason || reason,
+      remarks: item.batchNumber ? `Batch: ${item.batchNumber}` : '',
+    })),
+  });
+
+  const submitAdjustment = async () => {
+    if (submitting) return;
+    if (!warehouse) {
+      alert('Please select a warehouse');
+      return;
+    }
+    if (adjustmentItems.length === 0) {
+      alert('Please add at least one item');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await inventoryService.createStockAdjustment(buildPayload());
+      router.push('/inventory/adjustments');
+    } catch (e) {
+      console.error('Failed to create stock adjustment', e);
+      alert('Failed to create stock adjustment. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const [adjustmentItems, setAdjustmentItems] = useState<AdjustmentItem[]>([
     {
@@ -96,12 +171,12 @@ export default function CreateAdjustmentPage() {
   const positiveAdjustments = adjustmentItems.filter(item => item.adjustment > 0).length;
   const negativeAdjustments = adjustmentItems.filter(item => item.adjustment < 0).length;
 
-  const handleSaveDraft = () => {
-    console.log('Saving draft adjustment...');
+  const handleSaveDraft = async () => {
+    await submitAdjustment();
   };
 
-  const handleSubmit = () => {
-    console.log('Submitting adjustment for approval...');
+  const handleSubmit = async () => {
+    await submitAdjustment();
   };
 
   return (
@@ -232,12 +307,9 @@ export default function CreateAdjustmentPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Select Reason</option>
-              <option value="physical-count">Physical Count Variance</option>
-              <option value="damaged">Damaged Goods</option>
-              <option value="obsolete">Obsolete Inventory</option>
-              <option value="system-error">System Error Correction</option>
-              <option value="price-correction">Price Correction</option>
-              <option value="other">Other</option>
+              {reasons.map((r) => (
+                <option key={r.id || r.code} value={r.code}>{r.name}</option>
+              ))}
             </select>
           </div>
 

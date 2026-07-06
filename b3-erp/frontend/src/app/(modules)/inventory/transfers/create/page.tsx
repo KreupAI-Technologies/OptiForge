@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { inventoryService } from '@/services/InventoryService';
 import {
   TruckIcon,
   Plus,
@@ -25,7 +27,13 @@ interface TransferItem {
   batchNumber: string;
 }
 
+interface WarehouseOption {
+  value: string;
+  label: string;
+}
+
 export default function CreateTransferPage() {
+  const router = useRouter();
   const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
   const [fromWarehouse, setFromWarehouse] = useState('');
   const [toWarehouse, setToWarehouse] = useState('');
@@ -33,6 +41,28 @@ export default function CreateTransferPage() {
   const [requestedBy, setRequestedBy] = useState('');
   const [notes, setNotes] = useState('');
   const [transferItems, setTransferItems] = useState<TransferItem[]>([]);
+  const [warehouseOptions, setWarehouseOptions] = useState<WarehouseOption[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const whs = await inventoryService.getWarehouses();
+        if (!active) return;
+        const options = (whs ?? []).map((w: any) => ({
+          value: String(w?.id ?? w?.value ?? w?.code ?? ''),
+          label: String(w?.name ?? w?.label ?? w?.warehouseName ?? w?.code ?? ''),
+        }));
+        if (options.length > 0) setWarehouseOptions(options);
+      } catch (err) {
+        console.error('Failed to load warehouses', err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const addTransferItem = () => {
     setTransferItems([
@@ -59,14 +89,49 @@ export default function CreateTransferPage() {
     ));
   };
 
-  const handleSaveDraft = () => {
-    console.log('Saving draft transfer...');
-    // Implement save draft logic
+  const buildPayload = () => ({
+    transferType: 'Warehouse to Warehouse',
+    transferDate: transferDate || new Date().toISOString().split('T')[0],
+    fromWarehouseId: fromWarehouse,
+    toWarehouseId: toWarehouse,
+    purpose: transferType,
+    remarks: notes,
+    requestedBy,
+    lines: transferItems.map((item, idx) => ({
+      lineNumber: idx + 1,
+      itemId: item.itemCode,
+      itemCode: item.itemCode,
+      itemName: item.itemName,
+      requestedQuantity: item.quantity,
+      uom: item.uom,
+      batchNumber: item.batchNumber,
+    })),
+  });
+
+  const handleSaveDraft = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await inventoryService.createStockTransfer({ ...buildPayload(), status: 'Draft' });
+      router.push('/inventory/transfers');
+    } catch (err) {
+      console.error('Failed to save draft transfer', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleSubmit = () => {
-    console.log('Submitting transfer request...');
-    // Implement submit logic
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await inventoryService.createStockTransfer(buildPayload());
+      router.push('/inventory/transfers');
+    } catch (err) {
+      console.error('Failed to submit transfer', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -166,10 +231,9 @@ export default function CreateTransferPage() {
                 required
               >
                 <option value="">Select source warehouse</option>
-                <option value="main">Main Warehouse</option>
-                <option value="assembly">Assembly Plant</option>
-                <option value="fg">FG Store</option>
-                <option value="rm">RM Store</option>
+                {warehouseOptions.map((wh) => (
+                  <option key={wh.value} value={wh.value}>{wh.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -187,10 +251,9 @@ export default function CreateTransferPage() {
                 required
               >
                 <option value="">Select destination warehouse</option>
-                <option value="main">Main Warehouse</option>
-                <option value="assembly">Assembly Plant</option>
-                <option value="fg">FG Store</option>
-                <option value="rm">RM Store</option>
+                {warehouseOptions.map((wh) => (
+                  <option key={wh.value} value={wh.value}>{wh.label}</option>
+                ))}
               </select>
             </div>
           </div>

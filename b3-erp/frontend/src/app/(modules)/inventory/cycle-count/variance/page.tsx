@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   AlertTriangle,
   TrendingUp,
@@ -38,93 +39,54 @@ export default function VariancePage() {
   const [selectedSeverity, setSelectedSeverity] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  const [varianceItems, setVarianceItems] = useState<VarianceItem[]>([
-    {
-      id: 1,
-      itemCode: 'RM-001',
-      itemName: 'Mild Steel Plate 10mm',
-      location: 'A1-R2-S3',
-      systemQty: 450,
-      physicalQty: 448,
-      variance: -2,
-      variancePercent: -0.44,
-      unitValue: 65,
-      varianceValue: -130,
-      uom: 'Kg',
-      category: 'Raw Material',
-      reason: 'Counting error',
-      severity: 'low',
-      status: 'pending'
-    },
-    {
-      id: 2,
-      itemCode: 'FG-201',
-      itemName: 'Motor Housing Complete',
-      location: 'C1-R2-S1',
-      systemQty: 145,
-      physicalQty: 152,
-      variance: 7,
-      variancePercent: 4.83,
-      unitValue: 3500,
-      varianceValue: 24500,
-      uom: 'Nos',
-      category: 'Finished Goods',
-      reason: 'Unreported receipt',
-      severity: 'high',
-      status: 'pending'
-    },
-    {
-      id: 3,
-      itemCode: 'CP-089',
-      itemName: 'Gearbox Assembly 3:1',
-      location: 'B2-R3-S4',
-      systemQty: 50,
-      physicalQty: 42,
-      variance: -8,
-      variancePercent: -16.0,
-      unitValue: 8500,
-      varianceValue: -68000,
-      uom: 'Nos',
-      category: 'Components',
-      reason: 'Unrecorded issue',
-      severity: 'critical',
-      status: 'approved'
-    },
-    {
-      id: 4,
-      itemCode: 'CS-025',
-      itemName: 'Welding Rods 3mm',
-      location: 'D1-R1-S2',
-      systemQty: 200,
-      physicalQty: 195,
-      variance: -5,
-      variancePercent: -2.5,
-      unitValue: 45,
-      varianceValue: -225,
-      uom: 'Kg',
-      category: 'Consumables',
-      reason: 'Shop floor consumption',
-      severity: 'medium',
-      status: 'approved'
-    },
-    {
-      id: 5,
-      itemCode: 'RM-045',
-      itemName: 'Copper Sheet 2mm',
-      location: 'A2-R4-S1',
-      systemQty: 120,
-      physicalQty: 138,
-      variance: 18,
-      variancePercent: 15.0,
-      unitValue: 890,
-      varianceValue: 16020,
-      uom: 'Kg',
-      category: 'Raw Material',
-      reason: 'Missing GRN entry',
-      severity: 'high',
-      status: 'pending'
+  const [varianceItems, setVarianceItems] = useState<VarianceItem[]>([]);
+
+  const loadVariances = async () => {
+    try {
+      const rows = await inventoryService.getCycleCounts();
+      if (!Array.isArray(rows)) {
+        setVarianceItems([]);
+        return;
+      }
+      const mapped: VarianceItem[] = rows.map((r, idx) => {
+        const systemQty = Number(r?.itemsToCount) || 0;
+        const physicalQty = Number(r?.itemsCounted) || 0;
+        const variance = Number(r?.variancesFound) || 0;
+        const accuracy = Number(r?.accuracy) || 0;
+        const variancePercent = systemQty > 0 ? (variance / systemQty) * 100 : 0;
+        const absPct = Math.abs(variancePercent);
+        const severity: VarianceItem['severity'] =
+          absPct > 15 ? 'critical' : absPct > 10 ? 'high' : absPct > 5 ? 'medium' : 'low';
+        const status: VarianceItem['status'] =
+          r?.status === 'reconciled' || r?.status === 'completed' ? 'approved' : 'pending';
+        return {
+          id: idx + 1,
+          itemCode: r?.countNumber ?? `CC-${idx + 1}`,
+          itemName: r?.title ?? r?.countNumber ?? 'Cycle Count',
+          location: [r?.warehouse, r?.zone].filter(Boolean).join(' / ') || '-',
+          systemQty,
+          physicalQty,
+          variance,
+          variancePercent,
+          unitValue: 0,
+          varianceValue: 0,
+          uom: 'Items',
+          category: r?.countType ?? '-',
+          reason: `Accuracy ${accuracy.toFixed(1)}%`,
+          severity,
+          status,
+        };
+      });
+      setVarianceItems(mapped);
+    } catch (err) {
+      console.error('Failed to load variances', err);
+      setVarianceItems([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadVariances();
+  }, []);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -181,7 +143,7 @@ export default function VariancePage() {
           <p className="text-gray-600 mt-1">Review and analyze inventory count variances</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
+          <button onClick={() => loadVariances()} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
             <Download className="w-4 h-4" />
             <span>Export Report</span>
           </button>

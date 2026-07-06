@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { inventoryService } from '@/services/InventoryService';
 import {
   Scan,
   Package,
@@ -34,73 +35,55 @@ export default function PhysicalCountPage() {
   const [scanMode, setScanMode] = useState<'barcode' | 'manual'>('manual');
   const [barcodeInput, setBarcodeInput] = useState('');
 
-  const [countItems, setCountItems] = useState<CountItem[]>([
-    {
-      id: 1,
-      itemCode: 'RM-001',
-      itemName: 'Mild Steel Plate 10mm',
-      location: 'A1-R2-S3',
-      systemQty: 450,
-      physicalQty: 448,
-      uom: 'Kg',
-      batchNumber: 'BATCH-2024-012',
-      serialNumber: '',
-      variance: -2,
-      status: 'variance'
-    },
-    {
-      id: 2,
-      itemCode: 'CP-102',
-      itemName: 'Electric Motor 5HP',
-      location: 'B2-R1-S4',
-      systemQty: 15,
-      physicalQty: 15,
-      uom: 'Nos',
-      batchNumber: '',
-      serialNumber: 'EM5HP-2024-001',
-      variance: 0,
-      status: 'counted'
-    },
-    {
-      id: 3,
-      itemCode: 'RM-032',
-      itemName: 'Brass Rod 12mm',
-      location: 'A2-R3-S2',
-      systemQty: 180,
-      physicalQty: null,
-      uom: 'Pcs',
-      batchNumber: 'BATCH-2024-089',
-      serialNumber: '',
-      variance: 0,
-      status: 'pending'
-    },
-    {
-      id: 4,
-      itemCode: 'FG-201',
-      itemName: 'Motor Housing Complete',
-      location: 'C1-R2-S1',
-      systemQty: 145,
-      physicalQty: 152,
-      uom: 'Nos',
-      batchNumber: '',
-      serialNumber: '',
-      variance: 7,
-      status: 'variance'
-    },
-    {
-      id: 5,
-      itemCode: 'CS-015',
-      itemName: 'Cutting Oil Grade A',
-      location: 'D3-R1-S5',
-      systemQty: 30,
-      physicalQty: null,
-      uom: 'Ltrs',
-      batchNumber: 'BATCH-2024-145',
-      serialNumber: '',
-      variance: 0,
-      status: 'pending'
+  const [countItems, setCountItems] = useState<CountItem[]>([]);
+
+  const loadCounts = async () => {
+    try {
+      const rows = await inventoryService.getCycleCounts();
+      if (!Array.isArray(rows)) {
+        setCountItems([]);
+        return;
+      }
+      // Physical inventory page: focus on full/physical count types when present.
+      const physical = rows.filter(r =>
+        typeof r?.countType === 'string' &&
+        /full|physical/i.test(r.countType)
+      );
+      const source = physical.length > 0 ? physical : rows;
+
+      const mapped: CountItem[] = source.map((r, idx) => {
+        const systemQty = Number(r?.itemsToCount) || 0;
+        const physicalQty = r?.itemsCounted != null ? Number(r.itemsCounted) : null;
+        const variance = physicalQty !== null ? physicalQty - systemQty : 0;
+        const variancesFound = Number(r?.variancesFound) || 0;
+        let status: CountItem['status'] = 'pending';
+        if (physicalQty !== null && physicalQty > 0) {
+          status = variancesFound > 0 || variance !== 0 ? 'variance' : 'counted';
+        }
+        return {
+          id: idx + 1,
+          itemCode: r?.countNumber ?? `CC-${idx + 1}`,
+          itemName: r?.title ?? r?.countNumber ?? 'Cycle Count',
+          location: [r?.warehouse, r?.zone].filter(Boolean).join(' / ') || '-',
+          systemQty,
+          physicalQty,
+          uom: 'Items',
+          batchNumber: '',
+          serialNumber: '',
+          variance,
+          status,
+        };
+      });
+      setCountItems(mapped);
+    } catch (err) {
+      console.error('Failed to load cycle counts', err);
+      setCountItems([]);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    loadCounts();
+  }, []);
 
   const updatePhysicalQty = (id: number, qty: number) => {
     setCountItems(prev =>
@@ -145,7 +128,7 @@ export default function PhysicalCountPage() {
   const totalItems = countItems.length;
   const countedItems = countItems.filter(item => item.status !== 'pending').length;
   const varianceItems = countItems.filter(item => item.status === 'variance').length;
-  const completionRate = (countedItems / totalItems) * 100;
+  const completionRate = totalItems > 0 ? (countedItems / totalItems) * 100 : 0;
 
   return (
     <div className="p-6 space-y-3">
@@ -159,7 +142,7 @@ export default function PhysicalCountPage() {
           <p className="text-gray-600 mt-1">Zone B - Components | Assigned to: Sarah Johnson</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
+          <button onClick={() => loadCounts()} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2">
             <Save className="w-4 h-4" />
             <span>Save Progress</span>
           </button>

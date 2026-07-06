@@ -6,6 +6,7 @@ import {
   ArrowLeft, Save, Package, DollarSign, MapPin,
   AlertTriangle, CheckCircle, Info, Warehouse, BarChart3, Plus
 } from 'lucide-react';
+import { inventoryService } from '@/services/InventoryService';
 
 interface StockItemForm {
   itemCode: string;
@@ -153,11 +154,31 @@ export default function StockAddPage() {
 
     setIsSaving(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      const payload = {
+        entryType: 'Material Receipt',
+        postingDate: new Date().toISOString().slice(0, 10),
+        toWarehouseId: formData.warehouse,
+        remarks: formData.notes,
+        lines: [
+          {
+            lineNumber: 1,
+            itemId: formData.itemCode,
+            itemCode: formData.itemCode,
+            itemName: formData.itemName,
+            description: formData.description,
+            quantity: formData.initialStock || 0,
+            uom: formData.uom,
+            toLocationId: undefined,
+          },
+        ],
+      };
+      await inventoryService.createStockEntry(payload);
       router.push('/inventory/stock');
-    }, 1500);
+    } catch (error) {
+      setIsSaving(false);
+      setErrors(prev => ({ ...prev, general: 'Failed to create stock item. Please try again.' }));
+    }
   };
 
   const handleCancel = () => {
