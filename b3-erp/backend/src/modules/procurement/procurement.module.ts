@@ -23,6 +23,8 @@ import {
   VendorPerformanceAnalyticsController,
   VendorQuotationController,
   VendorController,
+  SpendAnalysisController,
+  ProcurementInsightsController,
 } from './controllers';
 import {
   AuditTrail,
@@ -74,6 +76,7 @@ import { ContractService } from './services/contract.service';
 import { RFQPolicyService } from './services/rfq-policy.service';
 import { SourcingIntegrationService } from './services/sourcing-integration.service';
 import { SpendAnalysisService } from './services/spend-analysis.service';
+import { ProcurementInsightsService } from './services/procurement-insights.service';
 import { ThreeWayMatchingService } from './services/three-way-matching.service';
 import { VendorCollaborationService } from './services/vendor-collaboration.service';
 
@@ -127,6 +130,8 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     VendorPerformanceAnalyticsController,
     VendorQuotationController,
     VendorController,
+    SpendAnalysisController,
+    ProcurementInsightsController,
   ],
   providers: [
     ApprovalMatrixService,
@@ -149,6 +154,7 @@ import { VendorCollaborationService } from './services/vendor-collaboration.serv
     RFQService,
     SourcingIntegrationService,
     SpendAnalysisService,
+    ProcurementInsightsService,
     ThreeWayMatchingService,
     VendorCollaborationService,
     VendorEvaluationService,

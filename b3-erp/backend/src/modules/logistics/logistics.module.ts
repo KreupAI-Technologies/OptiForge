@@ -64,6 +64,7 @@ import { GPSTrackingService } from './services/gps-tracking.service';
 import { CustomerNotificationService } from './services/customer-notification.service';
 import { GatePassService } from './services/gate-pass.service';
 import { LogisticsManagementService } from './services/logistics-management.service';
+import { LogisticsManagementController } from './controllers/logistics-management.controller';
 
 @Module({
   imports: [
@@ -104,6 +105,7 @@ import { LogisticsManagementService } from './services/logistics-management.serv
     PortMasterController,
     PackagingTypeController,
     ConsolidationController,
+    LogisticsManagementController,
   ],
   providers: [
     ShipmentService,
