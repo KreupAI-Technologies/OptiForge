@@ -65,6 +65,7 @@ export default function DowntimeDashboardPage() {
   const [downtimeEvents, setDowntimeEvents] = useState<DowntimeEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +124,9 @@ export default function DowntimeDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
+
+  const refreshEvents = () => setRefreshKey((k) => k + 1);
 
   // Mock summary data
   const downtimeSummary: DowntimeSummary = {
@@ -197,10 +200,15 @@ export default function DowntimeDashboardPage() {
     setIsLogDowntimeOpen(true);
   };
 
-  const handleLogDowntimeSubmit = (data: LogDowntimeData) => {
-    console.log('Logging downtime:', data);
-    // TODO: Implement API call
-    setIsLogDowntimeOpen(false);
+  const handleLogDowntimeSubmit = async (data: LogDowntimeData) => {
+    try {
+      await ProductionOrphanService.createDowntimeRecord(data);
+      refreshEvents();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to log downtime event');
+    } finally {
+      setIsLogDowntimeOpen(false);
+    }
   };
 
   const handleViewEvent = (event: DowntimeEvent) => {
@@ -213,10 +221,20 @@ export default function DowntimeDashboardPage() {
     setIsEditOpen(true);
   };
 
-  const handleEditSubmit = (data: EditDowntimeData) => {
-    console.log('Editing event:', data);
-    // TODO: Implement API call
-    setIsEditOpen(false);
+  const handleEditSubmit = async (data: EditDowntimeData) => {
+    const event = selectedEvent;
+    if (!event) {
+      setIsEditOpen(false);
+      return;
+    }
+    try {
+      await ProductionOrphanService.updateDowntimeRecord(event.id, data);
+      refreshEvents();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to update downtime event');
+    } finally {
+      setIsEditOpen(false);
+    }
   };
 
   const handleResolveEvent = () => {
@@ -224,13 +242,20 @@ export default function DowntimeDashboardPage() {
     setIsResolveOpen(true);
   };
 
-  const handleResolveSubmit = (data: ResolveDowntimeData) => {
-    console.log('Resolving event:', data);
-    // TODO: Implement API call
-    setIsResolveOpen(false);
+  const handleResolveSubmit = async (data: ResolveDowntimeData) => {
+    const event = selectedEvent;
+    try {
+      if (event) {
+        await ProductionOrphanService.endDowntimeRecord(event.id, data);
+        refreshEvents();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to resolve downtime event');
+    } finally {
+      setIsResolveOpen(false);
+    }
     if (data.requireRCA) {
-      // TODO: Open CreateRCAModal with event details
-      alert('RCA modal would open here');
+      router.push('/production/downtime/rca');
     }
   };
 
