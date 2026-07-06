@@ -389,6 +389,21 @@ export default function DowntimeRCAPage() {
     }
   };
 
+  const handleRequestRevisions = async () => {
+    const rcaId = selectedRCA?.id;
+    try {
+      if (rcaId) {
+        await ProductionOrphanService.updateRootCauseAnalysis(rcaId, { status: 'investigating' });
+        refreshRcas();
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to request revisions');
+    } finally {
+      setIsVerifyRCAOpen(false);
+      setIsViewRCAOpen(true);
+    }
+  };
+
   const handleExport = () => {
     setIsExportOpen(true);
   };
@@ -741,11 +756,7 @@ export default function DowntimeRCAPage() {
           setIsViewRCAOpen(true);
         }}
         onSubmit={handleVerifyRCASubmit}
-        onRequestRevisions={() => {
-          console.log('Revisions requested');
-          setIsVerifyRCAOpen(false);
-          setIsViewRCAOpen(true);
-        }}
+        onRequestRevisions={handleRequestRevisions}
         investigation={selectedRCA}
       />
 

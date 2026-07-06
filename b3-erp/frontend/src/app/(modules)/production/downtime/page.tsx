@@ -281,6 +281,31 @@ export default function DowntimeDashboardPage() {
     }
   };
 
+  const handleInitiateRCA = async () => {
+    const event = selectedEvent;
+    if (!event) {
+      setIsViewDetailsOpen(false);
+      router.push('/production/downtime/rca');
+      return;
+    }
+    try {
+      await ProductionOrphanService.createRootCauseAnalysis({
+        downtimeEvent: event.eventNumber,
+        equipment: event.equipment,
+        incidentDate: event.startTime,
+        severity: event.severity,
+        problemStatement: event.description,
+        estimatedCost: event.costImpact,
+        status: 'open',
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to initiate RCA');
+    } finally {
+      setIsViewDetailsOpen(false);
+      router.push('/production/downtime/rca');
+    }
+  };
+
   const handleQuickAnalysis = () => {
     setIsQuickAnalysisOpen(true);
   };
@@ -577,7 +602,7 @@ export default function DowntimeDashboardPage() {
         event={selectedEvent}
         onEdit={handleEditEvent}
         onResolve={handleResolveEvent}
-        onInitiateRCA={() => alert('RCA modal would open')}
+        onInitiateRCA={handleInitiateRCA}
       />
 
       <EditDowntimeEventModal
