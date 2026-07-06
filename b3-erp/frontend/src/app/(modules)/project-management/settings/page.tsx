@@ -174,107 +174,105 @@ export default function ProjectSettingsPage() {
   setHasChanges(false);
  };
 
+ // Persist a partial settings payload from a category modal to the backend.
+ // PmSettings is stored as a single merged document, so each modal saves its
+ // own slice via savePmSettings (partial merge).
+ const persistModalSettings = async (settings: any) => {
+  try {
+   await projectManagementService.savePmSettings(settings);
+  } catch (err) {
+   console.error('Error saving settings:', err);
+  }
+ };
+
  // Modal Handlers
- const handleGeneralSettings = (settings?: any) => {
+ const handleGeneralSettings = async (settings?: any) => {
   if (settings) {
-   console.log('General settings saved:', settings);
-   // TODO: API call to save general settings
+   await persistModalSettings(settings);
   }
   setShowGeneralModal(false);
  };
 
- const handleNotificationSettings = (settings?: any) => {
+ const handleNotificationSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Notification settings saved:', settings);
-   // TODO: API call to save notification settings
+   await persistModalSettings(settings);
   }
   setShowNotificationModal(false);
  };
 
- const handleAccessControl = (settings?: any) => {
+ const handleAccessControl = async (settings?: any) => {
   if (settings) {
-   console.log('Access control settings saved:', settings);
-   // TODO: API call to save access control settings
+   await persistModalSettings(settings);
   }
   setShowAccessModal(false);
  };
 
- const handleIntegrationSettings = (settings?: any) => {
+ const handleIntegrationSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Integration settings saved:', settings);
-   // TODO: API call to save integration settings
+   await persistModalSettings(settings);
   }
   setShowIntegrationModal(false);
  };
 
- const handleWorkflowSettings = (settings?: any) => {
+ const handleWorkflowSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Workflow settings saved:', settings);
-   // TODO: API call to save workflow settings
+   await persistModalSettings(settings);
   }
   setShowWorkflowModal(false);
  };
 
- const handleCustomFields = (settings?: any) => {
+ const handleCustomFields = async (settings?: any) => {
   if (settings) {
-   console.log('Custom fields saved:', settings);
-   // TODO: API call to save custom fields
+   await persistModalSettings(settings);
   }
   setShowCustomFieldsModal(false);
  };
 
- const handleEmailTemplates = (settings?: any) => {
+ const handleEmailTemplates = async (settings?: any) => {
   if (settings) {
-   console.log('Email templates saved:', settings);
-   // TODO: API call to save email templates
+   await persistModalSettings(settings);
   }
   setShowEmailTemplatesModal(false);
  };
 
- const handleReportSettings = (settings?: any) => {
+ const handleReportSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Report settings saved:', settings);
-   // TODO: API call to save report settings
+   await persistModalSettings(settings);
   }
   setShowReportSettingsModal(false);
  };
 
- const handleBudgetSettings = (settings?: any) => {
+ const handleBudgetSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Budget settings saved:', settings);
-   // TODO: API call to save budget settings
+   await persistModalSettings(settings);
   }
   setShowBudgetSettingsModal(false);
  };
 
- const handleSecuritySettings = (settings?: any) => {
+ const handleSecuritySettings = async (settings?: any) => {
   if (settings) {
-   console.log('Security settings saved:', settings);
-   // TODO: API call to save security settings
+   await persistModalSettings(settings);
   }
   setShowSecurityModal(false);
  };
 
- const handleBackupSettings = (settings?: any) => {
+ const handleBackupSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Backup settings saved:', settings);
-   // TODO: API call to save backup settings
+   await persistModalSettings(settings);
   }
   setShowBackupModal(false);
  };
 
- const handleAPISettings = (settings?: any) => {
+ const handleAPISettings = async (settings?: any) => {
   if (settings) {
-   console.log('API settings saved:', settings);
-   // TODO: API call to save API settings
+   await persistModalSettings(settings);
   }
   setShowAPIModal(false);
  };
 
- const handleAdvancedSettings = (settings?: any) => {
+ const handleAdvancedSettings = async (settings?: any) => {
   if (settings) {
-   console.log('Advanced settings saved:', settings);
-   // TODO: API call to save advanced settings
+   await persistModalSettings(settings);
   }
   setShowAdvancedModal(false);
  };
@@ -284,8 +282,8 @@ export default function ProjectSettingsPage() {
  };
 
  const handleResetSettings = () => {
-  console.log('Resetting all settings to default');
-  // TODO: API call to reset settings
+  // Reset the in-memory form to defaults; handleReset clears the dirty flag.
+  // A dedicated reset endpoint does not exist, so no backend call is made here.
   setShowResetModal(false);
   handleReset();
  };

@@ -19,42 +19,37 @@ export default function CurrencyMasterPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // Fetch currencies from the live backend, mapping the raw API shape to the page's Currency model.
+  const loadCurrencies = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = (await commonMastersService.getAllCurrencies()) as any[];
+      const mapped: Currency[] = raw.map((c) => ({
+        id: String(c.id ?? ''),
+        code: c.code ?? '',
+        name: c.name ?? '',
+        symbol: c.symbol ?? '',
+        symbolNative: c.symbolNative ?? c.symbol ?? '',
+        decimalDigits: Number(c.decimalDigits ?? 2),
+        rounding: Number(c.rounding ?? 0),
+        namePlural: c.namePlural ?? c.name ?? '',
+        isActive: c.isActive ?? true,
+        isBaseCurrency: c.isBaseCurrency ?? false,
+        countries: Array.isArray(c.countries) ? c.countries : [],
+        createdAt: c.createdAt ?? '',
+        updatedAt: c.updatedAt ?? '',
+      }));
+      setCurrencies(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load currencies');
+      setCurrencies([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = (await commonMastersService.getAllCurrencies()) as any[];
-        const mapped: Currency[] = raw.map((c) => ({
-          id: String(c.id ?? ''),
-          code: c.code ?? '',
-          name: c.name ?? '',
-          symbol: c.symbol ?? '',
-          symbolNative: c.symbolNative ?? c.symbol ?? '',
-          decimalDigits: Number(c.decimalDigits ?? 2),
-          rounding: Number(c.rounding ?? 0),
-          namePlural: c.namePlural ?? c.name ?? '',
-          isActive: c.isActive ?? true,
-          isBaseCurrency: c.isBaseCurrency ?? false,
-          countries: Array.isArray(c.countries) ? c.countries : [],
-          createdAt: c.createdAt ?? '',
-          updatedAt: c.updatedAt ?? '',
-        }));
-        if (!cancelled) setCurrencies(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load currencies');
-          setCurrencies([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+    loadCurrencies();
   }, []);
 
   // Toast notification effect
@@ -81,14 +76,22 @@ export default function CurrencyMasterPage() {
     // TODO: Open edit currency modal/form
   };
 
-  const handleDeleteCurrency = (currency: Currency) => {
+  const handleDeleteCurrency = async (currency: Currency) => {
     if (currency.isBaseCurrency) {
       showToast('Cannot delete base currency', 'error');
       return;
     }
     if (confirm(`Are you sure you want to delete ${currency.name}?`)) {
+      const previous = currencies;
       setCurrencies(prev => prev.filter(c => c.id !== currency.id));
-      showToast(`${currency.name} deleted successfully`, 'success');
+      try {
+        await commonMastersService.deleteCurrency(currency.id);
+        showToast(`${currency.name} deleted successfully`, 'success');
+        await loadCurrencies();
+      } catch (err) {
+        setCurrencies(previous);
+        showToast(err instanceof Error ? err.message : `Failed to delete ${currency.name}`, 'error');
+      }
     }
   };
 

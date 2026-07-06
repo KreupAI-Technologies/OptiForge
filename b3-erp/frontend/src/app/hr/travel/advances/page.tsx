@@ -71,72 +71,7 @@ export default function Page() {
     };
   }, []);
 
-  const mockAdvances: TravelAdvance[] = rows.length ? rows : [
-    {
-      id: '1',
-      advanceNumber: 'ADV-2025-012',
-      employeeName: 'Rajesh Kumar',
-      department: 'Sales',
-      tripNumber: 'TR-2025-001',
-      destination: 'Pune, Maharashtra',
-      travelDates: '2025-11-05 to 2025-11-07',
-      advanceAmount: 15000,
-      requestedDate: '2025-10-20',
-      purpose: 'Client Meeting - Tata Motors',
-      status: 'approved',
-      approver: 'Suresh Iyer',
-      approvedDate: '2025-10-21'
-    },
-    {
-      id: '2',
-      advanceNumber: 'ADV-2025-013',
-      employeeName: 'Priya Sharma',
-      department: 'Engineering',
-      tripNumber: 'TR-2025-002',
-      destination: 'Bangalore, Karnataka',
-      travelDates: '2025-11-10 to 2025-11-15',
-      advanceAmount: 30000,
-      requestedDate: '2025-10-18',
-      purpose: 'Technical Training - Siemens',
-      status: 'disbursed',
-      approver: 'Madhav Singh',
-      approvedDate: '2025-10-19',
-      disbursedDate: '2025-10-22'
-    },
-    {
-      id: '3',
-      advanceNumber: 'ADV-2025-014',
-      employeeName: 'Amit Patel',
-      department: 'Quality',
-      tripNumber: 'TR-2025-003',
-      destination: 'Singapore',
-      travelDates: '2025-12-01 to 2025-12-07',
-      advanceAmount: 100000,
-      requestedDate: '2025-10-22',
-      purpose: 'ISO Audit - Singapore Plant',
-      status: 'pending',
-      approver: 'Kavita Sharma'
-    },
-    {
-      id: '4',
-      advanceNumber: 'ADV-2024-089',
-      employeeName: 'Vikram Singh',
-      department: 'IT',
-      tripNumber: 'TR-2024-078',
-      destination: 'Mumbai, Maharashtra',
-      travelDates: '2024-09-15 to 2024-09-18',
-      advanceAmount: 20000,
-      requestedDate: '2024-09-05',
-      purpose: 'Vendor Meeting',
-      status: 'settled',
-      approver: 'Ramesh Nair',
-      approvedDate: '2024-09-06',
-      disbursedDate: '2024-09-10',
-      settledDate: '2024-09-25',
-      expensesSubmitted: 18500,
-      balanceAmount: 1500
-    }
-  ];
+  const mockAdvances: TravelAdvance[] = rows;
 
   const filteredAdvances = mockAdvances.filter(a =>
     selectedStatus === 'all' || a.status === selectedStatus

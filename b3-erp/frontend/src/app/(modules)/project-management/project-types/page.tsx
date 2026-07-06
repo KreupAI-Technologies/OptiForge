@@ -135,7 +135,7 @@ export default function ProjectTypesPage() {
   if (selectedType) {
    try {
     await projectManagementService.deletePmProjectType(selectedType.id);
-    setMockProjectTypes((prev) => prev.filter((t) => t.id !== selectedType.id));
+    setProjectTypes((prev) => prev.filter((t) => t.id !== selectedType.id));
    } catch (err) {
     alert(err instanceof Error ? err.message : 'Failed to delete project type');
    }
@@ -167,215 +167,12 @@ export default function ProjectTypesPage() {
   setSelectedCategory(null);
  };
 
- // Mock project types - 8 records
- const [mockProjectTypes, setMockProjectTypes] = useState<ProjectType[]>([
-  {
-   id: '1',
-   typeName: 'Commercial Kitchen - Full Installation',
-   typeCode: 'CK-FULL',
-   category: 'Manufacturing',
-   description: 'Complete commercial kitchen design, manufacturing, installation, and commissioning for hotels, restaurants, and institutional facilities',
-   industry: 'Hospitality & F&B',
-   defaultDuration: '5-6 months',
-   budgetRange: '₹75L - ₹1.5Cr',
-   requiredApprovals: 3,
-   defaultWorkflow: 'Design → Approval → Procurement → Manufacturing → Installation → Testing → Handover',
-   customFields: [
-    { fieldName: 'Kitchen Capacity', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Cuisine Type', fieldType: 'Dropdown', isMandatory: true, options: ['Multi-cuisine', 'Indian', 'Continental', 'Chinese', 'Bakery'] },
-    { fieldName: 'FSSAI License Number', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Fire NOC Required', fieldType: 'Boolean', isMandatory: true },
-    { fieldName: 'Expected Service Date', fieldType: 'Date', isMandatory: true },
-   ],
-   projectCount: 48,
-   activeProjects: 12,
-   avgSuccessRate: 92.5,
-   totalRevenue: 435000000,
-   isActive: true,
-   createdDate: '2023-06-15',
-   lastModified: '2024-04-20',
-  },
-  {
-   id: '2',
-   typeName: 'Commercial Kitchen - Upgrade',
-   typeCode: 'CK-UPG',
-   category: 'Service',
-   description: 'Kitchen equipment upgrade and modernization for existing facilities with minimal downtime',
-   industry: 'Hospitality & F&B',
-   defaultDuration: '2-3 months',
-   budgetRange: '₹30L - ₹75L',
-   requiredApprovals: 2,
-   defaultWorkflow: 'Assessment → Design → Approval → Procurement → Installation → Testing → Handover',
-   customFields: [
-    { fieldName: 'Existing Equipment Details', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Downtime Window', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Equipment Disposal Required', fieldType: 'Boolean', isMandatory: false },
-   ],
-   projectCount: 65,
-   activeProjects: 18,
-   avgSuccessRate: 94.8,
-   totalRevenue: 312000000,
-   isActive: true,
-   createdDate: '2023-07-20',
-   lastModified: '2024-05-10',
-  },
-  {
-   id: '3',
-   typeName: 'Cold Room - Standard Installation',
-   typeCode: 'CR-STD',
-   category: 'Manufacturing',
-   description: 'Standard cold room and cold storage installation for warehousing, food processing, and pharmaceutical facilities',
-   industry: 'Food Processing & Logistics',
-   defaultDuration: '4-5 months',
-   budgetRange: '₹90L - ₹2Cr',
-   requiredApprovals: 3,
-   defaultWorkflow: 'Site Survey → Design → Approval → Civil Work → Panel Installation → Refrigeration → Testing → Commissioning',
-   customFields: [
-    { fieldName: 'Storage Capacity (MT)', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Temperature Range', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Commodity Type', fieldType: 'Dropdown', isMandatory: true, options: ['Fruits & Vegetables', 'Frozen Food', 'Dairy', 'Pharmaceuticals', 'General'] },
-    { fieldName: 'Ambient Temperature', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Power Backup Required', fieldType: 'Boolean', isMandatory: true },
-   ],
-   projectCount: 38,
-   activeProjects: 10,
-   avgSuccessRate: 89.5,
-   totalRevenue: 528000000,
-   isActive: true,
-   createdDate: '2023-08-10',
-   lastModified: '2024-05-15',
-  },
-  {
-   id: '4',
-   typeName: 'Cold Room - Modular (Small Scale)',
-   typeCode: 'CR-MOD',
-   category: 'Manufacturing',
-   description: 'Modular cold room solutions for small businesses, restaurants, and retail outlets',
-   industry: 'Retail & F&B',
-   defaultDuration: '1-2 months',
-   budgetRange: '₹15L - ₹40L',
-   requiredApprovals: 1,
-   defaultWorkflow: 'Site Survey → Design → Procurement → Installation → Testing → Handover',
-   customFields: [
-    { fieldName: 'Room Size (sq ft)', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Temperature Requirement', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Installation Location', fieldType: 'Dropdown', isMandatory: true, options: ['Indoor', 'Outdoor', 'Semi-Outdoor'] },
-   ],
-   projectCount: 82,
-   activeProjects: 15,
-   avgSuccessRate: 96.3,
-   totalRevenue: 185000000,
-   isActive: true,
-   createdDate: '2023-09-05',
-   lastModified: '2024-05-20',
-  },
-  {
-   id: '5',
-   typeName: 'Switchgear - Industrial Installation',
-   typeCode: 'SG-IND',
-   category: 'Manufacturing',
-   description: 'Industrial switchgear design, manufacturing, installation, testing, and commissioning for factories and industrial facilities',
-   industry: 'Manufacturing & Industrial',
-   defaultDuration: '5-7 months',
-   budgetRange: '₹1.5Cr - ₹4Cr',
-   requiredApprovals: 4,
-   defaultWorkflow: 'Design → Engineering → Approval → Manufacturing → FAT → Site Installation → Testing → SAT → Commissioning',
-   customFields: [
-    { fieldName: 'Voltage Level', fieldType: 'Dropdown', isMandatory: true, options: ['LT (up to 1kV)', 'HT (11kV)', 'HT (33kV)', 'EHT (66kV+)'] },
-    { fieldName: 'Rated Current', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Panel Type', fieldType: 'Dropdown', isMandatory: true, options: ['Fixed', 'Withdrawable', 'Fixed with Isolators'] },
-    { fieldName: 'Busbar Material', fieldType: 'Dropdown', isMandatory: true, options: ['Copper', 'Aluminum'] },
-    { fieldName: 'Certification Required', fieldType: 'Text', isMandatory: true },
-   ],
-   projectCount: 28,
-   activeProjects: 8,
-   avgSuccessRate: 91.2,
-   totalRevenue: 682000000,
-   isActive: true,
-   createdDate: '2023-08-25',
-   lastModified: '2024-05-05',
-  },
-  {
-   id: '6',
-   typeName: 'Switchgear - Maintenance & Upgrade',
-   typeCode: 'SG-MNT',
-   category: 'Service',
-   description: 'Switchgear maintenance, testing, retrofitting, and selective upgrades',
-   industry: 'Manufacturing & Industrial',
-   defaultDuration: '2-3 months',
-   budgetRange: '₹40L - ₹1Cr',
-   requiredApprovals: 2,
-   defaultWorkflow: 'Assessment → Testing → Report → Approval → Execution → Validation → Certification',
-   customFields: [
-    { fieldName: 'Installation Year', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Last Service Date', fieldType: 'Date', isMandatory: false },
-    { fieldName: 'Issues Reported', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Shutdown Window Available', fieldType: 'Text', isMandatory: true },
-   ],
-   projectCount: 42,
-   activeProjects: 11,
-   avgSuccessRate: 97.1,
-   totalRevenue: 258000000,
-   isActive: true,
-   createdDate: '2023-10-10',
-   lastModified: '2024-05-12',
-  },
-  {
-   id: '7',
-   typeName: 'Central Kitchen - Large Scale',
-   typeCode: 'CK-CENT',
-   category: 'Hybrid',
-   description: 'Large-scale central kitchen for cloud kitchens, catering companies, and institutional facilities',
-   industry: 'Cloud Kitchen & Catering',
-   defaultDuration: '8-10 months',
-   budgetRange: '₹2Cr - ₹6Cr',
-   requiredApprovals: 4,
-   defaultWorkflow: 'Concept → Design → Approval → Civil Work → MEP → Equipment → Installation → Testing → FSSAI → Commissioning',
-   customFields: [
-    { fieldName: 'Meal Capacity (per day)', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Number of Brands/Kitchens', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Automation Level', fieldType: 'Dropdown', isMandatory: true, options: ['Manual', 'Semi-Automated', 'Fully Automated'] },
-    { fieldName: 'Delivery Integration Required', fieldType: 'Boolean', isMandatory: true },
-   ],
-   projectCount: 12,
-   activeProjects: 4,
-   avgSuccessRate: 87.5,
-   totalRevenue: 385000000,
-   isActive: true,
-   createdDate: '2023-11-15',
-   lastModified: '2024-04-25',
-  },
-  {
-   id: '8',
-   typeName: 'Blast Freezer Installation',
-   typeCode: 'BF-INS',
-   category: 'Manufacturing',
-   description: 'Blast freezer installation for seafood processing, ice cream manufacturing, and quick freezing applications',
-   industry: 'Food Processing',
-   defaultDuration: '4-5 months',
-   budgetRange: '₹1Cr - ₹2.5Cr',
-   requiredApprovals: 3,
-   defaultWorkflow: 'Design → Thermal Calculation → Approval → Civil Work → Installation → Refrigeration → Testing → Commissioning',
-   customFields: [
-    { fieldName: 'Freezing Capacity (kg/hr)', fieldType: 'Number', isMandatory: true },
-    { fieldName: 'Target Temperature', fieldType: 'Text', isMandatory: true },
-    { fieldName: 'Product Type', fieldType: 'Dropdown', isMandatory: true, options: ['Seafood', 'Meat', 'Bakery', 'Ice Cream', 'General'] },
-    { fieldName: 'Freezing Time Required', fieldType: 'Text', isMandatory: true },
-   ],
-   projectCount: 15,
-   activeProjects: 3,
-   avgSuccessRate: 93.8,
-   totalRevenue: 225000000,
-   isActive: true,
-   createdDate: '2023-12-01',
-   lastModified: '2024-05-08',
-  },
- ]);
+ const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
 
  useEffect(() => {
   projectManagementService.listPmProjectTypes()
-   .then((rows) => { if (Array.isArray(rows) && rows.length > 0) setMockProjectTypes(rows as unknown as ProjectType[]); })
-   .catch(() => { /* keep seed data on error */ });
+   .then((rows) => { setProjectTypes(Array.isArray(rows) ? (rows as unknown as ProjectType[]) : []); })
+   .catch(() => { setProjectTypes([]); });
  }, []);
 
  // Mock project categories - 6 records
@@ -450,7 +247,7 @@ export default function ProjectTypesPage() {
   },
  ];
 
- const filteredTypes = mockProjectTypes.filter((type) => {
+ const filteredTypes = projectTypes.filter((type) => {
   const matchesSearch =
    type.typeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
    type.typeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -502,8 +299,8 @@ export default function ProjectTypesPage() {
       <div className="flex items-center justify-between">
        <div>
         <p className="text-sm text-gray-600">Project Types</p>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{mockProjectTypes.length}</p>
-        <p className="text-xs text-green-600 mt-1">{mockProjectTypes.filter(t => t.isActive).length} active</p>
+        <p className="text-2xl font-bold text-gray-900 mt-1">{projectTypes.length}</p>
+        <p className="text-xs text-green-600 mt-1">{projectTypes.filter(t => t.isActive).length} active</p>
        </div>
        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
         <FolderKanban className="w-6 h-6 text-blue-600" />
@@ -529,10 +326,10 @@ export default function ProjectTypesPage() {
        <div>
         <p className="text-sm text-gray-600">Total Projects</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         {mockProjectTypes.reduce((sum, t) => sum + t.projectCount, 0)}
+         {projectTypes.reduce((sum, t) => sum + t.projectCount, 0)}
         </p>
         <p className="text-xs text-blue-600 mt-1">
-         {mockProjectTypes.reduce((sum, t) => sum + t.activeProjects, 0)} active
+         {projectTypes.reduce((sum, t) => sum + t.activeProjects, 0)} active
         </p>
        </div>
        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -546,7 +343,7 @@ export default function ProjectTypesPage() {
        <div>
         <p className="text-sm text-gray-600">Total Revenue</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">
-         ₹{(mockProjectTypes.reduce((sum, t) => sum + t.totalRevenue, 0) / 10000000).toFixed(0)}Cr
+         ₹{(projectTypes.reduce((sum, t) => sum + t.totalRevenue, 0) / 10000000).toFixed(0)}Cr
         </p>
         <p className="text-xs text-green-600 mt-1">All time</p>
        </div>
@@ -568,7 +365,7 @@ export default function ProjectTypesPage() {
        : 'text-gray-600 hover:text-gray-900'
      }`}
     >
-     Project Types ({mockProjectTypes.length})
+     Project Types ({projectTypes.length})
     </button>
     <button
      onClick={() => setActiveTab('categories')}

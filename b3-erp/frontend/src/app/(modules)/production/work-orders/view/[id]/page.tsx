@@ -170,391 +170,44 @@ interface ActivityLog {
   details: string;
 }
 
-// Mock data
-const mockWorkOrder: WorkOrder = {
-  id: '1',
-  woNumber: 'WO-2025-00143',
-  productCode: 'MKC-CAB-001',
-  productName: 'Premium Modular Kitchen Cabinet - Upper Unit',
-  productDescription: '900mm x 600mm x 300mm Wall-mounted Cabinet with Soft-close Hinges',
-  drawingNumber: 'DRG-MKC-001-Rev3',
-  revision: 'C',
-  status: 'in_progress',
-  plannedQty: 50,
-  completedQty: 32,
-  rejectedQty: 2,
-  reworkQty: 1,
-  uom: 'Pcs',
-  completionPercentage: 64,
-  plannedStartDate: '2025-10-10',
-  plannedEndDate: '2025-10-20',
-  actualStartDate: '2025-10-10',
+const emptyWorkOrder: WorkOrder = {
+  id: '',
+  woNumber: '',
+  productCode: '',
+  productName: '',
+  productDescription: '',
+  drawingNumber: '',
+  revision: '',
+  status: 'draft',
+  plannedQty: 0,
+  completedQty: 0,
+  rejectedQty: 0,
+  reworkQty: 0,
+  uom: '',
+  completionPercentage: 0,
+  plannedStartDate: '',
+  plannedEndDate: '',
+  actualStartDate: '',
   actualEndDate: '',
-  plannedDuration: 10,
-  actualDuration: 7,
-  salesOrderRef: 'SO-2025-0892',
-  customerName: 'Sharma Modular Kitchens Pvt Ltd',
-  dueDate: '2025-10-22',
-  priority: 'High',
-  workCenter: 'Assembly Line 1',
-  secondaryWorkCenters: ['Machining Center', 'Paint Shop'],
-  shift: 'Morning/Afternoon',
-  supervisor: 'Rajesh Kumar',
-  foreman: 'Amit Patel',
-  bomRef: 'BOM-MKC-CAB-001-Rev2',
-  routingRef: 'RTG-MKC-CAB-001',
-  specialInstructions: 'Customer requires premium finish. Use German hinges (Blum brand). Ensure edge banding is perfect. Test all soft-close mechanisms before packing.',
-  materialCost: 145000,
-  laborCost: 35000,
-  overheadCost: 22000,
-  totalCost: 202000,
+  plannedDuration: 0,
+  actualDuration: 0,
+  salesOrderRef: '',
+  customerName: '',
+  dueDate: '',
+  priority: 'Medium',
+  workCenter: '',
+  secondaryWorkCenters: [],
+  shift: '',
+  supervisor: '',
+  foreman: '',
+  bomRef: '',
+  routingRef: '',
+  specialInstructions: '',
+  materialCost: 0,
+  laborCost: 0,
+  overheadCost: 0,
+  totalCost: 0,
 };
-
-const mockMaterials: MaterialRequirement[] = [
-  {
-    id: '1',
-    itemCode: 'PLY-18MM-BWP',
-    description: 'BWP Plywood 18mm - 8ft x 4ft (IS 303)',
-    requiredQty: 25,
-    issuedQty: 25,
-    consumedQty: 23,
-    variance: 2,
-    uom: 'Sheets',
-    stockAvailable: 150,
-    stockStatus: 'available',
-  },
-  {
-    id: '2',
-    itemCode: 'HNG-BLM-165',
-    description: 'Blum Soft-close Hinges 165° - European Standard',
-    requiredQty: 200,
-    issuedQty: 200,
-    consumedQty: 196,
-    variance: 4,
-    uom: 'Pcs',
-    stockAvailable: 850,
-    stockStatus: 'available',
-  },
-  {
-    id: '3',
-    itemCode: 'HDWR-KNB-SS',
-    description: 'Stainless Steel Cabinet Handles - Chrome Finish',
-    requiredQty: 100,
-    issuedQty: 100,
-    consumedQty: 98,
-    variance: 2,
-    uom: 'Pcs',
-    stockAvailable: 450,
-    stockStatus: 'available',
-  },
-  {
-    id: '4',
-    itemCode: 'LMNT-PVC-2MM',
-    description: 'PVC Edge Banding - Oak Finish 2mm x 50m',
-    requiredQty: 15,
-    issuedQty: 12,
-    consumedQty: 11,
-    variance: 1,
-    uom: 'Rolls',
-    stockAvailable: 8,
-    stockStatus: 'shortage',
-  },
-  {
-    id: '5',
-    itemCode: 'PAINT-PU-WHT',
-    description: 'Polyurethane Paint - Pure White Matt Finish',
-    requiredQty: 20,
-    issuedQty: 18,
-    consumedQty: 17,
-    variance: 1,
-    uom: 'Ltrs',
-    stockAvailable: 45,
-    stockStatus: 'available',
-  },
-];
-
-const mockOperations: Operation[] = [
-  {
-    id: '1',
-    sequence: 10,
-    operationName: 'Cutting & Sizing',
-    workCenter: 'CNC Cutting Center',
-    setupTime: 30,
-    runTime: 240,
-    plannedStart: '2025-10-10 08:00',
-    actualStart: '2025-10-10 08:15',
-    plannedEnd: '2025-10-10 12:30',
-    actualEnd: '2025-10-10 12:45',
-    status: 'completed',
-    operator: 'Vijay Singh',
-    completionPercentage: 100,
-  },
-  {
-    id: '2',
-    sequence: 20,
-    operationName: 'Edge Banding',
-    workCenter: 'Edge Banding Machine',
-    setupTime: 20,
-    runTime: 180,
-    plannedStart: '2025-10-11 08:00',
-    actualStart: '2025-10-11 08:10',
-    plannedEnd: '2025-10-11 11:20',
-    actualEnd: '2025-10-11 11:35',
-    status: 'completed',
-    operator: 'Suresh Yadav',
-    completionPercentage: 100,
-  },
-  {
-    id: '3',
-    sequence: 30,
-    operationName: 'Drilling & Hardware Mounting',
-    workCenter: 'Assembly Line 1',
-    setupTime: 15,
-    runTime: 360,
-    plannedStart: '2025-10-12 08:00',
-    actualStart: '2025-10-12 08:05',
-    plannedEnd: '2025-10-12 14:15',
-    actualEnd: '2025-10-12 14:30',
-    status: 'completed',
-    operator: 'Ramesh Kumar',
-    completionPercentage: 100,
-  },
-  {
-    id: '4',
-    sequence: 40,
-    operationName: 'Painting & Finishing',
-    workCenter: 'Paint Shop',
-    setupTime: 45,
-    runTime: 420,
-    plannedStart: '2025-10-15 08:00',
-    actualStart: '2025-10-15 08:30',
-    plannedEnd: '2025-10-15 15:45',
-    actualEnd: '',
-    status: 'in_progress',
-    operator: 'Anil Sharma',
-    completionPercentage: 65,
-  },
-  {
-    id: '5',
-    sequence: 50,
-    operationName: 'Quality Inspection',
-    workCenter: 'QC Station',
-    setupTime: 10,
-    runTime: 90,
-    plannedStart: '2025-10-18 08:00',
-    actualStart: '',
-    plannedEnd: '2025-10-18 09:40',
-    actualEnd: '',
-    status: 'pending',
-    operator: 'QC Team',
-    completionPercentage: 0,
-  },
-  {
-    id: '6',
-    sequence: 60,
-    operationName: 'Packing & Dispatch',
-    workCenter: 'Packing Station',
-    setupTime: 15,
-    runTime: 120,
-    plannedStart: '2025-10-19 08:00',
-    actualStart: '',
-    plannedEnd: '2025-10-19 10:15',
-    actualEnd: '',
-    status: 'pending',
-    operator: 'Packing Team',
-    completionPercentage: 0,
-  },
-];
-
-const mockProgressTracking: ProgressTracking[] = [
-  {
-    id: '1',
-    date: '2025-10-15',
-    shift: 'Morning',
-    quantityProduced: 8,
-    quantityRejected: 0,
-    quantityRework: 0,
-    operator: 'Anil Sharma',
-    remarks: 'Smooth operation. Good finish quality.',
-  },
-  {
-    id: '2',
-    date: '2025-10-15',
-    shift: 'Afternoon',
-    quantityProduced: 7,
-    quantityRejected: 1,
-    quantityRework: 0,
-    operator: 'Anil Sharma',
-    remarks: '1 pc rejected due to paint runs. To be reworked.',
-  },
-  {
-    id: '3',
-    date: '2025-10-16',
-    shift: 'Morning',
-    quantityProduced: 9,
-    quantityRejected: 0,
-    quantityRework: 1,
-    operator: 'Anil Sharma',
-    remarks: 'Completed rework. All good.',
-  },
-  {
-    id: '4',
-    date: '2025-10-16',
-    shift: 'Afternoon',
-    quantityProduced: 8,
-    quantityRejected: 1,
-    quantityRework: 0,
-    operator: 'Anil Sharma',
-    remarks: '1 pc rejected - surface scratches. Scrap.',
-  },
-];
-
-const mockDowntimeRecords: DowntimeRecord[] = [
-  {
-    id: '1',
-    date: '2025-10-14',
-    shift: 'Morning',
-    reason: 'material_shortage',
-    duration: 120,
-    description: 'Edge banding material shortage. Production stopped.',
-    actionTaken: 'Emergency purchase from local supplier. Material arrived at 11:30 AM.',
-  },
-  {
-    id: '2',
-    date: '2025-10-15',
-    shift: 'Afternoon',
-    reason: 'breakdown',
-    duration: 45,
-    description: 'Paint spray gun malfunction. Nozzle blocked.',
-    actionTaken: 'Maintenance team cleaned and replaced nozzle. Back in operation.',
-  },
-  {
-    id: '3',
-    date: '2025-10-16',
-    shift: 'Morning',
-    reason: 'change_over',
-    duration: 30,
-    description: 'Change over from white to oak finish paint.',
-    actionTaken: 'Cleaned spray booth and changed paint batch. Standard procedure.',
-  },
-];
-
-const mockQualityRecords: QualityRecord[] = [
-  {
-    id: '1',
-    inspectionType: 'in_process',
-    date: '2025-10-12',
-    inspector: 'Priya Desai',
-    parameter: 'Edge Banding Adhesion',
-    specification: 'No gaps, smooth finish',
-    actualValue: 'Perfect adhesion, no gaps',
-    result: 'pass',
-    remarks: 'All samples passed inspection.',
-  },
-  {
-    id: '2',
-    inspectionType: 'in_process',
-    date: '2025-10-13',
-    inspector: 'Priya Desai',
-    parameter: 'Drilling Accuracy',
-    specification: '± 0.5mm tolerance',
-    actualValue: '± 0.3mm',
-    result: 'pass',
-    remarks: 'Within tolerance. Good accuracy.',
-  },
-  {
-    id: '3',
-    inspectionType: 'in_process',
-    date: '2025-10-15',
-    inspector: 'Priya Desai',
-    parameter: 'Paint Finish Quality',
-    specification: 'Smooth, no runs, uniform',
-    actualValue: '2 pcs with paint runs',
-    result: 'fail',
-    remarks: '2 pieces rejected for rework.',
-  },
-  {
-    id: '4',
-    inspectionType: 'in_process',
-    date: '2025-10-16',
-    inspector: 'Priya Desai',
-    parameter: 'Soft-close Mechanism',
-    specification: 'Smooth closing, no noise',
-    actualValue: 'All hinges working perfectly',
-    result: 'pass',
-    remarks: 'German hinges performing excellently.',
-  },
-];
-
-const mockRejectionDetails: RejectionDetail[] = [
-  {
-    id: '1',
-    date: '2025-10-15',
-    quantity: 1,
-    reason: 'Paint runs on surface - unacceptable finish quality',
-    disposition: 'rework',
-    approvedBy: 'Rajesh Kumar',
-  },
-  {
-    id: '2',
-    date: '2025-10-16',
-    quantity: 1,
-    reason: 'Deep scratches on door panel during handling',
-    disposition: 'scrap',
-    approvedBy: 'Rajesh Kumar',
-  },
-];
-
-const mockActivityLog: ActivityLog[] = [
-  {
-    id: '1',
-    date: '2025-10-10',
-    time: '08:00',
-    action: 'Work Order Released',
-    performedBy: 'Rajesh Kumar',
-    details: 'WO released to production floor for execution',
-  },
-  {
-    id: '2',
-    date: '2025-10-10',
-    time: '08:15',
-    action: 'Production Started',
-    performedBy: 'Vijay Singh',
-    details: 'Started Cutting & Sizing operation',
-  },
-  {
-    id: '3',
-    date: '2025-10-10',
-    time: '09:30',
-    action: 'Material Issued',
-    performedBy: 'Store Keeper',
-    details: 'All materials issued from warehouse to production',
-  },
-  {
-    id: '4',
-    date: '2025-10-12',
-    time: '10:30',
-    action: 'Quality Inspection Completed',
-    performedBy: 'Priya Desai',
-    details: 'In-process inspection for drilling accuracy - Passed',
-  },
-  {
-    id: '5',
-    date: '2025-10-14',
-    time: '09:15',
-    action: 'Downtime Recorded',
-    performedBy: 'Rajesh Kumar',
-    details: 'Material shortage - Edge banding. 2 hours downtime.',
-  },
-  {
-    id: '6',
-    date: '2025-10-15',
-    time: '15:30',
-    action: 'Rejection Recorded',
-    performedBy: 'Anil Sharma',
-    details: '1 pc rejected due to paint runs. Sent for rework.',
-  },
-];
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-700 border-gray-300',
@@ -599,7 +252,14 @@ export default function ViewWorkOrderPage() {
   const router = useRouter();
   const params = useParams();
   const workOrderId = params.id as string;
-  const [workOrder, setWorkOrder] = useState<WorkOrder>(mockWorkOrder);
+  const [workOrder, setWorkOrder] = useState<WorkOrder>(emptyWorkOrder);
+  const materials: MaterialRequirement[] = [];
+  const operations: Operation[] = [];
+  const progressTracking: ProgressTracking[] = [];
+  const downtimeRecords: DowntimeRecord[] = [];
+  const qualityRecords: QualityRecord[] = [];
+  const rejectionDetails: RejectionDetail[] = [];
+  const activityLog: ActivityLog[] = [];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -731,7 +391,7 @@ export default function ViewWorkOrderPage() {
       )}
       {error && (
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {error} — showing sample data.
+          {error}
         </div>
       )}
       {/* Header */}
@@ -1203,18 +863,18 @@ export default function ViewWorkOrderPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xl font-bold text-gray-900">Materials Required</h3>
-                <span className="text-sm text-gray-600">{mockMaterials.length} items</span>
+                <span className="text-sm text-gray-600">{materials.length} items</span>
               </div>
 
               {/* Material Shortage Alert */}
-              {mockMaterials.some(m => m.stockStatus === 'shortage' || m.stockStatus === 'critical') && (
+              {materials.some(m => m.stockStatus === 'shortage' || m.stockStatus === 'critical') && (
                 <div className="mb-2 bg-orange-50 border-l-4 border-orange-500 p-3">
                   <div className="flex">
                     <AlertTriangle className="h-5 w-5 text-orange-600" />
                     <div className="ml-3">
                       <p className="text-sm font-medium text-orange-800">Material Shortage Alert</p>
                       <p className="text-xs text-orange-700 mt-1">
-                        {mockMaterials.filter(m => m.stockStatus === 'shortage' || m.stockStatus === 'critical').length} items have stock shortage. Action required.
+                        {materials.filter(m => m.stockStatus === 'shortage' || m.stockStatus === 'critical').length} items have stock shortage. Action required.
                       </p>
                     </div>
                   </div>
@@ -1235,7 +895,7 @@ export default function ViewWorkOrderPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockMaterials.map((material, index) => (
+                    {materials.map((material, index) => (
                       <tr key={material.id} className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                         <td className="px-4 py-4 text-sm font-medium text-gray-900">{material.itemCode}</td>
                         <td className="px-4 py-4 text-sm text-gray-900">{material.description}</td>
@@ -1272,11 +932,11 @@ export default function ViewWorkOrderPage() {
             <div className="mt-8">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xl font-bold text-gray-900">Operations / Routing</h3>
-                <span className="text-sm text-gray-600">{mockOperations.length} operations</span>
+                <span className="text-sm text-gray-600">{operations.length} operations</span>
               </div>
 
               <div className="space-y-2">
-                {mockOperations.map((operation, index) => (
+                {operations.map((operation, index) => (
                   <div key={operation.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3">
@@ -1412,7 +1072,7 @@ export default function ViewWorkOrderPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockProgressTracking.map((record, index) => (
+                    {progressTracking.map((record, index) => (
                       <tr key={record.id} className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                         <td className="px-4 py-4 text-sm text-gray-900">{record.date}</td>
                         <td className="px-4 py-4">
@@ -1450,7 +1110,7 @@ export default function ViewWorkOrderPage() {
             <div className="mt-8">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Downtime Log</h3>
               <div className="space-y-2">
-                {mockDowntimeRecords.map((record) => (
+                {downtimeRecords.map((record) => (
                   <div key={record.id} className="border border-gray-200 rounded-lg p-3 bg-red-50">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3">
@@ -1546,7 +1206,7 @@ export default function ViewWorkOrderPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockQualityRecords.map((record, index) => (
+                    {qualityRecords.map((record, index) => (
                       <tr key={record.id} className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                         <td className="px-4 py-4">
                           <span className="px-2 py-1 text-xs font-semibold rounded bg-purple-100 text-purple-700">
@@ -1583,7 +1243,7 @@ export default function ViewWorkOrderPage() {
             <div className="mt-8">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Rejection Details</h3>
               <div className="space-y-2">
-                {mockRejectionDetails.map((rejection) => (
+                {rejectionDetails.map((rejection) => (
                   <div key={rejection.id} className="border border-red-200 rounded-lg p-3 bg-red-50">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start space-x-3">
@@ -1673,8 +1333,8 @@ export default function ViewWorkOrderPage() {
           Activity Timeline
         </h2>
         <div className="space-y-2">
-          {mockActivityLog.map((activity, index) => {
-            const isLast = index === mockActivityLog.length - 1;
+          {activityLog.map((activity, index) => {
+            const isLast = index === activityLog.length - 1;
             return (
               <div key={activity.id} className="relative">
                 {!isLast && (

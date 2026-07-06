@@ -162,28 +162,32 @@ export default function CycleCountPage() {
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  // Helper function to convert CycleCount to CycleCountSession
-  const convertToSession = (count: CycleCount): CycleCountSession => {
-    // Generate mock items for the session
-    const mockItems: CycleCountItem[] = Array.from({ length: count.itemsToCount }, (_, index) => ({
-      itemId: `item-${count.id}-${index + 1}`,
-      itemCode: `ITM-${String(index + 1).padStart(4, '0')}`,
-      itemName: `Item ${index + 1}`,
-      location: count.warehouse,
-      zone: count.zone,
-      bin: `BIN-${String(index + 1).padStart(3, '0')}`,
-      expectedQuantity: Math.floor(Math.random() * 100) + 10,
-      countedQuantity: index < count.itemsCounted ? Math.floor(Math.random() * 100) + 10 : 0,
-      variance: 0,
-      variancePercentage: 0,
-      status: index < count.itemsCounted ? 'counted' : 'pending',
-      countedBy: index < count.itemsCounted ? count.assignedTo : undefined,
-      countedDate: index < count.itemsCounted ? count.scheduledDate : undefined,
-      notes: ''
-    }));
+  // Map backend cycle-count line rows to the modal's CycleCountItem shape.
+  const mapSessionItems = (count: CycleCount, rawItems: any[]): CycleCountItem[] => {
+    const items: CycleCountItem[] = (rawItems || []).map((l: any, index: number) => {
+      const expected = Number(l.expectedQuantity ?? l.systemQuantity ?? 0);
+      const counted = Number(l.countedQuantity ?? l.physicalQuantity ?? 0);
+      const isCounted = l.countedQuantity != null || l.physicalQuantity != null;
+      return {
+        itemId: String(l.itemId ?? l.id ?? `${count.id}-${index + 1}`),
+        itemCode: l.itemCode ?? '',
+        itemName: l.itemName ?? '',
+        location: l.location ?? l.warehouseName ?? count.warehouse,
+        zone: l.zone ?? l.zoneName ?? count.zone,
+        bin: l.bin ?? l.binName ?? '-',
+        expectedQuantity: expected,
+        countedQuantity: counted,
+        variance: 0,
+        variancePercentage: 0,
+        status: (isCounted ? 'counted' : 'pending') as CycleCountItem['status'],
+        countedBy: l.countedByName ?? l.countedBy ?? (isCounted ? count.assignedTo : undefined),
+        countedDate: l.countedDate ?? (isCounted ? count.scheduledDate : undefined),
+        notes: l.notes ?? ''
+      };
+    });
 
     // Calculate variance for counted items
-    mockItems.forEach(item => {
+    items.forEach(item => {
       if (item.countedQuantity > 0) {
         item.variance = item.countedQuantity - item.expectedQuantity;
         item.variancePercentage = item.expectedQuantity > 0
@@ -194,6 +198,29 @@ export default function CycleCountPage() {
         }
       }
     });
+
+    return items;
+  };
+
+  // Fetch real cycle-count line items from the backend detail endpoint.
+  const loadSessionItems = async (count: CycleCount): Promise<CycleCountItem[]> => {
+    try {
+      const detail = (await inventoryService.getCycleCount(count.id)) as any;
+      const raw: any[] = Array.isArray(detail?.items)
+        ? detail.items
+        : Array.isArray(detail?.lines)
+          ? detail.lines
+          : [];
+      return mapSessionItems(count, raw);
+    } catch (err) {
+      console.error('Failed to load cycle-count items', err);
+      return [];
+    }
+  };
+
+  // Helper function to convert CycleCount to CycleCountSession
+  const convertToSession = (count: CycleCount, sessionItems: CycleCountItem[] = []): CycleCountSession => {
+    const items = sessionItems;
 
     const sessionStatus: 'draft' | 'in-progress' | 'completed' | 'verified' =
       count.status === 'scheduled' ? 'draft' :
@@ -208,7 +235,7 @@ export default function CycleCountPage() {
       zones: [count.zone],
       countDate: count.scheduledDate,
       assignedTo: count.assignedTo,
-      items: mockItems,
+      items,
       status: sessionStatus,
       progress: count.itemsToCount > 0 ? Math.round((count.itemsCounted / count.itemsToCount) * 100) : 0,
       totalItems: count.itemsToCount,
@@ -361,8 +388,9 @@ export default function CycleCountPage() {
     }
   };
 
-  const handleViewDetails = (count: CycleCount) => {
-    const session = convertToSession(count);
+  const handleViewDetails = async (count: CycleCount) => {
+    const items = await loadSessionItems(count);
+    const session = convertToSession(count, items);
     setSelectedSession(session);
     setIsViewDetailsModalOpen(true);
   };
@@ -393,17 +421,19 @@ export default function CycleCountPage() {
     }
   };
 
-  const handleVarianceClick = (count: CycleCount) => {
+  const handleVarianceClick = async (count: CycleCount) => {
     if (count.variancesFound > 0) {
-      const session = convertToSession(count);
+      const items = await loadSessionItems(count);
+      const session = convertToSession(count, items);
       const analysis = generateVarianceAnalysis(session);
       setSelectedVarianceAnalysis(analysis);
       setIsVarianceAnalysisModalOpen(true);
     }
   };
 
-  const handlePerformCount = (count: CycleCount) => {
-    const session = convertToSession(count);
+  const handlePerformCount = async (count: CycleCount) => {
+    const items = await loadSessionItems(count);
+    const session = convertToSession(count, items);
     setSelectedSession(session);
     setIsPerformCountModalOpen(true);
   };

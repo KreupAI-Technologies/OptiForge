@@ -72,92 +72,6 @@ interface CostingActivity {
   };
 }
 
-// Mock data
-const mockCosting: Costing = {
-  id: '1',
-  costingNumber: 'COST-2025-045',
-  boqNumber: 'BOQ-2025-001',
-  projectName: 'Manufacturing Plant Expansion - Phase 2',
-  clientName: 'Tata Steel Ltd.',
-  status: 'approved',
-  totalMaterialCost: 8500000,
-  totalLaborCost: 2800000,
-  totalOverheadCost: 1200000,
-  manufacturingOverheadPercent: 15,
-  administrativeOverheadPercent: 8,
-  profitMarginPercent: 18,
-  totalCost: 12500000,
-  finalPrice: 17850000,
-  marginAmount: 5350000,
-  currency: 'INR',
-  createdBy: 'Priya Sharma',
-  createdDate: '2025-10-05',
-  approvedBy: 'Rajesh Kumar - Finance Head',
-  approvedDate: '2025-10-12',
-};
-
-const mockCostItems: CostItem[] = [
-  {
-    id: '1',
-    description: 'Structural Steel IS 2062 Grade',
-    category: 'materials',
-    quantity: 450,
-    unit: 'MT',
-    unitCost: 65000,
-    totalCost: 29250000,
-  },
-  {
-    id: '2',
-    description: 'Welding & Fabrication',
-    category: 'labor',
-    quantity: 800,
-    unit: 'Hrs',
-    unitCost: 850,
-    totalCost: 680000,
-  },
-  {
-    id: '3',
-    description: 'Crane Rental',
-    category: 'equipment',
-    quantity: 30,
-    unit: 'Days',
-    unitCost: 15000,
-    totalCost: 450000,
-  },
-];
-
-const mockActivities: CostingActivity[] = [
-  {
-    id: 'a1',
-    costingId: '1',
-    type: 'status_change',
-    title: 'Costing Approved',
-    description: 'Cost estimation approved by Finance Head',
-    performedBy: 'Rajesh Kumar',
-    timestamp: '2025-10-12 15:30',
-    metadata: { previousStatus: 'pending_approval', newStatus: 'approved' }
-  },
-  {
-    id: 'a2',
-    costingId: '1',
-    type: 'revision',
-    title: 'Margin Adjusted',
-    description: 'Profit margin adjusted based on market analysis',
-    performedBy: 'Priya Sharma',
-    timestamp: '2025-10-10 11:20',
-    metadata: { previousMargin: 15, newMargin: 18 }
-  },
-  {
-    id: 'a3',
-    costingId: '1',
-    type: 'calculation',
-    title: 'Cost Calculation Completed',
-    description: 'All cost items calculated with overheads and margins applied',
-    performedBy: 'Priya Sharma',
-    timestamp: '2025-10-08 14:45'
-  },
-];
-
 const getCostingStages = (costing: Costing) => {
   return [
     { id: 'draft', name: 'Draft', status: 'completed', date: costing.createdDate, icon: FileText, color: 'gray' },
@@ -196,7 +110,9 @@ export default function ViewCostingPage() {
   const params = useParams();
   const costingId = params.id as string;
 
-  const [costing, setCosting] = useState<Costing>(mockCosting);
+  const [costing, setCosting] = useState<Costing | null>(null);
+  const [costItems] = useState<CostItem[]>([]);
+  const [activities] = useState<CostingActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -208,21 +124,28 @@ export default function ViewCostingPage() {
       try {
         const raw = (await costEstimateService.findOne('default', costingId)) as any;
         if (!cancelled && raw) {
-          setCosting((prev) => ({
-            ...prev,
-            id: raw.id ?? prev.id,
-            costingNumber: raw.estimateNumber ?? prev.costingNumber,
-            projectName: raw.title ?? prev.projectName,
-            clientName: raw.customerName ?? prev.clientName,
-            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as Costing['status']) || prev.status,
-            totalMaterialCost: raw.materialCost != null ? Number(raw.materialCost) : prev.totalMaterialCost,
-            totalLaborCost: raw.laborCost != null ? Number(raw.laborCost) : prev.totalLaborCost,
-            totalOverheadCost: raw.overheadCost != null ? Number(raw.overheadCost) : prev.totalOverheadCost,
-            totalCost: raw.totalCost != null ? Number(raw.totalCost) : prev.totalCost,
-            currency: raw.currency ?? prev.currency,
-            createdBy: raw.submittedBy ?? prev.createdBy,
-            approvedBy: raw.approvedBy ?? prev.approvedBy,
-          }));
+          setCosting({
+            id: raw.id ?? costingId,
+            costingNumber: raw.estimateNumber ?? '',
+            boqNumber: raw.boqNumber ?? '',
+            projectName: raw.title ?? '',
+            clientName: raw.customerName ?? '',
+            status: (String(raw.status ?? '').toLowerCase().replace(/\s+/g, '_') as Costing['status']) || 'draft',
+            totalMaterialCost: raw.materialCost != null ? Number(raw.materialCost) : 0,
+            totalLaborCost: raw.laborCost != null ? Number(raw.laborCost) : 0,
+            totalOverheadCost: raw.overheadCost != null ? Number(raw.overheadCost) : 0,
+            manufacturingOverheadPercent: raw.manufacturingOverheadPercent != null ? Number(raw.manufacturingOverheadPercent) : 0,
+            administrativeOverheadPercent: raw.administrativeOverheadPercent != null ? Number(raw.administrativeOverheadPercent) : 0,
+            profitMarginPercent: raw.profitMarginPercent != null ? Number(raw.profitMarginPercent) : 0,
+            totalCost: raw.totalCost != null ? Number(raw.totalCost) : 0,
+            finalPrice: raw.finalPrice != null ? Number(raw.finalPrice) : 0,
+            marginAmount: raw.marginAmount != null ? Number(raw.marginAmount) : 0,
+            currency: raw.currency ?? 'INR',
+            createdBy: raw.submittedBy ?? '',
+            createdDate: raw.createdDate ?? '',
+            approvedBy: raw.approvedBy ?? null,
+            approvedDate: raw.approvedDate ?? null,
+          });
         }
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load costing');
@@ -245,10 +168,10 @@ export default function ViewCostingPage() {
   ];
 
   const categoryTotals = {
-    materials: mockCostItems.filter(i => i.category === 'materials').reduce((sum, i) => sum + i.totalCost, 0),
-    labor: mockCostItems.filter(i => i.category === 'labor').reduce((sum, i) => sum + i.totalCost, 0),
-    equipment: mockCostItems.filter(i => i.category === 'equipment').reduce((sum, i) => sum + i.totalCost, 0),
-    overhead: mockCostItems.filter(i => i.category === 'overhead').reduce((sum, i) => sum + i.totalCost, 0),
+    materials: costItems.filter(i => i.category === 'materials').reduce((sum, i) => sum + i.totalCost, 0),
+    labor: costItems.filter(i => i.category === 'labor').reduce((sum, i) => sum + i.totalCost, 0),
+    equipment: costItems.filter(i => i.category === 'equipment').reduce((sum, i) => sum + i.totalCost, 0),
+    overhead: costItems.filter(i => i.category === 'overhead').reduce((sum, i) => sum + i.totalCost, 0),
   };
 
   return (
@@ -263,6 +186,10 @@ export default function ViewCostingPage() {
           {loadError}
         </div>
       )}
+      {!isLoading && !costing ? (
+        <div className="p-6 text-gray-500">Costing not found.</div>
+      ) : !costing ? null : (
+      <>
       {/* Header */}
       <div className="mb-3">
         <button
@@ -557,7 +484,7 @@ export default function ViewCostingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {mockCostItems.map((item) => (
+                  {costItems.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.description}</td>
                       <td className="px-4 py-3">
@@ -585,11 +512,13 @@ export default function ViewCostingPage() {
             </div>
 
             <div className="space-y-2">
-              {mockActivities
-                .filter(activity => activity.costingId === costingId)
+              {activities.length === 0 && (
+                <p className="text-sm text-gray-500">No activity recorded.</p>
+              )}
+              {activities
                 .map((activity, index) => {
                   const ActivityIcon = activityIcons[activity.type];
-                  const isLast = index === mockActivities.filter(a => a.costingId === costingId).length - 1;
+                  const isLast = index === activities.length - 1;
 
                   return (
                     <div key={activity.id} className="relative">
@@ -622,6 +551,8 @@ export default function ViewCostingPage() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

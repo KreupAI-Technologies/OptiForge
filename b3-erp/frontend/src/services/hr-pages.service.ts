@@ -138,10 +138,22 @@ export class HrPagesService {
   static shifts<T = any[]>(): Promise<T> {
     return request<T>('/hr/shifts');
   }
+  static createShift<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/shifts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
 
   // ---- Timesheets --------------------------------------------------------
   static timesheets<T = any[]>(): Promise<T> {
     return request<T>('/hr/timesheets');
+  }
+  static createAttendanceRecord<T = any>(payload: Record<string, unknown>): Promise<T> {
+    return request<T>('/hr/attendance-records', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   /** Generic escape hatch for one-off endpoints. */

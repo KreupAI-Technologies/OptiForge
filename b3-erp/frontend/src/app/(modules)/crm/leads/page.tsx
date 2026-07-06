@@ -4,13 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Building2, User, Users, Calendar, TrendingUp, X, Globe, Clock, CheckCircle, MessageSquare, FileText, PhoneCall, Video, Send, Activity, ArrowRight, Circle, ChevronLeft, ChevronRight, Download, RefreshCw, Upload, Filter, Save, Check, UserPlus, MoreVertical, FileSpreadsheet, ArrowUpDown } from 'lucide-react';
 import { DataTable, EmptyState, LoadingState, PageToolbar, ConfirmDialog, useToast } from '@/components/ui';
-import { LeadService, Lead as LeadFromService, MOCK_LEAD_ACTIVITIES } from '@/services/lead.service';
+import { LeadService, Lead as LeadFromService, LeadActivity } from '@/services/lead.service';
 
 // Use Lead interface from service - local type alias for component
 type Lead = LeadFromService;
-
-// LeadActivity imported from service
-const mockActivities = MOCK_LEAD_ACTIVITIES;
 
 interface LeadStage {
   id: string;
@@ -94,6 +91,7 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [selectedLeadActivities, setSelectedLeadActivities] = useState<LeadActivity[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -189,6 +187,27 @@ export default function LeadsPage() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [selectedLeadIds, leads, router]);
+
+  // Fetch activities for the currently selected lead (detail modal)
+  useEffect(() => {
+    let active = true;
+    if (!selectedLead) {
+      setSelectedLeadActivities([]);
+      return;
+    }
+    (async () => {
+      try {
+        const data = await LeadService.getLeadActivities(selectedLead.id);
+        if (active) setSelectedLeadActivities(data);
+      } catch (err) {
+        console.error('Failed to fetch lead activities:', err);
+        if (active) setSelectedLeadActivities([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [selectedLead]);
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
@@ -447,7 +466,7 @@ export default function LeadsPage() {
 
   // Get impact analysis for delete
   const getDeleteImpactAnalysis = (lead: Lead) => {
-    const activities = mockActivities.filter(a => a.leadId === lead.id).length;
+    const activities = selectedLeadActivities.filter(a => a.leadId === lead.id).length;
     return [
       { label: 'Activities', count: activities },
       { label: 'Opportunities', count: 1 },
@@ -1579,11 +1598,11 @@ export default function LeadsPage() {
 
                   {/* Activities List */}
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {mockActivities
+                    {selectedLeadActivities
                       .filter(activity => activity.leadId === selectedLead.id)
                       .map((activity, index) => {
                         const ActivityIcon = activityIcons[activity.type];
-                        const isLast = index === mockActivities.filter(a => a.leadId === selectedLead.id).length - 1;
+                        const isLast = index === selectedLeadActivities.filter(a => a.leadId === selectedLead.id).length - 1;
 
                         return (
                           <div key={activity.id} className="relative">
@@ -1686,7 +1705,7 @@ export default function LeadsPage() {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500 uppercase">Activities</p>
-                        <p className="text-sm font-semibold text-gray-900">{mockActivities.filter(a => a.leadId === selectedLead.id).length} Total</p>
+                        <p className="text-sm font-semibold text-gray-900">{selectedLeadActivities.filter(a => a.leadId === selectedLead.id).length} Total</p>
                       </div>
                     </div>
                   </div>

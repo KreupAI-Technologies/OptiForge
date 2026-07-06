@@ -95,42 +95,26 @@ interface ShipmentForm {
 export default function AddShipmentPage() {
   const router = useRouter();
 
-  // Seed fallbacks — kept as unused backup per wiring convention
-  const mockWarehousesSeed = [
-    {
-      code: 'WH-001',
-      name: 'Main Warehouse - Pune',
-      address: 'Plot No. 45, MIDC Industrial Area',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '411019',
-      contact: 'Suresh Patil',
-      phone: '+91 98765 11111',
-    },
-    {
-      code: 'WH-002',
-      name: 'Distribution Center - Mumbai',
-      address: 'Unit 23, Logistics Park, Bhiwandi',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '421302',
-      contact: 'Rajesh Sharma',
-      phone: '+91 98765 22222',
-    },
-  ];
+  type WarehouseItem = {
+    code: string;
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    pincode: string;
+    contact: string;
+    phone: string;
+  };
+  type StockItem = {
+    code: string;
+    name: string;
+    stock: number;
+    weight: number;
+    volume: number;
+  };
 
-  const mockStockItemsSeed = [
-    { code: 'RM-001', name: 'Steel Sheets - Grade 304', stock: 150, weight: 50, volume: 0.25 },
-    { code: 'RM-002', name: 'Aluminum Rods', stock: 200, weight: 15, volume: 0.08 },
-    { code: 'COMP-001', name: 'Electric Motors - 5HP', stock: 80, weight: 25, volume: 0.15 },
-    { code: 'FG-001', name: 'Finished Panel Assembly', stock: 45, weight: 120, volume: 1.5 },
-  ];
-
-  type WarehouseItem = typeof mockWarehousesSeed[0];
-  type StockItem = typeof mockStockItemsSeed[0];
-
-  const [mockWarehouses, setMockWarehouses] = useState<WarehouseItem[]>(mockWarehousesSeed);
-  const [mockStockItems, setMockStockItems] = useState<StockItem[]>(mockStockItemsSeed);
+  const [warehouses, setWarehouses] = useState<WarehouseItem[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [warehousesLoading, setWarehousesLoading] = useState(false);
   const [stockItemsLoading, setStockItemsLoading] = useState(false);
 
@@ -226,32 +210,28 @@ export default function AddShipmentPage() {
   useEffect(() => {
     setWarehousesLoading(true);
     MasterDataService.getWarehouses().then((live) => {
-      if (live.length > 0) {
-        setMockWarehouses(live.map((w: MDWarehouse) => ({
-          code: w.warehouseCode || w.id,
-          name: w.warehouseName || w.warehouseCode || w.id,
-          address: '',
-          city: w.city || '',
-          state: '',
-          pincode: '',
-          contact: '',
-          phone: '',
-        })));
-      }
+      setWarehouses(live.map((w: MDWarehouse) => ({
+        code: w.warehouseCode || w.id,
+        name: w.warehouseName || w.warehouseCode || w.id,
+        address: '',
+        city: w.city || '',
+        state: '',
+        pincode: '',
+        contact: '',
+        phone: '',
+      })));
       setWarehousesLoading(false);
     });
 
     setStockItemsLoading(true);
     MasterDataService.getProducts().then((live) => {
-      if (live.length > 0) {
-        setMockStockItems(live.map((p: MDProduct) => ({
-          code: p.sku || p.id,
-          name: p.name || p.productName || p.sku || p.id,
-          stock: 0,
-          weight: 0,
-          volume: 0,
-        })));
-      }
+      setStockItems(live.map((p: MDProduct) => ({
+        code: p.sku || p.id,
+        name: p.name || p.productName || p.sku || p.id,
+        stock: 0,
+        weight: 0,
+        volume: 0,
+      })));
       setStockItemsLoading(false);
     });
   }, []);
@@ -290,7 +270,7 @@ export default function AddShipmentPage() {
   };
 
   const handleWarehouseSelect = (warehouseCode: string) => {
-    const warehouse = mockWarehouses.find(w => w.code === warehouseCode);
+    const warehouse = warehouses.find(w => w.code === warehouseCode);
     if (warehouse) {
       handleInputChange('fromWarehouse', warehouse.code);
       handleInputChange('fromAddress', warehouse.address);
@@ -308,7 +288,7 @@ export default function AddShipmentPage() {
     setShowOrderSearch(false);
   };
 
-  const handleStockItemSelect = (item: typeof mockStockItems[0]) => {
+  const handleStockItemSelect = (item: typeof stockItems[0]) => {
     const newItem: ShipmentItem = {
       id: Date.now().toString(),
       itemCode: item.code,
@@ -443,7 +423,7 @@ export default function AddShipmentPage() {
     order.customer.toLowerCase().includes(orderSearchQuery.toLowerCase())
   );
 
-  const filteredStockItems = mockStockItems.filter(item =>
+  const filteredStockItems = stockItems.filter(item =>
     item.code.toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
     item.name.toLowerCase().includes(itemSearchQuery.toLowerCase())
   );
@@ -792,7 +772,7 @@ export default function AddShipmentPage() {
                     }`}
                 >
                   <option value="">{warehousesLoading ? 'Loading…' : 'Select warehouse'}</option>
-                  {mockWarehouses.map(wh => (
+                  {warehouses.map(wh => (
                     <option key={wh.code} value={wh.code}>
                       {wh.code} - {wh.name}
                     </option>

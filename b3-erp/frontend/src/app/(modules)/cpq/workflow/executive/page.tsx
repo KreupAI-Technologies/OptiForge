@@ -253,9 +253,21 @@ export default function CPQWorkflowExecutivePage() {
     setIsHoldOpen(false)
   }
 
-  const handleCommentSubmit = (comment: string) => {
-    console.log('Comment added:', selectedApproval?.documentNumber, comment)
-    // TODO: API call to add executive comment
+  const handleCommentSubmit = async (comment: string) => {
+    if (selectedApproval) {
+      const newComment: Comment = {
+        id: `CMT-${Date.now()}`,
+        author: 'Current User',
+        role: 'Executive',
+        message: comment,
+        timestamp: new Date().toLocaleString(),
+      }
+      const updatedComments = [...(selectedApproval.comments || []), newComment]
+      await cpqWorkflowRequestService.update(selectedApproval.id, {
+        payload: { ...(selectedApproval as any).payload, comments: updatedComments },
+      })
+      await loadApprovals()
+    }
     setIsCommentOpen(false)
   }
 

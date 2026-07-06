@@ -92,23 +92,36 @@ export default function GanttChartPage() {
     }
   }
 
-  const handleTaskChange = (task: Task) => {
-    console.log('Task changed:', task)
+  const handleTaskChange = async (task: Task) => {
     setTasks((prevTasks) => prevTasks.map((t) => (t.id === task.id ? { ...t, ...task } : t)))
-    // TODO: Call API to update task
+    try {
+      await projectManagementService.updateTask(task.id, {
+        startDate: task.start,
+        endDate: task.end,
+      })
+    } catch (error) {
+      console.error('Failed to update task:', error)
+    }
   }
 
-  const handleProgressChange = (task: Task) => {
-    console.log('Progress changed:', task)
+  const handleProgressChange = async (task: Task) => {
     setTasks((prevTasks) => prevTasks.map((t) => (t.id === task.id ? { ...t, ...task } : t)))
-    // TODO: Call API to update progress
+    try {
+      await projectManagementService.updateTask(task.id, { progress: task.progress })
+    } catch (error) {
+      console.error('Failed to update progress:', error)
+    }
   }
 
-  const handleTaskDelete = (task: Task) => {
+  const handleTaskDelete = async (task: Task) => {
     const confirmDelete = window.confirm(`Delete task: ${task.name}?`)
     if (confirmDelete) {
       setTasks((prevTasks) => prevTasks.filter((t) => t.id !== task.id))
-      // TODO: Call API to delete task
+      try {
+        await projectManagementService.deleteTask(task.id)
+      } catch (error) {
+        console.error('Failed to delete task:', error)
+      }
     }
   }
 

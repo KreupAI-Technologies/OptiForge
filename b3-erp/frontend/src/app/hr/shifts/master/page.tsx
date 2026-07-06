@@ -432,10 +432,46 @@ export default function ShiftMasterPage() {
       <CreateShiftModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={(data) => {
-          console.log('Create shift:', data);
-          setIsCreateModalOpen(false);
-          // TODO: Implement actual shift creation logic
+        onSubmit={async (data) => {
+          const breakMinutes = Number(data.breakDuration ?? 0);
+          try {
+            const saved = await HrPagesService.createShift<any>({
+              companyId: 'default-company-id',
+              name: data.name,
+              code: data.code,
+              type: data.type,
+              startTime: data.startTime,
+              endTime: data.endTime,
+              breakHours: breakMinutes / 60,
+              workingHours: Number(data.workingHours ?? 0),
+              graceMinutes: Number(data.gracePeriod ?? 0),
+              allowOvertime: Boolean(data.overtimeEligible),
+              isNightShift: Boolean(data.nightShiftAllowance),
+              status: data.status ?? 'active',
+              workingDays: (data.daysApplicable as string[]).map((d) => DAY_NAMES.indexOf(d)),
+            });
+            const created: Shift = {
+              id: saved?.id ?? `SHIFT-${Date.now()}`,
+              name: data.name,
+              code: data.code,
+              type: normalizeShiftType(data.type),
+              startTime: trimTime(data.startTime),
+              endTime: trimTime(data.endTime),
+              breakDuration: breakMinutes,
+              workingHours: Number(data.workingHours ?? 0),
+              gracePeriod: Number(data.gracePeriod ?? 0),
+              overtimeEligible: Boolean(data.overtimeEligible),
+              nightShiftAllowance: Boolean(data.nightShiftAllowance),
+              assignedEmployees: 0,
+              status: (data.status ?? 'active') as Shift['status'],
+              daysApplicable: data.daysApplicable as string[],
+              createdDate: new Date().toISOString().split('T')[0],
+            };
+            setShifts((prev) => [...prev, created]);
+            setIsCreateModalOpen(false);
+          } catch (err) {
+            setLoadError(err instanceof Error ? err.message : 'Failed to create shift');
+          }
         }}
       />
     </div>

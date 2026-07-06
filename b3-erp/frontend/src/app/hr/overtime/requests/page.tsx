@@ -76,64 +76,7 @@ export default function OvertimeRequestsPage() {
     };
   }, []);
 
-  const mockRequests: OvertimeRequest[] = rows.length ? rows : [
-    {
-      id: '1', requestId: 'OT001', employeeCode: 'KMF2020001', employeeName: 'Rajesh Kumar',
-      department: 'Production', designation: 'Manager', date: '2024-11-20',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 3,
-      reason: 'Urgent production target completion', requestDate: '2024-11-19',
-      status: 'pending', calculatedAmount: 750
-    },
-    {
-      id: '2', requestId: 'OT002', employeeCode: 'KMF2019002', employeeName: 'Meera Nair',
-      department: 'Quality', designation: 'QC Head', date: '2024-11-18',
-      shiftType: 'Morning Shift', regularHours: 8, overtimeHours: 2,
-      reason: 'Quality inspection backlog clearance', requestDate: '2024-11-17',
-      status: 'approved', approvedBy: 'HR Manager', approvedDate: '2024-11-18', calculatedAmount: 600
-    },
-    {
-      id: '3', requestId: 'OT003', employeeCode: 'KMF2021003', employeeName: 'Arun Patel',
-      department: 'IT', designation: 'Sr. Engineer', date: '2024-11-21',
-      shiftType: 'Flexible Shift', regularHours: 9, overtimeHours: 4,
-      reason: 'Server maintenance and upgrade', requestDate: '2024-11-20',
-      status: 'pending', calculatedAmount: 1200
-    },
-    {
-      id: '4', requestId: 'OT004', employeeCode: 'KMF2022004', employeeName: 'Vikram Singh',
-      department: 'Production', designation: 'Supervisor', date: '2024-11-19',
-      shiftType: 'Night Shift', regularHours: 8, overtimeHours: 2.5,
-      reason: 'Machine breakdown repair support', requestDate: '2024-11-18',
-      status: 'approved', approvedBy: 'Production Head', approvedDate: '2024-11-19', calculatedAmount: 875
-    },
-    {
-      id: '5', requestId: 'OT005', employeeCode: 'KMF2020005', employeeName: 'Priya Menon',
-      department: 'Finance', designation: 'Accountant', date: '2024-11-17',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 2,
-      reason: 'Month-end closing activities', requestDate: '2024-11-16',
-      status: 'rejected', approvedBy: 'Finance Manager', approvedDate: '2024-11-17'
-    },
-    {
-      id: '6', requestId: 'OT006', employeeCode: 'KMF2018006', employeeName: 'Suresh Babu',
-      department: 'Logistics', designation: 'Manager', date: '2024-11-22',
-      shiftType: 'Evening Shift', regularHours: 8, overtimeHours: 3,
-      reason: 'Critical shipment coordination', requestDate: '2024-11-21',
-      status: 'pending', calculatedAmount: 900
-    },
-    {
-      id: '7', requestId: 'OT007', employeeCode: 'KMF2019007', employeeName: 'Anjali Reddy',
-      department: 'Marketing', designation: 'Executive', date: '2024-11-20',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 1.5,
-      reason: 'Campaign launch preparation', requestDate: '2024-11-19',
-      status: 'approved', approvedBy: 'Marketing Head', approvedDate: '2024-11-20', calculatedAmount: 450
-    },
-    {
-      id: '8', requestId: 'OT008', employeeCode: 'KMF2021008', employeeName: 'Kavita Desai',
-      department: 'HR', designation: 'Executive', date: '2024-11-23',
-      shiftType: 'General Day Shift', regularHours: 8, overtimeHours: 2,
-      reason: 'Recruitment drive support', requestDate: '2024-11-22',
-      status: 'pending', calculatedAmount: 500
-    }
-  ];
+  const mockRequests: OvertimeRequest[] = rows;
 
   const filteredData = useMemo(() => {
     return mockRequests.filter(request => {
@@ -394,10 +337,47 @@ export default function OvertimeRequestsPage() {
       <NewOvertimeRequestModal
         isOpen={showRequestModal}
         onClose={() => setShowRequestModal(false)}
-        onSubmit={(data) => {
-          console.log('New OT request:', data);
-          setShowRequestModal(false);
-          // TODO: Implement actual OT request submission logic
+        onSubmit={async (data) => {
+          try {
+            const saved = await HrSelfServiceService.createOvertimeRequest({
+              employeeCode: data.employeeCode,
+              employeeName: data.employeeName,
+              department: data.department,
+              designation: data.designation,
+              date: data.otDate ?? data.date,
+              shiftType: data.shiftType,
+              regularHours: Number(data.regularHours ?? 0),
+              overtimeHours: Number(data.overtimeHours ?? 0),
+              reason: data.reason,
+              requestDate: data.requestDate,
+              calculatedAmount: data.calculatedAmount != null ? Number(data.calculatedAmount) : undefined,
+              status: 'pending',
+            });
+            setRows((prev) => [
+              {
+                id: saved.id,
+                requestId: saved.requestId ?? '',
+                employeeCode: saved.employeeCode ?? data.employeeCode ?? '',
+                employeeName: saved.employeeName ?? data.employeeName ?? '',
+                department: saved.department ?? data.department ?? '',
+                designation: saved.designation ?? data.designation ?? '',
+                date: saved.date ?? data.otDate ?? '',
+                shiftType: saved.shiftType ?? data.shiftType ?? '',
+                regularHours: Number(saved.regularHours ?? data.regularHours ?? 0),
+                overtimeHours: Number(saved.overtimeHours ?? data.overtimeHours ?? 0),
+                reason: saved.reason ?? data.reason ?? '',
+                requestDate: saved.requestDate ?? data.requestDate ?? '',
+                status: (saved.status as OvertimeRequest['status']) ?? 'pending',
+                approvedBy: saved.approvedBy ?? undefined,
+                approvedDate: saved.approvedDate ?? undefined,
+                calculatedAmount: saved.calculatedAmount != null ? Number(saved.calculatedAmount) : undefined,
+              },
+              ...prev,
+            ]);
+            setShowRequestModal(false);
+          } catch (err) {
+            setLoadError(err instanceof Error ? err.message : 'Failed to submit overtime request');
+          }
         }}
       />
     </div>

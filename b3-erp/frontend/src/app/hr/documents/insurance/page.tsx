@@ -60,68 +60,7 @@ export default function InsuranceDocumentsPage() {
     return () => { active = false; };
   }, []);
 
-  const mockDocuments: InsuranceDocument[] = [
-    {
-      id: 'INS001',
-      insuranceType: 'Group Health Insurance',
-      policyNumber: 'GHI/2025/12345',
-      insuranceProvider: 'ICICI Lombard',
-      coverageAmount: 500000,
-      policyStartDate: '2025-04-01',
-      policyEndDate: '2026-03-31',
-      premiumAmount: 8500,
-      uploadedOn: '2025-04-01',
-      status: 'active',
-      fileSize: '345 KB',
-      fileName: 'group_health_policy.pdf',
-      nominees: ['Priya Sharma (Spouse)']
-    },
-    {
-      id: 'INS002',
-      insuranceType: 'Group Term Life Insurance',
-      policyNumber: 'GTLI/2025/67890',
-      insuranceProvider: 'HDFC Life',
-      coverageAmount: 1000000,
-      policyStartDate: '2025-04-01',
-      policyEndDate: '2026-03-31',
-      uploadedOn: '2025-04-01',
-      status: 'active',
-      fileSize: '289 KB',
-      fileName: 'group_life_policy.pdf',
-      nominees: ['Priya Sharma (Spouse)', 'Rajesh Sharma (Father)']
-    },
-    {
-      id: 'INS003',
-      insuranceType: 'Personal Accident Insurance',
-      policyNumber: 'PAI/2025/11223',
-      insuranceProvider: 'Bajaj Allianz',
-      coverageAmount: 1500000,
-      policyStartDate: '2025-04-01',
-      policyEndDate: '2026-03-31',
-      uploadedOn: '2025-04-01',
-      status: 'active',
-      fileSize: '267 KB',
-      fileName: 'personal_accident_policy.pdf',
-      nominees: ['Priya Sharma (Spouse)']
-    },
-    {
-      id: 'INS004',
-      insuranceType: 'Group Health Insurance (Dependent)',
-      policyNumber: 'GHI-DEP/2025/44556',
-      insuranceProvider: 'ICICI Lombard',
-      coverageAmount: 300000,
-      policyStartDate: '2025-04-01',
-      policyEndDate: '2026-03-31',
-      premiumAmount: 5200,
-      uploadedOn: '2025-04-01',
-      status: 'active',
-      fileSize: '312 KB',
-      fileName: 'dependent_health_policy.pdf',
-      nominees: ['Priya Sharma (Spouse)', 'Aarav Sharma (Son)']
-    }
-  ];
-
-  const sourceDocuments = items.length > 0 ? items : mockDocuments;
+  const sourceDocuments = items;
 
   const filteredDocuments = useMemo(() => {
     return sourceDocuments.filter(doc => {

@@ -46,6 +46,7 @@ interface Adjustment {
   status: 'draft' | 'pending-approval' | 'approved' | 'rejected';
   approvedBy?: string;
   approvedDate?: string;
+  rawItems?: any[];
 }
 
 export default function AdjustmentsPage() {
@@ -61,6 +62,7 @@ export default function AdjustmentsPage() {
   const [isReconciliationModalOpen, setIsReconciliationModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] = useState<Adjustment | null>(null);
+  const [selectedAdjustmentItems, setSelectedAdjustmentItems] = useState<StockAdjustmentData['items']>([]);
 
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,6 +105,7 @@ export default function AdjustmentsPage() {
           status: statusMap[a.status] ?? 'draft',
           approvedBy: a.approvedByName ?? undefined,
           approvedDate: toDate(a.approvedAt) || undefined,
+          rawItems: Array.isArray(a.lines) ? a.lines : Array.isArray(a.items) ? a.items : [],
         };
       });
       setAdjustments(mapped);
@@ -178,22 +181,7 @@ export default function AdjustmentsPage() {
       adjustmentDate: adjustment.date,
       warehouse: adjustment.warehouse,
       reason: adjustment.reason,
-      items: [
-        // Mock items - in real implementation, fetch from API
-        {
-          itemId: '1',
-          itemCode: 'ITEM-001',
-          itemName: 'Sample Item',
-          currentQuantity: 100,
-          adjustedQuantity: 120,
-          difference: 20,
-          reason: adjustment.reason,
-          warehouse: adjustment.warehouse,
-          zone: 'A1',
-          bin: 'B01',
-          costImpact: adjustment.adjustmentValue
-        }
-      ],
+      items: selectedAdjustmentItems,
       totalCostImpact: adjustment.adjustmentValue,
       approver: adjustment.approvedBy,
       notes: `Created by ${adjustment.createdBy}`
@@ -294,6 +282,26 @@ export default function AdjustmentsPage() {
 
   const handleViewAdjustment = (adjustment: Adjustment) => {
     setSelectedAdjustment(adjustment);
+    const lines: any[] = Array.isArray(adjustment.rawItems) ? adjustment.rawItems : [];
+    setSelectedAdjustmentItems(
+      lines.map((l: any, i: number) => {
+        const current = Number(l.systemQuantity ?? l.currentQuantity ?? 0);
+        const adjusted = Number(l.physicalQuantity ?? l.adjustedQuantity ?? 0);
+        return {
+          itemId: String(l.itemId ?? l.id ?? i + 1),
+          itemCode: l.itemCode ?? '',
+          itemName: l.itemName ?? '',
+          currentQuantity: current,
+          adjustedQuantity: adjusted,
+          difference: Number(l.difference ?? l.adjustmentQuantity ?? adjusted - current),
+          reason: l.reason ?? adjustment.reason,
+          warehouse: l.warehouseName ?? adjustment.warehouse,
+          zone: l.zone ?? l.locationName ?? '-',
+          bin: l.bin ?? l.binName ?? '-',
+          costImpact: Number(l.costImpact ?? l.adjustmentValue ?? 0),
+        };
+      })
+    );
     setIsViewModalOpen(true);
   };
 

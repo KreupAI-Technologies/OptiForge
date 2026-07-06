@@ -80,94 +80,13 @@ interface Address {
   country: string;
 }
 
-// Mock invoice data with Indian companies
-const mockInvoice: Invoice = {
-  id: '1',
-  invoiceNumber: 'INV-2024-00125',
-  status: 'partially_paid',
-  customer: 'Tata Steel Limited',
-  customerGST: '27AAACT2727Q1ZV',
-  invoiceDate: '2024-10-01',
-  dueDate: '2024-10-31',
-  subtotal: 2500000,
-  cgst: 112500,
-  sgst: 112500,
-  igst: 0,
-  discount: 50000,
-  total: 2675000,
-  paidAmount: 1500000,
-  balanceDue: 1175000,
-  poReference: 'PO-TATA-2024-0892',
-  paymentTerms: 'Net 30',
-  notes: 'Please make payment within 30 days. Bank details: HDFC Bank, A/C: 50200012345678, IFSC: HDFC0001234',
+const emptyAddress: Address = {
+  street: '',
+  city: '',
+  state: '',
+  pincode: '',
+  country: '',
 };
-
-const billingAddress: Address = {
-  street: 'Tata Centre, 43 Jawaharlal Nehru Road',
-  city: 'Kolkata',
-  state: 'West Bengal',
-  pincode: '700071',
-  country: 'India',
-};
-
-const shippingAddress: Address = {
-  street: 'Tata Steel Plant, Adityapur Industrial Area',
-  city: 'Jamshedpur',
-  state: 'Jharkhand',
-  pincode: '831013',
-  country: 'India',
-};
-
-const mockLineItems: InvoiceLineItem[] = [
-  {
-    id: '1',
-    item: 'High-Grade Steel Plates (IS 2062)',
-    description: 'E250 Grade steel plates for industrial construction, thickness 12mm',
-    hsn: '7208',
-    quantity: 500,
-    unitPrice: 4500,
-    taxRate: 18,
-    taxType: 'CGST+SGST',
-    taxAmount: 202500,
-    total: 2452500,
-  },
-  {
-    id: '2',
-    item: 'Structural Steel Beams (ISMB 300)',
-    description: 'I-Section beams for structural framework, length 12m',
-    hsn: '7216',
-    quantity: 100,
-    unitPrice: 3500,
-    taxRate: 18,
-    taxType: 'CGST+SGST',
-    taxAmount: 31500,
-    total: 381500,
-  },
-  {
-    id: '3',
-    item: 'Steel Wire Rods (6mm diameter)',
-    description: 'Construction grade wire rods for reinforcement',
-    hsn: '7213',
-    quantity: 200,
-    unitPrice: 2800,
-    taxRate: 18,
-    taxType: 'CGST+SGST',
-    taxAmount: 50400,
-    total: 610400,
-  },
-];
-
-const mockPayments: PaymentRecord[] = [
-  {
-    id: '1',
-    date: '2024-10-15',
-    amount: 1500000,
-    paymentMethod: 'Bank Transfer (NEFT)',
-    transactionId: 'NEFT240CT15TT0125',
-    notes: 'Partial payment received - First installment',
-    recordedBy: 'Priya Sharma',
-  },
-];
 
 const statusConfig = {
   draft: { color: 'bg-gray-100 text-gray-700 border-gray-300', icon: FileText, label: 'Draft' },
@@ -194,7 +113,11 @@ export default function ViewInvoicePage() {
   const router = useRouter();
   const params = useParams();
   const invoiceId = params.id as string;
-  const [invoice, setInvoice] = useState<Invoice>(mockInvoice);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [billingAddress, setBillingAddress] = useState<Address>(emptyAddress);
+  const [shippingAddress, setShippingAddress] = useState<Address>(emptyAddress);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -210,21 +133,30 @@ export default function ViewInvoicePage() {
         if (cancelled) return;
         const m: any = raw || {};
         const validStatuses = ['draft', 'sent', 'partially_paid', 'paid', 'overdue', 'cancelled'];
-        setInvoice((prev) => ({
-          ...prev,
-          ...(m.id != null ? { id: String(m.id) } : {}),
-          ...(m.invoiceNumber != null ? { invoiceNumber: String(m.invoiceNumber) } : {}),
-          ...(validStatuses.includes(m.status) ? { status: m.status } : {}),
-          ...(m.customer != null ? { customer: String(m.customer) } : {}),
-          ...(m.invoiceDate != null ? { invoiceDate: String(m.invoiceDate) } : {}),
-          ...(m.dueDate != null ? { dueDate: String(m.dueDate) } : {}),
-          ...(m.subtotal != null ? { subtotal: Number(m.subtotal) } : {}),
-          ...(m.total != null ? { total: Number(m.total) } : {}),
-          ...(m.paidAmount != null ? { paidAmount: Number(m.paidAmount) } : {}),
-          ...(m.balanceDue != null ? { balanceDue: Number(m.balanceDue) } : {}),
-          ...(m.poReference != null ? { poReference: String(m.poReference) } : {}),
-          ...(m.notes != null ? { notes: String(m.notes) } : {}),
-        }));
+        setInvoice({
+          id: m.id != null ? String(m.id) : String(invoiceId),
+          invoiceNumber: m.invoiceNumber != null ? String(m.invoiceNumber) : '',
+          status: validStatuses.includes(m.status) ? m.status : 'draft',
+          customer: m.customer != null ? String(m.customer) : '',
+          customerGST: m.customerGST != null ? String(m.customerGST) : '',
+          invoiceDate: m.invoiceDate != null ? String(m.invoiceDate) : '',
+          dueDate: m.dueDate != null ? String(m.dueDate) : '',
+          subtotal: Number(m.subtotal ?? 0),
+          cgst: Number(m.cgst ?? 0),
+          sgst: Number(m.sgst ?? 0),
+          igst: Number(m.igst ?? 0),
+          discount: Number(m.discount ?? 0),
+          total: Number(m.total ?? 0),
+          paidAmount: Number(m.paidAmount ?? 0),
+          balanceDue: Number(m.balanceDue ?? 0),
+          poReference: m.poReference != null ? String(m.poReference) : '',
+          paymentTerms: m.paymentTerms != null ? String(m.paymentTerms) : '',
+          notes: m.notes != null ? String(m.notes) : '',
+        });
+        setLineItems(Array.isArray(m.lineItems) ? m.lineItems : []);
+        setPayments(Array.isArray(m.payments) ? m.payments : []);
+        setBillingAddress(m.billingAddress ?? emptyAddress);
+        setShippingAddress(m.shippingAddress ?? emptyAddress);
       } catch (err: any) {
         if (!cancelled) setLoadError(err?.message || 'Failed to load invoice');
       } finally {
@@ -237,6 +169,30 @@ export default function ViewInvoicePage() {
   }, [invoiceId]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'line_items' | 'payment_history'>('overview');
+
+  if (isLoading && !invoice) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-sm text-blue-700">
+          Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 px-3 py-2">
+        {loadError && (
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-2 text-sm text-red-700 flex items-center">
+            <AlertCircle className="h-4 w-4 mr-1" />
+            {loadError}
+          </div>
+        )}
+        <div className="p-6 text-gray-500">Invoice not found</div>
+      </div>
+    );
+  }
 
   const statusInfo = statusConfig[invoice.status];
   const StatusIcon = statusInfo.icon;
@@ -558,7 +514,7 @@ export default function ViewInvoicePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {mockLineItems.map((item) => (
+                    {lineItems.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-3 py-2">
                           <p className="text-sm font-medium text-gray-900">{item.item}</p>
@@ -652,8 +608,8 @@ export default function ViewInvoicePage() {
 
             {/* Payment Timeline */}
             <div className="space-y-2">
-              {mockPayments.map((payment, index) => {
-                const isLast = index === mockPayments.length - 1;
+              {payments.map((payment, index) => {
+                const isLast = index === payments.length - 1;
 
                 return (
                   <div key={payment.id} className="relative">

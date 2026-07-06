@@ -115,19 +115,8 @@ const FORM_FIELDS = [
  { name: 'driverName', required: true },
 ];
 
-const mockProjects = [
- { id: 'PRJ-2025-001', name: 'Taj Hotels - Commercial Kitchen' },
- { id: 'PRJ-2025-002', name: 'BigBasket - Cold Room Installation' },
- { id: 'PRJ-2025-003', name: 'L&T Campus - Industrial Kitchen' },
- { id: 'PRJ-2025-004', name: 'ITC Grand - Bakery Equipment' },
-];
-
-const mockItems = [
- { code: 'EQ-CK-001', name: 'Gas Cooking Range - 6 Burner', weight: 120, volume: 2.5 },
- { code: 'EQ-CK-002', name: 'Commercial Tandoor', weight: 80, volume: 1.2 },
- { code: 'EQ-RF-001', name: 'Walk-in Cooler Panels', weight: 200, volume: 8 },
- { code: 'EQ-EX-001', name: 'Exhaust Hood with Filters', weight: 150, volume: 3.5 },
-];
+interface ProjectOption { id: string; name: string; }
+interface CatalogItem { code: string; name: string; weight: number; volume: number; }
 
 export default function DispatchPlanningEnhancedPage() {
  const router = useRouter();
@@ -135,17 +124,32 @@ export default function DispatchPlanningEnhancedPage() {
  const [currentStep, setCurrentStep] = useState(0);
  const [errors, setErrors] = useState<Record<string, string>>({});
  const [showDraftBanner, setShowDraftBanner] = useState(true);
- const [itemCatalog, setItemCatalog] = useState(mockItems);
+ const [itemCatalog, setItemCatalog] = useState<CatalogItem[]>([]);
+ const [projects, setProjects] = useState<ProjectOption[]>([]);
 
  useEffect(() => {
   let active = true;
   (async () => {
    try {
     const rows = await projectManagementService.listDispatchCatalog();
-    if (!active || !rows || rows.length === 0) return;
+    if (!active || !rows) return;
     setItemCatalog(rows.map((r) => ({ code: r.code || '', name: r.name || '', weight: r.weight ?? 0, volume: r.volume ?? 0 })));
    } catch {
-    // keep static fallback
+    if (active) setItemCatalog([]);
+   }
+  })();
+  return () => { active = false; };
+ }, []);
+
+ useEffect(() => {
+  let active = true;
+  (async () => {
+   try {
+    const rows = await projectManagementService.getProjects();
+    if (!active) return;
+    setProjects((Array.isArray(rows) ? rows : []).map((p) => ({ id: p.id, name: p.name })));
+   } catch {
+    if (active) setProjects([]);
    }
   })();
   return () => { active = false; };
@@ -233,7 +237,7 @@ export default function DispatchPlanningEnhancedPage() {
  };
 
  const handleProjectChange = (projectId: string) => {
-  const project = mockProjects.find(p => p.id === projectId);
+  const project = projects.find(p => p.id === projectId);
   updateFormData('projectId', projectId);
   updateFormData('projectName', project?.name || '');
  };
@@ -427,7 +431,7 @@ export default function DispatchPlanningEnhancedPage() {
            <SelectValue placeholder="Select project" />
           </SelectTrigger>
           <SelectContent>
-           {mockProjects.map(project => (
+           {projects.map(project => (
             <SelectItem key={project.id} value={project.id}>
              {project.id} - {project.name}
             </SelectItem>

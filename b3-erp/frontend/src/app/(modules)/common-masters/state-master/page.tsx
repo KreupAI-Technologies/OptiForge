@@ -28,37 +28,35 @@ export default function StateMasterPage() {
   }, [toast]);
 
   // Load states from the backend
+  const loadStates = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const raw = await commonMastersService.getAllStates();
+      const mapped: State[] = raw.map((s: any) => ({
+        id: s.id,
+        code: s.code ?? '',
+        name: s.name,
+        countryCode: s.country?.code ?? '',
+        countryName: s.country?.name ?? '',
+        zone: undefined,
+        isUT: false,
+        isActive: s.isActive ?? true,
+        stateGSTCode: undefined,
+        createdAt: s.createdAt ?? '',
+        updatedAt: s.updatedAt ?? '',
+      }));
+      setStates(mapped);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load states');
+      setStates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const raw = await commonMastersService.getAllStates();
-        const mapped: State[] = raw.map((s: any) => ({
-          id: s.id,
-          code: s.code ?? '',
-          name: s.name,
-          countryCode: s.country?.code ?? '',
-          countryName: s.country?.name ?? '',
-          zone: undefined,
-          isUT: false,
-          isActive: s.isActive ?? true,
-          stateGSTCode: undefined,
-          createdAt: s.createdAt ?? '',
-          updatedAt: s.updatedAt ?? '',
-        }));
-        if (!cancelled) setStates(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load states');
-          setStates([]);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    loadStates();
   }, []);
 
   // Show toast notification
@@ -77,10 +75,18 @@ export default function StateMasterPage() {
     // TODO: Open edit state modal/form
   };
 
-  const handleDeleteState = (state: State) => {
+  const handleDeleteState = async (state: State) => {
     if (confirm(`Are you sure you want to delete ${state.name}?`)) {
+      const previous = states;
       setStates(prev => prev.filter(s => s.id !== state.id));
-      showToast(`${state.name} deleted successfully`, 'success');
+      try {
+        await commonMastersService.deleteState(state.id);
+        showToast(`${state.name} deleted successfully`, 'success');
+        await loadStates();
+      } catch (err) {
+        setStates(previous);
+        showToast(err instanceof Error ? err.message : `Failed to delete ${state.name}`, 'error');
+      }
     }
   };
 

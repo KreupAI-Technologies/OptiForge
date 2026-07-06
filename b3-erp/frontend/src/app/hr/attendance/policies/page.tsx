@@ -66,16 +66,32 @@ export default function AttendancePoliciesPage() {
     };
   }, []);
 
-  const handleCreatePolicy = (policyData: Omit<AttendancePolicy, 'id' | 'createdBy' | 'lastModified'>) => {
-    const newPolicy: AttendancePolicy = {
-      ...policyData,
-      id: `POL${String(policies.length + 1).padStart(3, '0')}`,
-      createdBy: 'HR Admin',
-      lastModified: new Date().toISOString().split('T')[0]
-    };
-    setPolicies([...policies, newPolicy]);
-    console.log('New policy created:', newPolicy);
-    // TODO: API call to save policy
+  const handleCreatePolicy = async (policyData: Omit<AttendancePolicy, 'id' | 'createdBy' | 'lastModified'>) => {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    try {
+      const res = await fetch(`${base}/hr/attendance-policies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+        body: JSON.stringify({ ...policyData, createdBy: 'HR Admin' }),
+      });
+      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+      const saved = (await res.json()) as any;
+      const created: AttendancePolicy = {
+        id: String(saved.id ?? `POL${String(policies.length + 1).padStart(3, '0')}`),
+        name: saved.name ?? policyData.name,
+        type: (saved.type ?? policyData.type) as AttendancePolicy['type'],
+        description: saved.description ?? policyData.description,
+        applicableTo: saved.applicableTo ?? policyData.applicableTo,
+        effectiveFrom: saved.effectiveFrom ?? policyData.effectiveFrom,
+        status: (saved.status ?? policyData.status) as AttendancePolicy['status'],
+        rules: Array.isArray(saved.rules) ? saved.rules : policyData.rules,
+        createdBy: saved.createdBy ?? 'HR Admin',
+        lastModified: saved.lastModified ?? new Date().toISOString().split('T')[0],
+      };
+      setPolicies((prev) => [...prev, created]);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save attendance policy');
+    }
   };
 
   const getTypeIcon = (type: string) => {

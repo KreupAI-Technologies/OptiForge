@@ -88,123 +88,6 @@ interface BankAccount {
   balance: number;
 }
 
-const mockCustomers: Party[] = [
-  {
-    id: 'CUST-001',
-    name: 'Hotel Paradise Ltd',
-    type: 'customer',
-    email: 'accounts@hotelparadise.com',
-    phone: '+91 98765 43210',
-    outstandingAmount: 276000,
-  },
-  {
-    id: 'CUST-002',
-    name: 'Culinary Delights Inc',
-    type: 'customer',
-    email: 'finance@culinarydelights.com',
-    phone: '+91 98765 43211',
-    outstandingAmount: 67300,
-  },
-  {
-    id: 'CUST-003',
-    name: 'City General Hospital',
-    type: 'customer',
-    email: 'billing@cityhospital.com',
-    phone: '+91 98765 43212',
-    outstandingAmount: 276000,
-  },
-];
-
-const mockVendors: Party[] = [
-  {
-    id: 'VEND-001',
-    name: 'Industrial Supplies Co',
-    type: 'vendor',
-    email: 'payments@industrialsupplies.com',
-    phone: '+91 98765 54321',
-    outstandingAmount: 450000,
-  },
-  {
-    id: 'VEND-002',
-    name: 'TechParts Corporation',
-    type: 'vendor',
-    email: 'accounts@techparts.com',
-    phone: '+91 98765 54322',
-    outstandingAmount: 125000,
-  },
-];
-
-const mockOutstandingInvoices: OutstandingInvoice[] = [
-  {
-    id: 'INV-001',
-    invoiceNumber: 'INV-2025-001',
-    invoiceDate: '2025-10-01',
-    dueDate: '2025-10-31',
-    totalAmount: 172500,
-    paidAmount: 0,
-    balanceAmount: 172500,
-    selected: false,
-    allocatedAmount: 0,
-  },
-  {
-    id: 'INV-002',
-    invoiceNumber: 'INV-2025-002',
-    invoiceDate: '2025-10-05',
-    dueDate: '2025-11-04',
-    totalAmount: 117300,
-    paidAmount: 50000,
-    balanceAmount: 67300,
-    selected: false,
-    allocatedAmount: 0,
-  },
-  {
-    id: 'INV-003',
-    invoiceNumber: 'INV-2025-003',
-    invoiceDate: '2025-10-08',
-    dueDate: '2025-11-07',
-    totalAmount: 276000,
-    paidAmount: 0,
-    balanceAmount: 276000,
-    selected: false,
-    allocatedAmount: 0,
-  },
-];
-
-const bankAccounts: BankAccount[] = [
-  {
-    id: '1',
-    bankName: 'HDFC Bank',
-    accountNumber: '50200012345678',
-    ifscCode: 'HDFC0001234',
-    branch: 'MG Road, Bangalore',
-    balance: 5420000,
-  },
-  {
-    id: '2',
-    bankName: 'ICICI Bank',
-    accountNumber: '000405001234',
-    ifscCode: 'ICIC0000004',
-    branch: 'Indiranagar, Bangalore',
-    balance: 3250000,
-  },
-  {
-    id: '3',
-    bankName: 'State Bank of India',
-    accountNumber: '30123456789',
-    ifscCode: 'SBIN0001234',
-    branch: 'Koramangala, Bangalore',
-    balance: 8750000,
-  },
-  {
-    id: '4',
-    bankName: 'Axis Bank',
-    accountNumber: '912010012345678',
-    ifscCode: 'UTIB0001234',
-    branch: 'Whitefield, Bangalore',
-    balance: 2100000,
-  },
-];
-
 const paymentMethods = [
   { value: 'bank_transfer', label: 'Bank Transfer', icon: Building },
   { value: 'upi', label: 'UPI', icon: Smartphone },
@@ -224,7 +107,9 @@ export default function PaymentAddPage() {
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [partySearchQuery, setPartySearchQuery] = useState('');
   const [outstandingInvoices, setOutstandingInvoices] = useState<OutstandingInvoice[]>([]);
-  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>(bankAccounts);
+  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>([]);
+  const [customers, setCustomers] = useState<Party[]>([]);
+  const [vendors, setVendors] = useState<Party[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -232,23 +117,47 @@ export default function PaymentAddPage() {
     let cancelled = false;
     (async () => {
       try {
-        const coa = await FinanceService.getChartOfAccounts();
+        const [coa, receivables, payables] = await Promise.all([
+          FinanceService.getChartOfAccounts().catch(() => []),
+          FinanceService.getReceivables().catch(() => []),
+          FinanceService.getPayables().catch(() => []),
+        ]);
         if (cancelled) return;
-        if (Array.isArray(coa)) {
-          const banks = coa
-            .filter((a: any) => a.isBankAccount)
-            .map((a: any, i: number) => ({
-              id: String(a.id ?? i + 1),
-              bankName: String(a.name ?? ''),
-              accountNumber: String(a.code ?? ''),
-              ifscCode: '',
-              branch: '',
-              balance: Number(a.balance ?? 0),
-            }));
-          if (banks.length) setBankAccountsList(banks);
-        }
+        const banks = Array.isArray(coa)
+          ? coa
+              .filter((a: any) => a.isBankAccount)
+              .map((a: any, i: number) => ({
+                id: String(a.id ?? i + 1),
+                bankName: String(a.name ?? ''),
+                accountNumber: String(a.code ?? ''),
+                ifscCode: '',
+                branch: '',
+                balance: Number(a.balance ?? 0),
+              }))
+          : [];
+        setBankAccountsList(banks);
+        setCustomers(
+          (Array.isArray(receivables) ? receivables : []).map((r: any, i: number) => ({
+            id: String(r.id ?? r.customerId ?? i + 1),
+            name: String(r.customer ?? r.customerName ?? r.name ?? ''),
+            type: 'customer' as const,
+            email: String(r.email ?? ''),
+            phone: String(r.phone ?? ''),
+            outstandingAmount: Number(r.outstandingAmount ?? r.balanceDue ?? r.balance ?? 0),
+          }))
+        );
+        setVendors(
+          (Array.isArray(payables) ? payables : []).map((p: any, i: number) => ({
+            id: String(p.id ?? p.vendorId ?? i + 1),
+            name: String(p.vendor ?? p.vendorName ?? p.name ?? ''),
+            type: 'vendor' as const,
+            email: String(p.email ?? ''),
+            phone: String(p.phone ?? ''),
+            outstandingAmount: Number(p.outstandingAmount ?? p.balanceDue ?? p.balance ?? 0),
+          }))
+        );
       } catch (err: any) {
-        if (!cancelled) setLoadError(err?.message || 'Failed to load bank accounts');
+        if (!cancelled) setLoadError(err?.message || 'Failed to load payment reference data');
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -283,7 +192,7 @@ export default function PaymentAddPage() {
 
   const [attachments, setAttachments] = useState<File[]>([]);
 
-  const parties = formData.paymentType === 'received' ? mockCustomers : mockVendors;
+  const parties = formData.paymentType === 'received' ? customers : vendors;
   const filteredParties = parties.filter((party) =>
     party.name.toLowerCase().includes(partySearchQuery.toLowerCase())
   );
@@ -312,7 +221,7 @@ export default function PaymentAddPage() {
     setOutstandingInvoices([]);
   };
 
-  const handlePartySelect = (party: Party) => {
+  const handlePartySelect = async (party: Party) => {
     setFormData({
       ...formData,
       partyId: party.id,
@@ -323,13 +232,24 @@ export default function PaymentAddPage() {
     setPartySearchQuery('');
 
     // Load outstanding invoices for the selected party
-    setOutstandingInvoices(
-      mockOutstandingInvoices.map((inv) => ({
-        ...inv,
+    try {
+      const invoiceType = party.type === 'customer' ? 'receivable' : 'payable';
+      const raw = await FinanceService.getInvoices({ partyId: party.id, invoiceType });
+      const mapped: OutstandingInvoice[] = (Array.isArray(raw) ? raw : []).map((inv: any, i: number) => ({
+        id: String(inv.id ?? i + 1),
+        invoiceNumber: String(inv.invoiceNumber ?? ''),
+        invoiceDate: String(inv.invoiceDate ?? ''),
+        dueDate: String(inv.dueDate ?? ''),
+        totalAmount: Number(inv.total ?? inv.totalAmount ?? 0),
+        paidAmount: Number(inv.paidAmount ?? 0),
+        balanceAmount: Number(inv.balanceDue ?? inv.balanceAmount ?? 0),
         selected: false,
         allocatedAmount: 0,
-      }))
-    );
+      }));
+      setOutstandingInvoices(mapped);
+    } catch {
+      setOutstandingInvoices([]);
+    }
   };
 
   const handleInvoiceSelection = (invoiceId: string) => {

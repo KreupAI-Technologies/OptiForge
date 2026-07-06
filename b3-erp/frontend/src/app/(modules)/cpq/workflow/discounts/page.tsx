@@ -427,9 +427,28 @@ export default function CPQWorkflowDiscountsPage() {
     setIsRejectOpen(false)
   }
 
-  const handleCommentSubmit = (comment: string) => {
-    console.log('Comment added:', selectedDiscount?.quoteNumber, comment)
-    // TODO: API call to add comment
+  const handleCommentSubmit = async (comment: string) => {
+    if (selectedDiscount) {
+      const newComment = {
+        id: `CMT-${Date.now()}`,
+        author: 'Current User',
+        message: comment,
+        timestamp: new Date().toLocaleString(),
+      }
+      const updatedComments = [...(selectedDiscount.comments || []), newComment]
+      try {
+        await cpqWorkflowRequestService.update(selectedDiscount.id, {
+          payload: { ...(selectedDiscount as any).payload, comments: updatedComments },
+        })
+      } catch {
+        // best-effort backend update; still reflect the comment locally
+      }
+      setDiscounts((prev) =>
+        prev.map((d) =>
+          d.id === selectedDiscount.id ? { ...d, comments: updatedComments } : d,
+        ),
+      )
+    }
     setIsCommentOpen(false)
   }
 
