@@ -62,169 +62,6 @@ interface Stage {
   opportunities: Opportunity[];
 }
 
-const mockOpportunities: Opportunity[] = [
-  {
-    id: '1',
-    name: 'Modular Kitchen Project - Riverside Apartments',
-    accountName: 'Riverside Developers Ltd',
-    contactName: 'John Anderson',
-    email: 'john.anderson@riverside.com',
-    phone: '+1 234-567-8900',
-    stage: 'qualification',
-    value: 125000,
-    probability: 20,
-    expectedCloseDate: '2025-11-15',
-    owner: 'Sarah Johnson',
-    createdDate: '2025-10-01',
-    lastActivity: '2025-10-18',
-    nextStep: 'Schedule site visit and requirement gathering',
-    source: 'Referral',
-    products: ['Modular Kitchen', 'Countertops', 'Appliances'],
-    priority: 'high',
-    daysInStage: 5,
-  },
-  {
-    id: '2',
-    name: 'Office Furniture - Tech Solutions Inc',
-    accountName: 'Tech Solutions Inc',
-    contactName: 'Emily Chen',
-    email: 'emily.chen@techsolutions.com',
-    phone: '+1 234-567-8901',
-    stage: 'needs-analysis',
-    value: 85000,
-    probability: 40,
-    expectedCloseDate: '2025-11-30',
-    owner: 'Michael Park',
-    createdDate: '2025-09-15',
-    lastActivity: '2025-10-19',
-    nextStep: 'Send detailed proposal with 3D designs',
-    source: 'Website',
-    products: ['Office Cabinets', 'Workstations', 'Storage Solutions'],
-    priority: 'high',
-    daysInStage: 12,
-  },
-  {
-    id: '3',
-    name: 'Luxury Wardrobe Installation',
-    accountName: 'Premium Homes',
-    contactName: 'Robert Wilson',
-    email: 'robert@premiumhomes.com',
-    phone: '+1 234-567-8902',
-    stage: 'proposal',
-    value: 65000,
-    probability: 60,
-    expectedCloseDate: '2025-11-05',
-    owner: 'Sarah Johnson',
-    createdDate: '2025-09-20',
-    lastActivity: '2025-10-20',
-    nextStep: 'Follow up on proposal feedback',
-    source: 'Trade Show',
-    products: ['Custom Wardrobes', 'Closet Systems', 'Vanity Units'],
-    priority: 'medium',
-    daysInStage: 8,
-  },
-  {
-    id: '4',
-    name: 'Commercial Kitchen - Grand Hotel',
-    accountName: 'Grand Hotel Group',
-    contactName: 'Lisa Martinez',
-    email: 'lisa.martinez@grandhotel.com',
-    phone: '+1 234-567-8903',
-    stage: 'negotiation',
-    value: 250000,
-    probability: 75,
-    expectedCloseDate: '2025-10-28',
-    owner: 'David Lee',
-    createdDate: '2025-08-10',
-    lastActivity: '2025-10-20',
-    nextStep: 'Finalize contract terms and payment schedule',
-    source: 'Direct',
-    products: ['Commercial Kitchen Equipment', 'Stainless Steel Cabinets', 'Installation'],
-    priority: 'high',
-    daysInStage: 15,
-  },
-  {
-    id: '5',
-    name: 'Bathroom Renovation - Villa Project',
-    accountName: 'Luxury Villas Inc',
-    contactName: 'James Thompson',
-    email: 'james@luxuryvillas.com',
-    phone: '+1 234-567-8904',
-    stage: 'proposal',
-    value: 45000,
-    probability: 55,
-    expectedCloseDate: '2025-11-20',
-    owner: 'Emily Davis',
-    createdDate: '2025-09-25',
-    lastActivity: '2025-10-17',
-    nextStep: 'Present alternative design options',
-    source: 'Partner',
-    products: ['Vanity Units', 'Bathroom Cabinets', 'Mirrors'],
-    priority: 'medium',
-    daysInStage: 10,
-  },
-  {
-    id: '6',
-    name: 'Kitchen Modernization - Smart Homes',
-    accountName: 'Smart Homes LLC',
-    contactName: 'Patricia Brown',
-    email: 'patricia@smarthomes.com',
-    phone: '+1 234-567-8905',
-    stage: 'qualification',
-    value: 95000,
-    probability: 25,
-    expectedCloseDate: '2025-12-10',
-    owner: 'Michael Park',
-    createdDate: '2025-10-05',
-    lastActivity: '2025-10-19',
-    nextStep: 'Conduct budget and timeline discussion',
-    source: 'Website',
-    products: ['Smart Kitchen Solutions', 'Appliances', 'Cabinets'],
-    priority: 'medium',
-    daysInStage: 3,
-  },
-  {
-    id: '7',
-    name: 'Retail Store Fixtures - Fashion Outlet',
-    accountName: 'Fashion Outlet Chain',
-    contactName: 'David Kim',
-    email: 'david.kim@fashionoutlet.com',
-    phone: '+1 234-567-8906',
-    stage: 'needs-analysis',
-    value: 180000,
-    probability: 45,
-    expectedCloseDate: '2025-11-25',
-    owner: 'Sarah Johnson',
-    createdDate: '2025-09-10',
-    lastActivity: '2025-10-18',
-    nextStep: 'Schedule store layout consultation',
-    source: 'Cold Call',
-    products: ['Display Cabinets', 'Storage Systems', 'Fixtures'],
-    priority: 'high',
-    daysInStage: 18,
-  },
-  {
-    id: '8',
-    name: 'Hospital Furniture - Medical Center',
-    accountName: 'Central Medical Center',
-    contactName: 'Dr. Susan Clark',
-    email: 'susan.clark@medcenter.com',
-    phone: '+1 234-567-8907',
-    stage: 'closed-won',
-    value: 320000,
-    probability: 100,
-    expectedCloseDate: '2025-10-15',
-    owner: 'David Lee',
-    createdDate: '2025-07-15',
-    lastActivity: '2025-10-15',
-    nextStep: 'Begin implementation',
-    source: 'Tender',
-    products: ['Medical Cabinets', 'Storage Solutions', 'Nurse Stations'],
-    priority: 'high',
-    daysInStage: 5,
-  },
-];
-
 const stages: Stage[] = [
   {
     id: 'qualification',
@@ -283,7 +120,7 @@ export default function OpportunitiesPipelinePage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [allOpportunities, setAllOpportunities] = useState<Opportunity[]>(mockOpportunities);
+  const [allOpportunities, setAllOpportunities] = useState<Opportunity[]>([]);
 
   // Map a crm_leads status to this page's stage ids.
   const stageIdFromLeadStatus = (s: string): string => {
@@ -306,11 +143,11 @@ export default function OpportunitiesPipelinePage() {
     }
   };
 
-  // Initialize pipeline with opportunities from the API (fallback to mock).
+  // Initialize pipeline with opportunities from the API.
   useEffect(() => {
     let active = true;
     (async () => {
-      let opps: Opportunity[] = mockOpportunities;
+      let opps: Opportunity[] = [];
       try {
         const [pipeline, won, lost] = await Promise.all([
           crmService.opportunityViews.getPipeline(),
@@ -346,7 +183,7 @@ export default function OpportunitiesPipelinePage() {
           }));
         }
       } catch {
-        opps = mockOpportunities;
+        opps = [];
       }
       if (!active) return;
       setAllOpportunities(opps);
