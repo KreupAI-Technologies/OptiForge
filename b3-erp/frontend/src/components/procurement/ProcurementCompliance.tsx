@@ -36,6 +36,22 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
 
   // Compliance requirements (loaded from API)
   const [complianceRequirements, setComplianceRequirements] = useState<any[]>([]);
+  // Compliance violations (loaded from API)
+  const [violationsData, setViolationsData] = useState<Array<{
+    id: string; date: string; category: string; severity: string; description: string; status: string; dueDate: string;
+  }>>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const v = await procurementPagesService.getComplianceViolations();
+        setViolationsData((v || []) as any[]);
+      } catch (err) {
+        console.error('Failed to load compliance violations:', err);
+        setViolationsData([]);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -77,13 +93,8 @@ const ProcurementCompliance: React.FC<ProcurementComplianceProps> = () => {
   const handleViewViolations = () => {
     console.log('Viewing compliance violations...');
 
-    const mockViolations = [
-      { id: 'V001', date: '2025-10-20', category: 'Environmental', severity: 'Medium', description: 'Supplier XYZ missing ISO 14001 certification renewal', status: 'Open', dueDate: '2025-11-15' },
-      { id: 'V002', date: '2025-10-18', category: 'Data Protection', severity: 'High', description: 'GDPR data retention policy violation - 3 suppliers', status: 'In Progress', dueDate: '2025-10-30' },
-      { id: 'V003', date: '2025-10-10', category: 'Financial', severity: 'Low', description: 'Late SOX control documentation', status: 'Resolved', dueDate: '2025-10-25' },
-      { id: 'V004', date: '2025-10-05', category: 'Labor & Ethics', severity: 'Critical', description: 'Conflict minerals declaration missing for 2 suppliers', status: 'Open', dueDate: '2025-10-28' },
-      { id: 'V005', date: '2025-09-28', category: 'Supply Chain', severity: 'Medium', description: 'Supplier code of conduct acknowledgment overdue', status: 'Resolved', dueDate: '2025-10-20' }
-    ];
+    // Violations fetched from the procurement compliance-violations endpoint.
+    const mockViolations = violationsData;
 
     alert(`Compliance Violations & Non-Conformances\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nVIOLATION SUMMARY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal Violations (Last 90 Days): ${mockViolations.length}\n❌ Critical: ${mockViolations.filter(v => v.severity === 'Critical').length}\n⚠️ High: ${mockViolations.filter(v => v.severity === 'High').length}\n⚡ Medium: ${mockViolations.filter(v => v.severity === 'Medium').length}\n○ Low: ${mockViolations.filter(v => v.severity === 'Low').length}\n\nSTATUS BREAKDOWN:\n🔴 Open: ${mockViolations.filter(v => v.status === 'Open').length}\n🟡 In Progress: ${mockViolations.filter(v => v.status === 'In Progress').length}\n✓ Resolved: ${mockViolations.filter(v => v.status === 'Resolved').length}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nACTIVE VIOLATIONS\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${mockViolations.filter(v => v.status !== 'Resolved').map((v, idx) =>
   `${idx + 1}. [${v.severity.toUpperCase()}] ${v.id}\n   Date: ${v.date}\n   Category: ${v.category}\n   Status: ${v.status}\n   \n   Description:\n   ${v.description}\n   \n   Due Date: ${v.dueDate}\n   Days Remaining: ${Math.ceil((new Date(v.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}\n   ${Math.ceil((new Date(v.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) < 7 ? '⏰ URGENT - Due within 7 days' : Math.ceil((new Date(v.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) < 0 ? '❌ OVERDUE' : '📅 On track'}`

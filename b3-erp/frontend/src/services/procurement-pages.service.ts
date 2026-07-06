@@ -31,6 +31,7 @@ export const procurementPagesService = {
   async getVendorActivities(): Promise<any[]> { return asArray(await request('/procurement/insights/vendor-activities')); },
   async getVendorRisk(): Promise<any[]> { return asArray(await request('/procurement/insights/vendor-risk')); },
   async getPendingActions(): Promise<any[]> { return asArray(await request('/procurement/insights/pending-actions')); },
+  async getComplianceViolations(): Promise<any[]> { return asArray(await request('/procurement/insights/compliance-violations')); },
 
   // ---- Spend analysis (procurement/spend-analysis/*) ----
   async getSpendOverview(): Promise<any> { return request('/procurement/spend-analysis/overview'); },

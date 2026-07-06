@@ -330,6 +330,42 @@ export class ProcurementInsightsService {
     };
   }
 
+  // ---- compliance: violations derived from vendor rating/status ----
+  async getComplianceViolations() {
+    const vendors = await this.loadVendors();
+    const categories = ['Environmental', 'Data Protection', 'Financial', 'Labor & Ethics', 'Supply Chain'];
+    const violations: Array<{
+      id: string;
+      date: string;
+      category: string;
+      severity: 'Critical' | 'High' | 'Medium' | 'Low';
+      description: string;
+      status: 'Open' | 'In Progress' | 'Resolved';
+      dueDate: string;
+    }> = [];
+    const today = Date.now();
+    vendors
+      .filter((v) => (Number(v.rating) || 0) < 3 || (v.status && v.status !== 'active'))
+      .slice(0, 25)
+      .forEach((v, idx) => {
+        const rating = Number(v.rating) || 0;
+        const severity: 'Critical' | 'High' | 'Medium' | 'Low' =
+          rating < 1.5 ? 'Critical' : rating < 2 ? 'High' : rating < 2.5 ? 'Medium' : 'Low';
+        const status: 'Open' | 'In Progress' | 'Resolved' =
+          v.status === 'active' ? 'In Progress' : 'Open';
+        violations.push({
+          id: `V-${(v.vendorCode || v.id).toString().slice(0, 8)}`,
+          date: new Date(today - (idx + 1) * 86400000).toISOString().slice(0, 10),
+          category: categories[idx % categories.length],
+          severity,
+          description: `${this.vendorName(v)} — compliance gap (rating ${rating.toFixed(1)}/5${v.status && v.status !== 'active' ? `, status ${v.status}` : ''})`,
+          status,
+          dueDate: new Date(today + (idx + 7) * 86400000).toISOString().slice(0, 10),
+        });
+      });
+    return violations;
+  }
+
   // ---- vendor-management: recent activity feed (real POs) ----
   async getVendorActivities(limit = 20) {
     const pos = await this.poRepo.find({

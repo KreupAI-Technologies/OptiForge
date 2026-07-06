@@ -70,4 +70,9 @@ export class ProcurementInsightsController {
   pendingActions() {
     return this.service.getPendingActions();
   }
+
+  @Get('compliance-violations')
+  complianceViolations() {
+    return this.service.getComplianceViolations();
+  }
 }
