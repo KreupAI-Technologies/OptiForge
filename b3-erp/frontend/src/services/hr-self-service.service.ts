@@ -17,6 +17,18 @@ async function getJson<T>(path: string): Promise<T> {
   return res.json();
 }
 
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-company-id': 'test' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 function qs(params: Record<string, string | undefined>): string {
   const parts = Object.entries(params)
     .filter(([, v]) => v != null && v !== '')
@@ -278,6 +290,12 @@ export class HrSelfServiceService {
   }
   static getOvertimeRequests(status?: string) {
     return list<OvertimeRequest>(`/hr/overtime-requests${qs({ status })}`);
+  }
+  static createOvertimeRequest(payload: Partial<OvertimeRequest>) {
+    return postJson<OvertimeRequest>('/hr/overtime-requests', {
+      companyId: 'default-company-id',
+      ...payload,
+    });
   }
   static getSafetyIncidents(status?: string) {
     return list<SafetyIncident>(`/hr/safety-incidents${qs({ status })}`);

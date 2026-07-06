@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Users, Save, Download, Upload, Search, Filter, Calendar, Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
 import { EmployeeService } from '@/services/employee.service';
+import { HrPagesService } from '@/services/hr-pages.service';
 
 interface EmployeePunch {
   id: string;
@@ -143,10 +144,46 @@ export default function BulkPunchPage() {
     }
   };
 
-  const handleSave = () => {
-    console.log('Saving punch data:', punchData);
-    // TODO: API call to save bulk punch data
-    alert('Punch data saved successfully!');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    // Only persist rows the supervisor actually punched in for.
+    const toSave = punchData.filter((emp) => emp.punchIn || emp.punchOut);
+    if (toSave.length === 0) {
+      alert('No punch entries to save.');
+      return;
+    }
+    setIsSaving(true);
+    setLoadError(null);
+    try {
+      await Promise.all(
+        toSave.map((emp) =>
+          HrPagesService.createAttendanceRecord({
+            companyId: 'default-company-id',
+            category: 'biometric',
+            employeeId: emp.id,
+            employeeName: emp.employeeName,
+            employeeCode: emp.employeeCode,
+            department: emp.department,
+            date: selectedDate,
+            totalHours: emp.workHours,
+            status: emp.status,
+            details: {
+              shift: emp.shift,
+              punchIn: emp.punchIn,
+              punchOut: emp.punchOut,
+              breakDuration: emp.breakDuration,
+              remarks: emp.remarks ?? '',
+            },
+          }),
+        ),
+      );
+      alert(`Punch data saved for ${toSave.length} employee(s).`);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to save punch data');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExport = () => {
