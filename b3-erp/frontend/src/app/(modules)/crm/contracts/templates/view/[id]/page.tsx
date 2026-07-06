@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Edit, Copy, FileText, Calendar, DollarSign, Clock, CheckCircle, RefreshCw, TrendingUp, Star } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface ContractTemplate {
   id: string;
@@ -32,40 +33,69 @@ export default function ViewTemplatePage() {
   const params = useParams();
   const templateId = params.id as string;
 
-  // Mock data - in a real app, fetch based on templateId
-  const [template] = useState<ContractTemplate>({
+  const [template, setTemplate] = useState<ContractTemplate>({
     id: templateId,
-    name: 'Enterprise Software License Agreement',
-    description: 'Comprehensive software licensing agreement for enterprise customers with multi-year terms',
+    name: '',
+    description: '',
     category: 'license',
-    defaultDuration: 36,
-    defaultValue: 450000,
+    defaultDuration: 0,
+    defaultValue: 0,
     billingCycle: 'annually',
-    autoRenew: true,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 30',
-    clauses: [
-      'License Grant',
-      'Usage Restrictions',
-      'Maintenance & Support',
-      'Warranty',
-      'Liability Limitations',
-      'Intellectual Property Rights',
-      'Confidentiality',
-      'Termination Clauses',
-      'Governing Law',
-      'Dispute Resolution'
-    ],
-    usageCount: 34,
-    lastUsed: '2024-10-15',
-    createdDate: '2023-09-10',
-    isFavorite: true,
-    tags: ['Enterprise', 'Software', 'Multi-Year'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: true,
-    includesConfidentiality: true,
+    autoRenew: false,
+    renewalNoticeDays: 0,
+    paymentTerms: '',
+    clauses: [],
+    usageCount: 0,
+    lastUsed: undefined,
+    createdDate: '',
+    isFavorite: false,
+    tags: [],
+    includesSLA: false,
+    includesTermination: false,
+    includesIPRights: false,
+    includesConfidentiality: false,
   });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!templateId) return;
+    let active = true;
+    (async () => {
+      try {
+        const t: any = await crmService.contractTemplates.getById(templateId);
+        if (!active || !t) return;
+        setTemplate({
+          id: t.id ?? templateId,
+          name: t.name ?? '',
+          description: t.description ?? '',
+          category: t.category ?? 'license',
+          defaultDuration: Number(t.defaultDuration ?? 0),
+          defaultValue: Number(t.defaultValue ?? 0),
+          billingCycle: t.billingCycle ?? 'annually',
+          autoRenew: Boolean(t.autoRenew),
+          renewalNoticeDays: Number(t.renewalNoticeDays ?? 0),
+          paymentTerms: t.paymentTerms ?? '',
+          clauses: Array.isArray(t.clauses) ? t.clauses : [],
+          usageCount: Number(t.usageCount ?? 0),
+          lastUsed: t.lastUsed ?? undefined,
+          createdDate: t.createdDate ?? '',
+          isFavorite: Boolean(t.isFavorite),
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          includesSLA: Boolean(t.includesSLA),
+          includesTermination: Boolean(t.includesTermination),
+          includesIPRights: Boolean(t.includesIPRights),
+          includesConfidentiality: Boolean(t.includesConfidentiality),
+        });
+      } catch (err) {
+        console.error('Failed to load template', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [templateId]);
 
   const handleBack = () => {
     router.push('/crm/contracts/templates');

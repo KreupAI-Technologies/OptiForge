@@ -21,6 +21,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface OpportunityFormData {
   // Step 1: Basic Info
@@ -173,15 +174,57 @@ export default function AddOpportunityPage() {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Opportunity Created',
-      message: `${formData.name} has been created successfully with ${formData.currency} ${formData.amount} value`,
-      variant: 'success'
-    });
-    router.push('/crm/opportunities');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        name: formData.name,
+        account: formData.account,
+        customerName: formData.account,
+        contactName: formData.contact,
+        type: formData.type,
+        amount: parseFloat(formData.amount) || 0,
+        currency: formData.currency,
+        probability: parseInt(formData.probability, 10) || 0,
+        expectedCloseDate: formData.expectedCloseDate || undefined,
+        stage: formData.stage,
+        nextStep: formData.nextStep,
+        leadSource: formData.leadSource,
+        productInterest: formData.productInterest,
+        products: formData.customProducts.map(p => ({
+          name: p.product,
+          quantity: parseFloat(p.quantity) || 0,
+          unitPrice: parseFloat(p.unitPrice) || 0,
+        })),
+        competitors: formData.competitors,
+        customerRequirements: formData.customerRequirements,
+        painPoints: formData.painPoints,
+        decisionCriteria: formData.decisionCriteria,
+        timeline: formData.timeline,
+        description: formData.description,
+        internalNotes: formData.internalNotes,
+        tags: formData.tags,
+      };
+      await crmService.opportunities.create(payload);
+      addToast({
+        title: 'Opportunity Created',
+        message: `${formData.name} has been created successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/opportunities');
+    } catch (err) {
+      addToast({
+        title: 'Create Failed',
+        message: err instanceof Error ? err.message : 'Could not create opportunity.',
+        variant: 'error'
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const steps = [

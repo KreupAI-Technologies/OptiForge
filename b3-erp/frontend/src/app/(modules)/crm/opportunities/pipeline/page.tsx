@@ -677,7 +677,7 @@ export default function OpportunitiesPipelinePage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {mockOpportunities.map((opp) => (
+              {allOpportunities.map((opp) => (
                 <tr key={opp.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
                     <div className="flex items-center space-x-2">

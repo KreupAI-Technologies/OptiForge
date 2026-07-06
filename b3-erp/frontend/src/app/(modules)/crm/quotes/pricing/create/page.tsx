@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, X, Percent, DollarSign, TrendingUp, Users, Package, Calendar, AlertCircle } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 export default function CreatePricingRulePage() {
   const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -23,7 +26,7 @@ export default function CreatePricingRulePage() {
   const [applicableCustomers, setApplicableCustomers] = useState<string[]>(['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -41,7 +44,30 @@ export default function CreatePricingRulePage() {
       return;
     }
 
-    router.push('/crm/quotes/pricing');
+    setSaving(true);
+    setSubmitError(null);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        name: formData.name,
+        description: formData.description,
+        ruleType: formData.ruleType,
+        discountType: formData.discountType,
+        discountValue: Number(formData.discountValue),
+        priority: Number(formData.priority),
+        isActive: formData.isActive,
+        validFrom: formData.validFrom,
+        validUntil: formData.validUntil || undefined,
+        conditions: conditions.filter(c => c.trim()),
+        applicableProducts: applicableProducts.filter(p => p.trim()),
+        applicableCustomers: applicableCustomers.filter(c => c.trim()),
+      };
+      await crmService.pricingRules.create(payload);
+      router.push('/crm/quotes/pricing');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create pricing rule');
+      setSaving(false);
+    }
   };
 
   const addCondition = () => {
@@ -396,6 +422,9 @@ export default function CreatePricingRulePage() {
               </div>
 
               {/* Action Buttons */}
+              {submitError && (
+                <p className="text-sm text-red-600">{submitError}</p>
+              )}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -406,9 +435,10 @@ export default function CreatePricingRulePage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={saving}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60"
                 >
-                  Create Pricing Rule
+                  {saving ? 'Creating…' : 'Create Pricing Rule'}
                 </button>
               </div>
             </div>

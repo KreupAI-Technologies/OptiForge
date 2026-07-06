@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertCircle, Plus, X, BookOpen, FileText, Video, Code } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 export default function CreateArticlePage() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -24,7 +27,7 @@ export default function CreateArticlePage() {
   const [relatedArticles, setRelatedArticles] = useState<string[]>(['']);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -39,7 +42,31 @@ export default function CreateArticlePage() {
       return;
     }
 
-    router.push('/crm/support/knowledge');
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        title: formData.title,
+        excerpt: formData.excerpt,
+        category: formData.category,
+        type: formData.type,
+        content: formData.content,
+        author: formData.author,
+        difficultyLevel: formData.difficultyLevel,
+        estimatedReadTime: Number(formData.estimatedReadTime),
+        isPinned: formData.isPinned,
+        isPublished: formData.isPublished,
+        status: formData.isPublished ? 'published' : 'draft',
+        tags: tags.map((t) => t.trim()).filter(Boolean),
+        relatedArticles: relatedArticles.map((a) => a.trim()).filter(Boolean),
+      };
+      await crmService.knowledgeArticles.create(payload);
+      router.push('/crm/support/knowledge');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create article. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const addTag = () => {
@@ -99,6 +126,13 @@ export default function CreateArticlePage() {
           <h1 className="text-3xl font-bold text-gray-900">Create Knowledge Base Article</h1>
           <p className="text-gray-600 mt-2">Write and publish a new knowledge base article</p>
         </div>
+
+        {submitError && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            {submitError}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -372,9 +406,10 @@ export default function CreateArticlePage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  disabled={isSubmitting}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {formData.isPublished ? 'Create & Publish' : 'Save as Draft'}
+                  {isSubmitting ? 'Saving…' : formData.isPublished ? 'Create & Publish' : 'Save as Draft'}
                 </button>
               </div>
             </div>

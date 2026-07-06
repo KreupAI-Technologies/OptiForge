@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, DollarSign, Target, Award, Users, Calendar, BarChart3, ArrowRight, ChevronDown, Briefcase, TrendingDown, AlertTriangle } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface Deal {
   id: string;
@@ -16,15 +17,20 @@ export interface Deal {
   lastActivity: string;
 }
 
-const mockDeals: Deal[] = [
-  { id: '1', name: 'Enterprise ERP Implementation', company: 'TechCorp', value: 250000, stage: 'negotiation', probability: 75, expectedCloseDate: '2025-11-15', owner: 'Sarah Johnson', daysInStage: 12, lastActivity: '2 hours ago' },
-  { id: '2', name: 'Manufacturing Suite Upgrade', company: 'Global Manuf', value: 180000, stage: 'proposal', probability: 60, expectedCloseDate: '2025-11-30', owner: 'Michael Chen', daysInStage: 8, lastActivity: '1 day ago' },
-  { id: '3', name: 'CRM System Migration', company: 'Precision Parts', value: 95000, stage: 'qualification', probability: 40, expectedCloseDate: '2025-12-15', owner: 'Emily Davis', daysInStage: 5, lastActivity: '3 days ago' },
-  { id: '4', name: 'Cloud Infrastructure Setup', company: 'Industrial Solutions', value: 320000, stage: 'closing', probability: 90, expectedCloseDate: '2025-11-05', owner: 'David Park', daysInStage: 18, lastActivity: '1 hour ago' },
-  { id: '5', name: 'Inventory Management System', company: 'Smart Systems', value: 75000, stage: 'prospecting', probability: 20, expectedCloseDate: '2025-12-30', owner: 'Lisa Anderson', daysInStage: 3, lastActivity: '4 days ago' },
-  { id: '6', name: 'HR Portal Development', company: 'Automation Inc', value: 125000, stage: 'won', probability: 100, expectedCloseDate: '2025-10-20', owner: 'Sarah Johnson', daysInStage: 0, lastActivity: '5 days ago' },
-  { id: '7', name: 'Supply Chain Optimization', company: 'Logistics Plus', value: 45000, stage: 'lost', probability: 0, expectedCloseDate: '2025-10-15', owner: 'Michael Chen', daysInStage: 0, lastActivity: '1 week ago' }
-];
+const STAGE_IDS = ['prospecting', 'qualification', 'proposal', 'negotiation', 'closing', 'won', 'lost'] as const;
+
+// Normalise arbitrary backend stage strings into the local pipeline stage ids.
+function normaliseStage(raw: any): Deal['stage'] {
+  const s = String(raw ?? '').toLowerCase().replace(/[\s_-]+/g, '');
+  if (s.includes('won') || s === 'closedwon') return 'won';
+  if (s.includes('lost') || s === 'closedlost') return 'lost';
+  if (s.includes('closing') || s.includes('closed')) return 'closing';
+  if (s.includes('negotiat')) return 'negotiation';
+  if (s.includes('proposal') || s.includes('quote')) return 'proposal';
+  if (s.includes('qualif')) return 'qualification';
+  if (s.includes('prospect') || s.includes('lead') || s.includes('new')) return 'prospecting';
+  return (STAGE_IDS as readonly string[]).includes(s) ? (s as Deal['stage']) : 'prospecting';
+}
 
 const stages = [
   { id: 'prospecting', name: 'Prospecting', color: 'bg-gray-500', probability: 20 },
@@ -37,16 +43,37 @@ const stages = [
 ];
 
 export default function SalesPipelineManagement() {
-  const [deals, setDeals] = useState<Deal[]>(mockDeals);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedStage, setSelectedStage] = useState<string>('all');
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null);
-  const [realTimeUpdate, setRealTimeUpdate] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRealTimeUpdate(prev => prev + 1);
-    }, 3000);
-    return () => clearInterval(interval);
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await crmService.opportunities.getAll();
+        const rows = asArray<any>(res);
+        const mapped: Deal[] = rows.map((o: any) => ({
+          id: String(o.id ?? ''),
+          name: o.name ?? o.opportunityNumber ?? '',
+          company: o.customerName ?? o.company ?? '',
+          value: Number(o.amount ?? o.value ?? 0),
+          stage: normaliseStage(o.stage),
+          probability: Number(o.probability ?? 0),
+          expectedCloseDate: o.expectedCloseDate ?? '',
+          owner: o.ownerName ?? o.owner ?? '',
+          daysInStage: Number(o.daysInStage ?? 0),
+          lastActivity: o.lastActivity ?? o.updatedAt ?? '',
+        }));
+        if (mounted) setDeals(mapped);
+      } catch (e) {
+        if (mounted) setDeals([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const activeDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost');
@@ -81,11 +108,14 @@ export default function SalesPipelineManagement() {
 
   const handleDrop = (stageId: string) => {
     if (draggedDeal && draggedDeal.stage !== stageId) {
+      const dealId = draggedDeal.id;
       setDeals(deals.map(d =>
-        d.id === draggedDeal.id
+        d.id === dealId
           ? { ...d, stage: stageId as Deal['stage'], daysInStage: 0 }
           : d
       ));
+      // Persist the stage change to the backend.
+      crmService.opportunities.update(dealId, { stage: stageId }).catch(() => {});
       setDraggedDeal(null);
     }
   };

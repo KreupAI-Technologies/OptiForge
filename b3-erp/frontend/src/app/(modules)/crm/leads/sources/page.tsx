@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { leadService } from '@/services/lead.service';
+import { crmService, asArray } from '@/services/crm.service';
 import {
   Globe,
   Users,
@@ -24,6 +25,7 @@ import {
   X,
   ChevronRight,
   ChevronDown,
+  Trash2,
 } from 'lucide-react';
 
 interface LeadSource {
@@ -43,188 +45,6 @@ interface LeadSource {
   color: string;
 }
 
-const mockLeadSources: LeadSource[] = [
-  // Parent: Exhibition
-  {
-    id: 'p1',
-    name: 'Exhibition',
-    category: 'Events',
-    parentId: null,
-    totalLeads: 0,
-    qualifiedLeads: 0,
-    conversionRate: 0,
-    avgScore: 0,
-    totalValue: 0,
-    avgDealSize: 0,
-    lastMonth: 0,
-    trend: 'up',
-    trendPercentage: 0,
-    color: 'bg-cyan-500',
-  },
-  // Children of Exhibition
-  {
-    id: 'c1',
-    name: 'Gitex 2025',
-    category: 'Events',
-    parentId: 'p1',
-    totalLeads: 40,
-    qualifiedLeads: 30,
-    conversionRate: 75.0,
-    avgScore: 70,
-    totalValue: 520000,
-    avgDealSize: 26000,
-    lastMonth: 38,
-    trend: 'up',
-    trendPercentage: 5.3,
-    color: 'bg-teal-500',
-  },
-  {
-    id: 'c2',
-    name: 'Gulfood Expo 2025',
-    category: 'Events',
-    parentId: 'p1',
-    totalLeads: 35,
-    qualifiedLeads: 25,
-    conversionRate: 71.4,
-    avgScore: 68,
-    totalValue: 470000,
-    avgDealSize: 23500,
-    lastMonth: 32,
-    trend: 'up',
-    trendPercentage: 4.1,
-    color: 'bg-sky-500',
-  },
-  // Other standalone sources
-  {
-    id: '1',
-    name: 'Referral',
-    category: 'Referral',
-    parentId: null,
-    totalLeads: 45,
-    qualifiedLeads: 38,
-    conversionRate: 84.4,
-    avgScore: 78,
-    totalValue: 1250000,
-    avgDealSize: 32895,
-    lastMonth: 38,
-    trend: 'up',
-    trendPercentage: 18.4,
-    color: 'bg-green-500',
-  },
-  {
-    id: '2',
-    name: 'Trade Show',
-    category: 'Events',
-    parentId: null,
-    totalLeads: 62,
-    qualifiedLeads: 45,
-    conversionRate: 72.6,
-    avgScore: 72,
-    totalValue: 1680000,
-    avgDealSize: 37333,
-    lastMonth: 58,
-    trend: 'up',
-    trendPercentage: 6.9,
-    color: 'bg-blue-500',
-  },
-  {
-    id: '3',
-    name: 'Website - Organic',
-    category: 'Website',
-    parentId: null,
-    totalLeads: 120,
-    qualifiedLeads: 72,
-    conversionRate: 60.0,
-    avgScore: 65,
-    totalValue: 1890000,
-    avgDealSize: 26250,
-    lastMonth: 115,
-    trend: 'up',
-    trendPercentage: 4.3,
-    color: 'bg-purple-500',
-  },
-  {
-    id: '4',
-    name: 'LinkedIn Ads',
-    category: 'Advertising',
-    parentId: null,
-    totalLeads: 95,
-    qualifiedLeads: 48,
-    conversionRate: 50.5,
-    avgScore: 58,
-    totalValue: 1140000,
-    avgDealSize: 23750,
-    lastMonth: 88,
-    trend: 'up',
-    trendPercentage: 8.0,
-    color: 'bg-indigo-500',
-  },
-  {
-    id: '5',
-    name: 'Customer Referral',
-    category: 'Referral',
-    parentId: null,
-    totalLeads: 28,
-    qualifiedLeads: 24,
-    conversionRate: 85.7,
-    avgScore: 82,
-    totalValue: 980000,
-    avgDealSize: 40833,
-    lastMonth: 22,
-    trend: 'up',
-    trendPercentage: 27.3,
-    color: 'bg-emerald-500',
-  },
-  {
-    id: '6',
-    name: 'Cold Call',
-    category: 'Sales',
-    parentId: null,
-    totalLeads: 150,
-    qualifiedLeads: 45,
-    conversionRate: 30.0,
-    avgScore: 42,
-    totalValue: 675000,
-    avgDealSize: 15000,
-    lastMonth: 165,
-    trend: 'down',
-    trendPercentage: -9.1,
-    color: 'bg-orange-500',
-  },
-  {
-    id: '7',
-    name: 'Google Ads',
-    category: 'Advertising',
-    parentId: null,
-    totalLeads: 85,
-    qualifiedLeads: 38,
-    conversionRate: 44.7,
-    avgScore: 52,
-    totalValue: 760000,
-    avgDealSize: 20000,
-    lastMonth: 92,
-    trend: 'down',
-    trendPercentage: -7.6,
-    color: 'bg-yellow-500',
-  },
-  {
-    id: '8',
-    name: 'Email Campaign',
-    category: 'Marketing',
-    parentId: null,
-    totalLeads: 78,
-    qualifiedLeads: 35,
-    conversionRate: 44.9,
-    avgScore: 55,
-    totalValue: 630000,
-    avgDealSize: 18000,
-    lastMonth: 75,
-    trend: 'up',
-    trendPercentage: 4.0,
-    color: 'bg-pink-500',
-  },
-];
-
 export default function LeadSourcesPage() {
   const router = useRouter();
   const [sources, setSources] = useState<LeadSource[]>([]);
@@ -234,25 +54,47 @@ export default function LeadSourcesPage() {
   useEffect(() => {
     const fetchSources = async () => {
       try {
-        const data = await leadService.getSourceAnalytics();
-        const mappedData: LeadSource[] = data.map((item: any) => ({
-          id: item.name,
-          name: item.name,
-          category: 'General',
-          totalLeads: parseInt(item.totalLeads, 10),
-          qualifiedLeads: parseInt(item.qualifiedLeads, 10),
-          conversionRate: parseFloat(item.conversionRate),
-          avgScore: 0,
-          totalValue: parseFloat(item.totalValue),
-          avgDealSize: item.qualifiedLeads > 0 ? parseFloat(item.totalValue) / parseInt(item.qualifiedLeads, 10) : 0,
-          lastMonth: 0,
-          trend: 'stable',
-          trendPercentage: 0,
-          color: 'bg-blue-500',
-        }));
-        setSources(mappedData);
+        // Configured lead sources (CRUD-managed)
+        const rawSources = asArray(await crmService.leadSources.getAll());
+
+        // Per-source analytics (counts/values); tolerate failure
+        let analytics: any[] = [];
+        try {
+          analytics = await leadService.getSourceAnalytics();
+        } catch (e) {
+          analytics = [];
+        }
+        const statsByName: Record<string, any> = {};
+        analytics.forEach((a: any) => {
+          if (a?.name) statsByName[String(a.name)] = a;
+        });
+
+        const mapped: LeadSource[] = rawSources.map((item: any) => {
+          const stat = statsByName[item.name] || {};
+          const totalLeads = parseInt(stat.totalLeads ?? '0', 10) || 0;
+          const qualifiedLeads = parseInt(stat.qualifiedLeads ?? '0', 10) || 0;
+          const totalValue = parseFloat(stat.totalValue ?? '0') || 0;
+          return {
+            id: String(item.id ?? item.name),
+            name: item.name ?? '',
+            category: item.category ?? 'General',
+            parentId: item.parentId ?? null,
+            totalLeads,
+            qualifiedLeads,
+            conversionRate: stat.conversionRate != null ? parseFloat(stat.conversionRate) : 0,
+            avgScore: Number(item.avgScore ?? 0),
+            totalValue,
+            avgDealSize: qualifiedLeads > 0 ? totalValue / qualifiedLeads : 0,
+            lastMonth: 0,
+            trend: 'stable',
+            trendPercentage: 0,
+            color: item.color ?? 'bg-blue-500',
+          };
+        });
+        setSources(mapped);
       } catch (error) {
         console.error('Failed to fetch lead sources:', error);
+        setSources([]);
       } finally {
         setLoading(false);
       }
@@ -373,28 +215,49 @@ export default function LeadSourcesPage() {
     setNewColor('bg-blue-500');
   }
 
-  function submitNewSource(e: React.FormEvent) {
+  async function submitNewSource(e: React.FormEvent) {
     e.preventDefault();
-    const id = `${Date.now()}`;
-    const parentId = newType === 'sub' ? newParentId || undefined : null;
-    const newSource: LeadSource = {
-      id,
+    const parentId = newType === 'sub' ? newParentId || null : null;
+    const payload = {
+      companyId: 'default-company-id',
       name: newName.trim() || 'Untitled Source',
       category: newCategory,
-      parentId: parentId ?? null,
-      totalLeads: 0,
-      qualifiedLeads: 0,
-      conversionRate: 0,
-      avgScore: 0,
-      totalValue: 0,
-      avgDealSize: 0,
-      lastMonth: 0,
-      trend: 'stable',
-      trendPercentage: 0,
+      parentId,
       color: newColor,
     };
-    setSources((prev) => [...prev, newSource]);
-    setShowModal(false);
+    try {
+      const created: any = await crmService.leadSources.create(payload);
+      const newSource: LeadSource = {
+        id: String(created?.id ?? `${Date.now()}`),
+        name: created?.name ?? payload.name,
+        category: created?.category ?? newCategory,
+        parentId: created?.parentId ?? parentId,
+        totalLeads: 0,
+        qualifiedLeads: 0,
+        conversionRate: 0,
+        avgScore: 0,
+        totalValue: 0,
+        avgDealSize: 0,
+        lastMonth: 0,
+        trend: 'stable',
+        trendPercentage: 0,
+        color: created?.color ?? newColor,
+      };
+      setSources((prev) => [...prev, newSource]);
+      setShowModal(false);
+    } catch (error) {
+      console.error('Failed to create lead source:', error);
+    }
+  }
+
+  async function deleteSource(id: string) {
+    if (typeof window !== 'undefined' && !window.confirm('Delete this lead source?')) return;
+    try {
+      await crmService.leadSources.delete(id);
+      setSources((prev) => prev.filter((s) => s.id !== id && s.parentId !== id));
+    } catch (error) {
+      console.error('Failed to delete lead source:', error);
+    }
   }
 
   return (
@@ -621,13 +484,22 @@ export default function LeadSourcesPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <button
-                        onClick={() => router.push(`/crm/leads?source=${parent.name}`)}
-                        className="flex items-center space-x-1 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span>View Leads</span>
-                      </button>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => router.push(`/crm/leads?source=${parent.name}`)}
+                          className="flex items-center space-x-1 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span>View Leads</span>
+                        </button>
+                        <button
+                          onClick={() => deleteSource(parent.id)}
+                          className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                          aria-label="Delete source"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
 
@@ -706,13 +578,22 @@ export default function LeadSourcesPage() {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        <button
-                          onClick={() => router.push(`/crm/leads?source=${child.name}`)}
-                          className="flex items-center space-x-1 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span>View Leads</span>
-                        </button>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => router.push(`/crm/leads?source=${child.name}`)}
+                            className="flex items-center space-x-1 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-sm font-medium"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>View Leads</span>
+                          </button>
+                          <button
+                            onClick={() => deleteSource(child.id)}
+                            className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                            aria-label="Delete source"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

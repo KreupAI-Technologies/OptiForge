@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -27,6 +27,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 // Import the same interfaces and data from add page
 interface LeadFormData {
@@ -118,55 +119,126 @@ export default function EditLeadPage() {
   const leadId = params.id as string;
   const [currentStep, setCurrentStep] = useState(1);
 
-  // In a real app, you would fetch the lead data based on leadId
-  // For now, using sample data
-  const [formData, setFormData] = useState<LeadFormData>({
-    firstName: 'John',
-    lastName: 'Smith',
-    title: 'VP of Operations',
-    company: 'Tech Solutions Inc',
-    website: 'https://techsolutions.com',
-    industry: 'Manufacturing',
-    employeeCount: '100-499',
-    annualRevenue: '$10M-$50M',
-    email: 'john.smith@techsolutions.com',
-    phone: '+1 234-567-8900',
-    mobile: '+1 234-567-8901',
+  const emptyForm: LeadFormData = {
+    firstName: '',
+    lastName: '',
+    title: '',
+    company: '',
+    website: '',
+    industry: '',
+    employeeCount: '',
+    annualRevenue: '',
+    email: '',
+    phone: '',
+    mobile: '',
     fax: '',
-    street: '123 Business Ave',
-    city: 'San Francisco',
-    state: 'California',
-    postalCode: '94102',
-    country: 'United States',
-    status: 'qualified',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: '',
+    status: 'new',
     rating: 'warm',
-    leadSource: 'Website',
-    leadSubSource: 'Organic Search',
+    leadSource: '',
+    leadSubSource: '',
     referredBy: '',
-    campaign: 'Q4 2025 Campaign',
-    estimatedValue: '45000',
-    estimatedCloseDate: '2025-12-31',
-    probability: '75',
-    productInterest: ['Modular Kitchen Solutions', 'Kitchen Cabinets & Storage'],
+    campaign: '',
+    estimatedValue: '',
+    estimatedCloseDate: '',
+    probability: '50',
+    productInterest: [],
     customProducts: [],
-    assignedTo: 'sarah-johnson',
-    teamAssignment: 'enterprise-sales',
-    description: 'Looking for modular kitchen solutions for their new office facility.',
-    tags: ['high-priority', 'enterprise'],
+    assignedTo: '',
+    teamAssignment: '',
+    description: '',
+    tags: [],
     customFields: {},
-    linkedIn: 'https://linkedin.com/in/johnsmith',
+    linkedIn: '',
     twitter: '',
     facebook: '',
-    gdprConsent: true,
+    gdprConsent: false,
     emailOptIn: true,
     smsOptIn: false,
     doNotCall: false,
-  });
+  };
+
+  const [formData, setFormData] = useState<LeadFormData>(emptyForm);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Prefill form from backend on mount
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data: any = await crmService.leads.getById(leadId);
+        if (!cancelled && data) {
+          const firstName = data.firstName ?? '';
+          const lastName = data.lastName ?? '';
+          setFormData({
+            ...emptyForm,
+            firstName,
+            lastName: lastName || (data.name && !firstName ? String(data.name) : ''),
+            title: data.title ?? data.jobTitle ?? '',
+            company: data.company ?? data.companyName ?? '',
+            website: data.website ?? '',
+            industry: data.industry ?? '',
+            employeeCount: data.employeeCount ?? '',
+            annualRevenue: data.annualRevenue ?? '',
+            email: data.email ?? '',
+            phone: data.phone ?? '',
+            mobile: data.mobile ?? '',
+            fax: data.fax ?? '',
+            street: data.street ?? '',
+            city: data.city ?? '',
+            state: data.state ?? '',
+            postalCode: data.postalCode ?? '',
+            country: data.country ?? '',
+            status: data.status ?? 'new',
+            rating: data.rating ?? 'warm',
+            leadSource: data.leadSource ?? data.source ?? '',
+            leadSubSource: data.leadSubSource ?? '',
+            referredBy: data.referredBy ?? '',
+            campaign: data.campaign ?? '',
+            estimatedValue: data.estimatedValue != null ? String(data.estimatedValue) : '',
+            estimatedCloseDate: data.estimatedCloseDate ?? '',
+            probability: data.probability != null ? String(data.probability) : '50',
+            productInterest: Array.isArray(data.productInterest) ? data.productInterest : [],
+            customProducts: Array.isArray(data.customProducts) ? data.customProducts : [],
+            assignedTo: data.assignedTo ?? '',
+            teamAssignment: data.teamAssignment ?? '',
+            description: data.description ?? '',
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            customFields: data.customFields ?? {},
+            linkedIn: data.linkedIn ?? '',
+            twitter: data.twitter ?? '',
+            facebook: data.facebook ?? '',
+            gdprConsent: !!data.gdprConsent,
+            emailOptIn: data.emailOptIn ?? true,
+            smsOptIn: !!data.smsOptIn,
+            doNotCall: !!data.doNotCall,
+          });
+          if (typeof data.leadScore === 'number') setLeadScore(data.leadScore);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Failed to load lead');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId]);
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [newTag, setNewTag] = useState('');
   const [newProduct, setNewProduct] = useState('');
-  const [leadScore, setLeadScore] = useState(75);
+  const [leadScore, setLeadScore] = useState(0);
 
   const updateFormData = (field: keyof LeadFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -259,16 +331,32 @@ export default function EditLeadPage() {
     setLeadScore(Math.min(score, 100));
   };
 
-  const handleSubmit = () => {
-    calculateLeadScore();
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Lead Updated',
-      message: `${formData.firstName} ${formData.lastName} from ${formData.company} has been updated successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/leads');
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const payload: any = {
+        ...formData,
+        estimatedValue: formData.estimatedValue ? parseFloat(formData.estimatedValue) : undefined,
+        probability: formData.probability ? parseInt(formData.probability, 10) : undefined,
+        leadScore,
+      };
+      await crmService.leads.update(leadId, payload);
+      addToast({
+        title: 'Lead Updated',
+        message: `${formData.firstName} ${formData.lastName} from ${formData.company} has been updated successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/leads');
+    } catch (e) {
+      addToast({
+        title: 'Update Failed',
+        message: e instanceof Error ? e.message : 'Failed to update lead. Please try again.',
+        variant: 'error'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const steps = [
@@ -298,6 +386,18 @@ export default function EditLeadPage() {
               </div>
             </div>
           </div>
+
+          {isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              Loading lead…
+            </div>
+          )}
+          {loadError && !isLoading && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}
+            </div>
+          )}
 
           {/* Progress Steps */}
           <div className="mb-3 bg-white rounded-lg border border-gray-200 p-3">
@@ -1148,10 +1248,11 @@ export default function EditLeadPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isSubmitting}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-5 w-5" />
-            <span>Update Lead</span>
+            <span>{isSubmitting ? 'Updating…' : 'Update Lead'}</span>
           </button>
         </div>
       </div>

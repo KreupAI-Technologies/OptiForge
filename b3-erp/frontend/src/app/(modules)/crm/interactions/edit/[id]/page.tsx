@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
   Link as LinkIcon,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface InteractionFormData {
   type: string;
@@ -72,24 +73,65 @@ export default function EditInteractionPage() {
   const interactionId = params.id as string;
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Pre-populated data for editing
-  const [formData, setFormData] = useState<InteractionFormData>({
+  const emptyForm: InteractionFormData = {
     type: 'call',
-    customer: 'Modern Kitchen Designs Ltd',
-    contactPerson: 'Sarah Johnson',
-    dateTime: '2025-10-11T10:30',
-    subject: 'Discussed new modular kitchen requirements',
-    description: 'Customer is interested in a complete modular kitchen setup for their new apartment. They are looking for premium materials with granite countertops. Budget discussed: $40K-50K. Next step: Send detailed proposal with 3D designs.',
-    outcome: 'positive',
-    duration: '45 mins',
+    customer: '',
+    contactPerson: '',
+    dateTime: '',
+    subject: '',
+    description: '',
+    outcome: 'neutral',
+    duration: '',
     location: '',
-    followUpRequired: true,
-    followUpDate: '2025-10-15',
-    assignedTo: 'michael-chen',
-    tags: ['high-value', 'urgent', 'modular-kitchen'],
-    relatedOpportunity: 'opp-001',
+    followUpRequired: false,
+    followUpDate: '',
+    assignedTo: '',
+    tags: [],
+    relatedOpportunity: '',
     relatedOrder: '',
-  });
+  };
+
+  const [formData, setFormData] = useState<InteractionFormData>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!interactionId) return;
+    let active = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const i: any = await crmService.interactions.getById(interactionId);
+        if (!active || !i) return;
+        setFormData({
+          type: i.type ?? 'call',
+          customer: i.customer ?? '',
+          contactPerson: i.contactPerson ?? '',
+          dateTime: i.dateTime ? String(i.dateTime).slice(0, 16) : '',
+          subject: i.subject ?? '',
+          description: i.description ?? '',
+          outcome: i.outcome ?? 'neutral',
+          duration: i.duration ?? '',
+          location: i.location ?? '',
+          followUpRequired: Boolean(i.followUpRequired),
+          followUpDate: i.followUpDate ? String(i.followUpDate).slice(0, 10) : '',
+          assignedTo: i.assignedTo ?? '',
+          tags: Array.isArray(i.tags) ? i.tags : [],
+          relatedOpportunity: i.relatedOpportunity ?? '',
+          relatedOrder: i.relatedOrder ?? '',
+        });
+      } catch (err: any) {
+        addToast({
+          title: 'Error',
+          message: err?.message || 'Failed to load interaction',
+          variant: 'error'
+        });
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [interactionId]);
 
   const [newTag, setNewTag] = useState('');
 
@@ -108,15 +150,44 @@ export default function EditInteractionPage() {
     updateFormData('tags', formData.tags.filter(t => t !== tag));
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Interaction Updated',
-      message: `Interaction #${interactionId} has been updated successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/interactions');
+  const handleSubmit = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        type: formData.type,
+        customer: formData.customer || undefined,
+        contactPerson: formData.contactPerson || undefined,
+        dateTime: formData.dateTime || undefined,
+        subject: formData.subject || undefined,
+        description: formData.description || undefined,
+        outcome: formData.outcome || undefined,
+        duration: formData.duration || undefined,
+        location: formData.location || undefined,
+        followUpRequired: formData.followUpRequired,
+        followUpDate: formData.followUpDate || undefined,
+        assignedTo: formData.assignedTo || undefined,
+        tags: formData.tags,
+        relatedOpportunity: formData.relatedOpportunity || undefined,
+        relatedOrder: formData.relatedOrder || undefined,
+      };
+      await crmService.interactions.update(interactionId, payload);
+      addToast({
+        title: 'Interaction Updated',
+        message: `Interaction #${interactionId} has been updated successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/interactions');
+    } catch (err: any) {
+      addToast({
+        title: 'Error',
+        message: err?.message || 'Failed to update interaction',
+        variant: 'error'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const typeOptions = [
@@ -553,10 +624,11 @@ export default function EditInteractionPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={saving || loading}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Save className="h-5 w-5" />
-            <span>Update Interaction</span>
+            <span>{saving ? 'Updating...' : 'Update Interaction'}</span>
           </button>
         </div>
       </div>

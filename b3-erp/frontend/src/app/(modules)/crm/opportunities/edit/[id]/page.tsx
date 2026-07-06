@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { crmService } from '@/services/crm.service';
 import {
   ArrowLeft,
   Save,
@@ -78,45 +79,86 @@ export default function EditOpportunityPage() {
   const opportunityId = params.id as string;
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Pre-populated with sample data
   const [formData, setFormData] = useState<OpportunityFormData>({
-    name: 'Premium Kitchen Installation - Luxury Apartments',
-    account: 'Skyline Properties Inc',
-    contact: 'Robert Anderson',
+    name: '',
+    account: '',
+    contact: '',
     type: 'new_business',
-    amount: '350000',
+    amount: '',
     currency: 'USD',
-    probability: '70',
-    expectedCloseDate: '2025-11-15',
-    stage: 'proposal',
-    nextStep: 'Present final proposal to decision committee',
-    leadSource: 'referral',
-    productInterest: ['Modular Kitchen Solutions', 'Kitchen Cabinets & Storage', 'Kitchen Countertops (Granite)'],
-    customProducts: [
-      { product: 'Premium Modular Kitchen Units', quantity: '15', unitPrice: '12000' },
-      { product: 'Granite Countertops', quantity: '15', unitPrice: '8000' },
-      { product: 'Installation & Setup', quantity: '1', unitPrice: '30000' },
-    ],
-    competitors: 'Elite Kitchen Systems, Luxury Home Solutions',
-    customerRequirements: 'High-end modular kitchen solutions for 15 luxury apartments. Requirements include premium finishes, granite countertops, modern appliances integration, and 2-year warranty.',
-    painPoints: 'Current contractor unable to meet quality standards and timeline. Need reliable partner for ongoing projects.',
-    decisionCriteria: 'Quality of materials, previous portfolio, installation timeline, warranty terms, competitive pricing',
-    timeline: 'Decision by Oct 30, Installation to start Nov 20, Project completion by Jan 15 2026',
-    description: 'Major opportunity for luxury apartment complex kitchen installations. Client is developer with multiple ongoing projects.',
-    internalNotes: 'Client highly values quality over price. Strong relationship with VP of Operations. Potential for future projects if we deliver well.',
-    tags: ['high-value', 'luxury', 'repeat-potential'],
+    probability: '50',
+    expectedCloseDate: '',
+    stage: 'prospecting',
+    nextStep: '',
+    leadSource: '',
+    productInterest: [],
+    customProducts: [],
+    competitors: '',
+    customerRequirements: '',
+    painPoints: '',
+    decisionCriteria: '',
+    timeline: '',
+    description: '',
+    internalNotes: '',
+    tags: [],
   });
 
-  const [attachments, setAttachments] = useState<Attachment[]>([
-    {
-      id: '1',
-      name: 'apartment-floor-plans.pdf',
-      size: 2048000,
-      type: 'application/pdf',
-      uploadedAt: '2025-09-20',
-    }
-  ]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [newTag, setNewTag] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Prefill from the API record.
+  useEffect(() => {
+    if (!opportunityId) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const raw: any = await crmService.opportunities.getById(opportunityId);
+        if (!cancelled && raw && typeof raw === 'object') {
+          setFormData(prev => ({
+            ...prev,
+            name: raw.name ?? '',
+            account: raw.customerName ?? raw.account ?? '',
+            contact: raw.contactName ?? '',
+            type: raw.type ?? prev.type,
+            amount: raw.amount != null ? String(raw.amount) : '',
+            currency: raw.currency ?? prev.currency,
+            probability: raw.probability != null ? String(raw.probability) : prev.probability,
+            expectedCloseDate: (raw.expectedCloseDate ?? '')?.toString().slice(0, 10),
+            stage: raw.stage ?? prev.stage,
+            nextStep: raw.nextStep ?? '',
+            leadSource: raw.leadSource ?? '',
+            productInterest: Array.isArray(raw.productInterest) ? raw.productInterest : [],
+            customProducts: Array.isArray(raw.products)
+              ? raw.products.map((p: any) => ({
+                  product: p.name ?? p.productName ?? '',
+                  quantity: String(p.quantity ?? '1'),
+                  unitPrice: String(p.unitPrice ?? p.price ?? '0'),
+                }))
+              : [],
+            competitors: raw.competitors ?? '',
+            customerRequirements: raw.customerRequirements ?? '',
+            painPoints: raw.painPoints ?? '',
+            decisionCriteria: raw.decisionCriteria ?? '',
+            timeline: raw.timeline ?? '',
+            description: raw.description ?? '',
+            internalNotes: raw.internalNotes ?? '',
+            tags: Array.isArray(raw.tags) ? raw.tags : [],
+          }));
+        }
+      } catch {
+        // keep empty form on error
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityId]);
 
   const updateFormData = (field: keyof OpportunityFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -180,15 +222,54 @@ export default function EditOpportunityPage() {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Opportunity Updated',
-      message: `${formData.name} has been updated successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/opportunities');
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        name: formData.name,
+        account: formData.account,
+        customerName: formData.account,
+        contactName: formData.contact,
+        type: formData.type,
+        amount: parseFloat(formData.amount) || 0,
+        currency: formData.currency,
+        probability: parseInt(formData.probability, 10) || 0,
+        expectedCloseDate: formData.expectedCloseDate || undefined,
+        stage: formData.stage,
+        nextStep: formData.nextStep,
+        leadSource: formData.leadSource,
+        productInterest: formData.productInterest,
+        products: formData.customProducts.map(p => ({
+          name: p.product,
+          quantity: parseFloat(p.quantity) || 0,
+          unitPrice: parseFloat(p.unitPrice) || 0,
+        })),
+        competitors: formData.competitors,
+        customerRequirements: formData.customerRequirements,
+        painPoints: formData.painPoints,
+        decisionCriteria: formData.decisionCriteria,
+        timeline: formData.timeline,
+        description: formData.description,
+        internalNotes: formData.internalNotes,
+        tags: formData.tags,
+      };
+      await crmService.opportunities.update(opportunityId, payload);
+      addToast({
+        title: 'Opportunity Updated',
+        message: `${formData.name} has been updated successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/opportunities');
+    } catch (err) {
+      addToast({
+        title: 'Update Failed',
+        message: err instanceof Error ? err.message : 'Could not update opportunity.',
+        variant: 'error'
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const steps = [

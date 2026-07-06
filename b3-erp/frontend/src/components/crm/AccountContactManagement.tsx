@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Building2, Users, User, Star, Mail, Phone, MapPin, Briefcase, Award, TrendingUp, Shield, AlertCircle } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface Contact {
   id: string;
@@ -31,66 +32,6 @@ export interface Account {
   lastActivity: string;
 }
 
-const mockAccounts: Account[] = [
-  {
-    id: '1',
-    name: 'TechCorp Industries',
-    industry: 'Technology',
-    revenue: 50000000,
-    employees: 500,
-    status: 'active',
-    healthScore: 92,
-    tier: 'strategic',
-    address: '123 Tech Street, San Francisco, CA',
-    website: 'techcorp.com',
-    totalDeals: 12,
-    dealValue: 1250000,
-    lastActivity: '2 hours ago',
-    contacts: [
-      { id: '1', name: 'Sarah Johnson', title: 'CTO', email: 'sarah@techcorp.com', phone: '+1 234-567-8901', role: 'decision-maker', department: 'IT', isPrimary: true },
-      { id: '2', name: 'Mike Davis', title: 'VP Engineering', email: 'mike@techcorp.com', phone: '+1 234-567-8902', role: 'champion', department: 'Engineering', isPrimary: false },
-      { id: '3', name: 'Emily Chen', title: 'CFO', email: 'emily@techcorp.com', phone: '+1 234-567-8903', role: 'influencer', department: 'Finance', isPrimary: false }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Global Manufacturing Ltd',
-    industry: 'Manufacturing',
-    revenue: 120000000,
-    employees: 1200,
-    status: 'active',
-    healthScore: 78,
-    tier: 'key',
-    address: '456 Factory Road, Detroit, MI',
-    website: 'globalmanuf.com',
-    totalDeals: 8,
-    dealValue: 850000,
-    lastActivity: '1 day ago',
-    contacts: [
-      { id: '4', name: 'Robert Wilson', title: 'Operations Director', email: 'robert@globalmanuf.com', phone: '+1 345-678-9012', role: 'decision-maker', department: 'Operations', isPrimary: true },
-      { id: '5', name: 'Lisa Anderson', title: 'IT Manager', email: 'lisa@globalmanuf.com', phone: '+1 345-678-9013', role: 'user', department: 'IT', isPrimary: false }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Precision Parts Co',
-    industry: 'Automotive',
-    revenue: 25000000,
-    employees: 250,
-    status: 'prospect',
-    healthScore: 56,
-    tier: 'standard',
-    address: '789 Auto Avenue, Detroit, MI',
-    website: 'precisionparts.com',
-    totalDeals: 2,
-    dealValue: 180000,
-    lastActivity: '5 days ago',
-    contacts: [
-      { id: '6', name: 'David Martinez', title: 'CEO', email: 'david@precisionparts.com', phone: '+1 456-789-0123', role: 'decision-maker', department: 'Executive', isPrimary: true }
-    ]
-  }
-];
-
 const roleColors = {
   'champion': 'bg-green-100 text-green-700 border-green-300',
   'influencer': 'bg-blue-100 text-blue-700 border-blue-300',
@@ -106,15 +47,59 @@ const tierColors = {
 };
 
 export default function AccountContactManagement() {
-  const [accounts] = useState<Account[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [viewMode, setViewMode] = useState<'hierarchy' | 'contacts'>('hierarchy');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await crmService.customers.getAll();
+        const rows = asArray<any>(res);
+        const mapped: Account[] = rows.map((c: any) => ({
+          id: String(c.id ?? ''),
+          name: c.name ?? c.customerName ?? c.companyName ?? '',
+          industry: c.industry ?? '',
+          revenue: Number(c.revenue ?? c.annualRevenue ?? 0),
+          employees: Number(c.employees ?? c.employeeCount ?? 0),
+          status: (c.status ?? 'active') as Account['status'],
+          healthScore: Number(c.healthScore ?? 0),
+          tier: (c.tier ?? 'standard') as Account['tier'],
+          address: c.address ?? c.billingAddress ?? '',
+          website: c.website ?? '',
+          contacts: Array.isArray(c.contacts)
+            ? c.contacts.map((ct: any) => ({
+                id: String(ct.id ?? ''),
+                name: ct.name ?? `${ct.firstName ?? ''} ${ct.lastName ?? ''}`.trim(),
+                title: ct.title ?? ct.position ?? '',
+                email: ct.email ?? '',
+                phone: ct.phone ?? '',
+                role: (ct.role ?? 'user') as Contact['role'],
+                department: ct.department ?? '',
+                isPrimary: Boolean(ct.isPrimary),
+              }))
+            : [],
+          totalDeals: Number(c.totalDeals ?? 0),
+          dealValue: Number(c.dealValue ?? 0),
+          lastActivity: c.lastActivity ?? c.updatedAt ?? '',
+        }));
+        if (mounted) setAccounts(mapped);
+      } catch (e) {
+        if (mounted) setAccounts([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const stats = {
     totalAccounts: accounts.length,
     strategicAccounts: accounts.filter(a => a.tier === 'strategic').length,
-    avgHealthScore: Math.round(accounts.reduce((sum, a) => sum + a.healthScore, 0) / accounts.length),
-    totalContacts: accounts.reduce((sum, a) => sum + a.contacts.length, 0),
+    avgHealthScore: accounts.length ? Math.round(accounts.reduce((sum, a) => sum + a.healthScore, 0) / accounts.length) : 0,
+    totalContacts: accounts.reduce((sum, a) => sum + (a.contacts?.length ?? 0), 0),
     totalDealValue: accounts.reduce((sum, a) => sum + a.dealValue, 0),
     activeAccounts: accounts.filter(a => a.status === 'active').length
   };

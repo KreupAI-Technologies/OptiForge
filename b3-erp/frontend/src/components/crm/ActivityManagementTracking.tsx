@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Activity, Phone, Mail, Calendar, CheckCircle2, MessageSquare, FileText, Clock, TrendingUp, Users, Target, Bell } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface Activity {
   id: string;
@@ -18,73 +19,6 @@ export interface Activity {
   emailOpened?: boolean;
   timestamp: string;
 }
-
-const mockActivities: Activity[] = [
-  {
-    id: '1',
-    type: 'call',
-    subject: 'Discovery Call with TechCorp',
-    description: 'Initial discovery call to understand requirements and pain points',
-    relatedTo: 'TechCorp Industries',
-    relatedType: 'account',
-    assignedTo: 'Sarah Johnson',
-    dueDate: '2025-10-26 14:00',
-    status: 'completed',
-    duration: 45,
-    outcome: 'Positive - Next steps agreed',
-    timestamp: '2 hours ago'
-  },
-  {
-    id: '2',
-    type: 'email',
-    subject: 'Product Demo Follow-up',
-    description: 'Sent product demo recording and pricing information',
-    relatedTo: 'Michael Chen - Global Manufacturing',
-    relatedType: 'contact',
-    assignedTo: 'David Park',
-    dueDate: '2025-10-26 10:30',
-    status: 'completed',
-    emailOpened: true,
-    timestamp: '4 hours ago'
-  },
-  {
-    id: '3',
-    type: 'meeting',
-    subject: 'Contract Negotiation Meeting',
-    description: 'Final contract terms discussion with decision makers',
-    relatedTo: 'Enterprise ERP Implementation',
-    relatedType: 'opportunity',
-    assignedTo: 'Sarah Johnson',
-    dueDate: '2025-10-27 15:00',
-    status: 'pending',
-    duration: 60,
-    timestamp: 'Tomorrow'
-  },
-  {
-    id: '4',
-    type: 'task',
-    subject: 'Prepare Proposal for Precision Parts',
-    description: 'Create detailed proposal with pricing and implementation timeline',
-    relatedTo: 'David Martinez - Precision Parts',
-    relatedType: 'lead',
-    assignedTo: 'Emily Davis',
-    dueDate: '2025-10-25 17:00',
-    status: 'overdue',
-    timestamp: 'Yesterday'
-  },
-  {
-    id: '5',
-    type: 'note',
-    subject: 'Customer Feedback - Product Features',
-    description: 'Customer requested advanced reporting and mobile app integration',
-    relatedTo: 'Lisa Anderson - Smart Systems',
-    relatedType: 'contact',
-    assignedTo: 'Michael Chen',
-    dueDate: '2025-10-26',
-    status: 'completed',
-    timestamp: '1 day ago'
-  }
-];
 
 const activityIcons = {
   call: Phone,
@@ -109,7 +43,8 @@ const statusColors = {
 };
 
 export default function ActivityManagementTracking() {
-  const [activities, setActivities] = useState<Activity[]>(mockActivities);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [realTimeUpdate, setRealTimeUpdate] = useState(0);
@@ -119,6 +54,37 @@ export default function ActivityManagementTracking() {
       setRealTimeUpdate(prev => prev + 1);
     }, 4000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await crmService.activities.getAll();
+        const rows = asArray<any>(res);
+        const mapped: Activity[] = rows.map((a: any) => ({
+          id: String(a.id ?? ''),
+          type: (a.type ?? 'note') as Activity['type'],
+          subject: a.subject ?? '',
+          description: a.description ?? '',
+          relatedTo: a.customerName ?? a.relatedTo ?? '',
+          relatedType: (a.relatedType ?? (a.opportunityId ? 'opportunity' : a.contactId ? 'contact' : a.leadId ? 'lead' : 'account')) as Activity['relatedType'],
+          assignedTo: a.assignedToName ?? a.assignedTo ?? '',
+          dueDate: a.dueDate ?? a.startDate ?? '',
+          status: (a.status === 'completed' || a.status === 'pending' || a.status === 'overdue' ? a.status : (a.completedDate ? 'completed' : 'pending')) as Activity['status'],
+          duration: a.duration ?? undefined,
+          outcome: a.outcome ?? undefined,
+          emailOpened: a.emailOpened ?? undefined,
+          timestamp: a.createdAt ?? a.updatedAt ?? '',
+        }));
+        if (mounted) setActivities(mapped);
+      } catch (e) {
+        if (mounted) setActivities([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const filteredActivities = activities.filter(activity => {
@@ -286,7 +252,7 @@ export default function ActivityManagementTracking() {
 
         <div className="space-y-2">
           {filteredActivities.map((activity, index) => {
-            const ActivityIcon = activityIcons[activity.type];
+            const ActivityIcon = activityIcons[activity.type] ?? FileText;
             const isLast = index === filteredActivities.length - 1;
 
             return (

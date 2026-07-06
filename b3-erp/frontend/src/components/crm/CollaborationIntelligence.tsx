@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, MessageSquare, Brain, Target, TrendingUp, AlertTriangle, Lightbulb, Award, FileText, Calendar, Zap } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface Recommendation {
   id: string;
@@ -15,65 +16,7 @@ export interface Recommendation {
   impact: string;
 }
 
-const mockRecommendations: Recommendation[] = [
-  {
-    id: '1',
-    type: 'next-action',
-    priority: 'high',
-    title: 'Schedule Follow-up Call with TechCorp',
-    description: 'AI detected high engagement from recent product demo. CTO opened email 3 times and spent 12 minutes on pricing page.',
-    confidence: 92,
-    relatedTo: 'Enterprise ERP Implementation - TechCorp',
-    suggestedAction: 'Schedule call within 48 hours to discuss pricing and implementation timeline',
-    impact: 'Expected deal close: +35% probability'
-  },
-  {
-    id: '2',
-    type: 'win-probability',
-    priority: 'medium',
-    title: 'Deal Velocity Slowing for Global Manufacturing',
-    description: 'Deal has been in Proposal stage for 18 days (avg is 12 days). Last contact was 5 days ago.',
-    confidence: 87,
-    relatedTo: 'Manufacturing Suite Upgrade - Global Manufacturing',
-    suggestedAction: 'Send personalized check-in email and schedule discovery call to address blockers',
-    impact: 'Win probability dropped from 75% to 60%'
-  },
-  {
-    id: '3',
-    type: 'churn-risk',
-    priority: 'high',
-    title: 'Churn Risk Alert: Smart Systems',
-    description: 'Customer engagement dropped 60% in last 30 days. Support ticket volume increased 3x. Account health score: 42/100.',
-    confidence: 94,
-    relatedTo: 'Smart Systems Corp',
-    suggestedAction: 'Schedule executive business review (EBR) and assign dedicated customer success manager',
-    impact: 'At-risk revenue: $95,000 annual contract'
-  },
-  {
-    id: '4',
-    type: 'upsell',
-    priority: 'medium',
-    title: 'Upsell Opportunity: Precision Parts',
-    description: 'Customer using 85% of allocated licenses and has viewed Advanced Analytics module 4 times this month.',
-    confidence: 78,
-    relatedTo: 'Precision Parts Co',
-    suggestedAction: 'Propose Advanced Analytics add-on with 20-user license expansion',
-    impact: 'Potential upsell value: $45,000'
-  },
-  {
-    id: '5',
-    type: 'competitive-intel',
-    priority: 'high',
-    title: 'Competitor Mentioned in TechCorp Emails',
-    description: 'AI detected mentions of "Oracle ERP" and "SAP" in 2 recent email exchanges. Competitor evaluation phase identified.',
-    confidence: 89,
-    relatedTo: 'Enterprise ERP Implementation - TechCorp',
-    suggestedAction: 'Provide competitive battle card and schedule demo highlighting unique differentiators',
-    impact: 'Competitive threat level: High'
-  }
-];
-
-const typeIcons = {
+const typeIcons: Record<string, any> = {
   'next-action': Target,
   'win-probability': TrendingUp,
   'churn-risk': AlertTriangle,
@@ -81,7 +24,7 @@ const typeIcons = {
   'competitive-intel': Brain
 };
 
-const typeColors = {
+const typeColors: Record<string, string> = {
   'next-action': 'bg-blue-100 text-blue-700 border-blue-300',
   'win-probability': 'bg-purple-100 text-purple-700 border-purple-300',
   'churn-risk': 'bg-red-100 text-red-700 border-red-300',
@@ -89,16 +32,44 @@ const typeColors = {
   'competitive-intel': 'bg-orange-100 text-orange-700 border-orange-300'
 };
 
-const priorityColors = {
+const priorityColors: Record<string, string> = {
   high: 'bg-red-100 text-red-700',
   medium: 'bg-yellow-100 text-yellow-700',
   low: 'bg-gray-100 text-gray-700'
 };
 
 export default function CollaborationIntelligence() {
-  const [recommendations] = useState<Recommendation[]>(mockRecommendations);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await crmService.tasks.getAll();
+        const rows = asArray<any>(res);
+        const mapped: Recommendation[] = rows.map((t: any) => ({
+          id: String(t.id ?? ''),
+          type: (t.type ?? 'next-action') as Recommendation['type'],
+          priority: (t.priority === 'high' || t.priority === 'medium' || t.priority === 'low' ? t.priority : 'medium') as Recommendation['priority'],
+          title: t.title ?? t.subject ?? t.name ?? '',
+          description: t.description ?? '',
+          confidence: Number(t.confidence ?? 0),
+          relatedTo: t.relatedTo ?? t.customerName ?? t.assignedToName ?? '',
+          suggestedAction: t.suggestedAction ?? t.nextSteps ?? '',
+          impact: t.impact ?? '',
+        }));
+        if (mounted) setRecommendations(mapped);
+      } catch (e) {
+        if (mounted) setRecommendations([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const filteredRecommendations = recommendations.filter(rec => {
     if (filterType !== 'all' && rec.type !== filterType) return false;
@@ -109,7 +80,7 @@ export default function CollaborationIntelligence() {
   const stats = {
     totalRecommendations: recommendations.length,
     highPriority: recommendations.filter(r => r.priority === 'high').length,
-    avgConfidence: Math.round(recommendations.reduce((sum, r) => sum + r.confidence, 0) / recommendations.length),
+    avgConfidence: recommendations.length ? Math.round(recommendations.reduce((sum, r) => sum + r.confidence, 0) / recommendations.length) : 0,
     churnRisks: recommendations.filter(r => r.type === 'churn-risk').length,
     upsellOpps: recommendations.filter(r => r.type === 'upsell').length,
     competitiveThreats: recommendations.filter(r => r.type === 'competitive-intel').length
@@ -222,7 +193,7 @@ export default function CollaborationIntelligence() {
       {/* AI Recommendations */}
       <div className="space-y-2">
         {filteredRecommendations.map((rec) => {
-          const TypeIcon = typeIcons[rec.type];
+          const TypeIcon = typeIcons[rec.type] ?? Target;
           return (
             <div key={rec.id} className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-3 hover:shadow-lg hover:border-purple-300 transition-all">
               <div className="flex items-start justify-between mb-2">

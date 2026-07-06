@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Building2, User, Users, Calendar, TrendingUp, X, Globe, Clock, CheckCircle, MessageSquare, FileText, PhoneCall, Video, Send, Activity, ArrowRight, Circle, ChevronLeft, ChevronRight, Download, RefreshCw, Upload, Filter, Save, Check, UserPlus, MoreVertical, FileSpreadsheet, ArrowUpDown } from 'lucide-react';
 import { DataTable, EmptyState, LoadingState, PageToolbar, ConfirmDialog, useToast } from '@/components/ui';
-import { LeadService, Lead as LeadFromService, MOCK_LEADS, MOCK_LEAD_ACTIVITIES } from '@/services/lead.service';
+import { LeadService, Lead as LeadFromService, MOCK_LEAD_ACTIVITIES } from '@/services/lead.service';
 
 // Use Lead interface from service - local type alias for component
 type Lead = LeadFromService;
@@ -141,11 +141,11 @@ export default function LeadsPage() {
       } catch (err) {
         console.error('Failed to fetch leads:', err);
         setError(err instanceof Error ? err : new Error('Failed to fetch leads'));
-        // Fallback to mock data
-        setLeads(MOCK_LEADS);
+        // Do not render mock data in the table; show empty state instead
+        setLeads([]);
         addToast({
           title: 'Connection Error',
-          message: 'Using cached data. Unable to connect to server.',
+          message: 'Unable to connect to server. No leads to display.',
           variant: 'warning'
         });
       } finally {

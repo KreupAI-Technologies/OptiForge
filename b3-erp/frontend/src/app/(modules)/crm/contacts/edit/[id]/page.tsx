@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface ContactFormData {
   // Step 1: Basic Info
@@ -68,37 +69,91 @@ export default function EditContactPage() {
   const contactId = params.id as string;
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Pre-populated with Sarah Williams data
-  const [formData, setFormData] = useState<ContactFormData>({
-    salutation: 'Ms.',
-    firstName: 'Sarah',
-    lastName: 'Williams',
-    title: 'Head of Procurement',
-    department: 'Procurement & Supply Chain',
-    email: 'sarah.williams@premierkitchen.com',
-    phone: '+1 (555) 123-4567',
-    mobile: '+1 (555) 987-6543',
-    fax: '+1 (555) 123-4568',
-    website: 'https://www.premierkitchen.com',
-    street: '456 Business Park Drive, Suite 200',
-    city: 'San Francisco',
-    state: 'California',
-    postalCode: '94105',
-    country: 'United States',
-    companyName: 'Premier Kitchen Designs Ltd',
-    accountLink: 'acc1',
+  const emptyForm: ContactFormData = {
+    salutation: '',
+    firstName: '',
+    lastName: '',
+    title: '',
+    department: '',
+    email: '',
+    phone: '',
+    mobile: '',
+    fax: '',
+    website: '',
+    street: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: '',
+    companyName: '',
+    accountLink: '',
     contactType: 'primary',
-    reportsTo: 'Michael Chen',
-    birthday: '1985-06-15',
-    assistant: 'Emily Rodriguez',
-    assistantPhone: '+1 (555) 234-5678',
-    linkedIn: 'https://linkedin.com/in/sarah-williams',
-    twitter: 'https://twitter.com/sarahwilliams',
-    facebook: 'https://facebook.com/sarah.williams',
-    notes: 'Key decision maker for kitchen procurement. Prefers detailed product specifications and competitive pricing. Has a strong focus on quality and reliability.',
-    tags: ['VIP', 'Decision Maker', 'Procurement'],
+    reportsTo: '',
+    birthday: '',
+    assistant: '',
+    assistantPhone: '',
+    linkedIn: '',
+    twitter: '',
+    facebook: '',
+    notes: '',
+    tags: [],
     preferredContactMethod: 'Email',
-  });
+  };
+
+  const [formData, setFormData] = useState<ContactFormData>(emptyForm);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!contactId) return;
+    let active = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const c: any = await crmService.contacts.getById(contactId);
+        if (!active || !c) return;
+        setFormData({
+          salutation: c.salutation ?? '',
+          firstName: c.firstName ?? '',
+          lastName: c.lastName ?? '',
+          title: c.title ?? '',
+          department: c.department ?? '',
+          email: c.email ?? '',
+          phone: c.phone ?? '',
+          mobile: c.mobile ?? '',
+          fax: c.fax ?? '',
+          website: c.website ?? '',
+          street: c.street ?? '',
+          city: c.city ?? '',
+          state: c.state ?? '',
+          postalCode: c.postalCode ?? '',
+          country: c.country ?? '',
+          companyName: c.companyName ?? '',
+          accountLink: c.accountLink ?? '',
+          contactType: (c.contactType as ContactFormData['contactType']) ?? 'primary',
+          reportsTo: c.reportsTo ?? '',
+          birthday: c.birthday ? String(c.birthday).slice(0, 10) : '',
+          assistant: c.assistant ?? '',
+          assistantPhone: c.assistantPhone ?? '',
+          linkedIn: c.linkedIn ?? '',
+          twitter: c.twitter ?? '',
+          facebook: c.facebook ?? '',
+          notes: c.notes ?? '',
+          tags: Array.isArray(c.tags) ? c.tags : [],
+          preferredContactMethod: c.preferredContactMethod ?? 'Email',
+        });
+      } catch (err: any) {
+        addToast({
+          title: 'Error',
+          message: err?.message || 'Failed to load contact',
+          variant: 'error'
+        });
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [contactId]);
 
   const [newTag, setNewTag] = useState('');
 
@@ -117,15 +172,57 @@ export default function EditContactPage() {
     updateFormData('tags', formData.tags.filter(t => t !== tag));
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Contact Updated',
-      message: `${formData.firstName} ${formData.lastName}'s information has been updated successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/contacts');
+  const handleSubmit = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        salutation: formData.salutation || undefined,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        title: formData.title || undefined,
+        department: formData.department || undefined,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        mobile: formData.mobile || undefined,
+        fax: formData.fax || undefined,
+        website: formData.website || undefined,
+        street: formData.street || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        postalCode: formData.postalCode || undefined,
+        country: formData.country || undefined,
+        companyName: formData.companyName || undefined,
+        accountLink: formData.accountLink || undefined,
+        contactType: formData.contactType,
+        reportsTo: formData.reportsTo || undefined,
+        birthday: formData.birthday || undefined,
+        assistant: formData.assistant || undefined,
+        assistantPhone: formData.assistantPhone || undefined,
+        linkedIn: formData.linkedIn || undefined,
+        twitter: formData.twitter || undefined,
+        facebook: formData.facebook || undefined,
+        notes: formData.notes || undefined,
+        tags: formData.tags,
+        preferredContactMethod: formData.preferredContactMethod || undefined,
+      };
+      await crmService.contacts.update(contactId, payload);
+      addToast({
+        title: 'Contact Updated',
+        message: `${formData.firstName} ${formData.lastName}'s information has been updated successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/contacts');
+    } catch (err: any) {
+      addToast({
+        title: 'Error',
+        message: err?.message || 'Failed to update contact',
+        variant: 'error'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const steps = [
@@ -685,10 +782,11 @@ export default function EditContactPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={saving || loading}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Save className="h-5 w-5" />
-            <span>Update Contact</span>
+            <span>{saving ? 'Updating...' : 'Update Contact'}</span>
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { crmService, asArray } from '@/services/crm.service';
 import {
   DollarSign,
   Calendar,
@@ -219,6 +220,40 @@ const generateSampleOpportunities = (): Opportunity[] => {
   ];
 };
 
+// Map a stage id from the API record onto one of the default stage ids.
+const normalizeStage = (raw: string): string => {
+  const s = (raw || '').toLowerCase();
+  if (['lead', 'prospecting', 'new'].includes(s)) return 'lead';
+  if (['qualified', 'qualification', 'contacted'].includes(s)) return 'qualified';
+  if (['proposal', 'needs-analysis', 'needs_analysis'].includes(s)) return 'proposal';
+  if (['negotiation'].includes(s)) return 'negotiation';
+  if (['closing', 'closed', 'closed_won', 'closed-won', 'won'].includes(s)) return 'closing';
+  return s || 'lead';
+};
+
+// Map an API opportunity record onto the local Opportunity shape.
+const mapApiOpportunity = (o: any): Opportunity => ({
+  id: String(o?.id ?? ''),
+  name: o?.name ?? '',
+  company: o?.customerName ?? o?.account ?? o?.company ?? '',
+  value: Number(o?.amount ?? o?.value ?? 0),
+  currency: o?.currency ?? 'USD',
+  stage: normalizeStage(String(o?.stage ?? '')),
+  probability: Number(o?.probability ?? 0),
+  expectedCloseDate: o?.expectedCloseDate ? new Date(o.expectedCloseDate) : new Date(),
+  owner: { id: String(o?.ownerId ?? o?.owner ?? ''), name: o?.ownerName ?? o?.owner ?? 'Unassigned' },
+  contacts: o?.contactName
+    ? [{ name: o.contactName, role: o?.contactRole ?? '', email: o?.contactEmail ?? '' }]
+    : [],
+  daysInStage: Number(o?.daysInStage ?? 0),
+  lastActivity: o?.lastActivity ? new Date(o.lastActivity) : new Date(),
+  activityCount: Number(o?.activityCount ?? 0),
+  tags: Array.isArray(o?.tags) ? o.tags : [],
+  priority: (o?.priority ?? 'medium') as Opportunity['priority'],
+  health: (o?.health ?? 'healthy') as Opportunity['health'],
+  source: o?.source ?? o?.leadSource ?? '',
+});
+
 // Format currency
 const formatCurrency = (value: number, currency: string = 'USD') => {
   return new Intl.NumberFormat('en-US', {
@@ -256,9 +291,30 @@ export function PipelineKanban({
   showWonLost = true,
 }: PipelineKanbanProps) {
   const [opportunities, setOpportunities] = useState<Opportunity[]>(
-    propOpportunities || generateSampleOpportunities()
+    propOpportunities || []
   );
   const stages = propStages || defaultStages;
+
+  // Load opportunities from the API when the parent does not supply them.
+  useEffect(() => {
+    if (propOpportunities) {
+      setOpportunities(propOpportunities);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const res = await crmService.opportunities.getAll();
+        if (!active) return;
+        setOpportunities(asArray(res).map(mapApiOpportunity));
+      } catch {
+        if (active) setOpportunities([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [propOpportunities]);
 
   const [draggedOpp, setDraggedOpp] = useState<Opportunity | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
@@ -360,6 +416,17 @@ export function PipelineKanban({
             : opp
         )
       );
+      // Persist the stage change; UI already updated optimistically above.
+      crmService.opportunities
+        .update(draggedOpp.id, { stage: stageId })
+        .catch(() => {
+          // On failure, revert the card to its original stage.
+          setOpportunities(prev =>
+            prev.map(opp =>
+              opp.id === draggedOpp.id ? { ...opp, stage: draggedOpp.stage } : opp
+            )
+          );
+        });
       onOpportunityMove?.(draggedOpp.id, draggedOpp.stage, stageId);
     }
     setDragOverStage(null);

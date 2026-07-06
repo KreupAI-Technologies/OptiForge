@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { crmService } from '@/services/crm.service';
+import { useState, useEffect, useCallback } from 'react';
+import { crmService, asArray } from '@/services/crm.service';
 import {
   Mail, Search, Plus, Eye, Edit, Copy, Trash2, Play, Pause,
   BarChart3, TrendingUp, Users, Target, Calendar, Clock,
@@ -41,55 +41,47 @@ interface AutomationSequence {
   avgCompletionTime: string;
 }
 
-const mockAutomationSequences: AutomationSequence[] = [
-  {
-    id: 'SEQ-001',
-    name: 'New Lead Onboarding',
-    trigger: 'new_lead',
-    status: 'active',
-    steps: 5,
-    enrolled: 1234,
-    completed: 892,
-    avgCompletionTime: '7 days'
-  },
-  {
-    id: 'SEQ-002',
-    name: 'Post-Demo Nurture',
-    trigger: 'status_change',
-    status: 'active',
-    steps: 4,
-    enrolled: 567,
-    completed: 423,
-    avgCompletionTime: '5 days'
-  },
-  {
-    id: 'SEQ-003',
-    name: 'Quarterly Newsletter Series',
-    trigger: 'time_based',
-    status: 'active',
-    steps: 3,
-    enrolled: 5678,
-    completed: 4890,
-    avgCompletionTime: '90 days'
-  },
-  {
-    id: 'SEQ-004',
-    name: 'Abandoned Cart Recovery',
-    trigger: 'abandoned_cart',
-    status: 'paused',
-    steps: 3,
-    enrolled: 234,
-    completed: 156,
-    avgCompletionTime: '3 days'
-  }
-];
+function mapTemplate(t: any): EmailTemplate {
+  return {
+    id: String(t?.id ?? ''),
+    name: t?.name ?? '',
+    subject: t?.subject ?? '',
+    category: (t?.category ?? 'follow-up') as EmailTemplate['category'],
+    description: t?.description ?? '',
+    previewText: t?.previewText ?? '',
+    content: t?.content ?? '',
+    status: (t?.status ?? 'draft') as EmailTemplate['status'],
+    tags: Array.isArray(t?.tags) ? t.tags : [],
+    usageCount: Number(t?.usageCount ?? 0),
+    lastUsed: t?.lastUsed ?? '',
+    createdAt: t?.createdAt ?? '',
+    createdBy: t?.createdBy ?? '',
+    openRate: Number(t?.openRate ?? 0),
+    clickRate: Number(t?.clickRate ?? 0),
+    conversionRate: Number(t?.conversionRate ?? 0),
+  };
+}
 
 export default function EmailTemplatesPage() {
   const { addToast } = useToast();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sequences] = useState<AutomationSequence[]>(mockAutomationSequences);
+  const [sequences, setSequences] = useState<AutomationSequence[]>([]);
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await crmService.emailTemplates.getAll();
+      setTemplates(asArray(data).map(mapTemplate));
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load email templates');
+      setTemplates([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -99,33 +91,40 @@ export default function EmailTemplatesPage() {
         setError(null);
         const data = await crmService.emailTemplates.getAll();
         if (!active) return;
-        const rows = Array.isArray(data) ? data : [];
-        setTemplates(
-          rows.map((t: any) => ({
-            id: String(t?.id ?? ''),
-            name: t?.name ?? '',
-            subject: t?.subject ?? '',
-            category: (t?.category ?? 'follow-up') as EmailTemplate['category'],
-            description: t?.description ?? '',
-            previewText: t?.previewText ?? '',
-            content: t?.content ?? '',
-            status: (t?.status ?? 'draft') as EmailTemplate['status'],
-            tags: Array.isArray(t?.tags) ? t.tags : [],
-            usageCount: Number(t?.usageCount ?? 0),
-            lastUsed: t?.lastUsed ?? '',
-            createdAt: t?.createdAt ?? '',
-            createdBy: t?.createdBy ?? '',
-            openRate: Number(t?.openRate ?? 0),
-            clickRate: Number(t?.clickRate ?? 0),
-            conversionRate: Number(t?.conversionRate ?? 0),
-          })),
-        );
+        setTemplates(asArray(data).map(mapTemplate));
       } catch (e: any) {
         if (!active) return;
         setError(e?.message ?? 'Failed to load email templates');
         setTemplates([]);
       } finally {
         if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await crmService.campaignAutomations.getAll();
+        if (!active) return;
+        setSequences(
+          asArray(data).map((s: any) => ({
+            id: String(s?.id ?? ''),
+            name: s?.name ?? '',
+            trigger: (s?.trigger ?? s?.triggerType ?? 'new_lead') as AutomationSequence['trigger'],
+            status: (s?.status ?? 'draft') as AutomationSequence['status'],
+            steps: Array.isArray(s?.steps) ? s.steps.length : Number(s?.steps ?? 0),
+            enrolled: Number(s?.enrolled ?? 0),
+            completed: Number(s?.completed ?? 0),
+            avgCompletionTime: s?.avgCompletionTime ?? '',
+          })),
+        );
+      } catch {
+        if (active) setSequences([]);
       }
     })();
     return () => {
@@ -186,37 +185,75 @@ export default function EmailTemplatesPage() {
     }
   };
 
-  const handleCloneTemplate = (template: EmailTemplate) => {
-    addToast({
-      title: 'Template Cloned',
-      message: `"${template.name}" has been cloned successfully`,
-      variant: 'success'
-    });
+  const handleCloneTemplate = async (template: EmailTemplate) => {
+    try {
+      await crmService.emailTemplates.create({
+        name: `${template.name} (Copy)`,
+        subject: template.subject,
+        category: template.category,
+        description: template.description,
+        previewText: template.previewText,
+        content: template.content,
+        status: 'draft',
+        tags: template.tags,
+      } as any);
+      await loadTemplates();
+      addToast({
+        title: 'Template Cloned',
+        message: `"${template.name}" has been cloned successfully`,
+        variant: 'success'
+      });
+    } catch {
+      addToast({ title: 'Clone Failed', message: 'Could not clone template', variant: 'error' });
+    }
   };
 
-  const handleDeleteTemplate = (template: EmailTemplate) => {
-    addToast({
-      title: 'Template Deleted',
-      message: `"${template.name}" has been deleted`,
-      variant: 'success'
-    });
+  const handleDeleteTemplate = async (template: EmailTemplate) => {
+    try {
+      await crmService.emailTemplates.delete(template.id);
+      await loadTemplates();
+      addToast({
+        title: 'Template Deleted',
+        message: `"${template.name}" has been deleted`,
+        variant: 'success'
+      });
+    } catch {
+      addToast({ title: 'Delete Failed', message: `Could not delete "${template.name}"`, variant: 'error' });
+    }
   };
 
-  const handleToggleStatus = (template: EmailTemplate) => {
+  const handleToggleStatus = async (template: EmailTemplate) => {
     const newStatus = template.status === 'active' ? 'inactive' : 'active';
-    addToast({
-      title: 'Status Updated',
-      message: `Template is now ${newStatus}`,
-      variant: 'success'
-    });
+    try {
+      await crmService.emailTemplates.update(template.id, { status: newStatus } as any);
+      await loadTemplates();
+      addToast({
+        title: 'Status Updated',
+        message: `Template is now ${newStatus}`,
+        variant: 'success'
+      });
+    } catch {
+      addToast({ title: 'Update Failed', message: 'Could not update template status', variant: 'error' });
+    }
   };
 
-  const handleCreateTemplate = () => {
-    addToast({
-      title: 'Template Created',
-      message: 'New email template created successfully',
-      variant: 'success'
-    });
+  const handleCreateTemplate = async () => {
+    try {
+      await crmService.emailTemplates.create({
+        name: 'New Template',
+        subject: '',
+        category: 'follow-up',
+        status: 'draft',
+      } as any);
+      await loadTemplates();
+      addToast({
+        title: 'Template Created',
+        message: 'New email template created successfully',
+        variant: 'success'
+      });
+    } catch {
+      addToast({ title: 'Create Failed', message: 'Could not create template', variant: 'error' });
+    }
   };
 
   const handleRunABTest = (template: EmailTemplate) => {
@@ -344,11 +381,11 @@ export default function EmailTemplatesPage() {
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${(sequence.completed / sequence.enrolled) * 100}%` }}
+                      style={{ width: `${sequence.enrolled > 0 ? (sequence.completed / sequence.enrolled) * 100 : 0}%` }}
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-1 text-center">
-                    {((sequence.completed / sequence.enrolled) * 100).toFixed(1)}% completion rate
+                    {(sequence.enrolled > 0 ? (sequence.completed / sequence.enrolled) * 100 : 0).toFixed(1)}% completion rate
                   </div>
                 </div>
               </div>

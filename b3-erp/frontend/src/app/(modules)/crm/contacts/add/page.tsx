@@ -19,6 +19,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useToast } from '@/components/ui';
+import { crmService } from '@/services/crm.service';
 
 interface ContactFormData {
   // Step 1: Basic Info
@@ -97,6 +98,7 @@ export default function AddContactPage() {
   });
 
   const [newTag, setNewTag] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const updateFormData = (field: keyof ContactFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -113,15 +115,57 @@ export default function AddContactPage() {
     updateFormData('tags', formData.tags.filter(t => t !== tag));
   };
 
-  const handleSubmit = () => {
-    // In a real application, this would send data to the backend API
-    // For now, we'll simulate success and show a toast notification
-    addToast({
-      title: 'Contact Created',
-      message: `${formData.firstName} ${formData.lastName} has been added successfully`,
-      variant: 'success'
-    });
-    router.push('/crm/contacts');
+  const handleSubmit = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const payload: any = {
+        companyId: 'default-company-id',
+        salutation: formData.salutation || undefined,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        title: formData.title || undefined,
+        department: formData.department || undefined,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        mobile: formData.mobile || undefined,
+        fax: formData.fax || undefined,
+        website: formData.website || undefined,
+        street: formData.street || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        postalCode: formData.postalCode || undefined,
+        country: formData.country || undefined,
+        companyName: formData.companyName || undefined,
+        accountLink: formData.accountLink || undefined,
+        contactType: formData.contactType,
+        reportsTo: formData.reportsTo || undefined,
+        birthday: formData.birthday || undefined,
+        assistant: formData.assistant || undefined,
+        assistantPhone: formData.assistantPhone || undefined,
+        linkedIn: formData.linkedIn || undefined,
+        twitter: formData.twitter || undefined,
+        facebook: formData.facebook || undefined,
+        notes: formData.notes || undefined,
+        tags: formData.tags,
+        preferredContactMethod: formData.preferredContactMethod || undefined,
+      };
+      await crmService.contacts.create(payload);
+      addToast({
+        title: 'Contact Created',
+        message: `${formData.firstName} ${formData.lastName} has been added successfully`,
+        variant: 'success'
+      });
+      router.push('/crm/contacts');
+    } catch (err: any) {
+      addToast({
+        title: 'Error',
+        message: err?.message || 'Failed to create contact',
+        variant: 'error'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const steps = [
@@ -681,10 +725,11 @@ export default function AddContactPage() {
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={saving}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Save className="h-5 w-5" />
-            <span>Save Contact</span>
+            <span>{saving ? 'Saving...' : 'Save Contact'}</span>
           </button>
         </div>
       </div>

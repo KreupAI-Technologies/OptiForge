@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, FileText, Calendar, DollarSign, AlertCircle, Plus, X } from 'lucide-react';
+import { crmService } from '@/services/crm.service';
 
 interface TemplateFormData {
   name: string;
@@ -28,32 +29,63 @@ export default function EditTemplatePage() {
   const templateId = params.id as string;
 
   const [formData, setFormData] = useState<TemplateFormData>({
-    name: 'Enterprise Software License Agreement',
-    description: 'Comprehensive software licensing agreement for enterprise customers with multi-year terms',
+    name: '',
+    description: '',
     category: 'license',
-    defaultDuration: 36,
-    defaultValue: 450000,
+    defaultDuration: 0,
+    defaultValue: 0,
     billingCycle: 'annually',
     autoRenew: true,
-    renewalNoticeDays: 90,
-    paymentTerms: 'Net 30',
-    clauses: [
-      'License Grant',
-      'Usage Restrictions',
-      'Maintenance & Support',
-      'Warranty',
-      'Liability Limitations'
-    ],
-    tags: ['Enterprise', 'Software', 'Multi-Year'],
-    includesSLA: true,
-    includesTermination: true,
-    includesIPRights: true,
-    includesConfidentiality: true,
+    renewalNoticeDays: 0,
+    paymentTerms: '',
+    clauses: [],
+    tags: [],
+    includesSLA: false,
+    includesTermination: false,
+    includesIPRights: false,
+    includesConfidentiality: false,
   });
 
   const [newClause, setNewClause] = useState('');
   const [newTag, setNewTag] = useState('');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!templateId) return;
+    let active = true;
+    (async () => {
+      try {
+        const t: any = await crmService.contractTemplates.getById(templateId);
+        if (!active || !t) return;
+        setFormData({
+          name: t.name ?? '',
+          description: t.description ?? '',
+          category: t.category ?? 'license',
+          defaultDuration: Number(t.defaultDuration ?? 0),
+          defaultValue: Number(t.defaultValue ?? 0),
+          billingCycle: t.billingCycle ?? 'annually',
+          autoRenew: Boolean(t.autoRenew),
+          renewalNoticeDays: Number(t.renewalNoticeDays ?? 0),
+          paymentTerms: t.paymentTerms ?? '',
+          clauses: Array.isArray(t.clauses) ? t.clauses : [],
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          includesSLA: Boolean(t.includesSLA),
+          includesTermination: Boolean(t.includesTermination),
+          includesIPRights: Boolean(t.includesIPRights),
+          includesConfidentiality: Boolean(t.includesConfidentiality),
+        });
+      } catch (err) {
+        console.error('Failed to load template', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [templateId]);
 
   const handleChange = (field: keyof TemplateFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -119,15 +151,21 @@ export default function EditTemplatePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    console.log('Updating template:', templateId, formData);
-    router.push('/crm/contracts/templates');
+    setSubmitting(true);
+    try {
+      await crmService.contractTemplates.update(templateId, { ...formData });
+      router.push('/crm/contracts/templates');
+    } catch (err) {
+      console.error('Failed to update template', err);
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -473,10 +511,11 @@ export default function EditTemplatePage() {
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              disabled={submitting || loading}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               <Save className="w-4 h-4" />
-              Update Template
+              {submitting ? 'Updating...' : 'Update Template'}
             </button>
           </div>
         </form>

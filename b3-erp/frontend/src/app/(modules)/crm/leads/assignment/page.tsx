@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { userManagementService, UserStatus } from '@/services/user-management.service';
 import { leadService } from '@/services/lead.service';
+import { crmService, asArray } from '@/services/crm.service';
 import {
   Users,
   UserPlus,
@@ -16,6 +17,7 @@ import {
   RefreshCw,
   Eye,
   Edit,
+  Trash2,
   BarChart3,
   AlertCircle,
   CheckCircle,
@@ -53,147 +55,21 @@ interface AssignmentRule {
   description: string;
 }
 
-const mockSalesReps: SalesRep[] = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@company.com',
-    phone: '+1 234-567-8900',
-    avatar: 'SJ',
-    team: 'Enterprise Sales',
-    assignedLeads: 45,
-    activeLeads: 32,
-    closedDeals: 13,
-    conversionRate: 28.9,
-    avgResponseTime: '2.5 hrs',
-    capacity: 32,
-    maxCapacity: 50,
-    performance: 92,
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    email: 'michael.chen@company.com',
-    phone: '+1 234-567-8901',
-    avatar: 'MC',
-    team: 'SMB Sales',
-    assignedLeads: 62,
-    activeLeads: 48,
-    closedDeals: 14,
-    conversionRate: 22.6,
-    avgResponseTime: '1.8 hrs',
-    capacity: 48,
-    maxCapacity: 60,
-    performance: 85,
-    status: 'active',
-  },
-  {
-    id: '3',
-    name: 'Emily Davis',
-    email: 'emily.davis@company.com',
-    phone: '+1 234-567-8902',
-    avatar: 'ED',
-    team: 'Enterprise Sales',
-    assignedLeads: 38,
-    activeLeads: 28,
-    closedDeals: 10,
-    conversionRate: 26.3,
-    avgResponseTime: '3.2 hrs',
-    capacity: 28,
-    maxCapacity: 50,
-    performance: 88,
-    status: 'active',
-  },
-  {
-    id: '4',
-    name: 'David Park',
-    email: 'david.park@company.com',
-    phone: '+1 234-567-8903',
-    avatar: 'DP',
-    team: 'Channel Partners',
-    assignedLeads: 25,
-    activeLeads: 18,
-    closedDeals: 7,
-    conversionRate: 28.0,
-    avgResponseTime: '4.1 hrs',
-    capacity: 18,
-    maxCapacity: 40,
-    performance: 78,
-    status: 'away',
-  },
-  {
-    id: '5',
-    name: 'Lisa Rodriguez',
-    email: 'lisa.rodriguez@company.com',
-    phone: '+1 234-567-8904',
-    avatar: 'LR',
-    team: 'Inside Sales',
-    assignedLeads: 78,
-    activeLeads: 65,
-    closedDeals: 13,
-    conversionRate: 16.7,
-    avgResponseTime: '1.2 hrs',
-    capacity: 65,
-    maxCapacity: 80,
-    performance: 82,
-    status: 'active',
-  },
-];
-
-const mockAssignmentRules: AssignmentRule[] = [
-  {
-    id: '1',
-    name: 'Enterprise Leads to Enterprise Team',
-    enabled: true,
-    priority: 1,
-    criteria: 'Deal Value > $50,000',
-    assignTo: 'Enterprise Sales Team',
-    description: 'Auto-assign high-value leads to enterprise sales specialists',
-  },
-  {
-    id: '2',
-    name: 'Referral Leads to Top Performers',
-    enabled: true,
-    priority: 2,
-    criteria: 'Lead Source = Referral',
-    assignTo: 'Top 3 Performers',
-    description: 'Route referral leads to highest converting sales reps',
-  },
-  {
-    id: '3',
-    name: 'Geographic Assignment',
-    enabled: true,
-    priority: 3,
-    criteria: 'Region-based',
-    assignTo: 'Regional Teams',
-    description: 'Assign leads based on geographic location',
-  },
-  {
-    id: '4',
-    name: 'Round Robin - SMB',
-    enabled: true,
-    priority: 4,
-    criteria: 'Deal Value < $10,000',
-    assignTo: 'SMB Team (Round Robin)',
-    description: 'Distribute small deals evenly across SMB team',
-  },
-  {
-    id: '5',
-    name: 'Partner Channel Leads',
-    enabled: false,
-    priority: 5,
-    criteria: 'Lead Source = Partner',
-    assignTo: 'Channel Team',
-    description: 'Route partner-sourced leads to channel specialists',
-  },
-];
+const mapRule = (r: any): AssignmentRule => ({
+  id: String(r.id ?? ''),
+  name: r.name ?? '',
+  enabled: r.enabled ?? r.isActive ?? true,
+  priority: Number(r.priority ?? 0),
+  criteria: r.criteria ?? r.condition ?? '',
+  assignTo: r.assignTo ?? r.assignedTo ?? r.target ?? '',
+  description: r.description ?? '',
+});
 
 export default function LeadAssignmentPage() {
   const router = useRouter();
   const [salesReps, setSalesReps] = useState<SalesRep[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assignmentRules, setAssignmentRules] = useState<AssignmentRule[]>(mockAssignmentRules);
+  const [assignmentRules, setAssignmentRules] = useState<AssignmentRule[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
@@ -227,6 +103,47 @@ export default function LeadAssignmentPage() {
     fetchReps();
   }, []);
 
+  // Load assignment rules from backend
+  useEffect(() => {
+    const fetchRules = async () => {
+      try {
+        const res = await crmService.assignmentRules.getAll();
+        setAssignmentRules(asArray(res).map(mapRule));
+      } catch (error) {
+        console.error('Failed to fetch assignment rules:', error);
+        setAssignmentRules([]);
+      }
+    };
+    fetchRules();
+  }, []);
+
+  const createRule = async (data: Partial<AssignmentRule>) => {
+    try {
+      const created = await crmService.assignmentRules.create({ companyId: 'default-company-id', ...data });
+      setAssignmentRules((prev) => [...prev, mapRule(created)]);
+    } catch (error) {
+      console.error('Failed to create assignment rule:', error);
+    }
+  };
+
+  const updateRule = async (id: string, data: Partial<AssignmentRule>) => {
+    try {
+      const updated = await crmService.assignmentRules.update(id, data);
+      setAssignmentRules((prev) => prev.map((r) => (r.id === id ? mapRule(updated) : r)));
+    } catch (error) {
+      console.error('Failed to update assignment rule:', error);
+    }
+  };
+
+  const deleteRule = async (id: string) => {
+    try {
+      await crmService.assignmentRules.delete(id);
+      setAssignmentRules((prev) => prev.filter((r) => r.id !== id));
+    } catch (error) {
+      console.error('Failed to delete assignment rule:', error);
+    }
+  };
+
   const stats = {
     totalReps: salesReps.length,
     activeReps: salesReps.filter((r) => r.status === 'active').length,
@@ -255,11 +172,15 @@ export default function LeadAssignmentPage() {
   };
 
   const toggleRule = (ruleId: string) => {
+    const rule = assignmentRules.find((r) => r.id === ruleId);
+    if (!rule) return;
+    // Optimistic update, then persist
     setAssignmentRules(
-      assignmentRules.map((rule) =>
-        rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule
+      assignmentRules.map((r) =>
+        r.id === ruleId ? { ...r, enabled: !r.enabled } : r
       )
     );
+    updateRule(ruleId, { enabled: !rule.enabled });
   };
 
   return (
@@ -312,7 +233,22 @@ export default function LeadAssignmentPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-3 mb-3">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-bold text-gray-900">Assignment Rules</h2>
-            <button className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button
+              onClick={() => {
+                const name = typeof window !== 'undefined' ? window.prompt('Rule name') : null;
+                if (name && name.trim()) {
+                  createRule({
+                    name: name.trim(),
+                    enabled: true,
+                    priority: assignmentRules.length + 1,
+                    criteria: '',
+                    assignTo: '',
+                    description: '',
+                  });
+                }
+              }}
+              className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
               <Play className="h-4 w-4" />
               <span>Add New Rule</span>
             </button>
@@ -361,8 +297,26 @@ export default function LeadAssignmentPage() {
                     >
                       {rule.enabled ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                     </button>
-                    <button className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors">
+                    <button
+                      onClick={() => {
+                        const name = typeof window !== 'undefined' ? window.prompt('Rule name', rule.name) : null;
+                        if (name && name.trim() && name.trim() !== rule.name) {
+                          updateRule(rule.id, { name: name.trim() });
+                        }
+                      }}
+                      className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                    >
                       <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (typeof window === 'undefined' || window.confirm(`Delete rule "${rule.name}"?`)) {
+                          deleteRule(rule.id);
+                        }
+                      }}
+                      className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

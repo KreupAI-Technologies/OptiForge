@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { crmService, asArray } from '@/services/crm.service';
 import {
   Building2,
   User,
@@ -131,206 +132,112 @@ interface Customer360UnifiedProps {
   onViewTicket?: (id: string) => void;
 }
 
-// Sample data generator
-const generateSampleCustomer = (): Customer => ({
-  id: 'cust-1',
-  name: 'Marriott International',
-  industry: 'Hospitality',
+// Empty customer template used before real data loads from the API.
+const buildEmptyCustomer = (): Customer => ({
+  id: '',
+  name: '',
+  industry: '',
   type: 'Enterprise',
   status: 'active',
-  website: 'www.marriott.com',
-  phone: '+1 (301) 380-3000',
-  email: 'procurement@marriott.com',
-  address: {
-    street: '10400 Fernwood Road',
-    city: 'Bethesda',
-    state: 'MD',
-    country: 'USA',
-    zip: '20817',
-  },
-  owner: { id: 'u1', name: 'Sarah Johnson' },
-  createdAt: new Date('2022-03-15'),
-  contacts: [
-    {
-      id: 'c1',
-      name: 'John Smith',
-      title: 'VP of Procurement',
-      email: 'jsmith@marriott.com',
-      phone: '+1 (301) 380-3001',
-      isPrimary: true,
-      lastContact: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    },
-    {
-      id: 'c2',
-      name: 'Emily Chen',
-      title: 'Director of F&B Operations',
-      email: 'echen@marriott.com',
-      phone: '+1 (301) 380-3002',
-      isPrimary: false,
-      lastContact: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    },
-    {
-      id: 'c3',
-      name: 'Michael Brown',
-      title: 'Regional Facilities Manager',
-      email: 'mbrown@marriott.com',
-      phone: '+1 (301) 380-3003',
-      isPrimary: false,
-    },
-  ],
-  healthScore: 85,
-  lifetimeValue: 2450000,
-  annualRevenue: 580000,
-  lastOrderDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-  openOpportunities: 3,
-  openOpportunitiesValue: 850000,
-  tags: ['Enterprise', 'Hotels', 'Multi-Location', 'Strategic'],
+  website: '',
+  phone: '',
+  email: '',
+  address: { street: '', city: '', state: '', country: '', zip: '' },
+  owner: { id: '', name: '' },
+  createdAt: new Date(),
+  contacts: [],
+  healthScore: 0,
+  lifetimeValue: 0,
+  annualRevenue: 0,
+  lastOrderDate: undefined,
+  openOpportunities: 0,
+  openOpportunitiesValue: 0,
+  tags: [],
 });
 
-const generateSampleActivities = (): Activity[] => {
-  const now = Date.now();
-  return [
-    {
-      id: 'a1',
-      type: 'call',
-      title: 'Quarterly Business Review',
-      description: 'Discussed Q3 performance and upcoming expansion plans for 5 new properties',
-      date: new Date(now - 2 * 24 * 60 * 60 * 1000),
-      user: 'Sarah Johnson',
-      outcome: 'Positive - Ready to proceed with Phase 2',
-    },
-    {
-      id: 'a2',
-      type: 'email',
-      title: 'Proposal Follow-up',
-      description: 'Sent updated pricing for Southeast region expansion',
-      date: new Date(now - 3 * 24 * 60 * 60 * 1000),
-      user: 'Sarah Johnson',
-    },
-    {
-      id: 'a3',
-      type: 'meeting',
-      title: 'Site Visit - Atlanta Property',
-      description: 'On-site assessment for kitchen renovation project',
-      date: new Date(now - 7 * 24 * 60 * 60 * 1000),
-      user: 'Michael Chen',
-      outcome: 'Specs confirmed, ready for proposal',
-    },
-    {
-      id: 'a4',
-      type: 'deal',
-      title: 'New Opportunity Created',
-      description: 'Miami Beach Resort - Full kitchen renovation',
-      date: new Date(now - 10 * 24 * 60 * 60 * 1000),
-      user: 'Sarah Johnson',
-      relatedTo: { type: 'Opportunity', name: 'Miami Beach Resort Kitchen', id: 'opp-1' },
-    },
-    {
-      id: 'a5',
-      type: 'order',
-      title: 'Order Delivered',
-      description: 'PO-2025-0842 - Chicago Marriott equipment installation complete',
-      date: new Date(now - 15 * 24 * 60 * 60 * 1000),
-      user: 'System',
-      relatedTo: { type: 'Order', name: 'PO-2025-0842', id: 'ord-1' },
-    },
-    {
-      id: 'a6',
-      type: 'support',
-      title: 'Support Ticket Resolved',
-      description: 'Warranty claim for conveyor belt - replacement shipped',
-      date: new Date(now - 20 * 24 * 60 * 60 * 1000),
-      user: 'Support Team',
-      relatedTo: { type: 'Ticket', name: 'TKT-4521', id: 'tkt-1' },
-    },
-    {
-      id: 'a7',
-      type: 'note',
-      title: 'Strategy Note',
-      description: 'Customer interested in sustainability initiatives. Explore eco-friendly equipment options.',
-      date: new Date(now - 25 * 24 * 60 * 60 * 1000),
-      user: 'Sarah Johnson',
-    },
-  ];
+const toDate = (v: any): Date => {
+  const d = v ? new Date(v) : new Date(NaN);
+  return isNaN(d.getTime()) ? new Date() : d;
 };
 
-const generateSampleOpportunities = (): Opportunity[] => [
-  {
-    id: 'opp-1',
-    name: 'Miami Beach Resort - Kitchen Renovation',
-    value: 450000,
-    stage: 'Proposal',
-    probability: 60,
-    expectedClose: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
-    owner: 'Sarah Johnson',
+const mapCustomer = (c: any): Customer => ({
+  id: String(c?.id ?? ''),
+  name: c?.customerName ?? c?.name ?? '',
+  industry: c?.industrySector ?? c?.industry ?? '',
+  type: (c?.type ?? 'Enterprise') as Customer['type'],
+  status: (['active', 'inactive', 'prospect', 'churned'].includes(c?.status) ? c.status : 'active') as Customer['status'],
+  website: c?.website ?? '',
+  phone: c?.generalPhone ?? c?.phone ?? '',
+  email: c?.generalEmail ?? c?.email ?? '',
+  address: {
+    street: c?.address?.street ?? c?.buildingFlat ?? '',
+    city: c?.address?.city ?? c?.city ?? '',
+    state: c?.address?.state ?? c?.state ?? '',
+    country: c?.address?.country ?? c?.country ?? '',
+    zip: c?.address?.zip ?? c?.pinCode ?? '',
   },
-  {
-    id: 'opp-2',
-    name: 'Southeast Region - Equipment Upgrade',
-    value: 280000,
-    stage: 'Negotiation',
-    probability: 75,
-    expectedClose: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    owner: 'Sarah Johnson',
-  },
-  {
-    id: 'opp-3',
-    name: 'NYC Properties - Maintenance Contract',
-    value: 120000,
-    stage: 'Qualified',
-    probability: 40,
-    expectedClose: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-    owner: 'Michael Chen',
-  },
-];
+  owner: { id: String(c?.owner?.id ?? ''), name: c?.owner?.name ?? c?.accountManager ?? '' },
+  createdAt: toDate(c?.customerSince ?? c?.createdAt),
+  contacts: [],
+  healthScore: Number(c?.healthScore ?? 0),
+  lifetimeValue: Number(c?.lifetimeValue ?? 0),
+  annualRevenue: Number(c?.annualRevenue ?? 0),
+  lastOrderDate: c?.lastOrderDate ? toDate(c.lastOrderDate) : undefined,
+  openOpportunities: Number(c?.openOpportunities ?? 0),
+  openOpportunitiesValue: Number(c?.openOpportunitiesValue ?? 0),
+  tags: Array.isArray(c?.tags) ? c.tags : [],
+});
 
-const generateSampleOrders = (): Order[] => [
-  {
-    id: 'ord-1',
-    orderNumber: 'PO-2025-0842',
-    date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    value: 175000,
-    status: 'delivered',
-    items: 24,
-  },
-  {
-    id: 'ord-2',
-    orderNumber: 'PO-2025-0756',
-    date: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-    value: 92000,
-    status: 'delivered',
-    items: 15,
-  },
-  {
-    id: 'ord-3',
-    orderNumber: 'PO-2025-0901',
-    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    value: 48000,
-    status: 'processing',
-    items: 8,
-  },
-];
+const mapContacts = (rows: any[]): Contact[] =>
+  rows.map((c: any, i: number) => ({
+    id: String(c?.id ?? i),
+    name: c?.name ?? [c?.firstName, c?.lastName].filter(Boolean).join(' ').trim(),
+    title: c?.title ?? c?.jobTitle ?? '',
+    email: c?.email ?? '',
+    phone: c?.phone ?? c?.mobile ?? '',
+    isPrimary: Boolean(c?.isPrimary),
+    lastContact: c?.lastContact ? toDate(c.lastContact) : undefined,
+  }));
 
-const generateSampleTickets = (): SupportTicket[] => [
-  {
-    id: 'tkt-1',
-    ticketNumber: 'TKT-4892',
-    subject: 'Installation support needed - Dallas property',
-    status: 'in-progress',
-    priority: 'high',
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    assignee: 'Tech Support',
-  },
-  {
-    id: 'tkt-2',
-    ticketNumber: 'TKT-4756',
-    subject: 'Spare parts inquiry',
-    status: 'resolved',
-    priority: 'medium',
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-    assignee: 'Parts Dept',
-  },
-];
+const mapActivities = (rows: any[]): Activity[] =>
+  rows.map((a: any, i: number) => ({
+    id: String(a?.id ?? i),
+    type: (['call', 'email', 'meeting', 'note', 'task', 'deal', 'order', 'support'].includes(a?.type)
+      ? a.type
+      : 'note') as Activity['type'],
+    title: a?.subject ?? a?.title ?? 'Activity',
+    description: a?.description ?? a?.notes ?? '',
+    date: toDate(a?.startDate ?? a?.createdAt),
+    user: a?.performedByName ?? a?.assignedToName ?? a?.user ?? 'System',
+    outcome: a?.outcome ?? undefined,
+  }));
+
+const mapOpportunities = (rows: any[]): Opportunity[] =>
+  rows.map((o: any, i: number) => ({
+    id: String(o?.id ?? i),
+    name: o?.name ?? o?.title ?? '',
+    value: Number(o?.value ?? o?.amount ?? 0),
+    stage: o?.stage ?? o?.stageName ?? '',
+    probability: Number(o?.probability ?? 0),
+    expectedClose: toDate(o?.expectedClose ?? o?.expectedCloseDate ?? o?.closeDate),
+    owner: o?.ownerName ?? o?.owner ?? '',
+  }));
+
+const mapOrders = (rows: any[]): Order[] =>
+  rows.map((q: any, i: number) => ({
+    id: String(q?.id ?? i),
+    orderNumber: q?.quoteNumber ?? q?.orderNumber ?? q?.number ?? q?.id ?? `Q-${i + 1}`,
+    date: toDate(q?.createdAt ?? q?.sentDate),
+    value: Number(q?.totalAmount ?? q?.amount ?? q?.value ?? 0),
+    status: (['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(q?.status)
+      ? q.status
+      : q?.status === 'accepted'
+      ? 'delivered'
+      : q?.status === 'rejected'
+      ? 'cancelled'
+      : 'processing') as Order['status'],
+    items: Array.isArray(q?.items) ? q.items.length : Number(q?.itemCount ?? 0),
+  }));
 
 // Format currency
 const formatCurrency = (value: number) => {
@@ -409,11 +316,72 @@ export function Customer360Unified({
   const [activityFilter, setActivityFilter] = useState<string>('all');
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
-  const customer = propCustomer || generateSampleCustomer();
-  const activities = propActivities || generateSampleActivities();
-  const opportunities = propOpportunities || generateSampleOpportunities();
-  const orders = propOrders || generateSampleOrders();
-  const supportTickets = propTickets || generateSampleTickets();
+  // Live-loaded data. When the parent supplies props we use those; otherwise
+  // the component fetches the first available customer and its related records.
+  const [loadedCustomer, setLoadedCustomer] = useState<Customer | null>(null);
+  const [loadedActivities, setLoadedActivities] = useState<Activity[]>([]);
+  const [loadedOpportunities, setLoadedOpportunities] = useState<Opportunity[]>([]);
+  const [loadedOrders, setLoadedOrders] = useState<Order[]>([]);
+  const [loadedTickets, setLoadedTickets] = useState<SupportTicket[]>([]);
+
+  useEffect(() => {
+    if (propCustomer) return; // parent-driven; nothing to fetch
+    let cancelled = false;
+    (async () => {
+      try {
+        const list: any[] = asArray(await crmService.customers.getAll());
+        const first = list[0];
+        if (!first?.id) return;
+        const cid = String(first.id);
+
+        const base = mapCustomer(first);
+        if (!cancelled) setLoadedCustomer(base);
+
+        const [contactsRaw, activitiesRaw, opportunitiesRaw, quotesRaw, ticketsRaw] = await Promise.all([
+          crmService.customers.getContacts(cid).catch(() => []),
+          crmService.customers.getActivities(cid).catch(() => []),
+          crmService.customers.getOpportunities(cid).catch(() => []),
+          crmService.customers.getQuotes(cid).catch(() => []),
+          crmService.tickets
+            .getAll({ customerId: cid } as any)
+            .then((r: any) => (Array.isArray(r) ? r : r?.data ?? []))
+            .catch(() => []),
+        ]);
+
+        if (cancelled) return;
+        setLoadedCustomer({ ...base, contacts: mapContacts(asArray(contactsRaw)) });
+        setLoadedActivities(mapActivities(asArray(activitiesRaw)));
+        setLoadedOpportunities(mapOpportunities(asArray(opportunitiesRaw)));
+        setLoadedOrders(mapOrders(asArray(quotesRaw)));
+        setLoadedTickets(
+          asArray<any>(ticketsRaw).map((t: any, i: number) => ({
+            id: String(t?.id ?? i),
+            ticketNumber: t?.ticketNumber ?? t?.number ?? t?.id ?? `TKT-${i + 1}`,
+            subject: t?.subject ?? t?.title ?? '',
+            status: (['open', 'in-progress', 'resolved', 'closed'].includes(t?.status)
+              ? t.status
+              : 'open') as SupportTicket['status'],
+            priority: (['low', 'medium', 'high', 'urgent'].includes(t?.priority)
+              ? t.priority
+              : 'medium') as SupportTicket['priority'],
+            createdAt: toDate(t?.createdAt),
+            assignee: t?.assigneeName ?? t?.assignee ?? '',
+          })),
+        );
+      } catch {
+        // keep empty state on failure
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [propCustomer]);
+
+  const customer = propCustomer || loadedCustomer || buildEmptyCustomer();
+  const activities = propActivities || loadedActivities;
+  const opportunities = propOpportunities || loadedOpportunities;
+  const orders = propOrders || loadedOrders;
+  const supportTickets = propTickets || loadedTickets;
 
   // Filter activities
   const filteredActivities = useMemo(() => {

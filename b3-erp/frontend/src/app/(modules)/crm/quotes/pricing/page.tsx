@@ -25,146 +25,6 @@ interface PricingRule {
   createdDate: string;
 }
 
-const mockRules: PricingRule[] = [
-  {
-    id: '1',
-    name: 'Enterprise Volume Discount',
-    description: 'Automatic discount for orders over 100 licenses',
-    ruleType: 'volume',
-    discountType: 'tiered',
-    discountValue: 15,
-    conditions: ['Order quantity > 100', 'Product category: Software'],
-    priority: 1,
-    isActive: true,
-    applicableProducts: ['All Software Products'],
-    applicableCustomers: ['All Customers'],
-    validFrom: '2024-01-01',
-    usageCount: 45,
-    totalSavings: 156000,
-    createdDate: '2024-01-01',
-  },
-  {
-    id: '2',
-    name: 'Premium Customer Pricing',
-    description: 'Special pricing for VIP and enterprise customers',
-    ruleType: 'customer',
-    discountType: 'percentage',
-    discountValue: 20,
-    conditions: ['Customer tier: VIP or Enterprise', 'Annual revenue > $100K'],
-    priority: 2,
-    isActive: true,
-    applicableProducts: ['All Products'],
-    applicableCustomers: ['VIP Segment', 'Enterprise Segment'],
-    validFrom: '2024-01-01',
-    usageCount: 78,
-    totalSavings: 284000,
-    createdDate: '2023-11-15',
-  },
-  {
-    id: '3',
-    name: 'Q4 Holiday Promotion',
-    description: 'Limited time holiday discount across all products',
-    ruleType: 'seasonal',
-    discountType: 'percentage',
-    discountValue: 25,
-    conditions: ['Date range: Nov 15 - Dec 31', 'All products included'],
-    priority: 3,
-    isActive: false,
-    applicableProducts: ['All Products'],
-    applicableCustomers: ['All Customers'],
-    validFrom: '2024-11-15',
-    validUntil: '2024-12-31',
-    usageCount: 0,
-    totalSavings: 0,
-    createdDate: '2024-10-01',
-  },
-  {
-    id: '4',
-    name: 'Software + Training Bundle',
-    description: 'Discount when purchasing software with training package',
-    ruleType: 'bundle',
-    discountType: 'percentage',
-    discountValue: 10,
-    conditions: ['Includes: Software License', 'Includes: Training Package'],
-    priority: 4,
-    isActive: true,
-    applicableProducts: ['Enterprise Software', 'Training Package'],
-    applicableCustomers: ['All Customers'],
-    validFrom: '2024-03-01',
-    usageCount: 32,
-    totalSavings: 42000,
-    createdDate: '2024-02-15',
-  },
-  {
-    id: '5',
-    name: 'New Customer Welcome',
-    description: 'First-time customer discount',
-    ruleType: 'customer',
-    discountType: 'fixed',
-    discountValue: 500,
-    conditions: ['Customer type: New', 'First order only'],
-    priority: 5,
-    isActive: true,
-    applicableProducts: ['All Products'],
-    applicableCustomers: ['New Customers'],
-    validFrom: '2024-01-01',
-    usageCount: 64,
-    totalSavings: 32000,
-    createdDate: '2024-01-10',
-  },
-  {
-    id: '6',
-    name: 'End of Month Flash Sale',
-    description: 'Last 3 days of month pricing boost',
-    ruleType: 'time-limited',
-    discountType: 'percentage',
-    discountValue: 12,
-    conditions: ['Days 28-31 of month', 'Recurring monthly'],
-    priority: 6,
-    isActive: true,
-    applicableProducts: ['Selected Products'],
-    applicableCustomers: ['All Customers'],
-    validFrom: '2024-01-01',
-    usageCount: 28,
-    totalSavings: 38000,
-    createdDate: '2024-01-05',
-  },
-  {
-    id: '7',
-    name: 'Implementation Services Bulk',
-    description: 'Volume discount for multiple implementation hours',
-    ruleType: 'volume',
-    discountType: 'tiered',
-    discountValue: 18,
-    conditions: ['Service hours > 50', 'Product: Implementation Services'],
-    priority: 7,
-    isActive: true,
-    applicableProducts: ['Implementation Services'],
-    applicableCustomers: ['All Customers'],
-    validFrom: '2024-02-01',
-    usageCount: 18,
-    totalSavings: 48600,
-    createdDate: '2024-01-20',
-  },
-  {
-    id: '8',
-    name: 'Early Renewal Incentive',
-    description: 'Discount for renewing 60+ days before expiration',
-    ruleType: 'time-limited',
-    discountType: 'percentage',
-    discountValue: 8,
-    conditions: ['Renewal: 60+ days early', 'Existing customers only'],
-    priority: 8,
-    isActive: true,
-    applicableProducts: ['All Subscription Products'],
-    applicableCustomers: ['Existing Customers'],
-    validFrom: '2024-01-01',
-    usageCount: 42,
-    totalSavings: 67200,
-    createdDate: '2023-12-10',
-  },
-];
-
 export default function PricingRulesPage() {
   const router = useRouter();
   const [rules, setRules] = useState<PricingRule[]>([]);
@@ -219,10 +79,17 @@ export default function PricingRulesPage() {
     router.push('/crm/quotes/pricing/create');
   };
 
-  const handleToggleRule = (rule: PricingRule) => {
+  const handleToggleRule = async (rule: PricingRule) => {
+    const nextActive = !rule.isActive;
     setRules(rules.map(r =>
-      r.id === rule.id ? { ...r, isActive: !r.isActive } : r
+      r.id === rule.id ? { ...r, isActive: nextActive } : r
     ));
+    try {
+      await crmService.pricingRules.update(rule.id, { isActive: nextActive });
+    } catch {
+      /* revert on failure */
+      setRules(prev => prev.map(r => (r.id === rule.id ? { ...r, isActive: rule.isActive } : r)));
+    }
   };
 
   const handleEditRule = (rule: PricingRule) => {
@@ -234,9 +101,15 @@ export default function PricingRulesPage() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
-    if (ruleToDelete) {
-      setRules(rules.filter(r => r.id !== ruleToDelete.id));
+  const confirmDelete = async () => {
+    if (!ruleToDelete) return;
+    const id = ruleToDelete.id;
+    try {
+      await crmService.pricingRules.delete(id);
+    } catch {
+      /* ignore API error; still remove from local list */
+    } finally {
+      setRules(rules.filter(r => r.id !== id));
       setRuleToDelete(null);
       setShowDeleteDialog(false);
     }

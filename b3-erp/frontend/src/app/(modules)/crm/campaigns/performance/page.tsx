@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Target, Mail, Users, DollarSign, Eye, MousePointer, Activity, Calendar } from 'lucide-react';
-import { crmService } from '@/services/crm.service';
+import { crmService, asArray } from '@/services/crm.service';
 
 interface CampaignPerformance {
   campaignId: string;
@@ -23,99 +23,6 @@ interface CampaignPerformance {
   costPerAcquisition: number;
 }
 
-const mockPerformanceData: CampaignPerformance[] = [
-  {
-    campaignId: '1',
-    name: 'Q4 Product Launch',
-    type: 'Email',
-    period: 'Oct 2024',
-    sent: 9800,
-    delivered: 9650,
-    opened: 4825,
-    clicked: 1930,
-    converted: 245,
-    revenue: 856000,
-    roi: 3000,
-    openRate: 50.0,
-    clickRate: 20.0,
-    conversionRate: 2.5,
-    costPerLead: 116,
-    costPerAcquisition: 3492,
-  },
-  {
-    campaignId: '2',
-    name: 'Enterprise Webinar Series',
-    type: 'Webinar',
-    period: 'Sep-Oct 2024',
-    sent: 3200,
-    delivered: 3180,
-    opened: 1908,
-    clicked: 856,
-    converted: 128,
-    revenue: 512000,
-    roi: 2089,
-    openRate: 60.0,
-    clickRate: 26.9,
-    conversionRate: 4.0,
-    costPerLead: 191,
-    costPerAcquisition: 7656,
-  },
-  {
-    campaignId: '3',
-    name: 'Customer Success Stories',
-    type: 'Content',
-    period: 'Aug-Oct 2024',
-    sent: 15600,
-    delivered: 15450,
-    opened: 8505,
-    clicked: 3401,
-    converted: 187,
-    revenue: 374000,
-    roi: 1700,
-    openRate: 55.1,
-    clickRate: 22.0,
-    conversionRate: 1.2,
-    costPerLead: 133,
-    costPerAcquisition: 1898,
-  },
-  {
-    campaignId: '4',
-    name: 'Trade Show Lead Nurture',
-    type: 'Email',
-    period: 'Jul-Sep 2024',
-    sent: 7800,
-    delivered: 7720,
-    opened: 4632,
-    clicked: 1853,
-    converted: 156,
-    revenue: 624000,
-    roi: 1621,
-    openRate: 60.0,
-    clickRate: 24.0,
-    conversionRate: 2.0,
-    costPerLead: 246,
-    costPerAcquisition: 5128,
-  },
-  {
-    campaignId: '5',
-    name: 'LinkedIn Thought Leadership',
-    type: 'Social',
-    period: 'Sep-Oct 2024',
-    sent: 38000,
-    delivered: 38000,
-    opened: 11400,
-    clicked: 3420,
-    converted: 89,
-    revenue: 178000,
-    roi: 1483,
-    openRate: 30.0,
-    clickRate: 9.0,
-    conversionRate: 0.23,
-    costPerLead: 134,
-    costPerAcquisition: 2000,
-  },
-];
-
 export default function CampaignPerformancePage() {
   const [performanceData, setPerformanceData] = useState<CampaignPerformance[]>([]);
 
@@ -123,10 +30,10 @@ export default function CampaignPerformancePage() {
     let active = true;
     (async () => {
       try {
-        const data = await crmService.emailCampaigns.getPerformance();
+        const data: any = await crmService.emailCampaigns.getPerformance();
         if (!active) return;
-        const emailRows = Array.isArray(data?.emailCampaigns) ? data.emailCampaigns : [];
-        const campaignRows = Array.isArray(data?.campaigns) ? data.campaigns : [];
+        const emailRows = asArray(data?.emailCampaigns);
+        const campaignRows = asArray(data?.campaigns);
         const mapped: CampaignPerformance[] = [
           ...emailRows.map((e: any) => ({
             campaignId: String(e?.id ?? ''),
@@ -165,9 +72,9 @@ export default function CampaignPerformancePage() {
             costPerAcquisition: 0,
           })),
         ];
-        setPerformanceData(mapped.length ? mapped : mockPerformanceData);
+        setPerformanceData(mapped);
       } catch {
-        if (active) setPerformanceData(mockPerformanceData);
+        if (active) setPerformanceData([]);
       }
     })();
     return () => {
@@ -190,16 +97,18 @@ export default function CampaignPerformancePage() {
     }
   });
 
+  const count = performanceData.length || 1;
   const totals = {
     sent: performanceData.reduce((sum, c) => sum + c.sent, 0),
     opened: performanceData.reduce((sum, c) => sum + c.opened, 0),
     clicked: performanceData.reduce((sum, c) => sum + c.clicked, 0),
     converted: performanceData.reduce((sum, c) => sum + c.converted, 0),
     revenue: performanceData.reduce((sum, c) => sum + c.revenue, 0),
-    avgOpenRate: performanceData.reduce((sum, c) => sum + c.openRate, 0) / performanceData.length,
-    avgClickRate: performanceData.reduce((sum, c) => sum + c.clickRate, 0) / performanceData.length,
-    avgConversionRate: performanceData.reduce((sum, c) => sum + c.conversionRate, 0) / performanceData.length,
+    avgOpenRate: performanceData.reduce((sum, c) => sum + c.openRate, 0) / count,
+    avgClickRate: performanceData.reduce((sum, c) => sum + c.clickRate, 0) / count,
+    avgConversionRate: performanceData.reduce((sum, c) => sum + c.conversionRate, 0) / count,
   };
+  const sentSafe = totals.sent || 1;
 
   return (
     <div className="w-full h-full px-3 py-2 ">
@@ -302,13 +211,13 @@ export default function CampaignPerformancePage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Opened</span>
                 <span className="text-sm font-bold text-gray-900">
-                  {totals.opened.toLocaleString()} ({((totals.opened / totals.sent) * 100).toFixed(1)}%)
+                  {totals.opened.toLocaleString()} ({((totals.opened / sentSafe) * 100).toFixed(1)}%)
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-8">
                 <div
                   className="bg-purple-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                  style={{ width: `${(totals.opened / totals.sent) * 100}%` }}
+                  style={{ width: `${(totals.opened / sentSafe) * 100}%` }}
                 >
                   {totals.opened.toLocaleString()}
                 </div>
@@ -319,13 +228,13 @@ export default function CampaignPerformancePage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Clicked</span>
                 <span className="text-sm font-bold text-gray-900">
-                  {totals.clicked.toLocaleString()} ({((totals.clicked / totals.sent) * 100).toFixed(1)}%)
+                  {totals.clicked.toLocaleString()} ({((totals.clicked / sentSafe) * 100).toFixed(1)}%)
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-8">
                 <div
                   className="bg-orange-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                  style={{ width: `${(totals.clicked / totals.sent) * 100}%` }}
+                  style={{ width: `${(totals.clicked / sentSafe) * 100}%` }}
                 >
                   {totals.clicked.toLocaleString()}
                 </div>
@@ -336,13 +245,13 @@ export default function CampaignPerformancePage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Converted</span>
                 <span className="text-sm font-bold text-gray-900">
-                  {totals.converted.toLocaleString()} ({((totals.converted / totals.sent) * 100).toFixed(2)}%)
+                  {totals.converted.toLocaleString()} ({((totals.converted / sentSafe) * 100).toFixed(2)}%)
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-8">
                 <div
                   className="bg-green-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                  style={{ width: `${(totals.converted / totals.sent) * 100 * 10}%`, minWidth: '80px' }}
+                  style={{ width: `${(totals.converted / sentSafe) * 100 * 10}%`, minWidth: '80px' }}
                 >
                   {totals.converted.toLocaleString()}
                 </div>

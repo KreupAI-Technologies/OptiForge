@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, GitBranch, Mail, Users, FileText, DollarSign, CheckCircle2, Clock, TrendingUp, Bot, PlayCircle, Pause } from 'lucide-react';
+import { crmService, asArray } from '@/services/crm.service';
 
 export interface AutomationRule {
   id: string;
@@ -15,76 +16,7 @@ export interface AutomationRule {
   category: 'lead-routing' | 'follow-up' | 'email-sequence' | 'deal-stage' | 'approval' | 'quote';
 }
 
-const mockRules: AutomationRule[] = [
-  {
-    id: '1',
-    name: 'Auto-Assign Hot Leads',
-    trigger: 'Lead score > 80',
-    actions: ['Assign to senior sales rep', 'Send welcome email', 'Create follow-up task'],
-    status: 'active',
-    executionCount: 245,
-    successRate: 96,
-    lastRun: '2 hours ago',
-    category: 'lead-routing'
-  },
-  {
-    id: '2',
-    name: 'Deal Stage Auto-Progress',
-    trigger: 'Proposal sent AND customer responded',
-    actions: ['Move to Negotiation stage', 'Notify sales manager', 'Schedule follow-up call'],
-    status: 'active',
-    executionCount: 128,
-    successRate: 92,
-    lastRun: '5 hours ago',
-    category: 'deal-stage'
-  },
-  {
-    id: '3',
-    name: 'Email Nurture Sequence',
-    trigger: 'Lead status = Cold',
-    actions: ['Send Day 1 email', 'Send Day 3 email', 'Send Day 7 email', 'Send Day 14 email'],
-    status: 'active',
-    executionCount: 512,
-    successRate: 88,
-    lastRun: '1 day ago',
-    category: 'email-sequence'
-  },
-  {
-    id: '4',
-    name: 'Quote Auto-Generation',
-    trigger: 'Opportunity stage = Proposal',
-    actions: ['Generate quote from template', 'Apply customer discount', 'Send for approval if > $50K'],
-    status: 'active',
-    executionCount: 89,
-    successRate: 94,
-    lastRun: '3 hours ago',
-    category: 'quote'
-  },
-  {
-    id: '5',
-    name: 'Discount Approval Workflow',
-    trigger: 'Quote discount > 15%',
-    actions: ['Send to sales manager', 'If > 25%, escalate to VP Sales', 'Notify sales rep of decision'],
-    status: 'active',
-    executionCount: 45,
-    successRate: 100,
-    lastRun: '1 day ago',
-    category: 'approval'
-  },
-  {
-    id: '6',
-    name: 'Inactive Lead Re-engagement',
-    trigger: 'No activity in 30 days',
-    actions: ['Send re-engagement email', 'Create call task', 'Tag as "needs attention"'],
-    status: 'paused',
-    executionCount: 67,
-    successRate: 72,
-    lastRun: '1 week ago',
-    category: 'follow-up'
-  }
-];
-
-const categoryColors = {
+const categoryColors: Record<string, string> = {
   'lead-routing': 'bg-blue-100 text-blue-700 border-blue-300',
   'follow-up': 'bg-green-100 text-green-700 border-green-300',
   'email-sequence': 'bg-purple-100 text-purple-700 border-purple-300',
@@ -93,35 +25,70 @@ const categoryColors = {
   'quote': 'bg-indigo-100 text-indigo-700 border-indigo-300'
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-700',
   paused: 'bg-yellow-100 text-yellow-700',
   draft: 'bg-gray-100 text-gray-700'
 };
 
 export default function SalesAutomation() {
-  const [rules, setRules] = useState<AutomationRule[]>(mockRules);
+  const [rules, setRules] = useState<AutomationRule[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await crmService.campaignAutomations.getAll();
+        const rows = asArray<any>(res);
+        const mapped: AutomationRule[] = rows.map((r: any) => ({
+          id: String(r.id ?? ''),
+          name: r.name ?? '',
+          trigger: r.trigger ?? r.triggerType ?? r.triggerCondition ?? '',
+          actions: Array.isArray(r.actions)
+            ? r.actions.map((a: any) => (typeof a === 'string' ? a : a?.name ?? a?.type ?? JSON.stringify(a)))
+            : [],
+          status: (r.status === 'active' || r.status === 'paused' || r.status === 'draft' ? r.status : (r.isActive === false ? 'paused' : 'active')) as AutomationRule['status'],
+          executionCount: Number(r.executionCount ?? r.runCount ?? 0),
+          successRate: Number(r.successRate ?? 0),
+          lastRun: r.lastRun ?? r.lastRunAt ?? r.updatedAt ?? '',
+          category: (r.category ?? 'follow-up') as AutomationRule['category'],
+        }));
+        if (mounted) setRules(mapped);
+      } catch (e) {
+        if (mounted) setRules([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const filteredRules = rules.filter(rule =>
     filterCategory === 'all' || rule.category === filterCategory
   );
 
   const toggleRuleStatus = (ruleId: string) => {
+    const target = rules.find(r => r.id === ruleId);
+    const nextStatus = target?.status === 'active' ? 'paused' : 'active';
     setRules(rules.map(rule =>
       rule.id === ruleId
         ? { ...rule, status: rule.status === 'active' ? 'paused' : 'active' }
         : rule
     ));
+    if (target) {
+      crmService.campaignAutomations.update(ruleId, { status: nextStatus }).catch(() => {});
+    }
   };
 
   const stats = {
     totalRules: rules.length,
     activeRules: rules.filter(r => r.status === 'active').length,
     totalExecutions: rules.reduce((sum, r) => sum + r.executionCount, 0),
-    avgSuccessRate: Math.round(rules.reduce((sum, r) => sum + r.successRate, 0) / rules.length),
+    avgSuccessRate: rules.length ? Math.round(rules.reduce((sum, r) => sum + r.successRate, 0) / rules.length) : 0,
     timeSaved: 245, // hours per month
-    leadsAutoAssigned: rules.find(r => r.id === '1')?.executionCount || 0
+    leadsAutoAssigned: rules[0]?.executionCount || 0
   };
 
   return (

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Send, Download, Copy, Trash2, FileText, DollarSign, Clock, CheckCircle, XCircle, AlertCircle, Calendar, User } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui';
-import { crmService } from '@/services/crm.service';
+import { crmService, asArray } from '@/services/crm.service';
 
 interface Proposal {
   id: string;
@@ -30,164 +30,6 @@ interface Proposal {
   createdDate: string;
 }
 
-const mockProposals: Proposal[] = [
-  {
-    id: '1',
-    proposalNumber: 'PROP-2024-001',
-    title: 'Enterprise Digital Transformation Initiative',
-    customer: 'John Smith',
-    customerCompany: 'Acme Corporation',
-    contactPerson: 'John Smith - CTO',
-    status: 'negotiation',
-    totalValue: 450000,
-    sections: 8,
-    pages: 42,
-    submittedDate: '2024-10-10',
-    viewedDate: '2024-10-11',
-    respondedDate: '2024-10-15',
-    validUntil: '2024-11-10',
-    probability: 75,
-    assignedTo: 'Sarah Johnson',
-    tags: ['Enterprise', 'Digital Transformation', 'Strategic'],
-    notes: 'Follow-up meeting scheduled for next week to discuss pricing adjustments.',
-    attachments: 5,
-    lastActivity: '2024-10-18',
-    createdDate: '2024-10-05',
-  },
-  {
-    id: '2',
-    proposalNumber: 'PROP-2024-002',
-    title: 'Cloud Infrastructure Migration Services',
-    customer: 'Emily Davis',
-    customerCompany: 'TechStart Inc',
-    contactPerson: 'Emily Davis - VP Engineering',
-    status: 'sent',
-    totalValue: 125000,
-    sections: 6,
-    pages: 28,
-    submittedDate: '2024-10-15',
-    viewedDate: '2024-10-16',
-    validUntil: '2024-11-15',
-    probability: 60,
-    assignedTo: 'Michael Chen',
-    tags: ['Cloud', 'Migration', 'Infrastructure'],
-    notes: 'Waiting for technical review by their infrastructure team.',
-    attachments: 3,
-    lastActivity: '2024-10-17',
-    createdDate: '2024-10-12',
-  },
-  {
-    id: '3',
-    proposalNumber: 'PROP-2024-003',
-    title: 'Annual Support & Maintenance Contract',
-    customer: 'Robert Johnson',
-    customerCompany: 'Global Industries Ltd',
-    contactPerson: 'Robert Johnson - IT Director',
-    status: 'accepted',
-    totalValue: 85000,
-    sections: 4,
-    pages: 15,
-    submittedDate: '2024-09-25',
-    viewedDate: '2024-09-26',
-    respondedDate: '2024-10-02',
-    validUntil: '2024-10-25',
-    probability: 100,
-    assignedTo: 'Sarah Johnson',
-    tags: ['Support', 'Maintenance', 'Renewal'],
-    notes: 'Accepted! Contract execution in progress.',
-    attachments: 2,
-    lastActivity: '2024-10-02',
-    createdDate: '2024-09-20',
-  },
-  {
-    id: '4',
-    proposalNumber: 'PROP-2024-004',
-    title: 'Custom ERP Implementation',
-    customer: 'Lisa Anderson',
-    customerCompany: 'Manufacturing Solutions Co',
-    contactPerson: 'Lisa Anderson - COO',
-    status: 'viewed',
-    totalValue: 320000,
-    sections: 10,
-    pages: 55,
-    submittedDate: '2024-10-08',
-    viewedDate: '2024-10-09',
-    validUntil: '2024-11-08',
-    probability: 65,
-    assignedTo: 'David Park',
-    tags: ['ERP', 'Custom', 'Manufacturing'],
-    notes: 'Proposal viewed multiple times. Awaiting decision from executive team.',
-    attachments: 8,
-    lastActivity: '2024-10-14',
-    createdDate: '2024-10-01',
-  },
-  {
-    id: '5',
-    proposalNumber: 'PROP-2024-005',
-    title: 'Cybersecurity Assessment & Implementation',
-    customer: 'James Wilson',
-    customerCompany: 'Financial Services Group',
-    contactPerson: 'James Wilson - CISO',
-    status: 'rejected',
-    totalValue: 95000,
-    sections: 5,
-    pages: 22,
-    submittedDate: '2024-09-15',
-    viewedDate: '2024-09-16',
-    respondedDate: '2024-09-28',
-    validUntil: '2024-10-15',
-    probability: 0,
-    assignedTo: 'Michael Chen',
-    tags: ['Security', 'Compliance', 'Assessment'],
-    notes: 'Rejected due to budget constraints. Consider re-engagement in Q1 2025.',
-    attachments: 4,
-    lastActivity: '2024-09-28',
-    createdDate: '2024-09-10',
-  },
-  {
-    id: '6',
-    proposalNumber: 'PROP-2024-006',
-    title: 'Mobile App Development - iOS & Android',
-    customer: 'Maria Garcia',
-    customerCompany: 'Retail Innovations',
-    contactPerson: 'Maria Garcia - Product Manager',
-    status: 'draft',
-    totalValue: 180000,
-    sections: 7,
-    pages: 35,
-    validUntil: '2024-11-20',
-    probability: 50,
-    assignedTo: 'Sarah Johnson',
-    tags: ['Mobile', 'iOS', 'Android', 'Development'],
-    notes: 'Draft in progress. Waiting for final requirements from client.',
-    attachments: 2,
-    lastActivity: '2024-10-19',
-    createdDate: '2024-10-15',
-  },
-  {
-    id: '7',
-    proposalNumber: 'PROP-2024-007',
-    title: 'Data Analytics Platform Implementation',
-    customer: 'Thomas Brown',
-    customerCompany: 'Healthcare Systems Inc',
-    contactPerson: 'Thomas Brown - Data Officer',
-    status: 'expired',
-    totalValue: 275000,
-    sections: 9,
-    pages: 48,
-    submittedDate: '2024-08-15',
-    viewedDate: '2024-08-16',
-    validUntil: '2024-09-15',
-    probability: 40,
-    assignedTo: 'David Park',
-    tags: ['Analytics', 'Healthcare', 'Data'],
-    notes: 'Proposal expired. Client requested extension but project put on hold.',
-    attachments: 6,
-    lastActivity: '2024-09-20',
-    createdDate: '2024-08-10',
-  },
-];
-
 export default function ProposalsPage() {
   const router = useRouter();
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -198,7 +40,7 @@ export default function ProposalsPage() {
       try {
         const data = await crmService.proposals.getAll();
         if (!active) return;
-        const rows = Array.isArray(data) ? data : [];
+        const rows = asArray<any>(data);
         setProposals(
           rows.map((p: any) => ({
             id: String(p?.id ?? ''),
@@ -225,7 +67,7 @@ export default function ProposalsPage() {
           })),
         );
       } catch {
-        if (active) setProposals(mockProposals);
+        if (active) setProposals([]);
       }
     })();
     return () => {
@@ -263,7 +105,9 @@ export default function ProposalsPage() {
     totalProposals: proposals.length,
     totalValue: proposals.reduce((sum, p) => sum + p.totalValue, 0),
     accepted: proposals.filter(p => p.status === 'accepted').length,
-    avgProbability: Math.round(proposals.reduce((sum, p) => sum + p.probability, 0) / proposals.length),
+    avgProbability: proposals.length > 0
+      ? Math.round(proposals.reduce((sum, p) => sum + p.probability, 0) / proposals.length)
+      : 0,
   };
 
   const getStatusColor = (status: string) => {
@@ -344,9 +188,15 @@ export default function ProposalsPage() {
     setShowDeleteDialog(true);
   };
 
-  const confirmDelete = () => {
-    if (proposalToDelete) {
-      setProposals(proposals.filter(p => p.id !== proposalToDelete.id));
+  const confirmDelete = async () => {
+    if (!proposalToDelete) return;
+    const id = proposalToDelete.id;
+    try {
+      await crmService.proposals.delete(id);
+    } catch {
+      /* ignore API error; still remove from local list */
+    } finally {
+      setProposals(proposals.filter(p => p.id !== id));
       setShowDeleteDialog(false);
       setProposalToDelete(null);
     }
