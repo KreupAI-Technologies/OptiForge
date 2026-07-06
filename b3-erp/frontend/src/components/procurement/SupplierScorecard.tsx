@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { procurementVendorScorecardService } from '@/services/procurement-vendor-scorecard.service'
 import {
   Award,
   TrendingUp,
@@ -171,7 +172,7 @@ export default function SupplierScorecard() {
   }
 
   // Mock data
-  const supplierScores: SupplierScore[] = [
+  const MOCK_SUPPLIER_SCORES: SupplierScore[] = [
     {
       supplierId: 'SUP001',
       supplierName: 'Global Tech Solutions',
@@ -237,6 +238,42 @@ export default function SupplierScorecard() {
       lastEvaluation: '2024-02-08'
     }
   ]
+
+  const [supplierScores, setSupplierScores] = useState<SupplierScore[]>(MOCK_SUPPLIER_SCORES)
+
+  useEffect(() => {
+    let cancelled = false
+    const tierMap: Record<string, SupplierScore['tier']> = {
+      PLATINUM: 'platinum', GOLD: 'gold', SILVER: 'silver', BRONZE: 'bronze',
+    }
+    const load = async () => {
+      try {
+        const raw = await procurementVendorScorecardService.getScorecards()
+        if (!cancelled && Array.isArray(raw) && raw.length) {
+          setSupplierScores(raw.map((s: any, idx: number): SupplierScore => ({
+            supplierId: s.vendorId ?? s.supplierId ?? s.id ?? `SUP${idx + 1}`,
+            supplierName: s.vendorName ?? s.supplierName ?? '—',
+            category: s.category ?? '—',
+            overallScore: Number(s.overallScore ?? s.totalScore ?? 0),
+            qualityScore: Number(s.qualityScore ?? 0),
+            deliveryScore: Number(s.deliveryScore ?? 0),
+            priceScore: Number(s.priceScore ?? s.costScore ?? 0),
+            serviceScore: Number(s.serviceScore ?? 0),
+            innovationScore: Number(s.innovationScore ?? 0),
+            sustainabilityScore: Number(s.sustainabilityScore ?? 0),
+            trend: (String(s.trend ?? 'stable').toLowerCase() as SupplierScore['trend']),
+            rank: Number(s.rank ?? idx + 1),
+            tier: tierMap[String(s.tier ?? '').toUpperCase()] ?? 'bronze',
+            lastEvaluation: (s.lastEvaluation ?? s.evaluationDate ?? '').toString().slice(0, 10),
+          })))
+        }
+      } catch {
+        // keep sample data on error
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const performanceMetrics: PerformanceMetric[] = [
     { metric: 'Quality', weight: 25, target: 90, actual: 88, score: 97.8, trend: 'improving' },

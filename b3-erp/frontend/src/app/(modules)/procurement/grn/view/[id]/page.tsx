@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { exportToCsv, printCurrentView } from '@/lib/export';
+import { goodsReceiptService } from '@/services/goods-receipt.service';
 import {
   Package,
   FileText,
@@ -222,12 +223,12 @@ const GRNViewPage = () => {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectedQCItem, setSelectedQCItem] = useState<string | null>(null);
 
-  // Mock data - Replace with actual API call
+  // Load GRN data from backend, falling back to sample data.
   useEffect(() => {
+    let cancelled = false;
     const fetchGRNData = async () => {
       setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
+      const buildMock = (): GRNData => {
         const mockData: GRNData = {
           id: grnId,
           grn_number: 'GRN-2025-00123',
@@ -596,13 +597,39 @@ const GRNViewPage = () => {
           updated_at: '2025-01-15 04:30 PM',
           notes: 'First GRN for this vendor this month. Partial rejection due to surface quality issues.'
         };
+        return mockData;
+      };
 
-        setGrnData(mockData);
-        setLoading(false);
-      }, 1000);
+      try {
+        const raw = (await goodsReceiptService.getGoodsReceiptById(grnId)) as any;
+        if (cancelled) return;
+        const base = buildMock();
+        if (raw && (raw.id || raw.grnNumber)) {
+          setGrnData({
+            ...base,
+            id: raw.id ?? base.id,
+            grn_number: raw.grnNumber ?? base.grn_number,
+            grn_date: (raw.receiptDate ?? raw.grnDate ?? base.grn_date)?.toString().slice(0, 10),
+            po_number: raw.poNumber ?? base.po_number,
+            status: ((): GRNData['status'] => {
+              const s = String(raw.status ?? '').toLowerCase();
+              const allowed: GRNData['status'][] = ['draft', 'under_inspection', 'partially_accepted', 'accepted', 'rejected', 'invoice_matched'];
+              return (allowed as string[]).includes(s) ? (s as GRNData['status']) : base.status;
+            })(),
+            notes: raw.notes ?? base.notes,
+          });
+        } else {
+          setGrnData(base);
+        }
+      } catch {
+        if (!cancelled) setGrnData(buildMock());
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
 
     fetchGRNData();
+    return () => { cancelled = true; };
   }, [grnId]);
 
   // Calculate progress steps
@@ -683,28 +710,49 @@ const GRNViewPage = () => {
     router.push(`/procurement/grn/edit/${grnId}`);
   };
 
-  const handleSubmitForQC = () => {
-    alert('Submit for QC functionality will be implemented');
+  const runQualityCheck = async (result: 'Passed' | 'Failed' | 'Conditional Pass', successMsg: string) => {
+    try {
+      await goodsReceiptService.qualityCheck(grnId, {
+        items: (grnData?.line_items ?? []).map((li: any) => ({
+          itemId: li.id,
+          result,
+          acceptedQuantity: Number(li.accepted_quantity ?? li.received_quantity ?? 0),
+          rejectedQuantity: Number(li.rejected_quantity ?? 0),
+        })),
+      });
+      alert(successMsg);
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Quality check failed');
+    }
   };
 
-  const handleAccept = () => {
-    alert('Accept GRN functionality will be implemented');
+  const handleSubmitForQC = () => runQualityCheck('Passed', 'GRN submitted for QC.');
+
+  const handleAccept = () => runQualityCheck('Passed', 'GRN accepted.');
+
+  const handleReject = () => runQualityCheck('Failed', 'GRN rejected.');
+
+  const handlePartialAccept = () => runQualityCheck('Conditional Pass', 'GRN partially accepted.');
+
+  const handleCreateReturn = async () => {
+    try {
+      await goodsReceiptService.returnToVendor(grnId, 'Rejected on receipt inspection');
+      alert('Return to vendor created.');
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create return');
+    }
   };
 
-  const handleReject = () => {
-    alert('Reject GRN functionality will be implemented');
-  };
-
-  const handlePartialAccept = () => {
-    alert('Partial Accept functionality will be implemented');
-  };
-
-  const handleCreateReturn = () => {
-    alert('Create Return functionality will be implemented');
-  };
-
-  const handlePostToInventory = () => {
-    alert('Post to Inventory functionality will be implemented');
+  const handlePostToInventory = async () => {
+    try {
+      await goodsReceiptService.postToInventory(grnId);
+      alert('GRN posted to inventory.');
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to post to inventory');
+    }
   };
 
   const handleMatchWithInvoice = () => {

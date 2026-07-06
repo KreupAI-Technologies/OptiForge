@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { goodsReceiptService } from '@/services/goods-receipt.service';
 import {
   Package,
   FileText,
@@ -502,20 +503,36 @@ const GRNAddPage = () => {
     }
 
     setSaving(true);
+    try {
+      const created = await goodsReceiptService.createGoodsReceipt({
+        poId: formData.po_id,
+        deliveryNoteNumber: formData.invoice_number || undefined,
+        deliveryDate: formData.receipt_date || formData.grn_date,
+        warehouseId: 'default-warehouse',
+        notes: formData.notes || undefined,
+        items: formData.line_items.map((li) => ({
+          poItemId: li.id,
+          receivedQuantity: Number(li.receiving_now ?? 0),
+          batchNumber: li.batch_number || undefined,
+          locationId: li.storage_location || undefined,
+        })),
+      });
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Creating GRN:', { ...formData, submitType });
-      setSaving(false);
+      if (submitType === 'accept_post' && (created as any)?.id) {
+        await goodsReceiptService.postToInventory((created as any).id);
+      }
 
       const message =
         submitType === 'draft' ? 'GRN saved as draft successfully!' :
           submitType === 'inspection' ? 'GRN submitted for inspection successfully!' :
             'GRN accepted and posted to inventory successfully!';
-
       alert(message);
       router.push('/procurement/grn');
-    }, 2000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create GRN');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {

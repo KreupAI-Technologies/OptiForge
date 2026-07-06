@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { procurementContractService } from '@/services/procurement-contract.service'
 import {
   FileText,
   Calendar,
@@ -184,8 +185,8 @@ export default function ContractManagement() {
     alert(`Contract: ${contract.id} - ${contract.title}. Supplier: ${contract.supplier}, Value: $${(contract.value / 1000).toFixed(0)}K, Status: ${contract.status.toUpperCase()}, Days Remaining: ${daysRemaining}.`);
   };
 
-  // Mock data
-  const contracts: Contract[] = [
+  // Sample data — used as fallback until the backend returns contracts.
+  const MOCK_CONTRACTS: Contract[] = [
     {
       id: 'CTR-2024-001',
       title: 'Master Service Agreement - IT Support',
@@ -254,6 +255,47 @@ export default function ContractManagement() {
       notifications: 1
     }
   ]
+
+  const [contracts, setContracts] = useState<Contract[]>(MOCK_CONTRACTS)
+
+  useEffect(() => {
+    let cancelled = false
+    const contractTypeMap: Record<string, Contract['type']> = {
+      MASTER: 'master', PURCHASE: 'purchase', SERVICE: 'service', NDA: 'nda', FRAMEWORK: 'framework',
+    }
+    const contractStatusMap: Record<string, Contract['status']> = {
+      DRAFT: 'draft', NEGOTIATION: 'negotiation', PENDING_APPROVAL: 'negotiation', ACTIVE: 'active',
+      EXPIRING: 'expiring', EXPIRED: 'expired', TERMINATED: 'terminated',
+    }
+    const load = async () => {
+      try {
+        const raw = await procurementContractService.getContracts()
+        if (!cancelled && Array.isArray(raw) && raw.length) {
+          setContracts(raw.map((c: any, idx: number): Contract => ({
+            id: c.contractNumber ?? c.id ?? `CTR-${idx + 1}`,
+            title: c.title ?? c.name ?? 'Untitled Contract',
+            supplier: c.vendorName ?? c.supplier ?? c.vendor?.name ?? '—',
+            type: contractTypeMap[String(c.contractType ?? c.type ?? '').toUpperCase()] ?? 'purchase',
+            status: contractStatusMap[String(c.status ?? '').toUpperCase()] ?? 'draft',
+            value: Number(c.value ?? c.contractValue ?? 0),
+            startDate: (c.startDate ?? '').toString().slice(0, 10),
+            endDate: (c.endDate ?? '').toString().slice(0, 10),
+            renewalDate: c.renewalDate ? c.renewalDate.toString().slice(0, 10) : undefined,
+            owner: c.owner ?? c.ownerName ?? '—',
+            department: c.department ?? '—',
+            compliance: Number(c.complianceScore ?? c.compliance ?? 100),
+            risk: (String(c.riskLevel ?? c.risk ?? 'low').toLowerCase() as Contract['risk']),
+            autoRenew: Boolean(c.autoRenew),
+            notifications: Number(c.notifications ?? 0),
+          })))
+        }
+      } catch {
+        // keep sample data on error
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   const milestones: ContractMilestone[] = [
     {

@@ -23,4 +23,9 @@ export const procurementPurchaseInvoiceService = {
     const data = await request<any>('/procurement/purchase-invoices');
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
+
+  // GET /procurement/purchase-invoices/:id -> PurchaseInvoice
+  async getInvoiceById(id: string): Promise<any> {
+    return request<any>(`/procurement/purchase-invoices/${encodeURIComponent(id)}`);
+  },
 };

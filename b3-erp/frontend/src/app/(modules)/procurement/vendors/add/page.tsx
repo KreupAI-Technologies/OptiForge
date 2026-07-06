@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { vendorService, type CreateVendorDto } from '@/services/VendorService';
 import {
   ArrowLeft,
   Save,
@@ -477,19 +478,50 @@ export default function VendorAddPage() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSaveDraft = () => {
-    console.log('Saving draft:', formData);
-    alert('Vendor details saved as draft!');
-    router.push('/procurement/vendors');
+  const buildVendorDto = (): CreateVendorDto => {
+    const primaryContact = formData.contactPersons.find((c) => c.isPrimary) ?? formData.contactPersons[0];
+    const primaryAddress = formData.addresses.find((a) => a.type === 'registered') ?? formData.addresses[0];
+    const addressStr = primaryAddress
+      ? [primaryAddress.addressLine1, primaryAddress.addressLine2, primaryAddress.city, primaryAddress.state, primaryAddress.pinCode, primaryAddress.country]
+          .filter(Boolean)
+          .join(', ')
+      : '';
+    return {
+      vendorCode: formData.vendorCode,
+      vendorName: formData.legalName || formData.tradeName,
+      contactPerson: primaryContact?.name ?? '',
+      email: primaryContact?.email ?? '',
+      phone: primaryContact?.mobile ?? '',
+      address: addressStr,
+      taxId: formData.gstNumber || formData.panNumber || undefined,
+      paymentTerms: formData.paymentNetDays ? `Net ${formData.paymentNetDays}` : undefined,
+      currency: 'INR',
+      vendorType: 'Manufacturer',
+      category: formData.categories[0] ?? 'Raw Materials',
+    };
   };
 
-  const handleSubmit = () => {
-    if (validateStep(currentStep)) {
-      console.log('Submitting vendor for approval:', formData);
+  const handleSaveDraft = async () => {
+    try {
+      await vendorService.createVendor(buildVendorDto());
+      alert('Vendor details saved as draft!');
+      router.push('/procurement/vendors');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save vendor');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep(currentStep)) {
+      alert('Please complete all required fields');
+      return;
+    }
+    try {
+      await vendorService.createVendor(buildVendorDto());
       alert('Vendor submitted for approval successfully!');
       router.push('/procurement/vendors');
-    } else {
-      alert('Please complete all required fields');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit vendor');
     }
   };
 
