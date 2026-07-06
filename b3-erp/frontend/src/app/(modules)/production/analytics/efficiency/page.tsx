@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -14,6 +14,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { ProductionOrphanService } from '@/services/production/production-orphan.service'
 
 interface EfficiencyMetrics {
   overallEfficiency: number
@@ -62,7 +63,7 @@ interface ResourceUtilization {
 export default function EfficiencyAnalytics() {
   const router = useRouter()
 
-  const [metrics] = useState<EfficiencyMetrics>({
+  const [metrics, setMetrics] = useState<EfficiencyMetrics>({
     overallEfficiency: 84.5,
     equipmentEfficiency: 86.2,
     laborEfficiency: 82.8,
@@ -72,6 +73,48 @@ export default function EfficiencyAnalytics() {
     targetEfficiency: 90.0,
     improvementRate: 5.2
   })
+
+  // Wire top-level metrics to real OEE records; keep hardcoded values as fallback
+  // defaults so the rich UI still renders when the DB is empty. Monthly/department/
+  // resource breakdown tables have no clean endpoint and stay on reference data.
+  useEffect(() => {
+    let cancelled = false
+    const avg = (nums: number[]) =>
+      nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : undefined
+    ;(async () => {
+      try {
+        const res = await ProductionOrphanService.getOeeRecords()
+        const rows: any[] = Array.isArray(res) ? res : (res as any)?.data ?? []
+        if (cancelled || rows.length === 0) return
+
+        const oeeVals = rows
+          .map((r) => Number(r?.oee ?? r?.oeePercentage))
+          .filter((n) => Number.isFinite(n))
+        const availVals = rows
+          .map((r) => Number(r?.availability ?? r?.availabilityRate))
+          .filter((n) => Number.isFinite(n))
+        const perfVals = rows
+          .map((r) => Number(r?.performance ?? r?.performanceRate))
+          .filter((n) => Number.isFinite(n))
+
+        const overall = avg(oeeVals)         // overall efficiency <- OEE
+        const equipment = avg(perfVals)      // equipment efficiency <- performance
+        const utilization = avg(availVals)   // utilization rate <- availability
+
+        setMetrics((prev) => ({
+          ...prev,
+          ...(overall !== undefined ? { overallEfficiency: Number(overall.toFixed(1)) } : {}),
+          ...(equipment !== undefined ? { equipmentEfficiency: Number(equipment.toFixed(1)) } : {}),
+          ...(utilization !== undefined ? { utilizationRate: Number(utilization.toFixed(1)) } : {}),
+        }))
+      } catch {
+        // Never crash on []/null — keep fallback defaults.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [monthlyData] = useState<MonthlyEfficiency[]>([
     {

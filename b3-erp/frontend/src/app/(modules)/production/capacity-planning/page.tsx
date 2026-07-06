@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ExportReportModal, RequestResourcesModal, WorkCenterConfigModal } from '@/components/production/CapacityPlanningModals';
 import { exportToCsv } from '@/lib/export';
+import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import {
   Factory,
   Users,
@@ -565,6 +566,41 @@ const CapacityPlanningPage = () => {
     },
   ]);
 
+  // Defensive mapper: raw ORM capacity-plan record -> local WorkCenterCapacity shape.
+  const mapWorkCenter = (r: any, idx: number): WorkCenterCapacity => ({
+    id: String(r?.id ?? r?._id ?? `WC${idx + 1}`),
+    workCenterCode: r?.workCenterCode ?? r?.work_center_code ?? r?.code ?? '',
+    workCenterName: r?.workCenterName ?? r?.work_center_name ?? r?.name ?? '',
+    department: r?.department ?? '',
+    numberOfMachines: r?.numberOfMachines ?? r?.number_of_machines ?? 0,
+    shiftsPerDay: (r?.shiftsPerDay ?? r?.shifts_per_day ?? 1) as 1 | 2 | 3,
+    hoursPerShift: r?.hoursPerShift ?? r?.hours_per_shift ?? 8,
+    workingDaysPerWeek: r?.workingDaysPerWeek ?? r?.working_days_per_week ?? 6,
+    efficiencyFactor: r?.efficiencyFactor ?? r?.efficiency_factor ?? 0.85,
+    availableCapacityHours: r?.availableCapacityHours ?? r?.available_capacity_hours ?? 0,
+    status: (r?.status as WorkCenterCapacity['status']) ?? 'active',
+    costPerHour: r?.costPerHour ?? r?.cost_per_hour ?? 0,
+  });
+
+  // Load real capacity data; overwrite the mock workCenters fallback only when data returns.
+  const loadCapacity = useCallback(async () => {
+    try {
+      const res = await ProductionOrphanService.getCapacityPlans();
+      const data = Array.isArray(res) ? res : ((res as any)?.data ?? res);
+      if (Array.isArray(data) && data.length > 0) {
+        setWorkCenters(data.map(mapWorkCenter));
+      }
+      // else: keep mock fallback so the rich UI still renders on empty DB.
+    } catch (err) {
+      console.error('Failed to load capacity plans:', err);
+      // keep mock fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCapacity();
+  }, [loadCapacity]);
+
   // Calculate Summary Statistics
   const calculateStats = () => {
     const totalWorkCenters = workCenters.length;
@@ -664,14 +700,31 @@ const CapacityPlanningPage = () => {
     exportToCsv('capacity-planning', workCenters as unknown as Record<string, unknown>[]);
   };
 
-  const handleResourceRequest = (request: any) => {
-    console.log('Submitting resource request:', request);
-    alert(`Resource Request Submitted!\n\nType: ${request.resourceType}\nWork Center: ${request.workCenter}\nQuantity: ${request.quantity}\n\nYour request has been sent for approval.`);
+  const handleResourceRequest = async (request: any) => {
+    try {
+      await ProductionOrphanService.createCapacityPlan({
+        type: 'resource-request',
+        ...request,
+      });
+      await loadCapacity();
+      setIsResourceRequestModalOpen(false);
+    } catch (err) {
+      console.error('Failed to submit resource request:', err);
+    }
   };
 
-  const handleWorkCenterConfigSave = (config: any) => {
-    console.log('Saving work center config:', config);
-    alert(`Work Center Configuration Saved!\n\nNew monthly capacity: ${Math.round(config.numberOfMachines * config.shiftsPerDay * config.hoursPerShift * config.workingDaysPerWeek * 4 * (config.efficiencyFactor / 100))} hours`);
+  const handleWorkCenterConfigSave = async (config: any) => {
+    try {
+      await ProductionOrphanService.createCapacityPlan({
+        type: 'work-center-config',
+        ...config,
+      });
+      await loadCapacity();
+      setIsWorkCenterConfigModalOpen(false);
+      setSelectedWorkCenterForConfig(null);
+    } catch (err) {
+      console.error('Failed to save work center config:', err);
+    }
   };
 
   return (

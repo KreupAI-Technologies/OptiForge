@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -14,6 +14,7 @@ import {
   Factory
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { ProductionOrphanService } from '@/services/production/production-orphan.service'
 
 interface ProductivityMetrics {
   overallProductivity: number
@@ -66,7 +67,7 @@ interface WorkerProductivity {
 export default function ProductivityAnalytics() {
   const router = useRouter()
 
-  const [metrics] = useState<ProductivityMetrics>({
+  const [metrics, setMetrics] = useState<ProductivityMetrics>({
     overallProductivity: 127.5,
     laborProductivity: 8.4,
     machineProductivity: 15.2,
@@ -76,6 +77,53 @@ export default function ProductivityAnalytics() {
     outputGrowth: 12.3,
     productivityIndex: 118.7
   })
+
+  // Wire top-level metrics to real productivity-metric rows; keep hardcoded values
+  // as fallback defaults so the UI still renders on an empty DB. Monthly/productLine/
+  // worker breakdown tables have no clean endpoint and stay on reference data.
+  useEffect(() => {
+    let cancelled = false
+    const avg = (nums: number[]) =>
+      nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : undefined
+    const pick = (rows: any[], keys: string[]) =>
+      avg(
+        rows
+          .map((r) => {
+            const k = keys.find((key) => r?.[key] != null)
+            return k ? Number(r[k]) : NaN
+          })
+          .filter((n) => Number.isFinite(n))
+      )
+    ;(async () => {
+      try {
+        const res = await ProductionOrphanService.getProductivityMetrics()
+        const rows: any[] = Array.isArray(res) ? res : (res as any)?.data ?? []
+        if (cancelled || rows.length === 0) return
+
+        const productivity = pick(rows, ['productivity', 'productivityRate', 'productivityIndex'])
+        const labor = pick(rows, ['laborProductivity', 'unitsPerLaborHour', 'output'])
+        const machine = pick(rows, ['machineProductivity', 'unitsPerMachineHour'])
+        const utilization = pick(rows, ['utilization', 'utilizationRate'])
+        const growth = pick(rows, ['outputGrowth', 'growth'])
+
+        setMetrics((prev) => ({
+          ...prev,
+          ...(productivity !== undefined ? { productivityIndex: Number(productivity.toFixed(1)) } : {}),
+          ...(labor !== undefined
+            ? { laborProductivity: Number(labor.toFixed(1)), unitsPerLaborHour: Number(labor.toFixed(1)) }
+            : {}),
+          ...(machine !== undefined ? { machineProductivity: Number(machine.toFixed(1)) } : {}),
+          ...(utilization !== undefined ? { overallProductivity: Number(utilization.toFixed(1)) } : {}),
+          ...(growth !== undefined ? { outputGrowth: Number(growth.toFixed(1)) } : {}),
+        }))
+      } catch {
+        // Never crash on []/null — keep fallback defaults.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const [monthlyData] = useState<MonthlyProductivity[]>([
     {
