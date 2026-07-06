@@ -477,6 +477,24 @@ export class PaymentService {
     return this.request<Payment>(`/finance/payments/${id}`);
   }
 
+  // Get payment verification queue (aggregated verification records)
+  static async getVerificationQueue(): Promise<Array<{
+    id: string;
+    woNumber: string;
+    customerName: string;
+    totalAmount: number;
+    paidAmount: number;
+    paymentStatus: string;
+    paymentMethod?: string;
+    receiptNumber?: string;
+    status: string;
+    verifiedBy?: string;
+    verificationDate?: string;
+    notes?: string;
+  }>> {
+    return this.request(`/finance/payments/verification-queue`);
+  }
+
   // Create Payment
   static async createPayment(data: CreatePaymentDto): Promise<Payment> {
     if (USE_MOCK_DATA) {

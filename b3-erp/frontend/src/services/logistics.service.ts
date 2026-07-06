@@ -177,6 +177,22 @@ export class LogisticsService {
     return request<any>(`/logistics/shipments/${id}`);
   }
 
+  // Loading jobs aggregated over shipments (logistics loading page)
+  static async getLoadingJobs(): Promise<Array<{
+    id: string;
+    woNumber: string;
+    productName: string;
+    quantity: number;
+    packingComplete: boolean;
+    status: 'Pending' | 'Loading' | 'Loaded' | 'Dispatched';
+    loadingSupervisor: string;
+    loadingDate?: string;
+    dispatchBillNumber?: string;
+    checklist: { id: string; item: string; checked: boolean }[];
+  }>> {
+    return request(`/logistics/shipments/loading-jobs`);
+  }
+
   static async updateShipment(id: string, data: any): Promise<any> {
     return request<any>(`/logistics/shipments/${id}`, {
       method: 'PUT',
