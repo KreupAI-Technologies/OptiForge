@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Building2, User, Users, Star, TrendingUp, ChevronLeft, ChevronRight, Download, Upload, Filter, Save, Check, UserPlus, List, X, Linkedin, Calendar, MapPin, Briefcase, Clock, FileSpreadsheet } from 'lucide-react';
 import { ConfirmDialog, useToast } from '@/components/ui';
-import { ContactService, Contact, ContactRole, Department, ContactRoleData, MOCK_CONTACTS } from '@/services/contact.service';
+import { ContactService, Contact, ContactRole, Department, ContactRoleData } from '@/services/contact.service';
 
 interface ContactList {
   id: string;
@@ -26,8 +26,6 @@ interface SavedFilter {
     dateTo: string;
   };
 }
-
-// Using MOCK_CONTACTS from service as fallback
 
 const mockContactLists: ContactList[] = [
   { id: '1', name: 'Marketing Campaign 2025', description: 'Q1 2025 Marketing Campaign', contactCount: 45 },
@@ -106,11 +104,10 @@ export default function ContactsPage() {
       } catch (err) {
         console.error('Failed to fetch contacts:', err);
         setError(err instanceof Error ? err : new Error('Failed to fetch contacts'));
-        // Fallback to mock data
-        setContacts(MOCK_CONTACTS);
+        setContacts([]);
         addToast({
           title: 'Connection Error',
-          message: 'Using cached data. Unable to connect to server.',
+          message: 'Unable to connect to server. Please try again.',
           variant: 'warning'
         });
       } finally {

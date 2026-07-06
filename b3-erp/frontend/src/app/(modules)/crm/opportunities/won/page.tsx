@@ -46,120 +46,6 @@ interface WonOpportunity {
   testimonial?: string;
 }
 
-const mockWonOpportunities: WonOpportunity[] = [
-  {
-    id: '1',
-    name: 'Hospital Furniture - Central Medical Center',
-    accountName: 'Central Medical Center',
-    contactName: 'Dr. Susan Clark',
-    value: 320000,
-    closeDate: '2025-10-15',
-    daysToClose: 92,
-    owner: 'David Lee',
-    products: ['Medical Cabinets', 'Storage Solutions', 'Nurse Stations'],
-    source: 'Tender',
-    initialValue: 350000,
-    finalValue: 320000,
-    discountPercent: 8.6,
-    createdDate: '2025-07-15',
-    winReason: 'Best quality and competitive pricing',
-    competitorName: 'MedEquip Solutions',
-    testimonial: 'Excellent quality and professional installation team.',
-  },
-  {
-    id: '2',
-    name: 'Premium Kitchen - Luxury Apartments',
-    accountName: 'Skyline Developers',
-    contactName: 'Michael Roberts',
-    value: 285000,
-    closeDate: '2025-09-28',
-    daysToClose: 68,
-    owner: 'Sarah Johnson',
-    products: ['Modular Kitchens', 'Countertops', 'Premium Appliances'],
-    source: 'Referral',
-    initialValue: 295000,
-    finalValue: 285000,
-    discountPercent: 3.4,
-    createdDate: '2025-07-22',
-    winReason: 'Superior design and brand reputation',
-    competitorName: 'Elite Kitchens',
-  },
-  {
-    id: '3',
-    name: 'Corporate Office Renovation',
-    accountName: 'Tech Innovations Corp',
-    contactName: 'Jennifer Lee',
-    value: 195000,
-    closeDate: '2025-10-10',
-    daysToClose: 55,
-    owner: 'Michael Park',
-    products: ['Office Furniture', 'Workstations', 'Storage Systems'],
-    source: 'Website',
-    initialValue: 210000,
-    finalValue: 195000,
-    discountPercent: 7.1,
-    createdDate: '2025-08-16',
-    winReason: 'Flexible payment terms and quick delivery',
-    competitorName: 'Office Pro',
-    testimonial: 'Fast delivery and excellent customer service!',
-  },
-  {
-    id: '4',
-    name: 'Retail Store Fixtures - Fashion Chain',
-    accountName: 'Fashion Trends Retail',
-    contactName: 'David Wilson',
-    value: 165000,
-    closeDate: '2025-09-15',
-    daysToClose: 78,
-    owner: 'Emily Davis',
-    products: ['Display Cabinets', 'Shelving Systems', 'Checkout Counters'],
-    source: 'Trade Show',
-    initialValue: 165000,
-    finalValue: 165000,
-    discountPercent: 0,
-    createdDate: '2025-06-29',
-    winReason: 'Custom design capabilities',
-    competitorName: 'Store Solutions Inc',
-  },
-  {
-    id: '5',
-    name: 'Hotel Suites - Grand Plaza',
-    accountName: 'Grand Plaza Hotels',
-    contactName: 'Robert Martinez',
-    value: 420000,
-    closeDate: '2025-08-30',
-    daysToClose: 105,
-    owner: 'David Lee',
-    products: ['Custom Wardrobes', 'Vanity Units', 'TV Cabinets', 'Bedside Tables'],
-    source: 'Direct',
-    initialValue: 450000,
-    finalValue: 420000,
-    discountPercent: 6.7,
-    createdDate: '2025-05-17',
-    winReason: 'Volume discount and proven track record',
-    competitorName: 'Hotel Furnishings Ltd',
-    testimonial: 'Outstanding quality! Highly recommended for luxury projects.',
-  },
-  {
-    id: '6',
-    name: 'Smart Home Kitchen - Villa Project',
-    accountName: 'Premium Villas Inc',
-    contactName: 'Lisa Anderson',
-    value: 95000,
-    closeDate: '2025-10-05',
-    daysToClose: 42,
-    owner: 'Sarah Johnson',
-    products: ['Smart Kitchen Systems', 'High-end Appliances', 'Custom Cabinets'],
-    source: 'Partner',
-    initialValue: 98000,
-    finalValue: 95000,
-    discountPercent: 3.1,
-    createdDate: '2025-08-24',
-    winReason: 'Smart home integration expertise',
-    competitorName: 'Smart Living Solutions',
-  },
-];
-
 export default function WonOpportunitiesPage() {
   const router = useRouter();
   const { addToast } = useToast();
@@ -172,10 +58,6 @@ export default function WonOpportunitiesPage() {
         const data = await crmService.opportunityViews.getWon();
         if (!active) return;
         const rows = Array.isArray(data?.opportunities) ? data.opportunities : [];
-        if (!rows.length) {
-          setOpportunities(mockWonOpportunities);
-          return;
-        }
         setOpportunities(
           rows.map((o: any) => ({
             id: String(o?.id ?? ''),
@@ -197,7 +79,7 @@ export default function WonOpportunitiesPage() {
           })),
         );
       } catch {
-        if (active) setOpportunities(mockWonOpportunities);
+        if (active) setOpportunities([]);
       }
     })();
     return () => {

@@ -48,128 +48,6 @@ interface LostOpportunity {
   canReopen: boolean;
 }
 
-const mockLostOpportunities: LostOpportunity[] = [
-  {
-    id: '1',
-    name: 'Commercial Kitchen - Downtown Restaurant',
-    accountName: 'Gourmet Dining Group',
-    contactName: 'Chef Marcus Brown',
-    value: 180000,
-    lostDate: '2025-10-12',
-    daysInPipeline: 85,
-    owner: 'David Lee',
-    products: ['Commercial Kitchen Equipment', 'Stainless Steel Cabinets'],
-    source: 'Cold Call',
-    stage: 'Negotiation',
-    lostReason: 'Price too high',
-    lostToCompetitor: 'Budget Kitchen Solutions',
-    competitorPrice: 155000,
-    ourPrice: 180000,
-    feedback: 'Quality was excellent but price exceeded our budget by 15%.',
-    createdDate: '2025-07-19',
-    followUpDate: '2026-01-15',
-    canReopen: true,
-  },
-  {
-    id: '2',
-    name: 'Office Renovation - Startup Hub',
-    accountName: 'TechStart Inc',
-    contactName: 'Sarah Williams',
-    value: 95000,
-    lostDate: '2025-10-08',
-    daysInPipeline: 62,
-    owner: 'Michael Park',
-    products: ['Office Furniture', 'Workstations', 'Storage'],
-    source: 'Website',
-    stage: 'Proposal',
-    lostReason: 'Timeline too long',
-    lostToCompetitor: 'Quick Office Solutions',
-    ourPrice: 95000,
-    feedback: 'Needed installation in 3 weeks, your timeline was 8 weeks.',
-    createdDate: '2025-08-07',
-    canReopen: false,
-  },
-  {
-    id: '3',
-    name: 'Retail Store Fixtures',
-    accountName: 'Fashion Forward Boutique',
-    contactName: 'Emma Johnson',
-    value: 65000,
-    lostDate: '2025-10-15',
-    daysInPipeline: 45,
-    owner: 'Emily Davis',
-    products: ['Display Cabinets', 'Shelving Systems'],
-    source: 'Referral',
-    stage: 'Proposal',
-    lostReason: 'Went with existing vendor',
-    lostToCompetitor: 'Regular Supplier',
-    ourPrice: 65000,
-    feedback: 'Decided to continue with our long-term supplier for consistency.',
-    createdDate: '2025-08-31',
-    followUpDate: '2026-02-15',
-    canReopen: true,
-  },
-  {
-    id: '4',
-    name: 'Hospital Cabinets - Regional Clinic',
-    accountName: 'HealthCare Associates',
-    contactName: 'Dr. James Peterson',
-    value: 140000,
-    lostDate: '2025-09-28',
-    daysInPipeline: 98,
-    owner: 'Sarah Johnson',
-    products: ['Medical Cabinets', 'Storage Solutions'],
-    source: 'Tender',
-    stage: 'Negotiation',
-    lostReason: 'Lost in tender',
-    lostToCompetitor: 'MedEquip Pro',
-    competitorPrice: 128000,
-    ourPrice: 140000,
-    createdDate: '2025-06-22',
-    canReopen: false,
-  },
-  {
-    id: '5',
-    name: 'Luxury Kitchen - Penthouse',
-    accountName: 'Elite Properties',
-    contactName: 'Robert Chen',
-    value: 220000,
-    lostDate: '2025-10-01',
-    daysInPipeline: 110,
-    owner: 'David Lee',
-    products: ['Premium Modular Kitchen', 'High-end Appliances', 'Countertops'],
-    source: 'Partner',
-    stage: 'Proposal',
-    lostReason: 'Project cancelled',
-    lostToCompetitor: 'N/A - Project on hold',
-    ourPrice: 220000,
-    feedback: 'Client decided to postpone the renovation due to budget reallocation.',
-    createdDate: '2025-06-13',
-    followUpDate: '2026-04-01',
-    canReopen: true,
-  },
-  {
-    id: '6',
-    name: 'Hotel Room Furniture',
-    accountName: 'Coastal Resorts Ltd',
-    contactName: 'Linda Martinez',
-    value: 380000,
-    lostDate: '2025-09-20',
-    daysInPipeline: 125,
-    owner: 'Michael Park',
-    products: ['Wardrobes', 'Bedside Tables', 'TV Units', 'Desks'],
-    source: 'Direct',
-    stage: 'Negotiation',
-    lostReason: 'Better design from competitor',
-    lostToCompetitor: 'Hospitality Furnishings Inc',
-    ourPrice: 380000,
-    competitorPrice: 375000,
-    feedback: 'Competitor offered more contemporary design that fit our brand better.',
-    createdDate: '2025-05-18',
-    canReopen: false,
-  },
-];
-
 export default function LostOpportunitiesPage() {
   const router = useRouter();
   const { addToast } = useToast();
@@ -182,10 +60,6 @@ export default function LostOpportunitiesPage() {
         const data = await crmService.opportunityViews.getLost();
         if (!active) return;
         const rows = Array.isArray(data?.opportunities) ? data.opportunities : [];
-        if (!rows.length) {
-          setOpportunities(mockLostOpportunities);
-          return;
-        }
         setOpportunities(
           rows.map((o: any) => ({
             id: String(o?.id ?? ''),
@@ -207,7 +81,7 @@ export default function LostOpportunitiesPage() {
           })),
         );
       } catch {
-        if (active) setOpportunities(mockLostOpportunities);
+        if (active) setOpportunities([]);
       }
     })();
     return () => {
