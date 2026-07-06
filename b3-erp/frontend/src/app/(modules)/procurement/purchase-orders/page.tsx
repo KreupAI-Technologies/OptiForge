@@ -298,16 +298,35 @@ export default function PurchaseOrdersPage() {
     }
   }
 
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = async (action: string) => {
     if (action === 'export') {
       const selected = filteredOrders.filter(o => selectedOrders.includes(o.id))
       const rows = (selected.length ? selected : filteredOrders) as unknown as Record<string, unknown>[]
       exportToCsv('purchase-orders', rows)
-    } else {
-      console.log(`Performing ${action} on orders:`, selectedOrders)
+      setSelectedOrders([])
+      setShowBulkActions(false)
+      return
     }
-    setSelectedOrders([])
-    setShowBulkActions(false)
+
+    const ids = [...selectedOrders]
+    try {
+      if (action === 'approve') {
+        await Promise.all(ids.map(id => purchaseOrderService.approvePurchaseOrder(id)))
+      } else if (action === 'send') {
+        await Promise.all(ids.map(id => purchaseOrderService.submitPurchaseOrder(id)))
+      } else if (action === 'delete') {
+        // No delete/cancel endpoint on purchaseOrderService; close is the
+        // nearest terminal lifecycle action for the selected orders.
+        await Promise.all(ids.map(id => purchaseOrderService.closePurchaseOrder(id)))
+      }
+      await loadPurchaseOrders()
+    } catch (err) {
+      console.error(`Failed to ${action} purchase orders:`, err)
+      setError(`Failed to ${action} selected purchase orders. Please try again.`)
+    } finally {
+      setSelectedOrders([])
+      setShowBulkActions(false)
+    }
   }
 
   const stats = {
@@ -767,9 +786,14 @@ export default function PurchaseOrdersPage() {
                         {/* Submit for Approval - show for draft or approved orders */}
                         {(order.status === 'draft' || order.status === 'approved') && (
                           <button
-                            onClick={() => {
-                              // TODO: API call to create approval request
-                              alert(`Submitting PO ${order.poNumber} for approval...`);
+                            onClick={async () => {
+                              try {
+                                await purchaseOrderService.submitPurchaseOrder(order.id);
+                                await loadPurchaseOrders();
+                              } catch (err) {
+                                console.error('Failed to submit PO for approval:', err);
+                                setError(`Failed to submit PO ${order.poNumber} for approval. Please try again.`);
+                              }
                             }}
                             className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
                           >
