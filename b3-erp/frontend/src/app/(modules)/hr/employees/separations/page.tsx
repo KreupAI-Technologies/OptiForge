@@ -14,6 +14,7 @@ import {
     AlertCircle,
     MoreVertical
 } from 'lucide-react';
+import { OffboardingService } from '@/services/offboarding.service';
 
 interface Separation {
     id: string;
@@ -44,13 +45,7 @@ export default function SeparationsPage() {
             setIsLoading(true);
             setLoadError(null);
             try {
-                const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-                const res = await fetch(`${base}/hr/offboarding-tasks`, {
-                    headers: { 'x-company-id': 'test' },
-                    cache: 'no-store',
-                });
-                if (!res.ok) throw new Error('Failed to load separations');
-                const raw = await res.json();
+                const raw = await OffboardingService.getOffboardingTasks();
                 const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
                 const mapped: Separation[] = rows.map((r) => ({
                     id: r.id ?? '',

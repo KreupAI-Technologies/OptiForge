@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { printCurrentView } from '@/lib/export';
+import { HrMovementsService } from '@/services/hr-movements.service';
 import {
   ArrowLeft,
   Edit,
@@ -123,14 +124,8 @@ export default function ViewPerformancePage({ params }: { params: { id: string }
       setIsLoading(true);
       setLoadError(null);
       try {
-        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-        const res = await fetch(`${base}/hr/transfers-promotions`, {
-          headers: { 'x-company-id': 'test' },
-          cache: 'no-store',
-        });
-        if (!res.ok) throw new Error('Failed to load activity');
-        const raw = await res.json();
-        const rows: any[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
+        const raw = await HrMovementsService.getTransfersPromotions();
+        const rows: any[] = Array.isArray(raw) ? raw : [];
         const mapped: Activity[] = rows.map((r) => ({
           id: r?.id ?? '',
           action: r?.action ?? r?.type ?? r?.status ?? 'Activity',

@@ -793,6 +793,39 @@ export class PerformanceManagementService {
     return Array.isArray(data) ? data : (data?.data ?? []);
   }
 
+  /**
+   * Fetch a single performance review directly from the NestJS HR backend
+   * (GET /hr/performance-reviews/:id). Returns the raw ORM row; callers should
+   * defensively map to their view model.
+   */
+  static async getHrPerformanceReviewById(id: string): Promise<any> {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const response = await fetch(`${base}/hr/performance-reviews/${id}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch performance review (${response.status})`);
+    }
+    return response.json();
+  }
+
+  /**
+   * Update a performance review directly on the NestJS HR backend
+   * (PUT /hr/performance-reviews/:id). Accepts a partial payload.
+   */
+  static async updateHrPerformanceReview(id: string, data: Record<string, any>): Promise<any> {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    const response = await fetch(`${base}/hr/performance-reviews/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update performance review (${response.status})`);
+    }
+    return response.json();
+  }
+
   // ========== Goals ==========
 
   static async getGoals(options?: {

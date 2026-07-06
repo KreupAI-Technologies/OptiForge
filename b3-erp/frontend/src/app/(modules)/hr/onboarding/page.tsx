@@ -44,6 +44,8 @@ import {
   TrendingUp,
   ArrowLeft,
 } from 'lucide-react';
+import { OnboardingService } from '@/services/onboarding.service';
+import { OffboardingService } from '@/services/offboarding.service';
 
 // Tab types
 type MainTab = 'onboarding' | 'probation' | 'offboarding';
@@ -64,11 +66,34 @@ function OnboardingDashboard() {
     pendingOffers: 4,
   };
 
-  const recentOnboardings = [
-    { id: '1', name: 'Rahul Mehta', department: 'Production', joiningDate: '2024-02-01', progress: 75, status: 'in_progress' },
-    { id: '2', name: 'Anjali Singh', department: 'Finance', joiningDate: '2024-02-15', progress: 25, status: 'pending' },
-    { id: '3', name: 'Vikrant Patel', department: 'IT', joiningDate: '2024-01-15', progress: 100, status: 'completed' },
-  ];
+  const [recentOnboardings, setRecentOnboardings] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    OnboardingService.getOnboardingProcesses({ limit: 5 })
+      .then((res) => {
+        if (!mounted) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res as any) ? (res as any) : [];
+        setRecentOnboardings(
+          list.map((o: any) => ({
+            id: o?.id ?? String(Math.random()),
+            name: o?.employeeName ?? o?.name ?? 'Unknown',
+            department: o?.departmentName ?? o?.department ?? '-',
+            joiningDate: o?.joiningDate
+              ? new Date(o.joiningDate).toISOString().split('T')[0]
+              : '-',
+            progress: typeof o?.progress === 'number' ? o.progress : 0,
+            status: o?.status ?? 'pending',
+          }))
+        );
+      })
+      .catch(() => {
+        if (mounted) setRecentOnboardings([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -176,11 +201,34 @@ function OnboardingDashboard() {
 function PreJoiningSection() {
   const [activeSection, setActiveSection] = useState<'offers' | 'documents' | 'verification' | 'medical'>('offers');
 
-  const offers = [
-    { id: '1', candidate: 'Meera Krishnan', position: 'Senior QC Engineer', status: 'sent', salary: 75000, joiningDate: '2024-03-01' },
-    { id: '2', candidate: 'Arjun Nair', position: 'Marketing Executive', status: 'accepted', salary: 55000, joiningDate: '2024-02-20' },
-    { id: '3', candidate: 'Neha Sharma', position: 'HR Executive', status: 'negotiating', salary: 45000, joiningDate: '2024-02-25' },
-  ];
+  const [offers, setOffers] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    OnboardingService.getOffers()
+      .then((res) => {
+        if (!mounted) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res as any) ? (res as any) : [];
+        setOffers(
+          list.map((o: any) => ({
+            id: o?.id ?? String(Math.random()),
+            candidate: o?.candidateName ?? o?.candidate ?? 'Unknown',
+            position: o?.positionTitle ?? o?.position ?? '-',
+            status: o?.status ?? 'draft',
+            salary: typeof o?.salary === 'number' ? o.salary : Number(o?.salary) || 0,
+            joiningDate: o?.joiningDate
+              ? new Date(o.joiningDate).toISOString().split('T')[0]
+              : '-',
+          }))
+        );
+      })
+      .catch(() => {
+        if (mounted) setOffers([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -513,6 +561,8 @@ function OrientationSection() {
 }
 
 function OnboardingChecklist() {
+  // TODO: no backend endpoint — OnboardingService has no list-checklist method
+  // (only per-onboarding OnboardingChecklistItem type). Kept as UI template data.
   const checklistItems = [
     { id: '1', category: 'Documentation', item: 'Collect ID Proof', assignee: 'HR', status: 'completed' },
     { id: '2', category: 'Documentation', item: 'Collect Address Proof', assignee: 'HR', status: 'completed' },
@@ -580,6 +630,38 @@ function ProbationDashboard() {
     recentConfirmations: 8,
   };
 
+  const [endingSoon, setEndingSoon] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    OnboardingService.getProbationPeriods({ endingSoon: true, limit: 5 })
+      .then((res) => {
+        if (!mounted) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res as any) ? (res as any) : [];
+        setEndingSoon(
+          list.map((p: any) => ({
+            name: p?.employeeName ?? p?.name ?? 'Unknown',
+            department: p?.departmentName ?? p?.department ?? '-',
+            endDate: (p?.extendedEndDate ?? p?.probationEndDate)
+              ? new Date(p.extendedEndDate ?? p.probationEndDate).toISOString().split('T')[0]
+              : '-',
+            rating:
+              typeof p?.overallRating === 'number'
+                ? p.overallRating
+                : typeof p?.performanceRating === 'number'
+                ? p.performanceRating
+                : 0,
+          }))
+        );
+      })
+      .catch(() => {
+        if (mounted) setEndingSoon([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -626,11 +708,7 @@ function ProbationDashboard() {
           <h3 className="text-lg font-semibold">Probation Ending Soon</h3>
         </div>
         <div className="divide-y">
-          {[
-            { name: 'Vikrant Patel', department: 'IT', endDate: '2024-04-15', rating: 4.2 },
-            { name: 'Priya Singh', department: 'Finance', endDate: '2024-04-20', rating: 4.5 },
-            { name: 'Amit Kumar', department: 'Sales', endDate: '2024-04-25', rating: 3.8 },
-          ].map((emp, idx) => (
+          {endingSoon.map((emp, idx) => (
             <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50">
               <div>
                 <p className="font-medium text-gray-900">{emp.name}</p>
@@ -788,6 +866,33 @@ function OffboardingDashboard() {
     exitInterviewsPending: 2,
   };
 
+  const [recentResignations, setRecentResignations] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    OffboardingService.getResignations({ limit: 5 })
+      .then((res) => {
+        if (!mounted) return;
+        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res as any) ? (res as any) : [];
+        setRecentResignations(
+          list.map((r: any) => ({
+            name: r?.employeeName ?? r?.name ?? 'Unknown',
+            department: r?.departmentName ?? r?.department ?? '-',
+            lastDay: r?.lastWorkingDate
+              ? new Date(r.lastWorkingDate).toISOString().split('T')[0]
+              : '-',
+            status: r?.status ?? 'submitted',
+          }))
+        );
+      })
+      .catch(() => {
+        if (mounted) setRecentResignations([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -834,11 +939,7 @@ function OffboardingDashboard() {
           <h3 className="text-lg font-semibold">Recent Resignations</h3>
         </div>
         <div className="divide-y">
-          {[
-            { name: 'Suresh Menon', department: 'Production', lastDay: '2024-02-14', status: 'accepted' },
-            { name: 'Pooja Iyer', department: 'Sales', lastDay: '2024-02-19', status: 'under_review' },
-            { name: 'Arun Bhat', department: 'IT', lastDay: '2024-03-10', status: 'early_release_requested' },
-          ].map((emp, idx) => (
+          {recentResignations.map((emp, idx) => (
             <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50">
               <div>
                 <p className="font-medium text-gray-900">{emp.name}</p>

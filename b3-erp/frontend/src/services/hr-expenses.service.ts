@@ -46,6 +46,23 @@ function withCompany(query: Record<string, string | undefined> = {}): string {
 }
 
 export const HrExpensesService = {
+  // ---- Create expense claim (POST) ----------------------------------------
+  async createExpenseClaim(payload: Record<string, any>): Promise<any> {
+    const body = {
+      companyId: DEFAULT_COMPANY_ID,
+      ...payload,
+    };
+    const res = await fetch(`${API_BASE_URL}/hr/expense-claims`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`API Error ${res.status}: ${res.statusText}`);
+    }
+    return res.json();
+  },
+
   // ---- Expense claims (status-discriminated) ------------------------------
   async getExpenseClaims(status?: string): Promise<any[]> {
     return toArray(await request(`/hr/expense-claims${withCompany({ status })}`));

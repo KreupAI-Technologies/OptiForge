@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { EmployeeService } from '@/services/employee.service';
 import {
   ArrowLeft,
   Save,
@@ -187,10 +188,15 @@ export default function AddEmployeePage() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await EmployeeService.createEmployee({ companyId: 'default-company-id', ...formData } as any);
       router.push('/hr/employees');
-    }, 1500);
+    } catch (error) {
+      console.error('Failed to create employee:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create employee');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {

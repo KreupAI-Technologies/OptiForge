@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { EmployeeService } from '@/services/employee.service';
 import {
   ArrowLeft,
   Save,
@@ -121,6 +122,66 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
   ];
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
+  useEffect(() => {
+    const loadEmployee = async () => {
+      try {
+        const employee: any = await EmployeeService.getEmployeeById(params.id);
+        if (!employee) return;
+
+        const toDateStr = (d: any): string => {
+          if (!d) return '';
+          const date = d instanceof Date ? d : new Date(d);
+          if (isNaN(date.getTime())) return typeof d === 'string' ? d : '';
+          return date.toISOString().split('T')[0];
+        };
+
+        setFormData(prev => ({
+          ...prev,
+          employeeId: employee.employeeCode ?? employee.employeeId ?? prev.employeeId,
+          firstName: employee.firstName ?? prev.firstName,
+          lastName: employee.lastName ?? prev.lastName,
+          email: employee.email ?? prev.email,
+          phone: employee.phone ?? prev.phone,
+          alternatePhone: employee.alternatePhone ?? prev.alternatePhone,
+          dateOfBirth: toDateStr(employee.dateOfBirth) || prev.dateOfBirth,
+          gender: employee.gender ?? prev.gender,
+          bloodGroup: employee.bloodGroup ?? prev.bloodGroup,
+          address: employee.address ?? prev.address,
+          city: employee.city ?? prev.city,
+          state: employee.state ?? prev.state,
+          pincode: employee.postalCode ?? employee.pincode ?? prev.pincode,
+          country: employee.country ?? prev.country,
+          department: employee.departmentName ?? employee.department ?? employee.departmentId ?? prev.department,
+          position: employee.designation ?? employee.position ?? prev.position,
+          employmentType: (employee.employmentType ?? prev.employmentType) as EmployeeForm['employmentType'],
+          status: (employee.status ?? prev.status) as EmployeeForm['status'],
+          joinDate: toDateStr(employee.dateOfJoining) || prev.joinDate,
+          confirmationDate: toDateStr(employee.confirmationDate) || prev.confirmationDate,
+          manager: employee.reportingManagerName ?? employee.manager ?? prev.manager,
+          location: employee.location ?? prev.location,
+          salary: employee.salary ?? prev.salary ?? 0,
+          bankName: employee.bankName ?? prev.bankName,
+          accountNumber: employee.bankAccountNumber ?? employee.accountNumber ?? prev.accountNumber,
+          ifscCode: employee.ifscCode ?? prev.ifscCode,
+          panNumber: employee.panNumber ?? prev.panNumber,
+          aadhaarNumber: employee.aadharNumber ?? employee.aadhaarNumber ?? prev.aadhaarNumber,
+          uanNumber: employee.uanNumber ?? prev.uanNumber,
+          esiNumber: employee.esiNumber ?? prev.esiNumber,
+          emergencyContactName: employee.emergencyContactName ?? prev.emergencyContactName,
+          emergencyContactPhone: employee.emergencyContactPhone ?? prev.emergencyContactPhone,
+          emergencyContactRelation: employee.emergencyContactRelation ?? prev.emergencyContactRelation,
+          education: employee.education ?? prev.education,
+          previousExperience: employee.previousExperience ?? prev.previousExperience ?? 0,
+          skills: employee.skills ?? prev.skills,
+        }));
+      } catch (error) {
+        console.error('Failed to load employee:', error);
+      }
+    };
+
+    loadEmployee();
+  }, [params.id]);
+
   const handleInputChange = (field: keyof EmployeeForm, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -179,10 +240,15 @@ export default function EditEmployeePage({ params }: { params: { id: string } })
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await EmployeeService.updateEmployee(params.id, formData as any);
       router.push(`/hr/employees/view/${params.id}`);
-    }, 1500);
+    } catch (error) {
+      console.error('Failed to update employee:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update employee');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {

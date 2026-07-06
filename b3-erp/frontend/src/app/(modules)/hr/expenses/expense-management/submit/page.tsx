@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { HrExpensesService } from '@/services/hr-expenses.service';
 import {
     PlusCircle,
     Upload,
@@ -26,6 +28,8 @@ interface ExpenseItem {
 }
 
 export default function SubmitExpensePage() {
+    const router = useRouter();
+    const [submitting, setSubmitting] = useState(false);
     const [expenseItems, setExpenseItems] = useState<ExpenseItem[]>([
         {
             id: '1',
@@ -94,6 +98,46 @@ export default function SubmitExpensePage() {
 
     const totalAmount = expenseItems.reduce((sum, item) => sum + item.amount, 0);
 
+    const handleSubmit = async (status: 'submitted' | 'draft') => {
+        if (!expenseTitle.trim()) {
+            alert('Please enter an expense report title.');
+            return;
+        }
+        const validItems = expenseItems.filter(
+            item => item.category && item.amount > 0
+        );
+        if (validItems.length === 0) {
+            alert('Please add at least one expense item with a category and amount.');
+            return;
+        }
+
+        const payload = {
+            companyId: 'default-company-id',
+            title: expenseTitle,
+            expenseType,
+            status,
+            totalAmount,
+            items: validItems,
+        };
+
+        try {
+            setSubmitting(true);
+            await HrExpensesService.createExpenseClaim(payload);
+            alert(
+                status === 'draft'
+                    ? 'Expense claim saved as draft.'
+                    : 'Expense claim submitted for approval.'
+            );
+            router.push('/hr/expenses/expense-management/my-expenses');
+        } catch (err) {
+            alert(
+                `Failed to save expense claim: ${err instanceof Error ? err.message : 'Unknown error'}`
+            );
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const formatCurrency = (value: number) => {
         return `₹${value.toLocaleString()}`;
     };
@@ -110,10 +154,18 @@ export default function SubmitExpensePage() {
                         <p className="text-gray-400 mt-1">Create and submit expense claims for reimbursement</p>
                     </div>
                     <div className="flex gap-2">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                        <button
+                            onClick={() => handleSubmit('draft')}
+                            disabled={submitting}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                        >
                             Save as Draft
                         </button>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+                        <button
+                            onClick={() => handleSubmit('submitted')}
+                            disabled={submitting}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                        >
                             <PlusCircle className="w-4 h-4" />
                             Submit for Approval
                         </button>

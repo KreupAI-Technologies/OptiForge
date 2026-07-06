@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { LeaveService } from '@/services/leave.service';
 import {
   ArrowLeft,
   Edit2,
@@ -43,48 +44,94 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'details' | 'history' | 'documents' | 'insights'>('details');
 
-  // Mock leave request data
-  const leaveRequest: LeaveRequest = {
+  const emptyLeaveRequest: LeaveRequest = {
     id: params.id,
-    employeeId: 'B3-001',
-    employeeName: 'Rajesh Kumar',
-    department: 'Production',
-    position: 'Production Manager',
-    leaveType: 'Sick Leave',
-    startDate: '2024-01-22',
-    endDate: '2024-01-24',
-    totalDays: 3,
-    reason: 'Medical treatment and recovery required',
-    status: 'approved',
-    appliedDate: '2024-01-20',
-    approvedBy: 'Sarah Johnson',
-    approvedDate: '2024-01-20 14:30',
+    employeeId: '',
+    employeeName: '',
+    department: '',
+    position: '',
+    leaveType: '',
+    startDate: '',
+    endDate: '',
+    totalDays: 0,
+    reason: '',
+    status: 'pending',
+    appliedDate: '',
+    approvedBy: '',
+    approvedDate: '',
     rejectionReason: '',
-    contactDuringLeave: '+91 98765 43210',
-    emergencyContact: '+91 98765 43212',
-    handoverTo: 'Amit Patel',
-    handoverNotes: 'Daily production reports to be reviewed. Any critical issues to be escalated to VP Operations.',
-    attachments: ['Medical Certificate.pdf', 'Doctor Note.jpg'],
+    contactDuringLeave: '',
+    emergencyContact: '',
+    handoverTo: '',
+    handoverNotes: '',
+    attachments: [],
   };
 
+  const [leaveRequest, setLeaveRequest] = useState<LeaveRequest>(emptyLeaveRequest);
   const [leaveHistory, setLeaveHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true); setLoadError(null);
+
+  const mapApplication = useCallback((app: any): LeaveRequest => {
+    const fmtDate = (d: any): string => {
+      if (!d) return '';
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? '' : dt.toISOString();
+    };
+    return {
+      id: app.id ?? params.id,
+      employeeId: app.employeeCode ?? app.employeeId ?? '',
+      employeeName: app.employeeName ?? '',
+      department: app.departmentName ?? '',
+      position: app.position ?? '',
+      leaveType: app.leaveTypeName ?? app.leaveType ?? '',
+      startDate: fmtDate(app.startDate),
+      endDate: fmtDate(app.endDate),
+      totalDays: app.totalDays ?? 0,
+      reason: app.reason ?? '',
+      status: (app.status ? String(app.status).toLowerCase() : 'pending') as LeaveRequest['status'],
+      appliedDate: fmtDate(app.appliedAt ?? app.appliedDate ?? app.createdAt),
+      approvedBy: app.approverName ?? app.approvedBy ?? '',
+      approvedDate: fmtDate(app.approvedAt ?? app.approvedDate),
+      rejectionReason: app.rejectionReason ?? '',
+      contactDuringLeave: app.contactDuringLeave ?? '',
+      emergencyContact: app.emergencyContact ?? '',
+      handoverTo: app.handoverTo ?? '',
+      handoverNotes: app.handoverNotes ?? '',
+      attachments: Array.isArray(app.attachments)
+        ? app.attachments
+        : app.attachmentUrl
+          ? [app.attachmentUrl]
+          : [],
+    };
+  }, [params.id]);
+
+  const loadLeave = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      let app: any = null;
       try {
-        const res = await fetch('http://localhost:3001/api/v1/hr/leave-applications?companyId=company-1', { headers: { 'Content-Type': 'application/json' } });
-        const json = await res.json();
-        const rows = Array.isArray(json) ? json : (json?.data ?? []);
-        if (!cancelled) setLeaveHistory(rows.map((r: any) => ({ ...r })));
-      } catch (err) {
-        if (!cancelled) { setLoadError(err instanceof Error ? err.message : 'Failed to load'); setLeaveHistory([]); }
-      } finally { if (!cancelled) setIsLoading(false); }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+        app = await LeaveService.getLeaveApplicationById(params.id);
+      } catch {
+        const all = await LeaveService.getLeaveApplications();
+        app = Array.isArray(all) ? all.find((a: any) => a.id === params.id) ?? null : null;
+      }
+      if (app) {
+        setLeaveRequest(mapApplication(app));
+      }
+      const history = await LeaveService.getLeaveApplications();
+      setLeaveHistory(Array.isArray(history) ? history.map((r: any) => ({ ...r })) : []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [params.id, mapApplication]);
+
+  useEffect(() => {
+    loadLeave();
+  }, [loadLeave]);
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -101,6 +148,12 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
 
   const statusConfig = getStatusConfig(leaveRequest.status);
 
+  const safeDate = (value: string, options: Intl.DateTimeFormatOptions): string => {
+    if (!value) return '-';
+    const dt = new Date(value);
+    return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('en-IN', options);
+  };
+
   const handleEdit = () => {
     router.push(`/hr/leave/edit/${params.id}`);
   };
@@ -115,18 +168,28 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
     router.push('/hr/leave');
   };
 
-  const handleApprove = () => {
-    if (confirm('Are you sure you want to approve this leave request?')) {
-      // API call to approve
+  const handleApprove = async () => {
+    if (!confirm('Are you sure you want to approve this leave request?')) return;
+    try {
+      await LeaveService.approveLeave(params.id, 'default-company-id');
+      await loadLeave();
       alert('Leave request approved!');
+    } catch (err) {
+      console.error('Failed to approve leave application:', err);
+      alert('Failed to approve leave request. Please try again.');
     }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     const reason = prompt('Please enter rejection reason:');
-    if (reason) {
-      // API call to reject
+    if (!reason) return;
+    try {
+      await LeaveService.rejectLeave(params.id, reason, 'default-company-id');
+      await loadLeave();
       alert('Leave request rejected!');
+    } catch (err) {
+      console.error('Failed to reject leave application:', err);
+      alert('Failed to reject leave request. Please try again.');
     }
   };
 
@@ -211,7 +274,7 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
           <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-3 rounded-xl text-white">
             <Clock className="w-8 h-8 mb-3 opacity-80" />
             <div className="text-2xl font-bold mb-1">
-              {new Date(leaveRequest.appliedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+              {safeDate(leaveRequest.appliedDate, { day: 'numeric', month: 'short' })}
             </div>
             <div className="text-orange-100 text-sm">Applied Date</div>
           </div>
@@ -312,7 +375,7 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600 mb-1">Start Date</div>
                       <div className="font-semibold text-gray-900">
-                        {new Date(leaveRequest.startDate).toLocaleDateString('en-IN', {
+                        {safeDate(leaveRequest.startDate, {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric',
@@ -322,7 +385,7 @@ export default function ViewLeavePage({ params }: { params: { id: string } }) {
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600 mb-1">End Date</div>
                       <div className="font-semibold text-gray-900">
-                        {new Date(leaveRequest.endDate).toLocaleDateString('en-IN', {
+                        {safeDate(leaveRequest.endDate, {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric',
