@@ -129,98 +129,6 @@ const mockPRs = [
   { id: 'PR-2025-0128', title: 'Consumables for Q4 2025', itemCount: 12 },
 ];
 
-// Seed vendor list — used as initial state; overwritten by live API when available
-const mockVendorsSeed: Vendor[] = [
-  {
-    id: '1',
-    vendorId: 'V-001',
-    vendorName: 'SKF India Ltd',
-    category: 'Spare Parts, Bearings',
-    email: 'contact@skfindia.com',
-    phone: '+91-22-4567-1234',
-    rating: 4.5,
-    pastPerformance: 'Excellent - 15 orders, 98% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '2',
-    vendorId: 'V-002',
-    vendorName: 'Greenply Industries',
-    category: 'Raw Materials, Plywood',
-    email: 'sales@greenply.com',
-    phone: '+91-22-4567-5678',
-    rating: 4.3,
-    pastPerformance: 'Good - 22 orders, 95% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '3',
-    vendorId: 'V-003',
-    vendorName: 'Hettich India Pvt Ltd',
-    category: 'Hardware, Hinges',
-    email: 'info@hettich.com',
-    phone: '+91-22-4567-9012',
-    rating: 4.7,
-    pastPerformance: 'Excellent - 28 orders, 99% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '4',
-    vendorId: 'V-004',
-    vendorName: 'Parker Hannifin India',
-    category: 'Spare Parts, Hydraulics',
-    email: 'sales@parker.com',
-    phone: '+91-22-4567-3456',
-    rating: 4.4,
-    pastPerformance: 'Good - 18 orders, 96% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '5',
-    vendorId: 'V-005',
-    vendorName: 'Saint-Gobain Abrasives',
-    category: 'Consumables, Abrasives',
-    email: 'contact@saint-gobain.com',
-    phone: '+91-22-4567-7890',
-    rating: 4.2,
-    pastPerformance: 'Good - 12 orders, 94% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '6',
-    vendorId: 'V-006',
-    vendorName: 'Siemens India Ltd',
-    category: 'Electrical, Automation',
-    email: 'contact@siemens.co.in',
-    phone: '+91-22-4567-2345',
-    rating: 4.6,
-    pastPerformance: 'Excellent - 10 orders, 97% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '7',
-    vendorId: 'V-007',
-    vendorName: 'Asian Paints Ltd',
-    category: 'Consumables, Paints',
-    email: 'sales@asianpaints.com',
-    phone: '+91-22-4567-6789',
-    rating: 4.1,
-    pastPerformance: 'Good - 20 orders, 93% on-time delivery',
-    selected: false,
-  },
-  {
-    id: '8',
-    vendorId: 'V-008',
-    vendorName: 'Pidilite Industries',
-    category: 'Consumables, Adhesives',
-    email: 'b2b@pidilite.com',
-    phone: '+91-22-4567-4567',
-    rating: 4.3,
-    pastPerformance: 'Good - 25 orders, 95% on-time delivery',
-    selected: false,
-  },
-];
-
 const termsTemplate = `1. All prices should be quoted in INR including GST (18% or as applicable)
 2. Payment terms will be as specified in the commercial terms section
 3. Delivery must be made to our factory premises at ManufacturingOS, Bhiwandi, Maharashtra
@@ -275,7 +183,7 @@ export default function AddRFQPage() {
     targetPrice: 0,
   });
 
-  const [vendors, setVendors] = useState<Vendor[]>(mockVendorsSeed);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoadingVendors, setIsLoadingVendors] = useState(false);
   const [vendorFilter, setVendorFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -287,21 +195,19 @@ export default function AddRFQPage() {
   useEffect(() => {
     setIsLoadingVendors(true);
     MasterDataService.getVendors().then((liveVendors) => {
-      if (liveVendors.length > 0) {
-        setVendors(
-          liveVendors.map((v: MDVendor, idx: number) => ({
-            id: v.id,
-            vendorId: v.vendorCode || v.id,
-            vendorName: mdLabel.vendor(v),
-            category: v.category || '',
-            email: v.email || '',
-            phone: '',
-            rating: 0,
-            pastPerformance: '',
-            selected: false,
-          }))
-        );
-      }
+      setVendors(
+        liveVendors.map((v: MDVendor, idx: number) => ({
+          id: v.id,
+          vendorId: v.vendorCode || v.id,
+          vendorName: mdLabel.vendor(v),
+          category: v.category || '',
+          email: v.email || '',
+          phone: '',
+          rating: 0,
+          pastPerformance: '',
+          selected: false,
+        }))
+      );
     }).finally(() => setIsLoadingVendors(false));
   }, []);
 

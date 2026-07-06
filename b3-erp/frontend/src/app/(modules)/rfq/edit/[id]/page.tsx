@@ -85,54 +85,26 @@ const paymentTermsOptions = ['Advance Payment', 'Net 15 days', 'Net 30 days', 'N
 const deliveryTermsOptions = ['Door Delivery', 'Ex-Works', 'FOB', 'CIF', 'C&F'];
 const incotermsOptions = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
 
-// Seed vendor list — used as initial state; overwritten by live API when available
-const mockVendorsSeed: Vendor[] = [
-  { id: '1', vendorId: 'V-001', vendorName: 'SKF India Ltd', category: 'Spare Parts', email: 'contact@skfindia.com', phone: '+91-22-4567-1234', rating: 4.5, selected: true },
-  { id: '2', vendorId: 'V-002', vendorName: 'Greenply Industries', category: 'Raw Materials', email: 'sales@greenply.com', phone: '+91-22-4567-5678', rating: 4.3, selected: true },
-  { id: '3', vendorId: 'V-003', vendorName: 'Hettich India', category: 'Hardware', email: 'info@hettich.com', phone: '+91-22-4567-9012', rating: 4.7, selected: false },
-  { id: '4', vendorId: 'V-004', vendorName: 'Parker Hannifin India', category: 'Spare Parts', email: 'sales@parker.com', phone: '+91-22-4567-3456', rating: 4.4, selected: false },
-  { id: '5', vendorId: 'V-005', vendorName: 'Saint-Gobain Abrasives', category: 'Consumables', email: 'contact@saint-gobain.com', phone: '+91-22-4567-7890', rating: 4.2, selected: false },
-];
-
 export default function EditRFQPage() {
   const router = useRouter();
   const params = useParams();
   const rfqId = params.id as string;
 
   const [formData, setFormData] = useState<RFQFormData>({
-    rfqNumber: 'RFQ-2025-0087',
-    title: 'Procurement of CNC Machine Spare Parts and Raw Materials',
-    category: 'raw_materials',
-    linkedPR: 'PR-2025-0142',
-    issueDate: '2025-10-12',
-    closingDate: '2025-10-25',
+    rfqNumber: '',
+    title: '',
+    category: '',
+    linkedPR: '',
+    issueDate: '',
+    closingDate: '',
     validityPeriod: 30,
-    items: [
-      {
-        id: '1',
-        itemCode: 'SP-CNC-2045',
-        description: 'CNC Router Spindle Bearing Assembly',
-        specifications: 'High-precision bearing, SKF/NSK brand, 60mm bore, 110mm OD',
-        quantity: 2,
-        unit: 'Nos',
-        targetPrice: 12500,
-      },
-      {
-        id: '2',
-        itemCode: 'RM-PLY-001',
-        description: 'Commercial Grade Plywood 19mm',
-        specifications: 'BWP grade, 8x4 ft, ISI marked',
-        quantity: 150,
-        unit: 'Sheets',
-        targetPrice: 1850,
-      },
-    ],
-    selectedVendors: ['1', '2'],
+    items: [],
+    selectedVendors: [],
     commercialTerms: {
-      paymentTerms: 'Net 30 days from delivery',
-      deliveryTerms: 'Door delivery to factory premises',
-      incoterms: 'Ex-Works (Factory)',
-      inspectionRequirements: 'Quality inspection required before acceptance',
+      paymentTerms: '',
+      deliveryTerms: '',
+      incoterms: '',
+      inspectionRequirements: '',
     },
     evaluationCriteria: {
       price: 50,
@@ -140,13 +112,9 @@ export default function EditRFQPage() {
       deliveryTime: 15,
       paymentTerms: 5,
     },
-    termsAndConditions: `1. All prices should be quoted in INR including GST
-2. Payment terms: Net 30 days from delivery
-3. Delivery must be made to our factory premises
-4. Quality inspection will be conducted before acceptance
-5. Vendor must provide warranty as per industry standards`,
-    notesToVendors: 'Please ensure all items are original and come with manufacturer warranties.',
-    attachments: ['technical_specs.pdf'],
+    termsAndConditions: '',
+    notesToVendors: '',
+    attachments: [],
   });
 
   const [newItem, setNewItem] = useState<Partial<RFQItem>>({
@@ -158,32 +126,30 @@ export default function EditRFQPage() {
     targetPrice: 0,
   });
 
-  const [vendors, setVendors] = useState<Vendor[]>(mockVendorsSeed);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoadingVendors, setIsLoadingVendors] = useState(false);
   const [vendorFilter, setVendorFilter] = useState('');
 
-  // Fetch live vendors; seed stays as fallback
+  // Vendors come solely from the master-data API.
   useEffect(() => {
     setIsLoadingVendors(true);
     MasterDataService.getVendors().then((liveVendors) => {
-      if (liveVendors.length > 0) {
-        setVendors(
-          liveVendors.map((v: MDVendor) => ({
-            id: v.id,
-            vendorId: v.vendorCode || v.id,
-            vendorName: mdLabel.vendor(v),
-            category: v.category || '',
-            email: v.email || '',
-            phone: '',
-            rating: 0,
-            selected: false,
-          }))
-        );
-      }
+      setVendors(
+        liveVendors.map((v: MDVendor) => ({
+          id: v.id,
+          vendorId: v.vendorCode || v.id,
+          vendorName: mdLabel.vendor(v),
+          category: v.category || '',
+          email: v.email || '',
+          phone: '',
+          rating: 0,
+          selected: false,
+        }))
+      );
     }).finally(() => setIsLoadingVendors(false));
   }, []);
 
-  // Fetch live record and prefill; existing mock data stays as fallback
+  // Fetch live record and prefill from the backend.
   useEffect(() => {
     if (!rfqId) return;
     fetchRecordById<RFQFormData>('/procurement/rfqs', rfqId).then((record) => {
