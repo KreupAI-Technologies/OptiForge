@@ -39,73 +39,7 @@ export default function Page() {
     message: ''
   });
 
-  const mockFeedback: Feedback[] = [
-    {
-      id: '1',
-      employeeCode: 'EMP567',
-      employeeName: 'Arjun Nair',
-      designation: 'Production Engineer',
-      department: 'Production',
-      feedbackFrom: 'Suresh Iyer',
-      feedbackType: 'manager',
-      submittedDate: '2025-10-05',
-      overallRating: 4.2,
-      categories: {
-        technicalSkills: 5,
-        communication: 4,
-        teamwork: 4,
-        initiative: 4,
-        attendance: 5
-      },
-      strengths: 'Strong technical knowledge, quick learner, excellent at problem-solving on the shop floor',
-      improvements: 'Needs to work on documentation and communication with cross-functional teams',
-      recommendation: 'confirm'
-    },
-    {
-      id: '2',
-      employeeCode: 'EMP612',
-      employeeName: 'Aditya Sharma',
-      designation: 'IT Support Engineer',
-      department: 'Information Technology',
-      feedbackFrom: 'Vikram Singh',
-      feedbackType: 'manager',
-      submittedDate: '2025-09-01',
-      overallRating: 3.4,
-      categories: {
-        technicalSkills: 4,
-        communication: 3,
-        teamwork: 3,
-        initiative: 3,
-        attendance: 4
-      },
-      strengths: 'Good technical knowledge, willing to learn',
-      improvements: 'Lacks initiative, needs improvement in communication and proactive problem solving',
-      recommendation: 'extend'
-    },
-    {
-      id: '3',
-      employeeCode: 'EMP578',
-      employeeName: 'Priyanka Joshi',
-      designation: 'HR Executive',
-      department: 'Human Resources',
-      feedbackFrom: 'Kavita Sharma',
-      feedbackType: 'manager',
-      submittedDate: '2025-08-20',
-      overallRating: 4.6,
-      categories: {
-        technicalSkills: 5,
-        communication: 5,
-        teamwork: 5,
-        initiative: 4,
-        attendance: 5
-      },
-      strengths: 'Excellent communication, highly collaborative, takes initiative, quick to adapt to HR processes',
-      improvements: 'Minor improvements needed in time management during peak recruitment seasons',
-      recommendation: 'confirm'
-    }
-  ];
-
-  const [rows, setRows] = useState<Feedback[]>(mockFeedback);
+  const [rows, setRows] = useState<Feedback[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -113,9 +47,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getProbation<Feedback>('feedback');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

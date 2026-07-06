@@ -36,55 +36,7 @@ export default function Page() {
     remarks: ''
   });
 
-  const mockRequests: ConfirmationRequest[] = [
-    {
-      id: '1',
-      employeeCode: 'EMP567',
-      name: 'Arjun Nair',
-      designation: 'Production Engineer',
-      department: 'Production',
-      joiningDate: '2025-04-15',
-      probationEndDate: '2025-10-15',
-      reviewScore: 85,
-      attendance: 98,
-      recommendation: 'confirm',
-      recommender: 'Suresh Iyer',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      employeeCode: 'EMP578',
-      name: 'Priyanka Joshi',
-      designation: 'HR Executive',
-      department: 'Human Resources',
-      joiningDate: '2025-06-01',
-      probationEndDate: '2025-09-01',
-      reviewScore: 92,
-      attendance: 100,
-      recommendation: 'confirm',
-      recommender: 'Kavita Sharma',
-      status: 'approved',
-      confirmationDate: '2025-09-01',
-      remarks: 'Excellent performance. Confirmed.'
-    },
-    {
-      id: '3',
-      employeeCode: 'EMP612',
-      name: 'Aditya Sharma',
-      designation: 'IT Support Engineer',
-      department: 'Information Technology',
-      joiningDate: '2025-05-01',
-      probationEndDate: '2025-11-01',
-      reviewScore: 68,
-      attendance: 92,
-      recommendation: 'extend',
-      recommender: 'Vikram Singh',
-      status: 'pending',
-      remarks: 'Performance needs improvement. Extend by 3 months.'
-    }
-  ];
-
-  const [rows, setRows] = useState<ConfirmationRequest[]>(mockRequests);
+  const [rows, setRows] = useState<ConfirmationRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -92,9 +44,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getProbation<ConfirmationRequest>('confirmation');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

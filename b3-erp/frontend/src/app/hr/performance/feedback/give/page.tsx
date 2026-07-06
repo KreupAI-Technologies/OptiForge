@@ -21,18 +21,7 @@ export default function GiveFeedbackPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showEmployeeList, setShowEmployeeList] = useState(false);
 
-  const mockEmployees: Employee[] = [
-    { id: '1', code: 'KMF2451', name: 'Rahul Sharma', designation: 'Production Supervisor', department: 'Manufacturing' },
-    { id: '2', code: 'KMF2452', name: 'Priya Patel', designation: 'Quality Inspector', department: 'Quality Assurance' },
-    { id: '3', code: 'KMF2453', name: 'Amit Kumar', designation: 'Machine Operator', department: 'Manufacturing' },
-    { id: '4', code: 'KMF2454', name: 'Sneha Reddy', designation: 'Production Coordinator', department: 'Manufacturing' },
-    { id: '5', code: 'KMF2455', name: 'Vikram Singh', designation: 'Maintenance Engineer', department: 'Maintenance' },
-    { id: '6', code: 'KMF2456', name: 'Anjali Nair', designation: 'QA Analyst', department: 'Quality Assurance' },
-    { id: '7', code: 'KMF2457', name: 'Rajesh Iyer', designation: 'Production Lead', department: 'Manufacturing' },
-    { id: '8', code: 'KMF2458', name: 'Deepa Gupta', designation: 'Assembly Technician', department: 'Manufacturing' }
-  ];
-
-  const [rows, setRows] = useState<Employee[]>(mockEmployees);
+  const [rows, setRows] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -40,9 +29,12 @@ export default function GiveFeedbackPage() {
     (async () => {
       try {
         const data = await HrTalentService.getPerformance<Employee>('feedback-target');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

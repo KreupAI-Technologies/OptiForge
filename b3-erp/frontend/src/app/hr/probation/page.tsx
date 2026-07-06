@@ -37,58 +37,7 @@ export default function Page() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<ProbationEmployee | null>(null);
 
-  const mockEmployees: ProbationEmployee[] = [
-    {
-      id: '1', employeeCode: 'EMP-2024-101', employeeName: 'Arun Verma', designation: 'CNC Operator',
-      department: 'Manufacturing', joiningDate: '2024-09-01', probationEndDate: '2024-12-01',
-      probationPeriod: 3, daysRemaining: 15, probationStatus: 'due_soon',
-      reviewsCompleted: 2, reviewsRequired: 3, feedbackReceived: 4, feedbackPending: 1,
-      overallRating: 4.2, lastReviewDate: '2024-10-30', nextReviewDate: '2024-11-20',
-      reportingManager: 'Rajesh Kumar', hrPartner: 'Priya Sharma', location: 'Pune Factory'
-    },
-    {
-      id: '2', employeeCode: 'EMP-2024-102', employeeName: 'Sneha Patil', designation: 'Quality Inspector',
-      department: 'Quality Assurance', joiningDate: '2024-08-15', probationEndDate: '2024-11-15',
-      probationPeriod: 3, daysRemaining: -1, probationStatus: 'extended',
-      reviewsCompleted: 3, reviewsRequired: 3, feedbackReceived: 5, feedbackPending: 0,
-      overallRating: 3.8, lastReviewDate: '2024-10-15', nextReviewDate: '2024-11-25',
-      reportingManager: 'Meena Rao', hrPartner: 'Priya Sharma', location: 'Pune Factory'
-    },
-    {
-      id: '3', employeeCode: 'EMP-2024-103', employeeName: 'Karthik Reddy', designation: 'Production Supervisor',
-      department: 'Manufacturing', joiningDate: '2024-07-20', probationEndDate: '2024-10-20',
-      probationPeriod: 3, daysRemaining: -27, probationStatus: 'confirmed',
-      reviewsCompleted: 3, reviewsRequired: 3, feedbackReceived: 6, feedbackPending: 0,
-      overallRating: 4.5, lastReviewDate: '2024-10-18', reportingManager: 'Rajesh Kumar',
-      hrPartner: 'Priya Sharma', location: 'Pune Factory'
-    },
-    {
-      id: '4', employeeCode: 'EMP-2024-104', employeeName: 'Neha Singh', designation: 'Maintenance Technician',
-      department: 'Maintenance', joiningDate: '2024-10-01', probationEndDate: '2025-01-01',
-      probationPeriod: 3, daysRemaining: 46, probationStatus: 'ongoing',
-      reviewsCompleted: 1, reviewsRequired: 3, feedbackReceived: 2, feedbackPending: 2,
-      overallRating: 4.0, lastReviewDate: '2024-11-01', nextReviewDate: '2024-12-01',
-      reportingManager: 'Suresh Patel', hrPartner: 'Priya Sharma', location: 'Pune Factory'
-    },
-    {
-      id: '5', employeeCode: 'EMP-2024-105', employeeName: 'Divya Nair', designation: 'Safety Officer',
-      department: 'Safety & Compliance', joiningDate: '2024-09-15', probationEndDate: '2024-12-15',
-      probationPeriod: 3, daysRemaining: 29, probationStatus: 'ongoing',
-      reviewsCompleted: 2, reviewsRequired: 3, feedbackReceived: 3, feedbackPending: 1,
-      overallRating: 4.3, lastReviewDate: '2024-11-05', nextReviewDate: '2024-12-05',
-      reportingManager: 'Suresh Patel', hrPartner: 'Priya Sharma', location: 'Pune Factory'
-    },
-    {
-      id: '6', employeeCode: 'EMP-2024-106', employeeName: 'Priyanka Desai', designation: 'HR Executive',
-      department: 'Human Resources', joiningDate: '2024-10-15', probationEndDate: '2025-01-15',
-      probationPeriod: 3, daysRemaining: 60, probationStatus: 'ongoing',
-      reviewsCompleted: 0, reviewsRequired: 3, feedbackReceived: 1, feedbackPending: 2,
-      overallRating: 3.5, nextReviewDate: '2024-12-15',
-      reportingManager: 'Priya Sharma', hrPartner: 'Priya Sharma', location: 'Pune Factory'
-    }
-  ];
-
-  const [rows, setRows] = useState<ProbationEmployee[]>(mockEmployees);
+  const [rows, setRows] = useState<ProbationEmployee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -96,9 +45,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getProbation<ProbationEmployee>('tracking');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

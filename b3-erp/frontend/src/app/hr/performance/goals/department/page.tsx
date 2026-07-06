@@ -27,70 +27,7 @@ export default function DepartmentGoalsPage() {
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
 
-  const mockGoals: DepartmentGoal[] = [
-    {
-      id: '1', title: 'Increase Manufacturing Output', description: 'Achieve 20% increase in production capacity',
-      department: 'Manufacturing', headOfDepartment: 'Rajesh Kumar', totalEmployees: 120, priority: 'high',
-      startDate: '2024-11-01', endDate: '2025-06-30', progress: 65, weight: 40, status: 'on_track',
-      kpiCount: 6, teamsInvolved: 8, budget: 5000000
-    },
-    {
-      id: '2', title: 'Zero Defect Manufacturing', description: 'Achieve zero defect quality standards',
-      department: 'Quality Assurance', headOfDepartment: 'Meena Rao', totalEmployees: 25, priority: 'high',
-      startDate: '2024-11-01', endDate: '2025-03-31', progress: 70, weight: 35, status: 'on_track',
-      kpiCount: 5, teamsInvolved: 3, budget: 1500000
-    },
-    {
-      id: '3', title: 'Workplace Safety Excellence', description: 'Achieve zero accident record for 12 months',
-      department: 'Safety & Compliance', headOfDepartment: 'Suresh Patel', totalEmployees: 15, priority: 'high',
-      startDate: '2024-10-01', endDate: '2025-09-30', progress: 55, weight: 30, status: 'on_track',
-      kpiCount: 4, teamsInvolved: 2, budget: 800000
-    },
-    {
-      id: '4', title: 'Supply Chain Optimization', description: 'Reduce procurement costs by 15%',
-      department: 'Procurement', headOfDepartment: 'Vikram Mehta', totalEmployees: 18, priority: 'high',
-      startDate: '2024-11-01', endDate: '2025-04-30', progress: 40, weight: 30, status: 'at_risk',
-      kpiCount: 4, teamsInvolved: 2, budget: 500000
-    },
-    {
-      id: '5', title: 'Warehouse Automation', description: 'Implement automated inventory management system',
-      department: 'Warehouse & Logistics', headOfDepartment: 'Amit Singh', totalEmployees: 35, priority: 'medium',
-      startDate: '2024-09-01', endDate: '2025-02-28', progress: 75, weight: 25, status: 'on_track',
-      kpiCount: 3, teamsInvolved: 3, budget: 3000000
-    },
-    {
-      id: '6', title: 'Preventive Maintenance Program', description: 'Reduce equipment downtime by 30%',
-      department: 'Maintenance', headOfDepartment: 'Ramesh Iyer', totalEmployees: 22, priority: 'medium',
-      startDate: '2024-10-01', endDate: '2025-03-31', progress: 60, weight: 25, status: 'on_track',
-      kpiCount: 3, teamsInvolved: 2, budget: 1200000
-    },
-    {
-      id: '7', title: 'HR Digital Transformation', description: 'Digitize all HR processes and records',
-      department: 'Human Resources', headOfDepartment: 'Priya Sharma', totalEmployees: 12, priority: 'medium',
-      startDate: '2024-08-01', endDate: '2024-12-31', progress: 90, weight: 20, status: 'on_track',
-      kpiCount: 4, teamsInvolved: 2, budget: 2000000
-    },
-    {
-      id: '8', title: 'Cost Reduction Initiative', description: 'Reduce operational costs by 12%',
-      department: 'Finance', headOfDepartment: 'Anil Gupta', totalEmployees: 20, priority: 'high',
-      startDate: '2024-09-01', endDate: '2025-03-31', progress: 50, weight: 30, status: 'on_track',
-      kpiCount: 5, teamsInvolved: 3, budget: 800000
-    },
-    {
-      id: '9', title: 'Energy Efficiency Program', description: 'Reduce energy consumption by 18%',
-      department: 'Manufacturing', headOfDepartment: 'Rajesh Kumar', totalEmployees: 120, priority: 'medium',
-      startDate: '2024-07-01', endDate: '2024-12-31', progress: 100, weight: 25, status: 'completed',
-      kpiCount: 3, teamsInvolved: 4, budget: 2500000
-    },
-    {
-      id: '10', title: 'Vendor Diversification', description: 'Onboard 15 new qualified vendors',
-      department: 'Procurement', headOfDepartment: 'Vikram Mehta', totalEmployees: 18, priority: 'low',
-      startDate: '2024-11-01', endDate: '2025-05-31', progress: 25, weight: 15, status: 'at_risk',
-      kpiCount: 2, teamsInvolved: 2, budget: 300000
-    }
-  ];
-
-  const [rows, setRows] = useState<DepartmentGoal[]>(mockGoals);
+  const [rows, setRows] = useState<DepartmentGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -98,9 +35,12 @@ export default function DepartmentGoalsPage() {
     (async () => {
       try {
         const data = await HrTalentService.getPerformance<DepartmentGoal>('department-goal');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

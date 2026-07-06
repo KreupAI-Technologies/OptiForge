@@ -27,80 +27,7 @@ export default function KPIMasterPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const mockKPIs: KPI[] = [
-    {
-      id: '1', code: 'PROD-001', name: 'Production Output Rate', description: 'Number of units produced per hour',
-      category: 'production', measurementType: 'count', unit: 'units/hour', frequency: 'daily',
-      targetValue: 120, department: 'Manufacturing', status: 'active'
-    },
-    {
-      id: '2', code: 'QUAL-001', name: 'First Pass Yield', description: 'Percentage of products passing quality check on first attempt',
-      category: 'quality', measurementType: 'percentage', unit: '%', frequency: 'daily',
-      targetValue: 98, calculationFormula: '(Passed Units / Total Units) × 100', department: 'Quality Assurance', status: 'active'
-    },
-    {
-      id: '3', code: 'QUAL-002', name: 'Defect Rate', description: 'Percentage of defective products',
-      category: 'quality', measurementType: 'percentage', unit: '%', frequency: 'weekly',
-      targetValue: 2, calculationFormula: '(Defective Units / Total Units) × 100', department: 'Quality Assurance', status: 'active'
-    },
-    {
-      id: '4', code: 'SAFE-001', name: 'Safety Incident Rate', description: 'Number of safety incidents per month',
-      category: 'safety', measurementType: 'count', unit: 'incidents', frequency: 'monthly',
-      targetValue: 0, department: 'Safety & Compliance', status: 'active'
-    },
-    {
-      id: '5', code: 'EFF-001', name: 'Overall Equipment Effectiveness', description: 'OEE percentage measuring equipment performance',
-      category: 'efficiency', measurementType: 'percentage', unit: '%', frequency: 'daily',
-      targetValue: 85, calculationFormula: 'Availability × Performance × Quality', department: 'Manufacturing', status: 'active'
-    },
-    {
-      id: '6', code: 'EFF-002', name: 'Machine Downtime', description: 'Total hours of unplanned machine downtime',
-      category: 'efficiency', measurementType: 'time', unit: 'hours', frequency: 'weekly',
-      targetValue: 4, department: 'Maintenance', status: 'active'
-    },
-    {
-      id: '7', code: 'PROD-002', name: 'Cycle Time', description: 'Average time to complete one production cycle',
-      category: 'production', measurementType: 'time', unit: 'minutes', frequency: 'daily',
-      targetValue: 25, department: 'Manufacturing', status: 'active'
-    },
-    {
-      id: '8', code: 'QUAL-003', name: 'Customer Complaint Rate', description: 'Number of customer complaints per 1000 units',
-      category: 'customer', measurementType: 'ratio', unit: 'complaints/1000 units', frequency: 'monthly',
-      targetValue: 2, department: 'Quality Assurance', status: 'active'
-    },
-    {
-      id: '9', code: 'EFF-003', name: 'Labor Productivity', description: 'Units produced per labor hour',
-      category: 'efficiency', measurementType: 'ratio', unit: 'units/labor hour', frequency: 'weekly',
-      targetValue: 15, department: 'Manufacturing', status: 'active'
-    },
-    {
-      id: '10', code: 'PROD-003', name: 'Scrap Rate', description: 'Percentage of raw material wasted',
-      category: 'production', measurementType: 'percentage', unit: '%', frequency: 'weekly',
-      targetValue: 3, calculationFormula: '(Scrap Weight / Total Material Weight) × 100', department: 'Manufacturing', status: 'active'
-    },
-    {
-      id: '11', code: 'FIN-001', name: 'Cost per Unit', description: 'Manufacturing cost per unit produced',
-      category: 'financial', measurementType: 'currency', unit: '₹', frequency: 'monthly',
-      targetValue: 450, department: 'Manufacturing', status: 'active'
-    },
-    {
-      id: '12', code: 'SAFE-002', name: 'Near Miss Reports', description: 'Number of near-miss safety events reported',
-      category: 'safety', measurementType: 'count', unit: 'reports', frequency: 'monthly',
-      targetValue: 10, department: 'Safety & Compliance', status: 'active'
-    },
-    {
-      id: '13', code: 'CUST-001', name: 'On-Time Delivery Rate', description: 'Percentage of orders delivered on time',
-      category: 'customer', measurementType: 'percentage', unit: '%', frequency: 'monthly',
-      targetValue: 95, calculationFormula: '(On-Time Deliveries / Total Deliveries) × 100', department: 'Warehouse & Logistics', status: 'active'
-    },
-    {
-      id: '14', code: 'EFF-004', name: 'Energy Consumption per Unit', description: 'KWh consumed per unit produced',
-      category: 'efficiency', measurementType: 'ratio', unit: 'kWh/unit', frequency: 'monthly',
-      targetValue: 2.5, department: 'Manufacturing', status: 'active'
-    }
-  ];
-
-  const [rows, setRows] = useState<KPI[]>(mockKPIs);
+  const [rows, setRows] = useState<KPI[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -108,9 +35,12 @@ export default function KPIMasterPage() {
     (async () => {
       try {
         const data = await HrTalentService.getPerformance<KPI>('kpi');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+          setRows([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

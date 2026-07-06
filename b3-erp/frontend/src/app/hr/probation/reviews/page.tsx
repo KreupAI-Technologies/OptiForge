@@ -38,72 +38,7 @@ export default function Page() {
   });
   const [rescheduleDate, setRescheduleDate] = useState('');
 
-  const mockReviews: Review[] = [
-    {
-      id: '1',
-      employeeCode: 'EMP567',
-      employeeName: 'Arjun Nair',
-      designation: 'Production Engineer',
-      department: 'Production',
-      reviewNumber: 3,
-      totalReviews: 3,
-      scheduledDate: '2025-10-13',
-      reviewType: 'final',
-      reviewer: 'Suresh Iyer',
-      status: 'scheduled'
-    },
-    {
-      id: '2',
-      employeeCode: 'EMP601',
-      employeeName: 'Rahul Verma',
-      designation: 'Maintenance Technician',
-      department: 'Maintenance',
-      reviewNumber: 2,
-      totalReviews: 3,
-      scheduledDate: '2025-11-01',
-      reviewType: '3_month',
-      reviewer: 'Ramesh Nair',
-      status: 'scheduled'
-    },
-    {
-      id: '3',
-      employeeCode: 'EMP578',
-      employeeName: 'Priyanka Joshi',
-      designation: 'HR Executive',
-      department: 'Human Resources',
-      reviewNumber: 3,
-      totalReviews: 3,
-      scheduledDate: '2025-08-25',
-      reviewType: 'final',
-      reviewer: 'Kavita Sharma',
-      status: 'completed',
-      performanceRating: 92,
-      areasStrength: ['Communication', 'Team Collaboration', 'Learning Agility'],
-      areasImprovement: ['Time Management'],
-      recommendation: 'confirm',
-      completedDate: '2025-08-25'
-    },
-    {
-      id: '4',
-      employeeCode: 'EMP612',
-      employeeName: 'Aditya Sharma',
-      designation: 'IT Support Engineer',
-      department: 'Information Technology',
-      reviewNumber: 2,
-      totalReviews: 4,
-      scheduledDate: '2025-09-01',
-      reviewType: '3_month',
-      reviewer: 'Vikram Singh',
-      status: 'completed',
-      performanceRating: 68,
-      areasStrength: ['Technical Knowledge'],
-      areasImprovement: ['Communication', 'Initiative', 'Problem Solving'],
-      recommendation: 'extend',
-      completedDate: '2025-09-01'
-    }
-  ];
-
-  const [rows, setRows] = useState<Review[]>(mockReviews);
+  const [rows, setRows] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
@@ -111,9 +46,9 @@ export default function Page() {
     (async () => {
       try {
         const data = await HrTalentService.getProbation<Review>('review');
-        if (!cancelled && data.length > 0) setRows(data);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+        if (!cancelled) { setRows([]); setLoadError(err instanceof Error ? err.message : 'Failed to load data'); }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
