@@ -29,3 +29,6 @@ export * from './payment.entity';
 
 // Tax Management
 export * from './tax.entity';
+
+// Finance extras (new page-backing entities)
+export * from './finance-extras.entity';

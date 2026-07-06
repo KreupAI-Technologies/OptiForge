@@ -37,6 +37,17 @@ import {
 import { ApVendorAccount } from './entities/ap-vendor-account.entity';
 import { ArCustomerAccount } from './entities/ar-customer-account.entity';
 import { AdvancedFeature } from './entities/advanced-feature.entity';
+import {
+  FinanceExchangeRate,
+  FinanceRecurringTransaction,
+  FinanceApprovalWorkflow,
+  FinanceAlert,
+  FinanceDocument,
+  FinanceAuditTrail,
+  FinanceCreditLimit,
+  FinanceInvestment,
+  FinanceReportTemplate,
+} from './entities/finance-extras.entity';
 
 // Controllers
 import {
@@ -85,6 +96,10 @@ import { AdvancedAnalyticsService } from './services/advanced-analytics.service'
 import { ApVendorAccountService } from './services/ap-vendor-account.service';
 import { ArCustomerAccountService } from './services/ar-customer-account.service';
 import { AdvancedFeatureService } from './services/advanced-feature.service';
+import { FinanceExtrasService } from './services/finance-extras.service';
+import { FinanceExtrasController } from './controllers/finance-extras.controller';
+import { FinanceOperationsService } from './services/finance-operations.service';
+import { FinanceOperationsController } from './controllers/finance-operations.controller';
 import { Company } from '../core/entities/company.entity';
 
 @Module({
@@ -147,6 +162,17 @@ import { Company } from '../core/entities/company.entity';
       ApVendorAccount,
       ArCustomerAccount,
       AdvancedFeature,
+
+      // Finance extras (new page-backing entities)
+      FinanceExchangeRate,
+      FinanceRecurringTransaction,
+      FinanceApprovalWorkflow,
+      FinanceAlert,
+      FinanceDocument,
+      FinanceAuditTrail,
+      FinanceCreditLimit,
+      FinanceInvestment,
+      FinanceReportTemplate,
     ]),
   ],
   controllers: [
@@ -166,6 +192,8 @@ import { Company } from '../core/entities/company.entity';
     ApVendorAccountController,
     ArCustomerAccountController,
     AdvancedFeatureController,
+    FinanceExtrasController,
+    FinanceOperationsController,
   ],
   providers: [
     ChartOfAccountsService,
@@ -192,6 +220,8 @@ import { Company } from '../core/entities/company.entity';
     ApVendorAccountService,
     ArCustomerAccountService,
     AdvancedFeatureService,
+    FinanceExtrasService,
+    FinanceOperationsService,
   ],
   exports: [
     ChartOfAccountsService,
