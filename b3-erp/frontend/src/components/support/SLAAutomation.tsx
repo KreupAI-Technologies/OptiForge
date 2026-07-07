@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Clock, AlertTriangle, CheckCircle, TrendingUp, Target, Zap } from 'lucide-react'
+import { SlaPolicyService, type SlaPolicyRecord, type SlaDashboardRecord } from '@/services/support.service'
 
 export type SLAStatus = 'met' | 'at-risk' | 'breached';
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
@@ -16,6 +17,14 @@ export interface SLAPolicy {
   activeTickets: number;
 }
 
+const COMPANY_ID = 'company-1';
+
+function normalizePriority(p?: string): Priority {
+  const v = (p || '').toLowerCase();
+  if (v === 'critical' || v === 'high' || v === 'medium' || v === 'low') return v;
+  return 'medium';
+}
+
 export interface SLATicket {
   id: string;
   subject: string;
@@ -27,24 +36,48 @@ export interface SLATicket {
 }
 
 export default function SLAAutomation() {
-  const [policies] = useState<SLAPolicy[]>([
-    { id: 'SLA-001', name: 'Critical Issues', priority: 'critical', firstResponseTime: 15, resolutionTime: 240, complianceRate: 94.5, activeTickets: 12 },
-    { id: 'SLA-002', name: 'High Priority', priority: 'high', firstResponseTime: 60, resolutionTime: 480, complianceRate: 92.3, activeTickets: 45 },
-    { id: 'SLA-003', name: 'Medium Priority', priority: 'medium', firstResponseTime: 240, resolutionTime: 1440, complianceRate: 89.7, activeTickets: 123 },
-    { id: 'SLA-004', name: 'Low Priority', priority: 'low', firstResponseTime: 480, resolutionTime: 2880, complianceRate: 95.2, activeTickets: 67 }
-  ]);
+  const [policies, setPolicies] = useState<SLAPolicy[]>([]);
+  const [dashboard, setDashboard] = useState<SlaDashboardRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // At-risk ticket tracking (live per-ticket SLA timers) is out of scope for
+  // this read-only wiring; the policy table + compliance KPIs are API-backed.
   const [tickets] = useState<SLATicket[]>([
     { id: 'TKT-001', subject: 'Production server down', priority: 'critical', slaStatus: 'at-risk', timeRemaining: 8, firstResponseDue: '10:15 AM', resolutionDue: '2:00 PM' },
     { id: 'TKT-002', subject: 'Database connection errors', priority: 'high', slaStatus: 'met', timeRemaining: 180, firstResponseDue: '11:30 AM', resolutionDue: '5:00 PM' },
     { id: 'TKT-003', subject: 'Feature request', priority: 'low', slaStatus: 'met', timeRemaining: 1200, firstResponseDue: '2:00 PM Tomorrow', resolutionDue: '2:00 PM +2 days' }
   ]);
 
-  const [realTimeUpdate, setRealTimeUpdate] = useState(0);
-
   useEffect(() => {
-    const interval = setInterval(() => setRealTimeUpdate(prev => prev + 1), 3000);
-    return () => clearInterval(interval);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [policyRows, dash] = await Promise.all([
+          SlaPolicyService.getPolicies(COMPANY_ID),
+          SlaPolicyService.getDashboard(COMPANY_ID),
+        ]);
+        if (cancelled) return;
+        const mapped: SLAPolicy[] = (Array.isArray(policyRows) ? policyRows : []).map((p: SlaPolicyRecord) => ({
+          id: p.id,
+          name: p.slaName,
+          priority: normalizePriority(p.priority),
+          firstResponseTime: Number(p.firstResponseMinutes) || 0,
+          resolutionTime: Number(p.resolutionMinutes) || 0,
+          complianceRate: dash?.complianceRate ?? 0,
+          activeTickets: 0,
+        }));
+        setPolicies(mapped);
+        setDashboard(dash ?? null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load SLA data');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const getSLAStatusColor = (status: SLAStatus) => {
@@ -66,7 +99,7 @@ export default function SLAAutomation() {
     return colors[priority];
   };
 
-  const avgCompliance = policies.reduce((sum, p) => sum + p.complianceRate, 0) / policies.length;
+  const complianceRate = dashboard?.complianceRate ?? 0;
 
   return (
     <div className="space-y-3">
@@ -78,26 +111,32 @@ export default function SLAAutomation() {
         <p className="text-gray-600 mt-1">Automated SLA tracking, escalation, and compliance monitoring</p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-3">
           <Target className="h-8 w-8 text-blue-600 mb-3" />
-          <div className="text-3xl font-bold text-gray-900 mb-1">{avgCompliance.toFixed(1)}%</div>
-          <div className="text-sm text-gray-600">Avg Compliance</div>
+          <div className="text-3xl font-bold text-gray-900 mb-1">{loading ? '…' : `${complianceRate.toFixed(1)}%`}</div>
+          <div className="text-sm text-gray-600">Compliance (30d)</div>
         </div>
         <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-3">
           <CheckCircle className="h-8 w-8 text-green-600 mb-3" />
-          <div className="text-3xl font-bold text-green-600 mb-1">{tickets.filter(t => t.slaStatus === 'met').length}</div>
-          <div className="text-sm text-gray-600">Met SLA</div>
+          <div className="text-3xl font-bold text-green-600 mb-1">{loading ? '…' : (dashboard?.totalTickets ?? 0)}</div>
+          <div className="text-sm text-gray-600">Tickets (30d)</div>
         </div>
         <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-3">
           <AlertTriangle className="h-8 w-8 text-yellow-600 mb-3" />
-          <div className="text-3xl font-bold text-yellow-600 mb-1">{tickets.filter(t => t.slaStatus === 'at-risk').length}</div>
-          <div className="text-sm text-gray-600">At Risk</div>
+          <div className="text-3xl font-bold text-yellow-600 mb-1">{loading ? '…' : (dashboard?.breachedTickets ?? 0)}</div>
+          <div className="text-sm text-gray-600">Breached</div>
         </div>
         <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-3">
           <Zap className="h-8 w-8 text-purple-600 mb-3" />
-          <div className="text-3xl font-bold text-purple-600 mb-1">{policies.length}</div>
+          <div className="text-3xl font-bold text-purple-600 mb-1">{loading ? '…' : (dashboard?.activePolicies ?? policies.length)}</div>
           <div className="text-sm text-gray-600">Active Policies</div>
         </div>
       </div>
@@ -115,12 +154,21 @@ export default function SLAAutomation() {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Priority</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">First Response</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Resolution</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Compliance</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Active</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 uppercase">Compliance (30d)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {policies.map((policy) => (
+              {loading && (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-gray-500">Loading SLA policies…</td>
+                </tr>
+              )}
+              {!loading && policies.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-gray-500">No SLA policies configured</td>
+                </tr>
+              )}
+              {!loading && policies.map((policy) => (
                 <tr key={policy.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-900">{policy.name}</td>
                   <td className="px-3 py-2 whitespace-nowrap">
@@ -138,7 +186,6 @@ export default function SLAAutomation() {
                       <span className="text-sm font-medium text-gray-900">{policy.complianceRate}%</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-gray-900">{policy.activeTickets}</td>
                 </tr>
               ))}
             </tbody>

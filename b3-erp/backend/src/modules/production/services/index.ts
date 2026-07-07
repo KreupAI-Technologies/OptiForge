@@ -83,3 +83,5 @@ export * from './team-activity.service';
 export * from './team-message.service';
 export * from './shift-handoff.service';
 export * from './customer-portal-access.service';
+
+export * from './production-variance.service';

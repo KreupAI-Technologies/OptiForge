@@ -15170,6 +15170,20 @@ model Notification {
   @@map("notifications")
 }
 
+// Read-side model for per-user notification preferences.
+// Table created via prisma/manual/orphan_notifications.sql (additive DDL).
+model NotificationPreference {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Own table (NOT the workflow-owned "notification_preferences" TypeORM table,
+  // which has a different channel/type shape). Stores a per-user JSONB blob.
+  @@map("notification_user_preferences")
+}
+
 // ===================================================================
 // Orphan-endpoint tables (generated from prisma/manual/orphan_*.sql).
 // Additive: these back the net-new API endpoints so the Prisma schema
@@ -15213,6 +15227,26 @@ model AsKnowledgeManuals {
   updatedAt DateTime @default(now())
 
   @@map("as_knowledge_manuals")
+}
+
+model AsOverviewSnapshot {
+  id                      String   @id @default(uuid())
+  snapshotDate            DateTime @default(now())
+  totalTickets            Int      @default(0)
+  openTickets             Int      @default(0)
+  resolvedTickets         Int      @default(0)
+  avgResolutionTime       Float    @default(0)
+  customerSatisfaction    Float    @default(0)
+  activeServiceCalls      Int      @default(0)
+  warrantyClaimsThisMonth Int      @default(0)
+  technicianUtilization   Float    @default(0)
+  pendingParts            Int      @default(0)
+  scheduledVisits         Int      @default(0)
+  slaCompliance           Float    @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @default(now())
+
+  @@map("as_overview_snapshot")
 }
 
 model CpqApprovalItems {
@@ -17468,6 +17502,39 @@ model ItNotificationSettings {
   @@map("it_notification_settings")
 }
 
+// Read-side model for the IT-Admin session management console.
+// Runtime writes go through the TypeORM UserSession entity (same table).
+model ItUserSession {
+  id                String    @id @default(uuid())
+  userId            String
+  sessionToken      String    @unique
+  refreshToken      String?
+  status            String    @default("Active")
+  ipAddress         String
+  userAgent         String?
+  device            String?
+  browser           String?
+  os                String?
+  location          String?
+  latitude          String?
+  longitude         String?
+  expiresAt         DateTime
+  lastActivityAt    DateTime?
+  loggedOutAt       DateTime?
+  terminatedAt      DateTime?
+  terminatedBy      String?
+  terminationReason String?
+  requestCount      Int       @default(0)
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("it_user_sessions")
+}
+
 model ItUserGroups {
   id String @id @default(uuid())
   companyId String?
@@ -19295,6 +19362,25 @@ model ReportSavedItems {
   @@map("report_saved_items")
 }
 
+model ReportDashboards {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  description String?
+  category String?
+  layout Json?
+  widgets Json?
+  createdByName String?
+  isDefault Boolean @default(false)
+  isLocked Boolean @default(false)
+  isFavorite Boolean @default(false)
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("report_dashboards")
+}
+
 model SalesShippingMethods {
   id String @id @default(uuid())
   companyId String?
@@ -20104,4 +20190,51 @@ model HrOvertimeSetting {
   updated_at DateTime @default(now())
 
   @@map("hr_overtime_settings")
+}
+
+// --- Finance integrations (external system configs / status) — /finance/integrations ---
+
+model FinanceIntegration {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  type String @default("custom")
+  provider String?
+  status String @default("inactive")
+  connection_type String @default("api")
+  frequency String @default("manual")
+  last_sync DateTime?
+  next_sync DateTime?
+  data_flow String @default("inbound")
+  version String?
+  endpoint String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_integrations")
+}
+
+model ProductionVariance {
+  id              String    @id @default(uuid())
+  companyId       String
+  category        String
+  workOrder       String?
+  product         String?
+  subCategory     String?
+  plannedValue    Decimal   @default(0) @db.Decimal(14, 2)
+  actualValue     Decimal   @default(0) @db.Decimal(14, 2)
+  variance        Decimal   @default(0) @db.Decimal(14, 2)
+  variancePercent Decimal   @default(0) @db.Decimal(8, 2)
+  impactCost      Decimal   @default(0) @db.Decimal(14, 2)
+  status          String    @default("unfavorable")
+  reason          String?
+  action          String?
+  metrics         Json?
+  recordDate      DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([companyId, category])
+  @@map("production_variances")
 }

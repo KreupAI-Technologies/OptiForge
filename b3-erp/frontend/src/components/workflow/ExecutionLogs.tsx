@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronRight, Filter } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronRight, Filter, Loader2 } from 'lucide-react'
+import { workflowRepositoryService, WorkflowInstanceDTO } from '@/services/workflow-repository.service'
 
 export type ExecutionStatus = 'running' | 'success' | 'failed' | 'warning' | 'cancelled';
 
@@ -33,228 +34,101 @@ export interface ExecutionStep {
   retryCount?: number;
 }
 
+// Map a backend InstanceStatus onto the component's ExecutionStatus.
+function mapInstanceStatus(status: string): ExecutionStatus {
+  switch (status) {
+    case 'running':
+    case 'pending':
+    case 'paused':
+      return 'running';
+    case 'completed':
+      return 'success';
+    case 'failed':
+      return 'failed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'running';
+  }
+}
+
+function fmtDate(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? String(value) : d.toLocaleString();
+}
+
+// Map a backend WorkflowInstance into the ExecutionLog shape used here.
+function mapInstanceToLog(inst: WorkflowInstanceDTO): ExecutionLog {
+  const status = mapInstanceStatus(inst.status);
+  const start = inst.startedAt ?? inst.createdAt;
+  const end = inst.completedAt ?? undefined;
+  const duration =
+    start && end
+      ? Math.max(0, Math.round(((new Date(end).getTime() - new Date(start).getTime()) / 1000) * 10) / 10)
+      : undefined;
+
+  const stepStatus: ExecutionStatus =
+    status === 'failed' ? 'failed' : status === 'success' ? 'success' : status === 'running' ? 'running' : status;
+
+  const summaryStep: ExecutionStep = {
+    id: `${inst.id}-current`,
+    stepName: inst.currentStepName || `${inst.completedSteps}/${inst.totalSteps} steps completed`,
+    nodeType: 'step',
+    startTime: fmtDate(start),
+    endTime: end ? fmtDate(end) : undefined,
+    duration: duration ?? 0,
+    status: stepStatus,
+    input: inst.context ?? undefined,
+    output: inst.errorDetails ?? undefined,
+    error: inst.errorMessage ?? undefined,
+  };
+
+  return {
+    id: inst.id,
+    workflowId: inst.definitionId ?? '',
+    workflowName:
+      inst.definition?.name ||
+      inst.sourceNumber ||
+      inst.instanceNumber ||
+      'Workflow Instance',
+    startTime: fmtDate(start),
+    endTime: end ? fmtDate(end) : undefined,
+    duration,
+    status,
+    triggeredBy: inst.sourceType
+      ? `${inst.sourceType}${inst.sourceNumber ? ` (${inst.sourceNumber})` : ''}`
+      : inst.createdBy || 'system',
+    errorCount: status === 'failed' ? 1 : 0,
+    warningCount: 0,
+    steps: [summaryStep],
+  };
+}
+
 export default function ExecutionLogs() {
-  const [logs, setLogs] = useState<ExecutionLog[]>([
-    {
-      id: 'EXEC-001',
-      workflowId: 'WF-001',
-      workflowName: 'Purchase Order Approval Flow',
-      startTime: '2025-01-24 14:30:25',
-      endTime: '2025-01-24 14:30:32',
-      duration: 7.2,
-      status: 'success',
-      triggeredBy: 'po.created event',
-      errorCount: 0,
-      warningCount: 0,
-      steps: [
-        {
-          id: 'S1',
-          stepName: 'PO Created Trigger',
-          nodeType: 'trigger',
-          startTime: '2025-01-24 14:30:25',
-          endTime: '2025-01-24 14:30:25',
-          duration: 0.1,
-          status: 'success',
-          input: { poNumber: 'PO-12345', amount: 150000 },
-          output: { triggered: true }
-        },
-        {
-          id: 'S2',
-          stepName: 'Amount > ₹1L?',
-          nodeType: 'condition',
-          startTime: '2025-01-24 14:30:25',
-          endTime: '2025-01-24 14:30:26',
-          duration: 0.5,
-          status: 'success',
-          input: { amount: 150000, threshold: 100000 },
-          output: { result: true, branch: 'true' }
-        },
-        {
-          id: 'S3',
-          stepName: 'Send to Manager',
-          nodeType: 'action',
-          startTime: '2025-01-24 14:30:26',
-          endTime: '2025-01-24 14:30:29',
-          duration: 3.2,
-          status: 'success',
-          input: { approver: 'manager@company.com', poNumber: 'PO-12345' },
-          output: { emailSent: true, notificationId: 'NOTIF-789' }
-        },
-        {
-          id: 'S4',
-          stepName: 'Approved?',
-          nodeType: 'condition',
-          startTime: '2025-01-24 14:30:29',
-          endTime: '2025-01-24 14:30:30',
-          duration: 0.8,
-          status: 'success',
-          input: { approvalStatus: 'approved' },
-          output: { result: true, branch: 'approved' }
-        },
-        {
-          id: 'S5',
-          stepName: 'Create PO',
-          nodeType: 'action',
-          startTime: '2025-01-24 14:30:30',
-          endTime: '2025-01-24 14:30:32',
-          duration: 2.6,
-          status: 'success',
-          input: { poData: { /* ... */ } },
-          output: { poCreated: true, poId: 'PO-12345' }
-        }
-      ]
-    },
-    {
-      id: 'EXEC-002',
-      workflowId: 'WF-002',
-      workflowName: 'Inventory Reorder Automation',
-      startTime: '2025-01-24 13:15:10',
-      endTime: '2025-01-24 13:15:18',
-      duration: 8.5,
-      status: 'warning',
-      triggeredBy: 'stock.low event',
-      errorCount: 0,
-      warningCount: 1,
-      steps: [
-        {
-          id: 'S6',
-          stepName: 'Stock Level Check',
-          nodeType: 'trigger',
-          startTime: '2025-01-24 13:15:10',
-          endTime: '2025-01-24 13:15:11',
-          duration: 0.3,
-          status: 'success',
-          input: { itemSku: 'RAW-001', stockLevel: 15 },
-          output: { triggered: true }
-        },
-        {
-          id: 'S7',
-          stepName: 'Critical Stock?',
-          nodeType: 'condition',
-          startTime: '2025-01-24 13:15:11',
-          endTime: '2025-01-24 13:15:11',
-          duration: 0.2,
-          status: 'success',
-          input: { stockLevel: 15, reorderPoint: 50 },
-          output: { result: true, urgency: 'high' }
-        },
-        {
-          id: 'S8',
-          stepName: 'Create Urgent PO',
-          nodeType: 'action',
-          startTime: '2025-01-24 13:15:11',
-          endTime: '2025-01-24 13:15:15',
-          duration: 4.2,
-          status: 'success',
-          input: { supplier: 'SUP-001', quantity: 500 },
-          output: { poCreated: true, poId: 'PO-12347' }
-        },
-        {
-          id: 'S9',
-          stepName: 'Notify Procurement',
-          nodeType: 'action',
-          startTime: '2025-01-24 13:15:15',
-          endTime: '2025-01-24 13:15:18',
-          duration: 3.8,
-          status: 'warning',
-          input: { team: 'procurement@company.com' },
-          output: { emailSent: true },
-          error: 'Email sent but one recipient bounced'
-        }
-      ]
-    },
-    {
-      id: 'EXEC-003',
-      workflowId: 'WF-001',
-      workflowName: 'Purchase Order Approval Flow',
-      startTime: '2025-01-24 12:05:15',
-      endTime: '2025-01-24 12:05:20',
-      duration: 5.3,
-      status: 'failed',
-      triggeredBy: 'po.created event',
-      errorCount: 1,
-      warningCount: 0,
-      steps: [
-        {
-          id: 'S10',
-          stepName: 'PO Created Trigger',
-          nodeType: 'trigger',
-          startTime: '2025-01-24 12:05:15',
-          endTime: '2025-01-24 12:05:15',
-          duration: 0.1,
-          status: 'success',
-          input: { poNumber: 'PO-12348' },
-          output: { triggered: true }
-        },
-        {
-          id: 'S11',
-          stepName: 'Amount > ₹1L?',
-          nodeType: 'condition',
-          startTime: '2025-01-24 12:05:15',
-          endTime: '2025-01-24 12:05:16',
-          duration: 0.4,
-          status: 'success',
-          input: { amount: 250000 },
-          output: { result: true }
-        },
-        {
-          id: 'S12',
-          stepName: 'Send to Manager',
-          nodeType: 'action',
-          startTime: '2025-01-24 12:05:16',
-          endTime: '2025-01-24 12:05:20',
-          duration: 4.8,
-          status: 'failed',
-          input: { approver: 'invalid-email' },
-          error: 'SMTP Error: Invalid recipient email address',
-          retryCount: 3
-        }
-      ]
-    },
-    {
-      id: 'EXEC-004',
-      workflowId: 'WF-003',
-      workflowName: 'Quality Control Routing',
-      startTime: '2025-01-24 11:45:00',
-      status: 'running',
-      triggeredBy: 'goods.received event',
-      errorCount: 0,
-      warningCount: 0,
-      steps: [
-        {
-          id: 'S13',
-          stepName: 'Goods Received Trigger',
-          nodeType: 'trigger',
-          startTime: '2025-01-24 11:45:00',
-          endTime: '2025-01-24 11:45:00',
-          duration: 0.1,
-          status: 'success',
-          input: { grn: 'GRN-5678' },
-          output: { triggered: true }
-        },
-        {
-          id: 'S14',
-          stepName: 'Supplier Check',
-          nodeType: 'condition',
-          startTime: '2025-01-24 11:45:00',
-          endTime: '2025-01-24 11:45:01',
-          duration: 0.3,
-          status: 'success',
-          input: { supplierId: 'SUP-999', tenure: 2 },
-          output: { newSupplier: true }
-        },
-        {
-          id: 'S15',
-          stepName: 'Route to Full QC',
-          nodeType: 'action',
-          startTime: '2025-01-24 11:45:01',
-          duration: 0,
-          status: 'running',
-          input: { grn: 'GRN-5678', qcType: 'full' }
-        }
-      ]
-    }
-  ]);
+  const [logs, setLogs] = useState<ExecutionLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setLoadError(null);
+        const instances = await workflowRepositoryService.getInstances({ limit: 50 });
+        if (!cancelled) setLogs(instances.map(mapInstanceToLog));
+      } catch (err) {
+        console.error('Failed to load workflow instances:', err);
+        if (!cancelled) setLoadError('Failed to load execution logs.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<ExecutionStatus | 'all'>('all');
@@ -357,7 +231,21 @@ export default function ExecutionLogs() {
         </div>
       </div>
 
+      {loading && (
+        <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-12 flex items-center justify-center gap-3 text-gray-600">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          Loading execution logs...
+        </div>
+      )}
+
+      {!loading && loadError && (
+        <div className="bg-white shadow-lg border border-red-200 rounded-lg p-6 text-center text-red-600">
+          {loadError}
+        </div>
+      )}
+
       {/* Logs List */}
+      {!loading && !loadError && (
       <div className="space-y-2">
         {filteredLogs.map((log) => {
           const isExpanded = expandedLogs.has(log.id);
@@ -451,13 +339,14 @@ export default function ExecutionLogs() {
             </div>
           );
         })}
-      </div>
 
-      {filteredLogs.length === 0 && (
-        <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-12 text-center">
-          <FileText className="h-12 w-12 text-gray-400 mb-3" />
-          <p className="text-gray-600">No execution logs found for the selected filter.</p>
-        </div>
+        {filteredLogs.length === 0 && (
+          <div className="bg-white shadow-lg border border-gray-200 rounded-lg p-12 text-center">
+            <FileText className="h-12 w-12 text-gray-400 mb-3" />
+            <p className="text-gray-600">No execution logs found for the selected filter.</p>
+          </div>
+        )}
+      </div>
       )}
     </div>
   );

@@ -38,4 +38,79 @@ export class PmScheduleService {
     const result = await this.repo.delete(id);
     if (result.affected === 0) throw new NotFoundException(`Schedule task ${id} not found`);
   }
+
+  /**
+   * Aggregate schedule tasks into phase-level progress rollups.
+   * Backs the phase-progress / workflow / phase-2 pages. Read-only derivation
+   * over pm_schedule_tasks — no separate phases table required.
+   */
+  async getPhases(companyId = 'default'): Promise<
+    Array<{
+      phase: string;
+      taskCount: number;
+      progress: number;
+      status: string;
+      startDate: string | null;
+      endDate: string | null;
+      tasks: Array<{ id: string; name: string; status: string; progress: number; assignee: string | null }>;
+    }>
+  > {
+    const rows = await this.repo.find({
+      where: { companyId },
+      order: { phase: 'ASC', createdAt: 'ASC' },
+    });
+
+    const byPhase = new Map<string, PmScheduleTaskEntity[]>();
+    for (const row of rows) {
+      const key = (row.phase && String(row.phase).trim()) || 'Unassigned';
+      if (!byPhase.has(key)) byPhase.set(key, []);
+      byPhase.get(key)!.push(row);
+    }
+
+    const result: Array<{
+      phase: string;
+      taskCount: number;
+      progress: number;
+      status: string;
+      startDate: string | null;
+      endDate: string | null;
+      tasks: Array<{ id: string; name: string; status: string; progress: number; assignee: string | null }>;
+    }> = [];
+
+    for (const [phase, tasks] of byPhase.entries()) {
+      const taskCount = tasks.length;
+      const progress =
+        taskCount === 0
+          ? 0
+          : Math.round(tasks.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / taskCount);
+
+      let status: string;
+      if (progress >= 100) status = 'completed';
+      else if (tasks.some((t) => String(t.status).toLowerCase().includes('block'))) status = 'blocked';
+      else if (progress > 0 || tasks.some((t) => String(t.status).toLowerCase().includes('progress')))
+        status = 'in-progress';
+      else status = 'pending';
+
+      const startDates = tasks.map((t) => t.startDate).filter(Boolean).sort();
+      const endDates = tasks.map((t) => t.endDate).filter(Boolean).sort();
+
+      result.push({
+        phase,
+        taskCount,
+        progress,
+        status,
+        startDate: startDates.length ? startDates[0] : null,
+        endDate: endDates.length ? endDates[endDates.length - 1] : null,
+        tasks: tasks.map((t) => ({
+          id: t.id,
+          name: t.name,
+          status: t.status,
+          progress: Number(t.progress) || 0,
+          assignee: t.assignee || null,
+        })),
+      });
+    }
+
+    return result;
+  }
 }

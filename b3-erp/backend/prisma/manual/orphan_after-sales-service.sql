@@ -62,3 +62,45 @@ CREATE TABLE IF NOT EXISTS "as_knowledge_manuals" (
   "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
   CONSTRAINT "PK_as_knowledge_manuals" PRIMARY KEY ("id")
 );
+
+-- =============================================================================
+-- After-sales overview snapshot (KPI tiles + recent tickets)
+--   Persistence contract for the after-sales-service landing page overview and
+--   the advanced-features Live SLA tracking view. Backs
+--   GET /api/v1/after-sales/overview and GET /api/v1/after-sales/overview/sla-live
+--   (AfterSalesOverviewService / AfterSalesOverviewController). Rows are seeded
+--   in memory in the service so the pages render without a schema migration;
+--   this table is the additive, idempotent persistence contract.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS "as_overview_snapshot" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+  "snapshotDate" date NOT NULL DEFAULT CURRENT_DATE,
+  "totalTickets" integer NOT NULL DEFAULT 0,
+  "openTickets" integer NOT NULL DEFAULT 0,
+  "resolvedTickets" integer NOT NULL DEFAULT 0,
+  "avgResolutionTime" numeric(6,2) NOT NULL DEFAULT 0,
+  "customerSatisfaction" numeric(3,1) NOT NULL DEFAULT 0,
+  "activeServiceCalls" integer NOT NULL DEFAULT 0,
+  "warrantyClaimsThisMonth" integer NOT NULL DEFAULT 0,
+  "technicianUtilization" numeric(5,2) NOT NULL DEFAULT 0,
+  "pendingParts" integer NOT NULL DEFAULT 0,
+  "scheduledVisits" integer NOT NULL DEFAULT 0,
+  "slaCompliance" numeric(5,2) NOT NULL DEFAULT 0,
+  "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
+  "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_as_overview_snapshot" PRIMARY KEY ("id")
+);
+
+INSERT INTO "as_overview_snapshot" (
+  "id", "snapshotDate", "totalTickets", "openTickets", "resolvedTickets",
+  "avgResolutionTime", "customerSatisfaction", "activeServiceCalls",
+  "warrantyClaimsThisMonth", "technicianUtilization", "pendingParts",
+  "scheduledVisits", "slaCompliance"
+)
+SELECT
+  '00000000-0000-0000-0000-000000000001'::uuid, CURRENT_DATE, 234, 45, 178,
+  4.5, 4.6, 23, 12, 78.5, 8, 15, 92.5
+WHERE NOT EXISTS (
+  SELECT 1 FROM "as_overview_snapshot"
+  WHERE "id" = '00000000-0000-0000-0000-000000000001'::uuid
+);

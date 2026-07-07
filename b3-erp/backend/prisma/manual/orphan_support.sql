@@ -568,3 +568,66 @@ CREATE TABLE IF NOT EXISTS "itil_change_approvals" (
   CONSTRAINT "PK_itil_change_approvals" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_itil_change_approvals_change" ON "itil_change_approvals" ("changeId");
+
+
+-- ============================================================
+-- support/advanced-features (SLA tab) — SLA policies + seed
+-- ============================================================
+-- Backs GET /api/v1/support/sla/policies and /support/sla/dashboard
+-- (Prisma model SLAPolicy -> support_sla_policies). ADDITIVE ONLY.
+-- Column names mirror the Prisma model field names.
+CREATE TABLE IF NOT EXISTS "support_sla_policies" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "slaCode" varchar NOT NULL,
+  "slaName" varchar NOT NULL,
+  "description" text,
+  "priority" varchar,
+  "ticketType" varchar,
+  "category" varchar,
+  "customerTier" varchar,
+  "firstResponseMinutes" integer NOT NULL,
+  "responseBusinessHours" boolean NOT NULL DEFAULT true,
+  "resolutionMinutes" integer NOT NULL,
+  "resolutionBusinessHours" boolean NOT NULL DEFAULT true,
+  "businessHoursStart" varchar,
+  "businessHoursEnd" varchar,
+  "businessDays" text[] NOT NULL DEFAULT '{}',
+  "timezone" varchar,
+  "holidayCalendarId" varchar,
+  "escalationEnabled" boolean NOT NULL DEFAULT true,
+  "escalationRules" json,
+  "penaltyEnabled" boolean NOT NULL DEFAULT false,
+  "responsePenalty" numeric(10,2),
+  "resolutionPenalty" numeric(10,2),
+  "isDefault" boolean NOT NULL DEFAULT false,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "companyId" varchar NOT NULL,
+  "createdAt" timestamp NOT NULL DEFAULT now(),
+  "updatedAt" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_support_sla_policies" PRIMARY KEY ("id"),
+  CONSTRAINT "UQ_support_sla_policies_code_company" UNIQUE ("slaCode", "companyId")
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_support_sla_policies_company"
+  ON "support_sla_policies" ("companyId");
+
+-- Idempotent seed policies (upsert on slaCode+companyId)
+INSERT INTO "support_sla_policies"
+  ("slaCode","slaName","description","priority","firstResponseMinutes","resolutionMinutes","isDefault","isActive","companyId")
+VALUES
+  ('SLA-CRIT','Critical Issues','SLA for critical priority tickets','critical',15,240,false,true,'company-1'),
+  ('SLA-HIGH','High Priority','SLA for high priority tickets','high',60,480,false,true,'company-1'),
+  ('SLA-MED','Medium Priority','SLA for medium priority tickets','medium',240,1440,true,true,'company-1'),
+  ('SLA-LOW','Low Priority','SLA for low priority tickets','low',480,2880,false,true,'company-1')
+ON CONFLICT ("slaCode","companyId") DO NOTHING;
+
+-- Idempotent seed tickets so the SLA dashboard computes a real compliance rate.
+INSERT INTO "support_tickets"
+  ("ticketCode","ticketNumber","channel","customerName","subject","description","priority","ticketType","status","firstResponseBreached","resolutionBreached","companyId")
+VALUES
+  ('TKT-SLA-001','TKT-SLA-001','email','ACME Corp','Production server down','Critical outage affecting production line','critical','incident','in_progress',false,false,'company-1'),
+  ('TKT-SLA-002','TKT-SLA-002','chat','ACME Corp','Database connection errors','Intermittent DB connection failures','high','incident','open',false,false,'company-1'),
+  ('TKT-SLA-003','TKT-SLA-003','portal','Beta Kitchens','Feature request','Requesting new export format','low','request','open',false,false,'company-1'),
+  ('TKT-SLA-004','TKT-SLA-004','phone','Gamma Foods','Login issue','User cannot authenticate','high','incident','resolved',true,false,'company-1'),
+  ('TKT-SLA-005','TKT-SLA-005','email','Delta Diner','Report not generating','Monthly report stuck','medium','incident','open',false,true,'company-1')
+ON CONFLICT ("ticketNumber","companyId") DO NOTHING;

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Users, Monitor, Smartphone, Clock, MapPin, XCircle, Shield, AlertTriangle, RefreshCw, Settings, Download, Trash2, Eye } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Users, Monitor, Smartphone, Clock, MapPin, XCircle, Shield, AlertTriangle, RefreshCw, Settings, Download, Trash2, Eye, Loader2 } from 'lucide-react';
 import { exportToCsv } from '@/lib/export';
+import { ItAdminService, UserSessionDto } from '@/services/it-admin.service';
 
 interface ActiveSession {
   id: string;
@@ -36,6 +37,55 @@ interface SessionSettings {
   warningTime: number;
 }
 
+function fmtDateTime(value?: string): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function fmtDuration(fromValue?: string, toValue?: string): string {
+  if (!fromValue) return '';
+  const from = new Date(fromValue).getTime();
+  const to = toValue ? new Date(toValue).getTime() : Date.now();
+  if (isNaN(from) || isNaN(to) || to < from) return '';
+  const mins = Math.floor((to - from) / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${m}m`;
+}
+
+function idleMinutes(lastActivity?: string): number {
+  if (!lastActivity) return 0;
+  const last = new Date(lastActivity).getTime();
+  if (isNaN(last)) return 0;
+  return Math.max(0, Math.floor((Date.now() - last) / 60000));
+}
+
+/** Map a backend UserSessionDto (with joined user) into the row shape the
+ * table renders. Fully defensive against missing/partial fields. */
+function transformSession(s: UserSessionDto): ActiveSession {
+  return {
+    id: String(s.id),
+    userId: s.userId ?? s.user?.id ?? '',
+    userName: s.user?.fullName ?? 'Unknown User',
+    email: s.user?.email ?? '',
+    department: s.user?.department ?? '',
+    role: s.user?.userType ?? '',
+    loginTime: fmtDateTime(s.createdAt),
+    lastActivity: fmtDateTime(s.lastActivityAt),
+    duration: fmtDuration(s.createdAt, s.lastActivityAt),
+    ipAddress: s.ipAddress ?? '',
+    location: s.location ?? '',
+    device: s.device ?? 'Desktop',
+    browser: s.browser ?? '',
+    os: s.os ?? '',
+    sessionType: 'Web',
+    status: s.status ?? 'Active',
+    idleTime: idleMinutes(s.lastActivityAt),
+  };
+}
+
 const SessionManagementPage = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [filterDevice, setFilterDevice] = useState('all');
@@ -55,160 +105,28 @@ const SessionManagementPage = () => {
     warningTime: 5,
   });
 
-  const [sessions, setSessions] = useState<ActiveSession[]>([
-    {
-      id: '1',
-      userId: 'USR001',
-      userName: 'Rajesh Kumar',
-      email: 'rajesh.kumar@company.com',
-      department: 'IT',
-      role: 'Admin',
-      loginTime: '2025-10-21 09:00:00',
-      lastActivity: '2025-10-21 11:45:23',
-      duration: '2h 45m',
-      ipAddress: '103.21.244.45',
-      location: 'Mumbai, India',
-      device: 'Desktop',
-      browser: 'Chrome 118',
-      os: 'Windows 11',
-      sessionType: 'Web',
-      status: 'Active',
-      idleTime: 2,
-    },
-    {
-      id: '2',
-      userId: 'USR001',
-      userName: 'Rajesh Kumar',
-      email: 'rajesh.kumar@company.com',
-      department: 'IT',
-      role: 'Admin',
-      loginTime: '2025-10-21 08:30:00',
-      lastActivity: '2025-10-21 09:15:00',
-      duration: '3h 15m',
-      ipAddress: '49.207.198.156',
-      location: 'Mumbai, India',
-      device: 'Mobile',
-      browser: 'Safari',
-      os: 'iOS 17',
-      sessionType: 'Mobile App',
-      status: 'Active',
-      idleTime: 150,
-    },
-    {
-      id: '3',
-      userId: 'USR002',
-      userName: 'Priya Sharma',
-      email: 'priya.sharma@company.com',
-      department: 'HR',
-      role: 'HR Manager',
-      loginTime: '2025-10-21 10:15:00',
-      lastActivity: '2025-10-21 11:40:12',
-      duration: '1h 30m',
-      ipAddress: '103.50.161.89',
-      location: 'Bangalore, India',
-      device: 'Laptop',
-      browser: 'Firefox 119',
-      os: 'Windows 10',
-      sessionType: 'Web',
-      status: 'Active',
-      idleTime: 5,
-    },
-    {
-      id: '4',
-      userId: 'USR003',
-      userName: 'Amit Patel',
-      email: 'amit.patel@company.com',
-      department: 'Finance',
-      role: 'Finance Manager',
-      loginTime: '2025-10-21 08:00:00',
-      lastActivity: '2025-10-21 11:30:45',
-      duration: '3h 45m',
-      ipAddress: '117.198.144.73',
-      location: 'Delhi, India',
-      device: 'Desktop',
-      browser: 'Edge 118',
-      os: 'Windows 11',
-      sessionType: 'Web',
-      status: 'Active',
-      idleTime: 15,
-    },
-    {
-      id: '5',
-      userId: 'USR004',
-      userName: 'Sneha Reddy',
-      email: 'sneha.reddy@company.com',
-      department: 'Sales',
-      role: 'Sales Executive',
-      loginTime: '2025-10-21 09:30:00',
-      lastActivity: '2025-10-21 10:05:00',
-      duration: '2h 15m',
-      ipAddress: '182.68.205.12',
-      location: 'Hyderabad, India',
-      device: 'Tablet',
-      browser: 'Safari',
-      os: 'iPadOS 17',
-      sessionType: 'Mobile App',
-      status: 'Idle',
-      idleTime: 100,
-    },
-    {
-      id: '6',
-      userId: 'USR005',
-      userName: 'Vikram Singh',
-      email: 'vikram.singh@company.com',
-      department: 'Operations',
-      role: 'Operations Manager',
-      loginTime: '2025-10-21 07:45:00',
-      lastActivity: '2025-10-21 11:42:00',
-      duration: '4h 0m',
-      ipAddress: '157.48.123.45',
-      location: 'Chennai, India',
-      device: 'Desktop',
-      browser: 'Chrome 118',
-      os: 'macOS Sonoma',
-      sessionType: 'Web',
-      status: 'Active',
-      idleTime: 3,
-    },
-    {
-      id: '7',
-      userId: 'USR006',
-      userName: 'Anjali Desai',
-      email: 'anjali.desai@company.com',
-      department: 'Marketing',
-      role: 'Marketing Manager',
-      loginTime: '2025-10-21 10:00:00',
-      lastActivity: '2025-10-21 11:35:30',
-      duration: '1h 45m',
-      ipAddress: '202.54.1.78',
-      location: 'Pune, India',
-      device: 'Laptop',
-      browser: 'Chrome 118',
-      os: 'Windows 11',
-      sessionType: 'Web',
-      status: 'Active',
-      idleTime: 10,
-    },
-    {
-      id: '8',
-      userId: 'USR007',
-      userName: 'Rahul Mehta',
-      email: 'rahul.mehta@company.com',
-      department: 'IT',
-      role: 'IT Manager',
-      loginTime: '2025-10-21 07:30:00',
-      lastActivity: '2025-10-21 08:45:00',
-      duration: '4h 15m',
-      ipAddress: '115.96.200.123',
-      location: 'Kolkata, India',
-      device: 'Desktop',
-      browser: 'Edge 118',
-      os: 'Windows 10',
-      sessionType: 'Web',
-      status: 'Suspicious',
-      idleTime: 180,
-    },
-  ]);
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadSessions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await ItAdminService.getSessions();
+      const rows = Array.isArray(data) ? data.map(transformSession) : [];
+      setSessions(rows);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load sessions');
+      setSessions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
 
   const stats = {
     totalSessions: sessions.length,
@@ -255,33 +173,53 @@ const SessionManagementPage = () => {
     }
   };
 
-  const handleTerminateSession = (sessionId: string) => {
-    if (confirm('Are you sure you want to terminate this session?')) {
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-      setSelectedSessions((prev) => prev.filter((id) => id !== sessionId));
+  const handleTerminateSession = async (sessionId: string) => {
+    if (!confirm('Are you sure you want to terminate this session?')) return;
+    // Optimistic removal, then persist.
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    setSelectedSessions((prev) => prev.filter((id) => id !== sessionId));
+    try {
+      await ItAdminService.terminateSession(sessionId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to terminate session');
+    } finally {
+      loadSessions();
     }
   };
 
-  const handleTerminateSelected = () => {
+  const handleTerminateSelected = async () => {
     if (selectedSessions.length === 0) {
       alert('Please select at least one session to terminate.');
       return;
     }
-    if (confirm(`Are you sure you want to terminate ${selectedSessions.length} session(s)?`)) {
-      setSessions((prev) => prev.filter((s) => !selectedSessions.includes(s.id)));
-      setSelectedSessions([]);
+    if (!confirm(`Are you sure you want to terminate ${selectedSessions.length} session(s)?`)) return;
+    const ids = [...selectedSessions];
+    setSessions((prev) => prev.filter((s) => !ids.includes(s.id)));
+    setSelectedSessions([]);
+    try {
+      await Promise.all(ids.map((id) => ItAdminService.terminateSession(id)));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to terminate sessions');
+    } finally {
+      loadSessions();
     }
   };
 
-  const handleTerminateAllUserSessions = (userId: string, userName: string) => {
-    if (confirm(`Are you sure you want to terminate all sessions for ${userName}?`)) {
-      setSessions((prev) => prev.filter((s) => s.userId !== userId));
-      setSelectedSessions([]);
+  const handleTerminateAllUserSessions = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to terminate all sessions for ${userName}?`)) return;
+    setSessions((prev) => prev.filter((s) => s.userId !== userId));
+    setSelectedSessions([]);
+    try {
+      await ItAdminService.terminateAllUserSessions(userId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to terminate sessions');
+    } finally {
+      loadSessions();
     }
   };
 
   const handleRefresh = () => {
-    alert('Refreshing session list...');
+    loadSessions();
   };
 
   const handleExport = () => {
@@ -325,9 +263,10 @@ const SessionManagementPage = () => {
           <div className="flex gap-2">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-60"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
             <button
@@ -465,7 +404,28 @@ const SessionManagementPage = () => {
               </select>
             </div>
 
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                <p>Loading active sessions...</p>
+              </div>
+            )}
+
+            {!loading && error && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <AlertTriangle className="w-8 h-8 text-red-500 mb-3" />
+                <p className="text-red-600 mb-3">{error}</p>
+                <button
+                  onClick={loadSessions}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
             {/* Sessions Table */}
+            {!loading && !error && (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -573,9 +533,10 @@ const SessionManagementPage = () => {
                 </tbody>
               </table>
             </div>
+            )}
 
-            {filteredSessions.length === 0 && (
-              <div className="text-center py-12">
+            {!loading && !error && filteredSessions.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12">
                 <Users className="w-12 h-12 text-gray-400 mb-3" />
                 <p className="text-gray-600">No active sessions found matching your criteria</p>
               </div>

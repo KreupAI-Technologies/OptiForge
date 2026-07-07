@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sparkles,
   DollarSign,
@@ -14,6 +14,7 @@ import {
   CheckCircle,
   TrendingUp,
 } from 'lucide-react';
+import { cpqAnalyticsService, CPQDashboardSummary } from '@/services/cpq/cpq-analytics.service';
 import { PricingRulesEngine, PricingRule } from '@/components/cpq/PricingRulesEngine';
 import { CreateRuleModal, EditRuleModal, TestRuleModal } from '@/components/cpq/PricingRuleModals';
 import { PricingVersionControl, PricingVersion } from '@/components/cpq/PricingVersionControl';
@@ -352,6 +353,31 @@ const mockGuardrails: MarginGuardrail[] = [
 
 export default function CPQAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<string>('pricing-rules');
+
+  // Live CPQ overview KPIs (defensive: service falls back to mock on API error)
+  const [summary, setSummary] = useState<CPQDashboardSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setSummaryLoading(true);
+    setSummaryError(null);
+    cpqAnalyticsService
+      .getDashboardSummary()
+      .then((data) => {
+        if (active) setSummary(data ?? null);
+      })
+      .catch((err) => {
+        if (active) setSummaryError(err?.message || 'Failed to load CPQ overview');
+      })
+      .finally(() => {
+        if (active) setSummaryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Pricing Rules State
   const [rules, setRules] = useState<PricingRule[]>(mockRules);
@@ -1191,6 +1217,56 @@ export default function CPQAdvancedFeaturesPage() {
         <p className="text-gray-600">
           Enterprise-grade CPQ capabilities including pricing automation, approval workflows, document generation, and margin analytics
         </p>
+      </div>
+
+      {/* Live CPQ Overview KPIs */}
+      <div className="mb-3">
+        {summaryLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-gray-100 rounded-lg border border-gray-200 animate-pulse" />
+            ))}
+          </div>
+        ) : summaryError ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+            Unable to load live CPQ overview. {summaryError}
+          </div>
+        ) : summary ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                <FileText className="h-4 w-4" /> Total Quotes
+              </div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">
+                {(summary.quoteMetrics?.total ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                <DollarSign className="h-4 w-4" /> Pipeline Value
+              </div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">
+                ${(summary.valueMetrics?.totalPipelineValue ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                <TrendingUp className="h-4 w-4" /> Win Rate
+              </div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">
+                {(summary.performanceMetrics?.winRate ?? 0).toFixed(1)}%
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+                <CheckCircle className="h-4 w-4" /> Avg Deal Size
+              </div>
+              <div className="mt-1 text-2xl font-bold text-gray-900">
+                ${(summary.valueMetrics?.avgDealSize ?? 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Feature Navigation */}

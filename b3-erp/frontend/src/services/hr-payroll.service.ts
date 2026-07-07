@@ -133,6 +133,19 @@ export const HrPayrollService = {
   async getSalarySlips(extra?: Record<string, string | undefined>): Promise<any[]> {
     return toArray(await request(`/hr/salary-slips${withCompany(extra)}`));
   },
+  // Employee self-service payslip feed. The salary-slip entity has NO companyId
+  // column, so we query bare (companyId would generate an invalid WHERE and
+  // 500). Optional filters (employeeCode/status) map to entity columns.
+  async getSelfServiceSalarySlips(
+    filters: Record<string, string | undefined> = {},
+  ): Promise<any[]> {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') params.set(k, v);
+    });
+    const q = params.toString();
+    return toArray(await request(`/hr/salary-slips${q ? `?${q}` : ''}`));
+  },
 
   // ---- Bonus family (discriminated by category on bonus-records) ----------
   async getBonusRecordsBy(category: string): Promise<any[]> {

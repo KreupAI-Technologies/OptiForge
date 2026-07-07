@@ -418,3 +418,40 @@ CREATE TABLE IF NOT EXISTS "finance_report_templates" (
   CONSTRAINT "PK_finance_report_templates" PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "IDX_finance_report_templates_company" ON "finance_report_templates" ("company_id");
+
+-- ============================================================================
+-- Finance integrations (external system configs / status) — /finance/integrations
+-- Additive & idempotent.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "finance_integrations" (
+  "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "company_id" varchar(100) NOT NULL DEFAULT 'default-company-id',
+  "name" varchar(255) NOT NULL,
+  "type" varchar(50) NOT NULL DEFAULT 'custom',
+  "provider" varchar(255) NULL,
+  "status" varchar(50) NOT NULL DEFAULT 'inactive',
+  "connection_type" varchar(50) NOT NULL DEFAULT 'api',
+  "frequency" varchar(50) NOT NULL DEFAULT 'manual',
+  "last_sync" timestamp NULL,
+  "next_sync" timestamp NULL,
+  "data_flow" varchar(20) NOT NULL DEFAULT 'inbound',
+  "version" varchar(50) NULL,
+  "endpoint" varchar(500) NULL,
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now(),
+  CONSTRAINT "PK_finance_integrations" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "IDX_finance_integrations_company" ON "finance_integrations" ("company_id");
+
+-- Seed a couple of rows idempotently so the page renders with data.
+INSERT INTO "finance_integrations" ("id", "name", "type", "provider", "status", "connection_type", "frequency", "last_sync", "data_flow", "version", "endpoint")
+SELECT gen_random_uuid(), 'SAP Integration', 'erp', 'SAP S/4HANA', 'active', 'api', 'realtime', now(), 'bidirectional', '2.3.1', 'https://api.sap.com/v2'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_integrations" WHERE "name" = 'SAP Integration');
+
+INSERT INTO "finance_integrations" ("id", "name", "type", "provider", "status", "connection_type", "frequency", "last_sync", "data_flow", "version", "endpoint")
+SELECT gen_random_uuid(), 'Stripe Payments', 'payment', 'Stripe', 'active', 'webhook', 'realtime', now(), 'inbound', '3.0.0', 'https://api.stripe.com/v1'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_integrations" WHERE "name" = 'Stripe Payments');
+
+INSERT INTO "finance_integrations" ("id", "name", "type", "provider", "status", "connection_type", "frequency", "last_sync", "data_flow", "version", "endpoint")
+SELECT gen_random_uuid(), 'QuickBooks Online', 'accounting', 'Intuit', 'active', 'api', 'hourly', now(), 'bidirectional', '4.2.0', 'https://api.quickbooks.com/v3'
+WHERE NOT EXISTS (SELECT 1 FROM "finance_integrations" WHERE "name" = 'QuickBooks Online');

@@ -117,4 +117,16 @@ export class FinanceExtrasController {
   updateReportTemplate(@Param('id') id: string, @Body() b: any) { return this.service.updateReportTemplate(id, b); }
   @Delete('report-templates/:id')
   deleteReportTemplate(@Param('id') id: string) { return this.service.deleteReportTemplate(id); }
+
+  // ---- Integrations (external system configs / status) ----
+  @Get('integrations')
+  listIntegrations(@Query('companyId') c?: string) { return this.service.listIntegrations(c); }
+  @Get('integrations/:id')
+  getIntegration(@Param('id') id: string) { return this.service.getIntegration(id); }
+  @Post('integrations')
+  createIntegration(@Body() b: any) { return this.service.createIntegration(b); }
+  @Put('integrations/:id')
+  updateIntegration(@Param('id') id: string, @Body() b: any) { return this.service.updateIntegration(id, b); }
+  @Delete('integrations/:id')
+  deleteIntegration(@Param('id') id: string) { return this.service.deleteIntegration(id); }
 }

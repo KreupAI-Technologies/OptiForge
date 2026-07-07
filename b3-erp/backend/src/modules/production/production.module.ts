@@ -134,6 +134,8 @@ import {
   TeamMessage,
   ShiftHandoff,
   CustomerPortalAccess,
+  // Analytics Entities
+  ProductionVariance,
 } from './entities';
 import { WorkOrderStatusEntity } from './entities/work-order-status.entity';
 
@@ -209,6 +211,8 @@ import {
   TeamMessageService,
   ShiftHandoffService,
   CustomerPortalAccessService,
+  // Analytics Services
+  ProductionVarianceService,
 } from './services';
 import { WorkOrderStatusSeederService } from './services/work-order-status-seeder.service';
 import { EscalationManagementService } from './services/escalation-management.service';
@@ -287,6 +291,8 @@ import {
   TeamMessageController,
   ShiftHandoffController,
   CustomerPortalAccessController,
+  // Analytics Controllers
+  ProductionVarianceController,
 } from './controllers';
 
 @Module({
@@ -379,6 +385,8 @@ import {
       MachineTimeline,
       AndonLine,
       ScheduleLine,
+      // Analytics entities
+      ProductionVariance,
     ]),
     forwardRef(() => WorkflowModule),
   ],
@@ -392,6 +400,8 @@ import {
     // Newly-built controllers
     FloorActivityController, BomVerificationController, GanttTaskController,
     MachineTimelineController, AndonLineController, ScheduleLineController,
+    // Analytics Controllers
+    ProductionVarianceController,
     // Core Controllers
     BOMController,
     WorkOrderController,
@@ -549,6 +559,8 @@ import {
     TeamMessageService,
     ShiftHandoffService,
     CustomerPortalAccessService,
+    // Analytics Services
+    ProductionVarianceService,
   ],
   exports: [
     // Core Services

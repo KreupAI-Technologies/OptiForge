@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { HrPayrollService } from '@/services/hr-payroll.service';
 import {
   User,
   Calendar,
@@ -205,7 +206,8 @@ export default function EmployeeSelfService() {
     },
   ];
 
-  const payslips: PayslipRecord[] = [
+  // Fallback payslips shown while the backend feed is loading or empty.
+  const fallbackPayslips: PayslipRecord[] = [
     {
       id: 'ps-001',
       month: 'January',
@@ -229,6 +231,78 @@ export default function EmployeeSelfService() {
       issueDate: '2024-12-31',
     },
   ];
+
+  // API-backed payslip feed (GET /hr/salary-slips). Defensive transform maps the
+  // NestJS SalarySlip entity onto the local PayslipRecord shape; empty/errored
+  // responses fall back to the mock so the tab never renders blank.
+  const [apiPayslips, setApiPayslips] = useState<PayslipRecord[] | null>(null);
+  const [payslipsLoading, setPayslipsLoading] = useState(false);
+  const [payslipsError, setPayslipsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const MONTHS = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const num = (v: unknown): number => {
+      const n = typeof v === 'string' ? parseFloat(v) : (v as number);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const mapStatus = (s: unknown): PayslipRecord['status'] => {
+      const v = String(s ?? '').toLowerCase();
+      if (v.includes('paid') || v.includes('sent')) return 'acknowledged';
+      if (v.includes('generat')) return 'issued';
+      return 'generated';
+    };
+    const transform = (raw: any[]): PayslipRecord[] =>
+      raw
+        .filter((r) => r && typeof r === 'object')
+        .map((r, i) => {
+          const monthIdx = num(r.month);
+          const gross = num(r.grossSalary);
+          const net = num(r.netSalary);
+          const ded = num(r.totalDeductions);
+          return {
+            id: String(r.id ?? r.slipNumber ?? `slip-${i}`),
+            month:
+              monthIdx >= 1 && monthIdx <= 12
+                ? MONTHS[monthIdx - 1]
+                : String(r.month ?? '—'),
+            year: num(r.year) || new Date().getFullYear(),
+            grossPay: gross,
+            netPay: net,
+            deductions: ded,
+            tax: num(r.tds) + num(r.professionalTax),
+            status: mapStatus(r.status),
+            issueDate: String(r.paymentDate ?? r.createdAt ?? '').slice(0, 10),
+          } as PayslipRecord;
+        });
+
+    setPayslipsLoading(true);
+    setPayslipsError(null);
+    HrPayrollService.getSelfServiceSalarySlips()
+      .then((rows) => {
+        if (cancelled) return;
+        setApiPayslips(transform(Array.isArray(rows) ? rows : []));
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setPayslipsError(e instanceof Error ? e.message : 'Failed to load payslips');
+        setApiPayslips([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPayslipsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Prefer live data when available; otherwise show the mock fallback.
+  const payslips: PayslipRecord[] =
+    apiPayslips && apiPayslips.length > 0 ? apiPayslips : fallbackPayslips;
 
   const documents: Document[] = [
     {
@@ -600,7 +674,20 @@ export default function EmployeeSelfService() {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Payslip History</h3>
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900">Payslip History</h3>
+                  {payslipsLoading && (
+                    <span className="text-sm text-gray-500">Loading…</span>
+                  )}
+                  {payslipsError && (
+                    <span className="text-sm text-amber-600" title={payslipsError}>
+                      Live feed unavailable — showing sample data
+                    </span>
+                  )}
+                  {!payslipsLoading && !payslipsError && apiPayslips && apiPayslips.length === 0 && (
+                    <span className="text-sm text-gray-500">No payslips found — showing sample data</span>
+                  )}
+                </div>
                 <div className="space-y-3">
                   {payslips.map((payslip) => (
                     <div key={payslip.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">

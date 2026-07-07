@@ -20,11 +20,50 @@ import {
   FreightCostAnalytics,
   CustomerVisibilityPortal,
 } from '@/components/logistics';
+import LogisticsManagementService, {
+  type LogisticsDashboard,
+} from '@/services/logistics-management.service';
 
 type TabId = 'telematics' | 'routing' | 'carriers' | 'exceptions' | 'dock' | 'cost' | 'customer';
 
 export default function LogisticsAdvancedFeaturesPage() {
   const [activeTab, setActiveTab] = useState<TabId>('telematics');
+  const [summary, setSummary] = useState<LogisticsDashboard['summary'] | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setKpiLoading(true);
+        setKpiError(null);
+        const res = await LogisticsManagementService.getDashboard();
+        if (!cancelled) setSummary(res?.summary ?? null);
+      } catch (err) {
+        if (!cancelled) {
+          setKpiError(err instanceof Error ? err.message : 'Failed to load overview');
+          setSummary(null);
+        }
+      } finally {
+        if (!cancelled) setKpiLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const kpis: { label: string; value: number }[] = summary
+    ? [
+        { label: 'In Transit', value: summary.inTransitShipments },
+        { label: 'Active Vehicles', value: summary.activeVehicles },
+        { label: 'Active Drivers', value: summary.activeDrivers },
+        { label: 'Active Carriers', value: summary.activeCarriers },
+        { label: 'Open Exceptions', value: summary.openExceptions },
+        { label: 'Delivered (MTD)', value: summary.deliveredThisMonth },
+      ]
+    : [];
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -62,6 +101,31 @@ export default function LogisticsAdvancedFeaturesPage() {
             <p className="text-gray-500 uppercase text-[10px] font-black tracking-widest leading-none">
               TMS-grade transportation management capabilities
             </p>
+          </div>
+
+          {/* Live overview KPIs (API-backed) */}
+          <div className="ml-auto flex items-center gap-2">
+            {kpiLoading ? (
+              <div className="text-[11px] font-semibold text-gray-400">Loading overview…</div>
+            ) : kpiError ? (
+              <div className="text-[11px] font-semibold text-red-500" title={kpiError}>
+                Overview unavailable
+              </div>
+            ) : kpis.length === 0 ? (
+              <div className="text-[11px] font-semibold text-gray-400">No overview data</div>
+            ) : (
+              kpis.map((kpi) => (
+                <div
+                  key={kpi.label}
+                  className="flex flex-col items-center px-3 py-1 rounded-lg bg-gray-50 border border-gray-100 min-w-[72px]"
+                >
+                  <span className="text-lg font-bold text-gray-900 leading-none">{kpi.value}</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 mt-1 whitespace-nowrap">
+                    {kpi.label}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Bell,
@@ -21,6 +21,8 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useNotifications, NotificationCategory, NotificationPreferences } from '@/context/NotificationContext';
+import { useAuth } from '@/context/AuthContext';
+import { userNotificationService } from '@/services/notification.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -104,11 +106,49 @@ const moduleConfig = [
 
 export default function NotificationPreferencesPage() {
   const { preferences, updatePreferences, requestPushPermission, isPushSupported, isPushEnabled } = useNotifications();
+  const { user } = useAuth();
   const { toast } = useToast();
+
+  const userId = user?.id || 'demo-user';
 
   const [localPrefs, setLocalPrefs] = useState<NotificationPreferences>(preferences);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load saved preferences from the notifications backend on mount. Falls back
+  // to the context (localStorage) preferences if the API is unavailable.
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    userNotificationService
+      .getPreferences<NotificationPreferences>(userId)
+      .then((res) => {
+        if (!active) return;
+        const remote = res?.preferences;
+        if (remote && typeof remote === 'object' && 'enabled' in remote) {
+          // Merge onto defaults/context so any missing nested keys stay defined.
+          const merged: NotificationPreferences = {
+            ...preferences,
+            ...remote,
+            categories: { ...preferences.categories, ...(remote.categories || {}) },
+            modules: { ...preferences.modules, ...(remote.modules || {}) },
+            quietHours: { ...preferences.quietHours, ...(remote.quietHours || {}) },
+          };
+          setLocalPrefs(merged);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load notification preferences, using local:', err);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const handleChange = (path: string, value: unknown) => {
     setLocalPrefs(prev => {
@@ -129,18 +169,29 @@ export default function NotificationPreferencesPage() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
+    // Keep the local context (localStorage) in sync for instant UX.
     updatePreferences(localPrefs);
 
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await userNotificationService.savePreferences<NotificationPreferences>(userId, localPrefs);
       setHasChanges(false);
       toast({
         title: 'Preferences saved',
         description: 'Your notification preferences have been updated.',
       });
-    }, 500);
+    } catch (err) {
+      console.error('Failed to save notification preferences:', err);
+      toast({
+        title: 'Save failed',
+        description:
+          'Could not reach the notifications service. Your changes are kept in this browser but not synced.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEnablePush = async () => {
@@ -176,12 +227,12 @@ export default function NotificationPreferencesPage() {
               Notification Preferences
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Customize how and when you receive notifications. These preferences
-              are saved locally in this browser.
+              Customize how and when you receive notifications. Your preferences
+              are saved to your account and synced across devices.
             </p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
+        <Button onClick={handleSave} disabled={!hasChanges || isSaving || isLoading}>
           {isSaving ? (
             <>
               <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -405,7 +456,7 @@ export default function NotificationPreferencesPage() {
 
       {/* Save Button (Mobile) */}
       <div className="lg:hidden sticky bottom-4">
-        <Button onClick={handleSave} disabled={!hasChanges || isSaving} className="w-full">
+        <Button onClick={handleSave} disabled={!hasChanges || isSaving || isLoading} className="w-full">
           {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>

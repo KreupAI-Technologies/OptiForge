@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -29,6 +29,10 @@ import {
 import MegaMenu from '@/components/MegaMenu';
 import Sidebar from '@/components/Sidebar';
 import { StatHighlight, ModuleLink, PremiumCard } from '@/components/dashboard/DashboardWidgets';
+import {
+  dashboardOverviewService,
+  type DashboardOverviewMetrics,
+} from '@/services/dashboard-overview.service';
 
 // Module definitions
 const modules = [
@@ -169,10 +173,32 @@ const modules = [
   },
 ];
 
+function formatCount(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('en-IN');
+}
+
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<DashboardOverviewMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    dashboardOverviewService
+      .getOverview()
+      .then((res) => {
+        if (active) setMetrics(res.metrics);
+      })
+      .finally(() => {
+        if (active) setMetricsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredModules = modules.filter((module) => {
     const matchesSearch = module.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -289,29 +315,29 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <StatHighlight
                 label="Orders Flow"
-                value="1,234"
-                subValue="↑ 12% vs last month"
+                value={metricsLoading ? '—' : formatCount(metrics?.totalOrders ?? 0)}
+                subValue={metricsLoading ? 'Loading…' : `${formatCount(metrics?.customers ?? 0)} customers`}
                 icon={ShoppingCart}
                 colorClass="bg-blue-600"
               />
               <StatHighlight
-                label="Total Revenue"
-                value="₹45.2L"
-                subValue="↑ 8% pipeline growth"
+                label="Invoices"
+                value={metricsLoading ? '—' : formatCount(metrics?.totalInvoices ?? 0)}
+                subValue={metricsLoading ? 'Loading…' : `${formatCount(metrics?.openTickets ?? 0)} open tickets`}
                 icon={DollarSign}
                 colorClass="bg-emerald-600"
               />
               <StatHighlight
                 label="Manufacturing"
-                value="234"
-                subValue="↑ 15% efficiency"
+                value={metricsLoading ? '—' : formatCount(metrics?.production ?? 0)}
+                subValue={metricsLoading ? 'Loading…' : `${formatCount(metrics?.employees ?? 0)} employees`}
                 icon={Factory}
                 colorClass="bg-orange-600"
               />
               <StatHighlight
                 label="Stock Level"
-                value="3,421"
-                subValue="• Warehouse Alpha"
+                value={metricsLoading ? '—' : formatCount(metrics?.inventoryItems ?? 0)}
+                subValue={metricsLoading ? 'Loading…' : '• Live stock catalog'}
                 icon={Package}
                 colorClass="bg-indigo-600"
               />

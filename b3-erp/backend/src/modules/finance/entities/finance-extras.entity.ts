@@ -351,6 +351,54 @@ export class FinanceInvestment {
   updatedAt: Date;
 }
 
+@Entity('finance_integrations')
+export class FinanceIntegration {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'company_id', type: 'varchar', length: 100, default: 'default-company-id' })
+  companyId: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  name: string;
+
+  @Column({ type: 'varchar', length: 50, default: 'custom' })
+  type: string; // erp | banking | payment | tax | accounting | crm | analytics | custom
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  provider: string;
+
+  @Column({ type: 'varchar', length: 50, default: 'inactive' })
+  status: string; // active | inactive | error | pending | maintenance
+
+  @Column({ name: 'connection_type', type: 'varchar', length: 50, default: 'api' })
+  connectionType: string; // api | sftp | database | webhook | file | manual
+
+  @Column({ type: 'varchar', length: 50, default: 'manual' })
+  frequency: string; // realtime | hourly | daily | weekly | monthly | manual
+
+  @Column({ name: 'last_sync', type: 'timestamp', nullable: true })
+  lastSync: Date;
+
+  @Column({ name: 'next_sync', type: 'timestamp', nullable: true })
+  nextSync: Date;
+
+  @Column({ name: 'data_flow', type: 'varchar', length: 20, default: 'inbound' })
+  dataFlow: string; // inbound | outbound | bidirectional
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  version: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  endpoint: string;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}
+
 @Entity('finance_report_templates')
 export class FinanceReportTemplate {
   @PrimaryGeneratedColumn('uuid')

@@ -371,3 +371,45 @@ CREATE TABLE IF NOT EXISTS "production_schedule_lines" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
+
+-- ============================================================================
+-- Production variance analysis (backs /production/analytics/variance)
+-- TypeORM entity ProductionVariance -> table "production_variances".
+-- Columns are camelCase to match the TypeORM default naming (no snake strategy).
+-- Additive & idempotent only.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS "production_variances" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "companyId" varchar NOT NULL,
+  "category" varchar(20) NOT NULL,
+  "workOrder" varchar NULL,
+  "product" varchar NULL,
+  "subCategory" varchar NULL,
+  "plannedValue" numeric(14,2) NOT NULL DEFAULT 0,
+  "actualValue" numeric(14,2) NOT NULL DEFAULT 0,
+  "variance" numeric(14,2) NOT NULL DEFAULT 0,
+  "variancePercent" numeric(8,2) NOT NULL DEFAULT 0,
+  "impactCost" numeric(14,2) NOT NULL DEFAULT 0,
+  "status" varchar(20) NOT NULL DEFAULT 'unfavorable',
+  "reason" text NULL,
+  "action" text NULL,
+  "metrics" jsonb NULL,
+  "recordDate" timestamptz NULL,
+  "isActive" boolean NOT NULL DEFAULT true,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_production_variances_company_category"
+  ON "production_variances" ("companyId", "category");
+
+-- Idempotent seed rows (fixed UUIDs so re-running does not duplicate)
+INSERT INTO "production_variances"
+  ("id","companyId","category","workOrder","product","subCategory","plannedValue","actualValue","variance","variancePercent","impactCost","status","reason","action","recordDate")
+VALUES
+  ('a1000000-0000-0000-0000-000000000001','default-company-id','cost','WO-2025-1234','Premium Kitchen Sink - Double Bowl','Material Cost',8500,9200,-700,-8.24,700,'unfavorable','Stainless steel price increase','Negotiate with alternate suppliers', now()),
+  ('a1000000-0000-0000-0000-000000000002','default-company-id','cost','WO-2025-1235','Kitchen Faucet - Touchless','Labor Cost',2400,2100,300,12.50,300,'favorable','Improved line efficiency','Sustain via SOP', now()),
+  ('a1000000-0000-0000-0000-000000000003','default-company-id','schedule','WO-2025-1240','Modular Cabinet Set',NULL,5,8,-3,-60.00,980,'delayed','Late material delivery','Expedite critical suppliers', now()),
+  ('a1000000-0000-0000-0000-000000000004','default-company-id','quantity','WO-2025-1250','Steel Worktop',NULL,1000,940,-60,-6.00,420,'unfavorable','High scrap on forming','Tune press parameters', now()),
+  ('a1000000-0000-0000-0000-000000000005','default-company-id','quality','WO-2025-1260','Chimney Hood',NULL,98,95,-3,-3.06,200,'warning','Surface finish defects','Add in-line inspection', now())
+ON CONFLICT ("id") DO NOTHING;

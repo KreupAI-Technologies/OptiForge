@@ -50,6 +50,77 @@ export class UserSessionService {
     });
   }
 
+  /**
+   * List all active sessions across all users (for the IT-Admin session
+   * management console). Joins the user relation so the page can render the
+   * owning user's name/email/department without extra round trips.
+   */
+  async listAllActiveSessions(filters?: {
+    status?: string;
+    device?: string;
+  }): Promise<UserSession[]> {
+    const query = this.repository
+      .createQueryBuilder('session')
+      .leftJoinAndSelect('session.user', 'user')
+      .orderBy('session.lastActivityAt', 'DESC', 'NULLS LAST');
+
+    if (filters?.status) {
+      query.andWhere('session.status = :status', { status: filters.status });
+    } else {
+      // Default to sessions that are still live.
+      query.andWhere('session.status = :status', {
+        status: SessionStatus.ACTIVE,
+      });
+    }
+
+    if (filters?.device) {
+      query.andWhere('LOWER(session.device) = LOWER(:device)', {
+        device: filters.device,
+      });
+    }
+
+    return await query.getMany();
+  }
+
+  /**
+   * Global session statistics across all users for the console stat cards.
+   */
+  async getGlobalStatistics(): Promise<{
+    totalSessions: number;
+    activeSessions: number;
+    uniqueUsers: number;
+    mobileDevices: number;
+    byStatus: Record<string, number>;
+  }> {
+    const active = await this.listAllActiveSessions();
+
+    const uniqueUsers = new Set(active.map((s) => s.userId)).size;
+    const mobileDevices = active.filter((s) => {
+      const d = (s.device || '').toLowerCase();
+      return d === 'mobile' || d === 'tablet';
+    }).length;
+
+    const byStatusRaw = await this.repository
+      .createQueryBuilder('session')
+      .select('session.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('session.status')
+      .getRawMany();
+
+    const byStatus: Record<string, number> = {};
+    for (const row of byStatusRaw) {
+      byStatus[row.status] = parseInt(row.count, 10);
+    }
+
+    return {
+      totalSessions: active.length,
+      activeSessions: active.length,
+      uniqueUsers,
+      mobileDevices,
+      byStatus,
+    };
+  }
+
   async updateActivity(sessionId: string): Promise<void> {
     await this.repository.update(sessionId, {
       lastActivityAt: new Date(),

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -15,6 +15,12 @@ import {
   Target
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import {
+  productionVarianceService,
+  type ProductionVariance,
+} from '@/services/production/production-variance.service'
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'default-company-id'
 
 interface VarianceSummary {
   totalVariances: number
@@ -86,7 +92,7 @@ interface QualityVariance {
 export default function VarianceAnalytics() {
   const router = useRouter()
 
-  const [summary] = useState<VarianceSummary>({
+  const DEFAULT_SUMMARY: VarianceSummary = {
     totalVariances: 42,
     favorableVariances: 18,
     unfavorableVariances: 24,
@@ -95,9 +101,13 @@ export default function VarianceAnalytics() {
     scheduleVariance: -980000,
     quantityVariance: -420000,
     qualityVariance: -200000
-  })
+  }
 
-  const [costVariances] = useState<CostVariance[]>([
+  const [summary, setSummary] = useState<VarianceSummary>(DEFAULT_SUMMARY)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const DEFAULT_COST_VARIANCES: CostVariance[] = [
     {
       id: 'CV-001',
       category: 'Material Cost',
@@ -176,7 +186,55 @@ export default function VarianceAnalytics() {
       reason: 'Alternative material used',
       action: 'Update standard cost'
     }
-  ])
+  ]
+
+  const [costVariances, setCostVariances] = useState<CostVariance[]>(DEFAULT_COST_VARIANCES)
+
+  const mapToCostVariance = useCallback((v: ProductionVariance): CostVariance => ({
+    id: v.id,
+    category: v.subCategory || 'Cost',
+    workOrder: v.workOrder || '—',
+    product: v.product || '—',
+    standardCost: Number(v.plannedValue) || 0,
+    actualCost: Number(v.actualValue) || 0,
+    variance: Number(v.variance) || 0,
+    variancePercent: Number(v.variancePercent) || 0,
+    status:
+      v.status === 'favorable' || v.status === 'unfavorable' || v.status === 'critical'
+        ? v.status
+        : (Number(v.variance) || 0) >= 0
+          ? 'favorable'
+          : 'unfavorable',
+    reason: v.reason || '',
+    action: v.action || '',
+  }), [])
+
+  const loadVariances = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      const [summaryData, costRows] = await Promise.all([
+        productionVarianceService.getSummary(COMPANY_ID),
+        productionVarianceService.getVariances({ companyId: COMPANY_ID, category: 'cost' }),
+      ])
+      if (summaryData && typeof summaryData.totalVariances === 'number') {
+        setSummary(summaryData)
+      }
+      const rows = Array.isArray(costRows) ? costRows : []
+      if (rows.length > 0) {
+        setCostVariances(rows.map(mapToCostVariance))
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load variance data')
+      // Keep default (seed-like) data visible on failure.
+    } finally {
+      setIsLoading(false)
+    }
+  }, [mapToCostVariance])
+
+  useEffect(() => {
+    loadVariances()
+  }, [loadVariances])
 
   const [scheduleVariances] = useState<ScheduleVariance[]>([
     {
@@ -423,8 +481,12 @@ export default function VarianceAnalytics() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
+          <button
+            onClick={loadVariances}
+            disabled={isLoading}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
           <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
@@ -433,6 +495,13 @@ export default function VarianceAnalytics() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          <AlertCircle className="h-4 w-4" />
+          <span>Live variance data unavailable ({loadError}). Showing reference figures.</span>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">

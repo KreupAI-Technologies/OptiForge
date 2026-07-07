@@ -1154,3 +1154,82 @@ export async function fetchSavedReportItems(
   const body = (await res.json()) as ReportSavedItem[] | null;
   return Array.isArray(body) ? body : [];
 }
+
+// ============================================================================
+// SAVED CUSTOM DASHBOARDS ("My Dashboards" on /reports/dashboards)
+// ============================================================================
+
+export interface ReportDashboardItem {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string;
+  category?: string;
+  layout?: Record<string, unknown>;
+  widgets?: Record<string, unknown>[];
+  createdByName?: string;
+  isDefault: boolean;
+  isLocked: boolean;
+  isFavorite: boolean;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/**
+ * Fetch saved custom dashboards for a company. Always resolves to an array
+ * (empty on non-OK responses) so the page can render empty states cleanly.
+ */
+export async function fetchReportDashboards(
+  companyId: string = DEFAULT_COMPANY_ID,
+  category?: string,
+): Promise<ReportDashboardItem[]> {
+  const params = new URLSearchParams({ companyId });
+  if (category) params.set('category', category);
+  const url = `${API_BASE_URL}/reports/custom-dashboards?${params.toString()}`;
+
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    throw new Error(`Failed to load dashboards (${res.status})`);
+  }
+  const body = (await res.json()) as ReportDashboardItem[] | null;
+  return Array.isArray(body) ? body : [];
+}
+
+/**
+ * Fetch report schedules for a company via the reports backend (prefix-less,
+ * NEXT_PUBLIC_API_URL). Always resolves to an array (empty on non-OK) so the
+ * Export Scheduling view can render loading/empty states without special-casing.
+ */
+export async function fetchReportSchedulesByCompany(
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<ReportSchedule[]> {
+  const url = `${API_BASE_URL}/reports/schedules?companyId=${encodeURIComponent(
+    companyId,
+  )}`;
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    throw new Error(`Failed to load report schedules (${res.status})`);
+  }
+  const body = (await res.json()) as ReportSchedule[] | null;
+  return Array.isArray(body) ? body : [];
+}
+
+/**
+ * Persist a new saved custom dashboard. Returns the created row.
+ */
+export async function createReportDashboard(
+  data: Partial<ReportDashboardItem>,
+  companyId: string = DEFAULT_COMPANY_ID,
+): Promise<ReportDashboardItem> {
+  const url = `${API_BASE_URL}/reports/custom-dashboards`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyId, ...data }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to create dashboard (${res.status})`);
+  }
+  return (await res.json()) as ReportDashboardItem;
+}
