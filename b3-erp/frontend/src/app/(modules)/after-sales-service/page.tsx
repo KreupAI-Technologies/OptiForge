@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Wrench,
   Phone,
@@ -15,9 +15,11 @@ import {
   ShieldCheck,
   Zap,
   Book,
-  Layers
+  Layers,
+  Loader2
 } from 'lucide-react'
 import Link from 'next/link'
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service'
 
 interface ServiceStats {
   totalTickets: number
@@ -48,82 +50,49 @@ interface ServiceTicket {
   resolutionDeadline: string
 }
 
-export default function AfterSalesServiceDashboard() {
-  const [stats] = useState<ServiceStats>({
-    totalTickets: 234,
-    openTickets: 45,
-    resolvedTickets: 178,
-    avgResolutionTime: 4.5,
-    customerSatisfaction: 4.6,
-    activeServiceCalls: 23,
-    warrantyClaimsThisMonth: 12,
-    technicianUtilization: 78.5,
-    pendingParts: 8,
-    scheduledVisits: 15
-  })
+const EMPTY_STATS: ServiceStats = {
+  totalTickets: 0,
+  openTickets: 0,
+  resolvedTickets: 0,
+  avgResolutionTime: 0,
+  customerSatisfaction: 0,
+  activeServiceCalls: 0,
+  warrantyClaimsThisMonth: 0,
+  technicianUtilization: 0,
+  pendingParts: 0,
+  scheduledVisits: 0
+}
 
-  const [recentTickets] = useState<ServiceTicket[]>([
-    {
-      id: 'SRV-2025-456',
-      customer: 'ABC Manufacturing Ltd',
-      product: 'Hydraulic Press HP-500 (SN: HP5001234)',
-      issue: 'Pressure inconsistency in hydraulic system',
-      status: 'in_progress',
-      priority: 'high',
-      assignedTo: 'Service Engineer A',
-      createdDate: '2025-10-16',
-      estimatedResolution: '2025-10-19',
-      satisfaction: null,
-      slaStatus: 'on_track',
-      responseDeadline: '2025-10-16T14:00:00',
-      resolutionDeadline: '2025-10-19T10:00:00'
-    },
-    {
-      id: 'SRV-2025-457',
-      customer: 'XYZ Industries Inc',
-      product: 'CNC Machine CM-350 (SN: CM3502345)',
-      issue: 'Spindle motor overheating',
-      status: 'awaiting_parts',
-      priority: 'critical',
-      assignedTo: 'Service Engineer B',
-      createdDate: '2025-10-15',
-      estimatedResolution: '2025-10-22',
-      satisfaction: null,
-      slaStatus: 'breached',
-      responseDeadline: '2025-10-15T10:00:00',
-      resolutionDeadline: '2025-10-16T18:00:00'
-    },
-    {
-      id: 'SRV-2025-458',
-      customer: 'Tech Solutions Pvt Ltd',
-      product: 'Control Panel CP-1000 (SN: CP1003456)',
-      issue: 'Display flickering',
-      status: 'resolved',
-      priority: 'medium',
-      assignedTo: 'Service Engineer C',
-      createdDate: '2025-10-14',
-      estimatedResolution: '2025-10-17',
-      satisfaction: 5,
-      slaStatus: 'on_track',
-      responseDeadline: '2025-10-14T15:00:00',
-      resolutionDeadline: '2025-10-17T12:00:00'
-    },
-    {
-      id: 'SRV-2025-459',
-      customer: 'Global Exports Corp',
-      product: 'Conveyor System CS-200 (SN: CS2004567)',
-      issue: 'Belt alignment issue',
-      status: 'open',
-      priority: 'low',
-      assignedTo: 'Not Assigned',
-      createdDate: '2025-10-18',
-      estimatedResolution: '2025-10-25',
-      satisfaction: null,
-      slaStatus: 'at_risk',
-      responseDeadline: '2025-10-18T22:00:00',
-      resolutionDeadline: '2025-10-25T10:00:00'
+export default function AfterSalesServiceDashboard() {
+  const [stats, setStats] = useState<ServiceStats>(EMPTY_STATS)
+  const [recentTickets, setRecentTickets] = useState<ServiceTicket[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    AfterSalesPagesService.overview()
+      .then((data) => {
+        if (cancelled) return
+        setStats({ ...EMPTY_STATS, ...(data?.stats ?? {}) })
+        setRecentTickets(
+          Array.isArray(data?.recentTickets)
+            ? (data.recentTickets as unknown as ServiceTicket[])
+            : []
+        )
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || 'Failed to load overview')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  ])
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -244,6 +213,21 @@ export default function AfterSalesServiceDashboard() {
             </div>
           </div>
           <div className="p-6">
+            {error && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading service tickets...
+              </div>
+            ) : !error && recentTickets.length === 0 ? (
+              <div className="py-10 text-center text-sm text-gray-500">
+                No recent service tickets.
+              </div>
+            ) : (
             <div className="space-y-2">
               {recentTickets.map((ticket) => (
                 <div key={ticket.id} className="p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
@@ -283,6 +267,7 @@ export default function AfterSalesServiceDashboard() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
 

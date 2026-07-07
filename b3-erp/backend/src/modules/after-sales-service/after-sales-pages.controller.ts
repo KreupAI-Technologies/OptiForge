@@ -3,6 +3,7 @@ import { ServiceFeedbackService } from './services/service-feedback.service';
 import { PartsMovementService } from './services/parts-movement.service';
 import { ServiceAnalyticsService } from './services/service-analytics.service';
 import { TroubleshootingService } from './services/troubleshooting.service';
+import { AfterSalesOverviewService } from './services/after-sales-overview.service';
 
 /**
  * Additive controllers backing after-sales-service frontend pages that had
@@ -82,5 +83,20 @@ export class AfterSalesTroubleshootingController {
   @Get()
   guides() {
     return this.troubleshooting.getGuides();
+  }
+}
+
+@Controller('after-sales/overview')
+export class AfterSalesOverviewController {
+  constructor(private readonly overview: AfterSalesOverviewService) {}
+
+  @Get()
+  getOverview() {
+    return this.overview.getOverview();
+  }
+
+  @Get('sla-live')
+  getSlaLive() {
+    return this.overview.getSlaLive();
   }
 }

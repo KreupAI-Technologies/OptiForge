@@ -1,6 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { Clock, AlertTriangle, CheckCircle, TrendingUp, Target, X, Eye, RefreshCw, Filter, User, Package, Calendar } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Clock, AlertTriangle, CheckCircle, TrendingUp, Target, X, Eye, RefreshCw, Filter, User, Package, Calendar, Loader2 } from 'lucide-react'
+import { AfterSalesPagesService } from '@/services/after-sales-pages.service'
 
 interface SLATicket {
   id: string;
@@ -15,91 +16,62 @@ interface SLATicket {
   issueType: string;
 }
 
-const mockTickets: SLATicket[] = [
-  {
-    id: '1',
-    ticketNumber: 'TICKET-2025-000123',
-    customer: 'Sharma Modular Kitchens',
-    priority: 'P1',
-    status: 'at_risk',
-    responseDeadline: '2025-11-07T14:00:00',
-    resolutionDeadline: '2025-11-07T18:00:00',
-    timeRemaining: 45,
-    assignedTo: 'Rajesh Kumar',
-    issueType: 'Chimney Motor Failure'
-  },
-  {
-    id: '2',
-    ticketNumber: 'TICKET-2025-000118',
-    customer: 'Prestige Developers',
-    priority: 'P2',
-    status: 'on_track',
-    responseDeadline: '2025-11-07T16:00:00',
-    resolutionDeadline: '2025-11-08T10:00:00',
-    timeRemaining: 180,
-    assignedTo: 'Amit Sharma',
-    issueType: 'Oven Temperature Issue'
-  },
-  {
-    id: '3',
-    ticketNumber: 'TICKET-2025-000115',
-    customer: 'Urban Interiors',
-    priority: 'P3',
-    status: 'met',
-    responseDeadline: '2025-11-06T18:00:00',
-    resolutionDeadline: '2025-11-07T12:00:00',
-    timeRemaining: -120,
-    assignedTo: 'Priya Patel',
-    issueType: 'Hob Auto-Ignition'
-  },
-  {
-    id: '4',
-    ticketNumber: 'TICKET-2025-000089',
-    customer: 'Elite Contractors',
-    priority: 'P1',
-    status: 'breached',
-    responseDeadline: '2025-11-07T11:00:00',
-    resolutionDeadline: '2025-11-07T15:00:00',
-    timeRemaining: -30,
-    assignedTo: 'Suresh Reddy',
-    issueType: 'Dishwasher Leakage'
-  },
-  {
-    id: '5',
-    ticketNumber: 'TICKET-2025-000102',
-    customer: 'Modern Homes Ltd',
-    priority: 'P2',
-    status: 'on_track',
-    responseDeadline: '2025-11-07T15:30:00',
-    resolutionDeadline: '2025-11-07T19:30:00',
-    timeRemaining: 90,
-    assignedTo: 'Arun Verma',
-    issueType: 'Cooktop Heating Issue'
-  }
-];
+const DEFAULT_STATS = {
+  compliance: 0,
+  metSLA: 0,
+  atRisk: 0,
+  breached: 0,
+  avgResponse: 0
+};
 
 export default function LiveSLATracking() {
   const [realTime, setRealTime] = useState(0);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<SLATicket | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [tickets, setTickets] = useState<SLATicket[]>([]);
+  const [stats, setStats] = useState(DEFAULT_STATS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    AfterSalesPagesService.slaLive()
+      .then((data) => {
+        if (cancelled) return;
+        setTickets(
+          Array.isArray(data?.tickets)
+            ? (data.tickets as unknown as SLATicket[])
+            : []
+        );
+        setStats({ ...DEFAULT_STATS, ...(data?.stats ?? {}) });
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e?.message || 'Failed to load SLA data');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const cleanup = loadData();
+    return cleanup;
+  }, [loadData]);
 
   useEffect(() => {
     const interval = setInterval(() => setRealTime(prev => prev + 1), 3000);
     return () => clearInterval(interval);
   }, []);
 
-  const stats = {
-    compliance: 92.5,
-    metSLA: mockTickets.filter(t => t.status === 'met').length,
-    atRisk: mockTickets.filter(t => t.status === 'at_risk').length,
-    breached: mockTickets.filter(t => t.status === 'breached').length,
-    avgResponse: 4.2
-  };
-
   const filteredTickets = statusFilter === 'all'
-    ? mockTickets
-    : mockTickets.filter(t => t.status === statusFilter);
+    ? tickets
+    : tickets.filter(t => t.status === statusFilter);
 
   const handleViewDetails = (ticket: SLATicket) => {
     setSelectedTicket(ticket);
@@ -164,10 +136,10 @@ export default function LiveSLATracking() {
             <p className="text-gray-600 mt-1">Real-time SLA monitoring with automated alerts</p>
           </div>
           <button
-            onClick={() => setRealTime(0)}
+            onClick={() => { setRealTime(0); loadData(); }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -239,7 +211,7 @@ export default function LiveSLATracking() {
         <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
           <h3 className="text-lg font-bold text-gray-900">Live Ticket Monitoring</h3>
           <p className="text-sm text-gray-600">
-            Showing {filteredTickets.length} of {mockTickets.length} tickets
+            Showing {filteredTickets.length} of {tickets.length} tickets
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -256,7 +228,30 @@ export default function LiveSLATracking() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredTickets.map((ticket) => (
+              {loading && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-10 text-center text-gray-500">
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" /> Loading SLA tickets...
+                    </span>
+                  </td>
+                </tr>
+              )}
+              {!loading && error && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-10 text-center text-red-600">
+                    {error}
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && filteredTickets.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-10 text-center text-gray-500">
+                    No SLA tickets to display.
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && filteredTickets.map((ticket) => (
                 <tr key={ticket.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-3 py-2">
                     <div className="text-sm font-medium text-gray-900">{ticket.ticketNumber}</div>

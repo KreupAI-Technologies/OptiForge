@@ -20,11 +20,13 @@ import {
   AfterSalesPartsController,
   AfterSalesAnalyticsController,
   AfterSalesTroubleshootingController,
+  AfterSalesOverviewController,
 } from './after-sales-pages.controller';
 import { ServiceFeedbackService } from './services/service-feedback.service';
 import { PartsMovementService } from './services/parts-movement.service';
 import { ServiceAnalyticsService } from './services/service-analytics.service';
 import { TroubleshootingService } from './services/troubleshooting.service';
+import { AfterSalesOverviewService } from './services/after-sales-overview.service';
 
 // Knowledge base (FAQs + Manuals)
 import { KnowledgeFaqController } from './knowledge/knowledge-faq.controller';
@@ -84,6 +86,7 @@ import { AfterSalesController } from './after-sales.controller';
     AfterSalesPartsController,
     AfterSalesAnalyticsController,
     AfterSalesTroubleshootingController,
+    AfterSalesOverviewController,
     ServiceContractsController,
     WarrantiesController,
     ServiceRequestsController,
@@ -107,6 +110,7 @@ import { AfterSalesController } from './after-sales.controller';
     PartsMovementService,
     ServiceAnalyticsService,
     TroubleshootingService,
+    AfterSalesOverviewService,
     ServiceTypeSeederService,
     WarrantyTypeSeederService,
     AfterSalesService,

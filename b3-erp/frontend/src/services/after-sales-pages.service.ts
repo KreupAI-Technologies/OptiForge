@@ -50,7 +50,73 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : []) as T;
 }
 
+export interface AfterSalesOverviewStats {
+  totalTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  avgResolutionTime: number;
+  customerSatisfaction: number;
+  activeServiceCalls: number;
+  warrantyClaimsThisMonth: number;
+  technicianUtilization: number;
+  pendingParts: number;
+  scheduledVisits: number;
+}
+
+export interface AfterSalesOverviewTicket {
+  id: string;
+  customer: string;
+  product: string;
+  issue: string;
+  status: string;
+  priority: string;
+  assignedTo: string;
+  createdDate: string;
+  estimatedResolution: string;
+  satisfaction: number | null;
+  slaStatus: string;
+  responseDeadline: string;
+  resolutionDeadline: string;
+}
+
+export interface AfterSalesOverview {
+  stats: AfterSalesOverviewStats;
+  recentTickets: AfterSalesOverviewTicket[];
+}
+
+export interface AfterSalesSlaTicket {
+  id: string;
+  ticketNumber: string;
+  customer: string;
+  priority: string;
+  status: string;
+  responseDeadline: string;
+  resolutionDeadline: string;
+  timeRemaining: number;
+  assignedTo: string;
+  issueType: string;
+}
+
+export interface AfterSalesSlaLive {
+  tickets: AfterSalesSlaTicket[];
+  stats: {
+    compliance: number;
+    metSLA: number;
+    atRisk: number;
+    breached: number;
+    avgResponse: number;
+  };
+}
+
 export class AfterSalesPagesService {
+  // ---- Overview (landing + advanced-features) ----------------------------
+  static overview(): Promise<AfterSalesOverview> {
+    return request<AfterSalesOverview>('/after-sales/overview');
+  }
+  static slaLive(): Promise<AfterSalesSlaLive> {
+    return request<AfterSalesSlaLive>('/after-sales/overview/sla-live');
+  }
+
   // ---- Feedback ----------------------------------------------------------
   static complaints<T = any[]>(): Promise<T> {
     return request<T>('/after-sales/feedback/complaints');

@@ -15215,6 +15215,26 @@ model AsKnowledgeManuals {
   @@map("as_knowledge_manuals")
 }
 
+model AsOverviewSnapshot {
+  id                      String   @id @default(uuid())
+  snapshotDate            DateTime @default(now())
+  totalTickets            Int      @default(0)
+  openTickets             Int      @default(0)
+  resolvedTickets         Int      @default(0)
+  avgResolutionTime       Float    @default(0)
+  customerSatisfaction    Float    @default(0)
+  activeServiceCalls      Int      @default(0)
+  warrantyClaimsThisMonth Int      @default(0)
+  technicianUtilization   Float    @default(0)
+  pendingParts            Int      @default(0)
+  scheduledVisits         Int      @default(0)
+  slaCompliance           Float    @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @default(now())
+
+  @@map("as_overview_snapshot")
+}
+
 model CpqApprovalItems {
   id String @id @default(uuid())
   companyId String
