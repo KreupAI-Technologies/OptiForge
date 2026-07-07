@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Activity, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Clock, DollarSign, Users, Target, Gauge } from 'lucide-react'
+import { projectManagementService, PmProjectPlan } from '@/services/ProjectManagementService'
 
 export type HealthStatus = 'excellent' | 'good' | 'warning' | 'critical' | 'at-risk';
 export type HealthCategory = 'schedule' | 'budget' | 'scope' | 'quality' | 'resources' | 'risks';
@@ -28,218 +29,137 @@ export interface ProjectHealth {
   confidence: number; // 0-100
 }
 
+function scoreToStatus(score: number): HealthStatus {
+  if (score >= 90) return 'excellent';
+  if (score >= 75) return 'good';
+  if (score >= 60) return 'warning';
+  if (score >= 40) return 'at-risk';
+  return 'critical';
+}
+
+// Derive a real ProjectHealth object from a persisted project plan. Scores are
+// computed from actual plan fields (progress, budget variance, hours variance,
+// milestone completion, risk level) rather than hardcoded demo values.
+function planToHealth(p: PmProjectPlan): ProjectHealth {
+  const progress = Number(p.progressPercentage ?? 0);
+  const estBudget = Number(p.estimatedBudget ?? 0);
+  const actBudget = Number(p.actualBudget ?? 0);
+  const plannedHours = Number(p.plannedHours ?? 0);
+  const actualHours = Number(p.actualHours ?? 0);
+  const totalMs = Number(p.milestones ?? 0);
+  const doneMs = Number(p.completedMilestones ?? 0);
+  const riskLevel = (p.riskLevel as ProjectHealth['riskLevel']) ?? 'low';
+
+  // Schedule health: how well milestone completion keeps pace with progress.
+  const msRatio = totalMs > 0 ? (doneMs / totalMs) * 100 : progress;
+  const scheduleScore = Math.round(Math.max(0, Math.min(100, msRatio)));
+
+  // Budget health: penalise overspend relative to the share of work done.
+  const expectedSpend = estBudget * (progress / 100);
+  const budgetScore = estBudget > 0
+    ? Math.round(Math.max(0, Math.min(100, 100 - Math.max(0, (actBudget - expectedSpend) / estBudget) * 100)))
+    : 80;
+
+  // Scope health: proxied by overall progress momentum.
+  const scopeScore = Math.round(Math.max(0, Math.min(100, progress)));
+
+  // Quality health: inverse of hours overrun.
+  const expectedHours = plannedHours * (progress / 100);
+  const qualityScore = plannedHours > 0
+    ? Math.round(Math.max(0, Math.min(100, 100 - Math.max(0, (actualHours - expectedHours) / plannedHours) * 100)))
+    : 80;
+
+  // Resources health: derived from team size presence + hours efficiency.
+  const resourcesScore = Number(p.teamSize ?? 0) > 0 ? Math.round((qualityScore + 100) / 2) : 60;
+
+  // Risk health: mapped from the plan's declared risk level.
+  const riskScoreMap: Record<string, number> = { low: 90, medium: 70, high: 45, critical: 25 };
+  const riskScore = riskScoreMap[riskLevel] ?? 70;
+
+  const metricDefs: { category: HealthCategory; score: number; weight: number }[] = [
+    { category: 'schedule', score: scheduleScore, weight: 25 },
+    { category: 'budget', score: budgetScore, weight: 25 },
+    { category: 'scope', score: scopeScore, weight: 15 },
+    { category: 'quality', score: qualityScore, weight: 20 },
+    { category: 'resources', score: resourcesScore, weight: 10 },
+    { category: 'risks', score: riskScore, weight: 5 },
+  ];
+
+  const metrics: HealthMetric[] = metricDefs.map((m) => {
+    const status = scoreToStatus(m.score);
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+    if (m.category === 'budget' && actBudget > expectedSpend && estBudget > 0) {
+      issues.push('Actual spend running ahead of planned spend');
+      recommendations.push('Review cost drivers and reforecast budget');
+    }
+    if (m.category === 'schedule' && msRatio < progress - 10) {
+      issues.push('Milestone completion lagging behind reported progress');
+      recommendations.push('Reassess milestone plan and critical path');
+    }
+    if (m.category === 'quality' && actualHours > expectedHours && plannedHours > 0) {
+      issues.push('Effort (hours) exceeding plan for work completed');
+      recommendations.push('Investigate rework or scope creep');
+    }
+    if (m.category === 'risks' && (riskLevel === 'high' || riskLevel === 'critical')) {
+      issues.push(`Declared risk level is ${riskLevel}`);
+      recommendations.push('Assign risk owners and mitigation plans');
+    }
+    return {
+      category: m.category,
+      score: m.score,
+      weight: m.weight,
+      status,
+      trend: 'stable',
+      issues,
+      recommendations,
+    };
+  });
+
+  const overallScore = Math.round(
+    metrics.reduce((sum, m) => sum + m.score * m.weight, 0) /
+      metrics.reduce((sum, m) => sum + m.weight, 0),
+  );
+
+  return {
+    projectId: p.projectCode || p.id,
+    projectName: p.projectName ?? 'Untitled Project',
+    overallScore,
+    overallStatus: scoreToStatus(overallScore),
+    lastUpdated: new Date().toISOString(),
+    predictedCompletion: p.endDate ? String(p.endDate).slice(0, 10) : '—',
+    riskLevel,
+    confidence: Math.round(Math.max(50, Math.min(99, 50 + progress / 2))),
+    metrics,
+  };
+}
+
 export default function ProjectHealthScoring() {
   const [selectedProject, setSelectedProject] = useState<string>('all');
-  const [realTimeUpdate, setRealTimeUpdate] = useState(0);
+  const [projectHealthData, setProjectHealthData] = useState<ProjectHealth[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Simulate real-time health updates
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRealTimeUpdate(prev => prev + 1);
-    }, 5000); // Update every 5 seconds
-    return () => clearInterval(interval);
+    let cancelled = false;
+    const load = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const rows = await projectManagementService.listProjectPlans();
+        if (!cancelled) setProjectHealthData((rows ?? []).map(planToHealth));
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load project health data');
+          setProjectHealthData([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
   }, []);
-
-  const [projectHealthData] = useState<ProjectHealth[]>([
-    {
-      projectId: 'PRJ-2025-001',
-      projectName: 'Hydraulic Press Installation',
-      overallScore: 78 + (realTimeUpdate % 3),
-      overallStatus: 'good',
-      lastUpdated: new Date().toISOString(),
-      predictedCompletion: '2025-12-05',
-      riskLevel: 'medium',
-      confidence: 85,
-      metrics: [
-        {
-          category: 'schedule',
-          score: 72,
-          weight: 25,
-          status: 'good',
-          trend: 'down',
-          issues: ['2 tasks delayed by 3 days', 'Critical path at risk'],
-          recommendations: ['Allocate additional resources to Task #45', 'Review dependency chain']
-        },
-        {
-          category: 'budget',
-          score: 85,
-          weight: 25,
-          status: 'good',
-          trend: 'stable',
-          issues: [],
-          recommendations: ['Monitor material costs closely']
-        },
-        {
-          category: 'scope',
-          score: 90,
-          weight: 15,
-          status: 'excellent',
-          trend: 'stable',
-          issues: [],
-          recommendations: []
-        },
-        {
-          category: 'quality',
-          score: 68,
-          weight: 20,
-          status: 'warning',
-          trend: 'down',
-          issues: ['3 quality defects identified', 'Rework required on Module B'],
-          recommendations: ['Conduct quality review meeting', 'Increase inspection frequency']
-        },
-        {
-          category: 'resources',
-          score: 75,
-          weight: 10,
-          status: 'good',
-          trend: 'up',
-          issues: ['1 key resource on leave'],
-          recommendations: ['Cross-train backup resources']
-        },
-        {
-          category: 'risks',
-          score: 80,
-          weight: 5,
-          status: 'good',
-          trend: 'stable',
-          issues: ['Vendor delay risk'],
-          recommendations: ['Identify alternate suppliers']
-        }
-      ]
-    },
-    {
-      projectId: 'PRJ-2025-002',
-      projectName: 'CNC Machine Upgrade',
-      overallScore: 92,
-      overallStatus: 'excellent',
-      lastUpdated: new Date().toISOString(),
-      predictedCompletion: '2025-12-10',
-      riskLevel: 'low',
-      confidence: 92,
-      metrics: [
-        {
-          category: 'schedule',
-          score: 95,
-          weight: 25,
-          status: 'excellent',
-          trend: 'up',
-          issues: [],
-          recommendations: []
-        },
-        {
-          category: 'budget',
-          score: 88,
-          weight: 25,
-          status: 'good',
-          trend: 'stable',
-          issues: [],
-          recommendations: []
-        },
-        {
-          category: 'scope',
-          score: 93,
-          weight: 15,
-          status: 'excellent',
-          trend: 'stable',
-          issues: [],
-          recommendations: []
-        },
-        {
-          category: 'quality',
-          score: 91,
-          weight: 20,
-          status: 'excellent',
-          trend: 'up',
-          issues: [],
-          recommendations: []
-        },
-        {
-          category: 'resources',
-          score: 90,
-          weight: 10,
-          status: 'excellent',
-          trend: 'stable',
-          issues: [],
-          recommendations: []
-        },
-        {
-          category: 'risks',
-          score: 94,
-          weight: 5,
-          status: 'excellent',
-          trend: 'up',
-          issues: [],
-          recommendations: []
-        }
-      ]
-    },
-    {
-      projectId: 'PRJ-2025-003',
-      projectName: 'Automation System',
-      overallScore: 45,
-      overallStatus: 'critical',
-      lastUpdated: new Date().toISOString(),
-      predictedCompletion: '2025-11-25',
-      riskLevel: 'critical',
-      confidence: 62,
-      metrics: [
-        {
-          category: 'schedule',
-          score: 35,
-          weight: 25,
-          status: 'critical',
-          trend: 'down',
-          issues: ['15 days behind schedule', 'Critical milestones missed', '4 blockers identified'],
-          recommendations: ['Emergency resource allocation', 'Daily stand-ups required', 'Escalate to steering committee']
-        },
-        {
-          category: 'budget',
-          score: 52,
-          weight: 25,
-          status: 'at-risk',
-          trend: 'down',
-          issues: ['Budget overrun by 12%', 'Unplanned expenses'],
-          recommendations: ['Cost reduction review', 'Budget reforecast needed']
-        },
-        {
-          category: 'scope',
-          score: 60,
-          weight: 15,
-          status: 'warning',
-          trend: 'down',
-          issues: ['Scope creep detected', '5 change requests pending'],
-          recommendations: ['Freeze scope changes', 'Review change control process']
-        },
-        {
-          category: 'quality',
-          score: 40,
-          weight: 20,
-          status: 'critical',
-          trend: 'down',
-          issues: ['8 critical defects', 'Failed QA testing', 'Rework required'],
-          recommendations: ['Quality audit required', 'Dedicated QA resources needed']
-        },
-        {
-          category: 'resources',
-          score: 48,
-          weight: 10,
-          status: 'critical',
-          trend: 'down',
-          issues: ['Team morale low', '2 key resources resigned', 'Skill gaps identified'],
-          recommendations: ['Immediate hiring required', 'Team motivation initiatives']
-        },
-        {
-          category: 'risks',
-          score: 30,
-          weight: 5,
-          status: 'critical',
-          trend: 'down',
-          issues: ['Multiple high-priority risks', 'No mitigation plans'],
-          recommendations: ['Risk workshop needed', 'Assign risk owners']
-        }
-      ]
-    }
-  ]);
 
   const getHealthStatusColor = (status: HealthStatus) => {
     switch (status) {
@@ -321,6 +241,16 @@ export default function ProjectHealthScoring() {
           </div>
         </div>
       </div>
+
+      {isLoading && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">Loading project health data...</div>
+      )}
+      {loadError && !isLoading && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{loadError}</div>
+      )}
+      {!isLoading && !loadError && projectHealthData.length === 0 && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-600 text-center">No project plans available to score yet.</div>
+      )}
 
       {/* Project Filter */}
       <div className="bg-white shadow-md p-3">
