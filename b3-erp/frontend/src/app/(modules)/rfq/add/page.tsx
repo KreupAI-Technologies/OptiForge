@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { MasterDataService, mdLabel, MDVendor } from '@/services/master-data.service';
 import { procurementRFQService, type CreateRFQDto } from '@/services/procurement-rfq.service';
+import { purchaseRequisitionService } from '@/services/purchase-requisition.service';
 import {
   ArrowLeft,
   Save,
@@ -122,12 +123,11 @@ const incotermsOptions = [
   'DDP (Delivered Duty Paid)',
 ];
 
-// Mock PRs for loading
-const mockPRs = [
-  { id: 'PR-2025-0142', title: 'CNC Machine Spare Parts', itemCount: 8 },
-  { id: 'PR-2025-0135', title: 'Raw Materials - Plywood and Hardware', itemCount: 5 },
-  { id: 'PR-2025-0128', title: 'Consumables for Q4 2025', itemCount: 12 },
-];
+interface PRPickerOption {
+  id: string;
+  title: string;
+  itemCount: number;
+}
 
 const termsTemplate = `1. All prices should be quoted in INR including GST (18% or as applicable)
 2. Payment terms will be as specified in the commercial terms section
@@ -185,6 +185,8 @@ export default function AddRFQPage() {
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoadingVendors, setIsLoadingVendors] = useState(false);
+  const [prOptions, setPrOptions] = useState<PRPickerOption[]>([]);
+  const [isLoadingPRs, setIsLoadingPRs] = useState(false);
   const [vendorFilter, setVendorFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [ratingFilter, setRatingFilter] = useState(0);
@@ -209,6 +211,22 @@ export default function AddRFQPage() {
         }))
       );
     }).finally(() => setIsLoadingVendors(false));
+  }, []);
+
+  useEffect(() => {
+    setIsLoadingPRs(true);
+    purchaseRequisitionService.getAllRequisitions()
+      .then((res) => {
+        setPrOptions(
+          res.data.map((pr) => ({
+            id: pr.id,
+            title: pr.title,
+            itemCount: pr.items?.length ?? 0,
+          }))
+        );
+      })
+      .catch((err) => console.error('Error loading purchase requisitions:', err))
+      .finally(() => setIsLoadingPRs(false));
   }, []);
 
   const updateFormData = (field: keyof RFQFormData, value: any) => {
@@ -495,11 +513,18 @@ export default function AddRFQPage() {
                   value={formData.linkedPR}
                   onChange={(e) => loadFromPR(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoadingPRs}
                 >
-                  <option value="">Select PR to load items</option>
-                  {mockPRs.map((pr) => (
+                  <option value="">
+                    {isLoadingPRs
+                      ? 'Loading purchase requisitions…'
+                      : prOptions.length === 0
+                        ? 'No purchase requisitions available'
+                        : 'Select PR to load items'}
+                  </option>
+                  {prOptions.map((pr) => (
                     <option key={pr.id} value={pr.id}>
-                      {pr.id} - {pr.title} ({pr.itemCount} items)
+                      {pr.title} ({pr.itemCount} items)
                     </option>
                   ))}
                 </select>

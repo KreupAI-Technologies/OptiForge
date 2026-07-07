@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { bomService } from '@/services/bom.service';
 import { commonMastersService } from '@/services/common-masters.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   ArrowLeft,
   Save,
@@ -103,10 +104,7 @@ const mapItemType = (t?: string): string => {
   return 'raw_material';
 };
 
-const mockExistingBOMs = [
-  { productCode: 'PROD-CAB-001', productName: 'Premium Kitchen Cabinet - Modular', bomNumber: 'BOM-2025-001', version: 'V2.1' },
-  { productCode: 'PROD-TBL-001', productName: 'Stainless Steel Worktable', bomNumber: 'BOM-2025-002', version: 'V1.0' },
-];
+type ExistingBOMOption = { productCode: string; productName: string; bomNumber: string; version: string };
 
 const itemTypeColors = {
   raw_material: 'bg-orange-100 text-orange-700',
@@ -166,6 +164,7 @@ export default function BOMAddPage() {
   const [entryMethod, setEntryMethod] = useState<'manual' | 'copy' | 'import' | 'template'>('manual');
   const [items, setItems] = useState<ItemOption[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [existingBOMs, setExistingBOMs] = useState<ExistingBOMOption[]>([]);
 
   useEffect(() => {
     // Auto-generate BOM number
@@ -207,6 +206,24 @@ export default function BOMAddPage() {
       } catch {
         setItems([]);
         setProducts([]);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const boms = await bomService.getAllBOMs();
+        setExistingBOMs(
+          (boms || []).map((b) => ({
+            productCode: b.productCode,
+            productName: b.productName,
+            bomNumber: b.bomCode,
+            version: b.version,
+          }))
+        );
+      } catch {
+        setExistingBOMs([]);
       }
     })();
   }, []);
@@ -1222,29 +1239,38 @@ export default function BOMAddPage() {
               <p className="text-sm text-gray-600 mt-1">Select a product to copy BOM structure from</p>
             </div>
             <div className="p-6">
-              <div className="space-y-3">
-                {mockExistingBOMs.map((item) => (
-                  <label
-                    key={item.bomNumber}
-                    className="flex items-center space-x-3 p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="copyBOM"
-                      value={item.bomNumber}
-                      checked={selectedCopyBOM === item.bomNumber}
-                      onChange={(e) => setSelectedCopyBOM(e.target.value)}
-                      className="h-4 w-4"
-                    />
-                    <div className="flex-1">
-                      <div className="font-semibold text-gray-900">{item.productName}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {item.productCode} • {item.bomNumber} • {item.version}
+              {existingBOMs.length === 0 ? (
+                <EmptyState
+                  size="sm"
+                  icon={FileText}
+                  title="No existing BOMs"
+                  description="There are no existing BOMs to copy from yet."
+                />
+              ) : (
+                <div className="space-y-3">
+                  {existingBOMs.map((item) => (
+                    <label
+                      key={item.bomNumber}
+                      className="flex items-center space-x-3 p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="copyBOM"
+                        value={item.bomNumber}
+                        checked={selectedCopyBOM === item.bomNumber}
+                        onChange={(e) => setSelectedCopyBOM(e.target.value)}
+                        className="h-4 w-4"
+                      />
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900">{item.productName}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {item.productCode} • {item.bomNumber} • {item.version}
+                        </div>
                       </div>
-                    </div>
-                  </label>
-                ))}
-              </div>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-2">
               <button

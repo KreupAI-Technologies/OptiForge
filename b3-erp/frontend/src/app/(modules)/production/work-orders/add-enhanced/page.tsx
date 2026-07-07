@@ -31,6 +31,17 @@ import {
 } from '@/components/ui/FormUX';
 import { StepIndicator, Step } from '@/components/ui/StepIndicator';
 import { workOrderService } from '@/services/work-order.service';
+import { commonMastersService } from '@/services/common-masters.service';
+
+const COMPANY_ID = 'default-company-id';
+
+interface ProductOption {
+  code: string;
+  name: string;
+  description: string;
+  uom: string;
+  bomRef: string;
+}
 
 interface MaterialRequirement {
   id: string;
@@ -105,13 +116,6 @@ const getInitialForm = (): WorkOrderFormData => ({
   estimatedOverheadCost: 0,
 });
 
-const products = [
-  { code: 'MKC-CAB-001', name: 'Premium Modular Kitchen Cabinet', description: '900mm Wall-mounted Cabinet', bomRef: 'BOM-MKC-001' },
-  { code: 'MKC-DRW-002', name: 'Modular Kitchen Drawer Unit', description: '600mm Base Unit with Drawers', bomRef: 'BOM-MKC-002' },
-  { code: 'SFC-TBL-002', name: 'Steel Office Table - Executive', description: '1500mm x 750mm with powder coating', bomRef: 'BOM-SFC-002' },
-  { code: 'ELP-PNL-003', name: 'Electrical Control Panel - 32A', description: 'MCB Distribution Panel', bomRef: 'BOM-ELP-003' },
-];
-
 const workCenters = ['Assembly Line A', 'Assembly Line B', 'CNC Machining', 'Welding Station', 'Painting Booth', 'Quality Lab'];
 const supervisors = ['Ramesh Kumar', 'Suresh Patel', 'Vikram Singh', 'Anjali Sharma'];
 const uoms = ['Pcs', 'Kg', 'Mt', 'Lt', 'Set', 'Unit'];
@@ -148,6 +152,35 @@ export default function AddWorkOrderEnhancedPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showDraftBanner, setShowDraftBanner] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setProductsLoading(true);
+      setProductsError(null);
+      try {
+        const items = await commonMastersService.getItemsFull(COMPANY_ID);
+        if (cancelled) return;
+        setProducts(
+          items.map((it) => ({
+            code: it.code,
+            name: it.name,
+            description: it.description || '',
+            uom: it.uom?.code || it.uom?.name || 'Pcs',
+            bomRef: '',
+          })),
+        );
+      } catch (err) {
+        if (!cancelled) setProductsError('Failed to load products');
+      } finally {
+        if (!cancelled) setProductsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const steps: Step[] = [
     { id: '1', label: 'Product', description: 'Select product' },
@@ -205,12 +238,13 @@ export default function AddWorkOrderEnhancedPage() {
     }
   };
 
-  const selectProduct = (product: typeof products[0]) => {
+  const selectProduct = (product: ProductOption) => {
     setFormData((prev) => ({
       ...prev,
       productCode: product.code,
       productName: product.name,
       productDescription: product.description,
+      uom: product.uom || prev.uom,
       bomRef: product.bomRef,
       materialRequirements: [
         { id: '1', itemCode: 'MAT-001', description: 'Primary Material', requiredQty: 10, uom: 'Kg', stockAvailable: 50, stockStatus: 'available' },
@@ -389,23 +423,38 @@ export default function AddWorkOrderEnhancedPage() {
                     placeholder="Search by code or name..."
                   />
                 </div>
-                {productSearch && (
-                  <div className="mt-2 border border-gray-200 rounded-lg divide-y max-h-48 overflow-y-auto">
-                    {products.filter(p => p.code.toLowerCase().includes(productSearch.toLowerCase()) || p.name.toLowerCase().includes(productSearch.toLowerCase())).map((p) => (
-                      <button
-                        key={p.code}
-                        onClick={() => selectProduct(p)}
-                        className="w-full p-3 text-left hover:bg-blue-50 flex justify-between items-center"
-                      >
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          <p className="text-sm text-gray-500">{p.code} - {p.description}</p>
-                        </div>
-                        <Plus className="h-4 w-4 text-blue-600" />
-                      </button>
-                    ))}
-                  </div>
+                {productsLoading && (
+                  <p className="text-sm text-gray-500 mt-2">Loading products…</p>
                 )}
+                {!productsLoading && productsError && (
+                  <p className="text-sm text-red-500 mt-2">{productsError}</p>
+                )}
+                {!productsLoading && !productsError && productSearch && (() => {
+                  const matches = products.filter(p =>
+                    p.code.toLowerCase().includes(productSearch.toLowerCase()) ||
+                    p.name.toLowerCase().includes(productSearch.toLowerCase()),
+                  );
+                  if (matches.length === 0) {
+                    return <p className="text-sm text-gray-500 mt-2">No products found.</p>;
+                  }
+                  return (
+                    <div className="mt-2 border border-gray-200 rounded-lg divide-y max-h-48 overflow-y-auto">
+                      {matches.map((p) => (
+                        <button
+                          key={p.code}
+                          onClick={() => selectProduct(p)}
+                          className="w-full p-3 text-left hover:bg-blue-50 flex justify-between items-center"
+                        >
+                          <div>
+                            <p className="font-medium">{p.name}</p>
+                            <p className="text-sm text-gray-500">{p.code} - {p.description}</p>
+                          </div>
+                          <Plus className="h-4 w-4 text-blue-600" />
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {errors.productCode && <p className="text-xs text-red-500 mt-1">{errors.productCode}</p>}
               </div>
 

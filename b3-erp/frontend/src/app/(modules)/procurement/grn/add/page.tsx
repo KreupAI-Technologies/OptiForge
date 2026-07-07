@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { goodsReceiptService } from '@/services/goods-receipt.service';
 import { purchaseOrderService } from '@/services/purchase-order.service';
+import { warehouseService } from '@/services/warehouse.service';
 import {
   Package,
   FileText,
@@ -166,24 +167,8 @@ const REJECTION_REASONS = [
   { value: 'other', label: 'Other' }
 ];
 
-const STORAGE_LOCATIONS = [
-  'WH-A-RACK-12-BIN-05',
-  'WH-A-RACK-13-BIN-02',
-  'WH-A-RACK-14-BIN-01',
-  'WH-B-RACK-01-BIN-03',
-  'WH-B-RACK-02-BIN-04',
-  'WH-C-RACK-05-BIN-01',
-  'YARD-01',
-  'YARD-02',
-  'COLD-STORAGE-01'
-];
-
-const QC_INSPECTORS = [
-  { id: 'EMP-QC-045', name: 'Amit Deshmukh' },
-  { id: 'EMP-QC-067', name: 'Priya Sharma' },
-  { id: 'EMP-QC-089', name: 'Vikram Patel' },
-  { id: 'EMP-QC-102', name: 'Sneha Kulkarni' }
-];
+// Fallback used only until warehouse master data loads (or if it is empty).
+const DEFAULT_STORAGE_LOCATION = 'UNASSIGNED';
 
 const GRNAddPage = () => {
   const router = useRouter();
@@ -200,6 +185,7 @@ const GRNAddPage = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [filterVendor, setFilterVendor] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'open' | 'partially_received'>('all');
+  const [storageLocations, setStorageLocations] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<GRNFormData>({
     grn_number: `GRN-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(5, '0')}`,
@@ -272,6 +258,28 @@ const GRNAddPage = () => {
     fetchPOs();
   }, []);
 
+  // Load storage locations from warehouse master data
+  useEffect(() => {
+    const fetchStorageLocations = async () => {
+      try {
+        const warehouses = await warehouseService.getAllWarehouses();
+        const locations: string[] = [];
+        (warehouses ?? []).forEach((wh) => {
+          if (Array.isArray(wh.locations) && wh.locations.length > 0) {
+            wh.locations.forEach((loc) => locations.push(loc.code || loc.name));
+          } else {
+            locations.push(wh.code);
+          }
+        });
+        setStorageLocations(Array.from(new Set(locations.filter(Boolean))));
+      } catch {
+        setStorageLocations([]);
+      }
+    };
+
+    fetchStorageLocations();
+  }, []);
+
   const handlePOSelection = (po: PurchaseOrder) => {
     setSelectedPO(po);
     setFormData(prev => ({
@@ -316,12 +324,12 @@ const GRNAddPage = () => {
     }
 
     {
-      const mockLineItems = poLineItems;
+      const lineItems = poLineItems;
 
-      setPOLineItems(mockLineItems);
+      setPOLineItems(lineItems);
 
       // Convert to GRN line items
-      const grnLineItems: GRNLineItem[] = mockLineItems.map(item => ({
+      const grnLineItems: GRNLineItem[] = lineItems.map(item => ({
         id: item.id,
         item_code: item.item_code,
         item_name: item.item_name,
@@ -335,7 +343,7 @@ const GRNAddPage = () => {
         rejected_quantity: 0,
         batch_number: '',
         lot_number: '',
-        storage_location: STORAGE_LOCATIONS[0],
+        storage_location: storageLocations[0] ?? DEFAULT_STORAGE_LOCATION,
         unit_price: item.unit_price,
         qc_required: item.qc_required,
         qc_status: 'pending',
@@ -975,7 +983,10 @@ const GRNAddPage = () => {
                             onChange={(e) => handleLineItemChange(index, 'storage_location', e.target.value)}
                             className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
                           >
-                            {STORAGE_LOCATIONS.map(location => (
+                            {(storageLocations.includes(item.storage_location)
+                              ? storageLocations
+                              : [item.storage_location, ...storageLocations]
+                            ).map(location => (
                               <option key={location} value={location}>{location}</option>
                             ))}
                           </select>

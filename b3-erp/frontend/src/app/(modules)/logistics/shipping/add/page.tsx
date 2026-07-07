@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MasterDataService, MDWarehouse, MDProduct } from '@/services/master-data.service';
+import { LogisticsService } from '@/services/logistics.service';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -117,6 +118,8 @@ export default function AddShipmentPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [warehousesLoading, setWarehousesLoading] = useState(false);
   const [stockItemsLoading, setStockItemsLoading] = useState(false);
+  const [carriers, setCarriers] = useState<string[]>([]);
+  const [carriersLoading, setCarriersLoading] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -182,16 +185,6 @@ export default function AddShipmentPage() {
 
   // Mock data for dropdowns
   const referenceTypes = ['Sales Order', 'Purchase Order', 'Transfer Order', 'Production Order', 'Direct'];
-  const carriers = [
-    'Blue Dart Express',
-    'DHL Express India',
-    'FedEx India',
-    'DTDC Express',
-    'Delhivery',
-    'Gati KWE',
-    'VRL Logistics',
-    'TCI Express',
-  ];
   const carrierServices = ['Express', 'Surface', 'Surface Premium', 'Air Express', 'Same Day'];
   const vehicleTypes = ['Tata Ace', '14 Feet', '17 Feet', '19 Feet', '20 Feet Container', '32 Feet Container', '40 Feet Container'];
   const packageTypes = ['Boxes', 'Pallets', 'Crates', 'Bundles', 'Drums', 'Bags', 'Loose'];
@@ -222,6 +215,17 @@ export default function AddShipmentPage() {
       })));
       setWarehousesLoading(false);
     });
+
+    setCarriersLoading(true);
+    LogisticsService.getTransportCompanies({ status: 'active' })
+      .then((live) => {
+        const names = (Array.isArray(live) ? live : [])
+          .map((c: any) => c?.companyName || c?.companyCode || '')
+          .filter((n: string) => !!n);
+        setCarriers(names);
+      })
+      .catch(() => setCarriers([]))
+      .finally(() => setCarriersLoading(false));
 
     setStockItemsLoading(true);
     MasterDataService.getProducts().then((live) => {
@@ -611,7 +615,13 @@ export default function AddShipmentPage() {
                   className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.carrier ? 'border-red-500' : 'border-gray-300'
                     }`}
                 >
-                  <option value="">Select carrier</option>
+                  <option value="">
+                    {carriersLoading
+                      ? 'Loading…'
+                      : carriers.length === 0
+                        ? 'No carriers available'
+                        : 'Select carrier'}
+                  </option>
                   {carriers.map(carrier => (
                     <option key={carrier} value={carrier}>{carrier}</option>
                   ))}
