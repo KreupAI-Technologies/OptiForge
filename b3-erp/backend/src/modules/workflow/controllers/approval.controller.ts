@@ -37,6 +37,16 @@ export class ApprovalController {
         return this.approvalService.processAction(id, userId, action, comments);
     }
 
+    @Post(':id/delegate')
+    async delegate(
+        @Param('id') id: string,
+        @Body('fromUserId') fromUserId: string,
+        @Body('toUserId') toUserId: string,
+        @Body('reason') reason?: string,
+    ) {
+        return this.approvalService.delegate(id, fromUserId, toUserId, reason);
+    }
+
     @Get(':id')
     async getApproval(@Param('id') id: string) {
         return this.approvalService.getApproval(id);

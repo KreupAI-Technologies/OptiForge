@@ -1,5 +1,5 @@
 
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { WorkflowApproval } from '../entities/workflow-approval.entity';
@@ -155,6 +155,54 @@ export class ApprovalService {
                 await this.approvalRepository.save(approval);
             }
         }
+
+        return this.getApproval(approvalId);
+    }
+
+    /**
+     * Delegate (reassign) the current pending approval step to another user.
+     * Reassigns the pending step at the current level and records the
+     * delegation trail in the step's `metadata` jsonb column (no schema change).
+     */
+    async delegate(
+        approvalId: string,
+        fromUserId: string,
+        toUserId: string,
+        reason?: string,
+    ): Promise<WorkflowApproval> {
+        if (!toUserId || !toUserId.trim()) {
+            throw new BadRequestException('toUserId is required');
+        }
+        const approval = await this.getApproval(approvalId);
+
+        const pendingSteps = approval.steps.filter(
+            (s) => s.stepNumber === approval.currentStep && s.status === 'pending',
+        );
+        if (pendingSteps.length === 0) {
+            throw new NotFoundException(
+                `No pending step to delegate for approval ${approvalId}`,
+            );
+        }
+
+        // Prefer the step assigned to the delegating user; otherwise take the
+        // first pending step at the current level.
+        const step =
+            pendingSteps.find((s) => s.approverId === fromUserId) ?? pendingSteps[0];
+        const previousApproverId = step.approverId;
+
+        step.approverId = toUserId.trim();
+        step.metadata = {
+            ...(step.metadata ?? {}),
+            delegatedFrom: previousApproverId,
+            delegatedBy: fromUserId ?? previousApproverId,
+            delegatedAt: new Date().toISOString(),
+            delegationReason: reason ?? null,
+        };
+        await this.stepRepository.save(step);
+
+        this.logger.log(
+            `Approval ${approvalId} step ${step.stepNumber} delegated from ${previousApproverId} to ${toUserId}`,
+        );
 
         return this.getApproval(approvalId);
     }

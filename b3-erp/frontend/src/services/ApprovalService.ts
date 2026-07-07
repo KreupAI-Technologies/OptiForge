@@ -65,6 +65,15 @@ export const approvalService = {
         return response.data;
     },
 
+    async delegate(id: string, fromUserId: string, toUserId: string, reason?: string): Promise<any> {
+        const response = await apiClient.post<any>(`/workflow/approvals/${id}/delegate`, {
+            fromUserId,
+            toUserId,
+            reason
+        });
+        return response.data;
+    },
+
     async getHistory(referenceId: string, approvalType: string): Promise<ApprovalHistory[]> {
         const params = new URLSearchParams({ referenceId, approvalType });
         const response = await apiClient.get<ApprovalHistory[]>(`/workflow/approvals/history?${params.toString()}`);

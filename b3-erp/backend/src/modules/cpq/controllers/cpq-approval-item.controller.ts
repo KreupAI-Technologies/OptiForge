@@ -61,6 +61,15 @@ export class CPQApprovalItemController {
     return this.cpqApprovalItemService.decide(companyId, id, body.status);
   }
 
+  @Post(':id/comments')
+  addComment(
+    @Headers('x-company-id') companyId: string,
+    @Param('id') id: string,
+    @Body() body: { text: string; author?: string },
+  ): Promise<CPQApprovalItem> {
+    return this.cpqApprovalItemService.addComment(companyId, id, body);
+  }
+
   @Delete(':id')
   remove(
     @Headers('x-company-id') companyId: string,

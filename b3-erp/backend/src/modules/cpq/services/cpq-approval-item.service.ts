@@ -1,7 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { CPQApprovalItem } from '../entities/cpq-approval-item.entity';
+
+export interface CPQApprovalComment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+}
 
 @Injectable()
 export class CPQApprovalItemService {
@@ -79,5 +87,32 @@ export class CPQApprovalItemService {
   async remove(companyId: string, id: string): Promise<void> {
     const item = await this.findOne(companyId, id);
     await this.approvalItemRepository.remove(item);
+  }
+
+  /**
+   * Append a comment to an approval item. Comments live in the flexible
+   * `payload.comments` array so no schema change is required.
+   */
+  async addComment(
+    companyId: string,
+    id: string,
+    input: { text: string; author?: string },
+  ): Promise<CPQApprovalItem> {
+    if (!input?.text || !input.text.trim()) {
+      throw new BadRequestException('Comment text is required');
+    }
+    const item = await this.findOne(companyId, id);
+    const payload = (item.payload ?? {}) as Record<string, unknown>;
+    const comments: CPQApprovalComment[] = Array.isArray(payload.comments)
+      ? (payload.comments as CPQApprovalComment[])
+      : [];
+    comments.push({
+      id: randomUUID(),
+      author: input.author?.trim() || 'You',
+      text: input.text.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    item.payload = { ...payload, comments };
+    return this.approvalItemRepository.save(item);
   }
 }

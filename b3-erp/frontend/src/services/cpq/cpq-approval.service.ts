@@ -100,6 +100,26 @@ class CPQApprovalService {
       return null;
     }
   }
+
+  /**
+   * Append a comment to an approval item. Comments are stored in the item's
+   * flexible `payload.comments` array on the backend.
+   */
+  async addComment(
+    id: string,
+    text: string,
+    author?: string,
+  ): Promise<CPQApprovalItem | null> {
+    try {
+      const response = await apiClient.post<CPQApprovalItem>(
+        `${this.baseUrl}/${id}/comments`,
+        { text, author },
+      );
+      return response.data ?? null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 export const cpqApprovalService = new CPQApprovalService();

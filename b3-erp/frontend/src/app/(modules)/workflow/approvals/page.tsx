@@ -291,19 +291,39 @@ export default function ApprovalsPage() {
     setShowDelegationModal(true);
   };
 
-  // No delegate/reassign endpoint exists on approvalService (only
-  // processAction for approve/reject). The delegation action is disabled and
-  // surfaces an honest "not yet available" message instead of faking success.
-  const handleSubmitDelegation = () => {
+  // Delegate (reassign) the current pending step to another user via the
+  // workflow backend, then re-fetch so the assignee reflects server state.
+  const handleSubmitDelegation = async () => {
     if (!delegationApproval) return;
+    if (!delegateTo.trim()) {
+      setActionFeedback({
+        kind: 'error',
+        message: 'Please enter the user to delegate to.',
+      });
+      return;
+    }
+    const approval = delegationApproval;
+    const target = delegateTo.trim();
     setShowDelegationModal(false);
-    setDelegationApproval(null);
-    setDelegateTo('');
-    setActionFeedback({
-      kind: 'error',
-      message:
-        'Delegation is not yet available — the workflow backend does not expose a delegate/reassign endpoint.',
-    });
+    try {
+      await approvalService.delegate(approval.id, 'current-user-id', target);
+      await loadApprovals();
+      setActionFeedback({
+        kind: 'success',
+        message: `"${approval.title}" delegated to ${target}.`,
+      });
+    } catch (error) {
+      setActionFeedback({
+        kind: 'error',
+        message:
+          error instanceof Error
+            ? `Failed to delegate: ${error.message}`
+            : 'Failed to delegate. Please try again.',
+      });
+    } finally {
+      setDelegationApproval(null);
+      setDelegateTo('');
+    }
   };
 
   const getDaysRemainingColor = (days: number) => {
@@ -1078,11 +1098,10 @@ export default function ApprovalsPage() {
                 </select>
               </div>
 
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-800">
-                  <strong>Not yet available:</strong> Delegation requires a
-                  delegate/reassign endpoint on the workflow backend, which does
-                  not exist yet. This action is disabled until that API is added.
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  The current pending approval step will be reassigned to the
+                  selected user. They will see it in their pending queue.
                 </p>
               </div>
             </div>
@@ -1097,9 +1116,9 @@ export default function ApprovalsPage() {
               </button>
               <button
                 onClick={handleSubmitDelegation}
-                disabled
-                title="Delegation endpoint not available on the workflow backend"
-                className="px-4 py-2 rounded-lg text-white transition-colors flex items-center space-x-2 bg-purple-300 cursor-not-allowed"
+                disabled={!delegateTo}
+                title="Delegate this approval to the selected user"
+                className="px-4 py-2 rounded-lg text-white transition-colors flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed"
               >
                 <Users className="h-4 w-4" />
                 <span>Delegate Task</span>

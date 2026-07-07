@@ -200,11 +200,16 @@ export default function CPQWorkflowApprovalsPage() {
     setIsRejectOpen(false)
   }
 
-  const handleCommentSubmit = (comment: string) => {
-    // GAP: cpqApprovalService exposes no comment endpoint. Surface a notice
-    // rather than silently dropping the comment. Backend method needed:
-    // cpqApprovalService.addComment(id, comment) -> POST /cpq/approval-items/:id/comments
-    setError('Adding comments is not yet supported by the approvals backend.')
+  const handleCommentSubmit = async (comment: string) => {
+    if (selectedRequest) {
+      const result = await cpqApprovalService.addComment(selectedRequest.id, comment)
+      if (!result) {
+        setError('Failed to add comment. Please try again.')
+      } else {
+        setError(null)
+        await load()
+      }
+    }
     setIsCommentOpen(false)
   }
 
