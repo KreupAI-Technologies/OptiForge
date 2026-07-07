@@ -41,6 +41,7 @@ import { ProductionModule } from './modules/production/production.module';
 import { ProjectManagementModule } from './modules/project-management/project-management.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { SupportModule } from './modules/support/support.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
@@ -125,6 +126,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     WorkflowModule,
     ApprovalsModule,
     ReportsModule,
+    DashboardModule,
     LogisticsModule,
     PackagingModule,
     NotificationsModule,

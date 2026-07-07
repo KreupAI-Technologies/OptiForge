@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import {
+  dashboardOverviewService,
+  type DashboardOverviewMetrics,
+} from '@/services/dashboard-overview.service';
 import {
   Users,
   ShoppingCart,
@@ -144,11 +148,33 @@ const modules = [
   },
 ];
 
+function formatCount(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('en-IN');
+}
+
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [metrics, setMetrics] = useState<DashboardOverviewMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    dashboardOverviewService
+      .getOverview()
+      .then((res) => {
+        if (active) setMetrics(res.metrics);
+      })
+      .finally(() => {
+        if (active) setMetricsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredModules = modules.filter((module) => {
     const matchesSearch = module.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -324,52 +350,68 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Orders</p>
-                <p className="text-2xl font-bold text-gray-900">1,234</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {metricsLoading ? '—' : formatCount(metrics?.totalOrders ?? 0)}
+                </p>
               </div>
               <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <ShoppingCart className="h-6 w-6 text-blue-600" />
               </div>
             </div>
-            <p className="text-xs text-green-600 mt-2">↑ 12% from last month</p>
+            <p className="text-xs text-gray-500 mt-2">
+              {metricsLoading ? 'Loading…' : `${formatCount(metrics?.customers ?? 0)} customers`}
+            </p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">₹45.2L</p>
+                <p className="text-sm text-gray-600">Invoices</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {metricsLoading ? '—' : formatCount(metrics?.totalInvoices ?? 0)}
+                </p>
               </div>
               <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <DollarSign className="h-6 w-6 text-green-600" />
               </div>
             </div>
-            <p className="text-xs text-green-600 mt-2">↑ 8% from last month</p>
+            <p className="text-xs text-gray-500 mt-2">
+              {metricsLoading ? 'Loading…' : `${formatCount(metrics?.openTickets ?? 0)} open tickets`}
+            </p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Production</p>
-                <p className="text-2xl font-bold text-gray-900">234</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {metricsLoading ? '—' : formatCount(metrics?.production ?? 0)}
+                </p>
               </div>
               <div className="h-12 w-12 bg-orange-100 rounded-lg flex items-center justify-center">
                 <Factory className="h-6 w-6 text-orange-600" />
               </div>
             </div>
-            <p className="text-xs text-green-600 mt-2">↑ 15% from last month</p>
+            <p className="text-xs text-gray-500 mt-2">
+              {metricsLoading ? 'Loading…' : `${formatCount(metrics?.employees ?? 0)} employees`}
+            </p>
           </div>
 
           <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Inventory Items</p>
-                <p className="text-2xl font-bold text-gray-900">3,421</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {metricsLoading ? '—' : formatCount(metrics?.inventoryItems ?? 0)}
+                </p>
               </div>
               <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <Package className="h-6 w-6 text-purple-600" />
               </div>
             </div>
-            <p className="text-xs text-red-600 mt-2">↓ 3% from last month</p>
+            <p className="text-xs text-gray-500 mt-2">
+              {metricsLoading ? 'Loading…' : 'Live stock catalog'}
+            </p>
           </div>
         </div>
 
