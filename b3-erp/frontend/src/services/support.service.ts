@@ -1802,6 +1802,50 @@ export const SlaSettingsService = {
 };
 
 // ============================================================================
+// SLA Policy Service (reuses GET /support/sla/policies + /support/sla/dashboard)
+// Backs the SLA tab of /support/advanced-features
+// ============================================================================
+
+export interface SlaPolicyRecord {
+  id: string;
+  slaCode: string;
+  slaName: string;
+  description?: string;
+  priority?: string;
+  firstResponseMinutes: number;
+  resolutionMinutes: number;
+  responseBusinessHours: boolean;
+  resolutionBusinessHours: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  companyId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SlaDashboardRecord {
+  activePolicies: number;
+  breachesLast30Days: number;
+  complianceRate: number;
+  totalTickets: number;
+  breachedTickets: number;
+}
+
+export const SlaPolicyService = {
+  async getPolicies(companyId = 'company-1'): Promise<SlaPolicyRecord[]> {
+    return apiRequest<SlaPolicyRecord[]>(
+      `/support/sla/policies?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+
+  async getDashboard(companyId = 'company-1'): Promise<SlaDashboardRecord> {
+    return apiRequest<SlaDashboardRecord>(
+      `/support/sla/dashboard?companyId=${encodeURIComponent(companyId)}`
+    );
+  },
+};
+
+// ============================================================================
 // Team Agents Service (net-new: /support/team/agents)
 // ============================================================================
 
