@@ -47,6 +47,7 @@ import {
   FinanceCreditLimit,
   FinanceInvestment,
   FinanceReportTemplate,
+  FinanceIntegration,
 } from './entities/finance-extras.entity';
 
 // Controllers
@@ -173,6 +174,7 @@ import { Company } from '../core/entities/company.entity';
       FinanceCreditLimit,
       FinanceInvestment,
       FinanceReportTemplate,
+      FinanceIntegration,
     ]),
   ],
   controllers: [

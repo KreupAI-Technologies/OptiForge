@@ -524,6 +524,47 @@ const MOCK_DASHBOARD_STATS: FinanceDashboardStats = {
 };
 
 // ============================================================================
+// Integration & expense-claim types
+// ============================================================================
+
+export interface FinanceIntegration {
+  id: string;
+  name: string;
+  type: string;
+  provider?: string | null;
+  status: string;
+  connectionType?: string;
+  connection_type?: string;
+  frequency?: string;
+  lastSync?: string | null;
+  last_sync?: string | null;
+  nextSync?: string | null;
+  next_sync?: string | null;
+  dataFlow?: string;
+  data_flow?: string;
+  version?: string | null;
+  endpoint?: string | null;
+}
+
+export interface ExpenseClaimDetail {
+  id: string;
+  claimNumber?: string;
+  employeeId?: string;
+  employeeName?: string;
+  claimDate?: string;
+  totalAmount?: number | string;
+  category?: string;
+  description?: string;
+  status?: string;
+  approvedBy?: string | null;
+  approvedDate?: string | null;
+  paidDate?: string | null;
+  paidBy?: string | null;
+  paymentReference?: string | null;
+  rejectionReason?: string | null;
+}
+
+// ============================================================================
 // Finance Service
 // ============================================================================
 
@@ -1485,6 +1526,25 @@ export class FinanceService {
   }
   static async deleteReportTemplate(id: string): Promise<void> {
     await this.request<any>(`/finance/report-templates/${id}`, { method: 'DELETE' });
+  }
+
+  // ==========================================================================
+  // Financial integrations (external system configs / status)
+  // ==========================================================================
+  static async getIntegrations(): Promise<FinanceIntegration[]> {
+    return this.toArray(await this.request<any>('/finance/integrations'));
+  }
+  static async getIntegration(id: string): Promise<FinanceIntegration> {
+    return this.request<FinanceIntegration>(`/finance/integrations/${id}`);
+  }
+
+  // ==========================================================================
+  // Expense claims (reuses accounts module — GET /api/accounts/expense-claims/:id)
+  // ==========================================================================
+  static async getExpenseClaim(id: string): Promise<ExpenseClaimDetail> {
+    const res = await this.request<any>(`/api/accounts/expense-claims/${id}`);
+    // Controller wraps payload as { success, data }; unwrap defensively.
+    return (res && typeof res === 'object' && 'data' in res ? res.data : res) as ExpenseClaimDetail;
   }
 }
 

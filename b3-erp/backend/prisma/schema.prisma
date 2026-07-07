@@ -20105,3 +20105,25 @@ model HrOvertimeSetting {
 
   @@map("hr_overtime_settings")
 }
+
+// --- Finance integrations (external system configs / status) — /finance/integrations ---
+
+model FinanceIntegration {
+  id String @id @default(uuid())
+  company_id String @default("default-company-id")
+  name String
+  type String @default("custom")
+  provider String?
+  status String @default("inactive")
+  connection_type String @default("api")
+  frequency String @default("manual")
+  last_sync DateTime?
+  next_sync DateTime?
+  data_flow String @default("inbound")
+  version String?
+  endpoint String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  @@map("finance_integrations")
+}

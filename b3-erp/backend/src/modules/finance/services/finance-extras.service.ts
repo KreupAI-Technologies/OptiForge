@@ -11,6 +11,7 @@ import {
   FinanceCreditLimit,
   FinanceInvestment,
   FinanceReportTemplate,
+  FinanceIntegration,
 } from '../entities/finance-extras.entity';
 
 const DEFAULT_COMPANY = 'default-company-id';
@@ -41,6 +42,8 @@ export class FinanceExtrasService {
     private readonly investmentRepo: Repository<FinanceInvestment>,
     @InjectRepository(FinanceReportTemplate)
     private readonly reportTemplateRepo: Repository<FinanceReportTemplate>,
+    @InjectRepository(FinanceIntegration)
+    private readonly integrationRepo: Repository<FinanceIntegration>,
   ) {}
 
   private async list<T extends ObjectLiteral>(repo: Repository<T>, companyId?: string): Promise<T[]> {
@@ -140,4 +143,16 @@ export class FinanceExtrasService {
   createReportTemplate(d: any) { return this.create(this.reportTemplateRepo, d); }
   updateReportTemplate(id: string, d: any) { return this.update(this.reportTemplateRepo, id, d, 'Report template'); }
   deleteReportTemplate(id: string) { return this.remove(this.reportTemplateRepo, id, 'Report template'); }
+
+  // Integrations (external system configs / status)
+  listIntegrations(c?: string) {
+    return this.integrationRepo.find({
+      where: { companyId: c || DEFAULT_COMPANY },
+      order: { createdAt: 'ASC' },
+    });
+  }
+  getIntegration(id: string) { return this.one(this.integrationRepo, id, 'Integration'); }
+  createIntegration(d: any) { return this.create(this.integrationRepo, d); }
+  updateIntegration(id: string, d: any) { return this.update(this.integrationRepo, id, d, 'Integration'); }
+  deleteIntegration(id: string) { return this.remove(this.integrationRepo, id, 'Integration'); }
 }

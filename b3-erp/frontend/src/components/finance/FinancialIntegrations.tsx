@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Link2, Cloud, Database, RefreshCw, CheckCircle, XCircle, AlertTriangle, Activity, Download, Upload, Settings, Shield, Key, Globe, Server, FileText, Calendar, Clock, Play, Pause, Eye, Plus, X, Filter, Zap, ArrowRight, ArrowLeft, Code, Terminal } from 'lucide-react';
+import { Link2, Cloud, Database, RefreshCw, CheckCircle, XCircle, AlertTriangle, Activity, Download, Upload, Settings, Shield, Key, Globe, Server, FileText, Calendar, Clock, Play, Pause, Eye, Plus, X, Filter, Zap, ArrowRight, ArrowLeft, Code, Terminal, Loader2 } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, RadialBarChart, RadialBar, ScatterChart, Scatter } from 'recharts';
+import { FinanceService, FinanceIntegration } from '@/services/finance.service';
 
 interface Integration {
   id: string;
@@ -103,89 +104,44 @@ const FinancialIntegrations = () => {
   const [filterType, setFilterType] = useState('all');
   const [showTestModal, setShowTestModal] = useState(false);
 
-  // Mock data
-  const integrations: Integration[] = [
-    {
-      id: 'INT001',
-      name: 'SAP Integration',
-      type: 'erp',
-      provider: 'SAP S/4HANA',
-      status: 'active',
-      connectionType: 'api',
-      frequency: 'realtime',
-      lastSync: '2024-03-26 14:30:00',
-      dataFlow: 'bidirectional',
-      version: '2.3.1',
-      endpoint: 'https://api.sap.com/v2'
-    },
-    {
-      id: 'INT002',
-      name: 'Bank of America',
-      type: 'banking',
-      provider: 'BofA API',
-      status: 'active',
-      connectionType: 'api',
-      frequency: 'daily',
-      lastSync: '2024-03-26 06:00:00',
-      nextSync: '2024-03-27 06:00:00',
-      dataFlow: 'inbound',
-      version: '1.5.0',
-      endpoint: 'https://api.bofa.com/banking/v1'
-    },
-    {
-      id: 'INT003',
-      name: 'Stripe Payments',
-      type: 'payment',
-      provider: 'Stripe',
-      status: 'active',
-      connectionType: 'webhook',
-      frequency: 'realtime',
-      lastSync: '2024-03-26 15:45:00',
-      dataFlow: 'inbound',
-      version: '3.0.0',
-      endpoint: 'https://api.stripe.com/v1'
-    },
-    {
-      id: 'INT004',
-      name: 'QuickBooks Online',
-      type: 'accounting',
-      provider: 'Intuit',
-      status: 'active',
-      connectionType: 'api',
-      frequency: 'hourly',
-      lastSync: '2024-03-26 15:00:00',
-      nextSync: '2024-03-26 16:00:00',
-      dataFlow: 'bidirectional',
-      version: '4.2.0',
-      endpoint: 'https://api.quickbooks.com/v3'
-    },
-    {
-      id: 'INT005',
-      name: 'Tax Compliance System',
-      type: 'tax',
-      provider: 'Avalara',
-      status: 'error',
-      connectionType: 'api',
-      frequency: 'daily',
-      lastSync: '2024-03-25 06:00:00',
-      dataFlow: 'outbound',
-      version: '2.1.0',
-      endpoint: 'https://api.avalara.com/v2'
-    },
-    {
-      id: 'INT006',
-      name: 'Salesforce CRM',
-      type: 'crm',
-      provider: 'Salesforce',
-      status: 'active',
-      connectionType: 'api',
-      frequency: 'realtime',
-      lastSync: '2024-03-26 15:50:00',
-      dataFlow: 'bidirectional',
-      version: '55.0',
-      endpoint: 'https://api.salesforce.com'
-    }
-  ];
+  // Integration configs / status — fetched from the finance backend.
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    FinanceService.getIntegrations()
+      .then((rows: FinanceIntegration[]) => {
+        if (!active) return;
+        const mapped: Integration[] = rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: (r.type as Integration['type']) || 'custom',
+          provider: r.provider || '',
+          status: (r.status as Integration['status']) || 'inactive',
+          connectionType: ((r.connectionType ?? r.connection_type) as Integration['connectionType']) || 'api',
+          frequency: (r.frequency as Integration['frequency']) || 'manual',
+          lastSync: r.lastSync ?? r.last_sync ?? '',
+          nextSync: r.nextSync ?? r.next_sync ?? undefined,
+          dataFlow: ((r.dataFlow ?? r.data_flow) as Integration['dataFlow']) || 'inbound',
+          version: r.version || '',
+          endpoint: r.endpoint || undefined,
+        }));
+        setIntegrations(mapped);
+      })
+      .catch((e) => {
+        if (active) setError(e?.message || 'Failed to load integrations');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const dataMappings: DataMapping[] = [
     { id: 'MAP001', integrationId: 'INT001', sourceName: 'SAP', sourceField: 'CUSTOMER_ID', targetField: 'customerId', required: true, dataType: 'string' },
@@ -369,7 +325,7 @@ const FinancialIntegrations = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Last Sync:</span>
-                  <span>{new Date(integration.lastSync).toLocaleTimeString()}</span>
+                  <span>{integration.lastSync && !isNaN(new Date(integration.lastSync).getTime()) ? new Date(integration.lastSync).toLocaleTimeString() : '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Frequency:</span>
@@ -991,6 +947,29 @@ const FinancialIntegrations = () => {
         <p className="text-gray-600">Manage external system integrations, data mappings, and API connections</p>
       </div>
 
+      {loading && (
+        <div className="flex items-center justify-center py-16 text-gray-600">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          Loading integrations…
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-3 flex items-center">
+          <AlertTriangle className="h-5 w-5 mr-2" />
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && integrations.length === 0 && (
+        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500 mb-3">
+          <Link2 className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+          No integrations configured yet.
+        </div>
+      )}
+
+      {!loading && !error && (
+      <>
       <div className="bg-white rounded-lg shadow mb-3">
         <div className="border-b border-gray-200">
           <nav className="flex -mb-px">
@@ -1202,6 +1181,8 @@ const FinancialIntegrations = () => {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
