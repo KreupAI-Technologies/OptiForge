@@ -19348,6 +19348,25 @@ model ReportSavedItems {
   @@map("report_saved_items")
 }
 
+model ReportDashboards {
+  id String @id @default(uuid())
+  companyId String
+  name String
+  description String?
+  category String?
+  layout Json?
+  widgets Json?
+  createdByName String?
+  isDefault Boolean @default(false)
+  isLocked Boolean @default(false)
+  isFavorite Boolean @default(false)
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@map("report_dashboards")
+}
+
 model SalesShippingMethods {
   id String @id @default(uuid())
   companyId String?

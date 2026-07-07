@@ -66,6 +66,11 @@ import {
   Radar,
 } from 'recharts';
 import { exportToCsv } from '@/lib/export';
+import {
+  fetchReportDashboards,
+  createReportDashboard,
+  type ReportDashboardItem,
+} from '@/services/reports-management.service';
 
 interface Dashboard {
   id: string;
@@ -134,6 +139,8 @@ export default function DashboardsPage() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(30);
   const [showWidgetLibrary, setShowWidgetLibrary] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const categories = ['All', 'Overview', 'Sales', 'Operations', 'Finance', 'Analytics', 'Custom'];
 
@@ -182,77 +189,60 @@ export default function DashboardsPage() {
     }
   }, [autoRefresh, refreshInterval, selectedDashboard]);
 
-  const loadDashboards = () => {
-    const sampleDashboards: Dashboard[] = [
-      {
-        id: '1',
-        name: 'Executive Overview',
-        description: 'High-level KPIs and metrics for executive decision making',
-        category: 'Overview',
-        isDefault: true,
-        isLocked: false,
-        isFavorite: true,
-        createdBy: 'System',
-        createdAt: '2024-01-01',
-        lastModified: '2024-10-17',
-        widgets: [],
-        layout: { columns: 12, rows: 8, gap: 16 },
-      },
-      {
-        id: '2',
-        name: 'Sales Performance',
-        description: 'Detailed sales analytics and performance tracking',
-        category: 'Sales',
-        isDefault: false,
-        isLocked: false,
-        isFavorite: true,
-        createdBy: 'John Doe',
-        createdAt: '2024-02-15',
-        lastModified: '2024-10-16',
-        widgets: [],
-        layout: { columns: 12, rows: 8, gap: 16 },
-      },
-      {
-        id: '3',
-        name: 'Operations Monitor',
-        description: 'Real-time operational metrics and alerts',
-        category: 'Operations',
-        isDefault: false,
-        isLocked: false,
-        isFavorite: false,
-        createdBy: 'Jane Smith',
-        createdAt: '2024-03-20',
-        lastModified: '2024-10-15',
-        widgets: [],
-        layout: { columns: 12, rows: 8, gap: 16 },
-      },
-    ];
-    setDashboards(sampleDashboards);
-    setSelectedDashboard(sampleDashboards[0]);
+  const mapToDashboard = (row: ReportDashboardItem): Dashboard => ({
+    id: row.id,
+    name: row.name,
+    description: row.description ?? '',
+    category: row.category ?? 'Custom',
+    isDefault: !!row.isDefault,
+    isLocked: !!row.isLocked,
+    isFavorite: !!row.isFavorite,
+    createdBy: row.createdByName ?? 'Unknown',
+    createdAt: (row.createdAt ?? '').split('T')[0] ?? '',
+    lastModified: (row.updatedAt ?? '').split('T')[0] ?? '',
+    widgets: [],
+    layout: (row.layout as unknown as LayoutConfig) ?? { columns: 12, rows: 8, gap: 16 },
+  });
+
+  const loadDashboards = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const rows = await fetchReportDashboards();
+      const mapped = rows.map(mapToDashboard);
+      setDashboards(mapped);
+      setSelectedDashboard((prev) =>
+        prev ? mapped.find((d) => d.id === prev.id) ?? mapped[0] ?? null : mapped[0] ?? null,
+      );
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load dashboards');
+      setDashboards([]);
+      setSelectedDashboard(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCreateDashboard = () => {
     setIsCreating(true);
   };
 
-  const handleSaveDashboard = (name: string, description: string, category: string) => {
-    const newDashboard: Dashboard = {
-      id: Date.now().toString(),
-      name,
-      description,
-      category,
-      isDefault: false,
-      isLocked: false,
-      isFavorite: false,
-      createdBy: 'Current User',
-      createdAt: new Date().toISOString().split('T')[0],
-      lastModified: new Date().toISOString().split('T')[0],
-      widgets: [],
-      layout: { columns: 12, rows: 8, gap: 16 },
-    };
-    setDashboards([...dashboards, newDashboard]);
-    setSelectedDashboard(newDashboard);
-    setIsCreating(false);
+  const handleSaveDashboard = async (name: string, description: string, category: string) => {
+    try {
+      const created = await createReportDashboard({
+        name,
+        description,
+        category,
+        createdByName: 'Current User',
+        layout: { columns: 12, rows: 8, gap: 16 },
+      });
+      const mapped = mapToDashboard(created);
+      setDashboards((prev) => [...prev, mapped]);
+      setSelectedDashboard(mapped);
+      setIsCreating(false);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to create dashboard');
+    }
   };
 
   const handleDeleteDashboard = (id: string) => {
@@ -628,6 +618,18 @@ export default function DashboardsPage() {
             {/* Dashboard List */}
             <div className="bg-white rounded-lg shadow-sm p-3">
               <h2 className="text-xl font-bold text-gray-900 mb-2">My Dashboards</h2>
+              {loadError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {loadError}
+                </div>
+              )}
+              {isLoading ? (
+                <div className="py-8 text-center text-gray-500">Loading dashboards…</div>
+              ) : !loadError && filteredDashboards.length === 0 ? (
+                <div className="py-8 text-center text-gray-500">
+                  No dashboards found. Create your first dashboard to get started.
+                </div>
+              ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {filteredDashboards.map((dashboard) => (
                   <div
@@ -709,6 +711,7 @@ export default function DashboardsPage() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
           </>
         )}
