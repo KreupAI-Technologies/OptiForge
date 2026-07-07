@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RealTimeCollaborationPanel,
   TeamChatIntegration,
@@ -8,11 +8,128 @@ import {
   CrossFunctionalTimeline,
   CustomerPortal
 } from '@/components/industry4';
+import { collaborationService, type TeamActivity } from '@/services/collaboration.service';
+
+const COMPANY_ID = process.env.NEXT_PUBLIC_COMPANY_ID || 'default-company-id';
 
 type CollaborationTab = 'overview' | 'team' | 'chat' | 'handoff' | 'timeline' | 'customer';
 
+interface CollabOverviewStats {
+  teamOnline: number;
+  teamTotal: number;
+  activeConversations: number;
+  unreadMessages: number;
+  pendingHandoffs: number;
+  customerApprovals: number;
+}
+
+interface CollabActivityItem {
+  id: string;
+  user: string;
+  avatar: string;
+  action: string;
+  target: string;
+  time: string;
+  type: string;
+}
+
+function toRelativeTime(value?: string | Date): string {
+  if (!value) return '';
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return '';
+  const diffMs = Date.now() - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function initialsOf(name?: string): string {
+  if (!name) return '??';
+  return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+}
+
 export default function CollaborationDashboardPage() {
   const [activeTab, setActiveTab] = useState<CollaborationTab>('overview');
+
+  const DEFAULT_STATS: CollabOverviewStats = {
+    teamOnline: 12,
+    teamTotal: 18,
+    activeConversations: 8,
+    unreadMessages: 3,
+    pendingHandoffs: 2,
+    customerApprovals: 3,
+  };
+
+  const DEFAULT_ACTIVITY: CollabActivityItem[] = [
+    { id: '1', user: 'Sarah Chen', avatar: 'SC', action: 'completed milestone', target: 'Phase 1 Inspection', time: '5m ago', type: 'milestone' },
+    { id: '2', user: 'Mike Rodriguez', avatar: 'MR', action: 'uploaded', target: 'QC Report #547', time: '15m ago', type: 'document' },
+    { id: '3', user: 'James Park', avatar: 'JP', action: 'started shift handoff', target: 'Morning → Afternoon', time: '20m ago', type: 'handoff' },
+    { id: '4', user: 'Emily Watson', avatar: 'EW', action: 'approved', target: 'Material Order #892', time: '35m ago', type: 'approval' },
+    { id: '5', user: 'David Kim', avatar: 'DK', action: 'commented on', target: 'Work Order #1547', time: '45m ago', type: 'comment' },
+    { id: '6', user: 'Lisa Thompson', avatar: 'LT', action: 'updated', target: 'Design Drawing v2.3', time: '1h ago', type: 'update' },
+  ];
+
+  const [stats, setStats] = useState<CollabOverviewStats>(DEFAULT_STATS);
+  const [activityFeed, setActivityFeed] = useState<CollabActivityItem[]>(DEFAULT_ACTIVITY);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoadError(null);
+      try {
+        const [activeUsers, pendingHandoffs, customerAccess, recent] = await Promise.all([
+          collaborationService.getActiveUsers(COMPANY_ID).catch(() => []),
+          collaborationService.getPendingHandoffs(COMPANY_ID).catch(() => []),
+          collaborationService
+            .getCustomerPortalAccesses({ companyId: COMPANY_ID, approvalStatus: 'pending' })
+            .catch(() => []),
+          collaborationService.getRecentActivity(COMPANY_ID, 6).catch(() => [] as TeamActivity[]),
+        ]);
+
+        if (cancelled) return;
+
+        const users = Array.isArray(activeUsers) ? activeUsers : [];
+        const handoffs = Array.isArray(pendingHandoffs) ? pendingHandoffs : [];
+        const approvals = Array.isArray(customerAccess) ? customerAccess : [];
+        const recentArr = Array.isArray(recent) ? recent : [];
+
+        setStats({
+          teamOnline: users.length || DEFAULT_STATS.teamOnline,
+          teamTotal: Math.max(users.length, DEFAULT_STATS.teamTotal),
+          activeConversations: recentArr.length || DEFAULT_STATS.activeConversations,
+          unreadMessages: DEFAULT_STATS.unreadMessages,
+          pendingHandoffs: handoffs.length,
+          customerApprovals: approvals.length,
+        });
+
+        if (recentArr.length > 0) {
+          setActivityFeed(
+            recentArr.map((a: any) => ({
+              id: a.id ?? Math.random().toString(),
+              user: a.userName ?? 'Unknown',
+              avatar: initialsOf(a.userName),
+              action: a.activityType ?? 'updated',
+              target: a.resourceName ?? a.activityDescription ?? '',
+              time: toRelativeTime(a.activityAt ?? a.createdAt),
+              type: a.activityType ?? 'update',
+            })),
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load collaboration data');
+        }
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const tabs: { id: CollaborationTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -31,8 +148,8 @@ export default function CollaborationDashboardPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-blue-100 text-sm">Team Online</p>
-              <p className="text-4xl font-bold mt-1">12</p>
-              <p className="text-blue-100 text-xs mt-2">of 18 team members</p>
+              <p className="text-4xl font-bold mt-1">{stats.teamOnline}</p>
+              <p className="text-blue-100 text-xs mt-2">of {stats.teamTotal} team members</p>
             </div>
             <div className="text-3xl opacity-80">👥</div>
           </div>
@@ -41,8 +158,8 @@ export default function CollaborationDashboardPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-green-100 text-sm">Active Conversations</p>
-              <p className="text-4xl font-bold mt-1">8</p>
-              <p className="text-green-100 text-xs mt-2">3 unread messages</p>
+              <p className="text-4xl font-bold mt-1">{stats.activeConversations}</p>
+              <p className="text-green-100 text-xs mt-2">{stats.unreadMessages} unread messages</p>
             </div>
             <div className="text-3xl opacity-80">💬</div>
           </div>
@@ -51,8 +168,8 @@ export default function CollaborationDashboardPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-amber-100 text-sm">Pending Handoffs</p>
-              <p className="text-4xl font-bold mt-1">2</p>
-              <p className="text-amber-100 text-xs mt-2">Next shift in 2h</p>
+              <p className="text-4xl font-bold mt-1">{stats.pendingHandoffs}</p>
+              <p className="text-amber-100 text-xs mt-2">Awaiting acknowledgement</p>
             </div>
             <div className="text-3xl opacity-80">🔄</div>
           </div>
@@ -61,7 +178,7 @@ export default function CollaborationDashboardPage() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-purple-100 text-sm">Customer Approvals</p>
-              <p className="text-4xl font-bold mt-1">3</p>
+              <p className="text-4xl font-bold mt-1">{stats.customerApprovals}</p>
               <p className="text-purple-100 text-xs mt-2">Awaiting response</p>
             </div>
             <div className="text-3xl opacity-80">✓</div>
@@ -117,15 +234,14 @@ export default function CollaborationDashboardPage() {
         <div className="col-span-2">
           <div className="bg-white border border-gray-200 rounded-lg p-3">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">Activity Feed</h3>
+            {loadError && (
+              <p className="text-xs text-amber-600 mb-2">Live feed unavailable — showing recent samples.</p>
+            )}
             <div className="space-y-2">
-              {[
-                { user: 'Sarah Chen', avatar: 'SC', action: 'completed milestone', target: 'Phase 1 Inspection', time: '5m ago', type: 'milestone' },
-                { user: 'Mike Rodriguez', avatar: 'MR', action: 'uploaded', target: 'QC Report #547', time: '15m ago', type: 'document' },
-                { user: 'James Park', avatar: 'JP', action: 'started shift handoff', target: 'Morning → Afternoon', time: '20m ago', type: 'handoff' },
-                { user: 'Emily Watson', avatar: 'EW', action: 'approved', target: 'Material Order #892', time: '35m ago', type: 'approval' },
-                { user: 'David Kim', avatar: 'DK', action: 'commented on', target: 'Work Order #1547', time: '45m ago', type: 'comment' },
-                { user: 'Lisa Thompson', avatar: 'LT', action: 'updated', target: 'Design Drawing v2.3', time: '1h ago', type: 'update' },
-              ].map((activity, idx) => (
+              {activityFeed.length === 0 && (
+                <p className="text-sm text-gray-400 py-6 text-center">No recent activity.</p>
+              )}
+              {activityFeed.map((activity, idx) => (
                 <div key={idx} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
                     {activity.avatar}

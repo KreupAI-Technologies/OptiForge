@@ -20127,3 +20127,28 @@ model FinanceIntegration {
 
   @@map("finance_integrations")
 }
+
+model ProductionVariance {
+  id              String    @id @default(uuid())
+  companyId       String
+  category        String
+  workOrder       String?
+  product         String?
+  subCategory     String?
+  plannedValue    Decimal   @default(0) @db.Decimal(14, 2)
+  actualValue     Decimal   @default(0) @db.Decimal(14, 2)
+  variance        Decimal   @default(0) @db.Decimal(14, 2)
+  variancePercent Decimal   @default(0) @db.Decimal(8, 2)
+  impactCost      Decimal   @default(0) @db.Decimal(14, 2)
+  status          String    @default("unfavorable")
+  reason          String?
+  action          String?
+  metrics         Json?
+  recordDate      DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([companyId, category])
+  @@map("production_variances")
+}

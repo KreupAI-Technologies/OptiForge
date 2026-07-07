@@ -81,3 +81,5 @@ export * from './team-activity.controller';
 export * from './team-message.controller';
 export * from './shift-handoff.controller';
 export * from './customer-portal-access.controller';
+
+export * from './production-variance.controller';

@@ -83,3 +83,5 @@ export * from './team-activity.entity';
 export * from './team-message.entity';
 export * from './shift-handoff.entity';
 export * from './customer-portal-access.entity';
+
+export * from './production-variance.entity';

@@ -1,7 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart3, TrendingUp, Clock, Zap, AlertCircle, Download, RefreshCw, Settings, Eye, FileText, TrendingDown } from 'lucide-react';
+import {
+  productionAnalyticsService,
+  type OEERecord,
+} from '@/services/production/production-analytics.service';
 
 export interface OEEData {
   machineId: string;
@@ -21,7 +25,7 @@ export interface OEEData {
 }
 
 const OEEAnalytics: React.FC = () => {
-  const oeeData: OEEData[] = [
+  const DEFAULT_OEE_DATA: OEEData[] = [
     {
       machineId: 'M001',
       machineName: 'CNC Mill #1',
@@ -72,7 +76,48 @@ const OEEAnalytics: React.FC = () => {
     },
   ];
 
-  const avgOEE = oeeData.reduce((sum, d) => sum + d.oee, 0) / oeeData.length;
+  const [oeeData, setOeeData] = useState<OEEData[]>(DEFAULT_OEE_DATA);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const mapRecord = useCallback((r: OEERecord): OEEData => ({
+    machineId: r.workCenterId || r.id,
+    machineName: r.workCenterName || r.productionLineName || 'Work Center',
+    oee: Number(r.oee) || 0,
+    availability: Number(r.availability) || 0,
+    performance: Number(r.performance) || 0,
+    quality: Number(r.quality) || 0,
+    plannedProductionTime: Number(r.plannedProductionTime) || 0,
+    actualRuntime: Number(r.actualRunTime) || 0,
+    downtime: Number(r.downtime) || 0,
+    idealCycleTime: Number(r.idealCycleTime) || 0,
+    actualCycleTime: Number(r.actualCycleTime) || 0,
+    totalParts: Number(r.totalCount) || 0,
+    goodParts: Number(r.goodCount) || 0,
+    defectParts: Number(r.rejectCount) || 0,
+  }), []);
+
+  const loadOEE = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const records = await productionAnalyticsService.findAllOEERecords();
+      const rows = Array.isArray(records) ? records : [];
+      if (rows.length > 0) {
+        setOeeData(rows.map(mapRecord));
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load OEE data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [mapRecord]);
+
+  useEffect(() => {
+    loadOEE();
+  }, [loadOEE]);
+
+  const avgOEE = oeeData.length > 0 ? oeeData.reduce((sum, d) => sum + d.oee, 0) / oeeData.length : 0;
 
   const getOEEColor = (oee: number): string => {
     if (oee >= 85) return 'text-green-600';
@@ -88,8 +133,7 @@ const OEEAnalytics: React.FC = () => {
 
   // Handler functions
   const handleRefreshOEE = () => {
-    console.log('Refreshing OEE data...');
-    alert('Refreshing OEE Analytics data...\n\nReal-time data from all machines will be updated.\nAvailability, Performance, and Quality metrics recalculated.');
+    loadOEE();
   };
 
   const handleExportOEE = () => {
@@ -129,7 +173,13 @@ const OEEAnalytics: React.FC = () => {
             <BarChart3 className="h-8 w-8" />
             <div>
               <h2 className="text-2xl font-bold">OEE Analytics & Drill-Down</h2>
-              <p className="text-orange-100">Overall Equipment Effectiveness monitoring</p>
+              <p className="text-orange-100">
+                {isLoading
+                  ? 'Loading live OEE data…'
+                  : loadError
+                    ? 'Live data unavailable — showing reference figures'
+                    : 'Overall Equipment Effectiveness monitoring'}
+              </p>
             </div>
           </div>
           <div className="flex space-x-2">
