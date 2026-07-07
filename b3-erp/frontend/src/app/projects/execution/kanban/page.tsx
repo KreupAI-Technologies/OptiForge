@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Trello, Search, Filter, Settings, User, Calendar, Tag, AlertCircle, Clock } from 'lucide-react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface KanbanCard {
   id: string;
@@ -18,219 +19,6 @@ interface KanbanCard {
   tags: string[];
   column: 'backlog' | 'todo' | 'in-progress' | 'review' | 'done';
 }
-
-const mockKanbanData: KanbanCard[] = [
-  {
-    id: '1',
-    taskNumber: 'TASK-1001',
-    title: 'Design Kitchen Layout',
-    description: 'Create detailed layout drawings with measurements',
-    projectCode: 'PRJ-2025-001',
-    projectName: 'Kitchen Fitout - Tower A',
-    assignee: 'Priya Patel',
-    priority: 'high',
-    dueDate: '2025-10-28',
-    estimatedHours: 16,
-    tags: ['design', 'planning'],
-    column: 'done'
-  },
-  {
-    id: '2',
-    taskNumber: 'TASK-1002',
-    title: 'Procure Hardware',
-    description: 'Order hinges, handles, and drawer slides',
-    projectCode: 'PRJ-2025-001',
-    projectName: 'Kitchen Fitout - Tower A',
-    assignee: 'Procurement Team',
-    priority: 'critical',
-    dueDate: '2025-10-29',
-    estimatedHours: 8,
-    tags: ['procurement', 'materials'],
-    column: 'in-progress'
-  },
-  {
-    id: '3',
-    taskNumber: 'TASK-1003',
-    title: 'Fabricate Base Cabinets',
-    description: '12 base cabinet units with soft-close drawers',
-    projectCode: 'PRJ-2025-001',
-    projectName: 'Kitchen Fitout - Tower A',
-    assignee: 'Workshop A',
-    priority: 'high',
-    dueDate: '2025-11-01',
-    estimatedHours: 120,
-    tags: ['fabrication', 'carpentry'],
-    column: 'in-progress'
-  },
-  {
-    id: '4',
-    taskNumber: 'TASK-1004',
-    title: 'Install Countertop',
-    description: 'Black galaxy granite countertop installation',
-    projectCode: 'PRJ-2025-001',
-    projectName: 'Kitchen Fitout - Tower A',
-    assignee: 'Stone Contractor',
-    priority: 'medium',
-    dueDate: '2025-11-03',
-    estimatedHours: 16,
-    tags: ['installation', 'granite'],
-    column: 'todo'
-  },
-  {
-    id: '5',
-    taskNumber: 'TASK-1005',
-    title: 'Quality Inspection',
-    description: 'Final QC check before handover',
-    projectCode: 'PRJ-2025-001',
-    projectName: 'Kitchen Fitout - Tower A',
-    assignee: 'QC Team',
-    priority: 'high',
-    dueDate: '2025-11-09',
-    estimatedHours: 8,
-    tags: ['quality', 'inspection'],
-    column: 'backlog'
-  },
-  {
-    id: '6',
-    taskNumber: 'TASK-2001',
-    title: 'Wardrobe Design Approval',
-    description: 'Get client sign-off on wardrobe designs',
-    projectCode: 'PRJ-2025-002',
-    projectName: 'Luxury Villa Wardrobes',
-    assignee: 'Design Lead',
-    priority: 'critical',
-    dueDate: '2025-10-27',
-    estimatedHours: 12,
-    tags: ['design', 'approval'],
-    column: 'review'
-  },
-  {
-    id: '7',
-    taskNumber: 'TASK-2002',
-    title: 'Fabricate Wardrobe Frames',
-    description: 'Build 6 wardrobe carcass units',
-    projectCode: 'PRJ-2025-002',
-    projectName: 'Luxury Villa Wardrobes',
-    assignee: 'Carpentry Team',
-    priority: 'high',
-    dueDate: '2025-11-05',
-    estimatedHours: 160,
-    tags: ['fabrication', 'carpentry'],
-    column: 'in-progress'
-  },
-  {
-    id: '8',
-    taskNumber: 'TASK-2003',
-    title: 'Install Wardrobe Internals',
-    description: 'Drawers, shelves, and accessories installation',
-    projectCode: 'PRJ-2025-002',
-    projectName: 'Luxury Villa Wardrobes',
-    assignee: 'Fitting Team',
-    priority: 'medium',
-    dueDate: '2025-11-10',
-    estimatedHours: 68,
-    tags: ['installation', 'fitting'],
-    column: 'todo'
-  },
-  {
-    id: '9',
-    taskNumber: 'TASK-3001',
-    title: 'Site Survey',
-    description: 'Measure pantry area and confirm dimensions',
-    projectCode: 'PRJ-2025-003',
-    projectName: 'Corporate Pantry Rollout',
-    assignee: 'Site Engineer',
-    priority: 'high',
-    dueDate: '2025-10-26',
-    estimatedHours: 8,
-    tags: ['survey', 'planning'],
-    column: 'done'
-  },
-  {
-    id: '10',
-    taskNumber: 'TASK-3002',
-    title: 'Fabricate Pantry Units',
-    description: 'Modular pantry base and wall units',
-    projectCode: 'PRJ-2025-003',
-    projectName: 'Corporate Pantry Rollout',
-    assignee: 'Production Head',
-    priority: 'critical',
-    dueDate: '2025-10-30',
-    estimatedHours: 192,
-    tags: ['fabrication', 'production'],
-    column: 'in-progress'
-  },
-  {
-    id: '11',
-    taskNumber: 'TASK-3003',
-    title: 'Install & Commission',
-    description: 'Site installation and final commissioning',
-    projectCode: 'PRJ-2025-003',
-    projectName: 'Corporate Pantry Rollout',
-    assignee: 'Installation Manager',
-    priority: 'high',
-    dueDate: '2025-11-02',
-    estimatedHours: 80,
-    tags: ['installation', 'commissioning'],
-    column: 'todo'
-  },
-  {
-    id: '12',
-    taskNumber: 'TASK-4001',
-    title: 'Demolition Work',
-    description: 'Remove existing fixtures and fittings',
-    projectCode: 'PRJ-2025-004',
-    projectName: 'Showroom Refurbishment',
-    assignee: 'Demolition Contractor',
-    priority: 'high',
-    dueDate: '2025-10-25',
-    estimatedHours: 64,
-    tags: ['demolition', 'site-prep'],
-    column: 'done'
-  },
-  {
-    id: '13',
-    taskNumber: 'TASK-4002',
-    title: 'Build Display Wall',
-    description: 'Modular display wall system with LED lighting',
-    projectCode: 'PRJ-2025-004',
-    projectName: 'Showroom Refurbishment',
-    assignee: 'Installation Team',
-    priority: 'critical',
-    dueDate: '2025-11-01',
-    estimatedHours: 160,
-    tags: ['fabrication', 'installation'],
-    column: 'in-progress'
-  },
-  {
-    id: '14',
-    taskNumber: 'TASK-4003',
-    title: 'Reception Desk Setup',
-    description: 'Custom reception desk with Corian top',
-    projectCode: 'PRJ-2025-004',
-    projectName: 'Showroom Refurbishment',
-    assignee: 'Fabrication Team',
-    priority: 'medium',
-    dueDate: '2025-11-05',
-    estimatedHours: 80,
-    tags: ['fabrication', 'furniture'],
-    column: 'review'
-  },
-  {
-    id: '15',
-    taskNumber: 'TASK-5001',
-    title: 'Hotel Room Refurbishment',
-    description: 'Wardrobe and furniture refurbishment for 50 rooms',
-    projectCode: 'PRJ-2025-005',
-    projectName: 'Hotel Renovation Phase 2',
-    assignee: 'Project Team',
-    priority: 'high',
-    dueDate: '2025-11-15',
-    estimatedHours: 400,
-    tags: ['furniture', 'refurbishment'],
-    column: 'todo'
-  }
-];
 
 const columns = [
   { id: 'backlog', name: 'Backlog', color: 'gray' },
@@ -551,9 +339,14 @@ export default function KanbanBoardPage() {
                     </div>
                   ))}
 
-                  {cardsByColumn[column.id].length === 0 && (
-                    <div className="bg-white bg-opacity-50 rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-                      <p className="text-sm text-gray-500">No tasks in this column</p>
+                  {!isLoading && cardsByColumn[column.id].length === 0 && (
+                    <div className="bg-white bg-opacity-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <EmptyState
+                        size="sm"
+                        icon={Trello}
+                        title="No tasks"
+                        description={rows.length === 0 ? 'No kanban cards available yet.' : 'No tasks match the current filters.'}
+                      />
                     </div>
                   )}
                 </div>

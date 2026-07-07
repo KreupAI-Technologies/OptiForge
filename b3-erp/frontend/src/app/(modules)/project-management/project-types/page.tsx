@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { projectManagementService } from '@/services/ProjectManagementService';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
  FolderKanban,
  Plus,
@@ -168,11 +169,14 @@ export default function ProjectTypesPage() {
  };
 
  const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
+ const [loadingTypes, setLoadingTypes] = useState(true);
 
  useEffect(() => {
+  setLoadingTypes(true);
   projectManagementService.listPmProjectTypes()
    .then((rows) => { setProjectTypes(Array.isArray(rows) ? (rows as unknown as ProjectType[]) : []); })
-   .catch(() => { setProjectTypes([]); });
+   .catch(() => { setProjectTypes([]); })
+   .finally(() => { setLoadingTypes(false); });
  }, []);
 
  // Mock project categories - 6 records
@@ -407,7 +411,17 @@ export default function ProjectTypesPage() {
    </div>
 
    {/* Project Types Tab */}
-   {activeTab === 'types' && (
+   {activeTab === 'types' && !loadingTypes && filteredTypes.length === 0 && (
+    <EmptyState
+     icon={FolderKanban}
+     title="No project types found"
+     description={searchTerm || categoryFilter !== 'all'
+      ? 'No project types match your current filters.'
+      : 'Get started by creating your first project type.'}
+     action={{ label: 'Create Project Type', onClick: () => setShowCreateTypeModal(true), icon: Plus }}
+    />
+   )}
+   {activeTab === 'types' && (filteredTypes.length > 0 || loadingTypes) && (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
      {filteredTypes.map((type) => (
       <div key={type.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md transition-shadow">

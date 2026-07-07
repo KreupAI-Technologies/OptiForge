@@ -31,6 +31,7 @@ import {
   Movement
 } from '@/components/inventory/InventoryMovementModals'
 import { exportToCsv } from '@/lib/export'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 interface InventoryMovement {
   id: string
@@ -47,6 +48,7 @@ interface InventoryMovement {
   initiatedBy: string
   remarks: string
   unitOfMeasure: string
+  cost: number
 }
 
 const InventoryMovementsPage = () => {
@@ -103,6 +105,7 @@ const InventoryMovementsPage = () => {
           initiatedBy: e.createdBy ?? e.initiatedBy ?? e.createdByName ?? '',
           remarks: e.remarks ?? e.notes ?? '',
           unitOfMeasure: e.uom ?? e.unitOfMeasure ?? '',
+          cost: Number(e.totalValue ?? e.totalCost ?? e.unitCost ?? e.cost ?? e.valuationRate ?? 0),
         }))
         if (!cancelled) setMovements(mapped)
       } catch (err) {
@@ -331,7 +334,7 @@ const InventoryMovementsPage = () => {
         quantity: movement.quantity,
         uom: movement.unitOfMeasure,
         location: movement.toLocation,
-        cost: 0 // TODO: Add actual cost
+        cost: movement.cost
       }],
       createdBy: movement.initiatedBy,
       createdDate: movement.date
@@ -351,6 +354,20 @@ const InventoryMovementsPage = () => {
 
   const handleViewHistory = () => {
     setIsHistoryOpen(true)
+  }
+
+  // Edit is limited to the mutable remarks field: the create modals have no
+  // edit/initialData mode, so a full edit form is out of scope for this phase.
+  // Persists via the existing PUT /inventory/stock-entries/:id endpoint.
+  const handleEditMovement = async (movement: InventoryMovement) => {
+    const nextRemarks = window.prompt('Update remarks for this movement:', movement.remarks)
+    if (nextRemarks === null || nextRemarks === movement.remarks) return
+    try {
+      await inventoryService.updateStockEntry(movement.id, { remarks: nextRemarks })
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update movement.')
+    }
   }
 
   return (
@@ -588,8 +605,7 @@ const InventoryMovementsPage = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            console.log('Edit movement:', movement.id)
-                            // TODO: Implement edit functionality
+                            handleEditMovement(movement)
                           }}
                           className="p-1 text-gray-600 hover:bg-gray-50 rounded transition-colors"
                           title="Edit Movement"
@@ -600,6 +616,21 @@ const InventoryMovementsPage = () => {
                     </td>
                   </tr>
                 ))}
+                {!isLoading && currentMovements.length === 0 && (
+                  <tr>
+                    <td colSpan={11} className="px-3 py-8">
+                      <EmptyState
+                        icon={ArrowRightLeft}
+                        title="No stock movements found"
+                        description={
+                          movements.length === 0
+                            ? 'No inventory movements have been recorded yet. Use Receive, Issue, or Record Return to create one.'
+                            : 'No movements match your current search and filters.'
+                        }
+                      />
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

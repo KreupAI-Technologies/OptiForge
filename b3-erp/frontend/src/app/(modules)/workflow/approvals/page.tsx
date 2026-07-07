@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Eye, CheckCircle, XCircle, Clock, AlertCircle,
@@ -75,13 +75,14 @@ export default function ApprovalsPage() {
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<
+    { kind: 'success' | 'error'; message: string } | null
+  >(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
+  const loadApprovals = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
         // Service returns the backend ApprovalRequest shape (documentType/
         // documentNumber/dueDate/justification/approvalHistory); map it
         // defensively to this page's ApprovalRequest model.
@@ -158,21 +159,18 @@ export default function ApprovalsPage() {
             history,
           };
         });
-        if (!cancelled) setApprovals(mapped);
+        setApprovals(mapped);
       } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof Error ? err.message : 'Failed to load approval requests');
-          setApprovals([]);
-        }
+        setLoadError(err instanceof Error ? err.message : 'Failed to load approval requests');
+        setApprovals([]);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        setIsLoading(false);
       }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadApprovals();
+  }, [loadApprovals]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -247,6 +245,7 @@ export default function ApprovalsPage() {
     if (!selectedApproval || !modalAction) return;
 
     setIsSubmitting(true);
+    setActionFeedback(null);
 
     try {
       await approvalService.processAction(
@@ -256,17 +255,23 @@ export default function ApprovalsPage() {
         actionComment || undefined
       );
 
-      setApprovals(approvals.map(a =>
-        a.id === selectedApproval.id
-          ? { ...a, status: modalAction === 'approve' ? 'approved' : 'rejected' }
-          : a
-      ));
-
-      alert(`Request ${modalAction === 'approve' ? 'approved' : 'rejected'} successfully!`);
+      const title = selectedApproval.title;
       closeModal();
+      // Re-fetch from the backend so status, level, and history reflect the
+      // server's authoritative state rather than an optimistic guess.
+      await loadApprovals();
+      setActionFeedback({
+        kind: 'success',
+        message: `"${title}" ${modalAction === 'approve' ? 'approved' : 'rejected'} successfully.`,
+      });
     } catch (error) {
-      console.error('Error submitting action:', error);
-      alert('Failed to submit action. Please try again.');
+      setActionFeedback({
+        kind: 'error',
+        message:
+          error instanceof Error
+            ? `Failed to submit action: ${error.message}`
+            : 'Failed to submit action. Please try again.',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -286,16 +291,19 @@ export default function ApprovalsPage() {
     setShowDelegationModal(true);
   };
 
+  // No delegate/reassign endpoint exists on approvalService (only
+  // processAction for approve/reject). The delegation action is disabled and
+  // surfaces an honest "not yet available" message instead of faking success.
   const handleSubmitDelegation = () => {
-    if (!delegationApproval || !delegateTo) return;
-
-    // No delegate/reassign endpoint exists on approvalService (only
-    // processAction for approve/reject). Kept as UI-only until a delegation
-    // API is added to ApprovalService.
-    alert(`Task "${delegationApproval.title}" delegated to ${delegateTo}`);
+    if (!delegationApproval) return;
     setShowDelegationModal(false);
     setDelegationApproval(null);
     setDelegateTo('');
+    setActionFeedback({
+      kind: 'error',
+      message:
+        'Delegation is not yet available — the workflow backend does not expose a delegate/reassign endpoint.',
+    });
   };
 
   const getDaysRemainingColor = (days: number) => {
@@ -332,6 +340,31 @@ export default function ApprovalsPage() {
       {!isLoading && !loadError && approvals.length === 0 && (
         <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
           No approval requests found.
+        </div>
+      )}
+      {actionFeedback && (
+        <div
+          className={`mb-3 flex items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm ${
+            actionFeedback.kind === 'success'
+              ? 'border-green-200 bg-green-50 text-green-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            {actionFeedback.kind === 'success' ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <AlertCircle className="h-4 w-4" />
+            )}
+            {actionFeedback.message}
+          </span>
+          <button
+            onClick={() => setActionFeedback(null)}
+            className="text-current opacity-60 hover:opacity-100"
+            aria-label="Dismiss"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
         </div>
       )}
       {/* Stats Cards */}
@@ -1045,10 +1078,11 @@ export default function ApprovalsPage() {
                 </select>
               </div>
 
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> The selected user will receive this task in their approval inbox.
-                  You will no longer be responsible for this approval.
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Not yet available:</strong> Delegation requires a
+                  delegate/reassign endpoint on the workflow backend, which does
+                  not exist yet. This action is disabled until that API is added.
                 </p>
               </div>
             </div>
@@ -1063,8 +1097,9 @@ export default function ApprovalsPage() {
               </button>
               <button
                 onClick={handleSubmitDelegation}
-                disabled={!delegateTo}
-                className="px-4 py-2 rounded-lg text-white transition-colors flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 disabled:cursor-not-allowed"
+                disabled
+                title="Delegation endpoint not available on the workflow backend"
+                className="px-4 py-2 rounded-lg text-white transition-colors flex items-center space-x-2 bg-purple-300 cursor-not-allowed"
               >
                 <Users className="h-4 w-4" />
                 <span>Delegate Task</span>

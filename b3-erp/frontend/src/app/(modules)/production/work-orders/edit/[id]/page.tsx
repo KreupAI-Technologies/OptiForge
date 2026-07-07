@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ProductionOrphanService } from '@/services/production/production-orphan.service';
 import { workOrderService } from '@/services/work-order.service';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   ArrowLeft,
   Save,
@@ -280,49 +281,57 @@ export default function EditWorkOrderPage() {
   const params = useParams();
   const workOrderId = params.id as string;
 
-  // Pre-populated with existing work order data
-  const [formData, setFormData] = useState<WorkOrderFormData>({
-    woNumber: 'WO-2025-00143',
-    productCode: 'MKC-CAB-001',
-    productName: 'Premium Modular Kitchen Cabinet - Upper Unit',
-    productDescription: '900mm x 600mm x 300mm Wall-mounted Cabinet with Soft-close Hinges',
-    drawingNumber: 'DRG-MKC-001-Rev3',
-    revision: 'C',
-    quantity: '50',
+  // Populated only from real fetched data — no mock fallback.
+  const emptyFormData: WorkOrderFormData = {
+    woNumber: '',
+    productCode: '',
+    productName: '',
+    productDescription: '',
+    drawingNumber: '',
+    revision: '',
+    quantity: '',
     uom: 'Pcs',
-    salesOrderRef: 'SO-2025-0892',
-    customerName: 'Sharma Modular Kitchens Pvt Ltd',
-    dueDate: '2025-10-22',
-    priority: 'High',
-    plannedStartDate: '2025-10-10',
-    plannedEndDate: '2025-10-20',
-    workCenter: 'Assembly Line 1',
-    secondaryWorkCenters: ['Machining Center', 'Paint Shop'],
-    shift: 'Morning/Afternoon',
-    supervisor: 'Rajesh Kumar',
-    foreman: 'Amit Patel',
-    bomRef: 'BOM-MKC-CAB-001-Rev2',
-    routingRef: 'RTG-MKC-CAB-001',
-    materialRequirements: mockBOMMaterials,
-    operations: mockRoutingOperations,
-    specialInstructions: 'Customer requires premium finish. Use German hinges (Blum brand). Ensure edge banding is perfect. Test all soft-close mechanisms before packing.',
-    estimatedMaterialCost: '145000',
-    estimatedLaborCost: '35000',
-    estimatedOverheadCost: '22000',
-  });
+    salesOrderRef: '',
+    customerName: '',
+    dueDate: '',
+    priority: 'Medium',
+    plannedStartDate: '',
+    plannedEndDate: '',
+    workCenter: '',
+    secondaryWorkCenters: [],
+    shift: '',
+    supervisor: '',
+    foreman: '',
+    bomRef: '',
+    routingRef: '',
+    materialRequirements: [],
+    operations: [],
+    specialInstructions: '',
+    estimatedMaterialCost: '',
+    estimatedLaborCost: '',
+    estimatedOverheadCost: '',
+  };
+
+  const [formData, setFormData] = useState<WorkOrderFormData>(emptyFormData);
 
   const [selectedSecondaryWC, setSelectedSecondaryWC] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setNotFound(false);
     ProductionOrphanService.getWorkOrder(workOrderId)
       .then((data) => {
         if (cancelled) return;
+        if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+          setNotFound(true);
+          return;
+        }
         const r = data || {};
         setFormData((prev) => ({
           ...prev,
@@ -353,7 +362,10 @@ export default function EditWorkOrderPage() {
         }));
       })
       .catch((e) => {
-        if (!cancelled) setError(e?.message || 'Failed to load work order');
+        if (!cancelled) {
+          setError(e?.message || 'Failed to load work order');
+          setNotFound(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -523,18 +535,40 @@ export default function EditWorkOrderPage() {
     }).format(amount);
   };
 
+  if (loading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-gray-50">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+          Loading work order…
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="w-full h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+        <EmptyState
+          icon={AlertCircle}
+          title="Work order not found"
+          description={error || `No work order exists for ID ${workOrderId}.`}
+          action={{
+            label: 'Back to Work Orders',
+            onClick: () => router.push('/production/work-orders'),
+            icon: ArrowLeft,
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50">
       <div className="flex-1 overflow-y-auto">
         <div className="px-3 py-2">
-          {loading && (
-            <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
-              Loading work order…
-            </div>
-          )}
           {error && (
             <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-              {error} — showing sample data.
+              {error}
             </div>
           )}
           {/* Header */}
