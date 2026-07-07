@@ -385,8 +385,10 @@ CREATE INDEX IF NOT EXISTS "IDX_it_system_monitor_kind" ON "it_system_monitor" (
 
 -- User sessions (security/sessions — IT-Admin session management console).
 -- Columns quoted to match the TypeORM entity (UserSession -> it_user_sessions).
--- "status" is varchar (not a pg enum) so console-only labels like 'Idle' /
--- 'Suspicious' can be stored/displayed without a destructive enum migration.
+-- NOTE: in the live DB "status" is a native enum (it_user_sessions_status_enum,
+-- values Active/Expired/Terminated/Logged Out) created by the TypeORM entity.
+-- The seed below omits "status" so the column default ('Active') applies —
+-- avoids a text->enum cast and works whether the column is enum or varchar.
 CREATE TABLE IF NOT EXISTS "it_user_sessions" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
   "userId" uuid NOT NULL,
@@ -422,12 +424,11 @@ CREATE INDEX IF NOT EXISTS "IDX_it_user_sessions_expiresAt" ON "it_user_sessions
 -- already exist in it_users (INSERT ... SELECT so it is FK-safe and no-ops
 -- when no users exist). ON CONFLICT keeps re-runs additive-clean.
 INSERT INTO "it_user_sessions"
-  ("id", "userId", "sessionToken", "status", "ipAddress", "userAgent", "device", "browser", "os", "location", "expiresAt", "lastActivityAt", "requestCount")
+  ("id", "userId", "sessionToken", "ipAddress", "userAgent", "device", "browser", "os", "location", "expiresAt", "lastActivityAt", "requestCount")
 SELECT
   ('00000000-0000-4000-8000-0000000000' || LPAD((rn)::text, 2, '0'))::uuid,
   u.id,
   'seed-session-token-' || u.id,
-  CASE WHEN rn = 3 THEN 'Idle' ELSE 'Active' END,
   CASE rn WHEN 1 THEN '103.21.244.45' WHEN 2 THEN '49.207.198.156' ELSE '103.50.161.89' END,
   'Mozilla/5.0 seed-agent',
   CASE rn WHEN 2 THEN 'Mobile' ELSE 'Desktop' END,

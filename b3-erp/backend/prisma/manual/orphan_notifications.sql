@@ -14,22 +14,22 @@
 -- EXISTS). Safe to re-run.
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS "notification_preferences" (
+CREATE TABLE IF NOT EXISTS "notification_user_preferences" (
   "id" uuid NOT NULL DEFAULT gen_random_uuid(),
   "userId" character varying(100) NOT NULL,
   "preferences" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "createdAt" timestamp without time zone NOT NULL DEFAULT now(),
   "updatedAt" timestamp without time zone NOT NULL DEFAULT now(),
-  CONSTRAINT "PK_notification_preferences" PRIMARY KEY ("id")
+  CONSTRAINT "PK_notification_user_preferences" PRIMARY KEY ("id")
 );
 
 -- One preferences row per user.
-CREATE UNIQUE INDEX IF NOT EXISTS "UQ_notification_preferences_user"
-  ON "notification_preferences" ("userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "UQ_notification_user_preferences_user"
+  ON "notification_user_preferences" ("userId");
 
 -- Seed a couple of idempotent default rows so the read endpoint returns data
 -- out of the box. ON CONFLICT keeps re-runs harmless.
-INSERT INTO "notification_preferences" ("userId", "preferences")
+INSERT INTO "notification_user_preferences" ("userId", "preferences")
 VALUES
   ('user-001', '{
     "enabled": true,

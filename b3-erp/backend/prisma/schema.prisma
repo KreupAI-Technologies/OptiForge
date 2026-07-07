@@ -15179,7 +15179,9 @@ model NotificationPreference {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("notification_preferences")
+  // Own table (NOT the workflow-owned "notification_preferences" TypeORM table,
+  // which has a different channel/type shape). Stores a per-user JSONB blob.
+  @@map("notification_user_preferences")
 }
 
 // ===================================================================
