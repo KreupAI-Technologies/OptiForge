@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { GitBranch, Play, Plus, Settings, Zap, ArrowRight, Circle, Square, Diamond } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { GitBranch, Play, Plus, Settings, Zap, ArrowRight, Circle, Square, Diamond, Loader2 } from 'lucide-react'
+import { workflowRepositoryService, WorkflowDefinitionDTO } from '@/services/workflow-repository.service'
 
 export type NodeType = 'trigger' | 'action' | 'condition' | 'loop' | 'delay' | 'end';
 
@@ -23,25 +24,72 @@ export interface Workflow {
   version: string;
 }
 
+// Map a backend WorkflowDefinition into the visual Workflow shape used here.
+function mapDefinitionToWorkflow(def: WorkflowDefinitionDTO): Workflow {
+  const status: Workflow['status'] =
+    def.status === 'active' ? 'active' : def.status === 'inactive' ? 'paused' : 'draft';
+
+  const nodes: WorkflowNode[] = [];
+
+  // Trigger node(s) from definition triggers
+  (def.triggers ?? []).forEach((t, i) => {
+    nodes.push({
+      id: `T${i + 1}`,
+      type: 'trigger',
+      label: t.event || 'Trigger',
+      config: (t.conditions as any) ?? { event: t.event },
+      position: { x: i, y: 0 },
+      connections: [],
+    });
+  });
+
+  // Step nodes from definition steps
+  (def.steps ?? []).forEach((s, i) => {
+    const firstAction = s.actions?.[0]?.type;
+    nodes.push({
+      id: s.id || `S${i + 1}`,
+      type: s.conditions && Object.keys(s.conditions).length > 0 ? 'condition' : 'action',
+      label: s.name || `Step ${i + 1}`,
+      config: firstAction ? { action: firstAction } : (s.conditions as any) ?? {},
+      position: { x: i + 1, y: 0 },
+      connections: s.nextSteps ?? [],
+    });
+  });
+
+  return {
+    id: def.id,
+    name: def.name,
+    description: def.description ?? '',
+    status,
+    version: `v${def.version ?? 1}`,
+    nodes,
+  };
+}
+
 export default function OrchestrationEngine() {
-  const [workflows] = useState<Workflow[]>([
-    {
-      id: 'WF-001',
-      name: 'Purchase Order Approval Flow',
-      description: 'Multi-level approval workflow for purchase orders',
-      status: 'active',
-      version: 'v2.1',
-      nodes: [
-        { id: 'N1', type: 'trigger', label: 'PO Created', config: { event: 'po.created' }, position: { x: 0, y: 0 }, connections: ['N2'] },
-        { id: 'N2', type: 'condition', label: 'Amount > ₹1L?', config: { field: 'amount', operator: '>', value: 100000 }, position: { x: 1, y: 0 }, connections: ['N3', 'N5'] },
-        { id: 'N3', type: 'action', label: 'Send to Manager', config: { action: 'send_approval', role: 'manager' }, position: { x: 2, y: 0 }, connections: ['N4'] },
-        { id: 'N4', type: 'condition', label: 'Approved?', config: { field: 'status', operator: '==', value: 'approved' }, position: { x: 3, y: 0 }, connections: ['N5', 'N6'] },
-        { id: 'N5', type: 'action', label: 'Create PO', config: { action: 'create_po' }, position: { x: 4, y: 0 }, connections: ['N7'] },
-        { id: 'N6', type: 'action', label: 'Notify Rejection', config: { action: 'send_email', template: 'rejection' }, position: { x: 4, y: 1 }, connections: ['N7'] },
-        { id: 'N7', type: 'end', label: 'End', config: {}, position: { x: 5, y: 0 }, connections: [] }
-      ]
-    }
-  ]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const defs = await workflowRepositoryService.getDefinitions();
+        if (!cancelled) setWorkflows(defs.map(mapDefinitionToWorkflow));
+      } catch (err) {
+        console.error('Failed to load workflow definitions:', err);
+        if (!cancelled) setError('Failed to load workflow definitions.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getNodeIcon = (type: NodeType) => {
     switch (type) {
@@ -76,7 +124,27 @@ export default function OrchestrationEngine() {
         </div>
       </div>
 
-      {workflows.map((workflow) => (
+      {loading && (
+        <div className="bg-white shadow-lg border border-gray-200 p-12 flex items-center justify-center gap-3 text-gray-600">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          Loading workflows...
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="bg-white shadow-lg border border-red-200 p-6 text-center text-red-600">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && workflows.length === 0 && (
+        <div className="bg-white shadow-lg border border-gray-200 p-12 text-center text-gray-600">
+          <GitBranch className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+          No workflow definitions found.
+        </div>
+      )}
+
+      {!loading && !error && workflows.map((workflow) => (
         <div key={workflow.id} className="bg-white shadow-lg border border-gray-200">
           <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
             <div className="flex items-center justify-between">
